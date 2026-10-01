@@ -1,0 +1,27 @@
+services:
+  expression-analyzer:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-20}
+      ANALYZER_API_KEY: ${ANALYZER_API_KEY:-}
+      ANALYZER_REQUIRE_KEY: ${ANALYZER_REQUIRE_KEY:-}
+      MIN_OVERALL_SCORE: ${MIN_OVERALL_SCORE:-0.55}
+      RANK_USEFULNESS: ${RANK_USEFULNESS:-0.34}
+      RANK_IDIOMATICITY: ${RANK_IDIOMATICITY:-0.22}
+      RANK_REUSABILITY: ${RANK_REUSABILITY:-0.22}
+      RANK_CONFIDENCE: ${RANK_CONFIDENCE:-0.22}
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    ports:
+      - "127.0.0.1:11434:11434"

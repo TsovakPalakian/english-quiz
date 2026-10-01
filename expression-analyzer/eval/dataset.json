@@ -1,0 +1,75 @@
+{
+  "positive": [
+    {"text": "As far as I know, the meeting is still on.", "expect": [{"canonical": "as far as I know", "type": "FIXED_EXPRESSION"}]},
+    {"text": "At the end of the day, we made the right choice.", "expect": [{"canonical": "at the end of the day", "type": "FIXED_EXPRESSION"}]},
+    {"text": "By the way, she called you.", "expect": [{"canonical": "by the way", "type": "FIXED_EXPRESSION"}]},
+    {"text": "On the other hand, the second plan is safer.", "expect": [{"canonical": "on the other hand", "type": "FIXED_EXPRESSION"}]},
+    {"text": "In the long run, this will save time.", "expect": [{"canonical": "in the long run", "type": "FIXED_EXPRESSION"}]}
+  ],
+  "negative": [
+    {"text": "Open the door.", "expect": [], "reject": ["open the door"]},
+    {"text": "Drink some water.", "expect": [], "reject": ["drink some water"]},
+    {"text": "Read a book.", "expect": [], "reject": ["read a book"]},
+    {"text": "Walk down the street.", "expect": [], "reject": ["walk down the street"]},
+    {"text": "Look at the sky.", "expect": [], "reject": ["look at the sky"]},
+    {"text": "Go to work.", "expect": [], "reject": ["go to work"]},
+    {"text": "Eat breakfast.", "expect": [], "reject": ["eat breakfast"]},
+    {"text": "Close the window.", "expect": [], "reject": ["close the window"]},
+    {"text": "Sit on the chair.", "expect": [], "reject": ["sit on the chair"]},
+    {"text": "Come into the room.", "expect": [], "reject": ["come into the room"]},
+    {"text": "I used to smoke every day.", "expect": [], "reject": ["be used to + noun/V-ing"]},
+    {"text": "Endeavour to find the way out.", "expect": [], "reject": ["find out"]},
+    {"text": "Why didn't he take the evening off?", "expect": [], "reject": ["take off"]},
+    {"text": "He gave his life up to these dumb chums.", "expect": [], "reject": ["give up"]},
+    {"text": "Stars were out at the end of the day.", "expect": [], "reject": ["at the end of the day"]},
+    {"text": "It might have broken down the most iron resolution.", "expect": [], "reject": ["break down"]},
+    {"text": "He would turn the thing up and brood.", "expect": [], "reject": ["turn up"]}
+  ],
+  "ambiguous": [
+    {"text": "The plane took off at six.", "expect": [{"canonical": "take off", "type": "PHRASAL_VERB", "meaning": "leave the ground"}]},
+    {"text": "He took off his jacket.", "expect": [{"canonical": "take off", "type": "PHRASAL_VERB", "meaning": "remove"}]},
+    {"text": "She picked up the phone.", "expect": [{"canonical": "pick up", "type": "PHRASAL_VERB", "meaning": "answer"}]},
+    {"text": "He picked up Spanish very quickly.", "expect": [{"canonical": "pick up", "type": "PHRASAL_VERB", "meaning": "learn"}]},
+    {"text": "I will pick up my friend at the station.", "expect": [{"canonical": "pick up", "type": "PHRASAL_VERB", "meaning": "collect"}]},
+    {"text": "We ran into an old friend.", "expect": [{"canonical": "run into", "type": "PHRASAL_VERB", "meaning": "meet"}]},
+    {"text": "They ran into a problem.", "expect": [{"canonical": "run into", "type": "PHRASAL_VERB", "meaning": "encounter"}]},
+    {"text": "The car broke down on the hill.", "expect": [{"canonical": "break down", "type": "PHRASAL_VERB", "meaning": "stop working"}]},
+    {"text": "She broke down in tears.", "expect": [{"canonical": "break down", "type": "PHRASAL_VERB", "meaning": "crying"}]},
+    {"text": "Can you break down the costs?", "expect": [{"canonical": "break down", "type": "PHRASAL_VERB", "meaning": "divide"}]},
+    {"text": "Turn up the volume, please.", "expect": [{"canonical": "turn up", "type": "PHRASAL_VERB", "meaning": "increase"}]},
+    {"text": "He turned up late to the party.", "expect": [{"canonical": "turn up", "type": "PHRASAL_VERB", "meaning": "arrive"}]},
+    {"text": "It turned out that he was right.", "expect": [{"canonical": "it turns out that", "type": "LEXICAL_CHUNK", "meaning": "result"}]},
+    {"text": "It turned out well.", "expect": [{"canonical": "turn out", "type": "PHRASAL_VERB", "meaning": "result"}]},
+    {"text": "Turn out the lights before you leave.", "expect": [{"canonical": "turn out", "type": "PHRASAL_VERB", "meaning": "switch"}]}
+  ],
+  "morphology": [
+    {"text": "I give up. She gives up. He gave up. They have given up. We are giving up.", "expect": [{"canonical": "give up", "type": "PHRASAL_VERB"}]},
+    {"text": "I look forward to dinner. She is looking forward to seeing you. He looked forward to it.", "expect": [{"canonical": "look forward to + noun/V-ing", "type": "GRAMMATICAL_PATTERN"}]},
+    {"text": "Don't give it up.", "expect": [{"canonical": "give up", "type": "PHRASAL_VERB", "exact": "don't give it up"}]}
+  ],
+  "long_chunks": [
+    {"text": "I don't feel like going out tonight.", "expect": [{"canonical": "feel like + V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "don't feel like going out"}]},
+    {"text": "I didn't feel like going out.", "expect": [{"canonical": "feel like + V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "didn't feel like going out"}]},
+    {"text": "I've been looking forward to seeing you.", "expect": [{"canonical": "look forward to + noun/V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "looking forward to seeing you"}]},
+    {"text": "Aren't you looking forward to this rout?", "expect": [{"canonical": "look forward to + noun/V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "looking forward to this"}]},
+    {"text": "If you are interested in my movements, proceeded Aunt Dahlia.", "expect": [{"canonical": "be interested in + noun/V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "are interested in my movements"}]},
+    {"text": "He was so good at swimming that they hired him.", "expect": [{"canonical": "be good at + noun/V-ing", "type": "GRAMMATICAL_PATTERN", "exact": "good at swimming"}]},
+    {"text": "He wanted to sit down and call it a day.", "expect": [{"canonical": "call it a day", "type": "IDIOM"}, {"canonical": "sit down", "type": "PHRASAL_VERB"}]}
+  ],
+  "grammar_patterns": [
+    {"text": "She is interested in learning English.", "expect": [{"canonical": "be interested in + noun/V-ing", "type": "GRAMMATICAL_PATTERN"}]},
+    {"text": "I am used to waking up early.", "expect": [{"canonical": "be used to + noun/V-ing", "type": "GRAMMATICAL_PATTERN"}]},
+    {"text": "There is no point in arguing about it.", "expect": [{"canonical": "there is no point in + V-ing", "type": "SENTENCE_FRAME"}]},
+    {"text": "I can't help thinking about it.", "expect": [{"canonical": "can't help + V-ing", "type": "SENTENCE_FRAME"}]},
+    {"text": "Please take care of the baby.", "expect": [{"canonical": "take care of", "type": "PHRASAL_VERB"}]}
+  ],
+  "phrasal_verbs": [
+    {"text": "Did you find out the truth?", "expect": [{"canonical": "find out", "type": "PHRASAL_VERB"}]},
+    {"text": "Never give up.", "expect": [{"canonical": "give up", "type": "PHRASAL_VERB"}]}
+  ],
+  "idioms": [
+    {"text": "Someone should break the ice.", "expect": [{"canonical": "break the ice", "type": "IDIOM"}]},
+    {"text": "The exam was a piece of cake.", "expect": [{"canonical": "a piece of cake", "type": "IDIOM"}]},
+    {"text": "We see them once in a blue moon.", "expect": [{"canonical": "once in a blue moon", "type": "IDIOM"}]}
+  ]
+}

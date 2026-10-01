@@ -1,0 +1,17 @@
+.wrangler/
+expression-analyzer/
+.pytest_cache/
+__pycache__/
+*.py
+*.pyc
+accounts.sqlite
+.dev.vars
+preview-classic.html
+src/
+schema.sql
+wrangler.toml
+.gitignore
+.assetsignore
+versions.json
+rollback-stable.js
+rollback/

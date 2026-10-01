@@ -1,0 +1,3741 @@
+{
+ "ps": {
+  "markers": [
+   {
+    "en": "always",
+    "ru": "всегда, постоянно, вечно, вообще",
+    "uk": "ˈɔːl.weɪz",
+    "us": "ˈɑːl.weɪz",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/always",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/always",
+    "wooordhunt": "https://wooordhunt.ru/word/always"
+   },
+   {
+    "en": "usually",
+    "ru": "обычно, обыкновенно",
+    "uk": "ˈjuː.ʒu.ə.li",
+    "us": "ˈjuː.ʒu.ə.li",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/usually",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/usually",
+    "wooordhunt": "https://wooordhunt.ru/word/usually"
+   },
+   {
+    "en": "often",
+    "ru": "часто, зачастую, много раз",
+    "uk": "ˈɒf.ən",
+    "us": "ˈɑːf.ən",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/often",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/often",
+    "wooordhunt": "https://wooordhunt.ru/word/often"
+   },
+   {
+    "en": "sometimes",
+    "ru": "иногда, временами",
+    "uk": "ˈsʌm.taɪmz",
+    "us": "ˈsʌm.taɪmz",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/sometimes",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/sometimes",
+    "wooordhunt": "https://wooordhunt.ru/word/sometimes"
+   },
+   {
+    "en": "never",
+    "ru": "никогда, ни разу, вовек, конечно, нет, не может быть",
+    "uk": "ˈnev.ər",
+    "us": "ˈnev.ɚ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/never",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/never",
+    "wooordhunt": "https://wooordhunt.ru/word/never"
+   },
+   {
+    "en": "every day",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/every-day",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "Ten times ten makes one hundred.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "There is always a holiday on the last Monday in August in the UK.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you live in Glasgow? My cousin lives there too.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Martha does what she wants . No one tells her what to do.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "How do you get to work? Do you get the bus?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We always have a holiday in the summer. We never work in August.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "So what you do is … you read the questions first and then you write down your answers in the box. You don't write on the question paper.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Alex doesn't ring back at midnight … she waits till the morning to ring, and they get annoyed with Liz when she goes on … they know she 's got plenty of money by their standards …",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you think that meat is ok to eat? It doesn't smell very good.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It seems a bit quiet in here. Where is everyone?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I agree with everything you say.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I attach the original signed copies for your records.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "On behalf of the Society, and particularly those involved in medical work, I write to thank you for your kind gift of £20,000 …",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Lunch is at 12.30. Don't be late.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "My wife, she 's always throwing things out. I like to keep everything.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She 's never said sorry for what she did.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "They travelled to Italy every summer and always stayed in small villages on the coast.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I always enjoy cooking .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I never enjoyed cycling.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'd always prefer to be driven by a local person when I'm in a foreign country.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Chasing the white stag through the forests, never catching it, of course, for it is a creature of legend.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Kenneth has always been called Kenny by his family.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She's always complaining about her job. Why doesn't she get a new one?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The kids are always asking for sweets, but they're not good for them.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I thought you'd never finish!",
+    "source": "Oxford"
+   },
+   {
+    "en": "He goes jogging every morning, rain or shine.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Why do you always leave everything until the last moment?",
+    "source": "Oxford"
+   },
+   {
+    "en": "You're always trying to start an argument.",
+    "source": "Oxford"
+   },
+   {
+    "en": "employees who are always watching the clock",
+    "source": "Oxford"
+   },
+   {
+    "en": "Silence must not always be read as consent.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Some people never learn, do they?",
+    "source": "Oxford"
+   },
+   {
+    "en": "Why do people so often fail to learn from experience",
+    "source": "Oxford"
+   },
+   {
+    "en": "Can we work things (out) so that there's always someone here to answer the phone during office hours ?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I always end up taking work home at the weekend .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I never have any money left at the end of the month .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He always leaves writing his reports till the very last moment .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He writes well and is always a pleasure to read .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "1: We use the present simple when something is generally or always true.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "Things which are always true:",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "Annoying habits (usually with 'always'):",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "pc": {
+  "markers": [
+   {
+    "en": "now",
+    "ru": "сейчас, теперь, настоящее время, раз, когда",
+    "uk": "naʊ",
+    "us": "naʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/now",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/now",
+    "wooordhunt": "https://wooordhunt.ru/word/now"
+   },
+   {
+    "en": "at the moment",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/at-the-moment",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "today",
+    "ru": "сегодня, в настоящее время, в наши дни, сегодняшний день, настоящее время",
+    "uk": "təˈdeɪ",
+    "us": "təˈdeɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/today",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/today",
+    "wooordhunt": "https://wooordhunt.ru/word/today"
+   },
+   {
+    "en": "these days",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/these-days",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "currently",
+    "ru": "в настоящее время, теперь, свободно, легко",
+    "uk": "ˈkʌr.ənt.li",
+    "us": "ˈkɝː.ənt.li",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/currently",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/currently",
+    "wooordhunt": "https://wooordhunt.ru/word/currently"
+   }
+  ],
+  "examples": [
+   {
+    "en": "I'm writing to thank you …",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She 's pressing the button but nothing is happening .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Her mother 's living with her at the moment. She's just come out of hospital.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Who 's looking after the children while you're here?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 'm not drinking much coffee these days. I 'm trying to cut down.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She 's working a lot in London at the moment.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "They 're building a new stand at the football ground.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Maria, 37, is getting better and doctors are optimistic she will make a full recovery.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Recent evidence suggests that the economic situation is improving .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 'm constantly spilling things.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We 're moving to Cambridge in July.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Sarah isn't taking Rory to football training later. She hasn't got the car tonight.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Aren't you playing tennis on Saturday?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you mind me being here while you're working?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'm going for some breakfast. I'm really hungry.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We're waiting for the rain to stop before we go out.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Hurry up! We're waiting to go.",
+    "source": "Oxford"
+   },
+   {
+    "en": "They are waiting for the right moment to make their move.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Your car is waiting, sir.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He is working on a new novel.",
+    "source": "Oxford"
+   },
+   {
+    "en": "My son is working as a teacher.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The committee is working to get the prisoners freed.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He says they're working him hard.",
+    "source": "Oxford"
+   },
+   {
+    "en": "My assistant is threatening to leave.",
+    "source": "Oxford"
+   },
+   {
+    "en": "They are fighting to save what is left of their business.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Leave go of my arm you're hurting me!",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm writing to enquire about language courses.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Hey, watch where you're going!",
+    "source": "Oxford"
+   },
+   {
+    "en": "We're watching the situation very carefully.",
+    "source": "Oxford"
+   },
+   {
+    "en": "This election is being closely watched",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm trying to read the map.",
+    "source": "Oxford"
+   },
+   {
+    "en": "'Do you read me?' 'I'm reading you loud and clear.'",
+    "source": "Oxford"
+   },
+   {
+    "en": "France are playing against Wales on Saturday.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm learning to play sax.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The US is living beyond its means (= spending more than it earns )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The army is using live ammunition on these maneuvers .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The number of breathless people is increasing as patients with all types of cardio-respiratory disease live longer.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Both candidates are predicting a close finish in this election .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "When the tracker is not sure that a sequence is being repeated, or when the tracked sequence finishes, it returns control to the neural network.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Behind them others are changing the set, and when they are finished they come and take their places in the dance.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "pp": {
+  "markers": [
+   {
+    "en": "already",
+    "ru": "уже, ранее",
+    "uk": "ɔːlˈred.i",
+    "us": "ɑːlˈred.i",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/already",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/already",
+    "wooordhunt": "https://wooordhunt.ru/word/already"
+   },
+   {
+    "en": "yet",
+    "ru": "ещё, всё же, тем не менее, всё ещё, всё-таки, но, однако, несмотря на это",
+    "uk": "jet",
+    "us": "jet",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/yet",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/yet",
+    "wooordhunt": "https://wooordhunt.ru/word/yet"
+   },
+   {
+    "en": "just",
+    "ru": "просто, только что, как раз, именно, точно, точный, справедливый, верный, заслуженный",
+    "uk": "dʒʌst",
+    "us": "dʒʌst",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/just",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/just",
+    "wooordhunt": "https://wooordhunt.ru/word/just"
+   },
+   {
+    "en": "ever",
+    "ru": "когда-либо, всегда, только",
+    "uk": "ˈev.ər",
+    "us": "ˈev.ɚ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/ever",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/ever",
+    "wooordhunt": "https://wooordhunt.ru/word/ever"
+   },
+   {
+    "en": "never",
+    "ru": "никогда, ни разу, вовек, конечно, нет, не может быть",
+    "uk": "ˈnev.ər",
+    "us": "ˈnev.ɚ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/never",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/never",
+    "wooordhunt": "https://wooordhunt.ru/word/never"
+   },
+   {
+    "en": "since",
+    "ru": "с, после, со времени, поскольку, с тех пор, поскольку, так как",
+    "uk": "sɪns",
+    "us": "sɪns",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/since",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/since",
+    "wooordhunt": "https://wooordhunt.ru/word/since"
+   },
+   {
+    "en": "for",
+    "ru": "для, на, за, в, к, в течение, от, ради, из-за, вместо, ибо, ввиду того, что",
+    "uk": "fɔːr",
+    "us": "fɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/for",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/for",
+    "wooordhunt": "https://wooordhunt.ru/word/for"
+   },
+   {
+    "en": "recently",
+    "ru": "недавно, в последнее время, на днях, намедни",
+    "uk": "ˈriː.sənt.li",
+    "us": "ˈriː.sənt.li",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/recently",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/recently",
+    "wooordhunt": "https://wooordhunt.ru/word/recently"
+   },
+   {
+    "en": "still",
+    "ru": "еще, все еще, все-таки, неподвижный, тишина, кадр, успокаиваться",
+    "uk": "stɪl",
+    "us": "stɪl",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/still",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/still",
+    "wooordhunt": "https://wooordhunt.ru/word/still"
+   }
+  ],
+  "examples": [
+   {
+    "en": "We haven't met before , have we?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It was the worst performance we have ever seen .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have you ever tried to write your name and address with your left hand?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I felt the happiest I have ever felt . My first Olympic final; the bronze medal; European record of 9.97 seconds.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The dome of the Blue Mosque in Isfahan is the most beautiful building I have ever seen .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It was the best decision I have ever made in my life.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It's the worst sports programme I have ever seen and the first I have ever turned off.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "What's this? What 's just happened ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The company employs around 400 staff and has recently opened an office in the UK.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Niki and John have just come back from a week in Spain.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Why haven't you dressed in something warmer?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "A fire has broken out at a disused hotel on the seafront.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Your flowers haven't arrived .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "That house on the corner has been empty for three years.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "That house on the corner has been empty since 2006.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Don't wash up that cup. I haven't finished my coffee yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 've already booked my flight home.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I feel really tired. I still haven't recovered from the jet lag.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have you seen any Arthur Miller plays? I saw a fantastic production of 'The Crucible'.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Did you finish (already)?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have you finished (already)?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I would have helped to paint the house if you 'd asked me.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Sarah couldn't come with us to the cinema. She would have loved it if she had been there.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We 'll get the train to Paris and then the Metro to the hotel. Naoe and Dave and the boys 'll join us as soon as they've finished their meetings.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've got some calls to make but they can wait",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm sorry to have kept you waiting.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Wait till you see what I've found!",
+    "source": "Oxford"
+   },
+   {
+    "en": "We have proved that different groups can work harmoniously together.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I've left my bag on the bus.",
+    "source": "Oxford"
+   },
+   {
+    "en": "How many tickets do you have left?",
+    "source": "Oxford"
+   },
+   {
+    "en": "No decision has been made at the time of writing",
+    "source": "Oxford"
+   },
+   {
+    "en": "This essay has got Mike written all over it.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I seem to have got off on the wrong foot with the new boss.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I seem to have started off on the wrong foot with the new boss.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I've got two tickets to see them perform live.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll call you when I've finished my homework .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "And what we have begun, we will finish .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Some studies have suggested a link between certain types of artificial sweetener and cancer .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I've got to study tonight .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Two studies have tested the mediative effect of party competition.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "ppc": {
+  "markers": [
+   {
+    "en": "for",
+    "ru": "для, на, за, в, к, в течение, от, ради, из-за, вместо, ибо, ввиду того, что",
+    "uk": "fɔːr",
+    "us": "fɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/for",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/for",
+    "wooordhunt": "https://wooordhunt.ru/word/for"
+   },
+   {
+    "en": "since",
+    "ru": "с, после, со времени, поскольку, с тех пор, поскольку, так как",
+    "uk": "sɪns",
+    "us": "sɪns",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/since",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/since",
+    "wooordhunt": "https://wooordhunt.ru/word/since"
+   },
+   {
+    "en": "all day",
+    "ru": "",
+    "uk": "ˌɔːlˈdeɪ",
+    "us": "ˈɑːl ˌdeɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/all-day",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/all-day",
+    "wooordhunt": ""
+   },
+   {
+    "en": "lately",
+    "ru": "",
+    "uk": "ˈleɪt.li",
+    "us": "ˈleɪt.li",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/lately",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/lately",
+    "wooordhunt": "https://wooordhunt.ru/word/lately"
+   },
+   {
+    "en": "recently",
+    "ru": "недавно, в последнее время, на днях, намедни",
+    "uk": "ˈriː.sənt.li",
+    "us": "ˈriː.sənt.li",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/recently",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/recently",
+    "wooordhunt": "https://wooordhunt.ru/word/recently"
+   }
+  ],
+  "examples": [
+   {
+    "en": "I 've just been cleaning the car.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "What have you been buying ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 've been reading your book - it's great.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He 's been living in the village since 1995.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She has been writing her autobiography since 1987.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She 's been playing tennis on and off for three years.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've been waiting for about ten minutes",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We're late. I think they 'll have been waiting for us. We'd better go.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Since I've been back at work, I've been feeling great.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've been swimming since I was three years old.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've been swimming from the age of three.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She's been caring for her mother for years.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've been waiting (for) twenty minutes.",
+    "source": "Oxford"
+   },
+   {
+    "en": "This is just the opportunity I've been waiting for.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I've been waiting a long time",
+    "source": "Oxford"
+   },
+   {
+    "en": "I've been working at my assignment all day.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Where have you been? We've been looking for you.",
+    "source": "Oxford"
+   },
+   {
+    "en": "'You were right someone's been spreading rumours about you.' 'I knew it!'",
+    "source": "Oxford"
+   },
+   {
+    "en": "She ought to pass the exam goodness knows she's been working hard enough.",
+    "source": "Oxford"
+   },
+   {
+    "en": "My lawyer has been urging me to make a will.",
+    "source": "Oxford"
+   },
+   {
+    "en": "They've been seeing a lot of each other",
+    "source": "Oxford"
+   },
+   {
+    "en": "He's been working in a bank since leaving school.",
+    "source": "Oxford"
+   },
+   {
+    "en": "This oak tree has been living for over 200 years .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She's been studying for her doctorate for three years already.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Researchers have been studying how",
+    "source": "Cambridge"
+   },
+   {
+    "en": "These men have been working the mines all their lives .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You've been starting trouble all morning .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "They have been providing reliable data on small business starts and closures since 2003.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The school football team has been practicing new plays all week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I've been calling all morning but I can't get through.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My mother-in-law has been staying with us this past week and she's driving me crazy .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He's been trying my patience all morning with his constant questions .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'm tired .\" \"So I see - you've been yawning all afternoon .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Our company has been going (= has been in business )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I've been wanting to thank you for helping me.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We've been driving all day - I say (that)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "For the past month he's been spending all his energy trying to find a job .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I've been trying to do (= solve )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I got my first job in 1973 and I've been working ever since (= from then until now)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We've been waiting ages.",
+    "source": "Wooordhunt"
+   }
+  ]
+ },
+ "pasts": {
+  "markers": [
+   {
+    "en": "yesterday",
+    "ru": "вчера, совсем недавно, вчерашний день",
+    "uk": "ˈjes.tə.deɪ",
+    "us": "ˈjes.tɚ.deɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/yesterday",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/yesterday",
+    "wooordhunt": "https://wooordhunt.ru/word/yesterday"
+   },
+   {
+    "en": "ago",
+    "ru": "тому назад, тому назад",
+    "uk": "əˈɡəʊ",
+    "us": "əˈɡoʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/ago",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/ago",
+    "wooordhunt": "https://wooordhunt.ru/word/ago"
+   },
+   {
+    "en": "last week",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/last-week",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "last year",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/last-year",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "then",
+    "ru": "тогда, затем, потом, тогдашний, впрочем",
+    "uk": "ðen",
+    "us": "ðen",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/then",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/then",
+    "wooordhunt": "https://wooordhunt.ru/word/then"
+   }
+  ],
+  "examples": [
+   {
+    "en": "I didn't see her for over 20 years and then I bumped into her last week.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I finished my homework an hour ago .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "stop: The bus stopped suddenly.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "plan: Who planned this trip?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "cried, tried, hurried, weighed, smiled, planned, judged, sneezed, lived",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "picked, hopped, laughed, crossed, pushed, watched",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "decided, ended, landed, started, visited, waited",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She had such a good time.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When she woke up, it was already 1 pm!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "yesterday, three weeks ago, last year, when I was young",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Did you watch that film yesterday?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When they were young, they hated meat.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She ran out and she phoned my brother.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "As children, we played all kinds of games on the street.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I did a lot of travelling when I was younger.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "a lot of travelling when I was younger",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Leonardo Da Vinci painted the Mona Lisa.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you know Grace? She was in my class at primary school.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you know Grace? She was in my class at primary school in the 70s .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[event 1] I turned off the light and [event 2] got into bed .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[event 1] I got into bed and [event 2] turned off the light .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Where was Donna last night?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I phoned you four times last night. Where were you?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I think we met once, a couple of years ago. Did you use to work with Kevin Harris?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She finished law school last year.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Let's start by reviewing what we did last week.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We only learned who the new teacher was a few days ago.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Talking of Sue, I met her new boyfriend last week.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Inflation stayed below 4 per cent last month.",
+    "source": "Oxford"
+   },
+   {
+    "en": "My brother called me from Spain last night.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I slept at my sister's house last night (= stayed the night there)",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm sorry I couldn't make your party last night.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Did you see that programme on Brazil last night?",
+    "source": "Oxford"
+   },
+   {
+    "en": "Last year I started taking yoga classes.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The builders started work on the new offices last week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Is there any money left in last year's budget ?.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She started her own software company last year .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I talked with Carol on the phone yesterday .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "What's that actor called that we saw in the film last night ?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He called (you) last night when you were out.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "pastc": {
+  "markers": [
+   {
+    "en": "while",
+    "ru": "в то время как, до тех пор пока, проводить время",
+    "uk": "waɪl",
+    "us": "waɪl",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/while",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/while",
+    "wooordhunt": "https://wooordhunt.ru/word/while"
+   },
+   {
+    "en": "when",
+    "ru": "когда, хотя, когда, если, как только, время, дата",
+    "uk": "wen",
+    "us": "wen",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/when",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/when",
+    "wooordhunt": "https://wooordhunt.ru/word/when"
+   },
+   {
+    "en": "all morning",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "Doctors were treating patients in temporary beds and they were trying to do their best in a difficult situation.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "At 4 pm last Tuesday, I was working in the office.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[background event] I was listening to the radio when [main event] Helen phoned .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[background event] I was sitting in the park and suddenly [main event] I saw an old school friend I hadn't seen for 30 years .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I remember that night. You were wearing that red dress.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[background event] Lisa was cycling to school when [main event] she saw the accident .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[background event] What were you thinking about when [main event] you won the race?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I can't believe you met Fran and Dave in Portugal",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I didn't make the meeting last week; I was travelling to Rome.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She was feeding her neighbours' cat every morning while they were on holiday. Then one morning, it was gone.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The neighbours were making so much noise, night after night. We had to complain eventually.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We were always spending so much time in traffic. That's the main reason why we decided to move to the country and work from home.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "My boss was constantly phoning me in my last job. I hated it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She was forever losing her keys.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We were cooking all morning because we had 15 people coming for lunch.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Lots of us were working at the office on Saturday because we had to finish the project by Monday.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The last time I met her, she was leaving for a new job in Italy the following day.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Ben was hoping to be chosen for the rugby team, but he didn't do very well in the trials.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We already knew that he was coming to visit.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She was waiting for four hours.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I waited my chance and slipped out when no one was looking.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The team's performance was nothing to write home about.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We were doing well but we ran out of money and that's all she wrote.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I was starting to feel tired.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Mistakes were starting to creep in.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He didn't know he was being watched by the authorities.",
+    "source": "Oxford"
+   },
+   {
+    "en": "A group of kids were playing with a ball in the street.",
+    "source": "Oxford"
+   },
+   {
+    "en": "They were playing at being cowboys.",
+    "source": "Oxford"
+   },
+   {
+    "en": "In the distance a band was playing.",
+    "source": "Oxford"
+   },
+   {
+    "en": "My favourite song was playing on the radio.",
+    "source": "Oxford"
+   },
+   {
+    "en": "A production of 'Carmen' was playing to packed houses.",
+    "source": "Oxford"
+   },
+   {
+    "en": "They were playing at being villains, like in the movies.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Two huge fountains were playing outside the entrance.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We couldn't understand them because they were talking in Chinese.",
+    "source": "Oxford"
+   },
+   {
+    "en": "She'd run away from home and was living rough .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "It was a cold , windy night , and it was raining heavily (= a large amount of rain was falling )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "But this time the climate was not stable - rain , then dryness - so people really couldn't tell if the wells were drying.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "An envelope was waiting for me when I got home .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "In the testing room a female investigator was waiting.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The bridegroom was wearing a morning suit , gloves , top hat - the works.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "pastp": {
+  "markers": [
+   {
+    "en": "before",
+    "ru": "перед, до, выше, впереди, до, прежде чем, прежде чем, раньше, выше",
+    "uk": "bɪˈfɔːr",
+    "us": "bɪˈfɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/before",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/before",
+    "wooordhunt": "https://wooordhunt.ru/word/before"
+   },
+   {
+    "en": "after",
+    "ru": "после, спустя, вслед, после, через, за, по, после того как, последующий, задний",
+    "uk": "ˈɑːf.tər",
+    "us": "ˈæf.tɚ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/after",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/after",
+    "wooordhunt": "https://wooordhunt.ru/word/after"
+   },
+   {
+    "en": "already",
+    "ru": "уже, ранее",
+    "uk": "ɔːlˈred.i",
+    "us": "ɑːlˈred.i",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/already",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/already",
+    "wooordhunt": "https://wooordhunt.ru/word/already"
+   },
+   {
+    "en": "just",
+    "ru": "просто, только что, как раз, именно, точно, точный, справедливый, верный, заслуженный",
+    "uk": "dʒʌst",
+    "us": "dʒʌst",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/just",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/just",
+    "wooordhunt": "https://wooordhunt.ru/word/just"
+   },
+   {
+    "en": "by the time",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "I 'd seen all of Elvis Presley's movies by the time I was 20!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 'd been to five countries in Europe by 2001.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 've been to five countries in Europe.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "“Mr Hammond drove through a red light.”",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The policeman said Mr Hammond had driven through a red light.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "No one told me that the shop had closed .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I phoned Katie and she said the kids had had a day off school so she 'd taken them ice skating.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "My Dad was really angry because he heard I hadn't come home until 3 am!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I saw she 'd bought the DVD so I asked if I could borrow it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The doctor felt my mother had got worse since last week.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Are you going anywhere today?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'm very happy working as an engineer but I had wanted to be an actor when I was younger.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[conditional clause] If we had seen you walking , [main clause] we would have stopped to give you a lift .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He went on singing after everyone else had finished.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "If we had left earlier, we would have been able to stop off for a coffee on the way.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The CD wasn't working so I brought it back to the shop but they wouldn't give me my money back because they said the box had already been opened.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The plane had already landed when the pilot announced that there would be a delay in getting to the gate.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "His family had already heard the news.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Their wedding in Rome was cancelled but we had already booked our flights and hotel, so we decided to go.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Lenny had slept most of the way since leaving Texas.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We had got their invitation four days before .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "They met on the same island where they had met ten years previously .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "[conditional clause] If we had known you were alone , [main clause] we would have visited you .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Leeds United had waited for success for eighteen years.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The screw had worked loose",
+    "source": "Oxford"
+   },
+   {
+    "en": "I went to see him, but was told he had left town",
+    "source": "Oxford"
+   },
+   {
+    "en": "Many of her relatives had left Ireland for America.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Lots of people had left comments",
+    "source": "Oxford"
+   },
+   {
+    "en": "I read that he had resigned.",
+    "source": "Oxford"
+   },
+   {
+    "en": "She couldn't call to mind where she had seen him before.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He had failed to meet his",
+    "source": "Oxford"
+   },
+   {
+    "en": "She had left the door wide open",
+    "source": "Oxford"
+   },
+   {
+    "en": "Carlsen had left his bishop open (= not protected, in a game of chess",
+    "source": "Oxford"
+   },
+   {
+    "en": "It felt as though he had run a marathon.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The rules at the university where he taught that student barred his giving her a grade before she had finished her paper.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He had waited without moving, standing stock-still on the bank, peering into the water, hoping for another glimpse, a ripple in the water's surface even.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The screws had worked loose over time .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He decided the time had come to take leave of his home town .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Although the amount of time spent watching television increased, these increases usually replaced time that had been spent listening to the radio.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The ball had gone out of play.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "pastpc": {
+  "markers": [
+   {
+    "en": "for",
+    "ru": "для, на, за, в, к, в течение, от, ради, из-за, вместо, ибо, ввиду того, что",
+    "uk": "fɔːr",
+    "us": "fɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/for",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/for",
+    "wooordhunt": "https://wooordhunt.ru/word/for"
+   },
+   {
+    "en": "since",
+    "ru": "с, после, со времени, поскольку, с тех пор, поскольку, так как",
+    "uk": "sɪns",
+    "us": "sɪns",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/since",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/since",
+    "wooordhunt": "https://wooordhunt.ru/word/since"
+   },
+   {
+    "en": "before",
+    "ru": "перед, до, выше, впереди, до, прежде чем, прежде чем, раньше, выше",
+    "uk": "bɪˈfɔːr",
+    "us": "bɪˈfɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/before",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/before",
+    "wooordhunt": "https://wooordhunt.ru/word/before"
+   },
+   {
+    "en": "all day",
+    "ru": "",
+    "uk": "ˌɔːlˈdeɪ",
+    "us": "ˈɑːl ˌdeɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/all-day",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/all-day",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "It was so difficult to get up last Monday for school. I had been working on my essays the night before and I was very tired.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It had been raining and the ground was still wet.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "His accountant had been cooking the books for years.",
+    "source": "Oxford"
+   },
+   {
+    "en": "She was flattered to hear that he had been asking about her.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He could see (that) she had been crying.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Guilt had been eating into his conscience for some months.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "She had been working at that company for a year when she met James.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "The pavement was wet, it had been raining. (The rain had finished before the time I'm describing in the past. We could see the result of the rain.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "The children had been playing and so the room was a mess!",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "The previous manager was asked to leave, after it was found that he had been misusing company funds.",
+    "source": "Longman"
+   },
+   {
+    "en": "He had been saving the bottle of champagne for a special occasion.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "will": {
+  "markers": [
+   {
+    "en": "tomorrow",
+    "ru": "завтра, завтра, завтрашний день, завтрашний",
+    "uk": "təˈmɒr.əʊ",
+    "us": "təˈmɔːr.oʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tomorrow",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tomorrow",
+    "wooordhunt": "https://wooordhunt.ru/word/tomorrow"
+   },
+   {
+    "en": "soon",
+    "ru": "вскоре, скоро, быстро, рано, охотно",
+    "uk": "suːn",
+    "us": "suːn",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/soon",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/soon",
+    "wooordhunt": "https://wooordhunt.ru/word/soon"
+   },
+   {
+    "en": "later",
+    "ru": "позже, поздно, позднее, недавно, поздний, более поздний, последний, бывший",
+    "uk": "ˈleɪ.tər",
+    "us": "ˈleɪ.t̬ɚ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/later",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/later",
+    "wooordhunt": "https://wooordhunt.ru/word/later"
+   },
+   {
+    "en": "probably",
+    "ru": "вероятно",
+    "uk": "ˈprɒb.ə.bli",
+    "us": "ˈprɑː.bə.bli",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/probably",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/probably",
+    "wooordhunt": "https://wooordhunt.ru/word/probably"
+   }
+  ],
+  "examples": [
+   {
+    "en": "I will pay you back, I promise , when I get paid.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The lesson will start at 9.30 tomorrow instead of 10.30.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'll call you when I get there.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "now so it'll be ready in about half an hour",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Will you go and clean your teeth!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I know the 'B' road will be quicker at this time of day.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We will meet you outside the coffee shop",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "There will be strong winds tomorrow in the south of the country.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The year 2025 will be the four-hundredth anniversary of the founding of the university.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We shall need an extra bedroom when the new baby arrives.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I shall contact you again when I have further information.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We shall never forget the holiday we had in Vietnam.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Shall I invite Louisa and Jill to the party?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The next Olympic Games will be in London.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You will be obliged to sign a contract before starting employment.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She will be able to live nearer her parents if she gets the job.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'll carry her but I will not push a pram.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Will you be home earlier tomorrow?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Will I be able to take this brochure home with me?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Will the number be in the phone book?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You won't forget to take the cake out of the oven, will you?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It'll take quite a long time to get there, won't it?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Jan's father will fetch you from the station.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "There will be rain in all parts tomorrow.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We'll have to wait until it stops raining.",
+    "source": "Oxford"
+   },
+   {
+    "en": "You'll just have to wait your turn (= wait until your turn comes)",
+    "source": "Oxford"
+   },
+   {
+    "en": "Hey! Wait a minute! I'll come with you!",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'll be famous one day, just you wait!",
+    "source": "Oxford"
+   },
+   {
+    "en": "It will take a while for the drug to work out of your system.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'll have to go back I've left my jacket.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Leave the dishes I'll do them later.",
+    "source": "Oxford"
+   },
+   {
+    "en": "'Where shall we eat?' 'I'll leave it entirely (up) to you (= you can decide)",
+    "source": "Oxford"
+   },
+   {
+    "en": "The TV's broken - we'll just have to live without (= not have)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "This evening there will be a live broadcast of the debate .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Our new payments system will go live at the beginning of next month .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "This evening at seven there will be a live telecast of the debate .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "There will be live music (= people playing music )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The event will be screened live only by satellite broadcasters .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Will you need to rent a car during your stay?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I will call you when I have time. (Not 'will have'.)",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "going": {
+  "markers": [
+   {
+    "en": "tomorrow",
+    "ru": "завтра, завтра, завтрашний день, завтрашний",
+    "uk": "təˈmɒr.əʊ",
+    "us": "təˈmɔːr.oʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tomorrow",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tomorrow",
+    "wooordhunt": "https://wooordhunt.ru/word/tomorrow"
+   },
+   {
+    "en": "tonight",
+    "ru": "сегодня вечером, сегодня ночью, сегодняшний вечер, наступающая ночь",
+    "uk": "təˈnaɪt",
+    "us": "təˈnaɪt",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tonight",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tonight",
+    "wooordhunt": "https://wooordhunt.ru/word/tonight"
+   },
+   {
+    "en": "soon",
+    "ru": "вскоре, скоро, быстро, рано, охотно",
+    "uk": "suːn",
+    "us": "suːn",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/soon",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/soon",
+    "wooordhunt": "https://wooordhunt.ru/word/soon"
+   }
+  ],
+  "examples": [
+   {
+    "en": "We're going to Wagamama's for dinner tonight. I 've been there a couple of times before.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 've been going to Spain on holiday every year since 1987.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I haven't been eating much lunch lately. I 've been going to the gym at lunchtimes.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I 'm going to take a few exams at the end of the year.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It 's going to be difficult to get a job during the summer as the tourist industry is suffering from the economic downturn.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She' s going to be a professional dancer when she grows up.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I' m going to look for a new place to live next month.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It's going to snow again soon.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Look out! He 's going to break that glass.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You' re going to pick up all of those toys right now. This room is a mess!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We are now very late so we 're going to take the 'B' road.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have you decided what you are going to do with the car?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We 're going to drive to Birmingham on Friday, and Saturday morning we 're going to drive to Edinburgh.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Are you going to Maggie's party tonight?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'm going to the shops . Do you want anything?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I' m going to buy a new car next week.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You' re not going to do all this in an hour. There's just too much to do.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'm telling you, you're going to do it. You don't have a choice.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He is going to see the match",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It 's going to rain again soon.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I love going to the cinema.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Could you wait for me? I'm just going to the shop.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Just shut the door quickly or we're going to be late.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We're going to Cape Town for two months.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We've just spent a fortune on a new roof, so the new car is going to have to wait",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm going to go to bed and read.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The result of this election is going to be too close to call",
+    "source": "Oxford"
+   },
+   {
+    "en": "You can rest easy I'm not going to tell anyone.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The defence lawyers are going to eat you alive tomorrow.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm not going to mope at home, eating my heart out for him.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Look at the time! We're going to be late.",
+    "source": "Oxford"
+   },
+   {
+    "en": "It looks bad not going to your own brother's wedding.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I know I'm going to fail this exam I can feel it in my bones.",
+    "source": "Oxford"
+   },
+   {
+    "en": "You're going to have to give a little.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Do remember to take the washing in if it looks like rain (= as if rain is going to fall )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "It looks like rain (= as if rain is going to fall )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'm going to try and work it so I can spend the weekend in New York after the conference .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We're going to the stadium to see New York play Chicago.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We can't let this situation continue for much longer - someone is going to have to make a call about what happens next.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I usually sit up in bed and watch the TV news before going to sleep.",
+    "source": "Cambridge"
+   }
+  ]
+ },
+ "futc": {
+  "markers": [
+   {
+    "en": "tomorrow",
+    "ru": "завтра, завтра, завтрашний день, завтрашний",
+    "uk": "təˈmɒr.əʊ",
+    "us": "təˈmɔːr.oʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tomorrow",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tomorrow",
+    "wooordhunt": "https://wooordhunt.ru/word/tomorrow"
+   },
+   {
+    "en": "at this time",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/at-this-time",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "I'll post your letter for you. I'll be passing a post-box.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Next week they will be flying to Australia from Saudi Arabia.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'll be teaching history and sociology next term.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Council officers will be visiting premises to inspect safety arrangements.",
+    "source": "Oxford"
+   },
+   {
+    "en": "It doesn't look as if we'll be moving after all.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The President will be giving a press conference this afternoon.",
+    "source": "Oxford"
+   },
+   {
+    "en": "It will be interesting to see",
+    "source": "Oxford"
+   },
+   {
+    "en": "'My wife's got a job in Glasgow.' 'I take it you'll be moving, then.'",
+    "source": "Oxford"
+   },
+   {
+    "en": "Next semester we'll be studying biology .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll be leaving at five o'clock tomorrow .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll be leaving tomorrow .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We'll be starting (the session ) at six o'clock.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The next speaker will be talking about endangered insects .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll be staying overnight at my sister's house .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "A delegation of officials will be traveling to New Orleans to lobby for the cash .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "It is difficult to find a single refugee who thinks that they will be returning home any time in the near future.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You wait - by next year she'll be wanting a bigger house !",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Furthermore, earlier marriage reinforces this trend, because graduates will be spending a greater proportion of their childbearing years in marriage.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll see him tomorrow ./I'll be seeing him tomorrow .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You'll be selling your house , then?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'll be waiting when you arrive.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "At eight o'clock, I'll be eating dinner.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "The Government will be making a statement later.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "You'll be feeling better in no time at all.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "futp": {
+  "markers": [
+   {
+    "en": "by",
+    "ru": "по, на, к, при, у, мимо, согласно, около, рядом с, мимо, согласно, рядом, около, близко",
+    "uk": "baɪ",
+    "us": "baɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/by",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/by",
+    "wooordhunt": "https://wooordhunt.ru/word/by"
+   },
+   {
+    "en": "by then",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "by the time",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "I will have worked eight hours",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Next month I will have worked for the company for six years.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "But she also knows that when she is old her mind will have changed.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The hurricane will probably have spent most of its force (= most of its force will have gone)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "If she scores the next point , she'll have won.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "By spring we shall have finished it.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "When we get married, I'll have known Robert for four years.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "On Tuesday, I will have lived here for one year. (A much easier number.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "By 10 o'clock, I will have finished my homework. (= I will finish my homework some time before 10, but we don't know exactly when.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "By the time I'm sixty, I will have retired. (= I will retire sometime before I'm sixty. Maybe when I'm fifty-nine, maybe when I'm fifty-two.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "By the time a child is five, he will have watched hundreds of hours of television.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "futpc": {
+  "markers": [
+   {
+    "en": "by",
+    "ru": "по, на, к, при, у, мимо, согласно, около, рядом с, мимо, согласно, рядом, около, близко",
+    "uk": "baɪ",
+    "us": "baɪ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/by",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/by",
+    "wooordhunt": "https://wooordhunt.ru/word/by"
+   },
+   {
+    "en": "for",
+    "ru": "для, на, за, в, к, в течение, от, ради, из-за, вместо, ибо, ввиду того, что",
+    "uk": "fɔːr",
+    "us": "fɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/for",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/for",
+    "wooordhunt": "https://wooordhunt.ru/word/for"
+   }
+  ],
+  "examples": [
+   {
+    "en": "I will have been working here ten years",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "In September the head teacher will have been teaching at the school for 20 years.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "In September, she will have been living in France for a year.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I will have been studying English for three years by the end of this course.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "In April, she will have been teaching for twelve years.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "By the time you arrive, I'll have been cooking for hours!",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "On Tuesday, I will have been working here for one year. (A much easier number.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "When I see you, I'll have been studying, so I'll be tired.",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "pcfut": {
+  "markers": [
+   {
+    "en": "tomorrow",
+    "ru": "завтра, завтра, завтрашний день, завтрашний",
+    "uk": "təˈmɒr.əʊ",
+    "us": "təˈmɔːr.oʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tomorrow",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tomorrow",
+    "wooordhunt": "https://wooordhunt.ru/word/tomorrow"
+   },
+   {
+    "en": "tonight",
+    "ru": "сегодня вечером, сегодня ночью, сегодняшний вечер, наступающая ночь",
+    "uk": "təˈnaɪt",
+    "us": "təˈnaɪt",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tonight",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tonight",
+    "wooordhunt": "https://wooordhunt.ru/word/tonight"
+   },
+   {
+    "en": "next week",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "The band is visiting Denmark next May.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I am taking the train to Paris tomorrow.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "France are playing Wales tomorrow.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm staying late at the office tonight.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Remember that we're going out tonight.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The conference is taking place today and tomorrow.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Their case is being tried next week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The president is giving a speech tonight .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My mother is seeing the doctor again next week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Mom is seeing the doctor tomorrow .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'm hoping for an interview next week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We're moving house next week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We're having the house painted next month .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We are having all my family over for a barbecue tonight .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'm having dinner with Rachel tomorrow night .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We're leaving on holiday a week tomorrow (= a week from tomorrow)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She is returning home tomorrow.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "I'm going on vacation tomorrow.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "We're meeting tomorrow evening.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "I'm meeting my father tomorrow.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "I'm starting a new job next week.",
+    "source": "Longman"
+   },
+   {
+    "en": "Kate's taking her driving test tomorrow.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "psfut": {
+  "markers": [
+   {
+    "en": "tomorrow",
+    "ru": "завтра, завтра, завтрашний день, завтрашний",
+    "uk": "təˈmɒr.əʊ",
+    "us": "təˈmɔːr.oʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/tomorrow",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/tomorrow",
+    "wooordhunt": "https://wooordhunt.ru/word/tomorrow"
+   },
+   {
+    "en": "at",
+    "ru": "в, на, при, у, за, около, собака, атомный, герметический",
+    "uk": "æt",
+    "us": "æt",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/at",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/at",
+    "wooordhunt": "https://wooordhunt.ru/word/at"
+   },
+   {
+    "en": "on",
+    "ru": "на, по, о, в, об, согласно, левая сторона",
+    "uk": "ɒn",
+    "us": "ɑːn",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/on",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/on",
+    "wooordhunt": "https://wooordhunt.ru/word/on"
+   }
+  ],
+  "examples": [
+   {
+    "en": "She has her driving test next week, does she?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "What time does their flight to Seoul leave ?",
+    "source": "Cambridge Grammar"
+   }
+  ]
+ },
+ "futother": {
+  "markers": [
+   {
+    "en": "about to",
+    "ru": "",
+    "uk": "fleɪl",
+    "us": "fleɪl",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/about-to",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "due to",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/due-to",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "The ferry is about to leave.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The driver is about to collect them. Shall I phone to stop him?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Hurry up, please! The coach is about to leave!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The visitors are due to arrive at the factory at 10:30.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You are to report to the head office by 8.30 am.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The Prime Minister is to announce an emergency plan on climate change",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Work is due to start this weekend.",
+    "source": "Oxford"
+   },
+   {
+    "en": "It has been learned that 500 jobs are to be lost at the factory.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Rosie was about to protest but thought better of it.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I must remember to check which day they are due to start.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The editors are to be congratulated for having succeeded in bringing together what are ostensibly ten very different studies into a well-integrated, coherent whole.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "It is unfortunate that they were left out, but this was due to a number of technical problems in reproduction.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The assessment process itself should not determine what is to be taught and learned (para. 4).",
+    "source": "Cambridge"
+   },
+   {
+    "en": "A new radio station is due to open up next month .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Upon quitting home , she gave it to be understood that she was about to visit her aunt in the Rue des Drômes.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My boss , like so many company leaders , has a tell when he is about to announce bad news he smiles weakly .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We got the children off to school just as the bus was about to leave .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "After the trial had finished, the 'objects of study', two male drug addicts, were to be detoxified with the help of methadone.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Yesterday's written answer stated that higher education was to be cut by £37 million.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The president is to arrive at 9.30.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "Their flight is due to arrive at 11:30.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "He had no inkling what was about to happen.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "The match is due to kick off this afternoon at Wembley Stadium.",
+    "source": "Longman"
+   },
+   {
+    "en": "Timpson was due to pay a flying visit to London.",
+    "source": "Longman"
+   },
+   {
+    "en": "I was about to say something to him when he looked up and smiled.",
+    "source": "Longman"
+   },
+   {
+    "en": "My parents are due to arrive shortly.",
+    "source": "Longman"
+   },
+   {
+    "en": "They were due to arrive home from Spain yesterday.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "futpast": {
+  "markers": [
+   {
+    "en": "would",
+    "ru": "",
+    "uk": "wʊd",
+    "us": "wʊd",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/would",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/would",
+    "wooordhunt": "https://wooordhunt.ru/word/would"
+   },
+   {
+    "en": "was going to",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "the next day",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/the-next-day",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "They rang to say they would be with us by ten o'clock but then their flight was cancelled.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I saw the house that I was to live in for the next six months.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He said he was going to see the match but it was cancelled.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When Tracy opened the door, she thought she would find an empty room.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When I broke my leg , I thought I would never dance again.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Tom said that he would pay for the food.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The weather forecast said that there would be clear skies in the morning but that it would be cloudy for the afternoon.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When he told her she would fail, she swore she would make him eat his words.",
+    "source": "Oxford"
+   },
+   {
+    "en": "She thought she would never know the joy of seeing a child grow up in her care.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I never thought you would carry out your threat.",
+    "source": "Oxford"
+   },
+   {
+    "en": "She felt as though she was going to cry.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He knew that if he wasn't back by midnight, his parents would have something to say about it.",
+    "source": "Oxford"
+   },
+   {
+    "en": "You were going to help me with this. Remember?",
+    "source": "Oxford"
+   },
+   {
+    "en": "He said he would be here at eight o'clock (= His words were: 'I will be there at eight o'clock.')",
+    "source": "Oxford"
+   },
+   {
+    "en": "'She said it was your fault.' 'Well, she would say that",
+    "source": "Oxford"
+   },
+   {
+    "en": "The firm said it would drive sales by switching into larger premises while closing smaller stores .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My dad said he would help with the costs of (= give part of the cost of)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You told him that you would help him with writing.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The children were told they would be shown two pictures, and that the experimenter would say a description of one of the pictures.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I gave her some extra money - I know I didn't need to but I thought it would be kind .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Economists said a move by Japan to cut interest rates in isolation would have little effect on currency levels .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "What happened to Phil? I thought he would be here by now.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He said he would see his brother tomorrow .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "They knew there would be trouble unless the report was finished by the next day .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "They promised that they would help .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "They hoped they would go to France for their next vacation .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He said he would love her forever .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "They promised that tomorrow they would help .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She said she would speak to me later.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I was going to tell father on him.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "He looked as if he was going to say something.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "That's what she hoped would happen.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "He told us he would come.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "('I'm going to get it' is very strange, because it makes us think that Julie knew the phone was going to ring before it did).",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "They said they would pay me 50%, but they haven't actually put it in writing.",
+    "source": "Longman"
+   },
+   {
+    "en": "She hoped the music would send her to sleep.",
+    "source": "Longman"
+   },
+   {
+    "en": "The company said it would no longer make a market in government securities.",
+    "source": "Longman"
+   },
+   {
+    "en": "She hoped that the weather would be fine.",
+    "source": "Longman"
+   },
+   {
+    "en": "She hoped the weather would be fine.",
+    "source": "Longman"
+   },
+   {
+    "en": "She said she was sure that the party would be a big success.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "used": {
+  "markers": [
+   {
+    "en": "used to",
+    "ru": "",
+    "uk": "ˈjuːst tə",
+    "us": "ˈjus·tu, -tə",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/used-to",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/used-to",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "My dad used to smoke when he was younger.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I used to live in Italy, but now I live in England.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He's not used to working long hours.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He used to play football for the local team, but he's too old now.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "That white house over there used to belong to my family.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It didn't use to be so crowded in the shops as it is nowadays.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I didn't used to like broccoli when I was younger, but I love it now.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Didn't she used to live in the same street as us?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We never used to mix very much with the neighbours, but we did used to say hello to them in the street.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He used to be your boss, did he ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When we were kids, we used to invent amazing games. We would imagine we were the government and we would make crazy laws that everyone had to obey.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "'The Townhouse' used to be a Greek restaurant. It's Italian now.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She used to sing in a choir, but she gave it up.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I work in a hospital, so I 'm used to long hours.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She lives in a very small village and hates traffic. She 's not used to it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You'll soon become used to it",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I used to live in Melbourne when I was a kid.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She used to work as a city economist; she now works as an adviser to the oil industry.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Stay tuned (= used to ask people to continue listening to or watching a particular programme on the radio or television)",
+    "source": "Oxford"
+   },
+   {
+    "en": "What became of that student who used to live with you?",
+    "source": "Oxford"
+   },
+   {
+    "en": "What's got into Alex? He never used to worry like that.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I remember (that) we used to go and see them most weekends.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We live in St. Louis now but we used to live in Cincinnati.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Every night when I was a child my father used to read me to sleep .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My daughter used to play with the kids next door .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Comedians used to regularly open for rock acts .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Salmon used to be thought of as",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I asked her if she remembered any of the poems she used to recite for us when we were kids.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He used to smoke in bed when I first got to know him, but I soon put a stop to that!",
+    "source": "Cambridge"
+   },
+   {
+    "en": "A small test flash was first used to center the stimulus over the receptive field by manually moving it to elicit a maximum response.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My dad always used to carry a lot of loose change (= coins )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "My dad always used to carry a lot of small change (= coins )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She used to play tennis regularly , but lately she's lost interest in it.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She used to be a teacher , but now she works in publishing .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "She used to work in an office , but now she works at home .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I used to live near there.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "He used to go fishing when he was a boy.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "This difference is often used to talk about different kinds of results in the present. The present perfect simple is used when the action is finished, and the result comes from the action being finished:",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "2: Something that finished just before another event in the past. This is usually used to show a result at a time in the past. It's very similar to the",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "I used to have long hair (but now I have short hair).",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "would": {
+  "markers": [
+   {
+    "en": "would",
+    "ru": "",
+    "uk": "wʊd",
+    "us": "wʊd",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/would",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/would",
+    "wooordhunt": "https://wooordhunt.ru/word/would"
+   },
+   {
+    "en": "every day",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/every-day",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "Dad would sing to us every evening.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I had a friend from Albany, which is about 36 miles away, and we would meet every Thursday morning and she would help us.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "When I was young I thought that in years to come I would be really tall.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Hundreds came every day; at any one time 15 would be waiting outside, about 10 inside.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He said he would always love her .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He would always turn and wave at the end of the street .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "When I was a student, we would often have a drink after class on a Friday.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "When we were children, we would go to the beach every summer.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "I wish you would come to see me more often.",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "beused": {
+  "markers": [
+   {
+    "en": "be used to",
+    "ru": "",
+    "uk": "juːst",
+    "us": "juːst",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/be-used-to",
+    "oxford": "",
+    "wooordhunt": ""
+   },
+   {
+    "en": "get used to",
+    "ru": "",
+    "uk": "",
+    "us": "",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/get-used-to",
+    "oxford": "",
+    "wooordhunt": ""
+   }
+  ],
+  "examples": [
+   {
+    "en": "I don't mind the heat. I'm used to hot weather.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He was a salesman, so he was used to travelling up and down the country.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "University is very different from school, but don't worry. You'll soon get used to it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "After a while you get used to living alone .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "After a while you get used to all the noise .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You'll get used to it after a while.",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "'I am used to have long hair'",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "I'm used to getting up early, so I don't mind doing it (= getting up early is normal for me, it's what I usually do).",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "My little daughter is used to eating lunch at noon. So she was grumpy yesterday when we didn't eat until one.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "That football team always lose, so they're used to disappointment!",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "We can use 'get used to + verb-ing' to talk about the change of not normal to normal. We can also use this in any tense:",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "Don't worry if your new job is hard at first. You'll get used to it.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "It took me a while, but I got used to speaking another language every day.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "It took me a few months to get used to living in Japan. At first everything seemed very different, but then gradually it became normal for me.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "This technique is used to create images of beautiful forests.",
+    "source": "Longman"
+   },
+   {
+    "en": "It seemed difficult at first, but I soon got used to it.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "gerund": {
+  "markers": [],
+  "examples": [
+   {
+    "en": "I hate to see food being thrown away.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I prefer listening to the news on radio than watching it on TV.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "They don't like sitting for too long.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "If you prefer not to go camping there are youth hostels nearby.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I hate decorating. I'd rather pay a professional to do it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We would love to hear you sing.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We haven't finished eating yet.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She keeps changing her mind about the wedding.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We just couldn't imagine Gerry singing in public.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I love cooking Indian food.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I like to drink juice in the morning, and tea at lunchtime.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She hates cleaning her room.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Most people prefer watching a film at the cinema rather than on TV.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We prefer to drive during the day whenever we can.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Working in London means leaving home at 6.30.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She recited a poem, then went on to sing a lovely folk song.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I tried searching the web and finally found an address for him.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She stopped crying as soon as she saw her mother.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Do you enjoy working with children?",
+    "source": "Oxford"
+   },
+   {
+    "en": "You don't mind walking back",
+    "source": "Oxford"
+   },
+   {
+    "en": "They enjoy travelling to other European countries.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Why does everyone keep asking me that?",
+    "source": "Oxford"
+   },
+   {
+    "en": "I enjoy playing tennis and squash.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Why does everyone keep saying",
+    "source": "Oxford"
+   },
+   {
+    "en": "Things just keep getting",
+    "source": "Oxford"
+   },
+   {
+    "en": "You just have to keep yourself busy and keep going.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Keep going, Sarah you're nearly there.",
+    "source": "Oxford"
+   },
+   {
+    "en": "To avoid slipping into debt , don't live beyond your means .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "What do you plan to do when you finish studying?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Would you mind playing host (= entertaining the guests )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I enjoy teaching, but it can be exhausting .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "For further news of the hurricane , stay tuned (= keep listening to this program )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I wish he wouldn't keep calling me \" dear \" - it's so patronizing !",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Sometimes it was hard to keep going, but we did it for the children's sake .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Would you mind helping me?",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "She waited for him to finish speaking.",
+    "source": "Longman"
+   },
+   {
+    "en": "Would you mind filling out a questionnaire?",
+    "source": "Longman"
+   },
+   {
+    "en": "I don't mind hanging around for a few minutes.",
+    "source": "Longman"
+   }
+  ]
+ },
+ "inf": {
+  "markers": [],
+  "examples": [
+   {
+    "en": "Why did you decide to go travelling for a year?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We 're just about to set off for a walk. Do you want to come?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I hate to see food being thrown away.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I prefer listening to the news on radio than watching it on TV.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We have a lot of fruit in the garden. I like to make jam every year.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I prefer to sort out a problem as soon as I can.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "If you prefer not to go camping there are youth hostels nearby.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I hate decorating. I'd rather pay a professional to do it.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We would love to hear you sing.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I don't want to risk him losing his job.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We arranged to see the bank manager and applied for a loan.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Mrs Harding asked us to call in on our way home.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He just wants everyone to be happy.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "To work in a developing country had always been her ambition.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "To get there before lunch, you would have to take the seven o'clock train.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "You can't make a cat do anything it doesn't want to do.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The police are determined to catch the murderer.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Come on, there's work to do !",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "There was no more work to be done , so we left.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She doesn't want to be helped .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The police and the public need to work together to combat crime.",
+    "source": "Oxford"
+   },
+   {
+    "en": "We need to start (= begin using)",
+    "source": "Oxford"
+   },
+   {
+    "en": "If you want to find out more, this website is a good place to start",
+    "source": "Oxford"
+   },
+   {
+    "en": "Students need to learn what to do in an emergency.",
+    "source": "Oxford"
+   },
+   {
+    "en": "This situation can't go on. We need to talk.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I just want to stay in bed",
+    "source": "Oxford"
+   },
+   {
+    "en": "She did not want to stay in nursing all her life.",
+    "source": "Oxford"
+   },
+   {
+    "en": "He was in the front room, or the lounge or whatever you want to call it.",
+    "source": "Oxford"
+   },
+   {
+    "en": "The prime minister revealed his plan to buy back the farm from foreign ownership.",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'm open to suggestions for what you would like to do in our classes.",
+    "source": "Oxford"
+   },
+   {
+    "en": "You need to work on your communication skills .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I need to take some time off work to look after my son .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We need to set to work on reviewing our claims system .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "We need to make a start on ( preparing ) the brochure next week .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You need to watch him - he's a strange character .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Did you read about the plan to build a new road to the airport ?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "2: Similarly, we need to use this tense for a situation that we think is more or less permanent. (See the present continuous for temporary situations.)",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "DO YOU WANT TO MASTER ENGLISH GRAMMAR?",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "This is the basic past tense. We use it whenever we want to talk about the past and we don't have any special situation that means we should use the past perfect, present perfect or past continuous.",
+    "source": "Perfect English Grammar"
+   },
+   {
+    "en": "Remember, we can't use the future continuous with stative verbs, so if we want to use a stative verb in one of the situations where we need to the future continuous, then we use the future simple with 'will'.",
+    "source": "Perfect English Grammar"
+   }
+  ]
+ },
+ "gerinf": {
+  "markers": [],
+  "examples": [
+   {
+    "en": "Don't forget to ring before you go .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Did you remember to ring Nigel?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Did you remember to post the letter to your mother?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Why can't you stop texting me and just leave me be?",
+    "source": "Oxford"
+   },
+   {
+    "en": "'Stop fighting, you two!' 'He started it!'",
+    "source": "Oxford"
+   },
+   {
+    "en": "Nothing happens when I try to play a DVD.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Stop talking and listen!",
+    "source": "Oxford"
+   },
+   {
+    "en": "Don't try to do it too quickly.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Just try getting a plumber at the weekend!",
+    "source": "Oxford"
+   },
+   {
+    "en": "I'd like to try something new",
+    "source": "Oxford"
+   },
+   {
+    "en": "John isn't here. Try phoning his mobile.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Try to tell what this is just by feeling it.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Do you remember switching the lights off before we came out?",
+    "source": "Oxford"
+   },
+   {
+    "en": "Remember to keep your doors and windows locked even if you're in the back garden.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Don't you ever stop talking?",
+    "source": "Oxford"
+   },
+   {
+    "en": "Please stop crying and tell me what's wrong.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Stop me (= make me stop talking)",
+    "source": "Oxford"
+   },
+   {
+    "en": "I just can't seem to stop spending.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Try asking Mike he might just know the answer.",
+    "source": "Oxford"
+   },
+   {
+    "en": "Leave your sister alone (= stop annoying her)",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Could we leave that subject (= stop discussing that subject )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "You should try to decide which tasks need to be done urgently and which ones can be left.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I'd like to try parachuting .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Maybe you should try getting up earlier (= should wake earlier )",
+    "source": "Cambridge"
+   },
+   {
+    "en": "It is this affective and evaluative progress that teachers might try to develop in pupils in order to develop their skills of musical thinking further.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Our point here is simply that it makes little sense to try to maintain that the explicit representations are abstract and the implicit are not.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Among the 10 students, 2 would volunteer, 5 would accept, 3 would try to avoid the task, and none would refuse to undertake it.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I can't stop thinking about her.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I wish my computer would stop going \" beep \" whenever I do something wrong .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Try making your foot go backwards and forwards .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Did you remember to do the shopping ?",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I couldn't stop laughing .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "The economic climate pressured banks to stop lending to each other.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "He's old enough now to earn his keep and stop living off his parents .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Stop arguing with me, Daryl, and do as you're told!",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Living wills themselves are also under attack, both for what they lack and for what they try to accomplish.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "In this context, there is a growing trend to integrate results from neuroscience and try to correlate them with today's clearer psychiatric classifications.",
+    "source": "Cambridge"
+   },
+   {
+    "en": "I can't stop to talk just now, but give me a call when you get home .",
+    "source": "Cambridge"
+   },
+   {
+    "en": "Stop talking in riddles!",
+    "source": "Wooordhunt"
+   },
+   {
+    "en": "Try looking under the bed.",
+    "source": "Wooordhunt"
+   }
+  ]
+ },
+ "markers": {
+  "markers": [
+   {
+    "en": "since",
+    "ru": "с, после, со времени, поскольку, с тех пор, поскольку, так как",
+    "uk": "sɪns",
+    "us": "sɪns",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/since",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/since",
+    "wooordhunt": "https://wooordhunt.ru/word/since"
+   },
+   {
+    "en": "for",
+    "ru": "для, на, за, в, к, в течение, от, ради, из-за, вместо, ибо, ввиду того, что",
+    "uk": "fɔːr",
+    "us": "fɔːr",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/for",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/for",
+    "wooordhunt": "https://wooordhunt.ru/word/for"
+   },
+   {
+    "en": "ago",
+    "ru": "тому назад, тому назад",
+    "uk": "əˈɡəʊ",
+    "us": "əˈɡoʊ",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/ago",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/ago",
+    "wooordhunt": "https://wooordhunt.ru/word/ago"
+   },
+   {
+    "en": "already",
+    "ru": "уже, ранее",
+    "uk": "ɔːlˈred.i",
+    "us": "ɑːlˈred.i",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/already",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/already",
+    "wooordhunt": "https://wooordhunt.ru/word/already"
+   },
+   {
+    "en": "yet",
+    "ru": "ещё, всё же, тем не менее, всё ещё, всё-таки, но, однако, несмотря на это",
+    "uk": "jet",
+    "us": "jet",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/yet",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/yet",
+    "wooordhunt": "https://wooordhunt.ru/word/yet"
+   },
+   {
+    "en": "just",
+    "ru": "просто, только что, как раз, именно, точно, точный, справедливый, верный, заслуженный",
+    "uk": "dʒʌst",
+    "us": "dʒʌst",
+    "cambridge": "https://dictionary.cambridge.org/dictionary/english/just",
+    "oxford": "https://www.oxfordlearnersdictionaries.com/definition/english/just",
+    "wooordhunt": "https://wooordhunt.ru/word/just"
+   }
+  ],
+  "examples": [
+   {
+    "en": "There are already about ten people here.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Joe's already here, so we can begin.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Gosh, he's finished painting the kitchen already !",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have you booked a flight already ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I've already [verb] drunk [object] three coffees today!",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Our holiday was just perfect.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Can you put your signature just here?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "His first pay cheque was just fifty pounds.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Where's my phone? I had it just now.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Could you just open the window?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I was just wondering if I could speak to you about Anna?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Kevin hasn't registered for class yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I haven't finished my breakfast yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Has she emailed you yet ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She's booked the flights already .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Jason hasn't phoned yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I haven't seen 'Who Framed Roger Rabbit' yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Has your passport arrived yet ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Has n't Richard arrived yet ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Have n't you done your driving test yet ?",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "His latest film is his best yet .",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The cook arrived with yet another plate of cake.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The film shows you the most typical places, as yet untouched by tourism, and how to get there.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The price of the tickets for the concert has yet to be decided.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The President and her husband are yet to arrive.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "It was the band's first live performance since May 1990.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I have been happily married for 26 years, since the age of 21.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "He's been back to the office a few times since he retired.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I attach the original signed copies for your records.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "On behalf of the Society, and particularly those involved in medical work, I write to thank you for your kind gift of £20,000 …",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "She 's never said sorry for what she did.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Chasing the white stag through the forests, never catching it, of course, for it is a creature of legend.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "The kids are always asking for sweets, but they're not good for them.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "Her mother 's living with her at the moment. She's just come out of hospital.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "I'm going for some breakfast. I'm really hungry.",
+    "source": "Cambridge Grammar"
+   },
+   {
+    "en": "We're waiting for the rain to stop before we go out.",
+    "source": "Oxford"
+   }
+  ]
+ }
+}

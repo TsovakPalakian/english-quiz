@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>English</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="preview.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="top-in">
+    <button class="brand" type="button" data-jump="home">English</button>
+    <nav>
+      <button type="button" data-jump="home" class="on">Home</button>
+      <button type="button" data-jump="days">Classes</button>
+      <button type="button" data-jump="library">Library</button>
+      <button type="button" data-jump="setup">Study</button>
+      <button type="button" data-jump="add">Add a word</button>
+      <button type="button" data-jump="guide">How to use</button>
+      <button type="button" data-jump="stats">Статистика</button>
+      <button type="button" data-jump="account">Account</button>
+    </nav>
+    </div>
+  </header>
+  <div class="phone"><div class="wrap">
+
+    <section id="home" class="on">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home" id="homeBack" hidden>Back</button><h1>Home</h1></div>
+      <div id="homeWho" class="card" hidden></div>
+      <div id="homeDemo">
+      <button class="stat-hero" type="button" data-stat="learned">
+        <div class="ring" aria-hidden="true">
+          <svg viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
+            <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
+          </svg>
+          <b id="homeLearnedPct">0%</b>
+        </div>
+        <div>
+          <p class="stat-kicker">Learned</p>
+          <p class="stat-big" id="homeLearnedCount">0 <span>of 0</span></p>
+          <p class="hint">A card is learned when every checkable type is passed.</p>
+        </div>
+      </button>
+      <div class="overview">
+        <div><b>0</b><span>Study time</span></div>
+        <div><b class="ok">0</b><span>Exams passed</span></div>
+        <button class="stat-tile" type="button" data-stat="weak"><b class="bad">0</b><span>Weak cards</span></button>
+        <button class="stat-tile" type="button" data-stat="learning"><b id="homeLearningCount">0</b><span>Still learning</span></button>
+      </div>
+      </div>
+    </section>
+
+    <section id="cardstat">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1 id="cardStatTitle">Learned</h1></div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-page-study>Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div id="cardStatList"></div>
+    </section>
+
+    <section id="allwords">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1 id="allWordTitle">All words</h1></div>
+      <p class="sub" id="allWordSub">Every word card, once. The line under a word shows where it lives.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-all-study>Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div id="allWordGrid"></div>
+    </section>
+
+    <section id="library">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1></div>
+      <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
+      <div class="decks">
+        <button class="file-card" type="button" data-jump="days"><b>Classes</b><span class="num">6</span><span class="label">by date, from 7 Sep</span><i class="mini"><i style="width:30%"></i></i></button>
+        <button class="file-card active" type="button" data-jump="tenses"><b>Grammar</b><span class="num">12</span><span class="label">tenses, then other structures</span><i class="mini"><i style="width:58%"></i></i></button>
+        <button class="file-card" type="button" data-jump="verbs"><b>Irregular verbs</b><span class="num" id="verbCount">0</span><span class="label">three forms</span><i class="mini"><i style="width:70%"></i></i></button>
+        <button class="file-card" type="button" data-jump="allwords"><b>All words</b><span class="num" id="allWordCount">0</span><span class="label">every card, no duplicates</span><i class="mini"><i style="width:100%"></i></i></button>
+        <button class="file-card" type="button" data-jump="add"><b>My words</b><span class="num">+</span><span class="label">one field · both directions</span><i class="mini"><i style="width:12%"></i></i></button>
+        <button class="file-card" type="button" data-jump="phrasal"><b>Phrasal verbs</b><span class="num" id="phrasalCount">3</span><span class="label">cards</span><i class="mini"><i style="width:22%"></i></i></button>
+        <button class="file-card" type="button" data-jump="idioms"><b>Idioms</b><span class="num" id="idiomCount">3</span><span class="label">cards</span><i class="mini"><i style="width:22%"></i></i></button>
+        <button class="file-card" type="button" data-jump="articles"><b>Articles</b><span class="num">3</span><span class="label">examples</span><i class="mini"><i style="width:22%"></i></i></button>
+        <button class="file-card" type="button" data-jump="demonstratives"><b>Demonstratives</b><span class="num">4</span><span class="label" id="demoLibLabel">this, that, these, those</span><i class="mini"><i id="demoLibBar" style="width:0%"></i></i></button>
+        <button class="file-card" type="button" data-jump="music"><b>Song lyrics</b><span class="num" id="lyricCount">1</span><span class="label">songs</span><i class="mini"><i style="width:40%"></i></i></button>
+        <button class="file-card" type="button" data-jump="texts"><b>Text</b><span class="num" id="textCount">0</span><span class="label">articles and notes</span><i class="mini"><i style="width:18%"></i></i></button>
+        <button class="file-card" type="button" data-jump="speakout"><b>Speakout</b><span class="num">8</span><span class="label">levels · 32 lessons each</span><i class="mini"><i style="width:100%"></i></i></button>
+      </div>
+    </section>
+
+    <section id="texts">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Text</h1></div>
+      <p class="sub">Save a text, then look for expressions worth studying.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-jump="textedit">Add a text</button></div>
+      <div id="textList"></div>
+    </section>
+
+    <section id="textedit">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textEditTitle">Add a text</h1></div>
+      <div class="card">
+        <p class="label">Title</p>
+        <input id="textTitle" type="text" placeholder="My first article" autocomplete="off" />
+        <p class="label">Text</p>
+        <textarea id="textBody" placeholder="Paste an article, a dialogue, or any English text. Line breaks stay as you paste them."></textarea>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" type="button" id="textSave">Save</button>
+          <button class="btn primary" type="button" id="textSaveAnalyze">Save &amp; Analyze</button>
+        </div>
+        <p class="hint" id="textStatus"></p>
+      </div>
+    </section>
+
+    <section id="textread">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textReadTitle">Text</h1></div>
+      <div id="textReadBody" class="text-read"></div>
+      <button class="btn" type="button" id="textReadMore" hidden>Show the rest</button>
+      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" id="textAnalyze">Analyze</button><button class="btn" type="button" id="textEdit">Edit</button></div>
+      <p class="hint" id="textReadStatus"></p>
+      <div id="textExpressions"></div>
+    </section>
+
+    <section id="speakout">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1 id="speakoutTitle">Speakout</h1></div>
+      <p class="sub" id="speakoutSub">Eight levels. Each level has 8 units and 32 lessons.</p>
+      <div id="speakoutList" class="decks"></div>
+    </section>
+
+    <section id="phrasal">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
+      <p class="sub" id="phrasalSub">Cards on this page. Study uses them.</p>
+      <div class="here-add" data-place="phrasal" style="margin-bottom:12px">
+        <button class="add-link" type="button" data-add-open>Add a word</button>
+        <div data-add-form hidden>
+          <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
+          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+          <p class="hint" data-add-status></p>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-deck-study="phrasal">Study</button></div>
+      <div class="words" id="phrasalGrid"></div>
+      <div class="words" id="phrasalAdded"></div>
+    </section>
+
+    <section id="idioms">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Idioms</h1></div>
+      <p class="sub" id="idiomSub">Cards on this page. Study uses them.</p>
+      <div class="here-add" data-place="idioms" style="margin-bottom:12px">
+        <button class="add-link" type="button" data-add-open>Add a word</button>
+        <div data-add-form hidden>
+          <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input />
+          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+          <p class="hint" data-add-status></p>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-deck-study="idioms">Study</button></div>
+      <div class="words" id="idiomGrid"></div>
+      <div class="words" id="idiomAdded"></div>
+    </section>
+
+    <section id="articles">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Articles</h1></div>
+      <p class="sub">Three examples. Each row opens the Grammar note.</p>
+      <div class="card grow">
+        <button class="path" type="button" data-topic="a"><span><b>a book</b><br><span class="label">a + consonant sound</span></span><span class="to">a</span></button>
+        <button class="path" type="button" data-topic="an"><span><b>an apple</b><br><span class="label">an + vowel sound</span></span><span class="to">an</span></button>
+        <button class="path" type="button" data-topic="the"><span><b>the sun</b><br><span class="label">both speakers know which one</span></span><span class="to">the</span></button>
+      </div>
+    </section>
+
+    <section id="demonstratives">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Demonstratives</h1></div>
+      <div id="demoLesson">
+        <div class="card study">
+          <p class="sub" style="margin-top:0">This, that, these, those. One or many. Near or far.</p>
+          <div id="demoProgress"></div>
+          <p class="label">Practice</p>
+          <div class="row" style="margin-bottom:8px">
+            <button class="btn primary" type="button" data-demo="practice">Practice</button>
+            <button class="btn" type="button" data-demo="quick">Quick Quiz</button>
+            <button class="btn" type="button" data-demo="mistakes">Practice my mistakes</button>
+          </div>
+          <div class="row" style="margin-bottom:8px">
+            <button class="btn chip" type="button" data-demo="level" data-demo-level="1">Level 1</button>
+            <button class="btn chip" type="button" data-demo="level" data-demo-level="2">Level 2</button>
+            <button class="btn chip" type="button" data-demo="level" data-demo-level="3">Level 3</button>
+            <button class="btn chip" type="button" data-demo="level" data-demo-level="4">Level 4</button>
+          </div>
+          <p class="hint" id="demoReviewNote" hidden>You marked this topic to review.</p>
+          <h2>The rule</h2>
+          <p>Two things decide the word: how many, and how far.</p>
+          <table class="demo-table">
+            <thead><tr><th></th><th>Near</th><th>Far</th></tr></thead>
+            <tbody>
+              <tr><th>One</th><td>THIS</td><td>THAT</td></tr>
+              <tr><th>More than one</th><td>THESE</td><td>THOSE</td></tr>
+            </tbody>
+          </table>
+          <p><b>This</b> = one + near. <b>That</b> = one + far. <b>These</b> = several + near. <b>Those</b> = several + far.</p>
+          <h2>See the difference</h2>
+          <div class="demo-grid" id="demoScenes"></div>
+          <h2>In a real sentence</h2>
+          <p><b>This</b> — one person or thing near you, or something you feel is close.</p>
+          <p>This is my phone. This book is interesting. I like this song. What is this? This is my friend.</p>
+          <p><b>That</b> — one person or thing farther away.</p>
+          <p>That is my car. That building is very tall. What is that? I don't like that song. Look at that dog!</p>
+          <p><b>These</b> — more than one, near you.</p>
+          <p>These are my keys. These books are mine. I like these shoes. What are these?</p>
+          <p><b>Those</b> — more than one, far from you.</p>
+          <p>Those are my friends. Those cars are expensive. Look at those mountains. What are those?</p>
+          <h2>Before a noun, or alone</h2>
+          <p>The word can stand alone, or it can sit in front of a noun. The meaning stays the same.</p>
+          <p>This is my book. This book is mine.</p>
+          <p>That is my car. That car is fast.</p>
+          <p>These are my keys. These keys are mine.</p>
+          <p>Those are my shoes. Those shoes are expensive.</p>
+          <h2>Not only distance</h2>
+          <p><b>This</b> can mean now: this week, this year, this morning.</p>
+          <p><b>That</b> can mean a time already gone: that day, that year, that time.</p>
+          <p>In a conversation: What's this? What's that? Who's that? What are these? What are those?</p>
+          <h2>Common mistakes</h2>
+          <p>This books — wrong. <b>This</b> is for one thing, and books is more than one. Say <b>these books</b>.</p>
+          <p>These book — wrong. <b>These</b> is for more than one. Say <b>this book</b>.</p>
+          <p>That are my friends — wrong. <b>That</b> takes <b>is</b>, and it is for one. Friends is more than one, so say <b>those are my friends</b>.</p>
+          <p>Those is my car — wrong. <b>Those</b> takes <b>are</b>, and it is for more than one. A car is one, so say <b>that is my car</b>.</p>
+          <h2>Learn more</h2>
+          <p id="demoLinks"></p>
+          <div class="row">
+            <button class="btn" type="button" data-demo="review">Review later</button>
+          </div>
+        </div>
+      </div>
+      <div id="demoQuiz" hidden>
+        <div class="card">
+          <div class="row" style="margin-bottom:8px"><button class="btn" type="button" data-demo="lesson">Back to the lesson</button></div>
+          <p class="label" id="demoQuizMeta"></p>
+          <div id="demoQuizBody"></div>
+        </div>
+      </div>
+      <div id="demoResult" hidden>
+        <div class="card" id="demoResultBody"></div>
+      </div>
+    </section>
+
+    <section id="setup">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Study</h1></div>
+      <div class="card">
+        <p class="hint" id="studyNote" style="margin-top:0"></p>
+        <p class="label">Answer types, pick more than one</p>
+        <div class="row" id="modes">
+          <button class="btn chip on" type="button">Flip</button>
+          <button class="btn chip" type="button" data-types-more="modesMore">...</button>
+        </div>
+        <div class="row" id="modesMore" hidden>
+          <button class="btn chip" type="button">Choice</button>
+          <button class="btn chip" type="button">Type</button>
+          <button class="btn chip" type="button">Gap</button>
+          <button class="btn chip" type="button">Build</button>
+          <button class="btn chip" type="button">Match</button>
+          <button class="btn chip" type="button">True / false</button>
+          <button class="btn chip" type="button">Tap</button>
+          <button class="btn chip" type="button">Select all</button>
+          <button class="btn chip" type="button">Reverse</button>
+          <button class="btn chip" type="button">Spell</button>
+          <button class="btn chip" type="button">Letters</button>
+          <button class="btn chip" type="button">Listen</button>
+          <button class="btn chip" type="button">Definition</button>
+          <button class="btn chip" type="button">Odd one out</button>
+          <button class="btn chip" type="button">Memory</button>
+          <button class="btn chip" type="button">Hangman</button>
+        </div>
+        <p class="label" style="margin:14px 0 6px">How to combine</p>
+        <div class="row">
+          <button class="btn chip on" type="button" data-mix="round">Round · every type on each card</button>
+          <button class="btn chip" type="button" data-mix="mix">Mix · one random type</button>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn primary" type="button" id="studyStart">Start</button>
+          <button class="btn" type="button" id="studyExam">Exam</button>
+          <button class="btn" type="button" id="studyMistakes">Mistakes</button>
+        </div>
+        <p class="hint">On the exam, 2 mistakes or 20 minutes means fail. Four correct answers in a row remove the card from that type's mistakes. Flip is not part of the exam.</p>
+      </div>
+    </section>
+
+    <section id="choice">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Choice · 3 / 8</h1><span class="timer">04:12</span></div>
+      <div class="progress"><i style="width:37%"></i></div>
+      <div class="card grow">
+        <p class="prompt">English → Russian · give up</p>
+        <p class="q">give up</p>
+        <div class="opts">
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">1</span><span>поднимать</span></button>
+          <button class="opt" type="button" data-choice="ok"><span class="bullet">2</span><span>сдаваться, бросать</span></button>
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">3</span><span>отдавать</span></button>
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">4</span><span>присматривать</span></button>
+        </div>
+        <div id="choiceFb"></div>
+        <div class="bar"><button class="btn stop" type="button" data-jump="exam">Stop</button><button class="btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary" type="button" data-jump="flip">Next</button></div>
+      </div>
+    </section>
+
+    <section id="flip">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Flip · 4 / 8</h1><span class="timer">04:40</span></div>
+      <div class="progress"><i style="width:50%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Recall the translation, then flip</p>
+        <div id="flipFace"><p class="label">Lesson 12 · give up</p><p class="entry">give up</p></div>
+        <div class="bar"><button class="btn" type="button" id="flipBtn">Flip</button><button class="btn primary" type="button" data-jump="type">Next</button></div>
+      </div>
+    </section>
+
+    <section id="type">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
+      <div class="progress"><i style="width:62%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Type it in English</p>
+        <p class="q">сдаваться, бросать</p>
+        <input id="typeInput" type="text" placeholder="Answer" autocomplete="off" />
+        <div id="typeFb"></div>
+        <div class="bar"><button class="btn stop" type="button" data-jump="home">Stop</button><button class="btn primary" type="button" id="typeCheck">Check</button></div>
+      </div>
+    </section>
+
+    <section id="gap">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
+      <div class="progress"><i style="width:70%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Fill in the verb form. Marker: an hour ago.</p>
+        <p class="q">She ____ looking for her keys an hour ago.</p>
+        <div class="opts">
+          <button class="opt" type="button"><span class="bullet">1</span><span>has given up</span></button>
+          <button class="opt" type="button"><span class="bullet">2</span><span>gave up</span></button>
+          <button class="opt" type="button"><span class="bullet">3</span><span>gives up</span></button>
+          <button class="opt" type="button"><span class="bullet">4</span><span>is giving up</span></button>
+        </div>
+        <p class="hint">The correct option is 2, gave up.</p>
+      </div>
+    </section>
+
+    <section id="build">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Build</h1><span class="timer">07:01</span></div>
+      <div class="progress"><i style="width:74%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Build the sentence</p>
+        <div class="slot" id="slot"></div>
+        <div class="row" id="bank">
+          <button class="token" type="button">already</button>
+          <button class="token" type="button">she</button>
+          <button class="token" type="button">the report</button>
+          <button class="token" type="button">has finished</button>
+        </div>
+        <p class="hint">Order: she has finished the report already.</p>
+      </div>
+    </section>
+
+    <section id="judge">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>True / false</h1><span class="timer">07:40</span></div>
+      <div class="progress"><i style="width:80%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Is the sentence correct?</p>
+        <p class="q">She has finished the report yesterday.</p>
+        <div class="row"><button class="btn" type="button">True</button><button class="btn primary" type="button">False</button></div>
+        <div class="explain">English. With yesterday, use the Past Simple: She finished the report yesterday. Russian. С yesterday нужен Past Simple: She finished the report yesterday.</div>
+      </div>
+    </section>
+
+    <section id="tap">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
+      <div class="progress"><i style="width:84%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Tap the Present Perfect time marker</p>
+        <p class="sentence" id="tapLine">She <button type="button" data-tap="bad">has lived</button> here <button type="button" data-tap="ok">since</button> 2019.</p>
+        <div id="tapFb"></div>
+      </div>
+    </section>
+
+    <section id="multi">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Select all</h1><span class="timer">08:22</span></div>
+      <div class="progress"><i style="width:88%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Select every Present Perfect sentence</p>
+        <div class="opts">
+          <button class="opt" type="button"><span class="bullet">1</span><span>She has lost her keys.</span></button>
+          <button class="opt" type="button"><span class="bullet">2</span><span>She lost her keys yesterday.</span></button>
+          <button class="opt" type="button"><span class="bullet">3</span><span>They have just arrived.</span></button>
+          <button class="opt" type="button"><span class="bullet">4</span><span>They arrived an hour ago.</span></button>
+        </div>
+        <p class="hint">Correct: 1 and 3.</p>
+      </div>
+    </section>
+
+    <section id="pairs">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Match</h1><span class="timer">09:10</span></div>
+      <div class="progress"><i style="width:92%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Match the English with the Russian translation</p>
+        <div class="pairs" id="pairs">
+          <button class="pair" type="button" data-side="l" data-id="a">give up</button>
+          <button class="pair" type="button" data-side="r" data-id="b">присматривать</button>
+          <button class="pair" type="button" data-side="l" data-id="b">look after</button>
+          <button class="pair" type="button" data-side="r" data-id="a">сдаваться</button>
+          <button class="pair" type="button" data-side="l" data-id="c">since 2019</button>
+          <button class="pair" type="button" data-side="r" data-id="c">началось тогда и длится</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="exam">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="setup" id="examBack">Back</button><h1 id="examTitle">Exam</h1></div>
+      <div class="card grow" id="examBody"></div>
+    </section>
+
+    <section id="errors">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="setup" id="errorsBack">Back</button><h1 id="errorsTitle">Mistakes</h1></div>
+      <div class="card grow" id="errorsBody"></div>
+    </section>
+
+    <section id="tenses">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Grammar</h1></div>
+      <p class="sub">Twelve tenses are one part of the system. Future forms, conditionals and modals are not extra tenses.</p>
+      <input type="search" placeholder="Search" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="words" id="tenseAdded" style="margin-bottom:8px"></div>
+      <div class="card grow" id="tenseList"></div>
+    </section>
+
+    <section id="marker">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="tenses" id="markerBack">Back</button><h1 id="markerTitle">Marker</h1></div>
+      <div class="card grow" id="markerView"></div>
+    </section>
+
+    <section id="tense" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="tenses" id="tenseBack">Back</button><h1 id="tenseTitle">Tense</h1></div>
+      <div class="card grow">
+        <div class="row" id="tenseLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-tense-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-tense-lang="en">English</button>
+        </div>
+        <div id="tenseView"></div>
+      </div>
+    </section>
+
+    <section id="days">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Classes</h1></div>
+      <p class="sub">In date order, from 7 Sep 2026. Each date has its own page. The quiz and mistakes stay inside that day.</p>
+      <div class="card grow">
+        <button class="day" type="button" id="firstDay" data-jump="lesson07">
+          <span class="date">07.09</span>
+          <b>Get to know each other</b>
+          <span class="label when">Mon · 2026</span>
+          <span class="label about">article · problems and solutions · podcast homework</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson09">
+          <span class="date">09.09</span>
+          <b>Collocations and Present Simple</b>
+          <span class="label when">Wed · 2026</span>
+          <span class="label about">14 collocations · Present Simple · homework</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson14">
+          <span class="date">14.09</span>
+          <b>Adverbs of frequency</b>
+          <span class="label when">Mon · 2026</span>
+          <span class="label about">15 cards · word order · Wordwall</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson16">
+          <span class="date">16.09</span>
+          <b>Small talk</b>
+          <span class="label when">Wed · 2026</span>
+          <span class="label about">happy to chat benches · phrases · homework</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson">
+          <span class="date">21.09</span>
+          <b>Weather, small talk, likes and dislikes</b>
+          <span class="label when">Mon · 2026</span>
+          <span class="label about">weather vocabulary · small talk · likes and dislikes · 4 rules</span>
+        </button>
+        <button class="day active" type="button" data-jump="lesson23">
+          <span class="date">23.09</span>
+          <b>Holidays</b>
+          <span class="label when">Wed · 2026</span>
+          <span class="label about">preferences · Past Simple · a holiday in Scotland · homework</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="lesson">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>21 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Monday. Weather, small talk, likes. Level A2, with a few B1 phrases. This day's quiz uses only this day's cards.</p>
+        <div class="tags"><span>#weather</span><span>#small-talk</span><span>#likes</span><span>#present-continuous</span></div>
+        <div class="here-add" data-place="lesson-21" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="drizzle or морось" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip on" type="button" data-lesson-words="lesson-21">Words · 22</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-21">Rules · 4</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-21">This day's quiz</button>
+        </div>
+        <p class="src"><a href="pdf/21.09.2026.pdf" target="_blank" rel="noreferrer">21.09.2026.pdf</a> · <a href="https://wordwall.net/ru/resource/119542975/05-best-weather-for" target="_blank" rel="noreferrer">Wordwall · Best weather for…</a></p>
+        <p class="src">Homework: <a href="https://wordwall.net/ru/resource/119605817" target="_blank" rel="noreferrer">Weather flashcards</a> · <a href="https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" target="_blank" rel="noreferrer">Navigate 1.4</a> · <a href="https://wordwall.net/ru/resource/119607073" target="_blank" rel="noreferrer">Likes flashcards</a> · <a href="https://wordwall.net/ru/resource/119607967" target="_blank" rel="noreferrer">true / false</a> · <a href="https://wordwall.net/ru/resource/119608490" target="_blank" rel="noreferrer">type the verb</a></p>
+        <h2>1. What you will learn</h2>
+        <p class="src">How to describe weather with It's + adjective and There's + noun. Seven small-talk lines. Nine like/dislike patterns, practised again on 23 Sep. Weather happening now: We are having a thunderstorm.</p>
+        <h2>2. Key phrases</h2>
+        <h3>Excuse me, is anyone sitting here?</h3>
+        <p class="src"><b>Translation:</b> Извините, здесь кто-нибудь сидит?</p>
+        <p class="src">The same line is a card on <button class="src-more" type="button" data-jump="lesson16">16 Sep</button>. This day also has two lines that were not in that later set.</p>
+        <p class="src">Do you mind if I take this chair? · Is this your first time here? · How long have you worked here? · Do you know if there is an ATM near here? · That's my bus. · I've got to go. · Help yourself!</p>
+        <p class="src">How long have you worked here? is Present Perfect. <button class="btn chip" type="button" data-topic="pp">Present Perfect</button></p>
+        <p class="src">The preference patterns from this PDF are cards on <button class="src-more" type="button" data-jump="lesson23">23 Sep</button>.</p>
+        <div class="words" id="lineGrid"></div>
+        <h2>3. Grammar from this lesson</h2>
+        <h3>It's + adjective · There's + noun</h3>
+        <p class="src">It's humid. It's chilly. There's drizzle. There's a thunderstorm. It's hot and rainy means humid. The full note is on <button class="src-more" type="button" data-jump="rules">Rules · 21 Sep</button>.</p>
+        <h3>Present continuous for weather now</h3>
+        <p class="src">We are having a thunderstorm. We are having a few showers.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="pc">Present Continuous</button></p>
+        <h2>4. Vocabulary</h2>
+        <p class="src">The first grid had 12 cards. heavy rain was on the New vocabulary slide and was missing. sunny, cloudy, rainy, snowy, pleasant, warm, cold and hot were on other slides of the same PDF and were not cards. They are in the grid now.</p>
+        <div class="words" id="wordGrid"></div>
+        <p class="label" id="lessonAddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
+        <div class="words" id="lessonAdded"></div>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra21"></div>
+      </div>
+    </section>
+
+    <section id="word">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Word card</h1></div>
+      <div class="card grow" id="wordView"></div>
+    </section>
+
+    <section id="daywords">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayWordsBack">Back</button><h1 id="dayWordsTitle">Words</h1></div>
+      <div class="words" id="dayWordsList"></div>
+    </section>
+
+    <section id="rules" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
+      <div class="card grow">
+        <div class="row" id="ruleLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-rule-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-rule-lang="en">English</button>
+        </div>
+        <div id="ruleList"></div>
+      </div>
+    </section>
+
+    <section id="daysetup">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
+      <div class="card">
+        <p class="hint" id="daySetupNote" style="margin-top:0"></p>
+        <p class="label">Answer types, pick more than one</p>
+        <div class="row" id="dayModes">
+          <button class="btn chip on" type="button">Flip</button>
+          <button class="btn chip" type="button" data-types-more="dayModesMore">...</button>
+        </div>
+        <div class="row" id="dayModesMore" hidden>
+          <button class="btn chip" type="button">Choice</button>
+          <button class="btn chip" type="button">Type</button>
+          <button class="btn chip" type="button">Gap</button>
+          <button class="btn chip" type="button">Build</button>
+          <button class="btn chip" type="button">Match</button>
+          <button class="btn chip" type="button">True / false</button>
+          <button class="btn chip" type="button">Tap</button>
+          <button class="btn chip" type="button">Select all</button>
+          <button class="btn chip" type="button">Reverse</button>
+          <button class="btn chip" type="button">Spell</button>
+          <button class="btn chip" type="button">Letters</button>
+          <button class="btn chip" type="button">Listen</button>
+          <button class="btn chip" type="button">Definition</button>
+          <button class="btn chip" type="button">Odd one out</button>
+          <button class="btn chip" type="button">Memory</button>
+          <button class="btn chip" type="button">Hangman</button>
+        </div>
+        <p class="label" style="margin:14px 0 6px">How to combine</p>
+        <div class="row" id="dayMix">
+          <button class="btn chip on" type="button" data-day-mix="round">Round · every type on each card</button>
+          <button class="btn chip" type="button" data-day-mix="mix">Mix · one random type</button>
+        </div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn primary" type="button" id="dayStart">Start</button>
+          <button class="btn" type="button" id="dayExam">Exam</button>
+          <button class="btn" type="button" id="dayMistakes">Mistakes</button>
+        </div>
+        <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
+      </div>
+    </section>
+
+    <section id="dayq">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button><h1 id="dayqTitle">Quiz</h1><span class="timer" id="dayqTimer" hidden></span></div>
+      <div class="progress"><i id="dayqBar" style="width:0%"></i></div>
+      <div class="card grow" id="dayqView"></div>
+    </section>
+
+    <section id="daychoice">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Choice · day 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">From the flashcard description</p>
+        <p class="q">The air has a lot of water in it, so it feels wet.</p>
+        <div class="opts">
+          <button class="opt" type="button" data-ok="0"><span class="bullet">1</span><span>It's chilly</span></button>
+          <button class="opt" type="button" data-ok="1"><span class="bullet">2</span><span>It's humid</span></button>
+          <button class="opt" type="button" data-ok="0"><span class="bullet">3</span><span>There's drizzle</span></button>
+          <button class="opt" type="button" data-ok="0"><span class="bullet">4</span><span>It's mild</span></button>
+        </div>
+        <div id="dayChoiceFb"></div>
+      </div>
+    </section>
+
+    <section id="dayflip">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">Recall the translation and the transcription</p>
+        <div id="dayFlipFace"><p class="entry">thunderstorm</p><p class="pos">noun</p></div>
+        <div class="bar"><button class="btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary" type="button" id="dayFlipNext">Next</button></div>
+      </div>
+    </section>
+
+    <section id="dayjudge">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>True / false · 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">Line from the Wordwall sort</p>
+        <p class="q">You're keen on learn English.</p>
+        <div class="row">
+          <button class="btn" type="button" id="judgeYes">True</button>
+          <button class="btn primary" type="button" id="judgeNo">False</button>
+        </div>
+        <div id="judgeFb"></div>
+      </div>
+    </section>
+
+    <section id="music">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Song lyrics</h1></div>
+      <p class="sub">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-jump="lyricadd">Add a song</button></div>
+      <input type="search" placeholder="Song, artist or a word" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div id="lyricList"></div>
+    </section>
+
+    <section id="lyricadd">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="music">Back</button><h1>Add a song</h1></div>
+      <div class="card" id="lyricForm">
+        <p class="label">Song title</p>
+        <input id="lyricTitle" type="text" placeholder="Song title" autocomplete="off" />
+        <p class="label">Artist</p>
+        <input id="lyricArtist" type="text" placeholder="Band or singer" autocomplete="off" />
+        <p class="label">Video link</p>
+        <input id="lyricVideo" type="text" placeholder="YouTube or another video link" autocomplete="off" />
+        <div id="lyricVideoPreview"></div>
+        <p class="label">Music link</p>
+        <input id="lyricMusic" type="text" placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" />
+        <div id="lyricMusicPreview"></div>
+        <p class="label">File</p>
+        <div class="drop" id="lyricDrop">Drop a file here, or <button class="btn" type="button" id="lyricFilePick">choose a file</button><input id="lyricFile" type="file" accept="audio/*,video/*" hidden /></div>
+        <p class="hint" id="lyricFileName"></p>
+        <p class="file-progress" id="lyricFileProgress" hidden><span class="ring" id="lyricFileRing" style="--p:0"><b>0</b></span><span id="lyricFileProgressText"></span></p>
+        <div id="lyricFilePreview"></div>
+        <p class="label">Lyrics</p>
+        <textarea id="lyricText" placeholder="Paste the lyrics. Line breaks stay as you paste them."></textarea>
+        <div class="row" style="margin-top:8px"><button class="btn primary" type="button" id="lyricGo">Read the words</button></div>
+        <p class="hint" id="lyricStatus"></p>
+      </div>
+    </section>
+
+    <section id="song">
+      <div class="meta">
+        <div class="meta-side">
+          <button class="btn ghost" type="button" data-nav-back data-fallback="music">Back</button>
+          <div class="song-banner"><b id="songBanner">Sample line</b><span id="songBannerArtist"></span></div>
+        </div>
+        <h1 id="songTitle" class="full">Sample line</h1>
+      </div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-song-study>Study</button></div>
+      <div class="card grow" id="songSample">
+        <p class="sentence">It's <button type="button" data-jump="word">humid</button>, but I <button type="button" data-jump="musicword" data-song="wont">won't</button> <button type="button" data-jump="flip">give up</button> in the <button type="button" data-jump="musicword" data-song="moonlight">moonlight</button>.</p>
+        <p class="hint">This line shows the no-duplicate rule. A real song appears when you add one.</p>
+        <p class="label" style="margin:10px 0 6px">Already in other quizzes</p>
+        <button class="path" type="button" data-jump="word">
+          <span><b>It's humid</b><br><span class="label">no new card</span></span>
+          <span class="to">Days · 21 Sep · humid</span>
+        </button>
+        <button class="path" type="button" data-jump="flip">
+          <span><b>give up</b><br><span class="label">no new card</span></span>
+          <span class="to">Home · deck 12 · give up</span>
+        </button>
+        <p class="label" style="margin:10px 0 6px">New cards in this song</p>
+        <div class="words">
+          <button class="wcard" type="button" data-jump="musicword" data-song="moonlight">
+            <div class="en">moonlight</div>
+            <div class="pos">noun</div>
+            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="moonlight" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="moonlight" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span></div>
+            <div class="label">лунный свет</div>
+          </button>
+          <button class="wcard" type="button" data-jump="musicword" data-song="wont">
+            <div class="en">won't</div>
+            <div class="pos">contraction</div>
+            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="won't" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/wəʊnt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="won't" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/woʊnt/</span></span></div>
+            <div class="label">contraction of will not</div>
+          </button>
+        </div>
+      </div>
+      <div class="card grow" id="songUser" hidden></div>
+    </section>
+
+    <section id="lesson07">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>7 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Monday. Get to know each other. Level A2. This day's quiz uses this day's phrase cards.</p>
+        <div class="tags"><span>#speaking</span><span>#questions</span><span>#present-simple</span></div>
+        <div class="here-add" data-place="lesson-07" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="So, tell me about" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip" type="button" data-lesson-words="lesson-07">Words</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-07">Rules</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-07">This day's quiz</button>
+        </div>
+        <p class="src"><a href="pdf/07.09.2026.pdf" target="_blank" rel="noreferrer">07.09.2026.pdf</a></p>
+        <h2>1. What you will learn</h2>
+        <p class="src">How to open a question about another person, answer, then hand the question back. How to agree and disagree with "Most people…". A reading about habits we share, and a short list of speaking problems and solutions.</p>
+        <h2>2. Key phrases</h2>
+        <h3>So, tell me about …</h3>
+        <p class="src"><b>Translation:</b> Расскажи мне о …</p>
+        <p class="src"><b>When to use:</b> You start, then the other person answers and asks you back.</p>
+        <p class="src"><b>Useful variations:</b> I'd like to know about … · Can you tell me a little about …?</p>
+        <p class="src"><b>Hand it back:</b> What about you? · And you? Those two cards live on <button class="src-more" type="button" data-jump="lesson16">16 Sep</button>.</p>
+        <p class="src"><b>Agree / disagree:</b> “Most people never read books.” — “I agree. That's true.” / “I disagree.”</p>
+        <div id="askClips"></div>
+        <div class="words" id="askGrid"></div>
+        <h2>3. Grammar from this lesson</h2>
+        <p class="src">The questions are mostly Present Simple and a few with going to. Short form here: Do you…? / What do you…? for habits. I'm going to… for a plan after the lesson.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="ps">Present Simple</button> <button class="btn chip" type="button" data-topic="going">be going to</button></p>
+        <h2>12. Practice</h2>
+        <p class="label">Classwork</p>
+        <p class="src">Lesson PDF · get to know each other. <a href="pdf/07.09.2026.pdf" target="_blank" rel="noreferrer">07.09.2026.pdf</a></p>
+        <p class="label" style="margin-top:10px">Questions</p>
+        <p class="src">So, tell me about … · I'd like to know about … · Can you tell me a little about …?</p>
+        <p class="src">Answer, then ask: What about you? And you? Add a follow-up question.</p>
+        <p class="src">2 things you did before this lesson · city / country where you live · 1 country you want to visit · things you do when you feel bored · 2 hobbies you have · 3 things that make you happy · things you're afraid of · 2 reasons why you learn English · 3 things on your desk right now · 1 thing you're going to do after the lesson · your dream / real job · 3 dishes you can cook well · 3 things you love doing at the weekend · food you always have in my fridge · 2 things you have to do this week</p>
+        <p class="src">Then share 1–2 interesting facts.</p>
+        <p class="label" style="margin-top:10px">Are most people the same?</p>
+        <p class="src">Read the article. Find 5 ideas that are true for you. Be ready to tell them to your partner.</p>
+        <p class="src">Most people wake up at … on Mondays. Most people drink … in the morning. Most people often forget … At the supermarket most people buy … Most people promise to start … Give 2–3 ideas.</p>
+        <p class="src">Most people love … / Most people hate … · weather · food / drink · work · family / friends · transport · hobbies</p>
+        <p class="src">Exchange: “Most people never read books.” — “I agree. That's true.” / “I disagree.”</p>
+        <p class="label" style="margin-top:10px">Student 1 · at home</p>
+        <p class="src">Do you look at people around you and say to yourself, 'Wow, we're all so different!'? Well, recently I had the opposite idea. I think that in many ways we're all the same. We like, feel and do many of the same things.</p>
+        <p class="src">What kind of things do we all do at home? We all dance in the kitchen to our favourite music and we look in the fridge for no reason. We put a key behind a book on a shelf or in a small box next to the computer. Then we forget where it is. We wake up early at weekends when we don't have work. And then we can't wake up early on Monday. We make a cup of tea or coffee, and then we forget to drink it until it gets completely cold. We stand in the shower for too long, thinking about life. We watch short videos online and tell ourselves, 'Just one more,' but then we are late for work. We keep clothes that we never wear. We look at our phone in bed, just before we go to sleep. And yes, sometimes we talk to ourselves, or to our pets.</p>
+        <p class="src">Finally, we all have good days and bad days. We want people to like us. And we love being right.</p>
+        <p class="label" style="margin-top:10px">Student 2 · outside</p>
+        <p class="src">Do you look at people around you and say to yourself, 'Wow, we're all so different!'? Well, recently I had the opposite idea. I think that in many ways we're all the same. We like, feel and do many of the same things.</p>
+        <p class="src">What about outside the home? Well, how do you feel about sitting in your car at a red light? Nobody likes waiting, so it's not surprising that we all hate traffic. In the cinema we all cry at the sad part of the film. We join gyms and pay a lot of money to be a member, and then we never go. We take a book to a café or the beach and never read it. And what about buying food? We go to the supermarket with a good plan, but we always buy crisps, chocolate and other snacks that are not on the list. We buy fresh vegetables because we want to eat healthily. Then we put them in the fridge and find them two weeks later, looking terrible.</p>
+        <p class="src">Do you look everywhere for your phone and then find it's in your hand? Do you buy things and use them only once, and then never again? Do you pack extra clothes in your suitcase when you go on holiday? Do you only wear some of them, but not all of them? Of course you do. We all do. And which day of the week is your favourite? Don't tell me. I know the answer.</p>
+        <p class="label" style="margin-top:10px">Listen to 3 speakers · problems and solutions</p>
+        <p class="src">1 grammar → Write short sentences every day</p>
+        <p class="src">2 when I speak, I forget everything → Mistakes are normal</p>
+        <p class="src">3 I don't understand native speakers → Slow down the speed, ask to repeat slowly</p>
+        <p class="src">4 can't catch the words → Slow down the speed, watch videos with subtitles</p>
+        <p class="src">5 I am shy to speak → talk to yourself</p>
+        <p class="src">6 pronunciation is terrible → Your accent is okay. People only need to understand the main idea</p>
+        <p class="src">7 I forget words → Use the words in your speech, connect words to your life</p>
+        <p class="src">8 I'm not making any progress → Answer 1 question now, and answer it in 3 months: you'll see the difference. Progress is not always fast</p>
+        <p class="label" style="margin-top:10px">Formal</p>
+        <p class="src">Communication: TG · Payment: the end of the month · A new agreement (document)</p>
+        <p class="src">If you're late, let me know. Homework = progress.</p>
+        <p class="label" style="margin-top:10px">Homework</p>
+        <p class="src">Listen to the podcast (5 min). Task: make a list of activities they find relaxing.</p>
+        <p class="src"><a href="https://www.bbc.co.uk/learningenglish/english/features/real-easy-english/251017" target="_blank" rel="noreferrer">BBC Learning English · Real Easy English · 17 Oct 2025</a></p>
+        <p class="src">If you have time: 1 Listen and understand the main idea. 2 Listen again and read the script to understand everything, do the task.</p>
+        <p class="src">Pronunciation / fluency: repeat sentences after the speakers. Grammar: pay attention to the grammar forms they use. Vocabulary: note down new words and make sentences with them.</p>
+        <p class="src">If you have only 10 min: listen, understand the main idea and do the task, or read the script to understand everything and do the task.</p>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra07"></div>
+        <div class="words" id="lesson07Added"></div>
+      </div>
+    </section>
+
+    <section id="lesson09">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>9 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Wednesday. Collocations and Present Simple. Level A2. This day's quiz uses only this day's cards.</p>
+        <div class="tags"><span>#collocations</span><span>#present-simple</span><span>#daily-routine</span></div>
+        <div class="here-add" data-place="lesson-09" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="keep fit" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip" type="button" data-lesson-words="lesson-09">Words</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-09">Rules</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-09">This day's quiz</button>
+        </div>
+        <p class="src"><a href="pdf/09.09.2026.pdf" target="_blank" rel="noreferrer">09.09.2026.pdf</a></p>
+        <h2>1. What you will learn</h2>
+        <p class="src">14 collocations about plans, rest and fitness. Present Simple with be and with other verbs. Two days to compare: a busy day and a relaxing day.</p>
+        <h2>2. Key phrases</h2>
+        <p class="src">Each card keeps the English gloss from the slide, where the slide had one. have an early night on the slide is “go to bed earlier that you usually go”. The word that is the slide’s wording.</p>
+        <p class="src"><b>keep fit</b> = do exercise, do sport, care about your health. <b>have a lie-in</b> = stay in bed for some time after waking up. <b>have a nap</b> = sleep for 30 min during the day.</p>
+        <div class="words" id="phraseGrid"></div>
+        <h2>3. Grammar from this lesson</h2>
+        <p class="src">to be: I am. We / you / they are. He / she / it is. Negative: am not / aren't / isn't. Questions: Am / Are / Is.</p>
+        <p class="src">Other verbs: I / we / you / they + verb. He / she / it + verb-s. Negative: don't / doesn't + verb. Questions: Do / Does + verb.</p>
+        <p class="src">I work in IT. They live in London. She plays tennis every Friday. Do you work in IT? Does she play tennis?</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="ps">Present Simple</button></p>
+        <h2>8. Typical mistakes</h2>
+        <p class="miss"><span class="no">She play tennis.</span> <span class="yes">She plays tennis.</span></p>
+        <p class="miss"><span class="no">Does she plays tennis?</span> <span class="yes">Does she play tennis?</span> After do/does the verb has no -s.</p>
+        <p class="label">Classwork</p>
+        <p class="src">Lesson PDF · collocations and Present Simple. <a href="pdf/09.09.2026.pdf" target="_blank" rel="noreferrer">09.09.2026.pdf</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/118706505/02-make-a-sentence-is-it-true-for-you" target="_blank" rel="noreferrer">Wordwall · make a sentence · is it true for you?</a></p>
+        <p class="label" style="margin-top:10px">A 30-minute break · choose 3</p>
+        <p class="src">Watching reels · Working · Going for a walk · Sleeping · Drinking tea · Chatting online · Looking at the window · Doing nothing</p>
+        <p class="label" style="margin-top:10px">What activities do they find relaxing?</p>
+        <p class="src">cooking · playing the guitar · running · doing exercise · reading · having a bath · listening to music</p>
+        <p class="label" style="margin-top:10px">Which sentence best describes your life?</p>
+        <p class="src">1 My life is too busy. I need more time.</p>
+        <p class="src">2 I'm quite busy, but I have time to do everything I want.</p>
+        <p class="src">3 I have too much time and not enough things to do.</p>
+        <p class="label" style="margin-top:10px">Read. Whose day is more relaxing?</p>
+        <p class="src">Day 1. He makes future plans for the next month and makes a to-do list every morning. He plans things in advance to be productive and does some work on his projects. He keeps fit with a short run before breakfast. He stays in in the morning, but he goes out for business meetings in the afternoon. He also goes on a trip to another city for a conference. He has a meal at home quickly in the evening. He has a good time because he finishes all his tasks, but he sometimes comes late for appointments because he is too busy.</p>
+        <p class="src">Day 2. He wakes up late and has a lie-in. Then he makes future plans for his weekend and makes a to-do list for fun activities. He plans things in advance for his hobbies and does some work, but not much. He keeps fit by walking in the park. He stays in his house most of the day, but he goes out for a short walk. He goes on a trip to a lake near the city. He has an early night after a nice dinner and has a nap in the afternoon. He has a meal at home with his family and has a good time with his friends. He comes late for appointments because he doesn't care what people say about him.</p>
+        <p class="label" style="margin-top:10px">From the slides</p>
+        <p class="src">keep fit = do exercise, do sport, care about your health</p>
+        <p class="src">have a lie-in = stay in bed for some time after waking up</p>
+        <p class="src">have an early night = go to bed earlier that you usually go</p>
+        <p class="src">have a nap = sleep for 30 min during the day</p>
+        <p class="src">Who has a lie-in? Sleep after lunch · Go to bed at 9 pm · Wake up at 9 · Get up at 10</p>
+        <p class="src">Who usually does it? Businessmen · Athletes · Tourists · Young mothers · Retired people</p>
+        <p class="label" style="margin-top:10px">Present Simple · from the slides</p>
+        <p class="src">to be: I am. We / you / they are. He / she / it is. I'm happy. They are at work. She's a doctor.</p>
+        <p class="src">Negative: I am not. We / you / they aren't. He / she / it isn't.</p>
+        <p class="src">Questions: Am / Are / Is.</p>
+        <p class="src">Other verbs: I / we / you / they + verb. He / she / it + verb-s. Negative: don't / doesn't + verb. Questions: Do / Does + verb.</p>
+        <p class="src">I work in IT. They live in London. She plays tennis every Friday. I don't work in IT. They don't live in London. She doesn't play tennis. Do you work in IT? Do they live in London? Does she play tennis?</p>
+        <p class="src">Watch the video and note the answers: What languages do you speak? Do you have any pets? What time do you get up during the week? What time do you usually go to bed? What kind of music do you listen to? How often do you go to the cinema?</p>
+        <p class="label" style="margin-top:10px">Make a true story about Bob · gaps on the slide</p>
+        <p class="src">Hi! My name __ Bob. 1 I have a lie-in every Saturday, but I usually wake up at 6 AM because my cat not understand weekends. 2 I plan things in advance, but my plans __ always wrong. 3 I do some work at my desk, but mostly I think about lunch. 4 I try to keep fit. My favourite sport __ walking to the fridge and back. 5 At 3 PM, I have a nap on my chair. My boss call it "sleep", but I call it "creative thinking". 6 I go on a trip once a year, but I always forget my passport. 7 My life __ simple – I have a nap, eat, and make plans I never follow.</p>
+        <p class="src">Filled on the next slide: My name is Bob. My cat doesn't understand weekends. My plans are always wrong. My favourite sport is walking to the fridge and back. My boss calls it "sleep". My life is simple.</p>
+        <p class="label" style="margin-top:10px">Homework</p>
+        <p class="src">To practise new collocations</p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/118847987/02" target="_blank" rel="noreferrer">Flashcards</a> · <a href="https://wordwall.net/ru/resource/118696199/make-collocations" target="_blank" rel="noreferrer">Make collocations</a> · <a href="https://wordwall.net/ru/resource/118848497/02" target="_blank" rel="noreferrer">Wordwall · 02</a></p>
+        <p class="src">To practise Present Simple</p>
+        <p class="src"><a href="https://learningapps.org/view53599574" target="_blank" rel="noreferrer">LearningApps</a> · <a href="https://wordwall.net/ru/resource/99233427/do-does-am-is-are" target="_blank" rel="noreferrer">do / does · am / is / are</a> · <a href="https://wordwall.net/ru/resource/5578473/do-does-or-is-am-are" target="_blank" rel="noreferrer">do / does or is / am / are</a></p>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra09"></div>
+        <p class="label" id="lesson09AddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
+        <div class="words" id="lesson09Added"></div>
+      </div>
+    </section>
+
+    <section id="lesson14">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>14 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Monday. Adverbs of frequency. Level A2. This day's quiz uses only this day's cards.</p>
+        <div class="tags"><span>#frequency</span><span>#present-simple</span><span>#how-often</span></div>
+        <div class="here-add" data-place="lesson-14" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="always" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip" type="button" data-lesson-words="lesson-14">Words</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-14">Rules</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-14">This day's quiz</button>
+        </div>
+        <p class="src"><a href="pdf/14.09.2026.pdf" target="_blank" rel="noreferrer">14.09.2026.pdf</a></p>
+        <h2>1. What you will learn</h2>
+        <p class="src">How often + Present Simple. Adverbs that say how regularly something happens, and phrases that say how many times. Two collocations: achieve a goal, beat others.</p>
+        <h2>3. Grammar from this lesson</h2>
+        <h3>How often + Present Simple</h3>
+        <p class="src">How often asks about a habit, so the verb is Present Simple. Do/Does for ordinary verbs. Am/Is/Are when the sentence is with be.</p>
+        <p class="src">How often do you check your phone? How often does your neighbour play loud music? Are you always so happy? Are you afraid of Monday mornings?</p>
+        <p class="src">How often are you… is for a state with be. How often do you… is for an action.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="ps">Present Simple</button></p>
+        <h2>4. Frequency expressions</h2>
+        <p class="src">always / usually / often / occasionally / rarely / hardly ever / never say how regular a habit feels. once a week / twice a week / 3 times a week / 3 times a year say a number of times. They answer different questions: “Do you usually…?” versus “How many times…?”</p>
+        <p class="src">On one slide the words are “once in while”. The card uses the full form once in a while. most days, once a week, twice a week and 3 times a year sit on that slide and are not paired as answers to the adverb list.</p>
+        <p class="src">once a month, twice a month and 5 times a year are on <button class="src-more" type="button" data-jump="lesson16">16 Sep</button>.</p>
+        <table class="g-table"><tr><th>Expression</th><th>Meaning</th><th>From the lesson</th></tr>
+          <tr><td>always</td><td>всегда</td><td>Are you always so happy?</td></tr>
+          <tr><td>usually</td><td>обычно</td><td>She is usually at home in the evening.</td></tr>
+          <tr><td>often</td><td>часто</td><td></td></tr>
+          <tr><td>occasionally</td><td>время от времени</td><td>He is occasionally tired after work.</td></tr>
+          <tr><td>rarely</td><td>редко</td><td></td></tr>
+          <tr><td>hardly ever</td><td>почти никогда</td><td>He hardly ever has a nap.</td></tr>
+          <tr><td>never</td><td>никогда</td><td>I am never late for appointments.</td></tr>
+          <tr><td>most days</td><td>в большинство дней</td><td>Are you busy most days?</td></tr>
+          <tr><td>once in a while</td><td>изредка</td><td>The scale slide writes once in while.</td></tr>
+          <tr><td>once a week</td><td>раз в неделю</td><td></td></tr>
+          <tr><td>twice a week</td><td>два раза в неделю</td><td>We study · twice a week</td></tr>
+          <tr><td>3 times a week</td><td>три раза в неделю</td><td>Does she keep fit 3 times a week?</td></tr>
+          <tr><td>3 times a year</td><td>три раза в год</td><td></td></tr>
+        </table>
+        <h2>8. Typical mistakes</h2>
+        <p class="miss"><span class="no">How often are you check your phone?</span> <span class="yes">How often do you check your phone?</span> check is an action, so do.</p>
+        <p class="miss"><span class="no">Do you afraid of Monday mornings?</span> <span class="yes">Are you afraid of Monday mornings?</span> afraid needs be.</p>
+        <div class="words" id="adverbGrid"></div>
+        <p class="label">Classwork</p>
+        <p class="src">Lesson PDF · adverbs of frequency. <a href="pdf/14.09.2026.pdf" target="_blank" rel="noreferrer">14.09.2026.pdf</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119086527/03" target="_blank" rel="noreferrer">Wordwall · 03</a></p>
+        <p class="label" style="margin-top:10px">Are you happy? · gaps, then the next slide</p>
+        <p class="src">___ you happy? · ___ your friend happy? · ___ you feel happy? · ___ your boss feel happy?</p>
+        <p class="src">Are you happy? · Is your friend happy? · Do you feel happy? · Does your boss feel happy?</p>
+        <p class="label" style="margin-top:10px">Present Simple · from the slides</p>
+        <p class="src">to be: I am. We / you / they are. He / she / it is. I'm happy. They are at work. She's a doctor.</p>
+        <p class="src">Negative: I am not. We / you / they aren't. He / she / it isn't. Questions: Am / Are / Is.</p>
+        <p class="src">Other verbs: I / we / you / they + verb. He / she / it + verb-s. Questions: Do / Does + verb.</p>
+        <p class="src">I work in IT. They live in London. She plays tennis every Friday. Do you work in IT? Do they live in London? Does she play tennis?</p>
+        <p class="label" style="margin-top:10px">Student 1 · am / is / are / do / does</p>
+        <p class="src">1 How often __ you check your phone before you go to sleep?</p>
+        <p class="src">2 Where ___ your passport now?</p>
+        <p class="src">3 _______ your colleague use social media at work?</p>
+        <p class="src">4 ______ you sing in the shower?</p>
+        <p class="src">5 ______ your colleague secretly have a nap at their desk?</p>
+        <p class="src">6 What ___ the best thing about waking up early?</p>
+        <p class="src">7 How often ___ your neighbour play loud music at 2 AM?</p>
+        <p class="src">8 ______ you afraid of Monday mornings?</p>
+        <p class="label" style="margin-top:10px">Student 2 · am / is / are / do / does</p>
+        <p class="src">1 How often __ you make a to-do list?</p>
+        <p class="src">2 Where ____ your phone now?</p>
+        <p class="src">3 What _______ your friend do to keep fit?</p>
+        <p class="src">4 How often _______ you and your family go on a trip together?</p>
+        <p class="src">5 ______ your boss understand your jokes?</p>
+        <p class="src">6 What ___ your favourite snack?</p>
+        <p class="src">7 _____ your best friend love pineapple on pizza?</p>
+        <p class="src">8 ____ you calm now?</p>
+        <p class="src">Check your answers: 1 do · 2 is · 3 does · 4 do · 5 does · 6 is · 7 does · 8 are</p>
+        <p class="label" style="margin-top:10px">Are you more active or lazy?</p>
+        <p class="src">Sort out the activities. The prompt card on the slide is do yoga.</p>
+        <p class="src">Active people: go out · play basketball · play golf · go camping · go dancing · go on a trip · go running · keep fit · do yoga · go to the gym</p>
+        <p class="src">Lazy people: watch reels · play computer games · play chess · stay in · go out for a coffee or to have a meal · have a nap · have a lie-in</p>
+        <p class="label" style="margin-top:10px">From the slides</p>
+        <p class="src">achieve a goal = reach, come to</p>
+        <p class="src">Beat others = win in the game (beat - beat - beaten). He beat me at chess.</p>
+        <p class="label" style="margin-top:10px">Discuss</p>
+        <p class="src">1 Do you know people who enjoy running? 2 What motivates them?</p>
+        <p class="label" style="margin-top:10px">Listen</p>
+        <p class="src">1 His motivation to run. 2 How often he runs. 3 How many miles he runs. 1 mile = 1.6km. 4 What he does while running.</p>
+        <p class="label" style="margin-top:10px">Over to you</p>
+        <p class="src">1 Would you like to start running? How many km can you run?</p>
+        <p class="src">2 What do you do to keep fit? What motivates you to keep going? What goal would you like to achieve?</p>
+        <p class="src">3 What sport would you like to try?</p>
+        <p class="src">Extra time: How important for you to beat others when you play games?</p>
+        <p class="label" style="margin-top:10px">How often do you run?</p>
+        <p class="src">always · usually · often · occasionally · rarely · hardly ever · never</p>
+        <p class="src">On the same slide, not paired as answers: most days · once in while · once a week · twice a week · 3 times a year</p>
+        <p class="label" style="margin-top:10px">Word order · pieces on the slide</p>
+        <p class="src">We study · twice a week</p>
+        <p class="src">He runs · most days</p>
+        <p class="src">He · usually · listens · to music.</p>
+        <p class="src">He is · never · tired · after running.</p>
+        <p class="src">often · run · in the morning.</p>
+        <p class="src">often · lazy.</p>
+        <p class="label" style="margin-top:10px">How to make a question</p>
+        <p class="src">How often does he run? · How often do you do exercise? · Are you always so happy? · Do you usually come late?</p>
+        <p class="label" style="margin-top:10px">Put in order · words on the slide</p>
+        <p class="src">work · occasionally</p>
+        <p class="src">after · is · He · tired</p>
+        <p class="label" style="margin-top:10px">Sentences on the next slides</p>
+        <p class="src">She is usually at home in the evening.</p>
+        <p class="src">He is occasionally tired after work.</p>
+        <p class="src">I am never late for appointments.</p>
+        <p class="src">They don't go on a trip twice a year.</p>
+        <p class="src">Are you busy most days?</p>
+        <p class="src">He hardly ever has a nap.</p>
+        <p class="src">Do you occasionally have a lie-in?</p>
+        <p class="src">Do you make a to-do list most days?</p>
+        <p class="src">Does she keep fit 3 times a week?</p>
+        <p class="src">Do they never stay in?</p>
+        <p class="label" style="margin-top:10px">Make sentences</p>
+        <p class="src">go running · rarely · most days</p>
+        <p class="src">go swimming · once in a while · often</p>
+        <p class="src">get a massage · 2 a week · 1 a week</p>
+        <p class="src">play football · never · 4-5 a week</p>
+        <p class="src">play tennis · most days · hardly ever</p>
+        <p class="src">win games · usually · usually</p>
+        <p class="src">you · Find out who has the most active life</p>
+        <p class="label" style="margin-top:10px">Rules of successful people</p>
+        <p class="src">Think about their routine. The slide shows four photos and no names.</p>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra14"></div>
+        <p class="label" id="lesson14AddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
+        <div class="words" id="lesson14Added"></div>
+      </div>
+    </section>
+
+    <section id="lesson16">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>16 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Wednesday. Small talk. Level B1. How long have you…? is the harder piece. This day's quiz uses only this day's cards.</p>
+        <div class="tags"><span>#small-talk</span><span>#speaking</span><span>#conversation</span><span>#frequency</span><span>#present-simple</span><span>#present-perfect</span><span>#polite-requests</span><span>#starting-a-conversation</span><span>#ending-a-conversation</span></div>
+        <div class="here-add" data-place="lesson-16" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="Go ahead" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip" type="button" data-lesson-words="lesson-16">Words</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-16">Rules</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-16">This day's quiz</button>
+        </div>
+        <p class="src"><a href="pdf/16.09.2026.pdf" target="_blank" rel="noreferrer">16.09.2026.pdf</a></p>
+        <h2>1. What you will learn</h2>
+        <p class="src">How to start, keep and end a short conversation with a stranger. How often + do/are. Polite requests with Do you mind if I…? Present Perfect in How long have you worked here?</p>
+        <h2>2. Key phrases</h2>
+        <h3>Is anyone sitting here?</h3>
+        <p class="src"><b>Translation:</b> Здесь кто-нибудь сидит?</p>
+        <p class="src"><b>When to use:</b> You want a free seat and you check first.</p>
+        <p class="src"><b>Useful variations:</b> Excuse me, is anyone sitting here? · Is anyone using this? · Do you mind if I sit here?</p>
+        <p class="src"><b>Possible replies:</b> No, go ahead. · Not at all. · Be my guest. The choice slides also show go on and you're. They do not mark one answer.</p>
+        <p class="src"><b>Example:</b> Excuse me, is anyone sitting here?</p>
+        <h3>Do you mind if I…?</h3>
+        <p class="src"><b>Pattern:</b> Do you mind if I + verb…?</p>
+        <p class="src"><b>Translation:</b> Вы не против, если я…?</p>
+        <p class="src">Do you mind if I sit here? · Do you mind if I charge my phone here? · Is it okay if I leave my bag here? · Is it OK if I use this?</p>
+        <p class="src"><b>Replies:</b> No, not at all. = Нет, не против. Go ahead. = Да, пожалуйста. Be my guest. = Пожалуйста. Yes here can sound like “да, я против”.</p>
+        <h3>How long have you worked here?</h3>
+        <p class="src"><b>Pattern:</b> How long + have/has + subject + past participle?</p>
+        <p class="src"><b>Translation:</b> Как долго…?</p>
+        <p class="src">How long have you lived here? · How long have you had your dog? · How long have you worked here? These alternatives are on the phrase slide.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="pp">Present Perfect</button></p>
+        <h2>3. Grammar from this lesson</h2>
+        <h3>How often + Present Simple</h3>
+        <p class="src">How often asks about a habit. An action takes do. A state with be takes are/is.</p>
+        <p class="src">The gaps on the slide are still gaps: How often ___ ____ sit on benches? How often ___ ____ tired of walking?</p>
+        <p class="src">A natural pair, using the same words: How often do you sit on benches? How often are you tired of walking?</p>
+        <p class="src">The choice slide is How often are you \ do you, with the picture “… angry at work?”. It does not mark the button.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="ps">Present Simple</button> <button class="src-more" type="button" data-jump="lesson14">Frequency lesson · 14 Sep</button></p>
+        <h2>4. Frequency expressions</h2>
+        <p class="src">always, usually, often, occasionally, rarely, hardly ever, never describe the habit. once a month, twice a month, 5 times a year, most days and once in while give a number or a rough period. The scale writes once in while. The card on 14 Sep is once in a while.</p>
+        <table class="g-table"><tr><th>Expression</th><th>Meaning</th><th>Example frame</th></tr>
+          <tr><td>always</td><td>всегда</td><td>I always…</td></tr>
+          <tr><td>usually</td><td>обычно</td><td>I usually…</td></tr>
+          <tr><td>often</td><td>часто</td><td>I often…</td></tr>
+          <tr><td>occasionally</td><td>время от времени</td><td>I occasionally…</td></tr>
+          <tr><td>rarely</td><td>редко</td><td>I rarely…</td></tr>
+          <tr><td>hardly ever</td><td>почти никогда</td><td>I hardly ever…</td></tr>
+          <tr><td>never</td><td>никогда</td><td>I never…</td></tr>
+          <tr><td>once a month</td><td>раз в месяц</td><td>I go once a month.</td></tr>
+          <tr><td>twice a month</td><td>два раза в месяц</td><td>I go twice a month.</td></tr>
+          <tr><td>5 times a year</td><td>пять раз в год</td><td>I travel 5 times a year.</td></tr>
+        </table>
+        <h2>5. Conversation patterns</h2>
+        <h3>Starting a conversation</h3>
+        <p class="src">Is anyone sitting here? · Do you mind if I charge my phone here? · Do you know if there’s a cafe near here? · How long have you worked here? · It’s a lovely day, isn’t it? · Is this your first time here?</p>
+        <h3>Keeping a conversation going</h3>
+        <p class="src">Help yourself. · What/How about you? · Go ahead. · Not at all. · Be my guest. · And you? · I’m George, by the way</p>
+        <p class="src">What about you?, How about you? and And you? all hand the question back: «А ты?» / «А вы?»</p>
+        <h3>Ending a conversation</h3>
+        <p class="src">Nice talking to you · Have a good time. · I’ve got to go. · That’s my bus. · See you later. · Ok, nice to meet you.</p>
+        <h2>7. Similar phrases</h2>
+        <p class="src">Go ahead. · Not at all. · Be my guest. · No problem. All of these can accept a request. No problem. is on the reply list and is not one of the 19 sort tiles.</p>
+        <p class="src">Have fun. and Have a good time. sit together on the phrase slide as Have fun./Have a good time.</p>
+        <h2>8. Typical mistakes</h2>
+        <p class="miss"><span class="no">How often are you sit on benches?</span> <span class="yes">How often do you sit on benches?</span></p>
+        <p class="miss"><span class="no">How long do you worked here?</span> <span class="yes">How long have you worked here?</span></p>
+        <p class="miss"><span class="no">Do you mind if I sit here? — Yes.</span> when you mean “я не против”. <span class="yes">No, not at all.</span> or <span class="yes">Go ahead.</span></p>
+        <h2>9. Vocabulary</h2>
+        <p class="src"><b>stranger</b> — незнакомец. It is underlined in the reading. I don't usually talk to strangers.</p>
+        <div class="words" id="talkGrid"></div>
+        <p class="label">Classwork</p>
+        <p class="src">Lesson PDF · small talk. <a href="pdf/16.09.2026.pdf" target="_blank" rel="noreferrer">16.09.2026.pdf</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119031666/03-how-often-are-you-do-you-student-1" target="_blank" rel="noreferrer">Wordwall · how often are you / do you · student 1</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119031707/03-how-often-are-you-do-you-student-2" target="_blank" rel="noreferrer">Wordwall · how often are you / do you · student 2</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119186978/04-sorting-out" target="_blank" rel="noreferrer">Wordwall · sorting out</a></p>
+        <p class="label">Homework · to practise new phrases</p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119364241?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" target="_blank" rel="noreferrer">so intermediate 3rd edition unit 1c making a</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119365101?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="label" style="margin-top:10px">Where would you like to take a seat?</p>
+        <p class="src">Is there a favourite bench in your city? Talk about it.</p>
+        <p class="src">The slide shows three photos, numbered 1 2 3. No names on the slide.</p>
+        <p class="label" style="margin-top:10px">How often</p>
+        <p class="src">How often ___ ____ sit on benches?</p>
+        <p class="src">How often ___ ____ tired of walking?</p>
+        <p class="src">How often …?</p>
+        <p class="src">always · usually · often · occasionally · rarely · hardly ever · never</p>
+        <p class="src">On the same slide: most days · once in while · once a month · twice a month · 5 times a year</p>
+        <p class="label" style="margin-top:10px">Work individually</p>
+        <p class="src">Choose the right answer: How often are you \ do you</p>
+        <p class="src">The picture on the slide says: … angry at work?</p>
+        <p class="label" style="margin-top:10px">Have a conversation</p>
+        <p class="src">Find out what your partner never does</p>
+        <p class="label" style="margin-top:10px">Happy to chat benches</p>
+        <p class="src">Have you ever seen these benches?</p>
+        <p class="src">Who might want to use them?</p>
+        <p class="src">The bench in the photo says HAPPY TO CHAT.</p>
+        <p class="src">The plaque says: ‘HAPPY TO CHAT’ BENCH. SIT HERE IF YOU DON’T MIND SOMEONE STOPPING TO SAY HELLO.</p>
+        <p class="src">1 Who can sit there?</p>
+        <p class="src">2 Why did she decide to create such benches?</p>
+        <p class="src">Most of us spend part of our day surrounded by strangers, perhaps when travelling to work, sitting in a park or a café or visiting the supermarket. We are together with other people, but nobody talks. However, research shows that starting up a conversation with a stranger can make you feel happier and enjoy your day more.</p>
+        <p class="src">When Allison Owen-Jones saw a man sitting alone on a bench in the park, she wanted to talk to him, but she felt uncomfortable because she wasn’t sure he would want to chat. Then she had an idea: ‘Happy to chat benches’. She made a sign to put on park benches which said, ‘Happy to chat bench. Sit here if you don’t mind someone stopping to say hello.’ The idea was a success. Now ‘Happy to chat benches’ can be found in several countries including Canada, the USA, Australia, Switzerland and Ukraine.</p>
+        <p class="src">So, the next time you see someone sitting alone, give them a smile and say hello. You never know: they might be happy to talk.</p>
+        <p class="src">On the reading slide, strangers is underlined.</p>
+        <p class="label" style="margin-top:10px">Over to you</p>
+        <p class="src">1 How often do you talk to people you don’t know? In what places?</p>
+        <p class="src">2 Do you like the idea of small talk? How do you feel when a stranger starts talking to you?</p>
+        <p class="src">3 Do you think “happy to chat benches” would be a good idea where you live? Why?</p>
+        <p class="src">4 Think of 5 topics that are okay to talk about with strangers.</p>
+        <p class="label" style="margin-top:10px">What will you say to start a conversation?</p>
+        <p class="src">The slide before it shows two photos, numbered 1 and 2. No captions on the slide.</p>
+        <p class="label" style="margin-top:10px">Tick the best ideas</p>
+        <p class="src">1 Did you hear about the fire in town? It’s terrible.</p>
+        <p class="src">2 That’s a nice jacket. Where did you get it?</p>
+        <p class="src">3 Lovely day, isn’t it?</p>
+        <p class="src">4 So, who do you think will win the football match?</p>
+        <p class="src">5 It’s the Big Music Live this weekend. Are you going?</p>
+        <p class="src">6 I heard you have a job in finance. Do you enjoy it?</p>
+        <p class="src">7 We’ve just got back from Corfu. It was wonderful.</p>
+        <p class="src">The slide does not mark which ideas are best.</p>
+        <p class="label" style="margin-top:10px">Listen. True or false?</p>
+        <p class="src">Conversation 1. 1 The man has never been to the music festival before. 2 The woman is going to see a family member at the festival.</p>
+        <p class="src">Conversation 2. 3 Kate prefers the coffee from the coffee machine. 4 Kate started work two weeks ago.</p>
+        <p class="src">Conversation 3. 5 The man is on holiday. 6 The woman likes the city.</p>
+        <p class="src">The slide does not mark true or false.</p>
+        <p class="label" style="margin-top:10px">Choose · the slide shows both options</p>
+        <p class="src">Excuse \ Excuse me, is anyone sitting here?</p>
+        <p class="src">No, go on \ go ahead</p>
+        <p class="src">Do you mind if I sit here?</p>
+        <p class="src">No, you’re \ be my guest</p>
+        <p class="src">Do you mind if I charge my phone here?</p>
+        <p class="src">Go ahead \ be my guest \ not at all.</p>
+        <p class="src">Is it okay if I leave my bag here?</p>
+        <p class="src">Go ahead \ be my guest \ not at all.</p>
+        <p class="src">Excuse me, is there \ there is a café near here?</p>
+        <p class="src">Yes, it’s on the left.</p>
+        <p class="src">Thanks.</p>
+        <p class="src">Are you going to a new shopping centre?</p>
+        <p class="src">Yes. What about you?</p>
+        <p class="src">No, sorry.</p>
+        <p class="src">Is it your \ the first time here?</p>
+        <p class="src">Yes! I’m so excited.</p>
+        <p class="src">That’s my bus. I’ve got to go.</p>
+        <p class="src">Have fun!</p>
+        <p class="src">Can \ Do I have a cup of coffee?</p>
+        <p class="src">Sure! Help yourself.</p>
+        <p class="src">How long \ often have you worked here?</p>
+        <p class="src">For 2 years. I’m Alex, by \ on the way.</p>
+        <p class="src">….</p>
+        <p class="src">Nice talking to you. See you later \ never!</p>
+        <p class="label" style="margin-top:10px">Phrases on the slide</p>
+        <p class="src">Excuse me, is anyone (sitting here/using this)?</p>
+        <p class="src">Is this your first time (here/at this event)?</p>
+        <p class="src">Do you mind if I/Is it OK if I (charge my phone here/use this)?</p>
+        <p class="src">How long have you (had your dog/lived here/worked here)?</p>
+        <p class="src">Are you going (to London/to the festival)?</p>
+        <p class="src">Excuse me, do you know if there’s (wifi/a café near here)?</p>
+        <p class="src">I’m (name), by the way.</p>
+        <p class="src">No problem. · Go ahead. · Not at all. · Help yourself. · Be my guest.</p>
+        <p class="src">What about you? · How about you? · And you?</p>
+        <p class="src">OK, nice to meet you. · See you later. · (Great/Nice) talking to you. · Have fun./Have a good time. · I’ve got to go. · That’s my (bus/train).</p>
+        <p class="label" style="margin-top:10px">Sort out · tiles on the slide</p>
+        <p class="src">Do you know if there’s a cafe near here? · And you? · See you later. · Help yourself.</p>
+        <p class="src">That’s my bus. · I’ve got to go. · What/How about you? · I’m George, by the way</p>
+        <p class="src">Is this your first time here? · Do you mind if I charge my phone here? · How long have you worked here? · Have a good time.</p>
+        <p class="src">It’s a lovely day, isn’t it? · Is anyone sitting here? · Go ahead. · Not at all.</p>
+        <p class="src">Be my guest. · Ok, nice to meet you. · Nice talking to you</p>
+        <p class="src">Columns on that slide: starting a conversation · reaction/keeping a conversation going · ending a conversation</p>
+        <p class="label" style="margin-top:10px">Sorted on the next slide</p>
+        <p class="src">starting a conversation: Do you mind if I charge my phone here? · Is anyone sitting here? · Do you know if there’s a cafe near here? · How long have you worked here? · It’s a lovely day, isn’t it? · Is this your first time here?</p>
+        <p class="src">reaction/keeping a conversation going: Help yourself. · What/How about you? · Go ahead. · Not at all. · Be my guest. · And you? · I’m George, by the way</p>
+        <p class="src">ending a conversation: Nice talking to you · Have a good time. · I’ve got to go. · That’s my bus. · See you later. · Ok, nice to meet you.</p>
+        <p class="label" style="margin-top:10px">Think of the phrases that can be used in these situations</p>
+        <p class="src">Name them. Don’t make dialogues.</p>
+        <p class="src">The slide shows five photos and no names.</p>
+        <p class="label" style="margin-top:10px">Complete the gaps with 1 - 3 words</p>
+        <p class="src">Woman: Excuse me, 1 ………… sitting here?</p>
+        <p class="src">Man: No, go 2 ………… .</p>
+        <p class="src">Woman: Thanks.</p>
+        <p class="src">Man: No 3 ………… .</p>
+        <p class="src">Woman: Have you been to the festival before?</p>
+        <p class="src">Man: Yes, I go every year. How 4 ………… you?</p>
+        <p class="src">Woman: Oh, it’s my first time.</p>
+        <p class="src">Kate: I’m Kate, by the 5 ………… .</p>
+        <p class="src">Justine: Hi, Kate. I’m Justine.</p>
+        <p class="src">Kate: Great. Well, Justine, I’ve 6 ………… go. Nice to meet you.</p>
+        <p class="src">Justine: Yes, nice to 7 ………… .</p>
+        <p class="src">Man: Excuse me, do 8 ………… if I charge my phone here?</p>
+        <p class="src">Woman: Not at all. 9 ………… my guest.</p>
+        <p class="src">Man: Thanks. That’s very kind.</p>
+        <p class="src">Woman: Oh, that’s my train. Nice 10 ………… to you.</p>
+        <p class="src">Man: Safe journey home!</p>
+        <p class="src">Listen and check. The next slide is titled Correct answers. The numbered gaps on that image are still blank.</p>
+        <p class="label" style="margin-top:10px">Read conversations</p>
+        <p class="src">The same gap conversations. Underlined on the slide: I go every year · my first time · Kate · I’m Justine · Justine · charge my phone here · my train</p>
+        <p class="label" style="margin-top:10px">Can you start a conversation?</p>
+        <p class="src">The last slide is a photo. No names on the slide.</p>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra16"></div>
+        <p class="label" id="lesson16AddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
+        <div class="words" id="lesson16Added"></div>
+      </div>
+    </section>
+
+    <section id="lesson23">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>23 September 2026</h1></div>
+      <div class="card grow study">
+        <p class="sub" style="margin-top:0">Wednesday. Holidays and preferences. Level B1. Past Simple and one second-conditional question. This day's quiz uses only this day's cards.</p>
+        <div class="tags"><span>#preferences</span><span>#past-simple</span><span>#likes</span><span>#holidays</span><span>#gerund</span></div>
+        <div class="here-add" data-place="lesson-23" style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="I quite like" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip" type="button" data-lesson-words="lesson-23">Words</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-23">Rules</button>
+          <button class="btn primary" type="button" data-day-quiz="lesson-23">This day's quiz</button>
+        </div>
+        <h2>1. What you will learn</h2>
+        <p class="src">How to say you love, like, prefer or can’t stand something. Past Simple, including was/were, for a holiday story. Weather opposites, using words that already have cards on 21 Sep.</p>
+        <h2>2. Key phrases</h2>
+        <h3>I really love … / I quite like … / I prefer … to … / I can’t stand … / I don’t mind …</h3>
+        <p class="src">They really love … · They quite like … · They prefer … · They can’t stand … · They don’t mind when …</p>
+        <p class="src">I’m keen on cycling. I don’t mind camping. I can’t stand running. I enjoy … I am interested in classical music. I am into (doing) yoga.</p>
+        <p class="src">After keen on, into, enjoy, mind and can’t stand, use a noun or -ing, not a bare infinitive.</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="ger_prep">preposition + gerund</button> <button class="src-more" type="button" data-jump="rules">Likes note on 21 Sep rules</button></p>
+        <div class="words" id="likeGrid"></div>
+        <h2>3. Grammar from this lesson</h2>
+        <h3>Past Simple</h3>
+        <p class="src">Ved / V2. didn’t + verb. Did + subject + verb? Time markers on the slide: last week, yesterday, in 1991, 3 months ago. Can → could.</p>
+        <p class="src">see – saw · have – had · can – could · decide – decided · spend – spent · start – started · feel – felt</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="pasts">Past Simple</button> <button class="btn chip" type="button" data-topic="could">could</button></p>
+        <h3>was / were</h3>
+        <p class="src">The slide lists I · He · She was · It · We · You were · They. It was chilly yesterday morning. They were at work. She was on holiday. You were so angry last night.</p>
+        <p class="src">These three gaps have no key on the slide: The weather _ lovely! · We _ not tired · The phone _ in my pocket</p>
+        <h3>What would you do if…?</h3>
+        <p class="src">What would you do if you couldn’t find your phone? What would you do if your friend couldn’t find his phone?</p>
+        <p class="src"><button class="btn chip" type="button" data-topic="second">Second Conditional</button></p>
+        <h2>8. Typical mistakes</h2>
+        <p class="miss"><span class="no">I’m keen on cycle.</span> <span class="yes">I’m keen on cycling.</span></p>
+        <p class="miss"><span class="no">I prefer tennis than volleyball.</span> <span class="yes">I prefer tennis to volleyball.</span> The checked answer on the slide uses to.</p>
+        <p class="miss"><span class="no">Did you went?</span> <span class="yes">Did you go?</span> After did, use the base verb. The story key uses went only in the affirmative: we went.</p>
+        <h2>9. Vocabulary</h2>
+        <p class="src">Weather on this PDF is the same set as <button class="src-more" type="button" data-jump="lesson">21 Sep</button>, including heavy rain. New cards here that were only topics before: flip flops, street food, gardening.</p>
+        <p class="src">The student-2 list says visiting quite villages. That is the slide spelling. The word that fits the meaning is quiet.</p>
+        <p class="label">Lesson</p>
+        <p class="src"><a href="pdf/23.09.2026.pdf" target="_blank" rel="noreferrer">23.09.2026.pdf</a></p>
+        <p class="label">Homework · to practise new phrases</p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119364241?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" target="_blank" rel="noreferrer">so intermediate 3rd edition unit 1c making a</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119365101?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="label" style="margin-top:10px">Match the opposites</p>
+        <p class="src">It’s freezing · It’s chilly · It’s boiling · There’s a shower · It’s humid / damp</p>
+        <p class="src">It’s mild · It’s dry · There’s drizzle</p>
+        <p class="src">On the next slide the pairs sit together: It’s chilly — It’s mild · It’s boiling — It’s freezing · There’s a shower — There’s drizzle · It’s humid / damp — It’s dry</p>
+        <p class="label" style="margin-top:10px">New vocabulary</p>
+        <p class="src">Weather: There’s drizzle. · There’s heavy rain · There is a shower · There’s a thunderstorm · It’s humid · It’s wet · It’s damp · It’s windy · It’s dry</p>
+        <p class="src">Temperature: It’s chilly · It’s boiling · It’s freezing · It’s mild</p>
+        <p class="label" style="margin-top:10px">What weather do they prefer?</p>
+        <p class="src">They really love … · They quite like … · They prefer … · They can’t stand … · They don’t mind when …</p>
+        <p class="src">The slide shows photos. No names on the slide.</p>
+        <p class="label" style="margin-top:10px">What about you?</p>
+        <p class="src">I really love (when) … · I quite like … · I prefer … to … · I can’t stand (when)… · I don’t mind (when) …</p>
+        <p class="src">The next slide shows three photos and no text.</p>
+        <p class="label" style="margin-top:10px">Patterns on the slide</p>
+        <p class="src">I’m keen on cycling · I don’t mind camping · I can’t stand running</p>
+        <p class="src">I really love cycling · I enjoy … cycling · I’m really interested in … · I’m into … cycling · I prefer … to …. · I quite like … cycling</p>
+        <p class="label" style="margin-top:10px">Paraphrase sentences</p>
+        <p class="src">0 Doing housework isn’t a problem for me. (mind) — I don’t mind doing housework.</p>
+        <p class="src">1 I hate long winters (stand)</p>
+        <p class="src">2 I like doing yoga. (into)</p>
+        <p class="src">3 I don’t like thunderstorms. (keen)</p>
+        <p class="src">4 Going camping is okay. (quite)</p>
+        <p class="src">5 I like tennis more than volleyball. (to)</p>
+        <p class="src">6 I like classical music. (interested)</p>
+        <p class="label" style="margin-top:10px">Check answers</p>
+        <p class="src">1 I can’t stand long winters.</p>
+        <p class="src">2 I am into (doing) yoga.</p>
+        <p class="src">3 I’m not keen on thunderstorms</p>
+        <p class="src">4 I quite like camping.</p>
+        <p class="src">5 I prefer tennis to volleyball.</p>
+        <p class="src">6 I am interested in classical music.</p>
+        <p class="label" style="margin-top:10px">Guess your partner’s preferences</p>
+        <p class="src">Student 1 · reading books</p>
+        <p class="src">I guess you don’t mind reading</p>
+        <p class="src">In my opinion you’re keen on reading</p>
+        <p class="src">Student 2 · React</p>
+        <p class="src">That’s true but I hardly ever read. · Yes! I really love it! · No, I’m not keen on reading.</p>
+        <p class="label" style="margin-top:10px">Student 1</p>
+        <p class="src">talking to strangers · planning things in advance · going out · having a lie-in · getting voice messages · going to live concerts · having a nap · spending time alone · listening to music while working · going to parties · having something sweet after dinner</p>
+        <p class="label" style="margin-top:10px">Student 2</p>
+        <p class="src">having an early night · staying in on the weekend · keeping fit · coming late for appointments · street food · gardening · taking photos of everything · sending voice messages · shopping online · visiting quite villages · waiting in line</p>
+        <p class="label" style="margin-top:10px">Are you into travelling?</p>
+        <p class="src">Oh no! I forgot my …. · Think of 5 things people tend to forget</p>
+        <p class="src">Listen and check your ideas</p>
+        <p class="src">Flip flops</p>
+        <p class="src">1 What did he forget? 2 Where did he find it? 3 How much time did it take to find it?</p>
+        <p class="src">What would you do if you couldn’t find your phone?</p>
+        <p class="src">What would you do if your friend couldn’t find his phone?</p>
+        <p class="src">The slides show photos. No names on the slides.</p>
+        <p class="label" style="margin-top:10px">Past Simple</p>
+        <p class="src">I · We · You · They · He · She · It + Ved / V2</p>
+        <p class="src">I · We · You · They · He · She · It + didn’t + V</p>
+        <p class="src">Did + I · we · you · they · he · she · it + V?</p>
+        <p class="src">Time markers: last week, yesterday, in 1991, 3 months ago</p>
+        <p class="src">Can → could</p>
+        <p class="label" style="margin-top:10px">the verb to be</p>
+        <p class="src">I · He · She was · It · We · You were · They</p>
+        <p class="src">It was chilly yesterday morning.</p>
+        <p class="src">They were at work.</p>
+        <p class="src">She was on holiday.</p>
+        <p class="src">You were so angry last night.</p>
+        <p class="label" style="margin-top:10px">Past forms · then the next slide</p>
+        <p class="src">see – · have – · can – · decide – · spend – · start – · feel -</p>
+        <p class="src">see – saw · have – had · can – could · decide – decided · spend – spent · start – started · feel - felt</p>
+        <p class="label" style="margin-top:10px">Gaps · no answers on the slide</p>
+        <p class="src">The weather _ lovely!</p>
+        <p class="src">We _ not tired</p>
+        <p class="src">The phone _ in my pocket</p>
+        <p class="label" style="margin-top:10px">Was it a perfect trip?</p>
+        <p class="src">Change verbs</p>
+        <p class="src">Two summers ago we had (have) a holiday in Scotland. We 1 __________ (drive) there from London, but our car 2 __________ (break) down on the motorway and we 3 __________ (spend) the first night in Birmingham. When we 4 __________ (get) to Edinburgh we 5 __________ (go) to our hotel, but they 6 __________ (not can) find our reservation, and they 7 __________ (be) full. We 8 __________ (not know) what to do, but in the end we 9 __________ (find) a Bed and Breakfast and we 10 __________ (stay) there for the week. We 11 __________ (see) the castle and 12 __________ (buy) a lot of souvenirs. We 13 __________ (want) to go to Loch Ness, but we 14 __________ (not have) much time and it 15 __________ (be) quite far away. The weather 16 __________ (not be) very good – it 17 __________ (start) raining on the day we 18 __________ (leave) London, and it never 19 __________ (stop)!</p>
+        <p class="label" style="margin-top:10px">Correct answers</p>
+        <p class="src">1 drove · 2 broke down · 3 spent · 4 got · 5 went · 6 couldn’t find · 7 were · 8 didn’t know · 9 found · 10 stayed · 11 saw · 12 bought · 13 wanted · 14 didn’t have · 15 was · 16 wasn’t · 17 started · 18 left · 19 stopped</p>
+        <p class="label" style="margin-top:10px">Use pictures to make a story</p>
+        <p class="src">went · took · saw · had · visited · could</p>
+        <p class="src">wanted · decided · spent · started · felt · It was</p>
+        <p class="src">One picture has the word Departures. Another has Mountain Trail. The last slide says: Tell your partner about …</p>
+        <p class="label" style="margin-top:12px">Additional words</p>
+        <p class="src">Words from this day's cards that were not already in All words.</p>
+        <div class="words" id="extra23"></div>
+        <p class="label" id="lesson23AddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
+        <div class="words" id="lesson23Added"></div>
+      </div>
+    </section>
+
+    <section id="add">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Add a word</h1></div>
+      <div class="card grow">
+        <p class="sub" style="margin-top:0">Words already added, grouped by the page they belong to.</p>
+        <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-add-study>Study</button></div>
+        <div class="here-add" id="mineAdd" data-place="mine" hidden style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="drizzle or морось" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
+        <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+        <div id="addedList"></div>
+      </div>
+    </section>
+
+    <section id="made">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="add">Back</button><h1 id="madeTitle">Cards</h1></div>
+      <div class="card grow" id="madeView"></div>
+    </section>
+
+    <section id="guide" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>How to use</h1></div>
+      <div class="card grow">
+        <div class="row" id="guideLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-guide-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-guide-lang="en">English</button>
+        </div>
+        <div class="rule">
+          <b class="ru">Главная</b><b class="en">Home</b>
+          <div class="ru">Здесь статистика занятия: сколько карточек выучено из всех, время, сданные экзамены, слабые карточки и те, что еще учатся. Пока занятий не было, выучено 0 из всех карточек. Новая карточка сразу увеличивает это число. Колоды лежат в Library. Занятие начинается в Study.</div>
+          <div class="en">Home is the study statistics: cards learned out of every card, study time, exams passed, weak cards, and cards still learning. Until you study, learned stays 0 of every card. A new card raises that total at once. Decks are in Library. A session starts in Study.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Study</b><b class="en">Study</b>
+          <div class="ru">На Study сначала включен только Flip. Остальные типы открываются через .... Round проходит каждый выбранный тип на одной карточке. Mix берет один случайный тип. Start начинает занятие по карточкам этой страницы. Exam и Mistakes берут те же карточки. Flip в экзамен не входит. Экзамен не сдан при двух ошибках или через 20 минут.</div>
+          <div class="en">On Study, only Flip starts on. The other types open from .... Round runs every selected type on one card. Mix picks one random type. Start uses the cards on this page. Exam and Mistakes use those same cards. Flip is not on the exam. The exam fails at two mistakes or after 20 minutes.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Когда карточка выучена</b><b class="en">When a card is learned</b>
+          <div class="ru">Карточка выучена, только когда пройден каждый включенный проверяемый тип. Flip вы оцениваете сами: он не закрывает карточку и в экзамен не входит. Ошибка остается, пока этот тип не отвечен верно четыре раза подряд. На странице Mistakes одно слово собрано в одну карточку, а квизы с ошибками выделены. Open card открывает карточку. Repeat повторяет только эти квизы. Экзамен не сдан при двух ошибках или через 20 минут.</div>
+          <div class="en">A card is learned only when every enabled checkable type is passed. Flip is self-rated: it does not close the card and it is not on the exam. A mistake stays until that type is answered correctly four times in a row. On Mistakes, one word is one card, and the quizzes that were missed are marked. Open card shows the card. Repeat runs only those quizzes. The exam fails at two mistakes or after 20 minutes.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Типы ответов</b><b class="en">Answer types</b>
+          <div class="ru">Choice — выбрать вариант. Flip — перевернуть и вспомнить. Type — напечатать. Gap — вставить пропуск. Build — собрать фразу. Match — соединить пары. True / false — верно или неверно. Tap — нажать слово в тексте. Select all — отметить все верные. Reverse — вопрос в другую сторону. Spell — назвать по буквам. Letters — собрать слово из букв. Listen — ответ на слух. Definition — ответ по определению. Odd one out — найти лишнее. Memory — найти пары. Hangman — угадать слово по буквам. Квизы идут в обе стороны: с английского на русский и с русского на английский.</div>
+          <div class="en">Choice picks an option. Flip turns the card. Type is typed. Gap fills a blank. Build puts a sentence in order. Match joins pairs. True / false judges a line. Tap hits a word in a sentence. Select all marks every correct line. Reverse asks the other way. Spell names the letters. Letters builds the word from letters. Listen answers from sound. Definition answers from a definition. Odd one out finds the item that does not belong. Memory finds pairs. Hangman guesses the word letter by letter. Quizzes run both ways: English to Russian and Russian to English.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Library</b><b class="en">Library</b>
+          <div class="ru">Порядок такой: Classes, Grammar, Irregular verbs, All words, My words, Phrasal verbs, Idioms, Articles, Demonstratives, Song lyrics, Speakout. Phrasal verbs и Idioms учатся как карточки. На этих страницах Add a word добавляет карточку сюда же. Articles открывают заметку в Grammar. Demonstratives — урок this, that, these, those. У неправильного глагола три формы, отдельной карточки во всех словах нет. Speakout в конце: уровни A1, A2, A2+, B1, B1+, B2, B2+, C1-C2. В каждом уровне 8 юнитов и уроки A–D.</div>
+          <div class="en">The order is Classes, Grammar, Irregular verbs, All words, My words, Phrasal verbs, Idioms, Articles, Demonstratives, Song lyrics, Speakout. Phrasal verbs and Idioms are study cards. Add a word on those pages adds a card there. Articles open the Grammar note. Demonstratives is the lesson for this, that, these, those. An irregular verb has three forms and is not a second card in All words. Speakout is last: levels A1, A2, A2+, B1, B1+, B2, B2+ and C1-C2. Each level has 8 units and lessons A–D.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Classes</b><b class="en">Classes</b>
+          <div class="ru">Вкладка Classes. Занятия идут по дате, с 7 сентября 2026. У каждой даты своя страница. Слова, правила и квиз этого дня считаются отдельно. Правило можно читать по-русски и по-английски.</div>
+          <div class="en">The Classes tab. Lessons are listed by date, from 7 September 2026. Each date has its own page. That day's words, rules and quiz stay on that page. A rule can be read in Russian or in English.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Грамматика</b><b class="en">Grammar</b>
+          <div class="ru">Раздел Grammar открывается картой. Сначала 12 времен. be going to, условные предложения, модальные глаголы и остальные конструкции лежат отдельно, не как времена. У каждой темы своя страница: формула, употребление, примеры и источник.</div>
+          <div class="en">Grammar opens as a map. The 12 tenses come first. be going to, conditionals, modals and the other structures sit apart from the tenses. Each topic has its own page: formula, use, examples and a source.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Тексты песен</b><b class="en">Song lyrics</b>
+          <div class="ru">Кнопка Add a song открывает форму. Песни идут списком с номера 1. Новая карточка попадает в All words, на странице песен ее нет. В строке песни: сколько слов, сколько новых, сколько выучено, сколько еще учить. Выученное слово в тексте зеленое, остальные синие. Переносы строк сохраняются. Размер шрифта можно увеличить или уменьшить. Текст можно поправить и проверить карточки снова. Ссылку на видео, ссылку на музыку и файл можно вставить по отдельности или все сразу. Файл перетаскивается на форму. На странице песни показывается только то, что вставлено. Файл играет только в том браузере, куда его положили. Архив не стирает карточки: песня помечается как архивная. На карточке из текста есть Pronunciation: сначала PlayPhrase, затем YouGlish.</div>
+          <div class="en">Add a song opens the form. Songs are a list starting at 1. A new card goes to All words, not onto the song list. Each row shows how many words, how many are new, how many are learned, and how many are still to learn. A learned word is green in the lyrics. The others stay blue. Line breaks stay as pasted. The type size can grow or shrink. The lyrics can be edited, and the cards are checked again. A video link, a music link and a file can be added separately or all at once. Drop the file on the form. The song page shows each one that was added. The file plays only in the browser it was added in. Archive does not delete the cards: the song is marked archived. A lyric card has Pronunciation: PlayPhrase, then YouGlish.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Добавить слово</b><b class="en">Add a word</b>
+          <div class="ru">Ссылка Add a word открывает форму с кнопкой. Русский ввод ищет английское слово. Английский ввод ищет русский перевод. Слово попадает на этот урок. На странице Add a word то же поле добавляет слово в My words. В My words ссылка Edit открывает форму: английское слово, перевод и кнопка Save. Рядом Delete: первое нажатие спрашивает Delete?, второе удаляет карточку. Учитель так же может править и удалять любую карточку. В Grammar добавления нет, там поиск. Слова из песни попадают в All words. Если слова или фразы нет, красным написано No such word or phrase.</div>
+          <div class="en">The Add a word link opens a form with a button. Russian input looks up the English word. English input looks up the Russian translation. The word stays on that lesson. On Add a word, the same field adds a word to My words. In My words, Edit opens a form: the English word, the translation, and Save. Delete sits next to it: the first press asks Delete?, the second removes the card. The teacher can edit or delete any card the same way. Grammar has search, not adding. Words from a song go to All words. If there is no such word or phrase, the page says so in red: No such word or phrase.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Употребления</b><b class="en">Usages</b>
+          <div class="ru">На карточке любого слова есть кнопка Usages. Это не меньше 10 употреблений из словарей, простых и сложных. По ним собираются свои квизы: пропуск, выбор предложения по переводу, верно или неверно. Если в словарях меньше десяти строк, это написано красным. Предложения не выдумываются.</div>
+          <div class="en">Every word card has a Usages button. It lists at least 10 dictionary lines, simple and complex. Those lines become their own quizzes: a gap, a sentence matched to its translation, and true or false. If the dictionaries have fewer than ten lines, that is written in red. The sentences are not invented.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Произношение и источники</b><b class="en">Pronunciation and sources</b>
+          <div class="ru">После кнопки Add to this card зеленым написано Pronunciation. Сначала ссылка PlayPhrase, затем YouGlish. Видны две ссылки на источники, остальные открываются через ... Вне квиза выделенное слово открывает словари: Wiktionary, WikDict, OpenRussian, FreeDict.</div>
+          <div class="en">After Add to this card, Pronunciation is in green. PlayPhrase comes first, then YouGlish. Two source links are visible. The rest open from ... Outside a quiz, a selected word opens the dictionaries: Wiktionary, WikDict, OpenRussian, FreeDict.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Account</b><b class="en">Account</b>
+          <div class="ru">Вход и регистрация. Письмо не отправляется. Первый аккаунт сразу становится учителем. Следующие ждут, пока учитель нажмет Approve. В профиле логин, почта, имя и роль. Delete my data удаляет слова, песни и прогресс. Войти в этот аккаунт больше нельзя. Новая регистрация с той же почтой начинает другой пустой аккаунт. Выход только убирает их из этого браузера. После входа они снова на месте.</div>
+          <div class="en">Log in and register. No email is sent. The first account becomes the teacher at once. Later accounts wait until the teacher presses Approve. The profile shows login, email, name and role. Delete my data deletes your words, songs and progress. You cannot sign in to that account again. Registering again with the same email starts a new empty account. Signing out only removes them from this browser. They come back after you sign in.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="musicword">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="song">Back</button><h1 id="musicTitle">Song card</h1></div>
+      <div class="card grow" id="musicView"></div>
+    </section>
+
+    <section id="pdfview">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1 id="pdfTitle">PDF</h1></div>
+      <p class="sub" id="pdfStatus"></p>
+      <div id="pdfPages"></div>
+    </section>
+
+    <section id="verbs">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1 id="verbTitle">Irregular verbs</h1></div>
+      <p class="sub" id="verbSub">Five levels by how often the verb is used.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-verb-study>Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div id="verbList"></div>
+    </section>
+
+    <section id="stats">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Статистика</h1></div>
+      <p class="sub" id="statsSub">Dates are UTC. The period filter applies to every figure on this page.</p>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn" type="button" data-stats-range="7">7 days</button>
+        <button class="btn primary" type="button" data-stats-range="30">30 days</button>
+        <button class="btn" type="button" data-stats-range="90">90 days</button>
+      </div>
+      <div class="row stats-filters">
+        <input id="statsFrom" type="date" aria-label="From" />
+        <input id="statsTo" type="date" aria-label="To" />
+        <select id="statsRole" aria-label="Role" hidden>
+          <option value="">All roles</option>
+          <option value="USER">Students</option>
+          <option value="ADMIN">Teachers</option>
+        </select>
+        <select id="statsUser" aria-label="Person" hidden>
+          <option value="">All people</option>
+        </select>
+        <label class="hint"><input id="statsCompare" type="checkbox" checked /> Compare with the previous period</label>
+      </div>
+      <div id="statsBody"><p class="hint">Loading…</p></div>
+    </section>
+
+    <section id="account">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Account</h1></div>
+      <div id="accountBody"></div>
+    </section>
+
+    <section id="profile">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
+      <div id="profileBody"></div>
+    </section>
+
+    <section id="admin">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="profile">Back</button><h1>Administration</h1></div>
+      <div id="adminBody"></div>
+    </section>
+
+  </div></div>
+  <div id="selpop" class="selpop" hidden>
+    <div class="selpop-top"><b id="selpopWord"></b><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></div>
+    <div id="selpopBody"></div>
+  </div>
+  <script src="grammar.js"></script>
+  <script src="irregular.js"></script>
+  <script src="demonstratives.js"></script>
+  <script src="lesson-data.js"></script>
+  <script src="speakout.js"></script>
+  <script src="preview.js"></script>
+</body>
+</html>

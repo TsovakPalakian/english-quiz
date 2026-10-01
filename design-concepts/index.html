@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proposed hybrid</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@440;560;650&family=Fraunces:opsz,wght@9..144,520&family=Manrope:wght@440;560;650&family=Sora:wght@440;560;650&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="concepts.css">
+  <link rel="stylesheet" href="hybrid.css">
+</head>
+<body>
+  <header class="lab">
+    <h1>Proposed hybrid</h1>
+    <p>Спокойная учебная страница с одним главным действием. Три прежних направления красят те же экраны. Приложение не заменено.</p>
+    <div class="lab-row" aria-label="Direction">
+      <button type="button" data-concept-pick="hybrid" class="on">Proposed Hybrid</button>
+      <button type="button" data-concept-pick="minimal">Minimal</button>
+      <button type="button" data-concept-pick="premium">Premium</button>
+      <button type="button" data-concept-pick="playful">Playful</button>
+    </div>
+    <div class="lab-row" aria-label="Screens">
+      <button type="button" data-screen-pick="home">Home</button>
+      <button type="button" data-screen-pick="classes">Classes</button>
+      <button type="button" data-screen-pick="lesson">Lesson</button>
+      <button type="button" data-screen-pick="setup">Study setup</button>
+      <button type="button" data-screen-pick="study">Study</button>
+      <button type="button" data-screen-pick="quiz">Quiz</button>
+      <button type="button" data-screen-pick="result">Result</button>
+      <button type="button" data-screen-pick="word">Word</button>
+      <button type="button" data-screen-pick="library">Library</button>
+      <button type="button" data-screen-pick="grammar">Grammar</button>
+      <button type="button" data-screen-pick="song">Song</button>
+      <button type="button" data-screen-pick="stats">Статистика</button>
+      <button type="button" data-screen-pick="guide">How to use</button>
+      <button type="button" data-screen-pick="add">Add a word</button>
+    </div>
+    <div class="lab-row width" aria-label="Width">
+      <button type="button" data-width="desk" class="on">Desk</button>
+      <button type="button" data-width="phone">Phone</button>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <div class="app" id="app" data-concept="hybrid" data-view="home">
+      <aside class="side">
+        <button type="button" data-go="home">Home</button>
+        <button type="button" data-go="classes">Classes</button>
+        <button type="button" data-go="library">Library</button>
+        <button type="button" data-go="setup">Study</button>
+        <button type="button" data-go="stats">Статистика</button>
+        <button type="button" data-go="add">Add a word</button>
+        <button type="button" data-go="guide">How to use</button>
+        <button type="button" data-go="account">Account</button>
+      </aside>
+      <div class="main">
+        <header class="topnav">
+          <button class="brand" type="button" data-go="home">English</button>
+          <nav class="links" aria-label="Primary">
+            <button class="navbtn" type="button" data-go="home">Home</button>
+            <button class="navbtn" type="button" data-go="classes">Classes</button>
+            <button class="navbtn" type="button" data-go="library">Library</button>
+            <button class="navbtn" type="button" data-go="setup">Study</button>
+            <button class="navbtn" type="button" data-go="stats">Статистика</button>
+          </nav>
+          <div class="tools">
+            <button class="navbtn" type="button" data-go="add">Add a word</button>
+            <button class="navbtn" type="button" data-go="guide">How to use</button>
+            <button class="navbtn" type="button" data-go="account">Account</button>
+          </div>
+        </header>
+        <div class="canvas">
+          <section data-screen="home">
+            <p class="kicker">Today · 21 September 2026</p>
+            <h1 class="page">Weather, small talk, likes and dislikes</h1>
+            <p class="lede">You stopped after the words. This day's quiz is 7 of 20.</p>
+            <button class="go" type="button" data-go="lesson">Continue lesson</button>
+            <div class="card">
+              <b>Review first</b>
+              <p>humid · drizzle · give up</p>
+              <button class="ghost" type="button" data-go="setup" data-from="home">Study these 3</button>
+            </div>
+            <div class="card">
+              <b>Weak card</b>
+              <p>give up — missed twice this week.</p>
+              <button class="ghost" type="button" data-word="give up">Open the card</button>
+            </div>
+          </section>
+
+          <section data-screen="classes">
+            <p class="kicker">Classes · from 7 Sep 2026</p>
+            <h1 class="page">Six lessons</h1>
+            <p class="lede">Each date has its own page. The quiz stays inside that day.</p>
+            <div id="classList"></div>
+          </section>
+
+          <section data-screen="lesson">
+            <nav class="crumb" aria-label="Lesson path">
+              <button type="button" data-go="classes">Classes</button>
+              <span>21 September 2026</span>
+            </nav>
+            <p class="kicker">Monday · A2, with a few B1 phrases</p>
+            <h1 class="page">Weather, small talk, likes and dislikes</h1>
+            <p class="lede">How to describe weather with It's + adjective and There's + noun. This day's quiz uses only this day's cards.</p>
+            <div class="journey" aria-label="This lesson">
+              <button class="step" type="button" data-jump-id="words">Words · 21<small>You stopped here</small></button>
+              <button class="step" type="button" data-go="grammar">Rules · 4<small>Weather, now, likes</small></button>
+              <button class="step on" type="button" data-go="quiz">Quiz · 7/20<small>Continue</small></button>
+            </div>
+            <h2>What you will learn</h2>
+            <p>Seven small-talk lines. Nine like/dislike patterns, practised again on 23 Sep. Weather happening now: We are having a thunderstorm.</p>
+            <h2>Key phrases</h2>
+            <p><b>Excuse me, is anyone sitting here?</b><br>Извините, здесь кто-нибудь сидит? The same line is a card on 16 Sep.</p>
+            <div id="lineList"></div>
+            <h2 id="words">Vocabulary</h2>
+            <div id="wordList"></div>
+            <button class="ghost" type="button" data-go="add" data-from="lesson">Add a word</button>
+            <h2>Homework</h2>
+            <p>Weather flashcards · Navigate 1.4 · Likes flashcards · true / false · type the verb.</p>
+            <p class="src"><a href="pdf/21.09.2026.pdf">21.09.2026.pdf</a></p>
+          </section>
+
+          <section data-screen="library">
+            <p class="kicker">Library</p>
+            <h1 class="page">Find something to study</h1>
+            <input class="search" id="libSearch" type="search" placeholder="Search words, grammar, songs" aria-label="Search">
+            <div id="libGroups"></div>
+          </section>
+
+          <section data-screen="deck">
+            <nav class="crumb"><button type="button" data-go="library">Library</button><span id="deckCrumb">Phrasal verbs</span></nav>
+            <h1 class="page" id="deckTitle">Phrasal verbs</h1>
+            <p class="lede" id="deckLede">Cards on this page. Study uses them.</p>
+            <div class="row">
+              <button class="go" type="button" data-go="setup" data-from="deck">Study</button>
+              <button class="ghost" type="button" id="addOpen">Add a word</button>
+            </div>
+            <form class="card hide" id="addForm" action="#">
+              <input type="text" id="addInput" placeholder="give up or сдаваться" aria-label="Word">
+              <button class="go" type="submit">Look up and make cards</button>
+              <p id="addStatus"></p>
+            </form>
+            <div id="deckList"></div>
+          </section>
+
+          <section data-screen="setup">
+            <nav class="crumb" id="setupCrumb"></nav>
+            <p class="kicker" id="setupKicker">Study</p>
+            <h1 class="page">How do you want to practise?</h1>
+            <p class="lede" id="setupLede">Pick more than one type. The session stays in one shell.</p>
+            <h2>Answer types</h2>
+            <div class="row" id="typePicks"></div>
+            <h2>How to combine</h2>
+            <div class="row">
+              <button class="chip on" type="button" data-mix="round">Round · every type on each card</button>
+              <button class="chip" type="button" data-mix="mix">Mix · one random type</button>
+            </div>
+            <div class="row" style="margin-top:16px">
+              <button class="go" type="button" id="studyStart">Start</button>
+              <button class="ghost" type="button" id="studyExam">Exam</button>
+              <button class="ghost" type="button" id="studyMistakes">Mistakes</button>
+            </div>
+            <p class="kicker">On the exam, 2 mistakes or 20 minutes means fail. Flip is not part of the exam. Four correct answers in a row remove the card from that type's mistakes.</p>
+          </section>
+
+          <section data-screen="study" class="narrow">
+            <nav class="crumb" id="studyCrumb"></nav>
+            <p class="kicker" id="studyKicker">Choice · 3 / 8</p>
+            <div class="bar" aria-hidden="true"><i id="studyBar" style="width:37%"></i></div>
+            <div class="ex on" data-ex="Choice">
+              <p>English → Russian</p>
+              <h1 class="page emph">give up</h1>
+              <div id="studyChoice"></div>
+            </div>
+            <div class="ex" data-ex="Type">
+              <p>Type it in English</p>
+              <h1 class="page">сдаваться, бросать</h1>
+              <input id="typeAnswer" type="text" placeholder="Answer" autocomplete="off" aria-label="Answer">
+            </div>
+            <div class="ex" data-ex="Gap">
+              <p>Fill the gap</p>
+              <h1 class="page">There's ___ .</h1>
+              <p>Very light rain.</p>
+              <input id="gapAnswer" type="text" placeholder="Answer" autocomplete="off" aria-label="Gap">
+            </div>
+            <div class="ex" data-ex="Match">
+              <p>Match the word and the meaning</p>
+              <div class="pair" id="matchGrid"></div>
+            </div>
+            <div class="ex" data-ex="Flip">
+              <p>Recall the translation, then flip</p>
+              <h1 class="page emph" id="flipFace">give up</h1>
+              <p id="flipBack" hidden>сдаваться, бросать</p>
+            </div>
+            <p class="feedback" id="studyFeedback" hidden></p>
+            <div class="study-bar">
+              <button class="ghost" type="button" data-go="setup">Stop</button>
+              <button class="go" type="button" id="studyCheck">Check</button>
+              <button class="ghost" type="button" id="studyNext">Next</button>
+            </div>
+          </section>
+
+          <section data-screen="quiz" class="narrow">
+            <nav class="crumb">
+              <button type="button" data-go="lesson">21 Sep</button>
+              <span>Quiz</span>
+            </nav>
+            <p class="kicker" id="quizKicker">Quiz · 7 / 20</p>
+            <div class="bar" aria-label="Quiz progress"><i id="quizBar" style="width:35%"></i></div>
+            <p id="quizPrompt"></p>
+            <h1 class="page emph" id="quizQuestion"></h1>
+            <div id="quizOptions"></div>
+            <p class="feedback" id="quizFeedback" hidden></p>
+            <div class="quiz-bar">
+              <button class="ghost" type="button" data-go="lesson">Stop</button>
+              <button class="go" type="button" id="quizCheck">Check</button>
+              <button class="go hide" type="button" id="quizNext">Next</button>
+            </div>
+          </section>
+
+          <section data-screen="result">
+            <nav class="crumb"><button type="button" data-go="lesson">21 Sep</button><span>Quiz</span></nav>
+            <p class="kicker">Result</p>
+            <h1 class="page" id="resultTitle">Two questions in this sitting</h1>
+            <p class="lede" id="resultLede"></p>
+            <div id="resultList"></div>
+            <div class="row">
+              <button class="go" type="button" data-go="lesson">Back to the lesson</button>
+              <button class="ghost" type="button" data-go="stats">Статистика</button>
+            </div>
+          </section>
+
+          <section data-screen="word">
+            <nav class="crumb" id="wordCrumb"></nav>
+            <p class="kicker" id="wordMeta"></p>
+            <h1 class="page emph word-head" id="wordEn"></h1>
+            <p id="wordIpa"></p>
+            <p id="wordRu"></p>
+            <p id="wordGloss"></p>
+            <p id="wordEx"></p>
+            <div class="row">
+              <button class="ghost" type="button" id="wordSay">Play</button>
+              <button class="ghost" type="button" data-go="lesson">From 21 Sep</button>
+              <button class="ghost" type="button" data-go="quiz">Quiz this</button>
+            </div>
+          </section>
+
+          <section data-screen="grammar">
+            <nav class="crumb">
+              <button type="button" data-go="lesson">21 Sep</button>
+              <span>Rules</span>
+            </nav>
+            <p class="kicker">Rules · 21 Sep</p>
+            <h1 class="page">Four notes from this lesson</h1>
+            <div class="row" id="ruleLang">
+              <button class="chip on" type="button" data-lang="ru">Russian</button>
+              <button class="chip" type="button" data-lang="en">English</button>
+            </div>
+            <div id="ruleList"></div>
+            <button class="go" type="button" data-go="setup" data-from="grammar">Practice</button>
+          </section>
+
+          <section data-screen="song">
+            <nav class="crumb"><button type="button" data-go="library">Library</button><span>Song lyrics</span></nav>
+            <p class="kicker">Sample line · language first</p>
+            <h1 class="page">Sample line</h1>
+            <p class="lede">This line shows the no-duplicate rule. A real song appears when you add one.</p>
+            <p class="song-line emph">It's <button type="button" data-word="humid">humid</button>, but I <button type="button" data-word="won't">won't</button> <button type="button" data-word="give up">give up</button> in the <button type="button" data-word="moonlight">moonlight</button>.</p>
+            <h2>Already in other quizzes</h2>
+            <button class="rowbtn" type="button" data-word="humid"><b>humid</b><span>21 Sep</span></button>
+            <button class="rowbtn" type="button" data-word="give up"><b>give up</b><span>Phrasal verbs</span></button>
+            <h2>New cards in this song</h2>
+            <button class="rowbtn" type="button" data-word="moonlight"><b>moonlight</b><span>noun</span></button>
+            <button class="rowbtn" type="button" data-word="won't"><b>won't</b><span>contraction</span></button>
+            <button class="go" type="button" data-go="setup" data-from="song">Study the line</button>
+          </section>
+
+          <section data-screen="stats">
+            <p class="kicker">Статистика · preview figures for this story</p>
+            <h1 class="page">What to do next</h1>
+            <p class="lede">Review give up, then finish the 21 Sep quiz before 23 Sep.</p>
+            <button class="go" type="button" data-word="give up">Review give up</button>
+            <div class="row" id="rangePicks">
+              <button class="chip" type="button" data-range="7">7 days</button>
+              <button class="chip on" type="button" data-range="30">30 days</button>
+              <button class="chip" type="button" data-range="90">90 days</button>
+            </div>
+            <p>Compare with the previous period: study time is about the same. Dates are UTC.</p>
+            <button class="rowbtn" type="button" data-go="setup"><span>Study time</span><b>2 h 10 m</b><span class="status">this period</span></button>
+            <button class="rowbtn" type="button" data-go="result"><span>Exams passed</span><b>1</b><span class="status">previous period 1</span></button>
+            <button class="rowbtn" type="button" data-go="library"><span>Learned cards</span><b>4 lessons closed</b><span class="status">7–16 Sep</span></button>
+            <button class="rowbtn" type="button" data-word="give up"><span>Weak</span><b>give up</b><span class="status">missed twice</span></button>
+            <button class="rowbtn" type="button" data-go="lesson"><span>Still learning</span><b>humid, chilly, drizzle</b><span class="status">21 Sep open</span></button>
+          </section>
+
+          <section data-screen="account">
+            <p class="kicker">Account</p>
+            <h1 class="page">Account</h1>
+            <p class="lede">Sign-in, profile and teacher tools stay here. This preview does not sign in and does not change the live account.</p>
+            <button class="rowbtn" type="button" data-go="guide"><span>Help</span><b>How to use</b><span class="status">Open</span></button>
+            <button class="rowbtn" type="button" data-go="add"><span>Words</span><b>Add a word</b><span class="status">My words</span></button>
+            <button class="ghost" type="button" data-go="home">Back home</button>
+          </section>
+
+          <section data-screen="guide" data-guide="ru">
+            <p class="kicker">How to use</p>
+            <h1 class="page"><span class="ru">Как пользоваться</span><span class="en">How to use</span></h1>
+            <div class="row" id="guideLang">
+              <button class="chip on" type="button" data-guide-lang="ru">Russian</button>
+              <button class="chip" type="button" data-guide-lang="en">English</button>
+            </div>
+            <h2><span class="ru">Study</span><span class="en">Study</span></h2>
+            <p class="ru">На Study сначала включен только Flip. Остальные типы открываются через .... Round проходит каждый выбранный тип на одной карточке. Mix берет один случайный тип. Start начинает занятие. Exam и Mistakes берут те же карточки. Flip в экзамен не входит. Экзамен не сдан при двух ошибках или через 20 минут.</p>
+            <p class="en">On Study, only Flip starts on. The other types open from .... Round runs every selected type on one card. Mix picks one random type. Start begins the session. Exam and Mistakes use those same cards. Flip is not on the exam. The exam fails at two mistakes or after 20 minutes.</p>
+            <h2><span class="ru">Когда карточка выучена</span><span class="en">When a card is learned</span></h2>
+            <p class="ru">Карточка выучена, только когда пройден каждый включенный проверяемый тип. Flip вы оцениваете сами: он не закрывает карточку. Ошибка остается, пока этот тип не отвечен верно четыре раза подряд.</p>
+            <p class="en">A card is learned only when every enabled checkable type is passed. Flip is self-rated: it does not close the card. A mistake stays until that type is answered correctly four times in a row.</p>
+            <h2><span class="ru">Library и Classes</span><span class="en">Library and Classes</span></h2>
+            <p class="ru">Порядок такой: Classes, Grammar, Irregular verbs, All words, My words, Phrasal verbs, Idioms, Articles, Demonstratives, Song lyrics, Text, Speakout. Занятия идут по дате, с 7 сентября 2026. У каждой даты своя страница.</p>
+            <p class="en">The order is Classes, Grammar, Irregular verbs, All words, My words, Phrasal verbs, Idioms, Articles, Demonstratives, Song lyrics, Text, Speakout. Lessons are listed by date, from 7 September 2026. Each date has its own page.</p>
+            <h2><span class="ru">Добавить слово</span><span class="en">Add a word</span></h2>
+            <p class="ru">Русский ввод ищет английское слово. Английский ввод ищет русский перевод. На странице Add a word слово попадает в My words. На уроке то же поле оставляет слово на этом уроке. Если слова или фразы нет, написано No such word or phrase.</p>
+            <p class="en">Russian input looks up the English word. English input looks up the Russian translation. On Add a word, the word goes to My words. On a lesson, the same field keeps the word on that lesson. If there is no such word or phrase, the page says No such word or phrase.</p>
+            <button class="go" type="button" data-go="add">Add a word</button>
+          </section>
+
+          <section data-screen="add">
+            <nav class="crumb" id="addCrumb"></nav>
+            <p class="kicker">Add a word</p>
+            <h1 class="page">Look up and make a card</h1>
+            <p class="lede" id="addLede">Russian input looks up the English word. English input looks up the Russian translation. This page adds the card to My words.</p>
+            <form id="addPage" action="#">
+              <input type="text" id="addPageInput" placeholder="give up or сдаваться" aria-label="Word or translation" autocomplete="off">
+              <div class="row" style="margin-top:12px">
+                <button class="go" type="submit">Look up and make cards</button>
+              </div>
+              <p id="addPageStatus"></p>
+            </form>
+          </section>
+        </div>
+        <nav class="dock" aria-label="Mobile">
+          <button type="button" data-go="home">Home</button>
+          <button type="button" data-go="classes">Classes</button>
+          <button type="button" data-go="library">Library</button>
+          <button type="button" data-go="setup">Study</button>
+          <button type="button" data-go="stats">Статистика</button>
+        </nav>
+      </div>
+    </div>
+  </div>
+  <script src="/lesson-data.js"></script>
+  <script src="proto.js"></script>
+</body>
+</html>

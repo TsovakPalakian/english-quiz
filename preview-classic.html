@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mock · English</title>
+  <style>
+    :root {
+      --bg: #eef1f4; --paper: #fff; --ink: #1c2430; --muted: #5c6b7a;
+      --line: #d5dce4; --accent: #0b5cab; --accent-soft: #e7f1fa;
+      --ok: #0d7a45; --ok-bg: #e7f6ee; --bad: #c23030; --bad-bg: #fdecec;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { font-family: "Segoe UI", system-ui, sans-serif; background: #d8dee6; color: var(--ink); font-size: 15px; line-height: 1.35; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    a { color: var(--accent); }
+    .chrome { max-width: 960px; margin: 0 auto; padding: 10px 14px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .chrome b { font-size: 13px; color: #3d4b5c; }
+    .chrome button { border: 1px solid #c5ced8; background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #3d4b5c; }
+    .chrome button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .phone { max-width: 960px; height: calc(100% - 86px); margin: 8px auto 0; background: var(--bg); border: 1px solid #c5ced8; border-bottom: 0; border-radius: 16px 16px 0 0; overflow: hidden; }
+    .wrap { height: 100%; max-width: 920px; margin: 0 auto; padding: 14px 16px 16px; display: flex; flex-direction: column; min-height: 0; }
+    section { display: none; flex: 1; min-height: 0; flex-direction: column; }
+    section.on { display: flex; }
+    h1 { font-size: 26px; letter-spacing: -0.03em; margin: 0 0 2px; }
+    .sub { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+    .hint, .label { color: var(--muted); font-size: 12px; }
+    .home-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .head-actions { display: flex; gap: 8px; align-items: flex-start; }
+    .overview, .home-top, .decks { margin-bottom: 8px; }
+    .overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .overview div, .card, .day, .opt, .wcard, .file-card, .token, .pair {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    }
+    .overview div { padding: 8px 12px; }
+    .overview b { display: block; font-size: 18px; }
+    .overview span { color: var(--muted); font-size: 12px; }
+    .home-top { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .decks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .file-card { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; text-align: left; padding: 8px 12px; color: inherit; }
+    .file-card.active { border-color: var(--accent); background: var(--accent-soft); }
+    .file-card b { font-size: 14px; }
+    .num { font-size: 20px; font-weight: 750; color: var(--accent); letter-spacing: -0.03em; }
+    .mini { height: 3px; background: #dfe5ec; border-radius: 99px; grid-column: 1 / -1; margin-top: 4px; }
+    .mini i { display: block; height: 100%; background: var(--accent); }
+    .card { padding: 12px 14px; margin-bottom: 8px; }
+    .card.grow { flex: 1; min-height: 0; overflow: auto; margin-bottom: 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 8px 12px; min-height: 40px; color: var(--ink); }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.ghost { background: transparent; }
+    .btn.stop { color: var(--bad); border-color: #e8b6b6; }
+    .btn.chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+    .dict { background: #e8b423; color: #2c2206; border: 0; border-radius: 10px; padding: 7px 10px; font-weight: 650; font-size: 13px; text-decoration: none; }
+    a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+    .day { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 12px; text-align: left; padding: 10px 12px; width: 100%; margin-bottom: 8px; color: inherit; align-items: start; }
+    .day .date { grid-row: 1 / span 2; align-self: center; font-size: 18px; font-weight: 750; color: var(--accent); }
+    .day b { grid-column: 2; grid-row: 1; font-size: 15px; }
+    .day .when { grid-column: 3; grid-row: 1; justify-self: end; }
+    .day .about { grid-column: 2 / -1; grid-row: 2; }
+    .day.active { border-color: var(--accent); background: var(--accent-soft); }
+    .words, .pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .wcard { text-align: left; padding: 10px 12px; color: inherit; }
+    .wcard .en { font-size: 18px; font-weight: 750; }
+    .pos { color: var(--accent); font-size: 13px; font-style: italic; }
+    .ipa { color: var(--ink); font-size: 14px; margin: 4px 0; }
+    .ipa span { color: var(--muted); font-weight: 650; margin-right: 4px; }
+    .meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+    .meta h1 { font-size: 18px; margin: 0; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .timer { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 18px; color: var(--ink); }
+    .progress { height: 4px; background: #dfe5ec; border-radius: 99px; margin-bottom: 10px; }
+    .progress i { display: block; height: 100%; background: var(--accent); }
+    .q { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 6px; }
+    .prompt { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+    .entry { font-size: 32px; font-weight: 750; letter-spacing: -0.03em; margin: 0; }
+    .opts { display: grid; gap: 6px; }
+    .opt { text-align: left; padding: 8px 10px; display: flex; gap: 10px; width: 100%; align-items: flex-start; }
+    .bullet { flex: 0 0 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+    .opt.ok { border-color: var(--ok); background: var(--ok-bg); }
+    .opt.bad { border-color: var(--bad); background: var(--bad-bg); }
+    .feedback { margin-top: 10px; padding: 8px 10px; border-radius: 8px; font-weight: 650; }
+    .feedback.ok { background: var(--ok-bg); color: var(--ok); }
+    .feedback.bad { background: var(--bad-bg); color: var(--bad); }
+    .explain { margin-top: 8px; background: var(--accent-soft); border: 1px solid #c5d8eb; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+    .bar { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+    .level { display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+    input[type="text"] { width: 100%; min-height: 46px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+    .slot { min-height: 52px; border: 1px dashed #b7c3d0; border-radius: 8px; padding: 8px; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; background: #fff; }
+    .token, .pair { padding: 6px 10px; font-weight: 650; }
+    .pair { padding: 10px 12px; text-align: left; }
+    .pair.pick { border-color: var(--accent); background: var(--accent-soft); }
+    .pair.ok { border-color: var(--ok); background: var(--ok-bg); }
+    .sentence { font-size: 20px; font-weight: 650; line-height: 1.6; }
+    .sentence button { border: 0; background: transparent; padding: 0 2px; font-weight: 750; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+    .sentence button.ok { color: var(--ok); }
+    .sentence button.bad { color: var(--bad); }
+    .score { font-size: 42px; font-weight: 750; letter-spacing: -0.04em; margin: 8px 0; color: var(--bad); }
+    .miss { padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+    .miss b { display: block; }
+    .src { font-size: 13px; margin: 0 0 6px; }
+    .rule { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    .rule b { display: block; margin-bottom: 4px; }
+    #rules[data-lang="en"] .ru, #tense[data-lang="en"] .ru, #guide[data-lang="en"] .ru { display: none; }
+    #rules[data-lang="ru"] .en, #tense[data-lang="ru"] .en, #guide[data-lang="ru"] .en { display: none; }
+    .tense-group { margin: 12px 0 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .tense-group:first-child { margin-top: 0; }
+    .tense { display: flex; justify-content: space-between; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 6px; background: #f7f9fb; border: 1px solid var(--line); border-radius: 8px; color: inherit; }
+    .tense b { font-size: 15px; }
+    .tense .form { color: var(--accent); font-size: 13px; font-weight: 650; white-space: nowrap; }
+    .path { display: flex; justify-content: space-between; gap: 12px; align-items: center; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 8px; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; color: inherit; }
+    .path .to { color: var(--accent); font-weight: 650; font-size: 13px; text-align: right; }
+    .gen { padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .gen h2 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    #addWord { margin-bottom: 8px; }
+    #addStatus.bad { color: var(--bad); font-weight: 650; }
+    .kind { display: inline-block; margin-right: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent); }
+    @media (max-width: 720px) {
+      .overview { grid-template-columns: 1fr 1fr; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="chrome">
+    <a href="preview.html">New layout</a>
+    <b>Classic</b>
+    <button type="button" data-jump="home" class="on">Home</button>
+    <button type="button" data-jump="choice">Choice</button>
+    <button type="button" data-jump="flip">Flip</button>
+    <button type="button" data-jump="type">Type</button>
+    <button type="button" data-jump="gap">Gap</button>
+    <button type="button" data-jump="build">Build</button>
+    <button type="button" data-jump="judge">True / false</button>
+    <button type="button" data-jump="tap">Tap</button>
+    <button type="button" data-jump="multi">Select all</button>
+    <button type="button" data-jump="pairs">Match</button>
+    <button type="button" data-jump="exam">Exam</button>
+    <button type="button" data-jump="errors">Mistakes</button>
+    <button type="button" data-jump="days">Days</button>
+    <button type="button" data-jump="music">Music</button>
+    <button type="button" data-jump="add">Add a word</button>
+    <button type="button" data-jump="guide">How to use</button>
+  </div>
+  <div class="phone"><div class="wrap">
+
+    <section id="home" class="on">
+      <div class="home-head">
+        <div>
+          <h1>English</h1>
+          <p class="sub">English study · Russian translations</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn primary" type="button" data-jump="add">Add a word</button>
+          <button class="btn" type="button" data-jump="days">Days</button>
+          <button class="btn" type="button" data-jump="music">Music</button>
+          <button class="btn" type="button" data-jump="guide">How to use</button>
+          <a class="btn" href="https://wooordhunt.ru/" target="_blank" rel="noreferrer">Wooordhunt</a>
+          <a class="dict" href="https://dictionary.cambridge.org/dictionary/english/" target="_blank" rel="noreferrer">Cambridge</a>
+        </div>
+      </div>
+      <div class="overview">
+        <div><b>18 / 69</b><span>learned</span></div>
+        <div><b>1 h 12 m</b><span>time</span></div>
+        <div><b>2</b><span>exams passed</span></div>
+        <div><b>7</b><span>weak cards</span></div>
+      </div>
+      <div class="home-top">
+        <button class="btn" type="button" data-jump="choice">Train all</button>
+        <button class="btn" type="button" data-jump="exam">Exam</button>
+      </div>
+      <div class="decks">
+        <button class="file-card active" type="button" data-jump="tenses"><b>Tenses</b><span class="num">12</span><span class="label">24 forms · open inside</span><i class="mini"><i style="width:58%"></i></i></button>
+        <button class="file-card" type="button"><b>Phrasal verbs</b><span class="num">11</span><span class="label">4 of 18 · lesson 11</span><i class="mini"><i style="width:22%"></i></i></button>
+        <button class="file-card" type="button"><b>Idioms</b><span class="num">10</span><span class="label">0 of 11 · lesson 10</span><i class="mini"><i style="width:0%"></i></i></button>
+        <button class="file-card" type="button"><b>Articles</b><span class="num">9</span><span class="label">16 of 16 · lesson 9</span><i class="mini"><i style="width:100%"></i></i></button>
+      </div>
+      <div class="card grow">
+        <p class="hint" style="margin-top:0">Tenses · 24 forms, each on its own page. Open the deck to study one form at a time.</p>
+        <p class="label" style="margin:8px 0 6px">Answer types, pick more than one</p>
+        <div class="row" id="modes">
+          <button class="btn chip on" type="button">Choice</button>
+          <button class="btn chip on" type="button">Flip</button>
+          <button class="btn chip" type="button">Type</button>
+          <button class="btn chip" type="button">Gap</button>
+          <button class="btn chip" type="button">Build</button>
+          <button class="btn chip" type="button">Match</button>
+          <button class="btn chip" type="button">True / false</button>
+          <button class="btn chip" type="button">Tap</button>
+          <button class="btn chip" type="button">Select all</button>
+        </div>
+        <p class="label" style="margin:10px 0 6px">How to combine</p>
+        <div class="row">
+          <button class="btn chip on" type="button" data-mix="round">Round · every type on each card</button>
+          <button class="btn chip" type="button" data-mix="mix">Mix · one random type</button>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" type="button" data-jump="choice">In order</button>
+          <button class="btn" type="button" data-jump="flip">Shuffle</button>
+          <button class="btn" type="button" data-jump="exam">Deck exam</button>
+          <button class="btn" type="button" data-jump="errors">Deck mistakes</button>
+        </div>
+        <p class="hint">On the exam, 2 mistakes or 20 minutes means fail. Three correct answers in a row remove the card from that type's mistakes. Flip is not part of the exam.</p>
+      </div>
+    </section>
+
+    <section id="choice">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Choice · 3 / 8</h1><span class="timer">04:12</span></div>
+      <div class="progress"><i style="width:37%"></i></div>
+      <div class="card grow">
+        <p class="prompt">English → Russian · give up</p>
+        <p class="q">give up</p>
+        <div class="opts">
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">1</span><span>поднимать</span></button>
+          <button class="opt" type="button" data-choice="ok"><span class="bullet">2</span><span>сдаваться, бросать</span></button>
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">3</span><span>отдавать</span></button>
+          <button class="opt" type="button" data-choice="bad"><span class="bullet">4</span><span>присматривать</span></button>
+        </div>
+        <div id="choiceFb"></div>
+        <div class="bar"><button class="btn stop" type="button" data-jump="exam">Stop</button><button class="btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary" type="button" data-jump="flip">Next</button></div>
+      </div>
+    </section>
+
+    <section id="flip">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Flip · 4 / 8</h1><span class="timer">04:40</span></div>
+      <div class="progress"><i style="width:50%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Recall the translation, then flip</p>
+        <div id="flipFace"><p class="label">Lesson 12 · give up</p><p class="entry">give up</p></div>
+        <div class="bar"><button class="btn" type="button" id="flipBtn">Flip</button></div>
+      </div>
+    </section>
+
+    <section id="type">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
+      <div class="progress"><i style="width:62%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Type it in English</p>
+        <p class="q">сдаваться, бросать</p>
+        <input id="typeInput" type="text" placeholder="Answer" autocomplete="off" />
+        <div id="typeFb"></div>
+        <div class="bar"><button class="btn stop" type="button" data-jump="home">Stop</button><button class="btn primary" type="button" id="typeCheck">Check</button></div>
+      </div>
+    </section>
+
+    <section id="gap">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
+      <div class="progress"><i style="width:70%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Fill in the verb form. Marker: an hour ago.</p>
+        <p class="q">She ____ looking for her keys an hour ago.</p>
+        <div class="opts">
+          <button class="opt" type="button"><span class="bullet">1</span><span>has given up</span></button>
+          <button class="opt" type="button"><span class="bullet">2</span><span>gave up</span></button>
+          <button class="opt" type="button"><span class="bullet">3</span><span>gives up</span></button>
+          <button class="opt" type="button"><span class="bullet">4</span><span>is giving up</span></button>
+        </div>
+        <p class="hint">The correct option in this mock is 2, gave up.</p>
+      </div>
+    </section>
+
+    <section id="build">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Build</h1><span class="timer">07:01</span></div>
+      <div class="progress"><i style="width:74%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Build the sentence</p>
+        <div class="slot" id="slot"></div>
+        <div class="row" id="bank">
+          <button class="token" type="button">already</button>
+          <button class="token" type="button">she</button>
+          <button class="token" type="button">the report</button>
+          <button class="token" type="button">has finished</button>
+        </div>
+        <p class="hint">Order: she has finished the report already.</p>
+      </div>
+    </section>
+
+    <section id="judge">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>True / false</h1><span class="timer">07:40</span></div>
+      <div class="progress"><i style="width:80%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Is the sentence correct?</p>
+        <p class="q">She has finished the report yesterday.</p>
+        <div class="row"><button class="btn" type="button">True</button><button class="btn primary" type="button">False</button></div>
+        <div class="explain">English. With yesterday, use the Past Simple: She finished the report yesterday. Russian. С yesterday нужен Past Simple: She finished the report yesterday.</div>
+      </div>
+    </section>
+
+    <section id="tap">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
+      <div class="progress"><i style="width:84%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Tap the Present Perfect time marker</p>
+        <p class="sentence" id="tapLine">She <button type="button" data-tap="bad">has lived</button> here <button type="button" data-tap="ok">since</button> 2019.</p>
+        <div id="tapFb"></div>
+      </div>
+    </section>
+
+    <section id="multi">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Select all</h1><span class="timer">08:22</span></div>
+      <div class="progress"><i style="width:88%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Select every Present Perfect sentence</p>
+        <div class="opts">
+          <button class="opt" type="button"><span class="bullet">1</span><span>She has lost her keys.</span></button>
+          <button class="opt" type="button"><span class="bullet">2</span><span>She lost her keys yesterday.</span></button>
+          <button class="opt" type="button"><span class="bullet">3</span><span>They have just arrived.</span></button>
+          <button class="opt" type="button"><span class="bullet">4</span><span>They arrived an hour ago.</span></button>
+        </div>
+        <p class="hint">Correct: 1 and 3.</p>
+      </div>
+    </section>
+
+    <section id="pairs">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Match</h1><span class="timer">09:10</span></div>
+      <div class="progress"><i style="width:92%"></i></div>
+      <div class="card grow">
+        <p class="prompt">Match the English with the Russian translation</p>
+        <div class="pairs" id="pairs">
+          <button class="pair" type="button" data-side="l" data-id="a">give up</button>
+          <button class="pair" type="button" data-side="r" data-id="b">присматривать</button>
+          <button class="pair" type="button" data-side="l" data-id="b">look after</button>
+          <button class="pair" type="button" data-side="r" data-id="a">сдаваться</button>
+          <button class="pair" type="button" data-side="l" data-id="c">since 2019</button>
+          <button class="pair" type="button" data-side="r" data-id="c">началось тогда и длится</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="exam">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Deck exam</h1></div>
+      <div class="card grow">
+        <p class="q">Not passed</p>
+        <p class="score">2 mistakes</p>
+        <p class="prompt">Tenses · Present Perfect · 8 questions · 6:40. Limit: 2 mistakes or 20 minutes.</p>
+        <div class="miss"><div><b>give up</b><span class="label">Type · wrote giveup</span></div><span>mistake</span></div>
+        <div class="miss"><div><b>She ____ an hour ago</b><span class="label">Gap · chose has given up</span></div><span>mistake</span></div>
+        <div class="row" style="margin-top:14px"><button class="btn primary" type="button" data-jump="errors">Mistakes only</button><button class="btn" type="button" data-jump="home">Decks</button></div>
+      </div>
+    </section>
+
+    <section id="errors">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Mistakes · Tenses</h1></div>
+      <div class="card grow">
+        <div class="row" style="margin-bottom:8px">
+          <button class="btn chip on" type="button">12 · 4</button>
+          <button class="btn chip" type="button">11 · 6</button>
+          <button class="btn chip" type="button">10 · 3</button>
+          <button class="btn chip" type="button">9</button>
+        </div>
+        <div class="miss"><div><b>give up</b><span class="label">Type · was giveup</span></div><span>2</span></div>
+        <div class="miss"><div><b>since / for</b><span class="label">Tap</span></div><span>4</span></div>
+        <div class="miss"><div><b>already</b><span class="label">Build</span></div><span>1</span></div>
+        <div class="miss"><div><b>Present Perfect + ago</b><span class="label">True / false</span></div><span>3</span></div>
+        <p class="hint">The number on the right is how many times this answer type was missed. Three correct answers in a row remove the row from that type only.</p>
+      </div>
+    </section>
+
+    <section id="tenses">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Decks</button><h1>Tenses</h1></div>
+      <p class="sub">Each form has its own page. The rule can be read in Russian or English.</p>
+      <div class="card grow" id="tenseList"></div>
+    </section>
+
+    <section id="tense" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="tenses">Tenses</button><h1 id="tenseTitle">Tense</h1></div>
+      <div class="card grow">
+        <div class="row" id="tenseLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-tense-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-tense-lang="en">English</button>
+        </div>
+        <div id="tenseView"></div>
+      </div>
+    </section>
+
+    <section id="days">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Home</button><h1>Lesson days</h1></div>
+      <p class="sub">From 7 Sep 2026. Each date has its own page. The quiz and mistakes stay inside that day.</p>
+      <div class="card grow">
+        <button class="day active" type="button" data-jump="lesson">
+          <span class="date">21.09</span>
+          <b>Weather, small talk, likes and dislikes</b>
+          <span class="label when">Mon · 2026</span>
+          <span class="label about">Classwork 5.pdf · 6 Wordwall links · 12 words · 9 phrases · 4 rules</span>
+        </button>
+        <button class="day" type="button" id="firstDay">
+          <span class="date">07.09</span>
+          <b>First lesson</b>
+          <span class="label when">Mon · 2026</span>
+          <span class="label about">Course start. This page fills in when you send that day's material.</span>
+        </button>
+        <p class="hint" id="firstNote"></p>
+      </div>
+    </section>
+
+    <section id="lesson">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="days">Days</button><h1>21 September 2026</h1></div>
+      <div class="card grow">
+        <p class="sub" style="margin-top:0">Monday. Answer types are the same as on Home: choice, flip, type, and the rest. Only this day's cards count.</p>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn chip on" type="button" data-jump="word">Words · 12</button>
+          <button class="btn chip" type="button" data-jump="rules">Rules · 4</button>
+          <button class="btn primary" type="button" data-jump="daychoice">This day's quiz</button>
+        </div>
+        <p class="label">Classwork</p>
+        <p class="src">Lesson PDF · small talk and weather. File 5.pdf</p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119542975/05-best-weather-for" target="_blank" rel="noreferrer">Wordwall · Best weather for…</a></p>
+        <p class="label">Homework</p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119605817" target="_blank" rel="noreferrer">Weather flashcards</a> · <a href="https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" target="_blank" rel="noreferrer">Navigate 1.4</a></p>
+        <p class="src"><a href="https://wordwall.net/ru/resource/119607073" target="_blank" rel="noreferrer">Likes flashcards</a> · <a href="https://wordwall.net/ru/resource/119607967" target="_blank" rel="noreferrer">true / false</a> · <a href="https://wordwall.net/ru/resource/119608490" target="_blank" rel="noreferrer">type the verb</a></p>
+        <p class="label" style="margin-top:8px">Weather words · tap a card</p>
+        <div class="words" id="wordGrid"></div>
+      </div>
+    </section>
+
+    <section id="word">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="lesson">Lesson</button><h1>Word card</h1></div>
+      <div class="card grow" id="wordView"></div>
+    </section>
+
+    <section id="rules" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="lesson">Lesson</button><h1>Rules · 21 Sep</h1></div>
+      <div class="card grow">
+        <div class="row" id="ruleLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-rule-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-rule-lang="en">English</button>
+        </div>
+        <div id="ruleList"></div>
+      </div>
+    </section>
+
+    <section id="daychoice">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="lesson">Lesson</button><h1>Choice · day 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">From the flashcard description</p>
+        <p class="q">The air has a lot of water in it, so it feels wet.</p>
+        <div class="opts">
+          <button class="opt" type="button" data-ok="0"><span class="bullet">1</span><span>It's chilly</span></button>
+          <button class="opt" type="button" data-ok="1"><span class="bullet">2</span><span>It's humid</span></button>
+          <button class="opt" type="button" data-ok="0"><span class="bullet">3</span><span>There's drizzle</span></button>
+          <button class="opt" type="button" data-ok="0"><span class="bullet">4</span><span>It's mild</span></button>
+        </div>
+        <div id="dayChoiceFb"></div>
+      </div>
+    </section>
+
+    <section id="dayflip">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="lesson">Lesson</button><h1>Flip · day 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">Recall the translation and the transcription</p>
+        <div id="dayFlipFace"><p class="entry">thunderstorm</p><p class="pos">noun</p></div>
+        <div class="bar"><button class="btn" type="button" id="dayFlipBtn">Flip</button></div>
+      </div>
+    </section>
+
+    <section id="dayjudge">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="lesson">Lesson</button><h1>True / false · 21 Sep</h1></div>
+      <div class="card grow">
+        <p class="prompt">Line from the Wordwall sort</p>
+        <p class="q">You're keen on learn English.</p>
+        <div class="row">
+          <button class="btn" type="button" id="judgeYes">True</button>
+          <button class="btn primary" type="button" id="judgeNo">False</button>
+        </div>
+        <div id="judgeFb"></div>
+      </div>
+    </section>
+
+    <section id="music">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Home</button><h1>Music</h1></div>
+      <p class="sub">Song words and phrases. If they already exist in a deck or a lesson day, this page only shows the path to that card.</p>
+      <div class="card grow">
+        <button class="day active" type="button" data-jump="song">
+          <span class="date">01</span>
+          <b>Sample line</b>
+          <span class="label when">sample</span>
+          <span class="label about">2 already existed · 2 new cards. A copyrighted song lyric is not copied here.</span>
+        </button>
+      </div>
+    </section>
+
+    <section id="song">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="music">Music</button><h1>Sample line</h1></div>
+      <div class="card grow">
+        <p class="q">It's humid, but I won't give up in the moonlight.</p>
+        <p class="hint">This line is only for the mock, to show the no-duplicate rule. A real song appears when you send it.</p>
+        <p class="label" style="margin:10px 0 6px">Already in other quizzes</p>
+        <button class="path" type="button" data-jump="word">
+          <span><b>It's humid</b><br><span class="label">no new card</span></span>
+          <span class="to">Days · 21 Sep · humid</span>
+        </button>
+        <button class="path" type="button" data-jump="flip">
+          <span><b>give up</b><br><span class="label">no new card</span></span>
+          <span class="to">Home · deck 12 · give up</span>
+        </button>
+        <p class="label" style="margin:10px 0 6px">New cards in this song</p>
+        <div class="words">
+          <button class="wcard" type="button" data-jump="musicword" data-song="moonlight">
+            <div class="en">moonlight</div>
+            <div class="pos">noun</div>
+            <div class="ipa"><span>uk</span> /ˈmuːn.laɪt/</div>
+            <div class="label">лунный свет</div>
+          </button>
+          <button class="wcard" type="button" data-jump="musicword" data-song="wont">
+            <div class="en">won't</div>
+            <div class="pos">contraction</div>
+            <div class="ipa"><span>uk</span> /wəʊnt/</div>
+            <div class="label">contraction of will not</div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="add">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Home</button><h1>Add a word</h1></div>
+      <div class="card grow">
+        <p class="sub" style="margin-top:0">Type one word or a short phrase. Russian input looks up the English word. English input looks up the Russian translation. Usage and phrases still come from the dictionaries.</p>
+        <p class="label">Word</p>
+        <input id="addWord" type="text" placeholder="drizzle or морось" autocomplete="off" />
+        <div class="row">
+          <button class="btn primary" id="addGo" type="button">Look up and make cards</button>
+        </div>
+        <p class="hint" id="addStatus"></p>
+        <div id="addedList"></div>
+      </div>
+    </section>
+
+    <section id="made">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="add">Add a word</button><h1 id="madeTitle">Cards</h1></div>
+      <div class="card grow" id="madeView"></div>
+    </section>
+
+    <section id="guide" data-lang="ru">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="home">Home</button><h1>How to use</h1></div>
+      <div class="card grow">
+        <div class="row" id="guideLang" style="margin-bottom:8px">
+          <button class="btn chip on" type="button" data-guide-lang="ru">Russian</button>
+          <button class="btn chip" type="button" data-guide-lang="en">English</button>
+        </div>
+        <div class="rule">
+          <b class="ru">Главная</b><b class="en">Home</b>
+          <div class="ru">Здесь колоды, статистика и занятие. Можно отметить несколько типов ответов. Round дает каждый выбранный тип на одну карточку. Mix берет один случайный тип. In order идет по порядку, Shuffle перемешивает. Train all и Exam начинают занятие по всем колодам. Deck exam и Deck mistakes работают внутри одной колоды.</div>
+          <div class="en">Decks, stats and study live here. Tick more than one answer type. Round gives every selected type on one card. Mix picks one random type. In order follows the deck, Shuffle mixes it. Train all and Exam start across every deck. Deck exam and Deck mistakes stay inside one deck.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Когда карточка выучена</b><b class="en">When a card is learned</b>
+          <div class="ru">Карточка выучена, только когда пройден каждый включенный проверяемый тип. Flip вы оцениваете сами: он не закрывает карточку и в экзамен не входит. Ошибка остается, пока этот тип не отвечен верно три раза подряд. Экзамен не сдан при двух ошибках или через 20 минут.</div>
+          <div class="en">A card is learned only when every enabled checkable type is passed. Flip is self-rated: it does not close the card and it is not on the exam. A mistake stays until that type is answered correctly three times in a row. The exam fails at two mistakes or after 20 minutes.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Типы ответов</b><b class="en">Answer types</b>
+          <div class="ru">Choice — выбрать вариант. Flip — перевернуть и вспомнить. Type — напечатать. Gap — вставить пропуск. Build — собрать фразу. Match — соединить пары. True / false — верно или неверно. Tap — нажать слово в тексте. Select all — отметить все верные. Квизы идут в обе стороны: с английского на русский и с русского на английский.</div>
+          <div class="en">Choice picks an option. Flip turns the card. Type is typed. Gap fills a blank. Build puts a sentence in order. Match joins pairs. True / false judges a line. Tap hits a word in a sentence. Select all marks every correct line. Quizzes run both ways: English to Russian and Russian to English.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Дни занятий</b><b class="en">Lesson days</b>
+          <div class="ru">Кнопка Days. Каждая дата — своя страница, начиная с 7 сентября 2026. Слова, правила и квиз этого дня считаются отдельно. Правило можно читать по-русски и по-английски.</div>
+          <div class="en">The Days button. Each date is its own page, from 7 September 2026. That day's words, rules and quiz stay on that page. A rule can be read in Russian or in English.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Времена</b><b class="en">Tenses</b>
+          <div class="ru">Колода Tenses открывается внутрь. У каждой формы своя страница, включая be going to, used to и герундий. На странице форма, правило на двух языках и квиз этой формы.</div>
+          <div class="en">The Tenses deck opens inward. Each form has its own page, including be going to, used to and the gerund. The page shows the form, the rule in both languages, and that form's quiz.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Music</b><b class="en">Music</b>
+          <div class="ru">Слова и фразы песен. Если слово уже есть в колоде или в дне занятия, новой карточки нет: виден путь к той карточке. Новые слова песни получают свои карточки.</div>
+          <div class="en">Song words and phrases. If a word already lives in a deck or a lesson day, there is no second card: the page shows the path to that card. New song words get their own cards.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Добавить слово</b><b class="en">Add a word</b>
+          <div class="ru">Одно поле. Русский ввод ищет английское слово. Английский ввод ищет русский перевод. Транскрипция, фразы и примеры берутся из Cambridge и Wooordhunt. Если слова или фразы нет, красным написано No such word or phrase.</div>
+          <div class="en">One field. Russian input looks up the English word. English input looks up the Russian translation. Transcription, phrases and examples come from Cambridge and Wooordhunt. If there is no such word or phrase, the page says so in red: No such word or phrase.</div>
+        </div>
+        <div class="rule">
+          <b class="ru">Употребления</b><b class="en">Usages</b>
+          <div class="ru">На карточке любого слова есть кнопка Usages. Это не меньше 10 употреблений из словарей, простых и сложных. По ним собираются свои квизы: пропуск, выбор предложения по переводу, верно или неверно. Если в словарях меньше десяти строк, это написано красным. Предложения не выдумываются.</div>
+          <div class="en">Every word card has a Usages button. It lists at least 10 dictionary lines, simple and complex. Those lines become their own quizzes: a gap, a sentence matched to its translation, and true or false. If the dictionaries have fewer than ten lines, that is written in red. The sentences are not invented.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="musicword">
+      <div class="meta"><button class="btn ghost" type="button" data-jump="song">Line</button><h1 id="musicTitle">Song card</h1></div>
+      <div class="card grow" id="musicView"></div>
+    </section>
+
+  </div></div>
+  <script>
+    const sections = document.querySelectorAll("section");
+    const chromeButtons = document.querySelectorAll(".chrome button");
+    const dayScreens = { lesson: "days", word: "days", rules: "days", daychoice: "days", dayflip: "days", dayjudge: "days", song: "music", musicword: "music", tenses: "home", tense: "home", made: "add" };
+    function show(id) {
+      sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const mark = dayScreens[id] || id;
+      chromeButtons.forEach((b) => b.classList.toggle("on", b.dataset.jump === mark));
+    }
+    const tenseGroups = [
+      { group: "Present", items: ["ps", "pc", "pp", "ppc"] },
+      { group: "Past", items: ["pasts", "pastc", "pastp", "pastpc"] },
+      { group: "Future", items: ["will", "going", "futc", "futp", "futpc", "pcfut", "psfut", "futother", "futpast"] },
+      { group: "Habit", items: ["used", "would", "beused"] },
+      { group: "Gerund and infinitive", items: ["gerund", "inf", "gerinf"] },
+      { group: "Time words", items: ["markers"] }
+    ];
+    const tenses = {
+      ps: { name: "Present Simple", form: "I work", link: ["Cambridge Grammar · Present simple", "https://dictionary.cambridge.org/grammar/british-grammar/present-simple-i-work"], ru: "Привычки, факты, расписания и состояния. Форма: I/you/we/they work, he/she/it works. Маркеры: always, usually, every day. Глаголы состояния (know, like, want) обычно стоят в simple, не в continuous.", en: "Habits, facts, timetables and states. Form: I/you/we/they work, he/she/it works. Markers: always, usually, every day. State verbs (know, like, want) usually stay in the simple, not the continuous." },
+      pc: { name: "Present Continuous", form: "I am working", link: ["Cambridge Grammar · Present continuous", "https://dictionary.cambridge.org/grammar/british-grammar/present-continuous-i-am-working"], ru: "Действие идет сейчас или вокруг сейчас. Форма: am/is/are плюс глагол с -ing. На занятии: We are having a thunderstorm.", en: "An action happening now or around now. Form: am/is/are plus verb-ing. From the lesson: We are having a thunderstorm." },
+      pp: { name: "Present Perfect", form: "I have worked", link: ["Cambridge Grammar · Present perfect simple", "https://dictionary.cambridge.org/grammar/british-grammar/present-perfect-simple-i-have-worked"], ru: "Связь прошлого с настоящим: опыт, результат или период до сейчас. Форма: have/has плюс третья форма. How long have you worked here? С yesterday и ago это время не ставят.", en: "A link between the past and now: experience, a result, or a period up to now. Form: have/has plus the past participle. How long have you worked here? Do not use it with yesterday or ago." },
+      ppc: { name: "Present Perfect Continuous", form: "I have been working", link: ["Cambridge Grammar · Present perfect continuous", "https://dictionary.cambridge.org/grammar/british-grammar/present-perfect-continuous-i-have-been-working"], ru: "Действие длилось до сейчас, часто виден сам процесс. Форма: have/has been плюс глагол с -ing. She has been waiting for an hour.", en: "An action continued up to now, often with the process in view. Form: have/has been plus verb-ing. She has been waiting for an hour." },
+      pasts: { name: "Past Simple", form: "I worked", link: ["Cambridge Grammar · Past simple", "https://dictionary.cambridge.org/grammar/british-grammar/past-simple-i-worked"], ru: "Законченное действие в прошлом. Форма: worked / went. Маркеры: yesterday, ago, last week, in 2019. She finished the report yesterday.", en: "A finished action in the past. Form: worked / went. Markers: yesterday, ago, last week, in 2019. She finished the report yesterday." },
+      pastc: { name: "Past Continuous", form: "I was working", link: ["Cambridge Grammar · Past continuous", "https://dictionary.cambridge.org/grammar/british-grammar/past-continuous-i-was-working"], ru: "Действие шло в момент в прошлом или было фоном для другого. Форма: was/were плюс -ing. I was reading when she called.", en: "An action in progress at a past moment, or the background for another action. Form: was/were plus -ing. I was reading when she called." },
+      pastp: { name: "Past Perfect", form: "I had worked", link: ["Cambridge Grammar · Past perfect simple", "https://dictionary.cambridge.org/grammar/british-grammar/past-perfect-simple-i-had-worked"], ru: "Одно прошлое раньше другого прошлого. Форма: had плюс третья форма. She had left before I arrived.", en: "One past action before another past action. Form: had plus the past participle. She had left before I arrived." },
+      pastpc: { name: "Past Perfect Continuous", form: "I had been working", link: ["Cambridge Grammar · Past perfect continuous", "https://dictionary.cambridge.org/grammar/british-grammar/past-perfect-continuous-i-had-been-working"], ru: "Действие длилось до момента в прошлом. Форма: had been плюс -ing. He had been working there for five years before he left.", en: "An action continued up to a moment in the past. Form: had been plus -ing. He had been working there for five years before he left." },
+      will: { name: "will", form: "I will work", link: ["Cambridge Grammar · will and shall", "https://dictionary.cambridge.org/grammar/british-grammar/future-will-and-shall"], ru: "Решение в момент речи, обещание или предсказание без видимого сейчас признака. Форма: will плюс глагол. I think it will rain.", en: "A decision at the moment of speaking, a promise, or a prediction without present evidence. Form: will plus the verb. I think it will rain." },
+      going: { name: "be going to", form: "I am going to work", link: ["Cambridge Grammar · be going to", "https://dictionary.cambridge.org/grammar/british-grammar/be-going-to"], ru: "План, который уже есть, или будущее по признаку сейчас. Форма: am/is/are going to плюс глагол. It's going to rain. В разговоре часто gonna.", en: "A plan already made, or a future you can see from evidence now. Form: am/is/are going to plus the verb. It's going to rain. In speech this is often gonna." },
+      futc: { name: "Future Continuous", form: "I will be working", link: ["Cambridge Grammar · Future continuous", "https://dictionary.cambridge.org/grammar/british-grammar/future-continuous-i-will-be-working"], ru: "Действие будет идти в момент в будущем. Форма: will be плюс -ing. This time tomorrow I will be working.", en: "An action in progress at a future moment. Form: will be plus -ing. This time tomorrow I will be working." },
+      futp: { name: "Future Perfect", form: "I will have worked", link: ["Cambridge Grammar · Future perfect simple", "https://dictionary.cambridge.org/grammar/british-grammar/future-perfect-simple-i-will-have-worked"], ru: "К моменту в будущем действие уже закончится. Форма: will have плюс третья форма. By Friday I will have finished the report.", en: "By a future moment the action will already be finished. Form: will have plus the past participle. By Friday I will have finished the report." },
+      futpc: { name: "Future Perfect Continuous", form: "I will have been working", link: ["Cambridge Grammar · Future perfect continuous", "https://dictionary.cambridge.org/grammar/british-grammar/future-perfect-continuous-i-will-have-been-working"], ru: "К моменту в будущем действие уже будет длиться какое-то время. Форма: will have been плюс -ing. By June I will have been working here for a year.", en: "By a future moment the action will already have continued for some time. Form: will have been plus -ing. By June I will have been working here for a year." },
+      pcfut: { name: "Present Continuous for the future", form: "I'm working tomorrow", link: ["Cambridge Grammar · Future", "https://dictionary.cambridge.org/grammar/british-grammar/future-"], ru: "Договоренность на будущее, время часто названо. Форма та же, что у Present Continuous: am/is/are плюс -ing. I'm meeting Anna tomorrow.", en: "An arrangement for the future, often with a time named. Same form as the Present Continuous: am/is/are plus -ing. I'm meeting Anna tomorrow." },
+      psfut: { name: "Present Simple for the future", form: "The train leaves at 6", link: ["Cambridge Grammar · Future", "https://dictionary.cambridge.org/grammar/british-grammar/future-"], ru: "Расписание и программа: поезд, урок, фильм. Форма Present Simple. The train leaves at 6.", en: "A timetable or programme: a train, a class, a film. Present Simple form. The train leaves at 6." },
+      futother: { name: "be about to, be due to, be to", form: "I'm about to leave", link: ["Cambridge Grammar · Future", "https://dictionary.cambridge.org/grammar/british-grammar/future-"], ru: "be about to — вот-вот. be due to — по плану должно случиться. be to — официальный план. I'm about to leave.", en: "be about to means on the point of happening. be due to means expected by a plan. be to is a formal plan. I'm about to leave." },
+      futpast: { name: "Future in the past", form: "She would call", link: ["Cambridge Grammar · Future", "https://dictionary.cambridge.org/grammar/british-grammar/future-"], ru: "Будущее, как его видели из прошлого. would плюс глагол или was/were going to. She said she would call.", en: "The future as seen from the past. would plus the verb, or was/were going to. She said she would call." },
+      used: { name: "used to", form: "I used to work", link: ["Cambridge Grammar · used to", "https://dictionary.cambridge.org/grammar/british-grammar/used-to"], ru: "Привычка или состояние в прошлом, сейчас этого нет. Форма: used to плюс глагол. Отрицание: didn't use to. I used to live there.", en: "A past habit or state that is not true now. Form: used to plus the verb. Negative: didn't use to. I used to live there." },
+      would: { name: "would for past habits", form: "We would walk", link: ["Cambridge Grammar · used to", "https://dictionary.cambridge.org/grammar/british-grammar/used-to"], ru: "Повторяющееся действие в прошлом, как used to, но не для состояний. We would walk to school. Для прошлого состояния нужен used to, не would.", en: "A repeated past action, like used to, but not for states. We would walk to school. For a past state, use used to, not would." },
+      beused: { name: "be used to / get used to", form: "I'm used to working", link: ["Cambridge Grammar · used to and be used to", "https://dictionary.cambridge.org/grammar/british-grammar/word-choice-used-to-and-be-used-to"], ru: "be used to — уже привык. get used to — привыкаю. После них существительное или герундий, не инфинитив. I'm used to getting up early.", en: "be used to means already accustomed. get used to means becoming accustomed. After them, use a noun or a gerund, not an infinitive. I'm used to getting up early." },
+      gerund: { name: "Gerund", form: "working", link: ["Cambridge Grammar · -ing or to-infinitive", "https://dictionary.cambridge.org/grammar/british-grammar/hate-like-love-and-prefer"], ru: "Глагол с -ing в роли существительного. После enjoy, mind, can't stand, keen on, into. I enjoy reading. You're keen on learning English, не learn.", en: "The -ing form used as a noun. After enjoy, mind, can't stand, keen on, into. I enjoy reading. You're keen on learning English, not learn." },
+      inf: { name: "Infinitive", form: "to work", link: ["Cambridge Grammar · like, love, prefer", "https://dictionary.cambridge.org/grammar/british-grammar/hate-like-love-and-prefer"], ru: "to плюс глагол. После want, decide, hope, would like. I want to leave. После will и can инфинитив без to: I will work.", en: "to plus the verb. After want, decide, hope, would like. I want to leave. After will and can, use the bare infinitive: I will work." },
+      gerinf: { name: "Gerund or infinitive", form: "remember doing / to do", link: ["Cambridge Grammar · like, love, prefer", "https://dictionary.cambridge.org/grammar/british-grammar/hate-like-love-and-prefer"], ru: "После remember, stop и try смысл меняется. remember doing — помню, что делал. remember to do — не забыть сделать. stop doing — перестать. stop to do — остановиться, чтобы сделать.", en: "After remember, stop and try the meaning changes. remember doing means I remember that I did it. remember to do means don't forget to do it. stop doing means quit. stop to do means pause in order to do it." },
+      markers: { name: "since, for, ago, already, yet, just", form: "since 2019", link: ["Cambridge Grammar · Present perfect simple", "https://dictionary.cambridge.org/grammar/british-grammar/present-perfect-simple-i-have-worked"], ru: "since — точка начала (since 2019), с Perfect. for — длительность (for two years), с Perfect. ago — отсчет назад от сейчас, с Past Simple. already, yet, just, still обычно с Present Perfect. yesterday и ago с Present Perfect не ставят.", en: "since is a starting point (since 2019), with a perfect tense. for is a duration (for two years), with a perfect tense. ago counts back from now, with the Past Simple. already, yet, just and still usually go with the Present Perfect. Do not use yesterday or ago with the Present Perfect." }
+    };
+    document.getElementById("tenseList").innerHTML = tenseGroups.map((g) =>
+      '<p class="tense-group">' + g.group + '</p>' +
+      g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
+    ).join("");
+    function openTense(id) {
+      const t = tenses[id];
+      if (!t) return;
+      document.getElementById("tenseTitle").textContent = t.name;
+      document.getElementById("tense").dataset.lang = "ru";
+      document.querySelectorAll("#tenseLang .chip").forEach((b) => b.classList.toggle("on", b.dataset.tenseLang === "ru"));
+      document.getElementById("tenseView").innerHTML =
+        '<p class="q">' + t.form + '</p>' +
+        '<p class="ru">' + t.ru + '</p><p class="en">' + t.en + '</p>' +
+        '<p><a href="' + t.link[1] + '" target="_blank" rel="noreferrer">' + t.link[0] + '</a></p>' +
+        '<div class="row" style="margin-top:12px"><button class="btn primary" type="button" data-jump="gap">This form\'s quiz</button><button class="btn" type="button" data-jump="errors">Mistakes</button></div>';
+      show("tense");
+    }
+    document.getElementById("tenseLang").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-tense-lang]");
+      if (!btn) return;
+      document.getElementById("tense").dataset.lang = btn.dataset.tenseLang;
+      document.querySelectorAll("#tenseLang .chip").forEach((b) => b.classList.toggle("on", b === btn));
+    });
+    document.body.addEventListener("click", (e) => {
+      const tenseBtn = e.target.closest("[data-tense]");
+      if (tenseBtn) openTense(tenseBtn.dataset.tense);
+      const jump = e.target.closest("[data-jump]");
+      if (jump) show(jump.dataset.jump);
+    });
+
+    document.getElementById("modes").addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (btn) btn.classList.toggle("on");
+    });
+    document.querySelectorAll("[data-mix]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-mix]").forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+      });
+    });
+
+    document.querySelectorAll("#choice [data-choice]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#choice .opt").forEach((o) => o.classList.remove("ok", "bad"));
+        btn.classList.add(btn.dataset.choice === "ok" ? "ok" : "bad");
+        if (btn.dataset.choice !== "ok") document.querySelector('#choice [data-choice="ok"]').classList.add("ok");
+        document.getElementById("choiceFb").innerHTML =
+          '<div class="feedback ' + (btn.dataset.choice === "ok" ? "ok" : "bad") + '">' +
+          (btn.dataset.choice === "ok" ? "Correct" : "Incorrect. Right answer: 2") +
+          '</div><div class="explain">сдаваться, бросать. Phrasal verb, B2.<br><a href="https://dictionary.cambridge.org/dictionary/english/give-up" target="_blank" rel="noreferrer">Cambridge</a> · <a href="https://wooordhunt.ru/word/give_up" target="_blank" rel="noreferrer">Wooordhunt</a></div>';
+      });
+    });
+
+    const flipBtn = document.getElementById("flipBtn");
+    const flipFace = document.getElementById("flipFace");
+    let flipped = false;
+    flipBtn.addEventListener("click", () => {
+      flipped = !flipped;
+      if (!flipped) {
+        flipFace.innerHTML = '<p class="label">Lesson 12 · give up</p><p class="entry">give up</p>';
+        flipBtn.textContent = "Flip";
+        return;
+      }
+      flipFace.innerHTML = '<p class="entry" style="font-size:28px">сдаваться, бросать</p><p class="ipa">/ɡɪv ˈʌp/</p><p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p><a href="https://dictionary.cambridge.org/dictionary/english/give-up" target="_blank" rel="noreferrer">Cambridge</a> · <a href="https://wooordhunt.ru/word/give_up" target="_blank" rel="noreferrer">Wooordhunt</a></p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
+      flipBtn.textContent = "Card front";
+    });
+
+    document.getElementById("typeCheck").addEventListener("click", () => {
+      const value = document.getElementById("typeInput").value.trim().toLowerCase().replace(/\s+/g, " ");
+      const ok = value === "give up";
+      document.getElementById("typeFb").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "Correct" : "Incorrect. Needed: give up") + "</div>";
+    });
+
+    const bank = document.getElementById("bank");
+    const slot = document.getElementById("slot");
+    bank.addEventListener("click", (e) => {
+      const token = e.target.closest(".token");
+      if (!token) return;
+      (token.parentElement === bank ? slot : bank).appendChild(token);
+    });
+
+    document.querySelectorAll("#tapLine button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#tapLine button").forEach((b) => b.classList.remove("ok", "bad"));
+        btn.classList.add(btn.dataset.tap === "ok" ? "ok" : "bad");
+        document.getElementById("tapFb").innerHTML = '<div class="feedback ' + (btn.dataset.tap === "ok" ? "ok" : "bad") + '">' +
+          (btn.dataset.tap === "ok"
+            ? "Correct. since 2019 marks a start that is still connected to now.<br>Верно. since 2019 показывает начало, которое связано с настоящим."
+            : "That is the verb form. The time marker here is since.<br>Это форма глагола. Показатель времени здесь — since.") + "</div>";
+      });
+    });
+
+    let leftPick = null;
+    document.querySelectorAll("#pairs .pair").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (btn.classList.contains("ok")) return;
+        if (btn.dataset.side === "l") {
+          document.querySelectorAll('#pairs [data-side="l"]').forEach((b) => b.classList.remove("pick"));
+          btn.classList.add("pick");
+          leftPick = btn;
+          return;
+        }
+        if (!leftPick) return;
+        const good = leftPick.dataset.id === btn.dataset.id;
+        if (good) {
+          leftPick.classList.remove("pick");
+          leftPick.classList.add("ok");
+          btn.classList.add("ok");
+        } else {
+          leftPick.classList.remove("pick");
+          const a = leftPick;
+          a.classList.add("bad");
+          btn.classList.add("bad");
+          setTimeout(() => { a.classList.remove("bad"); btn.classList.remove("bad"); }, 500);
+        }
+        leftPick = null;
+      });
+    });
+
+    const words = [
+      { en: "humid", pos: "adjective", uk: "/ˈhjuː.mɪd/", us: "/ˈhjuː.mɪd/", level: "B1", ru: "влажный, душный", gloss: "The air has a lot of water in it, so it feels wet.", ex: "It's humid.", url: "https://dictionary.cambridge.org/dictionary/english/humid" },
+      { en: "damp", pos: "adjective", uk: "/dæmp/", us: "/dæmp/", level: "", ru: "сырой, влажный и холодный", gloss: "A little wet, often in a cold and unpleasant way.", ex: "It's damp.", url: "https://dictionary.cambridge.org/dictionary/english/damp" },
+      { en: "wet", pos: "adjective", uk: "/wet/", us: "/wet/", level: "", ru: "мокрый", gloss: "The ground and things are covered with water.", ex: "It's wet.", url: "https://dictionary.cambridge.org/dictionary/english/wet" },
+      { en: "dry", pos: "adjective", uk: "/draɪ/", us: "/draɪ/", level: "", ru: "сухой", gloss: "There's no water.", ex: "It's sunny and dry.", url: "https://dictionary.cambridge.org/dictionary/english/dry" },
+      { en: "windy", pos: "adjective", uk: "/ˈwɪn.di/", us: "/ˈwɪn.di/", level: "", ru: "ветреный", gloss: "There is a lot of wind.", ex: "It's windy and cloudy.", url: "https://dictionary.cambridge.org/dictionary/english/windy" },
+      { en: "chilly", pos: "adjective", uk: "/ˈtʃɪl.i/", us: "/ˈtʃɪl.i/", level: "C1", ru: "прохладный", gloss: "A little cold.", ex: "It's chilly.", url: "https://dictionary.cambridge.org/dictionary/english/chilly" },
+      { en: "boiling", pos: "adjective", uk: "/ˈbɔɪ.lɪŋ/", us: "/ˈbɔɪ.lɪŋ/", level: "", ru: "очень жаркий", gloss: "Very hot.", ex: "It's boiling.", url: "https://dictionary.cambridge.org/dictionary/english/boiling" },
+      { en: "freezing", pos: "adjective", uk: "/ˈfriː.zɪŋ/", us: "/ˈfriː.zɪŋ/", level: "", ru: "морозный", gloss: "Very cold.", ex: "It's freezing.", url: "https://dictionary.cambridge.org/dictionary/english/freezing" },
+      { en: "mild", pos: "adjective", uk: "/maɪld/", us: "/maɪld/", level: "", ru: "мягкий", gloss: "Not too hot and not too cold.", ex: "It's mild.", url: "https://dictionary.cambridge.org/dictionary/english/mild" },
+      { en: "drizzle", pos: "noun", uk: "/ˈdrɪz.əl/", us: "/ˈdrɪz.əl/", level: "", ru: "морось", gloss: "Very light rain.", ex: "There's drizzle.", url: "https://dictionary.cambridge.org/dictionary/english/drizzle" },
+      { en: "shower", pos: "noun", uk: "/ʃaʊər/", us: "/ˈʃaʊ.ɚ/", level: "", ru: "короткий сильный дождь", gloss: "A short period of heavy rain.", ex: "There is a shower.", url: "https://dictionary.cambridge.org/dictionary/english/shower" },
+      { en: "thunderstorm", pos: "noun", uk: "/ˈθʌn.də.stɔːm/", us: "/ˈθʌn.dɚ.stɔːrm/", level: "A2", ru: "гроза", gloss: "Thunder, lightning and usually heavy rain.", ex: "There's a thunderstorm.", url: "https://dictionary.cambridge.org/dictionary/english/thunderstorm" }
+    ];
+    const rules = [
+      {
+        title: { ru: "Как описать погоду", en: "How to describe the weather" },
+        body: {
+          ru: "It's плюс прилагательное: It's humid, It's chilly. There's плюс существительное: There's drizzle, There's a thunderstorm. It's hot and rainy значит humid.",
+          en: "It's plus an adjective: It's humid, It's chilly. There's plus a noun: There's drizzle, There's a thunderstorm. It's hot and rainy means humid."
+        },
+        links: [["Cambridge · humid", "https://dictionary.cambridge.org/dictionary/english/humid"], ["Wooordhunt · humid", "https://wooordhunt.ru/word/humid"], ["Cambridge · drizzle", "https://dictionary.cambridge.org/dictionary/english/drizzle"], ["Wooordhunt · drizzle", "https://wooordhunt.ru/word/drizzle"]]
+      },
+      {
+        title: { ru: "Present continuous: погода идет сейчас", en: "Present continuous: weather happening now" },
+        body: {
+          ru: "am / is / are плюс глагол с -ing. На занятии: We are having a thunderstorm. We are having a few showers. Так говорят о погоде в момент речи.",
+          en: "am / is / are plus the -ing form. From the lesson: We are having a thunderstorm. We are having a few showers. This is weather at the moment of speaking."
+        },
+        links: [["Cambridge Grammar · Present continuous", "https://dictionary.cambridge.org/grammar/british-grammar/present-continuous-i-am-working"]]
+      },
+      {
+        title: { ru: "Present perfect: How long have you…?", en: "Present perfect: How long have you…?" },
+        body: {
+          ru: "Фраза со слайда: How long have you worked here? have/has плюс третья форма. Период начался в прошлом и длится до сейчас.",
+          en: "Line from the slides: How long have you worked here? have/has plus the past participle. The period started in the past and continues until now."
+        },
+        links: [["Cambridge Grammar · Present perfect simple", "https://dictionary.cambridge.org/grammar/british-grammar/present-perfect-simple-i-have-worked"]]
+      },
+      {
+        title: { ru: "Likes and dislikes", en: "Likes and dislikes" },
+        body: {
+          ru: "I'm keen on / I'm into / I'm interested in плюс существительное или -ing. I prefer dancing to doing sport. I don't mind и I can't stand плюс -ing. Для he/she: is keen on, doesn't mind, can't stand. После keen on нельзя инфинитив без -ing.",
+          en: "I'm keen on / I'm into / I'm interested in plus a noun or -ing. I prefer dancing to doing sport. I don't mind and I can't stand plus -ing. For he/she: is keen on, doesn't mind, can't stand. After keen on, do not use a bare infinitive."
+        },
+        links: [["Cambridge Grammar · like, love, prefer", "https://dictionary.cambridge.org/grammar/british-grammar/hate-like-love-and-prefer"], ["Cambridge · keen", "https://dictionary.cambridge.org/dictionary/english/keen"], ["Wooordhunt · keen", "https://wooordhunt.ru/word/keen"]]
+      }
+    ];
+    let current = words[0];
+    let dayFlipped = false;
+    function renderWord(w) {
+      document.getElementById("wordView").innerHTML =
+        '<p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p>' +
+        '<p class="ipa"><span>uk</span> ' + w.uk + ' &nbsp; <span>us</span> ' + w.us + '</p>' +
+        (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
+        '<p><b>' + w.ru + '</b></p><p>' + w.gloss + '</p><p>From the lesson: ' + w.ex + '</p>' +
+        '<p><a href="' + w.url + '" target="_blank" rel="noreferrer">Cambridge</a> · <a href="https://wooordhunt.ru/word/' + w.en + '" target="_blank" rel="noreferrer">Wooordhunt</a></p>' +
+        '<div class="row" style="margin-top:12px"><button class="btn" type="button" id="toDayFlip">Flip this card</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button><button class="btn primary" type="button" data-jump="daychoice">This day\'s quiz</button></div>';
+      document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); show("dayflip"); };
+    }
+    function setDayFlip(w, open) {
+      current = w;
+      dayFlipped = open;
+      const face = document.getElementById("dayFlipFace");
+      const btn = document.getElementById("dayFlipBtn");
+      if (!open) {
+        face.innerHTML = '<p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p>';
+        btn.textContent = "Flip";
+        return;
+      }
+      face.innerHTML = '<p class="entry" style="font-size:28px">' + w.ru + '</p><p class="pos">' + w.en + ' · ' + w.pos + '</p><p class="ipa"><span>uk</span> ' + w.uk + ' &nbsp; <span>us</span> ' + w.us + '</p><p>' + w.ex + '</p><p><a href="' + w.url + '" target="_blank" rel="noreferrer">Cambridge</a> · <a href="https://wooordhunt.ru/word/' + w.en + '" target="_blank" rel="noreferrer">Wooordhunt</a></p><div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      btn.textContent = "Card front";
+    }
+    document.getElementById("wordGrid").innerHTML = words.map((w, i) =>
+      '<button class="wcard" type="button" data-i="' + i + '"><div class="en">' + w.en + '</div><div class="pos">' + w.pos + '</div><div class="ipa"><span>uk</span> ' + w.uk + '</div><div class="label">' + w.ru + '</div></button>'
+    ).join("");
+    document.getElementById("wordGrid").onclick = (e) => {
+      const btn = e.target.closest("[data-i]");
+      if (!btn) return;
+      current = words[Number(btn.dataset.i)];
+      renderWord(current);
+      show("word");
+    };
+    document.getElementById("rules").dataset.lang = "ru";
+    document.getElementById("ruleList").innerHTML = rules.map((r) =>
+      '<div class="rule"><b class="ru">' + r.title.ru + '</b><b class="en">' + r.title.en + '</b><div class="ru">' + r.body.ru + '</div><div class="en">' + r.body.en + '</div><p>' +
+      r.links.map((l) => '<a href="' + l[1] + '" target="_blank" rel="noreferrer">' + l[0] + '</a>').join(" · ") + '</p></div>'
+    ).join("");
+    document.getElementById("ruleLang").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-rule-lang]");
+      if (!btn) return;
+      document.getElementById("rules").dataset.lang = btn.dataset.ruleLang;
+      document.querySelectorAll("#ruleLang .chip").forEach((b) => b.classList.toggle("on", b === btn));
+    });
+    document.getElementById("guideLang").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-guide-lang]");
+      if (!btn) return;
+      document.getElementById("guide").dataset.lang = btn.dataset.guideLang;
+      document.querySelectorAll("#guideLang .chip").forEach((b) => b.classList.toggle("on", b === btn));
+    });
+    document.getElementById("dayFlipBtn").onclick = () => setDayFlip(current, !dayFlipped);
+    document.getElementById("firstDay").onclick = () => {
+      document.getElementById("firstNote").textContent = "7 Sep 2026 opens the same way as 21 Sep, once you send that day's PDF or links.";
+    };
+    renderWord(words[0]);
+    document.querySelectorAll("#daychoice .opt").forEach((btn) => {
+      btn.onclick = () => {
+        document.querySelectorAll("#daychoice .opt").forEach((o) => o.classList.remove("ok", "bad"));
+        const good = btn.dataset.ok === "1";
+        btn.classList.add(good ? "ok" : "bad");
+        if (!good) document.querySelector('#daychoice [data-ok="1"]').classList.add("ok");
+        document.getElementById("dayChoiceFb").innerHTML = '<div class="feedback ' + (good ? "ok" : "bad") + '">' + (good ? "Correct" : "Incorrect. It's humid.") + '</div>';
+      };
+    });
+    document.getElementById("judgeYes").onclick = () => {
+      document.getElementById("judgeFb").innerHTML = '<div class="feedback bad">Incorrect. It should be: You\'re keen on learning English.<br>Неверно. Нужно: You\'re keen on learning English.</div>';
+    };
+    document.getElementById("judgeNo").onclick = () => {
+      document.getElementById("judgeFb").innerHTML = '<div class="feedback ok">Correct, the line has an error. It needs learning.<br>Верно, во фразе ошибка. Нужно learning.</div>';
+    };
+
+    const songCards = {
+      moonlight: {
+        en: "moonlight", pos: "noun", uk: "/ˈmuːn.laɪt/", us: "/ˈmuːn.laɪt/", level: "B2",
+        ru: "лунный свет", ex: "in the moonlight",
+        url: "https://dictionary.cambridge.org/dictionary/english/moonlight",
+        hunt: "https://wooordhunt.ru/word/moonlight"
+      },
+      wont: {
+        en: "won't", pos: "contraction", uk: "/wəʊnt/", us: "/woʊnt/", level: "",
+        ru: "не будет, сокращение will not", ex: "I won't give up",
+        url: "https://dictionary.cambridge.org/dictionary/english/won-t",
+        hunt: "https://wooordhunt.ru/word/will"
+      }
+    };
+    function renderSong(key) {
+      const w = songCards[key];
+      document.getElementById("musicTitle").textContent = w.en;
+      document.getElementById("musicView").innerHTML =
+        '<p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p>' +
+        '<p class="ipa"><span>uk</span> ' + w.uk + ' &nbsp; <span>us</span> ' + w.us + '</p>' +
+        (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
+        '<p><b>' + w.ru + '</b></p><p>In the line: ' + w.ex + '</p>' +
+        '<p><a href="' + w.url + '" target="_blank" rel="noreferrer">Cambridge</a> · <a href="' + w.hunt + '" target="_blank" rel="noreferrer">Wooordhunt</a></p>' +
+        '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Music.</p>' +
+        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+    }
+    document.querySelectorAll("[data-song]").forEach((btn) => {
+      btn.addEventListener("click", () => renderSong(btn.dataset.song));
+    });
+
+    const ADDED_KEY = "enquiz-added";
+    function loadAdded() {
+      try { return JSON.parse(localStorage.getItem(ADDED_KEY) || "[]"); }
+      catch (e) { return []; }
+    }
+    function saveAdded(list) {
+      localStorage.setItem(ADDED_KEY, JSON.stringify(list));
+    }
+    function esc(value) {
+      return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+    function renderAddedList() {
+      const list = loadAdded();
+      const box = document.getElementById("addedList");
+      if (!list.length) { box.innerHTML = ""; return; }
+      box.innerHTML = '<p class="label" style="margin-top:14px">Your words</p>' + list.map((item, i) =>
+        '<button class="path" type="button" data-added="' + i + '"><b>' + esc(item.word) + '</b><span class="to">' + esc(item.ru) + '</span></button>'
+      ).join("");
+    }
+    function blankSentence(sentence, word) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp("\\b" + escaped + "\\b", "i");
+      const found = sentence.match(re);
+      if (!found) return null;
+      return { shown: sentence.replace(re, "____"), answer: found[0] };
+    }
+    function shuffle(list) {
+      const copy = list.slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const swap = copy[i];
+        copy[i] = copy[j];
+        copy[j] = swap;
+      }
+      return copy;
+    }
+    function sensesOf(gloss) {
+      return String(gloss || "").split(/[,;]/).map((part) => part.trim()).filter((part) => part.length > 1);
+    }
+    function ruMatch(typed, gloss) {
+      const text = typed.trim().toLowerCase();
+      if (!text) return false;
+      if (text === String(gloss || "").trim().toLowerCase()) return true;
+      return sensesOf(gloss).some((part) => part.toLowerCase() === text);
+    }
+    function blankRu(sentence, word) {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp("(^|[^А-Яа-яЁё])(" + escaped + ")(?![А-Яа-яЁё])", "i");
+      const found = sentence.match(re);
+      if (!found) return null;
+      return { shown: sentence.replace(re, "$1____"), answer: found[2] };
+    }
+    function choiceBlock(title, prompt, options, correct, dir) {
+      if (options.length < 2) {
+        return '<div class="gen"><h2>' + title + '</h2><p class="hint">The dictionary has only one equivalent here, so a choice card was not made.</p></div>';
+      }
+      let html = '<div class="gen"><h2>' + title + '</h2><p class="prompt">' + esc(prompt) + '</p><div class="opts">';
+      options.forEach((option, index) => {
+        html += '<button class="opt" type="button" data-made-choice="' + (option === correct ? "ok" : "bad") + '" data-choice-dir="' + dir + '"><span class="bullet">' + (index + 1) + "</span><span>" + esc(option) + "</span></button>";
+      });
+      html += '</div><div id="madeChoiceFb' + dir + '"></div></div>';
+      return html;
+    }
+    function usageList(usages) {
+      if (!usages.length) return '<div class="gen"><h2>Usages</h2><p style="color:var(--bad)">No usages in the dictionaries for this word.</p></div>';
+      const simple = usages.filter((usage) => usage.kind === "simple").length;
+      const complex = usages.filter((usage) => usage.kind === "complex").length;
+      let html = '<div class="gen"><h2>Usages · ' + usages.length + "</h2>";
+      if (usages.length < 10) html += '<p style="color:var(--bad)">The dictionaries have only ' + usages.length + " usages for this word.</p>";
+      else html += '<p class="hint">' + simple + " simple · " + complex + " complex. Every line is from Cambridge or Wooordhunt.</p>";
+      usages.forEach((usage) => {
+        html += '<p><span class="kind">' + esc(usage.kind) + "</span>" + esc(usage.en) + "</p>";
+        if (usage.ru) html += '<p class="hint">' + esc(usage.ru) + "</p>";
+      });
+      return html + "</div>";
+    }
+    function usageQuizzes(usages) {
+      const withRu = usages.filter((usage) => usage.ru);
+      if (withRu.length < 2) return "";
+      const target = withRu.find((usage) => usage.kind === "complex") || withRu[0];
+      const pool = [target.en];
+      withRu.forEach((usage) => {
+        if (pool.length < 4 && pool.indexOf(usage.en) === -1) pool.push(usage.en);
+      });
+      const options = shuffle(pool);
+      let html = '<div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
+      options.forEach((option, index) => {
+        html += '<button class="opt" type="button" data-usage-choice="' + (option === target.en ? "ok" : "bad") + '"><span class="bullet">' + (index + 1) + "</span><span>" + esc(option) + "</span></button>";
+      });
+      html += '</div><div id="usageChoiceFb"></div></div>';
+      const other = withRu[1];
+      const truthful = Math.random() < 0.5;
+      const shownRu = truthful ? target.ru : other.ru;
+      html += '<div class="gen"><h2>Usage quiz · True / false</h2><p class="prompt">Does this translation match the sentence?</p><p class="q">' + esc(target.en) + "</p><p>" + esc(shownRu) + "</p>";
+      html += '<div class="row"><button class="btn" type="button" data-tf="' + (truthful ? "ok" : "bad") + '" data-tf-answer="' + esc(target.ru) + '">True</button>';
+      html += '<button class="btn" type="button" data-tf="' + (truthful ? "bad" : "ok") + '" data-tf-answer="' + esc(target.ru) + '">False</button></div><div id="usageTfFb"></div></div>';
+      return html;
+    }
+    function renderMade(item) {
+      const data = item.data || {};
+      const cam = data.cambridge || {};
+      const wh = data.wooordhunt || {};
+      const uk = cam.uk || wh.uk || "";
+      const us = cam.us || wh.us || "";
+      const phrases = [];
+      (wh.phrases || []).forEach((phrase) => {
+        const english = (phrase.en || "").trim();
+        if (!english || english.toLowerCase() === item.word.trim().toLowerCase()) return;
+        if (!phrases.some((have) => have.en === english)) phrases.push(phrase);
+      });
+      const examples = [];
+      (wh.examples || []).forEach((example) => { if (example.en) examples.push(example); });
+      (cam.examples || []).forEach((english) => {
+        if (english && !examples.some((have) => have.en.toLowerCase() === english.toLowerCase())) examples.push({ en: english, ru: "" });
+      });
+      const usages = data.usages || [];
+      const gapPool = usages.length ? usages : examples;
+      const gaps = [];
+      const simplePool = gapPool.filter((example) => example.kind !== "complex");
+      const complexPool = gapPool.filter((example) => example.kind === "complex");
+      let simpleAt = 0;
+      let complexAt = 0;
+      let wantComplex = false;
+      while (gaps.length < 4 && (simpleAt < simplePool.length || complexAt < complexPool.length)) {
+        const example = !wantComplex && simpleAt < simplePool.length
+          ? simplePool[simpleAt++]
+          : (complexAt < complexPool.length ? complexPool[complexAt++] : simplePool[simpleAt++]);
+        wantComplex = !wantComplex;
+        const gap = blankSentence(example.en, item.word);
+        if (gap) gaps.push({ shown: gap.shown, answer: gap.answer, hint: example.ru || "", kind: example.kind || "" });
+      }
+      const ruPieces = sensesOf(item.ru);
+      if (data.direction === "ru" && data.query) ruPieces.push(data.query);
+      ruPieces.sort((a, b) => b.length - a.length);
+      const ruGaps = [];
+      gapPool.forEach((example) => {
+        if (!example.ru || ruGaps.length >= 3) return;
+        for (let i = 0; i < ruPieces.length; i++) {
+          const gap = blankRu(example.ru, ruPieces[i]);
+          if (!gap) continue;
+          ruGaps.push({ shown: gap.shown, answer: gap.answer, hint: example.en });
+          break;
+        }
+      });
+      const ruWrong = [];
+      phrases.forEach((phrase) => {
+        const text = (phrase.ru || "").trim();
+        if (!text || text.toLowerCase() === item.ru.trim().toLowerCase()) return;
+        if (sensesOf(item.ru).some((sense) => sense.toLowerCase() === text.toLowerCase())) return;
+        if (ruWrong.indexOf(text) === -1) ruWrong.push(text);
+      });
+      const ruOptions = shuffle(ruWrong.slice(0, 3).concat([item.ru]));
+      const enWrong = (data.englishAlts || []).filter((alt) => alt.toLowerCase() !== item.word.trim().toLowerCase());
+      const enOptions = shuffle(enWrong.slice(0, 3).concat([item.word]));
+      document.getElementById("madeTitle").textContent = item.word;
+      const ipa = (uk || us)
+        ? '<p class="ipa">' + (uk ? "<span>uk</span> /" + esc(uk) + "/ " : "") + (us ? "<span>us</span> /" + esc(us) + "/" : "") + "</p>"
+        : "";
+      let html = '<div class="gen"><h2>Word card</h2><p class="entry">' + esc(item.word) + "</p>";
+      if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
+      html += ipa;
+      if (cam.level) html += '<p><span class="level">' + esc(cam.level) + "</span></p>";
+      html += "<p><b>" + esc(item.ru) + "</b></p>";
+      html += '<p class="hint">Translation from Wooordhunt.' + (data.direction === "ru" && data.query ? " You looked up: " + esc(data.query) + "." : "") + "</p>";
+      if (cam.definition) html += "<p>" + esc(cam.definition) + "</p>";
+      html += '<p><a href="' + esc((data.links || {}).cambridge || "") + '" target="_blank" rel="noreferrer">Cambridge</a> · <a href="' + esc((data.links || {}).wooordhunt || "") + '" target="_blank" rel="noreferrer">Wooordhunt</a></p></div>';
+      html += usageList(usages);
+
+      html += '<div class="gen"><h2>English → Russian · Flip</h2><div id="madeFlipEn"><p class="q">' + esc(item.word) + '</p><button class="btn" type="button" data-flip="en">Flip</button></div></div>';
+      html += choiceBlock("English → Russian · Choice", item.word, ruOptions, item.ru, "ru");
+      html += '<div class="gen"><h2>English → Russian · Type</h2><p class="prompt">' + esc(item.word) + '</p><input id="madeTypeRu" type="text" placeholder="Type the Russian translation" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="ru">Check</button></div><div id="madeTypeFbRu"></div></div>';
+      if (gaps.length) {
+        gaps.forEach((gap, index) => {
+          html += '<div class="gen"><h2>English → Russian · Gap' + (gap.kind ? " · " + esc(gap.kind) : "") + '</h2><p class="q">' + esc(gap.shown) + "</p>";
+          if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
+          html += '<input id="madeGap' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
+          html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="' + index + '">Check</button></div><div id="madeGapFb' + index + '"></div></div>';
+        });
+      }
+
+      html += '<div class="gen"><h2>Russian → English · Flip</h2><div id="madeFlipRu"><p class="q">' + esc(item.ru) + '</p><button class="btn" type="button" data-flip="ru">Flip</button></div></div>';
+      html += choiceBlock("Russian → English · Choice", item.ru, enOptions, item.word, "en");
+      html += '<div class="gen"><h2>Russian → English · Type</h2><p class="prompt">' + esc(item.ru) + '</p><input id="madeTypeEn" type="text" placeholder="Type the English word" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="en">Check</button></div><div id="madeTypeFbEn"></div></div>';
+      if (ruGaps.length) {
+        ruGaps.forEach((gap, index) => {
+          html += '<div class="gen"><h2>Russian → English · Gap</h2><p class="q">' + esc(gap.shown) + "</p>";
+          if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
+          html += '<input id="madeGapRu' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
+          html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="Ru' + index + '">Check</button></div><div id="madeGapFbRu' + index + '"></div></div>';
+        });
+      }
+
+      html += '<div class="gen"><h2>Phrases</h2>';
+      if (phrases.length) {
+        phrases.forEach((phrase, index) => {
+          html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.en) + '</p><button class="btn" type="button" data-phrase="' + index + '">Flip</button><p class="hint" id="madePhrase' + index + '" hidden>' + esc(phrase.ru) + "</p></div>";
+        });
+        html += '<p class="label" style="margin-top:10px">Russian → English</p>';
+        phrases.forEach((phrase, index) => {
+          html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.ru) + '</p><button class="btn" type="button" data-phrase-en="' + index + '">Flip</button><p class="hint" id="madePhraseEn' + index + '" hidden>' + esc(phrase.en) + "</p></div>";
+        });
+      } else {
+        html += '<p class="hint">Wooordhunt has no phrases for this word.</p>';
+      }
+      html += "</div>";
+      html += usageQuizzes(usages);
+      document.getElementById("madeView").innerHTML = html;
+      document.getElementById("madeView").dataset.ru = item.ru;
+      document.getElementById("madeView").dataset.word = item.word;
+      show("made");
+    }
+    document.getElementById("madeView").addEventListener("click", (e) => {
+      const view = document.getElementById("madeView");
+      const flip = e.target.closest("[data-flip]");
+      if (flip) {
+        const dir = flip.dataset.flip;
+        const face = document.getElementById(dir === "ru" ? "madeFlipRu" : "madeFlipEn");
+        const front = dir === "ru" ? view.dataset.ru : view.dataset.word;
+        const back = dir === "ru" ? view.dataset.word : view.dataset.ru;
+        if (flip.dataset.open === "1") {
+          face.innerHTML = '<p class="q">' + esc(front) + '</p><button class="btn" type="button" data-flip="' + dir + '">Flip</button>';
+        } else {
+          face.innerHTML = '<p class="q">' + esc(back) + '</p><button class="btn" type="button" data-flip="' + dir + '" data-open="1">Card front</button>';
+        }
+        return;
+      }
+      const choice = e.target.closest("[data-made-choice]");
+      if (choice) {
+        const dir = choice.dataset.choiceDir;
+        view.querySelectorAll('[data-choice-dir="' + dir + '"]').forEach((btn) => btn.classList.remove("ok", "bad"));
+        choice.classList.add(choice.dataset.madeChoice === "ok" ? "ok" : "bad");
+        if (choice.dataset.madeChoice !== "ok") {
+          const right = view.querySelector('[data-choice-dir="' + dir + '"][data-made-choice="ok"]');
+          if (right) right.classList.add("ok");
+        }
+        const answer = dir === "en" ? view.dataset.word : view.dataset.ru;
+        document.getElementById("madeChoiceFb" + dir).innerHTML = '<div class="feedback ' + (choice.dataset.madeChoice === "ok" ? "ok" : "bad") + '">' +
+          (choice.dataset.madeChoice === "ok" ? "Correct" : "Incorrect. Right answer: " + esc(answer)) + "</div>";
+        return;
+      }
+      const typeBtn = e.target.closest("[data-type]");
+      if (typeBtn) {
+        const dir = typeBtn.dataset.type;
+        const typed = document.getElementById(dir === "ru" ? "madeTypeRu" : "madeTypeEn").value;
+        const ok = dir === "ru" ? ruMatch(typed, view.dataset.ru) : typed.trim().toLowerCase() === view.dataset.word.trim().toLowerCase();
+        const needed = dir === "ru" ? view.dataset.ru : view.dataset.word;
+        document.getElementById(dir === "ru" ? "madeTypeFbRu" : "madeTypeFbEn").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' +
+          (ok ? "Correct" : "Incorrect. Needed: " + esc(needed)) + "</div>";
+        return;
+      }
+      const gapBtn = e.target.closest("[data-gap-check]");
+      if (gapBtn) {
+        const index = gapBtn.dataset.gapCheck;
+        const input = document.getElementById("madeGap" + index);
+        const ok = input.value.trim().toLowerCase() === input.dataset.gapAnswer.trim().toLowerCase();
+        document.getElementById("madeGapFb" + index).innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' +
+          (ok ? "Correct" : "Incorrect. Needed: " + esc(input.dataset.gapAnswer)) + "</div>";
+        return;
+      }
+      const usageChoice = e.target.closest("[data-usage-choice]");
+      if (usageChoice) {
+        view.querySelectorAll("[data-usage-choice]").forEach((btn) => btn.classList.remove("ok", "bad"));
+        usageChoice.classList.add(usageChoice.dataset.usageChoice === "ok" ? "ok" : "bad");
+        if (usageChoice.dataset.usageChoice !== "ok") {
+          const right = view.querySelector('[data-usage-choice="ok"]');
+          if (right) right.classList.add("ok");
+        }
+        document.getElementById("usageChoiceFb").innerHTML = '<div class="feedback ' + (usageChoice.dataset.usageChoice === "ok" ? "ok" : "bad") + '">' +
+          (usageChoice.dataset.usageChoice === "ok" ? "Correct" : "Incorrect") + "</div>";
+        return;
+      }
+      const tf = e.target.closest("[data-tf]");
+      if (tf) {
+        const ok = tf.dataset.tf === "ok";
+        document.getElementById("usageTfFb").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' +
+          (ok ? "Correct" : "Incorrect. The translation is: " + esc(tf.dataset.tfAnswer)) + "</div>";
+        return;
+      }
+      const phraseBtn = e.target.closest("[data-phrase]");
+      if (phraseBtn) {
+        const line = document.getElementById("madePhrase" + phraseBtn.dataset.phrase);
+        line.hidden = !line.hidden;
+        return;
+      }
+      const phraseEn = e.target.closest("[data-phrase-en]");
+      if (phraseEn) {
+        const line = document.getElementById("madePhraseEn" + phraseEn.dataset.phraseEn);
+        line.hidden = !line.hidden;
+      }
+    });
+    document.getElementById("addedList").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-added]");
+      if (!btn) return;
+      const item = loadAdded()[Number(btn.dataset.added)];
+      if (!item) return;
+      if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
+      else openUsages(item.word, item.ru);
+    });
+    async function openUsages(word, lessonRu) {
+      const btn = document.activeElement;
+      if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Looking up…";
+      try {
+        const res = await fetch("http://127.0.0.1:8767/lookup?word=" + encodeURIComponent(word));
+        const data = await res.json();
+        if (!res.ok || !data.found) return;
+        renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data });
+      } catch (err) {
+        if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Usages";
+      }
+    }
+    document.body.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-usages]");
+      if (!btn) return;
+      openUsages(btn.dataset.usages, btn.dataset.usagesRu || "");
+    });
+    function setStatus(text, bad) {
+      const status = document.getElementById("addStatus");
+      status.textContent = text;
+      status.classList.toggle("bad", !!bad);
+    }
+    document.getElementById("addWord").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") document.getElementById("addGo").click();
+    });
+    document.getElementById("addGo").addEventListener("click", async () => {
+      const word = document.getElementById("addWord").value.trim();
+      if (!word) {
+        setStatus("Type a word or a phrase.", true);
+        return;
+      }
+      setStatus("Looking up Cambridge and Wooordhunt…", false);
+      document.getElementById("addGo").disabled = true;
+      try {
+        const res = await fetch("http://127.0.0.1:8767/lookup?word=" + encodeURIComponent(word));
+        const data = await res.json();
+        if (!res.ok || !data.found) {
+          setStatus(data.error || "No such word or phrase.", true);
+          return;
+        }
+        const item = { word: data.word, ru: data.ru, data: data };
+        const list = loadAdded().filter((have) => have.word.toLowerCase() !== item.word.toLowerCase());
+        list.unshift(item);
+        saveAdded(list);
+        renderAddedList();
+        setStatus("", false);
+        renderMade(item);
+      } catch (err) {
+        setStatus("The dictionary lookup is not running. Start it, then try again.", true);
+      } finally {
+        document.getElementById("addGo").disabled = false;
+      }
+    });
+    renderAddedList();
+  </script>
+</body>
+</html>
