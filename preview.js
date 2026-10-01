@@ -709,7 +709,11 @@
       ["ash", "Ash", "#222426", "#303436", "#7EB0FF"],
       ["sunset", "Sunset", "#2A1218", "#3C1C24", "#FF7A4A"],
       ["jade", "Jade", "#0C1C18", "#143028", "#2ED6A0"],
-      ["ink", "Ink", "#101014", "#1C1C24", "#9AA0FF"]
+      ["ink", "Ink", "#101014", "#1C1C24", "#9AA0FF"],
+      ["tokyo", "Tokyo", "#140818", "#26102C", "#FF2E97"],
+      ["oasis", "Oasis", "#06241C", "#0E3A2C", "#F0C14A"],
+      ["peacock", "Peacock", "#041820", "#0C3040", "#14F1C8"],
+      ["volcano", "Volcano", "#1A0A08", "#2E1210", "#FF3D00"]
     ];
     const THEME_NAMES = { auto: "Auto" };
     THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
@@ -746,13 +750,10 @@
       });
     });
     function cycleTheme() {
-      const order = THEMES.map((row) => row[0]);
       const now = currentTheme();
-      const index = order.indexOf(now);
-      applyTheme(order[(index + 1) % order.length]);
+      const choices = THEMES.map((row) => row[0]).filter((name) => name !== now);
+      applyTheme(choices[Math.floor(Math.random() * choices.length)]);
     }
-    const themeCycle = document.getElementById("themeCycle");
-    if (themeCycle) themeCycle.addEventListener("click", cycleTheme);
     document.querySelectorAll("[data-theme-cycle]").forEach((btn) => btn.addEventListener("click", cycleTheme));
     document.body.addEventListener("click", (e) => {
       const dayTab = e.target.closest("[data-day-tab]");
@@ -1500,8 +1501,13 @@
         applyEditToCard(card, map[card.origin]);
       });
     }
+    function actionIcon(paths) {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + "</svg>";
+    }
     function editActions() {
-      return '<span class="edit-actions"><button class="add-link" type="button" data-edit-toggle>Edit</button><button class="add-link" type="button" data-card-delete>Delete</button></span>';
+      const pencil = actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
+      const trash = actionIcon('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/>');
+      return '<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">' + pencil + '</button><button class="icon-btn" type="button" data-card-delete aria-label="Delete">' + trash + "</button></span>";
     }
     function editHost(kind, id) {
       return '<div data-edit-host data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
@@ -3169,7 +3175,9 @@
         if (!host) return;
         if (cardDelete.dataset.cardDelete !== "yes") {
           cardDelete.dataset.cardDelete = "yes";
+          cardDelete.classList.add("is-confirm");
           cardDelete.textContent = "Delete?";
+          cardDelete.setAttribute("aria-label", "Delete?");
           return;
         }
         deleteCard(host);

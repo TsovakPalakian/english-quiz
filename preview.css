@@ -361,6 +361,30 @@
   --on-acc: #101018;
   color-scheme: dark;
 }
+:root[data-theme="tokyo"] {
+  --bg: #140818; --card: #26102C; --ink: #FFE6F6; --mute: #E0A0C8; --line: #5A2060;
+  --acc: #FF2E97; --acc-s: #4A1840; --ok: #3DFFB0; --ok-s: #103828; --bad: #FF6A6A; --bad-s: #4A1828;
+  --on-acc: #2A0820;
+  color-scheme: dark;
+}
+:root[data-theme="oasis"] {
+  --bg: #06241C; --card: #0E3A2C; --ink: #E8FFF4; --mute: #8ED4B8; --line: #145544;
+  --acc: #F0C14A; --acc-s: #2A4030; --ok: #7DDE6A; --ok-s: #14361C; --bad: #FF8A80; --bad-s: #402420;
+  --on-acc: #1A1404;
+  color-scheme: dark;
+}
+:root[data-theme="peacock"] {
+  --bg: #041820; --card: #0C3040; --ink: #E4FBFF; --mute: #7EC8D4; --line: #145868;
+  --acc: #14F1C8; --acc-s: #0C4048; --ok: #7DDE6A; --ok-s: #14361C; --bad: #FF7A90; --bad-s: #3E2228;
+  --on-acc: #042018;
+  color-scheme: dark;
+}
+:root[data-theme="volcano"] {
+  --bg: #1A0A08; --card: #2E1210; --ink: #FFE8DC; --mute: #E0A090; --line: #5C241C;
+  --acc: #FF3D00; --acc-s: #4A1C14; --ok: #7DDE6A; --ok-s: #1E3A16; --bad: #FFB0A0; --bad-s: #4A2018;
+  --on-acc: #2A0C08;
+  color-scheme: dark;
+}
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -941,6 +965,28 @@ button:disabled { opacity: .45; }
 .edit-line { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .edit-line .path { width: auto; flex: 1; min-width: 0; margin-bottom: 0; }
 .edit-actions { display: inline-flex; gap: 12px; align-items: center; flex: 0 0 auto; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--acc);
+  color: var(--on-acc);
+  padding: 0;
+  flex: none;
+}
+.icon-btn svg { width: 20px; height: 20px; display: block; }
+.icon-btn.is-confirm {
+  width: auto;
+  min-width: 44px;
+  padding: 0 14px;
+  background: var(--bad);
+  font-size: 14px;
+  font-weight: 800;
+}
 [data-edit-form] { margin: 0 0 12px; }
 .path .to { color: var(--acc); font-weight: 700; font-size: 13px; text-align: right; }
 .gen { padding: 12px 0; border-bottom: 1px solid var(--line); }
