@@ -1,5 +1,5 @@
     const sections = document.querySelectorAll("section");
-    const chromeButtons = document.querySelectorAll(".top nav button");
+    const chromeButtons = document.querySelectorAll(".side nav button, .tabbar button");
     const navStack = [];
     let authUser = null;
     let viewAccount = null;
@@ -23,7 +23,7 @@
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
-      account: "account", profile: "account", admin: "account"
+      account: "account", profile: "account", admin: "account", themes: "account"
     };
     function show(id) {
       if (hideStudentSongs() && (id === "music" || id === "song" || id === "lyricadd" || id === "musicword")) id = "library";
@@ -31,6 +31,7 @@
       if (id === "allwords") paintAllWords();
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
+      if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
@@ -41,7 +42,12 @@
       if (id === "library") paintTextCount();
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
       const mark = dayScreens[id] || id;
-      chromeButtons.forEach((b) => b.classList.toggle("on", b.dataset.jump === mark));
+      chromeButtons.forEach((b) => {
+        const on = b.dataset.jump === mark;
+        b.classList.toggle("on", on);
+        if (on) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
       syncHomeBack();
@@ -64,9 +70,16 @@
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
       const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
       document.querySelectorAll("[data-nav-back]").forEach((btn) => {
-        btn.classList.add("icon");
-        btn.setAttribute("aria-label", "Back");
-        btn.innerHTML = arrow;
+        const toDays = btn.dataset.fallback === "days";
+        if (toDays) {
+          btn.classList.add("back-text");
+          btn.setAttribute("aria-label", "Classes");
+          btn.textContent = "← Classes";
+        } else {
+          btn.classList.add("icon");
+          btn.setAttribute("aria-label", "Back");
+          btn.innerHTML = arrow;
+        }
         const home = document.createElement("button");
         home.className = "btn ghost icon";
         home.type = "button";
@@ -512,9 +525,9 @@
       const form = (topic && topic.form) || legacy.form;
       const tone = (topic && topic.tone) || "present";
       document.getElementById("tenseTitle").textContent = name;
-      document.getElementById("tense").dataset.lang = "ru";
+      document.getElementById("tense").dataset.lang = "en";
       document.getElementById("tense").className = "on tone-" + tone;
-      document.querySelectorAll("#tenseLang .chip").forEach((b) => b.classList.toggle("on", b.dataset.tenseLang === "ru"));
+      document.querySelectorAll("#tenseLang .chip").forEach((b) => b.classList.toggle("on", b.dataset.tenseLang === "en"));
       let html = '<p class="g-badge">' + esc((topic && topic.kind) || "Grammar") + "</p>";
       html += '<p class="q">' + esc(form) + "</p>";
       if (topic && topic.formula) html += '<p class="formula">' + esc(topic.formula) + "</p>";
@@ -635,7 +648,128 @@
         box.innerHTML = '<p class="hint bad">This PDF did not open.</p>';
       }
     }
+    const THEMES = [
+      ["light", "Light", "#F4F6FB", "#FFFFFF", "#3D3BF3"],
+      ["grey", "Grey", "#CFD0D3", "#E3E4E6", "#3D3BF3"],
+      ["mint", "Mint", "#E1F2EA", "#F5FBF8", "#0B7A5B"],
+      ["lavender", "Lavender", "#E9E4F8", "#F7F5FD", "#6B3FD8"],
+      ["sand", "Sand", "#EDE3D3", "#FAF5EC", "#B5531B"],
+      ["dusk", "Dusk", "#C5D2EE", "#DFE8F8", "#2F3DDB"],
+      ["graphite", "Graphite", "#161618", "#222226", "#4F7DF0"],
+      ["ocean", "Ocean", "#08202B", "#0F3040", "#0E8FA3"],
+      ["plum", "Plum", "#1B1026", "#281A38", "#A24FE8"],
+      ["forest", "Forest", "#0E1F17", "#162E22", "#1F9E5C"],
+      ["dark", "Dark", "#0D1020", "#171B33", "#7C7BFF"],
+      ["rose", "Rose", "#F8E4EA", "#FFF6F8", "#B4235A"],
+      ["sky", "Sky", "#E3F1FB", "#F5FBFF", "#0B649C"],
+      ["peach", "Peach", "#F8E6D4", "#FFF6EE", "#A3410E"],
+      ["lemon", "Lemon", "#F7F0C8", "#FFFBEA", "#7A5A00"],
+      ["lilac", "Lilac", "#F3E6F6", "#FBF6FD", "#7A2490"],
+      ["sage", "Sage", "#E4EDE4", "#F4F8F4", "#246B38"],
+      ["cream", "Cream", "#F6F1E6", "#FFFCF6", "#7A4E22"],
+      ["blush", "Blush", "#FDE8E4", "#FFF7F5", "#C13A28"],
+      ["ice", "Ice", "#E7F4F4", "#F6FCFC", "#0C6E6C"],
+      ["clay", "Clay", "#F3E4D8", "#FBF4EE", "#8C4520"],
+      ["wine", "Wine", "#2A1018", "#3A1824", "#E25A86"],
+      ["cocoa", "Cocoa", "#241810", "#342418", "#E08A45"],
+      ["moss", "Moss", "#1A2214", "#26301C", "#8FBF4A"],
+      ["slate", "Slate", "#1A222C", "#24303C", "#5BA4E0"],
+      ["ember", "Ember", "#2A140C", "#3A1E12", "#FF8A3D"],
+      ["lagoon", "Lagoon", "#0C2428", "#143438", "#3DCFC4"],
+      ["cherry", "Cherry", "#2A0E14", "#3C1620", "#FF5A7A"],
+      ["indigo", "Indigo", "#12142E", "#1C2044", "#8B8CFF"],
+      ["berry", "Berry", "#241028", "#341838", "#E07BFF"],
+      ["fog", "Fog", "#1C1E22", "#2A2E34", "#7AA2FF"],
+      ["apricot", "Apricot", "#FDE3D0", "#FFF6EE", "#C44E18"],
+      ["honey", "Honey", "#F8EEC0", "#FFF9E6", "#A07800"],
+      ["powder", "Powder", "#E4EEF8", "#F7FBFF", "#2A6CB0"],
+      ["pearl", "Pearl", "#F2F0EC", "#FBFBF9", "#4E6274"],
+      ["pistachio", "Pistachio", "#E6F2D8", "#F6FBF0", "#4A8A28"],
+      ["flamingo", "Flamingo", "#FDE0EA", "#FFF5F8", "#C42868"],
+      ["butter", "Butter", "#FFF6C8", "#FFFCEE", "#8A7800"],
+      ["cloud", "Cloud", "#E8EEF2", "#F7FAFC", "#3A6A88"],
+      ["linen", "Linen", "#F4EFE6", "#FBF8F3", "#8A6840"],
+      ["aqua", "Aqua", "#DFF4F2", "#F4FCFB", "#0E7A74"],
+      ["mauve", "Mauve", "#F0E4EE", "#FBF6FA", "#8A3A78"],
+      ["dune", "Dune", "#EFE4D2", "#F8F3E8", "#A06A30"],
+      ["matcha", "Matcha", "#E2EEDC", "#F4F8F0", "#3A7A32"],
+      ["blossom", "Blossom", "#F8E0E8", "#FFF4F7", "#C43A6A"],
+      ["frost", "Frost", "#E6F2F8", "#F5FBFE", "#1A6A90"],
+      ["midnight", "Midnight", "#0C1024", "#161B36", "#6C8CFF"],
+      ["ruby", "Ruby", "#2A1014", "#3C181E", "#FF4D6A"],
+      ["pine", "Pine", "#0E1C16", "#163026", "#3DDC7A"],
+      ["storm", "Storm", "#1A1E28", "#262C3A", "#7AA0FF"],
+      ["copper", "Copper", "#2A1810", "#3C2418", "#FF9A4A"],
+      ["orchid", "Orchid", "#221428", "#321C3C", "#D070F0"],
+      ["abyss", "Abyss", "#07141C", "#0E2430", "#2EC8E0"],
+      ["espresso", "Espresso", "#1C1410", "#2C2018", "#E0A060"],
+      ["glow", "Glow", "#101820", "#182830", "#5EE0C0"],
+      ["fjord", "Fjord", "#101820", "#182838", "#4AA8E0"],
+      ["violet", "Violet", "#181228", "#261C3C", "#A078FF"],
+      ["ash", "Ash", "#222426", "#303436", "#7EB0FF"],
+      ["sunset", "Sunset", "#2A1218", "#3C1C24", "#FF7A4A"],
+      ["jade", "Jade", "#0C1C18", "#143028", "#2ED6A0"],
+      ["ink", "Ink", "#101014", "#1C1C24", "#9AA0FF"]
+    ];
+    const THEME_NAMES = { auto: "Auto" };
+    THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
+    const THEME_KEY = "enquiz-theme";
+    function currentTheme() {
+      try { return localStorage.getItem(THEME_KEY) || "auto"; }
+      catch (e) { return "auto"; }
+    }
+    function applyTheme(name) {
+      const root = document.documentElement;
+      if (!name || name === "auto") root.removeAttribute("data-theme");
+      else root.setAttribute("data-theme", name);
+      try {
+        if (!name || name === "auto") localStorage.removeItem(THEME_KEY);
+        else localStorage.setItem(THEME_KEY, name);
+      } catch (e) {}
+      document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
+        btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
+      });
+      const sideTheme = document.getElementById("themeCycle");
+      if (sideTheme) sideTheme.textContent = "Theme · " + (THEME_NAMES[name || "auto"] || "Auto");
+    }
+    function paintThemeSegs() {
+      const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
+      const rest = THEMES.map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span>' + row[1] + "</button>").join("");
+      document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + rest; });
+      applyTheme(currentTheme());
+    }
+    paintThemeSegs();
+    document.querySelectorAll("[data-theme-seg]").forEach((box) => {
+      box.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-th]");
+        if (btn) applyTheme(btn.dataset.th);
+      });
+    });
+    function cycleTheme() {
+      const order = THEMES.map((row) => row[0]);
+      const now = currentTheme();
+      const index = order.indexOf(now);
+      applyTheme(order[(index + 1) % order.length]);
+    }
+    const themeCycle = document.getElementById("themeCycle");
+    if (themeCycle) themeCycle.addEventListener("click", cycleTheme);
+    document.querySelectorAll("[data-theme-cycle]").forEach((btn) => btn.addEventListener("click", cycleTheme));
     document.body.addEventListener("click", (e) => {
+      const dayTab = e.target.closest("[data-day-tab]");
+      if (dayTab) {
+        const root = dayTab.closest("[data-day-page]");
+        if (!root) return;
+        const name = dayTab.dataset.dayTab;
+        root.querySelectorAll("[data-day-tab]").forEach((b) => {
+          const on = b === dayTab;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        root.querySelectorAll("[data-day-panel]").forEach((panel) => {
+          panel.hidden = panel.dataset.dayPanel !== name;
+        });
+        return;
+      }
       const sayBtn = e.target.closest("[data-say]");
       if (sayBtn) {
         e.preventDefault();
@@ -799,17 +933,28 @@
     });
 
     const flipBtn = document.getElementById("flipBtn");
-    const flipFace = document.getElementById("flipFace");
-    let flipped = false;
-    flipBtn.addEventListener("click", () => {
-      flipped = !flipped;
-      if (!flipped) {
-        flipFace.innerHTML = '<p class="label">Lesson 12 · give up</p><p class="entry">give up</p>';
-        flipBtn.textContent = "Flip";
-        return;
+    const flipScene = document.getElementById("flipScene");
+    const flipBack = document.getElementById("flipBack");
+    let flipReady = false;
+    function toggleFlip() {
+      if (!flipScene) return;
+      if (!flipReady && flipBack) {
+        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
+        flipReady = true;
       }
-      flipFace.innerHTML = '<p class="entry" style="font-size:28px">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
-      flipBtn.textContent = "Card front";
+      const on = flipScene.classList.toggle("is-flipped");
+      flipBtn.textContent = on ? "Card front" : "Flip";
+      flipBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    flipBtn.addEventListener("click", toggleFlip);
+    flipScene.addEventListener("click", (e) => {
+      if (e.target.closest("a, button")) return;
+      toggleFlip();
+    });
+    flipScene.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      toggleFlip();
     });
 
     document.getElementById("typeCheck").addEventListener("click", () => {
@@ -1065,9 +1210,13 @@
       window.speechSynthesis.speak(utter);
     }
     function dressWords(root) {
+      let learned = new Set();
+      try { learned = new Set(JSON.parse(localStorage.getItem("enquiz-learned") || "[]")); }
+      catch (e) { learned = new Set(); }
       (root || document).querySelectorAll(".wcard").forEach((card) => {
-        if (card.querySelector(".pic")) return;
         const en = card.querySelector(".en");
+        if (en && learned.has(String(en.textContent || "").trim().toLowerCase())) card.classList.add("is-learned");
+        if (card.querySelector(".pic")) return;
         if (!en) return;
         card.insertAdjacentHTML("afterbegin", wordPic(en.textContent));
       });
@@ -1186,15 +1335,19 @@
       current = w;
       dayFlipped = open;
       const face = document.getElementById("dayFlipFace");
+      const back = document.getElementById("dayFlipBack");
+      const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
-      if (!open) {
-        face.innerHTML = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>';
-        btn.textContent = "Flip";
-        syncDayFlipNext();
-        return;
+      const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>';
+      const backHtml = '<p class="entry">' + (w.ru || w.gloss || "No Russian translation on this slide.") + '</p>' + variantLines(w.en) + '<p class="pos">' + w.en + ' · ' + w.pos + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + w.ex + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      if (face && back && scene) {
+        face.innerHTML = frontHtml;
+        back.innerHTML = backHtml;
+        scene.classList.toggle("is-flipped", !!open);
+      } else if (face) {
+        face.innerHTML = open ? backHtml : frontHtml;
       }
-      face.innerHTML = '<p class="entry" style="font-size:28px">' + (w.ru || w.gloss || "No Russian translation on this slide.") + '</p>' + variantLines(w.en) + '<p class="pos">' + w.en + ' · ' + w.pos + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + w.ex + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
-      btn.textContent = "Card front";
+      if (btn) btn.textContent = open ? "Card front" : "Flip";
       syncDayFlipNext();
     }
     const phrasalWords = window.LESSON_DATA.phrasalWords;
@@ -1401,7 +1554,7 @@
       renderWord(current);
       visit("word");
     };
-    document.getElementById("rules").dataset.lang = "ru";
+    document.getElementById("rules").dataset.lang = "en";
     document.getElementById("ruleList").innerHTML = rules.map((r) =>
       '<div class="rule"><b class="ru">' + r.title.ru + '</b><b class="en">' + r.title.en + '</b><div class="ru">' + r.body.ru + '</div><div class="en">' + r.body.en + '</div><p>' +
       foldedLinkHtml(r.links) + '</p></div>'
@@ -1419,6 +1572,18 @@
       document.querySelectorAll("#guideLang .chip").forEach((b) => b.classList.toggle("on", b === btn));
     });
     document.getElementById("dayFlipBtn").onclick = () => setDayFlip(current, !dayFlipped);
+    const dayFlipScene = document.getElementById("dayFlipScene");
+    if (dayFlipScene) {
+      dayFlipScene.addEventListener("click", (e) => {
+        if (e.target.closest("a, button")) return;
+        document.getElementById("dayFlipBtn").click();
+      });
+      dayFlipScene.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        document.getElementById("dayFlipBtn").click();
+      });
+    }
     document.getElementById("dayFlipNext").onclick = () => {
       const deck = cardDeck(current);
       const index = deck.findIndex((item) => item.en === current.en);
@@ -5838,7 +6003,9 @@
       if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
       const item = dayQueue[dayAt];
       if (!item) { if (examMode) showExamResult(examMistakes < 2, ""); else dayBack(); return; }
-      document.getElementById("dayqTitle").textContent = item.type + " · " + (dayAt + 1) + " / " + dayQueue.length;
+      document.getElementById("dayqTitle").textContent = (dayAt + 1) + " / " + dayQueue.length;
+      const dayqType = document.getElementById("dayqType");
+      if (dayqType) dayqType.textContent = item.type;
       document.getElementById("dayqBar").style.width = Math.round(((dayAt + 1) / dayQueue.length) * 100) + "%";
       const view = document.getElementById("dayqView");
       const card = item.card;
@@ -5849,7 +6016,7 @@
           opts.map((ru) => '<button class="opt" type="button" data-opt="' + (ru === card.ru ? "ok" : "bad") + '"><span>' + esc(ru) + "</span></button>").join("") +
           '</div><div id="dayFb"></div>';
       } else if (item.type === "Flip") {
-        view.innerHTML = '<p class="prompt">Recall the translation, then flip</p><div class="word-head">' + wordPic(card.en, true) + '<div><p class="entry">' + esc(card.en) + '</p><p class="pos">' + esc(card.pos) + '</p></div></div><div id="dayFlipBox"></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
+        view.innerHTML = '<p class="prompt">English → Russian</p><div class="flip-scene" tabindex="0" role="button" aria-label="Flip card"><div class="flip-inner"><div class="flip-face flip-front"><div class="word-head">' + wordPic(card.en, true) + '<div><p class="entry">' + esc(card.en) + '</p><p class="pos">' + esc(card.pos) + '</p></div></div></div><div class="flip-face flip-back" id="dayFlipBox"></div></div></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
       } else if (item.type === "Type") {
         view.innerHTML = '<p class="prompt">' + (card.verb ? "Type the three forms" : "Type it in English") + '</p><p class="q">' + esc(card.ru) + '</p><input id="dayType" type="text" placeholder="' + (card.verb ? "base – past – participle" : "Answer") + '" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-type-go>Check</button></div>';
       } else if (item.type === "Gap") {
@@ -5926,6 +6093,12 @@
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
     document.getElementById("studyExam").onclick = () => beginQuiz(true);
     document.getElementById("studyMistakes").onclick = () => openMistakes(allStudyCards());
+    document.getElementById("dayq").addEventListener("keydown", (e) => {
+      const scene = e.target.closest(".flip-scene");
+      if (!scene || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
+      scene.click();
+    });
     document.getElementById("dayqView").addEventListener("click", (e) => {
       const item = dayQueue[dayAt];
       if (!item) return;
@@ -5950,11 +6123,17 @@
         opt.classList.add(opt.dataset.opt === "ok" ? "ok" : "bad");
         if (opt.dataset.opt !== "ok") document.querySelector('#dayqView [data-opt="ok"]').classList.add("ok");
         markDay(opt.dataset.opt === "ok", item.right || (item.card && item.card.ru) || "");
-      } else if (item.type === "Flip" && e.target.closest("[data-flip-go]")) {
+      } else if (item.type === "Flip" && (e.target.closest("[data-flip-go]") || (e.target.closest(".flip-scene") && !e.target.closest("a, button")))) {
         const card = item.card;
         const gloss = meaningOf(card);
         const back = card.ru || gloss;
-        document.getElementById("dayFlipBox").innerHTML = '<p class="q">' + esc(back) + "</p>" + ipaHtml(card) + (card.ru && gloss ? "<p>" + esc(gloss) + "</p>" : "");
+        const scene = e.target.closest("#dayqView") && e.target.closest("#dayqView").querySelector(".flip-scene");
+        const box = document.getElementById("dayFlipBox");
+        if (box && !box.dataset.filled) {
+          box.innerHTML = '<p class="q">' + esc(back) + "</p>" + ipaHtml(card) + (card.ru && gloss ? "<p>" + esc(gloss) + "</p>" : "");
+          box.dataset.filled = "1";
+        }
+        if (scene) scene.classList.toggle("is-flipped");
       } else if (item.type === "Type" && e.target.closest("[data-type-go]")) {
         if (document.getElementById("dayFb").innerHTML) return;
         markDay(item.card.accept ? formTypedOk(item.card, document.getElementById("dayType").value) : item.card.verb ? verbTypedOk(item.card, document.getElementById("dayType").value) : document.getElementById("dayType").value.trim().toLowerCase() === item.card.en.toLowerCase(), item.card.en);
@@ -6315,6 +6494,63 @@
         ring.style.strokeLinecap = learned ? "round" : "butt";
       }
     }
+    const CLASS_PAGES = [
+      { id: "lesson07", place: "lesson-07" },
+      { id: "lesson09", place: "lesson-09" },
+      { id: "lesson14", place: "lesson-14" },
+      { id: "lesson16", place: "lesson-16" },
+      { id: "lesson", place: "lesson-21" },
+      { id: "lesson23", place: "lesson-23" }
+    ];
+    const STARTED_KEY = "enquiz-started";
+    function loadStarted() {
+      try {
+        const list = JSON.parse(localStorage.getItem(STARTED_KEY) || "[]");
+        return Array.isArray(list) ? list : [];
+      } catch (e) { return []; }
+    }
+    function markClassStarted(id) {
+      const list = loadStarted().filter((item) => item !== id);
+      list.push(id);
+      try { localStorage.setItem(STARTED_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+    function classFinished(place) {
+      const cards = lessonPool(place);
+      if (!cards.length) return false;
+      const learned = loadLearned();
+      return cards.every((card) => learned.has(String(card.en || "").toLowerCase()));
+    }
+    function classTouched(place, learned) {
+      return lessonPool(place).some((card) => learned.has(String(card.en || "").toLowerCase()));
+    }
+    function paintHomeStudy() {
+      const btn = document.getElementById("homeStudy");
+      const alt = document.getElementById("homeStudyAlt");
+      if (!btn) return;
+      const started = loadStarted();
+      const learned = loadLearned();
+      const begun = started.length > 0 || CLASS_PAGES.some((row) => classTouched(row.place, learned));
+      const allDone = CLASS_PAGES.every((row) => classFinished(row.place));
+      if (begun && allDone) {
+        btn.textContent = "Study words";
+        btn.dataset.jump = "setup";
+        if (alt) alt.hidden = false;
+        return;
+      }
+      if (alt) alt.hidden = true;
+      if (!begun) {
+        btn.textContent = "Start studying";
+        btn.dataset.jump = "lesson23";
+        return;
+      }
+      btn.textContent = "Continue studying";
+      const recent = started.slice().reverse().find((id) => {
+        const row = CLASS_PAGES.find((item) => item.id === id);
+        return row && !classFinished(row.place);
+      });
+      const next = CLASS_PAGES.find((row) => !classFinished(row.place));
+      btn.dataset.jump = recent || (next ? next.id : "lesson23");
+    }
     function paintHomeAccount() {
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
@@ -6323,6 +6559,7 @@
       who.innerHTML = "";
       demo.hidden = false;
       paintHomeStats();
+      paintHomeStudy();
     }
     function paintAccount() {
       const box = document.getElementById("accountBody");

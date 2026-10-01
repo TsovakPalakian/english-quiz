@@ -1,54 +1,73 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>English</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="preview.css" />
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("enquiz-theme");
+      if (savedTheme && savedTheme !== "auto") document.documentElement.setAttribute("data-theme", savedTheme);
+    } catch (e) {}
+  </script>
 </head>
 <body>
-  <header class="top">
-    <div class="top-in">
+  <div class="shell">
+  <aside class="side">
     <button class="brand" type="button" data-jump="home">English</button>
-    <nav>
-      <button type="button" data-jump="home" class="on">Home</button>
-      <button type="button" data-jump="days">Classes</button>
-      <button type="button" data-jump="library">Library</button>
-      <button type="button" data-jump="setup">Study</button>
-      <button type="button" data-jump="add">Add a word</button>
-      <button type="button" data-jump="guide">How to use</button>
-      <button type="button" data-jump="stats">Статистика</button>
-      <button type="button" data-jump="account">Account</button>
+    <nav aria-label="Primary">
+      <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
+      <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
+      <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
     </nav>
+    <div class="side-foot">
+      <button class="btn ghost" type="button" data-jump="account">Profile</button>
+      <button class="btn ghost" type="button" data-jump="guide">How to use</button>
+      <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle>Theme · Auto</button>
     </div>
-  </header>
+  </aside>
   <div class="phone"><div class="wrap">
+    <div class="mobile-tools">
+      <button class="btn ghost" type="button" data-jump="account">Profile</button>
+      <button class="btn ghost" type="button" data-jump="guide">How to use</button>
+      <button class="btn ghost" type="button" data-theme-cycle>Theme</button>
+    </div>
 
     <section id="home" class="on">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home" id="homeBack" hidden>Back</button><h1>Home</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home" id="homeBack" hidden>Back</button></div>
+      <h1 class="hello">Welcome back</h1>
+      <p class="sub">Next class: 23 September, Holidays</p>
       <div id="homeWho" class="card" hidden></div>
       <div id="homeDemo">
-      <button class="stat-hero" type="button" data-stat="learned">
-        <div class="ring" aria-hidden="true">
-          <svg viewBox="0 0 36 36">
+      <div class="hero">
+        <button class="ring" type="button" data-stat="learned" aria-label="Learned cards">
+          <svg viewBox="0 0 36 36" aria-hidden="true">
             <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
             <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
           </svg>
           <b id="homeLearnedPct">0%</b>
-        </div>
+        </button>
         <div>
-          <p class="stat-kicker">Learned</p>
-          <p class="stat-big" id="homeLearnedCount">0 <span>of 0</span></p>
-          <p class="hint">A card is learned when every checkable type is passed.</p>
+          <p class="hero-copy"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
+          <span class="home-study"><button class="btn" type="button" id="homeStudy" data-jump="lesson23">Start studying</button><button class="btn" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
         </div>
-      </button>
+      </div>
       <div class="overview">
         <div><b>0</b><span>Study time</span></div>
         <div><b class="ok">0</b><span>Exams passed</span></div>
         <button class="stat-tile" type="button" data-stat="weak"><b class="bad">0</b><span>Weak cards</span></button>
         <button class="stat-tile" type="button" data-stat="learning"><b id="homeLearningCount">0</b><span>Still learning</span></button>
       </div>
+      <h2 class="upcoming">Next class</h2>
+      <button class="day" type="button" data-jump="lesson23">
+        <span class="date"><b>23</b><small>Sep</small></span>
+        <span class="day-copy"><b>Holidays</b><span class="label about">preferences · Past Simple · a holiday in Scotland</span></span>
+      </button>
       </div>
     </section>
 
@@ -68,21 +87,27 @@
     </section>
 
     <section id="library">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1><button class="btn primary plus" type="button" data-jump="add" aria-label="Add a word">+</button></div>
       <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
+      <h2 class="lib-h">Words</h2>
       <div class="decks">
-        <button class="file-card" type="button" data-jump="days"><b>Classes</b><span class="num">6</span><span class="label">by date, from 7 Sep</span><i class="mini"><i style="width:30%"></i></i></button>
-        <button class="file-card active" type="button" data-jump="tenses"><b>Grammar</b><span class="num">12</span><span class="label">tenses, then other structures</span><i class="mini"><i style="width:58%"></i></i></button>
-        <button class="file-card" type="button" data-jump="verbs"><b>Irregular verbs</b><span class="num" id="verbCount">0</span><span class="label">three forms</span><i class="mini"><i style="width:70%"></i></i></button>
-        <button class="file-card" type="button" data-jump="allwords"><b>All words</b><span class="num" id="allWordCount">0</span><span class="label">every card, no duplicates</span><i class="mini"><i style="width:100%"></i></i></button>
-        <button class="file-card" type="button" data-jump="add"><b>My words</b><span class="num">+</span><span class="label">one field · both directions</span><i class="mini"><i style="width:12%"></i></i></button>
-        <button class="file-card" type="button" data-jump="phrasal"><b>Phrasal verbs</b><span class="num" id="phrasalCount">3</span><span class="label">cards</span><i class="mini"><i style="width:22%"></i></i></button>
-        <button class="file-card" type="button" data-jump="idioms"><b>Idioms</b><span class="num" id="idiomCount">3</span><span class="label">cards</span><i class="mini"><i style="width:22%"></i></i></button>
-        <button class="file-card" type="button" data-jump="articles"><b>Articles</b><span class="num">3</span><span class="label">examples</span><i class="mini"><i style="width:22%"></i></i></button>
-        <button class="file-card" type="button" data-jump="demonstratives"><b>Demonstratives</b><span class="num">4</span><span class="label" id="demoLibLabel">this, that, these, those</span><i class="mini"><i id="demoLibBar" style="width:0%"></i></i></button>
-        <button class="file-card" type="button" data-jump="music"><b>Song lyrics</b><span class="num" id="lyricCount">1</span><span class="label">songs</span><i class="mini"><i style="width:40%"></i></i></button>
-        <button class="file-card" type="button" data-jump="texts"><b>Text</b><span class="num" id="textCount">0</span><span class="label">articles and notes</span><i class="mini"><i style="width:18%"></i></i></button>
-        <button class="file-card" type="button" data-jump="speakout"><b>Speakout</b><span class="num">8</span><span class="label">levels · 32 lessons each</span><i class="mini"><i style="width:100%"></i></i></button>
+        <button class="file-card" type="button" data-jump="allwords"><span class="num" id="allWordCount">0</span><b>All words</b><span class="label">every card, no duplicates</span></button>
+        <button class="file-card" type="button" data-jump="add"><span class="num">+</span><b>My words</b><span class="label">one field · both directions</span></button>
+        <button class="file-card" type="button" data-jump="phrasal"><span class="num" id="phrasalCount">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
+        <button class="file-card" type="button" data-jump="idioms"><span class="num" id="idiomCount">3</span><b>Idioms</b><span class="label">cards</span></button>
+      </div>
+      <h2 class="lib-h">Grammar</h2>
+      <div class="decks">
+        <button class="file-card active" type="button" data-jump="tenses"><span class="num">12</span><b>Grammar</b><span class="label">tenses, then other structures</span></button>
+        <button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>
+        <button class="file-card" type="button" data-jump="articles"><span class="num">3</span><b>Articles</b><span class="label">examples</span></button>
+        <button class="file-card" type="button" data-jump="demonstratives"><span class="num">4</span><b>Demonstratives</b><span class="label" id="demoLibLabel">this, that, these, those</span><i class="mini"><i id="demoLibBar" style="width:0%"></i></i></button>
+      </div>
+      <h2 class="lib-h">Materials</h2>
+      <div class="decks">
+        <button class="file-card" type="button" data-jump="music"><span class="num" id="lyricCount">1</span><b>Song lyrics</b><span class="label">songs</span></button>
+        <button class="file-card" type="button" data-jump="texts"><span class="num" id="textCount">0</span><b>Text</b><span class="label">articles and notes</span></button>
+        <button class="file-card" type="button" data-jump="speakout"><span class="num">8</span><b>Speakout</b><span class="label">levels · 32 lessons each</span></button>
       </div>
     </section>
 
@@ -127,7 +152,7 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
       <p class="sub" id="phrasalSub">Cards on this page. Study uses them.</p>
       <div class="here-add" data-place="phrasal" style="margin-bottom:12px">
-        <button class="add-link" type="button" data-add-open>Add a word</button>
+        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
         <div data-add-form hidden>
           <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
           <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -143,7 +168,7 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Idioms</h1></div>
       <p class="sub" id="idiomSub">Cards on this page. Study uses them.</p>
       <div class="here-add" data-place="idioms" style="margin-bottom:12px">
-        <button class="add-link" type="button" data-add-open>Add a word</button>
+        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
         <div data-add-form hidden>
           <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input />
           <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -281,10 +306,11 @@
     </section>
 
     <section id="choice">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Choice · 3 / 8</h1><span class="timer">04:12</span></div>
-      <div class="progress"><i style="width:37%"></i></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="tags"><span>Choice</span></div>
+      <div class="drill-bar"><h1>3 / 8</h1><div class="progress"><i style="width:37%"></i></div><span class="timer">04:12</span></div>
       <div class="card grow">
-        <p class="prompt">English → Russian · give up</p>
+        <p class="prompt">English → Russian</p>
         <p class="q">give up</p>
         <div class="opts">
           <button class="opt" type="button" data-choice="bad"><span class="bullet">1</span><span>поднимать</span></button>
@@ -298,12 +324,18 @@
     </section>
 
     <section id="flip">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Flip · 4 / 8</h1><span class="timer">04:40</span></div>
-      <div class="progress"><i style="width:50%"></i></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="tags"><span>Flip</span></div>
+      <div class="drill-bar"><h1>4 / 8</h1><div class="progress"><i style="width:50%"></i></div><span class="timer">04:40</span></div>
       <div class="card grow">
         <p class="prompt">Recall the translation, then flip</p>
-        <div id="flipFace"><p class="label">Lesson 12 · give up</p><p class="entry">give up</p></div>
-        <div class="bar"><button class="btn" type="button" id="flipBtn">Flip</button><button class="btn primary" type="button" data-jump="type">Next</button></div>
+        <div class="flip-scene" id="flipScene" tabindex="0" role="button" aria-label="Flip card">
+          <div class="flip-inner">
+            <div class="flip-face flip-front" id="flipFace"><p class="label">Lesson 12 · give up</p><p class="entry">give up</p></div>
+            <div class="flip-face flip-back" id="flipBack"></div>
+          </div>
+        </div>
+        <div class="bar"><button class="btn" type="button" id="flipBtn" aria-pressed="false">Flip</button><button class="btn primary" type="button" data-jump="type">Next</button></div>
       </div>
     </section>
 
@@ -426,12 +458,12 @@
       <div class="card grow" id="markerView"></div>
     </section>
 
-    <section id="tense" data-lang="ru">
+    <section id="tense" data-lang="en">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="tenses" id="tenseBack">Back</button><h1 id="tenseTitle">Tense</h1></div>
       <div class="card grow">
         <div class="row" id="tenseLang" style="margin-bottom:8px">
-          <button class="btn chip on" type="button" data-tense-lang="ru">Russian</button>
-          <button class="btn chip" type="button" data-tense-lang="en">English</button>
+          <button class="btn chip on" type="button" data-tense-lang="en">English</button>
+          <button class="btn chip" type="button" data-tense-lang="ru">Russian</button>
         </div>
         <div id="tenseView"></div>
       </div>
@@ -440,83 +472,83 @@
     <section id="days">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Classes</h1></div>
       <p class="sub">In date order, from 7 Sep 2026. Each date has its own page. The quiz and mistakes stay inside that day.</p>
-      <div class="card grow">
-        <button class="day" type="button" id="firstDay" data-jump="lesson07">
-          <span class="date">07.09</span>
-          <b>Get to know each other</b>
-          <span class="label when">Mon · 2026</span>
-          <span class="label about">article · problems and solutions · podcast homework</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson09">
-          <span class="date">09.09</span>
-          <b>Collocations and Present Simple</b>
-          <span class="label when">Wed · 2026</span>
-          <span class="label about">14 collocations · Present Simple · homework</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson14">
-          <span class="date">14.09</span>
-          <b>Adverbs of frequency</b>
-          <span class="label when">Mon · 2026</span>
-          <span class="label about">15 cards · word order · Wordwall</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson16">
-          <span class="date">16.09</span>
-          <b>Small talk</b>
-          <span class="label when">Wed · 2026</span>
-          <span class="label about">happy to chat benches · phrases · homework</span>
+      <div>
+        <button class="day active" type="button" data-jump="lesson23">
+          <span class="date"><b>23</b><small>Sep</small></span>
+          <b>Holidays</b>
+          <span class="label about">preferences · Past Simple · a holiday in Scotland · homework</span>
         </button>
         <button class="day" type="button" data-jump="lesson">
-          <span class="date">21.09</span>
+          <span class="date"><b>21</b><small>Sep</small></span>
           <b>Weather, small talk, likes and dislikes</b>
-          <span class="label when">Mon · 2026</span>
           <span class="label about">weather vocabulary · small talk · likes and dislikes · 4 rules</span>
         </button>
-        <button class="day active" type="button" data-jump="lesson23">
-          <span class="date">23.09</span>
-          <b>Holidays</b>
-          <span class="label when">Wed · 2026</span>
-          <span class="label about">preferences · Past Simple · a holiday in Scotland · homework</span>
+        <button class="day" type="button" data-jump="lesson16">
+          <span class="date"><b>16</b><small>Sep</small></span>
+          <b>Small talk</b>
+          <span class="label about">happy to chat benches · phrases · homework</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson14">
+          <span class="date"><b>14</b><small>Sep</small></span>
+          <b>Adverbs of frequency</b>
+          <span class="label about">15 cards · word order · Wordwall</span>
+        </button>
+        <button class="day" type="button" data-jump="lesson09">
+          <span class="date"><b>09</b><small>Sep</small></span>
+          <b>Collocations and Present Simple</b>
+          <span class="label about">14 collocations · Present Simple · homework</span>
+        </button>
+        <button class="day" type="button" id="firstDay" data-jump="lesson07">
+          <span class="date"><b>07</b><small>Sep</small></span>
+          <b>Get to know each other</b>
+          <span class="label about">article · problems and solutions · podcast homework</span>
         </button>
       </div>
     </section>
 
-    <section id="lesson">
+    <section id="lesson" class="study" data-day-page>
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1>21 September 2026</h1></div>
-      <div class="card grow study">
-        <p class="sub" style="margin-top:0">Monday. Weather, small talk, likes. Level A2, with a few B1 phrases. This day's quiz uses only this day's cards.</p>
-        <div class="tags"><span>#weather</span><span>#small-talk</span><span>#likes</span><span>#present-continuous</span></div>
+      <p class="sub" style="margin-top:0">Monday. Weather, small talk, likes. Level A2, with a few B1 phrases. This day's quiz uses only this day's cards.</p>
+      <div class="tags"><span>#weather</span><span>#small-talk</span><span>#likes</span><span>#present-continuous</span></div>
+      <div class="seg" role="tablist" aria-label="This day">
+        <button type="button" data-day-tab="overview" class="on" role="tab" aria-selected="true">Overview</button>
+        <button type="button" data-day-tab="phrases" role="tab" aria-selected="false">Phrases</button>
+        <button type="button" data-day-tab="words" role="tab" aria-selected="false">Words</button>
+        <button type="button" data-day-tab="rules" role="tab" aria-selected="false">Rules</button>
+      </div>
+      <div data-day-panel="overview">
+        <div class="card">
+          <h2>What you will learn</h2>
+          <p class="src">How to describe weather with It's + adjective and There's + noun. Seven small-talk lines. Nine like/dislike patterns, practised again on 23 Sep. Weather happening now: We are having a thunderstorm.</p>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-21">Day quiz</button>
+          <button class="btn chip" type="button" data-lesson-words="lesson-21">Words · 22</button>
+          <button class="btn chip" type="button" data-lesson-rules="lesson-21">Rules · 4</button>
+        </div>
+        <p class="src"><a href="pdf/21.09.2026.pdf" target="_blank" rel="noreferrer">Lesson PDF</a> <a href="https://wordwall.net/ru/resource/119542975/05-best-weather-for" target="_blank" rel="noreferrer">Wordwall</a></p>
+        <p class="src">Homework: <a href="https://wordwall.net/ru/resource/119605817" target="_blank" rel="noreferrer">Weather flashcards</a> <a href="https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" target="_blank" rel="noreferrer">Navigate 1.4</a> <a href="https://wordwall.net/ru/resource/119607073" target="_blank" rel="noreferrer">Likes flashcards</a> <a href="https://wordwall.net/ru/resource/119607967" target="_blank" rel="noreferrer">true / false</a> <a href="https://wordwall.net/ru/resource/119608490" target="_blank" rel="noreferrer">type the verb</a></p>
         <div class="here-add" data-place="lesson-21" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="drizzle or морось" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
             <p class="hint" data-add-status></p>
           </div>
         </div>
-        <div class="row" style="margin-bottom:10px">
-          <button class="btn chip on" type="button" data-lesson-words="lesson-21">Words · 22</button>
-          <button class="btn chip" type="button" data-lesson-rules="lesson-21">Rules · 4</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-21">This day's quiz</button>
+      </div>
+      <div data-day-panel="phrases" hidden>
+        <div class="card">
+          <h3>Excuse me, is anyone sitting here?</h3>
+          <p class="src tr"><b>Translation:</b> Извините, здесь кто-нибудь сидит?</p>
+          <p class="src">The same line is a card on <button class="src-more" type="button" data-jump="lesson16">16 Sep</button>. This day also has two lines that were not in that later set.</p>
+          <p class="src">Do you mind if I take this chair? · Is this your first time here? · How long have you worked here? · Do you know if there is an ATM near here? · That's my bus. · I've got to go. · Help yourself!</p>
+          <p class="src">How long have you worked here? is Present Perfect. <button class="btn chip" type="button" data-topic="pp">Present Perfect</button></p>
+          <p class="src">The preference patterns from this PDF are cards on <button class="src-more" type="button" data-jump="lesson23">23 Sep</button>.</p>
         </div>
-        <p class="src"><a href="pdf/21.09.2026.pdf" target="_blank" rel="noreferrer">21.09.2026.pdf</a> · <a href="https://wordwall.net/ru/resource/119542975/05-best-weather-for" target="_blank" rel="noreferrer">Wordwall · Best weather for…</a></p>
-        <p class="src">Homework: <a href="https://wordwall.net/ru/resource/119605817" target="_blank" rel="noreferrer">Weather flashcards</a> · <a href="https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" target="_blank" rel="noreferrer">Navigate 1.4</a> · <a href="https://wordwall.net/ru/resource/119607073" target="_blank" rel="noreferrer">Likes flashcards</a> · <a href="https://wordwall.net/ru/resource/119607967" target="_blank" rel="noreferrer">true / false</a> · <a href="https://wordwall.net/ru/resource/119608490" target="_blank" rel="noreferrer">type the verb</a></p>
-        <h2>1. What you will learn</h2>
-        <p class="src">How to describe weather with It's + adjective and There's + noun. Seven small-talk lines. Nine like/dislike patterns, practised again on 23 Sep. Weather happening now: We are having a thunderstorm.</p>
-        <h2>2. Key phrases</h2>
-        <h3>Excuse me, is anyone sitting here?</h3>
-        <p class="src"><b>Translation:</b> Извините, здесь кто-нибудь сидит?</p>
-        <p class="src">The same line is a card on <button class="src-more" type="button" data-jump="lesson16">16 Sep</button>. This day also has two lines that were not in that later set.</p>
-        <p class="src">Do you mind if I take this chair? · Is this your first time here? · How long have you worked here? · Do you know if there is an ATM near here? · That's my bus. · I've got to go. · Help yourself!</p>
-        <p class="src">How long have you worked here? is Present Perfect. <button class="btn chip" type="button" data-topic="pp">Present Perfect</button></p>
-        <p class="src">The preference patterns from this PDF are cards on <button class="src-more" type="button" data-jump="lesson23">23 Sep</button>.</p>
         <div class="words" id="lineGrid"></div>
-        <h2>3. Grammar from this lesson</h2>
-        <h3>It's + adjective · There's + noun</h3>
-        <p class="src">It's humid. It's chilly. There's drizzle. There's a thunderstorm. It's hot and rainy means humid. The full note is on <button class="src-more" type="button" data-jump="rules">Rules · 21 Sep</button>.</p>
-        <h3>Present continuous for weather now</h3>
-        <p class="src">We are having a thunderstorm. We are having a few showers.</p>
-        <p class="src"><button class="btn chip" type="button" data-topic="pc">Present Continuous</button></p>
-        <h2>4. Vocabulary</h2>
+      </div>
+      <div data-day-panel="words" hidden>
         <p class="src">The first grid had 12 cards. heavy rain was on the New vocabulary slide and was missing. sunny, cloudy, rainy, snowy, pleasant, warm, cold and hot were on other slides of the same PDF and were not cards. They are in the grid now.</p>
         <div class="words" id="wordGrid"></div>
         <p class="label" id="lessonAddedLabel" hidden style="margin-top:12px">Added to this lesson</p>
@@ -524,6 +556,17 @@
         <p class="label" style="margin-top:12px">Additional words</p>
         <p class="src">Words from this day's cards that were not already in All words.</p>
         <div class="words" id="extra21"></div>
+      </div>
+      <div data-day-panel="rules" hidden>
+        <div class="card">
+          <h2>It's + adjective · There's + noun</h2>
+          <p class="src">It's humid. It's chilly. There's drizzle. There's a thunderstorm. It's hot and rainy means humid. The full note is on <button class="src-more" type="button" data-jump="rules">Rules · 21 Sep</button>.</p>
+        </div>
+        <div class="card">
+          <h2>Present continuous for weather now</h2>
+          <p class="src">We are having a thunderstorm. We are having a few showers.</p>
+          <p class="src"><button class="btn chip" type="button" data-topic="pc">Present Continuous</button></p>
+        </div>
       </div>
     </section>
 
@@ -537,12 +580,12 @@
       <div class="words" id="dayWordsList"></div>
     </section>
 
-    <section id="rules" data-lang="ru">
+    <section id="rules" data-lang="en">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
       <div class="card grow">
         <div class="row" id="ruleLang" style="margin-bottom:8px">
-          <button class="btn chip on" type="button" data-rule-lang="ru">Russian</button>
-          <button class="btn chip" type="button" data-rule-lang="en">English</button>
+          <button class="btn chip on" type="button" data-rule-lang="en">English</button>
+          <button class="btn chip" type="button" data-rule-lang="ru">Russian</button>
         </div>
         <div id="ruleList"></div>
       </div>
@@ -590,8 +633,9 @@
     </section>
 
     <section id="dayq">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button><h1 id="dayqTitle">Quiz</h1><span class="timer" id="dayqTimer" hidden></span></div>
-      <div class="progress"><i id="dayqBar" style="width:0%"></i></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
+      <div class="tags"><span id="dayqType">Quiz</span></div>
+      <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqTimer" hidden></span></div>
       <div class="card grow" id="dayqView"></div>
     </section>
 
@@ -614,7 +658,12 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
       <div class="card grow">
         <p class="prompt">Recall the translation and the transcription</p>
-        <div id="dayFlipFace"><p class="entry">thunderstorm</p><p class="pos">noun</p></div>
+        <div class="flip-scene" id="dayFlipScene" tabindex="0" role="button" aria-label="Flip card">
+          <div class="flip-inner">
+            <div class="flip-face flip-front" id="dayFlipFace"><p class="entry">thunderstorm</p><p class="pos">noun</p></div>
+            <div class="flip-face flip-back" id="dayFlipBack"></div>
+          </div>
+        </div>
         <div class="bar"><button class="btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary" type="button" id="dayFlipNext">Next</button></div>
       </div>
     </section>
@@ -711,7 +760,7 @@
         <p class="sub" style="margin-top:0">Monday. Get to know each other. Level A2. This day's quiz uses this day's phrase cards.</p>
         <div class="tags"><span>#speaking</span><span>#questions</span><span>#present-simple</span></div>
         <div class="here-add" data-place="lesson-07" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="So, tell me about" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -790,7 +839,7 @@
         <p class="sub" style="margin-top:0">Wednesday. Collocations and Present Simple. Level A2. This day's quiz uses only this day's cards.</p>
         <div class="tags"><span>#collocations</span><span>#present-simple</span><span>#daily-routine</span></div>
         <div class="here-add" data-place="lesson-09" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="keep fit" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -867,7 +916,7 @@
         <p class="sub" style="margin-top:0">Monday. Adverbs of frequency. Level A2. This day's quiz uses only this day's cards.</p>
         <div class="tags"><span>#frequency</span><span>#present-simple</span><span>#how-often</span></div>
         <div class="here-add" data-place="lesson-14" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="always" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -1007,7 +1056,7 @@
         <p class="sub" style="margin-top:0">Wednesday. Small talk. Level B1. How long have you…? is the harder piece. This day's quiz uses only this day's cards.</p>
         <div class="tags"><span>#small-talk</span><span>#speaking</span><span>#conversation</span><span>#frequency</span><span>#present-simple</span><span>#present-perfect</span><span>#polite-requests</span><span>#starting-a-conversation</span><span>#ending-a-conversation</span></div>
         <div class="here-add" data-place="lesson-16" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="Go ahead" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -1219,7 +1268,7 @@
         <p class="sub" style="margin-top:0">Wednesday. Holidays and preferences. Level B1. Past Simple and one second-conditional question. This day's quiz uses only this day's cards.</p>
         <div class="tags"><span>#preferences</span><span>#past-simple</span><span>#likes</span><span>#holidays</span><span>#gerund</span></div>
         <div class="here-add" data-place="lesson-23" style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="I quite like" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -1355,7 +1404,7 @@
         <p class="sub" style="margin-top:0">Words already added, grouped by the page they belong to.</p>
         <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-add-study>Study</button></div>
         <div class="here-add" id="mineAdd" data-place="mine" hidden style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open>Add a word</button>
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
             <input type="text" placeholder="drizzle or морось" autocomplete="off" data-add-input />
             <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
@@ -1372,12 +1421,12 @@
       <div class="card grow" id="madeView"></div>
     </section>
 
-    <section id="guide" data-lang="ru">
+    <section id="guide" data-lang="en">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>How to use</h1></div>
       <div class="card grow">
         <div class="row" id="guideLang" style="margin-bottom:8px">
-          <button class="btn chip on" type="button" data-guide-lang="ru">Russian</button>
-          <button class="btn chip" type="button" data-guide-lang="en">English</button>
+          <button class="btn chip on" type="button" data-guide-lang="en">English</button>
+          <button class="btn chip" type="button" data-guide-lang="ru">Russian</button>
         </div>
         <div class="rule">
           <b class="ru">Главная</b><b class="en">Home</b>
@@ -1462,7 +1511,7 @@
     </section>
 
     <section id="stats">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Статистика</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Statistics</h1></div>
       <p class="sub" id="statsSub">Dates are UTC. The period filter applies to every figure on this page.</p>
       <div class="row" style="margin-bottom:8px">
         <button class="btn" type="button" data-stats-range="7">7 days</button>
@@ -1485,13 +1534,25 @@
       <div id="statsBody"><p class="hint">Loading…</p></div>
     </section>
 
+    <section id="themes">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="account">Back</button><h1>Theme</h1></div>
+      <p class="sub">Your choice is saved in this browser. Auto follows the system.</p>
+      <div class="card"><div class="theme-seg" data-theme-seg></div></div>
+    </section>
+
     <section id="account">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Account</h1></div>
-      <div id="accountBody"></div>
+      <div class="account-stage">
+        <div class="account-main">
+          <div class="row account-links"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-jump="guide">How to use</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
+          <div id="accountBody"></div>
+        </div>
+      </div>
     </section>
 
     <section id="profile">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
+      <div class="row" style="margin-bottom:12px"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-jump="guide">How to use</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
       <div id="profileBody"></div>
     </section>
 
@@ -1501,6 +1562,12 @@
     </section>
 
   </div></div>
+  <nav class="tabbar" aria-label="Primary">
+    <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
+    <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
+    <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
+  </nav>
+  </div>
   <div id="selpop" class="selpop" hidden>
     <div class="selpop-top"><b id="selpopWord"></b><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></div>
     <div id="selpopBody"></div>
