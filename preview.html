@@ -42,14 +42,14 @@
       <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
     </nav>
     <div class="side-foot">
-      <button class="btn ghost" type="button" data-jump="account">Profile</button>
+      <button class="btn ghost" type="button" data-jump="account">Account</button>
       <button class="btn ghost" type="button" data-jump="guide">How to use</button>
       <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side">Theme · Almond blossom<span class="theme-sub">Van Gogh</span></span></button>
     </div>
   </aside>
   <div class="phone"><div class="wrap">
     <div class="mobile-tools">
-      <button class="btn ghost" type="button" data-jump="account">Profile</button>
+      <button class="btn ghost" type="button" data-jump="account">Account</button>
       <button class="btn ghost" type="button" data-jump="guide">How to use</button>
       <button class="btn ghost" type="button" data-theme-cycle>Theme</button>
     </div>
@@ -489,6 +489,8 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Classes</h1></div>
       <p class="sub">In date order, from 7 Sep 2026. Each date has its own page. The quiz and mistakes stay inside that day.</p>
       <div>
+        <button class="btn primary" type="button" id="lmNew">+ New lesson</button>
+        <div id="lmDayList"></div>
         <button class="day active" type="button" data-jump="lesson23">
           <span class="date"><b>23</b><small>Sep</small></span>
           <b>Holidays</b>
@@ -519,6 +521,71 @@
           <b>Get to know each other</b>
           <span class="label about">article · problems and solutions · podcast homework</span>
         </button>
+      </div>
+    </section>
+
+    <section id="material">
+      <div class="lm">
+        <div class="meta lm-meta">
+          <button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button>
+          <h1>Learning material</h1>
+          <div class="lm-actions">
+            <button class="lm-btn" type="button" id="lmSave">Save draft</button>
+            <button class="lm-btn lm-btn-primary" type="button" id="lmPublish">Publish</button>
+            <button class="lm-btn" type="button" id="lmEditBack" hidden>Back to editor</button>
+            <button class="lm-btn danger" type="button" id="lmDelete" hidden>Delete</button>
+          </div>
+        </div>
+        <div id="lmEditor">
+          <p class="lm-kicker">Create learning material</p>
+          <p class="lm-lead">Build a complete lesson from reusable content blocks.</p>
+          <p class="lm-note" id="lmNote"></p>
+          <section class="lm-sheet">
+            <h2>Basic information</h2>
+            <label>Title<input id="lmTitle" type="text" data-meta="title" maxlength="80" /></label>
+            <label>Description<textarea id="lmDescription" data-meta="description" maxlength="240"></textarea></label>
+            <div class="lm-four">
+              <label>Date<input id="lmDate" type="date" data-meta="date" /></label>
+              <label>Class<input id="lmClass" type="text" data-meta="className" maxlength="40" /></label>
+              <label>Unit<input id="lmUnit" type="text" data-meta="unit" maxlength="40" /></label>
+              <label>Lesson<input id="lmLesson" type="text" data-meta="lesson" maxlength="40" /></label>
+            </div>
+          </section>
+          <section class="lm-sheet lm-sheet-blocks">
+            <div class="lm-content-head"><h2>Content</h2><span id="lmStatus" class="lm-status">Draft</span></div>
+            <div id="lmBlocks"></div>
+            <div class="lm-add-wrap">
+              <button class="lm-add" type="button" id="lmAdd">+ Add content</button>
+              <div class="lm-picker" id="lmPicker" hidden>
+                <p>Add content</p>
+                <div class="lm-picker-grid">
+                  <button type="button" data-add-block="text">Text</button>
+                  <button type="button" data-add-block="heading">Heading</button>
+                  <button type="button" data-add-block="pdf">PDF</button>
+                  <button type="button" data-add-block="link">Link</button>
+                  <button type="button" data-add-block="cards">Cards</button>
+                  <button type="button" data-add-block="image">Image</button>
+                  <button type="button" data-add-block="audio">Audio</button>
+                  <button type="button" data-add-block="video">Video</button>
+                  <button type="button" data-add-block="vocab">Vocabulary</button>
+                  <button type="button" data-add-block="exercise">Exercise</button>
+                  <button type="button" data-add-block="quiz">Quiz</button>
+                  <button type="button" data-add-block="note">Note</button>
+                  <button type="button" data-add-block="dialogue">Dialogue</button>
+                  <button type="button" data-add-block="reading">Reading</button>
+                  <button type="button" data-add-block="pronunciation">Pronunciation</button>
+                  <button type="button" data-add-block="table">Table</button>
+                  <button type="button" data-add-block="task">Task</button>
+                  <button type="button" data-add-block="file">File</button>
+                  <button type="button" data-add-block="divider">Divider</button>
+                  <button type="button" data-add-block="phrase">Phrase</button>
+                </div>
+              </div>
+            </div>
+            <button class="lm-preview-btn" type="button" id="lmPreviewBtn">Preview</button>
+          </section>
+        </div>
+        <div id="lmPreview" hidden></div>
       </div>
     </section>
 
@@ -1487,7 +1554,7 @@
           <div class="en">After Add to this card, Pronunciation is in green. PlayPhrase comes first, then YouGlish. Two source links are visible. The rest open from ... Outside a quiz, a selected word opens the dictionaries: Wiktionary, WikDict, OpenRussian, FreeDict.</div>
         </div>
         <div class="rule">
-          <b class="ru">Account</b><b class="en">Account</b>
+          <b class="ru">Profile</b><b class="en">Profile</b>
           <div class="ru">Вход и регистрация. Письмо не отправляется. Первый аккаунт сразу становится учителем. Следующие ждут, пока учитель нажмет Approve. В профиле логин, почта, имя и роль. Delete my data удаляет слова, песни и прогресс. Войти в этот аккаунт больше нельзя. Новая регистрация с той же почтой начинает другой пустой аккаунт. Выход только убирает их из этого браузера. После входа они снова на месте.</div>
           <div class="en">Log in and register. No email is sent. The first account becomes the teacher at once. Later accounts wait until the teacher presses Approve. The profile shows login, email, name and role. Delete my data deletes your words, songs and progress. You cannot sign in to that account again. Registering again with the same email starts a new empty account. Signing out only removes them from this browser. They come back after you sign in.</div>
         </div>
@@ -1540,7 +1607,8 @@
     <section id="themes">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="account">Back</button><h1>Theme</h1></div>
       <p class="sub">Your choice is saved in this browser. Auto follows the system.</p>
-      <form class="card theme-make" id="customThemeForm">
+      <button class="btn theme-open" type="button" id="customThemeOpen" aria-expanded="false" aria-controls="customThemeForm">Add a theme</button>
+      <form class="card theme-make" id="customThemeForm" hidden>
         <p class="hint" id="customThemeHint">Add a painting. The theme takes its colors, and the picture stays on the background, dimmed.</p>
         <input id="customThemeName" type="text" maxlength="64" placeholder="Name" autocomplete="off" />
         <div class="theme-file">
@@ -1563,7 +1631,7 @@
     </section>
 
     <section id="account">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Account</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
       <div class="account-stage">
         <div class="account-main">
           <div class="row account-links"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-jump="guide">How to use</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
@@ -1573,7 +1641,7 @@
     </section>
 
     <section id="profile">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Account</h1></div>
       <div class="row" style="margin-bottom:12px"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-jump="guide">How to use</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
       <div id="profileBody"></div>
     </section>
@@ -1589,6 +1657,12 @@
     <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
     <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
   </nav>
+  </div>
+  <div id="clipFrame" class="clip-frame" hidden>
+    <div class="clip-frame-box">
+      <div class="clip-frame-top"><b id="clipFrameTitle"></b><button class="clip-frame-x" type="button" id="clipFrameClose" aria-label="Close">×</button></div>
+      <iframe id="clipFrameView" title="Pronunciation"></iframe>
+    </div>
   </div>
   <div id="selpop" class="selpop" hidden>
     <div class="selpop-top"><b id="selpopWord"></b><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></div>

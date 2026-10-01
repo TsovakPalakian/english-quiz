@@ -936,11 +936,55 @@ async function handleApi(request, env, ctx) {
   return json({ error: "Not found." }, 404);
 }
 
+const PAIR_TEXTS_KEY = "pair/tsovak-texts.json";
+const PAIR_SONGS_KEY = "pair/tsovak-songs.json";
+
+async function pairSongIds(env) {
+  const ids = {};
+  const side = await readJsonList(env, PAIR_SONGS_KEY) || [];
+  side.forEach((song) => { if (song && song.id) ids[String(song.id)] = 1; });
+  const shared = await readSharedStudy(env);
+  (shared && shared.songs || []).forEach((song) => { if (song && song.id) ids[String(song.id)] = 1; });
+  return ids;
+}
+
+async function songsForLogin(env, login, songs) {
+  const list = Array.isArray(songs) ? songs : [];
+  if (studyTwinLogin(login)) return list;
+  const hidden = await pairSongIds(env);
+  return list.filter((song) => song && !hidden[String(song.id)]);
+}
+
+async function ensurePairTexts(env) {
+  const saved = await readJsonList(env, PAIR_TEXTS_KEY);
+  if (Array.isArray(saved)) return saved;
+  const pair = await studyPair(env, "TsovakDev");
+  if (!pair) return [];
+  const first = await readJsonList(env, pair.self.id + "/texts.json") || [];
+  const second = await readJsonList(env, pair.twin.id + "/texts.json") || [];
+  const merged = mergeTextRecords(first, second);
+  const texts = merged && !merged.error ? merged : [];
+  await writeJsonList(env, PAIR_TEXTS_KEY, texts);
+  return texts;
+}
+
+function withoutHiddenIds(list, hidden) {
+  return (list || []).filter((item) => item && !hidden[String(item.id || "")]);
+}
+
+async function textsForLogin(env, login, userId) {
+  const shared = await ensurePairTexts(env);
+  if (studyTwinLogin(login)) return shared;
+  const hidden = {};
+  shared.forEach((item) => { if (item && item.id) hidden[String(item.id)] = 1; });
+  const own = await readJsonList(env, userId + "/texts.json") || [];
+  return withoutHiddenIds(own, hidden);
+}
+
 async function listTexts(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
-  const texts = await readJsonList(env, user.id + "/texts.json") || [];
-  return json({ texts });
+  return json({ texts: await textsForLogin(env, user.login, user.id) });
 }
 
 function cleanTextRecord(item) {
@@ -977,16 +1021,31 @@ function mergeTextRecords(existing, incoming) {
 
 export { mergeTextRecords };
 
+async function saveTextsFor(env, login, userId, body) {
+  if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
+  const incoming = Array.isArray(body && body.texts) ? body.texts : [];
+  if (studyTwinLogin(login)) {
+    const existing = await ensurePairTexts(env);
+    const merged = mergeTextRecords(existing, incoming);
+    if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+    await writeJsonList(env, PAIR_TEXTS_KEY, merged);
+    return json({ ok: true, texts: merged });
+  }
+  const shared = await ensurePairTexts(env);
+  const hidden = {};
+  shared.forEach((item) => { if (item && item.id) hidden[String(item.id)] = 1; });
+  const existing = withoutHiddenIds(await readJsonList(env, userId + "/texts.json") || [], hidden);
+  const merged = mergeTextRecords(existing, withoutHiddenIds(incoming, hidden));
+  if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+  await writeJsonList(env, userId + "/texts.json", merged);
+  return json({ ok: true, texts: merged });
+}
+
 async function saveTexts(env, request, body) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
-  if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
-  const incoming = Array.isArray(body.texts) ? body.texts : [];
-  const existing = await readJsonList(env, user.id + "/texts.json") || [];
-  const merged = mergeTextRecords(existing, incoming);
-  if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
-  await writeJsonList(env, user.id + "/texts.json", merged);
-  return json({ ok: true, texts: merged });
+  if (pairViewOnly(user)) return json({ error: "You cannot do that." }, 403);
+  return saveTextsFor(env, user.login, user.id, body);
 }
 
 async function analyzeExpressions(env, request, body) {
@@ -1206,7 +1265,7 @@ function themesForLogin(login, ownState, twinState) {
   rows.forEach((row) => {
     if (!row || seen[row.id]) return;
     const owner = row.owner || "";
-    if (owner && owner !== login) return;
+    if (owner && owner !== login && owner !== studyTwinLogin(login)) return;
     seen[row.id] = 1;
     out.push(row);
   });
@@ -1239,6 +1298,95 @@ async function studyPair(env, login) {
   return { self: self, twin: twin };
 }
 
+const PAIR_SETTINGS_KEY = "pair/tsovak-settings.json";
+
+async function readPairSettings(env) {
+  if (!env.MEDIA) return null;
+  const object = await env.MEDIA.get(PAIR_SETTINGS_KEY);
+  if (!object) return null;
+  try {
+    const saved = JSON.parse(await object.text());
+    if (!saved || typeof saved !== "object" || Array.isArray(saved)) return null;
+    return saved;
+  } catch (e) {
+    return null;
+  }
+}
+
+function mergePairSettings(devStats, otherStats) {
+  const dev = plainObject(devStats);
+  const other = plainObject(otherStats);
+  const seen = {};
+  const customThemes = [];
+  cleanCustomThemes(other.customThemes).concat(cleanCustomThemes(dev.customThemes)).forEach((row) => {
+    if (!row || seen[row.id]) return;
+    seen[row.id] = 1;
+    customThemes.push(row);
+  });
+  const settings = { customThemes: customThemes };
+  const theme = cleanThemeName(dev.theme) || cleanThemeName(other.theme);
+  if (theme) settings.theme = theme;
+  if (dev.lyricSize != null) settings.lyricSize = dev.lyricSize;
+  else if (other.lyricSize != null) settings.lyricSize = other.lyricSize;
+  if (dev.demonstratives != null) settings.demonstratives = dev.demonstratives;
+  else if (other.demonstratives != null) settings.demonstratives = other.demonstratives;
+  if (dev.dayLinks != null) settings.dayLinks = dev.dayLinks;
+  else if (other.dayLinks != null) settings.dayLinks = other.dayLinks;
+  return settings;
+}
+
+function applyPairSettings(state, settings) {
+  const stats = Object.assign({}, plainObject(state && state.stats));
+  const saved = settings || {};
+  if (saved.theme) stats.theme = saved.theme;
+  if (Array.isArray(saved.customThemes)) stats.customThemes = saved.customThemes;
+  if (saved.lyricSize != null) stats.lyricSize = saved.lyricSize;
+  if (saved.demonstratives != null) stats.demonstratives = saved.demonstratives;
+  if (saved.dayLinks != null) stats.dayLinks = saved.dayLinks;
+  state.stats = stats;
+  return state;
+}
+
+function settingsFromStats(stats) {
+  const src = plainObject(stats);
+  const settings = { customThemes: cleanCustomThemes(src.customThemes) };
+  const theme = cleanThemeName(src.theme);
+  if (theme) settings.theme = theme;
+  if (src.lyricSize != null) settings.lyricSize = src.lyricSize;
+  if (src.demonstratives != null) settings.demonstratives = src.demonstratives;
+  if (src.dayLinks != null) settings.dayLinks = src.dayLinks;
+  return settings;
+}
+
+async function writePairSettings(env, settings) {
+  await env.MEDIA.put(PAIR_SETTINGS_KEY, JSON.stringify(settings), { httpMetadata: { contentType: "application/json" } });
+}
+
+async function projectPairSettings(env, userId, settings) {
+  const state = await readAccountFile(env, userId) || emptyState();
+  const before = JSON.stringify(plainObject(state.stats));
+  applyPairSettings(state, settings);
+  if (JSON.stringify(plainObject(state.stats)) === before) return;
+  await writeAccountFile(env, userId, state);
+}
+
+async function ensurePairSettings(env, login) {
+  const pair = await studyPair(env, login);
+  if (!pair) return null;
+  let settings = await readPairSettings(env);
+  if (!settings) {
+    const dev = pair.self.login === "TsovakDev" ? pair.self : pair.twin;
+    const other = dev.id === pair.self.id ? pair.twin : pair.self;
+    const devState = await readAccountFile(env, dev.id) || emptyState();
+    const otherState = await readAccountFile(env, other.id) || emptyState();
+    settings = mergePairSettings(devState.stats, otherState.stats);
+    await writePairSettings(env, settings);
+  }
+  await projectPairSettings(env, pair.self.id, settings);
+  await projectPairSettings(env, pair.twin.id, settings);
+  return settings;
+}
+
 function cardEditsOf(state) {
   const edits = state && state.stats && state.stats.cardEdits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return {};
@@ -1248,6 +1396,12 @@ function cardEditsOf(state) {
 function plainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value;
+}
+
+function cleanThemeName(value) {
+  const name = typeof value === "string" ? value.trim() : "";
+  if (!/^[a-z0-9-]{1,48}$/.test(name)) return "";
+  return name;
 }
 
 function cleanCustomThemes(value) {
@@ -1451,6 +1605,7 @@ async function myState(env, request, ctx) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   if (studyTwinLogin(user.login)) {
+    try { await ensurePairSettings(env, user.login); } catch (e) {}
     const ready = env.MEDIA && await env.MEDIA.head("pair/tsovak-study.ready");
     if (!ready) {
       try {
@@ -1461,6 +1616,11 @@ async function myState(env, request, ctx) {
   }
   const state = await readAccountFile(env, user.id) || emptyState();
   const shown = await withSidecars(env, user.login, user.id, state);
+  if (studyTwinLogin(user.login)) {
+    const settings = await readPairSettings(env);
+    if (settings) applyPairSettings(shown, settings);
+  }
+  shown.songs = await songsForLogin(env, user.login, shown.songs);
   return json(await withVisibleThemes(env, user.login, shown));
 }
 
@@ -1556,15 +1716,32 @@ function applyStateOp(state, body) {
     else if (body.key === "demonstratives") stats.demonstratives = body.value;
     else if (body.key === "dayLinks") stats.dayLinks = body.value;
     else if (body.key === "customThemes") stats.customThemes = cleanCustomThemes(body.value);
+    else if (body.key === "theme") {
+      const theme = cleanThemeName(body.value);
+      if (!theme) return json({ error: "The request was not valid." }, 400);
+      stats.theme = theme;
+    }
     else return json({ error: "The request was not valid." }, 400);
     return null;
   }
   return json({ error: "The request was not valid." }, 400);
 }
 
+function pairViewOnly(user) {
+  return !!(user && user.login === "Tsovak");
+}
+
+function pairBlockedOp(body) {
+  const op = body && body.op;
+  if (op === "put-edit" || op === "put-card" || op === "delete-card" || op === "put-song" || op === "put-variant" || op === "put-text-card") return true;
+  if (op === "put-setting" && body.key === "customThemes") return true;
+  return false;
+}
+
 async function saveState(env, request, body, ctx) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
+  if (pairViewOnly(user) && pairBlockedOp(body)) return json({ error: "You cannot do that." }, 403);
   return writeStateOp(env, user.id, body, studyTwinLogin(user.login), ctx);
 }
 
@@ -1633,7 +1810,7 @@ async function saveSongSidecar(env, songsKey, cardsKey, body) {
 async function withSidecars(env, login, userId, state) {
   const saved = state || emptyState();
   const pair = !!studyTwinLogin(login);
-  const songsKey = pair ? "pair/tsovak-songs.json" : (userId + "/songs.json");
+  const songsKey = pair ? PAIR_SONGS_KEY : (userId + "/songs.json");
   const cardsKey = pair ? "pair/tsovak-added.json" : (userId + "/added.json");
   const songs = await readJsonList(env, songsKey);
   const cards = await readJsonList(env, cardsKey);
@@ -1655,12 +1832,29 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
     }
     if (op === "put-song") {
       const pair = !!pairLogin;
+      const songId = body && body.song && body.song.id ? String(body.song.id) : "";
+      if (!pair && songId && (await pairSongIds(env))[songId]) return json({ error: "You cannot do that." }, 403);
       return saveSongSidecar(
         env,
-        pair ? "pair/tsovak-songs.json" : (userId + "/songs.json"),
+        pair ? PAIR_SONGS_KEY : (userId + "/songs.json"),
         pair ? "pair/tsovak-added.json" : (userId + "/added.json"),
         body
       );
+    }
+    if (pairLogin && op === "put-setting") {
+      const pair = await studyPair(env, pairLogin);
+      if (pair) {
+        const settings = await readPairSettings(env) || {};
+        const scratch = emptyState();
+        applyPairSettings(scratch, settings);
+        const rejected = applyStateOp(scratch, body);
+        if (rejected) return rejected;
+        const next = settingsFromStats(scratch.stats);
+        await writePairSettings(env, next);
+        await projectPairSettings(env, pair.self.id, next);
+        await projectPairSettings(env, pair.twin.id, next);
+        return json({ ok: true });
+      }
     }
     if (pairLogin && studyMaterialOp(op)) {
       const pair = await studyPair(env, pairLogin);
@@ -2094,6 +2288,12 @@ async function admin(env, request, method, path, body, ctx) {
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "changes" && method === "POST") {
     return decideChange(env, user, parts[4], parts[5]);
   }
+  if (parts.length === 6 && parts[2] === "admin" && parts[3] === "users" && parts[5] === "texts" && method === "GET") {
+    return readManagedTexts(env, user, parts[4]);
+  }
+  if (parts.length === 6 && parts[2] === "admin" && parts[3] === "users" && parts[5] === "texts" && method === "PUT") {
+    return writeManagedTexts(env, user, parts[4], body);
+  }
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "users" && parts[5] === "state" && method === "GET") {
     return readManagedState(env, user, parts[4], ctx);
   }
@@ -2147,7 +2347,21 @@ async function readManagedState(env, actor, userId, ctx) {
   }
   const state = await readAccountFile(env, userId) || emptyState();
   const shown = found.songs ? await withSidecars(env, found.row.login, userId, state) : state;
+  shown.songs = await songsForLogin(env, found.row.login, shown.songs);
   return json(await withVisibleThemes(env, found.row.login, stateForViewer(shown, found.songs)));
+}
+
+async function readManagedTexts(env, actor, userId) {
+  const found = await managedAccount(env, actor, userId);
+  if (found.error) return found.error;
+  return json({ texts: await textsForLogin(env, found.row.login, userId) });
+}
+
+async function writeManagedTexts(env, actor, userId, body) {
+  const found = await managedAccount(env, actor, userId);
+  if (found.error) return found.error;
+  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) return json({ error: "You cannot do that." }, 403);
+  return saveTextsFor(env, found.row.login, userId, body);
 }
 
 async function writeManagedState(env, actor, userId, body, ctx) {

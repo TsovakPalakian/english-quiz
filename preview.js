@@ -19,7 +19,7 @@
     let openMarkerName = "";
     let openTenseId = "ps";
     const dayScreens = {
-      lesson: "days", lesson07: "days", lesson09: "days", lesson14: "days", lesson16: "days", lesson23: "days", word: "days", rules: "days", daywords: "days", daywork: "days", daysetup: "days", dayq: "days", daychoice: "days", dayflip: "days", dayjudge: "days", days: "days", pdfview: "days",
+      lesson: "days", lesson07: "days", lesson09: "days", lesson14: "days", lesson16: "days", lesson23: "days", material: "days", word: "days", rules: "days", daywords: "days", daywork: "days", daysetup: "days", dayq: "days", daychoice: "days", dayflip: "days", dayjudge: "days", days: "days", pdfview: "days",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
@@ -32,6 +32,8 @@
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
+      if (id === "material" && window.paintMaterial) window.paintMaterial();
+      if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
@@ -1003,12 +1005,18 @@
     function privateThemeId(name) {
       return THEMES.slice(themeCut()).some((row) => row[0] === name);
     }
+    function twinStudyLogin(login) {
+      if (login === "TsovakDev") return "Tsovak";
+      if (login === "Tsovak") return "TsovakDev";
+      return "";
+    }
     function visibleCustomThemes() {
       const login = viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : "");
+      const twin = twinStudyLogin(login);
       return loadCustomThemes().filter((row) => {
         const owner = row.owner ? String(row.owner) : "";
         if (!login) return !owner;
-        return !owner || owner === login;
+        return !owner || owner === login || (twin && owner === twin);
       });
     }
     function currentTheme() {
@@ -1023,10 +1031,13 @@
         catch (err) {}
       }
     }
+    function themeCanShow(name) {
+      if (name === "auto") return true;
+      if (name && THEME_NAMES[name]) return !privateThemeId(name) || samePersonStudy();
+      if (name && String(name).indexOf("user-") === 0) return visibleCustomThemes().some((row) => row.id === name);
+      return false;
+    }
     function settleThemeAudience() {
-      const name = currentTheme();
-      const customOk = visibleCustomThemes().some((row) => row.id === name);
-      if ((privateThemeId(name) && !samePersonStudy()) || (String(name).indexOf("user-") === 0 && !customOk)) applyTheme(DEFAULT_THEME);
       paintThemeSegs();
     }
     function themeLabel(name) {
@@ -1062,24 +1073,26 @@
       if (parts.length < 2) return esc(parts[0]);
       return esc(parts[0]) + '<span class="theme-sub">' + esc(parts[1]) + "</span>";
     }
-    function applyTheme(name) {
+    function applyTheme(name, options) {
+      const opts = options || {};
       const root = document.documentElement;
-      const custom = name && name.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === name) : null;
-      if (name === "auto") {
+      const chosen = themeCanShow(name) ? name : DEFAULT_THEME;
+      const custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === chosen) : null;
+      if (chosen === "auto") {
         clearCustomPaint(root);
         root.removeAttribute("data-theme");
       } else if (custom) {
         root.setAttribute("data-theme", "user");
         paintCustomVars(root, custom);
-      } else if (name && THEME_NAMES[name]) {
-        clearCustomPaint(root);
-        root.setAttribute("data-theme", name);
       } else {
-        name = DEFAULT_THEME;
         clearCustomPaint(root);
-        root.setAttribute("data-theme", name);
+        root.setAttribute("data-theme", chosen);
       }
-      try { localStorage.setItem(THEME_KEY, name); } catch (e) {}
+      if (opts.persist !== false && themeCanShow(name)) {
+        try { localStorage.setItem(THEME_KEY, chosen); } catch (e) {}
+      }
+      if (opts.sync && themeCanShow(name)) syncChange({ op: "put-setting", key: "theme", value: chosen });
+      name = chosen;
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
         btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
       });
@@ -1088,10 +1101,15 @@
     }
     function paintThemeSegs() {
       const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
-      const mine = visibleCustomThemes().map((row) => '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + row.bg + '"><i style="background:' + row.card + '"></i><b style="background:' + row.acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + '</span></button><button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button></div>').join("");
+      const mine = visibleCustomThemes().map((row) => {
+        const tools = canEditLessons() ? '<button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button>' : "";
+        return '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + row.bg + '"><i style="background:' + row.card + '"></i><b style="background:' + row.acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + "</span></button>" + tools + "</div>";
+      }).join("");
       const rest = visibleThemes().map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>").join("");
       document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
-      applyTheme(currentTheme());
+      const themeOpen = document.getElementById("customThemeOpen");
+      if (themeOpen) themeOpen.hidden = !canEditLessons();
+      applyTheme(currentTheme(), { persist: themeCanShow(currentTheme()) });
     }
     let editingThemeId = "";
     let themeBeforeEdit = "";
@@ -1099,8 +1117,10 @@
     let endThemeEdit = function () {};
     function removeCustomTheme(id) {
       const editing = editingThemeId === id;
+      const active = currentTheme() === id;
       saveCustomThemes(loadCustomThemes().filter((row) => row.id !== id));
       if (editing) endThemeEdit();
+      if (active) applyTheme(DEFAULT_THEME, { sync: true });
       paintThemeSegs();
     }
     function jpegDataUrl(canvas, quality) {
@@ -1149,17 +1169,19 @@
         const edit = e.target.closest("[data-theme-edit]");
         if (edit) {
           e.preventDefault();
+          if (!canEditLessons()) return;
           beginThemeEdit(edit.getAttribute("data-theme-edit"));
           return;
         }
         const remove = e.target.closest("[data-theme-remove]");
         if (remove) {
+          if (!canEditLessons()) return;
           e.preventDefault();
           removeCustomTheme(remove.getAttribute("data-theme-remove"));
           return;
         }
         const btn = e.target.closest("[data-th]");
-        if (btn) applyTheme(btn.dataset.th);
+        if (btn) applyTheme(btn.dataset.th, { sync: true });
       });
     });
     const customThemeForm = document.getElementById("customThemeForm");
@@ -1188,6 +1210,11 @@
         const typed = (customThemeName.value || "").trim().replace(/\s+/g, " ").slice(0, 64);
         return typed || ("Picture " + (list.length + 1));
       }
+      const customThemeOpen = document.getElementById("customThemeOpen");
+      function setThemeFormOpen(open) {
+        customThemeForm.hidden = !open;
+        if (customThemeOpen) customThemeOpen.setAttribute("aria-expanded", open ? "true" : "false");
+      }
       function setThemeFormMode(editing) {
         if (customThemeSubmit) customThemeSubmit.textContent = editing ? "Save" : "Make a theme";
         if (customThemeCancel) customThemeCancel.hidden = !editing;
@@ -1205,6 +1232,7 @@
         customThemePreview.removeAttribute("src");
         if (customThemeWash) customThemeWash.style.background = "#fff";
         setThemeFormMode(false);
+        setThemeFormOpen(false);
         paintVeil();
       }
       function paintVeil() {
@@ -1227,7 +1255,7 @@
         saveCustomThemes(list);
         clearThemeDraft();
         paintThemeSegs();
-        applyTheme(theme.id);
+        applyTheme(theme.id, { sync: true });
         customThemeStatus.textContent = message;
         customThemeStatus.className = "hint";
       }
@@ -1254,6 +1282,7 @@
         customThemeStatus.className = "hint";
         applyTheme(id);
         paintVeil();
+        setThemeFormOpen(true);
         customThemeForm.scrollIntoView({ block: "nearest" });
       };
       endThemeEdit = function () {
@@ -1262,6 +1291,21 @@
         if (back) applyTheme(back);
       };
       paintVeil();
+      if (customThemeOpen) customThemeOpen.addEventListener("click", () => {
+        if (!canEditLessons()) return;
+        if (!customThemeForm.hidden && editingThemeId) {
+          endThemeEdit();
+          setThemeFormOpen(true);
+          if (customThemeName) customThemeName.focus();
+          return;
+        }
+        if (!customThemeForm.hidden) {
+          endThemeEdit();
+          return;
+        }
+        setThemeFormOpen(true);
+        if (customThemeName) customThemeName.focus();
+      });
       if (customThemeVeil) customThemeVeil.addEventListener("input", paintVeil);
       if (customThemeCancel) customThemeCancel.addEventListener("click", endThemeEdit);
       customThemeFile.addEventListener("change", () => {
@@ -1332,7 +1376,7 @@
       const now = currentTheme();
       const choices = visibleThemes().map((row) => row[0]).concat(visibleCustomThemes().map((row) => row.id)).filter((name) => name !== now);
       if (!choices.length) return;
-      applyTheme(choices[Math.floor(Math.random() * choices.length)]);
+      applyTheme(choices[Math.floor(Math.random() * choices.length)], { sync: true });
     }
     document.querySelectorAll("[data-theme-cycle]").forEach((btn) => btn.addEventListener("click", cycleTheme));
     document.body.addEventListener("click", (e) => {
@@ -1363,6 +1407,12 @@
           said = head ? head.textContent : "";
         }
         speakRegion(said, sayBtn.getAttribute("data-say"));
+        return;
+      }
+      const clipLink = e.target.closest("[data-clip]");
+      if (clipLink) {
+        e.preventDefault();
+        openClipFrame(clipLink.getAttribute("href") || "", clipLink.getAttribute("data-clip") || "Clip");
         return;
       }
       const pdfLink = e.target.closest("a[href]");
@@ -1435,6 +1485,10 @@
         if (card) { current = card; renderWord(card); visit("word"); }
         return;
       }
+      const lmDeleteBtn = e.target.closest("[data-lm-delete]");
+      if (lmDeleteBtn && window.lmDeleteLesson) { window.lmDeleteLesson(lmDeleteBtn.dataset.lmDelete); return; }
+      const lmOpenBtn = e.target.closest("[data-lm-open]");
+      if (lmOpenBtn && window.lmOpenLesson) { window.lmOpenLesson(lmOpenBtn.dataset.lmOpen); return; }
       const jump = e.target.closest("[data-jump]");
       if (jump) {
         if (jump.dataset.jump === "tenses") openHub();
@@ -1819,7 +1873,34 @@
       if (!q) return "";
       const you = "https://youglish.com/pronounce/" + encodeURIComponent(q) + "/english";
       const play = "https://www.playphrase.me/#/search?q=" + encodeURIComponent(q);
-      return '<a href="' + play + '" target="_blank" rel="noreferrer">PlayPhrase</a> · <a href="' + you + '" target="_blank" rel="noreferrer">YouGlish</a>';
+      return '<a href="' + play + '" data-clip="PlayPhrase">PlayPhrase</a> · <a href="' + you + '" data-clip="YouGlish">YouGlish</a>';
+    }
+    function openClipFrame(url, title) {
+      const frame = document.getElementById("clipFrame");
+      const view = document.getElementById("clipFrameView");
+      const name = document.getElementById("clipFrameTitle");
+      if (!url) return;
+      if (/playphrase\.me|youglish\.com/i.test(url)) {
+        const width = 520;
+        const height = 720;
+        const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+        const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+        const popup = window.open(url, "enquiz-clip", "width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
+        if (popup) {
+          try { popup.moveTo(left, top); popup.focus(); } catch (e) {}
+          return;
+        }
+      }
+      if (!frame || !view) return;
+      if (name) name.textContent = title || "";
+      view.src = url;
+      frame.hidden = false;
+    }
+    function closeClipFrame() {
+      const frame = document.getElementById("clipFrame");
+      const view = document.getElementById("clipFrameView");
+      if (view) view.src = "about:blank";
+      if (frame) frame.hidden = true;
     }
     const CLIP_QUERY = {
       "what/how about you?": "What about you",
@@ -2013,6 +2094,9 @@
       if (viewAccount) return viewAccount.role === "ADMIN";
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
+    function canEditLessons() {
+      return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
+    }
     function isDeveloper() {
       if (viewAccount) return false;
       return sessionIsDeveloper();
@@ -2098,7 +2182,7 @@
       return editHost("card", card.origin);
     }
     function canEditAdded(item) {
-      return !!item && ((item.place || "mine") === "mine" || isTeacher());
+      return !!item && canEditLessons() && ((item.place || "mine") === "mine" || isTeacher());
     }
     function addedEditHtml(item) {
       const index = loadAdded().indexOf(item);
@@ -7088,6 +7172,11 @@
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
       loadSelpop(text);
     }
+    const clipFrameClose = document.getElementById("clipFrameClose");
+    if (clipFrameClose) clipFrameClose.addEventListener("click", closeClipFrame);
+    const clipFrame = document.getElementById("clipFrame");
+    if (clipFrame) clipFrame.addEventListener("click", (e) => { if (e.target === clipFrame) closeClipFrame(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeClipFrame(); });
     document.getElementById("selpopClose").addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -7341,6 +7430,12 @@
       const next = CLASS_PAGES.find((row) => !classFinished(row.place));
       btn.dataset.jump = recent || (next ? next.id : "lesson23");
     }
+    let signedOutHello = false;
+    function paintHomeHello() {
+      const hello = document.querySelector("#home .hello");
+      if (!hello) return;
+      hello.textContent = !authUser && signedOutHello ? "See you soon" : "Welcome back";
+    }
     function paintHomeAccount() {
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
@@ -7348,6 +7443,7 @@
       who.hidden = true;
       who.innerHTML = "";
       demo.hidden = false;
+      paintHomeHello();
       paintHomeStats();
       paintHomeStudy();
     }
@@ -7358,7 +7454,7 @@
         const person = faceUser();
         box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary" type="button" data-jump="profile">Profile</button>' +
+          '<div class="row"><button class="btn primary" type="button" data-jump="profile">Account</button>' +
           (viewAccount ? "" : '<button class="btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
@@ -7390,7 +7486,7 @@
       const box = document.getElementById("profileBody");
       if (!box) return;
       if (!authUser) {
-        box.innerHTML = '<div class="card"><p>Sign in to see your profile.</p><button class="btn primary" type="button" data-jump="account">Account</button></div>';
+        box.innerHTML = '<div class="card"><p>Sign in to see your profile.</p><button class="btn primary" type="button" data-jump="account">Profile</button></div>';
         return;
       }
       const person = faceUser();
@@ -7593,7 +7689,7 @@
       });
     }
     function viewKeys() {
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY];
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, TEXT_KEY];
     }
     function stashDeveloper() {
       return idbGetStash().then((existing) => {
@@ -7677,6 +7773,7 @@
       lyricSize = Number(localStorage.getItem("enquiz-lyric-size")) || 20;
       paintAdded();
       paintLyrics();
+      paintTexts();
       paintHomeStats();
       if (window.paintDemonstratives) window.paintDemonstratives();
       authSyncLock = false;
@@ -7738,6 +7835,7 @@
         applySongEdits();
         refreshCatalog();
         paintLyrics();
+        paintTexts();
         paintHomeStats();
         paintHomeAccount();
         paintAccount();
@@ -8054,12 +8152,13 @@
       URL.revokeObjectURL(link.href);
     }
     function enterAccount(user) {
+      signedOutHello = false;
       authUser = user;
       accountReady = false;
       localStorage.setItem("enquiz-auth-on", "1");
       paintAccount();
       const on = document.querySelector("section.on");
-      if (on && on.id === "account") show("profile");
+      if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") paintHomeAccount();
       return accountFetch("/api/me/state").then((state) => {
         fillEmptyFromAccount(state);
@@ -8091,6 +8190,7 @@
       return Promise.all([clearMediaStore(), idbDeleteStash()]);
     }
     function leaveAccount() {
+      signedOutHello = true;
       viewAccount = null;
       authUser = null;
       accountReady = false;
@@ -8103,6 +8203,7 @@
         paintLyrics();
         refreshCatalog();
         if (window.paintDemonstratives) window.paintDemonstratives();
+        applyTheme(DEFAULT_THEME, { sync: false });
         settleThemeAudience();
         paintHomeAccount();
         paintAccount();
@@ -8178,7 +8279,11 @@
       if (action === "show-register") { paintAccountForm(true); return; }
       if (action === "show-login") { paintAccountForm(false); return; }
       if (action === "logout") {
-        accountFetch("/api/logout", { method: "POST", body: "{}" }).catch(() => {}).then(() => leaveAccount());
+        const theme = currentTheme();
+        const save = authUser && themeCanShow(theme)
+          ? accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {})
+          : Promise.resolve();
+        save.then(() => accountFetch("/api/logout", { method: "POST", body: "{}" }).catch(() => {})).then(() => leaveAccount());
         return;
       }
       if (action === "revoke") {
@@ -8435,9 +8540,10 @@
         paintHomeAccount();
       }
       takeNewCards(state);
-      const localSongs = loadSongs();
       const savedSongs = Array.isArray(state.songs) ? state.songs : [];
-      if (savedSongs.length) {
+      if (!samePersonStudy()) writeSongs(savedSongs);
+      else if (savedSongs.length) {
+        const localSongs = loadSongs();
         const seen = {};
         localSongs.forEach((song) => { if (song && song.id) seen[song.id] = 1; });
         let changed = false;
@@ -8485,9 +8591,14 @@
         try { localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks)); } catch (e) {}
       }
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      const pendingTheme = syncQueue.some((change) => change && change.op === "put-setting" && change.key === "theme");
+      const savedTheme = state.stats && typeof state.stats.theme === "string" ? state.stats.theme : "";
+      if (!pendingTheme && savedTheme) applyTheme(savedTheme, { sync: false });
       settleThemeAudience();
       paintAdded();
       paintLyrics();
+      paintTexts();
+      if (window.paintLmDays) window.paintLmDays();
       refreshCatalog();
       paintHomeStats();
       paintHomeAccount();
@@ -8512,6 +8623,7 @@
           resumePlace();
           return;
         }
+        signedOutHello = false;
         authUser = data.user;
         localStorage.setItem("enquiz-auth-on", "1");
         paintAccount();
@@ -8535,11 +8647,15 @@
       try { return JSON.parse(localStorage.getItem(TEXT_KEY) || "[]"); }
       catch (e) { return []; }
     }
+    function textsApiPath() {
+      if (viewAccount && viewAccount.id) return "/api/admin/users/" + encodeURIComponent(viewAccount.id) + "/texts";
+      return "/api/texts";
+    }
     function writeTexts(list) {
       localStorage.setItem(TEXT_KEY, JSON.stringify(list));
       paintTextCount();
       if (authUser) {
-        accountFetch("/api/texts", { method: "PUT", body: JSON.stringify({ texts: list }) }).catch(() => {});
+        accountFetch(textsApiPath(), { method: "PUT", body: JSON.stringify({ texts: list }) }).catch(() => {});
       }
     }
     function paintTextCount() {
@@ -8598,8 +8714,9 @@
     function paintTexts() {
       renderTextList();
       if (!authUser) return;
-      accountFetch("/api/texts").then((data) => {
-        const merged = mergeTextLists(loadTexts(), data.texts || []);
+      accountFetch(textsApiPath()).then((data) => {
+        const remote = Array.isArray(data.texts) ? data.texts : [];
+        const merged = viewAccount ? remote : mergeTextLists(loadTexts(), remote);
         localStorage.setItem(TEXT_KEY, JSON.stringify(merged));
         renderTextList();
       }).catch(() => {});
@@ -8881,6 +8998,891 @@
       if (opener) openExpressionCard(expr);
       else addExpressionCard(expr, button);
     });
+    const LM_KEY = "enquiz-material-demo";
+    const lmFiles = {};
+    let lmLibrary = null;
+    let lmState = null;
+    let lmSaveTimer = 0;
+    function lmSeed() {
+      return {
+        id: "lm-demo",
+        title: "Present Perfect",
+        description: "Grammar explanation and examples",
+        className: "English B1",
+        unit: "Unit 4",
+        lesson: "Grammar",
+        date: "",
+        published: true,
+        mode: "preview",
+        demoVersion: 4,
+        blocks: [
+          { id: "lm-h1", type: "heading", level: "h2", text: "Present Perfect", collapsed: false },
+          { id: "lm-t1", type: "text", collapsed: false, html: "<p>The <b>Present Perfect</b> connects past actions with the present.</p><p>We use it when the exact time is not important.</p><ul><li>experience</li><li>a result you can see now</li><li>unfinished time</li></ul>" },
+          { id: "lm-l1", type: "link", collapsed: false, title: "British Council Grammar", url: "https://learnenglish.britishcouncil.org/grammar/b1-b2-grammar/present-perfect", description: "A short explanation with examples." },
+          { id: "lm-p1", type: "pdf", collapsed: false, name: "present-perfect.pdf", size: "2.4 MB", sample: true },
+          { id: "lm-c1", type: "cards", collapsed: false, title: "Vocabulary", items: [
+            { front: "already", back: "уже", example: "I've already finished." },
+            { front: "yet", back: "еще", example: "Have you finished yet?" },
+            { front: "just", back: "только что", example: "I've just arrived." }
+          ] },
+          { id: "lm-t2", type: "text", collapsed: false, html: "<p>Look for words like <i>already</i>, <i>yet</i> and <i>just</i>. They often sit with the Present Perfect.</p>" }
+        ].concat(lmExtraBlocks())
+      };
+    }
+    function lmExtraBlocks() {
+      return [
+        { id: "lm-img1", type: "image", collapsed: true, name: "coffee.jpg", size: "180 KB", caption: "A finished cup of coffee — the result is now.", sample: true },
+        { id: "lm-au1", type: "audio", collapsed: true, name: "already.mp3", size: "240 KB", sample: true },
+        { id: "lm-vid1", type: "video", collapsed: true, source: "link", url: "", title: "Present Perfect clip" },
+        { id: "lm-voc1", type: "vocab", collapsed: true, title: "Time words", items: [
+          { word: "already", translation: "уже", ipa: "/ɔːlˈredi/", example: "I've already finished." },
+          { word: "yet", translation: "еще", ipa: "/jet/", example: "Have you finished yet?" }
+        ] },
+        { id: "lm-ex1", type: "exercise", collapsed: true, items: [
+          { prompt: "Choose the correct sentence.", kind: "choice", options: ["I have seen that film.", "I have saw that film.", "I seen that film."], answer: 0, write: "" },
+          { prompt: "Complete: I've ___ finished.", kind: "write", options: ["", "", ""], answer: 0, write: "already" }
+        ] },
+        { id: "lm-qz1", type: "quiz", collapsed: true, title: "Quick check", items: [
+          { prompt: "Which word fits a question?", options: ["already", "yet", "ago"], answer: 1 },
+          { prompt: "I've just arrived. Just means…", options: ["a long time ago", "только что", "never"], answer: 1 }
+        ] },
+        { id: "lm-note1", type: "note", collapsed: true, tone: "tip", text: "Use yet in questions and negatives. Use already when the action is done." },
+        { id: "lm-dg1", type: "dialogue", collapsed: true, title: "At the office", lines: [
+          { speaker: "Anna", text: "Have you finished the report yet?" },
+          { speaker: "Ben", text: "Yes, I've already sent it." }
+        ] },
+        { id: "lm-rd1", type: "reading", collapsed: true, title: "A short note", text: "I have lived here since 2019. I have already met most of the neighbours, but I have not joined the book club yet.", marks: [] },
+        { id: "lm-pr1", type: "pronunciation", collapsed: true, word: "already", ipa: "/ɔːlˈredi/", name: "", size: "", sample: false },
+        { id: "lm-tb1", type: "table", collapsed: true, columns: ["Word", "Use"], rows: [["already", "I've already eaten."], ["yet", "I haven't eaten yet."]] },
+        { id: "lm-task1", type: "task", collapsed: true, title: "Write two sentences", text: "Write one sentence with already and one with yet.", response: "" },
+        { id: "lm-file1", type: "file", collapsed: true, name: "worksheet.docx", size: "48 KB", sample: true },
+        { id: "lm-div1", type: "divider", collapsed: true, label: "Practice" },
+        { id: "lm-ph1", type: "phrase", collapsed: true, items: [
+          { phrase: "look forward to", meaning: "ждать с нетерпением", example: "I'm looking forward to the trip." },
+          { phrase: "give up", meaning: "бросить", example: "I've given up sugar." }
+        ] }
+      ];
+    }
+    function lmSep7() {
+      return {
+        id: "lm-sep7",
+        title: "Get to know each other",
+        description: "Monday. Level A2. An example of the 7 Sep lesson, built only from content blocks.",
+        className: "English A2",
+        unit: "Speaking",
+        lesson: "Questions",
+        date: "2026-09-07",
+        published: true,
+        mode: "preview",
+        blocks: [
+          { id: "s7-h1", type: "heading", level: "h2", text: "What you will learn", collapsed: false },
+          { id: "s7-t1", type: "text", collapsed: false, html: "<p>How to open a question about another person, answer, then hand the question back.</p><p>How to agree and disagree with <b>Most people…</b></p><ul><li>a reading about habits we share</li><li>speaking problems and solutions</li></ul>" },
+          { id: "s7-h2", type: "heading", level: "h2", text: "Key phrases", collapsed: false },
+          { id: "s7-ph", type: "phrase", collapsed: false, items: [
+            { phrase: "So, tell me about …", meaning: "Расскажи мне о …", example: "So, tell me about your city." },
+            { phrase: "I'd like to know about …", meaning: "Я хотел бы узнать о …", example: "I'd like to know about your hobbies." },
+            { phrase: "Can you tell me a little about …?", meaning: "Можешь немного рассказать о …?", example: "Can you tell me a little about your job?" },
+            { phrase: "What about you?", meaning: "А ты?", example: "I live in Yerevan. What about you?" }
+          ] },
+          { id: "s7-note", type: "note", collapsed: false, tone: "tip", text: "You start, then the other person answers and asks you back. What about you? and And you? also live on the real 16 Sep page." },
+          { id: "s7-dg", type: "dialogue", collapsed: false, title: "Agree or disagree", lines: [
+            { speaker: "A", text: "Most people never read books." },
+            { speaker: "B", text: "I agree. That's true." },
+            { speaker: "A", text: "Most people love Monday mornings." },
+            { speaker: "B", text: "I disagree." }
+          ] },
+          { id: "s7-h3", type: "heading", level: "h2", text: "Grammar from this lesson", collapsed: false },
+          { id: "s7-t2", type: "text", collapsed: false, html: "<p>The questions are mostly <b>Present Simple</b>, with a few <b>be going to</b> lines.</p><ul><li>Do you…? / What do you…? for habits</li><li>I'm going to… for a plan after the lesson</li></ul>" },
+          { id: "s7-div", type: "divider", collapsed: false, label: "Practice" },
+          { id: "s7-task", type: "task", collapsed: false, title: "Questions", text: "Answer, then ask back and add a follow-up. Cover two things you did before this lesson, the city where you live, one country you want to visit, two hobbies, three things that make you happy, and one thing you are going to do after the lesson.", response: "" },
+          { id: "s7-r1", type: "reading", collapsed: false, title: "Student 1 · at home", text: "Do you look at people around you and say to yourself, 'Wow, we're all so different!'? Well, recently I had the opposite idea. I think that in many ways we're all the same. We all dance in the kitchen to our favourite music and we look in the fridge for no reason. We put a key behind a book and then forget where it is. We make a cup of tea or coffee, and then we forget to drink it until it gets completely cold.", marks: [] },
+          { id: "s7-r2", type: "reading", collapsed: false, title: "Student 2 · outside", text: "What about outside the home? Nobody likes waiting, so it's not surprising that we all hate traffic. In the cinema we all cry at the sad part of the film. We join gyms and pay a lot of money to be a member, and then we never go. We go to the supermarket with a good plan, but we always buy crisps, chocolate and other snacks that are not on the list.", marks: [] },
+          { id: "s7-tb", type: "table", collapsed: false, columns: ["Problem", "A way forward"], rows: [
+            ["Grammar", "Write short sentences every day"],
+            ["When I speak, I forget everything", "Mistakes are normal"],
+            ["I don't understand native speakers", "Slow down, ask them to repeat"],
+            ["I can't catch the words", "Slow the speed, use subtitles"],
+            ["I am shy to speak", "Talk to yourself"],
+            ["Pronunciation feels terrible", "People need the main idea"],
+            ["I forget words", "Use the words, connect them to your life"],
+            ["I'm not making progress", "Answer one question now, and again in 3 months"]
+          ] },
+          { id: "s7-ex", type: "exercise", collapsed: false, items: [
+            { prompt: "Which line opens a question about the other person?", kind: "choice", options: ["So, tell me about your weekend.", "I agree. That's true.", "Homework is progress."], answer: 0, write: "" },
+            { prompt: "Complete: I'm ____ to cook after the lesson.", kind: "write", options: ["", "", ""], answer: 0, write: "going" }
+          ] },
+          { id: "s7-qz", type: "quiz", collapsed: false, title: "Quick check", items: [
+            { prompt: "What about you? is used to…", options: ["hand the question back", "disagree", "start the homework"], answer: 0 },
+            { prompt: "Most people never read books. A possible answer is…", options: ["I agree. That's true.", "So, tell me about …", "Once a week"], answer: 0 }
+          ] },
+          { id: "s7-note2", type: "note", collapsed: false, tone: "note", text: "Formal points from the class: communication in Telegram, payment at the end of the month, a new agreement. If you are late, let me know. Homework is progress." },
+          { id: "s7-hw", type: "task", collapsed: false, title: "Homework", text: "Listen to the podcast (5 min). Make a list of activities they find relaxing. If you have time, listen again with the script. If you have only 10 minutes, catch the main idea and do the task.", response: "" },
+          { id: "s7-pdf", type: "pdf", collapsed: false, name: "get-to-know.pdf", size: "Lesson PDF", sample: true },
+          { id: "s7-pr", type: "pronunciation", collapsed: false, word: "about", ipa: "/əˈbaʊt/", name: "", size: "", sample: false }
+        ]
+      };
+    }
+    function lmDateChip(iso) {
+      if (!iso) return { day: "—", month: "date" };
+      const date = new Date(iso + "T12:00:00");
+      if (Number.isNaN(date.getTime())) return { day: "—", month: "date" };
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return { day: String(date.getDate()).padStart(2, "0"), month: months[date.getMonth()] };
+    }
+    function lmLongDate(iso) {
+      if (!iso) return "";
+      const date = new Date(iso + "T12:00:00");
+      if (Number.isNaN(date.getTime())) return "";
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      return days[date.getDay()] + ", " + date.getDate() + " " + months[date.getMonth()] + " " + date.getFullYear();
+    }
+    function lmToday() {
+      const date = new Date();
+      return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    }
+    function lmBlankMaterial() {
+      return { id: lmId(), title: "", description: "", className: "", unit: "", lesson: "", date: "", published: false, mode: "edit", blocks: [] };
+    }
+    function lmLoadLibrary() {
+      let raw = null;
+      try { raw = JSON.parse(localStorage.getItem(LM_KEY) || "null"); } catch (e) {}
+      let materials = [];
+      if (raw && Array.isArray(raw.materials)) materials = raw.materials;
+      else if (raw && Array.isArray(raw.blocks)) {
+        if (!raw.id) raw.id = "lm-demo";
+        if (!raw.date) raw.date = "";
+        materials = [raw];
+      }
+      const removed = raw && Array.isArray(raw.removed) ? raw.removed : [];
+      if (!materials.length && !raw) materials = [lmSep7(), lmSeed()];
+      if (!materials.some((row) => row.id === "lm-sep7") && removed.indexOf("lm-sep7") < 0) materials.unshift(lmSep7());
+      if (!materials.some((row) => row.id === "lm-demo") && removed.indexOf("lm-demo") < 0) materials.push(lmSeed());
+      const activeId = raw && raw.activeId && materials.some((row) => row.id === raw.activeId) ? raw.activeId : (materials[0] ? materials[0].id : "");
+      return { materials: materials, activeId: activeId, removed: removed };
+    }
+    function lmPersist() {
+      if (!lmLibrary) return;
+      if (lmState) {
+        const index = lmLibrary.materials.findIndex((row) => row.id === lmState.id);
+        if (index >= 0) {
+          lmLibrary.materials[index] = lmState;
+          lmLibrary.activeId = lmState.id;
+        }
+      }
+      try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+      paintLmDays();
+    }
+    function lmSchedule() {
+      clearTimeout(lmSaveTimer);
+      lmSaveTimer = setTimeout(lmPersist, 400);
+    }
+    function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function lmBlock(id) { return (lmState.blocks || []).find((row) => row.id === id); }
+    function lmPlain(html) {
+      const box = document.createElement("div");
+      box.innerHTML = html || "";
+      return (box.textContent || "").replace(/\s+/g, " ").trim();
+    }
+    function lmClean(html) {
+      const box = document.createElement("div");
+      box.innerHTML = html || "";
+      Array.from(box.querySelectorAll("*")).forEach((node) => {
+        if (!node.parentNode) return;
+        const tag = node.tagName;
+        if (!/^(B|STRONG|I|EM|U|A|UL|OL|LI|P|BR|DIV)$/.test(tag)) {
+          const parent = node.parentNode;
+          while (node.firstChild) parent.insertBefore(node.firstChild, node);
+          parent.removeChild(node);
+          return;
+        }
+        Array.from(node.attributes).forEach((attr) => {
+          if (tag === "A" && attr.name === "href") return;
+          node.removeAttribute(attr.name);
+        });
+        if (tag === "A") {
+          const href = node.getAttribute("href") || "";
+          if (!/^https?:\/\//i.test(href)) node.removeAttribute("href");
+          else { node.setAttribute("target", "_blank"); node.setAttribute("rel", "noreferrer"); }
+        }
+      });
+      return box.innerHTML;
+    }
+    function lmFileSize(bytes) {
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0) + " KB";
+      return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+    function lmBlank(type) {
+      const id = lmId();
+      const base = { id: id, type: type, collapsed: false };
+      if (type === "heading") return Object.assign(base, { level: "h2", text: "New heading" });
+      if (type === "text" || type === "reading") return Object.assign(base, type === "text" ? { html: "<p></p>" } : { title: "Reading", text: "", marks: [] });
+      if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "" });
+      if (type === "link") return Object.assign(base, { title: "", url: "", description: "" });
+      if (type === "cards") return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }] });
+      if (type === "video") return Object.assign(base, { source: "link", url: "", title: "", name: "", size: "" });
+      if (type === "vocab") return Object.assign(base, { title: "Vocabulary", items: [{ word: "", translation: "", ipa: "", example: "" }] });
+      if (type === "exercise") return Object.assign(base, { items: [{ prompt: "", kind: "choice", options: ["", "", ""], answer: 0, write: "" }] });
+      if (type === "quiz") return Object.assign(base, { title: "Quiz", items: [{ prompt: "", options: ["", "", ""], answer: 0 }] });
+      if (type === "note") return Object.assign(base, { tone: "tip", text: "" });
+      if (type === "dialogue") return Object.assign(base, { title: "Dialogue", lines: [{ speaker: "", text: "" }] });
+      if (type === "pronunciation") return Object.assign(base, { word: "", ipa: "", name: "", size: "" });
+      if (type === "table") return Object.assign(base, { columns: ["", ""], rows: [["", ""], ["", ""]] });
+      if (type === "task") return Object.assign(base, { title: "Task", text: "", response: "" });
+      if (type === "divider") return Object.assign(base, { label: "" });
+      if (type === "phrase") return Object.assign(base, { items: [{ phrase: "", meaning: "", example: "" }] });
+      return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }], type: "cards" });
+    }
+    function lmNewItem(kind) {
+      if (kind === "vocab") return { word: "", translation: "", ipa: "", example: "" };
+      if (kind === "dialogue") return { speaker: "", text: "" };
+      if (kind === "phrase") return { phrase: "", meaning: "", example: "" };
+      if (kind === "exercise") return { prompt: "", kind: "choice", options: ["", "", ""], answer: 0, write: "" };
+      if (kind === "quiz") return { prompt: "", options: ["", "", ""], answer: 0 };
+      return { front: "", back: "", example: "" };
+    }
+    function lmSummary(block) {
+      if (block.type === "heading") return block.text || "Heading";
+      if (block.type === "text" || block.type === "reading") return lmPlain(block.html || block.text) || block.title || "Text";
+      if (block.type === "pdf" || block.type === "audio" || block.type === "file" || block.type === "image") return block.caption || block.name || "No file yet";
+      if (block.type === "link" || block.type === "video") return block.title || block.url || block.name || "Link";
+      if (block.type === "note") return block.text || "Note";
+      if (block.type === "divider") return block.label || "Divider";
+      if (block.type === "pronunciation") return [block.word, block.ipa].filter(Boolean).join(" ") || "Pronunciation";
+      if (block.type === "task") return block.title || block.text || "Task";
+      if (block.type === "table") return (block.columns || []).filter(Boolean).join(" · ") || "Table";
+      if (block.type === "dialogue") return (block.lines || []).map((line) => line.speaker).filter(Boolean).join(" · ") || "Dialogue";
+      if (block.type === "vocab") return (block.items || []).map((row) => row.word).filter(Boolean).join(" · ") || "Vocabulary";
+      if (block.type === "phrase") return (block.items || []).map((row) => row.phrase).filter(Boolean).join(" · ") || "Phrase";
+      if (block.type === "exercise" || block.type === "quiz") return (block.items || []).map((row) => row.prompt).filter(Boolean).join(" · ") || (block.title || "Questions");
+      return (block.items || []).map((card) => card.front).filter(Boolean).join(" · ") || "Cards";
+    }
+    function lmEmbed(url) {
+      const raw = String(url || "").trim();
+      let match = raw.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtu\.be\/)([\w-]{6,})/i);
+      if (match) return "https://www.youtube-nocookie.com/embed/" + match[1];
+      match = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+      if (match) return "https://player.vimeo.com/video/" + match[1];
+      return "";
+    }
+    function lmMedia(id, kind) {
+      const url = lmFiles[id];
+      if (!url) return "";
+      if (kind === "image") return '<img class="lm-shot" alt="" src="' + url + '" />';
+      if (kind === "audio") return '<audio class="lm-player" controls src="' + url + '"></audio>';
+      if (kind === "video") return '<video class="lm-player" controls src="' + url + '"></video>';
+      return "";
+    }
+    function lmFileBox(block, accept, emptyText, kind) {
+      const preview = lmMedia(block.id, kind);
+      if (!block.name) return '<label class="lm-drop">' + emptyText + '<small>or click to upload</small><input type="file" accept="' + accept + '" data-file="' + block.id + '" /></label>';
+      return preview + '<div class="lm-file"><span>📄</span><div><b>' + esc(block.name) + "</b><small>" + esc(block.size || "") + '</small></div><div class="lm-file-actions"><label class="lm-linkish">Replace<input type="file" accept="' + accept + '" data-file="' + block.id + '" hidden /></label><button class="lm-linkish" type="button" data-file-clear="' + block.id + '">Remove</button></div></div>';
+    }
+    function lmItemTools(blockId, list, index) {
+      return '<div class="lm-card-actions"><button class="lm-icon" type="button" data-item-up="' + blockId + ":" + list + ":" + index + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-item-down="' + blockId + ":" + list + ":" + index + '" aria-label="Move down">↓</button><button class="lm-icon danger" type="button" data-item-del="' + blockId + ":" + list + ":" + index + '" aria-label="Delete">×</button></div>';
+    }
+    function lmItemField(block, list, index, key, label, wide) {
+      const item = block[list][index] || {};
+      return '<label' + (wide ? ' class="lm-span"' : "") + ">" + label + '<input type="text" data-item-field="' + key + '" data-item-list="' + list + '" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(item[key] || "") + '" /></label>';
+    }
+    function lmItemRows(block, list, fields) {
+      return (block[list] || []).map((item, index) => '<div class="lm-card-row"><div class="lm-card-fields">' + fields.map((field) => lmItemField(block, list, index, field[0], field[1], field[2])).join("") + "</div>" + lmItemTools(block.id, list, index) + "</div>").join("");
+    }
+    function lmChoiceEditor(block, index) {
+      const question = block.items[index];
+      const options = question.options || [];
+      return '<div class="lm-opts">' + options.map((opt, oi) => '<label class="lm-opt"><input type="radio" name="ans-' + block.id + "-" + index + '" data-correct="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.answer) === oi ? " checked" : "") + ' /><input type="text" data-opt="' + block.id + ":" + index + ":" + oi + '" value="' + esc(opt) + '" placeholder="Option" /></label>').join("") + '</div><button class="lm-add-card" type="button" data-opt-add="' + block.id + ":" + index + '">+ Option</button>';
+    }
+    function lmHead(block, label) {
+      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span><div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down">↓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button><button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+    }
+    function lmQuestions(block) {
+      return (block.items || []).map((question, index) => {
+        const write = block.type === "exercise" && question.kind === "write";
+        const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (write ? "" : " selected") + '>Choices</option><option value="write"' + (write ? " selected" : "") + ">Type the answer</option></select></label>" : "";
+        const body = write ? '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>' : lmChoiceEditor(block, index);
+        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
+      }).join("");
+    }
+    function lmBody(block) {
+      if (block.type === "heading") {
+        return '<label>Heading<input type="text" data-field="text" data-block="' + block.id + '" value="' + esc(block.text || "") + '" /></label><label>Level<select data-field="level" data-block="' + block.id + '"><option value="h2"' + (block.level !== "h3" ? " selected" : "") + '>H2</option><option value="h3"' + (block.level === "h3" ? " selected" : "") + ">H3</option></select></label>";
+      }
+      if (block.type === "text") {
+        return '<div class="lm-tools"><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="insertUnorderedList">List</button><button type="button" data-cmd="link">Link</button></div><div class="lm-rich" contenteditable="true" data-rich="' + block.id + '">' + lmClean(block.html) + "</div>";
+      }
+      if (block.type === "pdf") return lmFileBox(block, "application/pdf,.pdf", "Drop PDF here", "");
+      if (block.type === "image") return lmFileBox(block, "image/*", "Drop image here", "image") + '<label>Caption<input type="text" data-field="caption" data-block="' + block.id + '" value="' + esc(block.caption || "") + '" /></label>';
+      if (block.type === "audio") return lmFileBox(block, "audio/*", "Drop audio here", "audio");
+      if (block.type === "file") return lmFileBox(block, "*/*", "Drop a file here", "");
+      if (block.type === "link") {
+        return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>URL<input type="text" data-field="url" data-block="' + block.id + '" value="' + esc(block.url || "") + '" placeholder="https://" /></label><label>Description<input type="text" data-field="description" data-block="' + block.id + '" value="' + esc(block.description || "") + '" /></label>';
+      }
+      if (block.type === "video") {
+        const link = block.source !== "file";
+        return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>Source<select data-field="source" data-block="' + block.id + '"><option value="link"' + (link ? " selected" : "") + '>Link</option><option value="file"' + (link ? "" : " selected") + ">File</option></select></label>" + (link ? '<label>URL<input type="text" data-field="url" data-block="' + block.id + '" value="' + esc(block.url || "") + '" placeholder="https://www.youtube.com/watch?v=..." /></label>' : lmFileBox(block, "video/*", "Drop video here", "video"));
+      }
+      if (block.type === "note") {
+        return '<label>Kind<select data-field="tone" data-block="' + block.id + '"><option value="note"' + (block.tone === "tip" ? "" : " selected") + '>Note</option><option value="tip"' + (block.tone === "tip" ? " selected" : "") + ">Tip</option></select></label><label>Text<textarea data-field=\"text\" data-block=\"" + block.id + '">' + esc(block.text || "") + "</textarea></label>";
+      }
+      if (block.type === "divider") return '<label>Label<input type="text" data-field="label" data-block="' + block.id + '" value="' + esc(block.label || "") + '" placeholder="Optional" /></label><div class="lm-divider">' + esc(block.label || "") + "</div>";
+      if (block.type === "reading") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>Text<textarea data-field="text" data-block="' + block.id + '">' + esc(block.text || "") + "</textarea></label><p class=\"lm-note\">In Preview, click a word to highlight it.</p>";
+      if (block.type === "pronunciation") return '<label>Word<input type="text" data-field="word" data-block="' + block.id + '" value="' + esc(block.word || "") + '" /></label><label>Transcription<input type="text" data-field="ipa" data-block="' + block.id + '" value="' + esc(block.ipa || "") + '" /></label>' + lmFileBox(block, "audio/*", "Drop pronunciation audio", "audio");
+      if (block.type === "task") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>Instructions<textarea data-field="text" data-block="' + block.id + '">' + esc(block.text || "") + "</textarea></label>";
+      if (block.type === "table") {
+        const cols = block.columns || [];
+        const head = "<tr>" + cols.map((col, c) => '<th><input type="text" data-col="' + block.id + ":" + c + '" value="' + esc(col) + '" /></th>').join("") + "<th></th></tr>";
+        const rows = (block.rows || []).map((row, r) => "<tr>" + cols.map((col, c) => '<td><input type="text" data-cell="' + block.id + ":" + r + ":" + c + '" value="' + esc(row[c] || "") + '" /></td>').join("") + '<td><button class="lm-icon danger" type="button" data-row-del="' + block.id + ":" + r + '" aria-label="Delete">×</button></td></tr>').join("");
+        return '<table class="lm-grid"><thead>' + head + "</thead><tbody>" + rows + '</tbody></table><button class="lm-add-card" type="button" data-col-add="' + block.id + '">+ Column</button><button class="lm-add-card" type="button" data-col-del="' + block.id + '">− Column</button><button class="lm-add-card" type="button" data-row-add="' + block.id + '">+ Row</button>';
+      }
+      if (block.type === "vocab") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list">' + lmItemRows(block, "items", [["word", "Word"], ["translation", "Translation"], ["ipa", "Transcription", true], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':vocab">+ Add word</button>';
+      if (block.type === "dialogue") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list lm-lines">' + lmItemRows(block, "lines", [["speaker", "Speaker"], ["text", "Line"]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':dialogue">+ Add line</button>';
+      if (block.type === "phrase") return '<div class="lm-card-list">' + lmItemRows(block, "items", [["phrase", "Phrase"], ["meaning", "Meaning"], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':phrase">+ Add phrase</button>';
+      if (block.type === "exercise" || block.type === "quiz") {
+        const title = block.type === "quiz" ? '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label>' : "";
+        return title + '<div class="lm-card-list">' + lmQuestions(block) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ":" + block.type + '">+ Add question</button>';
+      }
+      const rows = (block.items || []).map((card, index) => '<div class="lm-card-row"><div class="lm-card-fields"><label>Front<input type="text" data-card-field="front" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.front || "") + '" /></label><label>Back<input type="text" data-card-field="back" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.back || "") + '" /></label><label>Example<input type="text" data-card-field="example" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.example || "") + '" /></label></div><div class="lm-card-actions"><button class="lm-icon" type="button" data-card-up="' + block.id + ":" + index + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-card-down="' + block.id + ":" + index + '" aria-label="Move down">↓</button><button class="lm-icon danger" type="button" data-card-del="' + block.id + ":" + index + '" aria-label="Delete">×</button></div></div>').join("");
+      return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-card-add="' + block.id + '">+ Add card</button>';
+    }
+    function lmRenderEditor() {
+      const box = document.getElementById("lmBlocks");
+      if (!box || !lmState) return;
+      document.getElementById("lmTitle").value = lmState.title || "";
+      document.getElementById("lmDescription").value = lmState.description || "";
+      document.getElementById("lmDate").value = lmState.date || "";
+      document.getElementById("lmClass").value = lmState.className || "";
+      document.getElementById("lmUnit").value = lmState.unit || "";
+      document.getElementById("lmLesson").value = lmState.lesson || "";
+      const status = document.getElementById("lmStatus");
+      if (status) {
+        status.textContent = lmState.published ? "Published" : "Draft";
+        status.classList.toggle("is-live", !!lmState.published);
+      }
+      const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase" };
+      box.innerHTML = lmState.blocks.map((block) => '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, labels[block.type] || "Block") + '<div class="lm-body">' + lmBody(block) + "</div></article>").join("");
+    }
+    function lmPreviewFile(block, label, action, attr) {
+      return '<div class="lm-read-pdf"><b>' + esc(block.name || label) + "</b><span>" + esc(block.size || "") + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
+    }
+    function lmPreviewChoices(block, index, question) {
+      return (question.options || []).map((opt, oi) => '<label class="lm-opt"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.picked) === oi ? " checked" : "") + " /> " + esc(opt || "Option") + "</label>").join("");
+    }
+    function lmPreviewBlock(block) {
+      if (block.type === "heading") {
+        const tag = block.level === "h3" ? "h3" : "h2";
+        return "<" + tag + ">" + esc(block.text || "") + "</" + tag + ">";
+      }
+      if (block.type === "text") return '<div class="lm-copy">' + lmClean(block.html) + "</div>";
+      if (block.type === "link") {
+        const href = /^https?:\/\//i.test(block.url || "") ? block.url : "";
+        return '<a class="lm-read-link" href="' + esc(href || "#") + '"' + (href ? ' target="_blank" rel="noreferrer"' : "") + "><b>" + esc(block.title || href || "Link") + "</b><span>" + esc(block.description || block.url || "") + "</span></a>";
+      }
+      if (block.type === "pdf") return lmPreviewFile(block, "PDF", "Open PDF", "data-pdf-open");
+      if (block.type === "image") {
+        const src = lmFiles[block.id];
+        const pic = src ? '<img class="lm-shot" alt="' + esc(block.caption || "") + '" src="' + src + '" />' : '<div class="lm-shot lm-shot-empty">' + esc(block.name || "Image") + "</div>";
+        return '<figure class="lm-figure">' + pic + (block.caption ? "<figcaption>" + esc(block.caption) + "</figcaption>" : "") + "</figure>";
+      }
+      if (block.type === "audio" || block.type === "pronunciation") {
+        const src = lmFiles[block.id];
+        const player = src ? '<audio class="lm-player" controls src="' + src + '"></audio>' : "<span>" + esc(block.sample ? "Sample clip. Drop a real audio file to play it." : "No audio yet") + "</span>";
+        if (block.type === "pronunciation") return '<div class="lm-pron"><b>' + esc(block.word || "Word") + "</b><small>" + esc(block.ipa || "") + "</small>" + player + "</div>";
+        return '<div class="lm-read-pdf"><b>' + esc(block.name || "Audio") + "</b>" + player + "</div>";
+      }
+      if (block.type === "video") {
+        if (block.source === "file" && lmFiles[block.id]) return '<div class="lm-frame-video"><video controls src="' + lmFiles[block.id] + '"></video></div>';
+        const embed = lmEmbed(block.url);
+        if (embed) return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame-video"><iframe src="' + embed + '" title="' + esc(block.title || "Video") + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
+        const href = /^https?:\/\//i.test(block.url || "") ? block.url : "";
+        if (href) return '<a class="lm-read-link" href="' + esc(href) + '" target="_blank" rel="noreferrer"><b>' + esc(block.title || "Video") + "</b><span>" + esc(block.url) + "</span></a>";
+        return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame lm-shot-empty">' + esc(block.name || "YouTube link or video file") + "</div>";
+      }
+      if (block.type === "file") return lmPreviewFile(block, "File", "Open file", "data-file-open");
+      if (block.type === "note") return '<aside class="lm-callout' + (block.tone === "tip" ? " is-tip" : "") + '"><b>' + (block.tone === "tip" ? "Tip" : "Note") + "</b>" + esc(block.text || "") + "</aside>";
+      if (block.type === "divider") return '<div class="lm-divider">' + esc(block.label || "") + "</div>";
+      if (block.type === "reading") {
+        let n = 0;
+        const marks = new Set(block.marks || []);
+        const words = esc(block.text || "").replace(/\S+/g, (word) => {
+          const on = marks.has(n) ? " is-on" : "";
+          const button = '<button type="button" class="lm-word' + on + '" data-read="' + block.id + ":" + n + '">' + word + "</button>";
+          n += 1;
+          return button;
+        });
+        return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-copy lm-reading">' + words + "</div>";
+      }
+      if (block.type === "task") return "<h3>" + esc(block.title || "Task") + '</h3><p>' + esc(block.text || "") + '</p><label>Your answer<textarea data-response="' + block.id + '">' + esc(block.response || "") + "</textarea></label>";
+      if (block.type === "table") {
+        const cols = block.columns || [];
+        const head = "<tr>" + cols.map((col) => "<th>" + esc(col) + "</th>").join("") + "</tr>";
+        const rows = (block.rows || []).map((row) => "<tr>" + cols.map((col, c) => "<td>" + esc(row[c] || "") + "</td>").join("") + "</tr>").join("");
+        return "<table><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>";
+      }
+      if (block.type === "vocab") {
+        const rows = (block.items || []).map((row) => "<tr><td><b>" + esc(row.word || "") + "</b></td><td>" + esc(row.translation || "") + "</td><td>" + esc(row.ipa || "") + "</td><td>" + esc(row.example || "") + "</td></tr>").join("");
+        return "<h3>" + esc(block.title || "Vocabulary") + "</h3><table><thead><tr><th>Word</th><th>Translation</th><th>Transcription</th><th>Example</th></tr></thead><tbody>" + rows + "</tbody></table>";
+      }
+      if (block.type === "dialogue") {
+        const lines = (block.lines || []).map((line) => '<p class="lm-line"><b>' + esc(line.speaker || "") + "</b> " + esc(line.text || "") + "</p>").join("");
+        return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-dialogue">' + lines + "</div>";
+      }
+      if (block.type === "phrase") {
+        const rows = (block.items || []).filter((row) => row.phrase || row.meaning || row.example).map((row) => '<article class="lm-read-card"><b>' + esc(row.phrase || "") + "</b><span>" + esc(row.meaning || "") + "</span><i>" + esc(row.example || "") + "</i></article>").join("");
+        return '<div class="lm-read-cards">' + rows + "</div>";
+      }
+      if (block.type === "exercise") {
+        const questions = (block.items || []).map((question, index) => {
+          const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer" />' : lmPreviewChoices(block, index, question);
+          const mark = question.marked ? '<p class="lm-result ' + (question.correct ? "is-ok" : "is-no") + '">' + (question.correct ? "Correct" : "Not quite") + "</p>" : "";
+          return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + "</div>";
+        }).join("");
+        return questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>';
+      }
+      if (block.type === "quiz") {
+        const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
+        return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+      }
+      const cards = (block.items || []).filter((card) => card.front || card.back || card.example).map((card) => '<article class="lm-read-card"><b>' + esc(card.front || "") + "</b><span>" + esc(card.back || "") + "</span><i>" + esc(card.example || "") + "</i></article>").join("");
+      return "<h3>" + esc(block.title || "Vocabulary") + '</h3><div class="lm-read-cards">' + cards + "</div>";
+    }
+    function lmRenderPreview() {
+      const box = document.getElementById("lmPreview");
+      if (!box || !lmState) return;
+      const parts = lmState.blocks.map((block) => '<div class="lm-panel">' + lmPreviewBlock(block) + "</div>").join("");
+      const when = lmLongDate(lmState.date);
+      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + '</h2><p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + parts + "</article>";
+    }
+    function lmShow(mode) {
+      if (!canEditLessons()) mode = "preview";
+      lmState.mode = mode;
+      const editing = mode !== "preview";
+      document.getElementById("lmEditor").hidden = !editing;
+      document.getElementById("lmPreview").hidden = editing;
+      document.getElementById("lmEditBack").hidden = editing || !canEditLessons();
+      document.getElementById("lmSave").hidden = !editing;
+      document.getElementById("lmPublish").hidden = !editing;
+      document.getElementById("lmDelete").hidden = !canEditLessons();
+      const heading = document.querySelector("#material .lm-meta h1");
+      if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
+      if (editing) lmRenderEditor();
+      else lmRenderPreview();
+      const top = document.getElementById("material");
+      if (top) top.scrollIntoView({ block: "start" });
+    }
+    function lmMove(list, index, dir) {
+      const next = index + dir;
+      if (next < 0 || next >= list.length) return;
+      const item = list.splice(index, 1)[0];
+      list.splice(next, 0, item);
+    }
+    function lmNote(text) {
+      const note = document.getElementById("lmNote");
+      if (note) note.textContent = text;
+    }
+    function lmTakeFile(id, file) {
+      const block = lmBlock(id);
+      if (!block || !file) return;
+      block.name = file.name;
+      block.size = lmFileSize(file.size);
+      block.sample = false;
+      if (lmFiles[id]) URL.revokeObjectURL(lmFiles[id]);
+      lmFiles[id] = URL.createObjectURL(file);
+      lmRenderEditor();
+      lmSchedule();
+    }
+    function lmClearFile(id) {
+      const block = lmBlock(id);
+      if (block) { block.name = ""; block.size = ""; block.sample = false; }
+      if (lmFiles[id]) { URL.revokeObjectURL(lmFiles[id]); delete lmFiles[id]; }
+      lmRenderEditor();
+      lmSchedule();
+    }
+    function lmList(block, name) {
+      if (name === "lines") return block.lines || (block.lines = []);
+      return block.items || (block.items = []);
+    }
+    function lmEnsure() {
+      if (lmLibrary && lmState) return;
+      lmLibrary = lmLoadLibrary();
+      lmState = lmLibrary.materials.find((row) => row.id === lmLibrary.activeId) || lmLibrary.materials[0] || null;
+      if (lmState) lmLibrary.activeId = lmState.id;
+    }
+    function paintLmDays() {
+      const box = document.getElementById("lmDayList");
+      const newer = document.getElementById("lmNew");
+      if (newer) newer.hidden = !canEditLessons();
+      if (!box) return;
+      lmEnsure();
+      const rows = lmLibrary.materials.filter((row) => canEditLessons() || row.published).slice().sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return -1;
+        if (!b.date) return 1;
+        return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+      });
+      box.innerHTML = rows.map((material) => {
+        const chip = lmDateChip(material.date);
+        let about = material.published ? "Published lesson" : "Draft";
+        if (material.id === "lm-sep7") about = "Example · 7 Sep as content blocks";
+        if (material.id === "lm-demo") about = "Trial · every block type";
+        const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
+        const del = canEditLessons() ? '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "";
+        return '<div class="day-row"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + '</b><span class="label about">' + esc(about) + "</span></button>" + del + "</div>";
+      }).join("");
+    }
+    function lmOpenLesson(id) {
+      lmEnsure();
+      const found = lmLibrary.materials.find((row) => row.id === id);
+      if (!found) return;
+      if (!canEditLessons() && !found.published) return;
+      lmState = found;
+      lmLibrary.activeId = id;
+      found.mode = canEditLessons() && !found.published ? "edit" : "preview";
+      visit("material");
+    }
+    function lmKeepLesson() {
+      const index = lmLibrary.materials.findIndex((row) => row.id === lmState.id);
+      if (index < 0) lmLibrary.materials.unshift(lmState);
+      else lmLibrary.materials[index] = lmState;
+      lmLibrary.activeId = lmState.id;
+    }
+    function lmDeleteLesson(id) {
+      if (!canEditLessons()) return;
+      lmEnsure();
+      const found = lmLibrary.materials.find((row) => row.id === id);
+      const unsaved = !found && lmState && lmState.id === id;
+      if (!found && !unsaved) return;
+      if (!confirm("Delete this lesson?")) return;
+      if (found) {
+        lmLibrary.materials = lmLibrary.materials.filter((row) => row.id !== id);
+        if (!Array.isArray(lmLibrary.removed)) lmLibrary.removed = [];
+        if ((id === "lm-sep7" || id === "lm-demo") && lmLibrary.removed.indexOf(id) < 0) lmLibrary.removed.push(id);
+        if (!lmLibrary.materials.some((row) => row.id === lmLibrary.activeId)) lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
+        try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+      }
+      if (lmState && lmState.id === id) lmState = null;
+      const on = document.querySelector("section.on");
+      if (on && on.id === "material") show("days");
+      else paintLmDays();
+    }
+    function lmCreateLesson() {
+      if (!canEditLessons()) return;
+      lmEnsure();
+      const fresh = lmBlankMaterial();
+      fresh.date = lmToday();
+      lmState = fresh;
+      fresh.mode = "edit";
+      visit("material");
+    }
+    function paintMaterial() {
+      lmEnsure();
+      if (!lmState) { show("days"); return; }
+      lmShow(lmState.mode === "preview" ? "preview" : "edit");
+    }
+    window.paintLmDays = paintLmDays;
+    window.lmOpenLesson = lmOpenLesson;
+    window.lmDeleteLesson = lmDeleteLesson;
+    window.paintMaterial = paintMaterial;
+    const lmRoot = document.getElementById("material");
+    if (lmRoot) {
+      lmRoot.addEventListener("mousedown", (event) => {
+        if (event.target.closest("[data-cmd]")) event.preventDefault();
+      });
+      lmRoot.addEventListener("input", (event) => {
+        const meta = event.target.closest("[data-meta]");
+        if (meta && lmState) { lmState[meta.dataset.meta] = meta.value; lmSchedule(); return; }
+        const field = event.target.closest("[data-field]");
+        if (field) {
+          const block = lmBlock(field.dataset.block);
+          if (block) block[field.dataset.field] = field.value;
+          if (field.tagName === "SELECT") lmRenderEditor();
+          lmSchedule();
+          return;
+        }
+        const cardField = event.target.closest("[data-card-field]");
+        if (cardField) {
+          const block = lmBlock(cardField.dataset.block);
+          const card = block && block.items && block.items[Number(cardField.dataset.card)];
+          if (card) card[cardField.dataset.cardField] = cardField.value;
+          lmSchedule();
+          return;
+        }
+        const itemField = event.target.closest("[data-item-field]");
+        if (itemField) {
+          const block = lmBlock(itemField.dataset.block);
+          const list = block && lmList(block, itemField.dataset.itemList);
+          const item = list && list[Number(itemField.dataset.item)];
+          if (item) item[itemField.dataset.itemField] = itemField.value;
+          if (itemField.tagName === "SELECT") lmRenderEditor();
+          lmSchedule();
+          return;
+        }
+        const opt = event.target.closest("input[data-opt]");
+        if (opt) {
+          const bits = opt.dataset.opt.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) question.options[Number(bits[2])] = opt.value;
+          lmSchedule();
+          return;
+        }
+        const col = event.target.closest("[data-col]");
+        if (col) {
+          const bits = col.dataset.col.split(":");
+          const block = lmBlock(bits[0]);
+          if (block && block.columns) block.columns[Number(bits[1])] = col.value;
+          lmSchedule();
+          return;
+        }
+        const cell = event.target.closest("[data-cell]");
+        if (cell) {
+          const bits = cell.dataset.cell.split(":");
+          const block = lmBlock(bits[0]);
+          const row = block && block.rows && block.rows[Number(bits[1])];
+          if (row) row[Number(bits[2])] = cell.value;
+          lmSchedule();
+          return;
+        }
+        const response = event.target.closest("[data-response]");
+        if (response) { const block = lmBlock(response.dataset.response); if (block) block.response = response.value; lmSchedule(); return; }
+        const write = event.target.closest("[data-write]");
+        if (write) {
+          const bits = write.dataset.write.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) question.typed = write.value;
+          lmSchedule();
+          return;
+        }
+        const rich = event.target.closest("[data-rich]");
+        if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
+      });
+      lmRoot.addEventListener("change", (event) => {
+        const file = event.target.closest("[data-file], [data-pdf]");
+        if (file && file.files && file.files[0]) lmTakeFile(file.dataset.file || file.dataset.pdf, file.files[0]);
+        const correct = event.target.closest("[data-correct]");
+        if (correct) {
+          const bits = correct.dataset.correct.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) question.answer = Number(bits[2]);
+          lmSchedule();
+        }
+        const pick = event.target.closest("[data-pick]");
+        if (pick) {
+          const bits = pick.dataset.pick.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) question.picked = Number(bits[2]);
+        }
+      });
+      lmRoot.addEventListener("click", (event) => {
+        const cmd = event.target.closest("[data-cmd]");
+        if (cmd) {
+          event.preventDefault();
+          const rich = cmd.parentElement && cmd.parentElement.nextElementSibling;
+          if (rich) rich.focus();
+          if (cmd.dataset.cmd === "link") {
+            const href = window.prompt("Link address", "https://");
+            if (href && /^https?:\/\//i.test(href)) document.execCommand("createLink", false, href);
+          } else document.execCommand(cmd.dataset.cmd, false, null);
+          if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
+          return;
+        }
+        const add = event.target.closest("[data-add-block]");
+        if (add) {
+          const block = lmBlank(add.dataset.addBlock);
+          lmState.blocks.push(block);
+          document.getElementById("lmPicker").hidden = true;
+          lmRenderEditor();
+          lmSchedule();
+          const made = lmRoot.querySelector('[data-block-id="' + block.id + '"]');
+          if (made) made.scrollIntoView({ block: "nearest" });
+          return;
+        }
+        const fold = event.target.closest("[data-lm-fold]");
+        if (fold) { const block = lmBlock(fold.dataset.lmFold); if (block) block.collapsed = !block.collapsed; lmRenderEditor(); lmSchedule(); return; }
+        const edit = event.target.closest("[data-lm-edit]");
+        if (edit) {
+          const block = lmBlock(edit.dataset.lmEdit);
+          if (block) block.collapsed = false;
+          lmRenderEditor();
+          const made = lmRoot.querySelector('[data-block-id="' + edit.dataset.lmEdit + '"] input, [data-block-id="' + edit.dataset.lmEdit + '"] .lm-rich');
+          if (made) made.focus();
+          return;
+        }
+        const menu = event.target.closest("[data-lm-menu]");
+        if (menu) {
+          const pop = lmRoot.querySelector('[data-pop="' + menu.dataset.lmMenu + '"]');
+          lmRoot.querySelectorAll(".lm-pop").forEach((item) => { if (item !== pop) item.hidden = true; });
+          if (pop) pop.hidden = !pop.hidden;
+          return;
+        }
+        const up = event.target.closest("[data-lm-up]");
+        if (up) { lmMove(lmState.blocks, lmState.blocks.findIndex((row) => row.id === up.dataset.lmUp), -1); lmRenderEditor(); lmSchedule(); return; }
+        const down = event.target.closest("[data-lm-down]");
+        if (down) { lmMove(lmState.blocks, lmState.blocks.findIndex((row) => row.id === down.dataset.lmDown), 1); lmRenderEditor(); lmSchedule(); return; }
+        const del = event.target.closest("[data-lm-del]");
+        if (del) { lmState.blocks = lmState.blocks.filter((row) => row.id !== del.dataset.lmDel); lmRenderEditor(); lmSchedule(); return; }
+        const cardAdd = event.target.closest("[data-card-add]");
+        if (cardAdd) { const block = lmBlock(cardAdd.dataset.cardAdd); if (block) block.items.push({ front: "", back: "", example: "" }); lmRenderEditor(); lmSchedule(); return; }
+        const cardDel = event.target.closest("[data-card-del]");
+        if (cardDel) { const bits = cardDel.dataset.cardDel.split(":"); const block = lmBlock(bits[0]); if (block) block.items.splice(Number(bits[1]), 1); lmRenderEditor(); lmSchedule(); return; }
+        const cardUp = event.target.closest("[data-card-up]");
+        if (cardUp) { const bits = cardUp.dataset.cardUp.split(":"); const block = lmBlock(bits[0]); if (block) lmMove(block.items, Number(bits[1]), -1); lmRenderEditor(); lmSchedule(); return; }
+        const cardDown = event.target.closest("[data-card-down]");
+        if (cardDown) { const bits = cardDown.dataset.cardDown.split(":"); const block = lmBlock(bits[0]); if (block) lmMove(block.items, Number(bits[1]), 1); lmRenderEditor(); lmSchedule(); return; }
+        const itemAdd = event.target.closest("[data-item-add]");
+        if (itemAdd) {
+          const bits = itemAdd.dataset.itemAdd.split(":");
+          const block = lmBlock(bits[0]);
+          if (block) lmList(block, bits[1] === "dialogue" ? "lines" : "items").push(lmNewItem(bits[1]));
+          lmRenderEditor();
+          lmSchedule();
+          return;
+        }
+        const itemDel = event.target.closest("[data-item-del]");
+        if (itemDel) { const bits = itemDel.dataset.itemDel.split(":"); const block = lmBlock(bits[0]); if (block) lmList(block, bits[1]).splice(Number(bits[2]), 1); lmRenderEditor(); lmSchedule(); return; }
+        const itemUp = event.target.closest("[data-item-up]");
+        if (itemUp) { const bits = itemUp.dataset.itemUp.split(":"); const block = lmBlock(bits[0]); if (block) lmMove(lmList(block, bits[1]), Number(bits[2]), -1); lmRenderEditor(); lmSchedule(); return; }
+        const itemDown = event.target.closest("[data-item-down]");
+        if (itemDown) { const bits = itemDown.dataset.itemDown.split(":"); const block = lmBlock(bits[0]); if (block) lmMove(lmList(block, bits[1]), Number(bits[2]), 1); lmRenderEditor(); lmSchedule(); return; }
+        const optAdd = event.target.closest("[data-opt-add]");
+        if (optAdd) {
+          const bits = optAdd.dataset.optAdd.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) question.options.push("");
+          lmRenderEditor();
+          lmSchedule();
+          return;
+        }
+        const colAdd = event.target.closest("[data-col-add]");
+        if (colAdd) { const block = lmBlock(colAdd.dataset.colAdd); if (block) { block.columns.push(""); block.rows.forEach((row) => row.push("")); } lmRenderEditor(); lmSchedule(); return; }
+        const colDel = event.target.closest("[data-col-del]");
+        if (colDel) { const block = lmBlock(colDel.dataset.colDel); if (block && block.columns.length > 1) { block.columns.pop(); block.rows.forEach((row) => row.pop()); } lmRenderEditor(); lmSchedule(); return; }
+        const rowAdd = event.target.closest("[data-row-add]");
+        if (rowAdd) { const block = lmBlock(rowAdd.dataset.rowAdd); if (block) block.rows.push(block.columns.map(() => "")); lmRenderEditor(); lmSchedule(); return; }
+        const rowDel = event.target.closest("[data-row-del]");
+        if (rowDel) { const bits = rowDel.dataset.rowDel.split(":"); const block = lmBlock(bits[0]); if (block) block.rows.splice(Number(bits[1]), 1); lmRenderEditor(); lmSchedule(); return; }
+        const readWord = event.target.closest("[data-read]");
+        if (readWord) {
+          const bits = readWord.dataset.read.split(":");
+          const block = lmBlock(bits[0]);
+          if (block) {
+            const index = Number(bits[1]);
+            block.marks = block.marks || [];
+            const at = block.marks.indexOf(index);
+            if (at >= 0) block.marks.splice(at, 1);
+            else block.marks.push(index);
+            readWord.classList.toggle("is-on", at < 0);
+            lmSchedule();
+          }
+          return;
+        }
+        const exCheck = event.target.closest("[data-ex-check]");
+        if (exCheck) {
+          const block = lmBlock(exCheck.dataset.exCheck);
+          if (block) block.items.forEach((question) => {
+            question.marked = true;
+            question.correct = question.kind === "write" ? String(question.typed || "").trim().toLowerCase() === String(question.write || "").trim().toLowerCase() : Number(question.picked) === Number(question.answer);
+          });
+          lmRenderPreview();
+          lmSchedule();
+          return;
+        }
+        const quizCheck = event.target.closest("[data-quiz-check]");
+        if (quizCheck) {
+          const block = lmBlock(quizCheck.dataset.quizCheck);
+          if (block) {
+            const score = block.items.reduce((sum, question) => sum + (Number(question.picked) === Number(question.answer) ? 1 : 0), 0);
+            block.score = score + " / " + block.items.length;
+            const out = lmRoot.querySelector('[data-quiz-score="' + block.id + '"]');
+            if (out) out.textContent = block.score;
+            lmSchedule();
+          }
+          return;
+        }
+        const clearFile = event.target.closest("[data-file-clear], [data-pdf-clear]");
+        if (clearFile) { lmClearFile(clearFile.dataset.fileClear || clearFile.dataset.pdfClear); return; }
+        const openPdfBtn = event.target.closest("[data-pdf-open], [data-file-open]");
+        if (openPdfBtn) {
+          const id = openPdfBtn.dataset.pdfOpen || openPdfBtn.dataset.fileOpen;
+          const block = lmBlock(id);
+          if (lmFiles[id] && openPdfBtn.dataset.pdfOpen) openPdf(lmFiles[id]);
+          else if (lmFiles[id]) {
+            const link = document.createElement("a");
+            link.href = lmFiles[id];
+            link.download = (block && block.name) || "file";
+            link.click();
+          } else {
+            const msg = document.createElement("p");
+            msg.className = "lm-pdf-msg";
+            msg.textContent = block && block.sample ? "This sample shows the block. Drop a real file in the editor to open it." : "This file is not stored in the trial.";
+            const holder = openPdfBtn.parentElement;
+            const old = holder.querySelector(".lm-pdf-msg");
+            if (old) old.remove();
+            holder.appendChild(msg);
+          }
+          return;
+        }
+        if (!event.target.closest(".lm-pop") && !event.target.closest("[data-lm-menu]")) lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
+        if (!event.target.closest(".lm-add-wrap")) { const picker = document.getElementById("lmPicker"); if (picker) picker.hidden = true; }
+      });
+      lmRoot.addEventListener("dragstart", (event) => {
+        const block = event.target.closest(".lm-block");
+        if (!block || !block.getAttribute("draggable")) return;
+        event.dataTransfer.setData("text/plain", block.dataset.blockId);
+      });
+      lmRoot.addEventListener("dragover", (event) => {
+        if (event.target.closest(".lm-block") || event.target.closest(".lm-drop")) event.preventDefault();
+        const over = event.target.closest(".lm-block");
+        lmRoot.querySelectorAll(".lm-block").forEach((item) => item.classList.toggle("is-over", item === over && event.target.closest("[data-grip], .lm-block") && !event.target.closest(".lm-drop")));
+      });
+      lmRoot.addEventListener("drop", (event) => {
+        const drop = event.target.closest(".lm-drop");
+        if (drop) {
+          const input = drop.querySelector("[data-file], [data-pdf]");
+          const file = event.dataTransfer.files && event.dataTransfer.files[0];
+          if (input && file) { event.preventDefault(); lmTakeFile(input.dataset.file || input.dataset.pdf, file); }
+          return;
+        }
+        const block = event.target.closest(".lm-block");
+        const from = event.dataTransfer.getData("text/plain");
+        if (!block || !from) return;
+        event.preventDefault();
+        const list = lmState.blocks;
+        const source = list.findIndex((row) => row.id === from);
+        const target = list.findIndex((row) => row.id === block.dataset.blockId);
+        if (source < 0 || target < 0 || source === target) return;
+        const item = list.splice(source, 1)[0];
+        list.splice(target, 0, item);
+        lmRenderEditor();
+        lmSchedule();
+      });
+      lmRoot.addEventListener("dragend", () => {
+        lmRoot.querySelectorAll(".lm-block").forEach((item) => { item.classList.remove("is-over"); item.removeAttribute("draggable"); });
+      });
+      lmRoot.addEventListener("pointerdown", (event) => {
+        const grip = event.target.closest("[data-grip]");
+        const block = grip && grip.closest(".lm-block");
+        if (block) block.setAttribute("draggable", "true");
+      });
+      document.getElementById("lmAdd").addEventListener("click", () => {
+        const picker = document.getElementById("lmPicker");
+        picker.hidden = !picker.hidden;
+      });
+      document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
+      document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote("Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmPublish").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = true; lmState.mode = "preview"; lmKeepLesson(); lmPersist(); lmNote(""); lmShow("preview"); });
+      document.getElementById("lmDelete").addEventListener("click", () => { if (lmState) lmDeleteLesson(lmState.id); });
+      const lmNew = document.getElementById("lmNew");
+      if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
+      paintLmDays();
+    }
+
     paintTextCount();
     paintHomeStats();
     resumePlace();
