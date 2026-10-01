@@ -1404,6 +1404,14 @@
         <p class="sub" style="margin-top:0">Words already added, grouped by the page they belong to.</p>
         <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-add-study>Study</button></div>
         <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+        <div class="here-add" id="groupAdd" data-place="mine" hidden style="margin-bottom:12px">
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="a word or a phrase" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
+        </div>
         <div id="addedList"></div>
       </div>
     </section>

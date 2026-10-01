@@ -2143,8 +2143,18 @@
       const list = loadAdded();
       const box = document.getElementById("addedList");
       const title = document.querySelector("#add h1");
-      const mineAdd = document.getElementById("mineAdd");
-      if (mineAdd) mineAdd.hidden = !!(addGroup && addGroup !== "My words");
+      const groupAdd = document.getElementById("groupAdd");
+      const addPlaces = { "My words": "mine", "Phrasal verbs": "phrasal", "Idioms": "idioms" };
+      const addPlace = addPlaces[addGroup] || "";
+      if (groupAdd) {
+        groupAdd.hidden = !addPlace;
+        if (addPlace) {
+          groupAdd.dataset.place = addPlace;
+          const addInput = groupAdd.querySelector("[data-add-input]");
+          const addHint = { mine: "a word or a phrase", phrasal: "give up or сдаваться", idioms: "break the ice or начать разговор" };
+          if (addInput) addInput.placeholder = addHint[addPlace];
+        }
+      }
       if (!box) return;
       if (!list.length) {
         box.innerHTML = "";
@@ -2791,15 +2801,16 @@
       const enOptions = shuffle(enWrong.slice(0, 3).concat([item.word]));
       document.getElementById("madeTitle").textContent = item.word;
       const ipa = ipaHtml({ en: item.word, uk: uk, us: us });
+      const note = expressionNote(item);
       let html = '<div class="gen"><h2>Word card</h2>';
+      const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
+      html += '<div class="word-head">' + wordPic(item.word, true) + '<div class="word-copy"><p class="entry">' + esc(item.word) + "</p>" + ruLine + "</div></div>";
       html += addedEditHtml(item) || catalogEditHtml(findCatalog(item.word));
-      html += '<div class="word-head">' + wordPic(item.word, true) + '<p class="entry">' + esc(item.word) + "</p></div>";
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
       html += ipa;
       if (cam.level) html += '<p><span class="level">' + esc(cam.level) + "</span></p>";
-      const note = expressionNote(item);
-      html += item.ru ? "<p><b>" + esc(item.ru) + "</b></p>" : (note ? "<p><b>" + esc(note) + "</b></p>" : '<p class="hint bad">Wooordhunt has no Russian gloss for this phrase.</p>');
+      if (!item.ru && !note) html += '<p class="hint bad">Wooordhunt has no Russian gloss for this phrase.</p>';
       const origin = cardOrigin(item);
       if (origin) html += '<p class="label">' + esc(origin) + "</p>";
       if (data.base) html += '<p><span class="label">Base form</span> ' + esc(data.base) + "</p>";
@@ -7758,6 +7769,34 @@
       });
       return Array.from(map.values()).sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
     }
+    function textWordKeys(text) {
+      const found = String(text || "").match(/[A-Za-z]+(?:['’][A-Za-z]+)?/g) || [];
+      const keys = [];
+      const seen = new Set();
+      found.forEach((word) => {
+        const key = word.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+      });
+      return keys;
+    }
+    function textAbout(item) {
+      const learnedSet = loadLearned();
+      const keys = textWordKeys(item && item.text);
+      let learned = 0;
+      keys.forEach((key) => { if (learnedSet.has(key)) learned += 1; });
+      const expressions = item && item.analysis && item.analysis.expressions ? item.analysis.expressions : [];
+      let fresh = 0;
+      let phrasal = 0;
+      let idioms = 0;
+      expressions.forEach((expr) => {
+        if (expr.type === "PHRASAL_VERB") phrasal += 1;
+        else if (expr.type === "IDIOM") idioms += 1;
+        if (expressionSaved(expr)) fresh += 1;
+      });
+      return statsLine({ words: keys.length, fresh: fresh, learned: learned, left: Math.max(0, keys.length - learned), phrasal: phrasal, idioms: idioms });
+    }
     function renderTextList() {
       paintTextCount();
       const box = document.getElementById("textList");
@@ -7767,10 +7806,7 @@
         box.innerHTML = "<p class=\"hint\">No texts yet.</p>";
         return;
       }
-      box.innerHTML = list.map((item) => {
-        const count = item.analysis && item.analysis.expressions ? item.analysis.expressions.length : 0;
-        return "<button class=\"file-card\" type=\"button\" data-text-open=\"" + item.id + "\"><b>" + esc(item.title) + "</b><span class=\"label\">" + count + " expressions</span></button>";
-      }).join("");
+      box.innerHTML = list.map((item, index) => songRow(index + 1, item.title || "Text", "", textAbout(item), 'data-text-open="' + esc(item.id) + '"')).join("");
     }
     function paintTexts() {
       renderTextList();

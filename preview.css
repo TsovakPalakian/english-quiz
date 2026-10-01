@@ -683,6 +683,9 @@ a.btn { text-decoration: none; }
 .word-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
 .word-head .entry { font-size: 40px; font-weight: 800; }
 .word-head .pos { margin: 2px 0 0; }
+.word-copy { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex: 1; min-width: 0; gap: 2px; }
+.word-copy .entry { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.word-ru { margin: 0; font-weight: 800; }
 .wcard .en { font-size: 16px; font-weight: 800; }
 #lineGrid { grid-template-columns: 1fr; }
 #lineGrid .wcard .en { font-size: 19px; }
@@ -856,6 +859,8 @@ input[type="text"], input[type="search"], input[type="password"], input[type="em
 .variant-box { margin: 8px 0 12px; }
 .variant-box [data-variant-form] { margin-top: 8px; }
 textarea { min-height: 140px; resize: vertical; white-space: pre-wrap; }
+#textList { width: min(720px, 100%); }
+#textList .day { padding-top: 8px; padding-bottom: 8px; }
 .text-read { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; margin: 0 0 12px; font-size: 16px; }
 .text-read.collapsed { max-height: calc(1.6em * 10); overflow: hidden; }
 #textReadMore { margin: 0 0 12px; }
@@ -962,8 +967,11 @@ button:disabled { opacity: .45; }
   text-decoration: none;
   padding: 0;
 }
-.edit-line { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.edit-line .path { width: auto; flex: 1; min-width: 0; margin-bottom: 0; }
+.edit-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; margin-bottom: 8px; }
+.edit-line .path { grid-column: 1 / -1; grid-row: 1; width: 100%; margin-bottom: 0; flex-direction: column; align-items: flex-end; justify-content: flex-start; text-align: right; gap: 4px; }
+.edit-line .path b { display: flex; align-items: center; justify-content: flex-end; width: 100%; min-height: 44px; padding-right: 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.edit-line .path .to { display: block; width: 100%; text-align: right; }
+.edit-line .edit-actions { grid-column: 2; grid-row: 1; align-self: start; margin: 12px 14px 0 0; position: relative; z-index: 1; }
 .edit-actions { display: inline-flex; gap: 12px; align-items: center; flex: 0 0 auto; }
 .icon-btn {
   display: inline-flex;
@@ -992,7 +1000,8 @@ button:disabled { opacity: .45; }
 .gen { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .gen h2 { margin: 0 0 6px; font-size: 16px; font-weight: 800; color: var(--ink); }
 #addWord { margin-bottom: 8px; }
-[data-add-form] { margin-top: 10px; }
+[data-add-form] { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 10px; }
+[data-add-form] input { display: block; margin: 0; }
 .kind { display: inline-block; margin-right: 6px; font-size: 13px; font-weight: 700; color: var(--acc); }
 .tone-present { --tone: var(--acc); }
 .tone-past { --tone: var(--ink); }
