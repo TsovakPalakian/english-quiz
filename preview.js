@@ -19,7 +19,7 @@
     let openMarkerName = "";
     let openTenseId = "ps";
     const dayScreens = {
-      lesson: "days", lesson07: "days", lesson09: "days", lesson14: "days", lesson16: "days", lesson23: "days", word: "days", rules: "days", daywords: "days", daysetup: "days", dayq: "days", daychoice: "days", dayflip: "days", dayjudge: "days", days: "days", pdfview: "days",
+      lesson: "days", lesson07: "days", lesson09: "days", lesson14: "days", lesson16: "days", lesson23: "days", word: "days", rules: "days", daywords: "days", daywork: "days", daysetup: "days", dayq: "days", daychoice: "days", dayflip: "days", dayjudge: "days", days: "days", pdfview: "days",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
@@ -189,13 +189,14 @@
       if (place.id === "word" && current) place.wordEn = current.en;
       if (place.id === "made" && madeItem) place.madeWord = madeItem.word;
       if (place.id === "daywords" || place.id === "rules") place.lessonPlace = openLessonPlace;
+      if (place.id === "daywork") { place.workDay = openWork.day; place.workKind = openWork.kind; }
       place.dayQuizPlace = dayQuizPlace;
       place.dayReturn = dayReturn;
       place.studyScreen = studyScreen;
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
-      return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson].join("|");
+      return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson, place.workDay || "", place.workKind || ""].join("|");
     }
     function capture() {
       const on = document.querySelector("section.on");
@@ -649,6 +650,7 @@
       }
     }
     const THEMES = [
+      ["almond", "Almond blossom - Van Gogh", "#D4EEEA", "#F6FBFA", "#1C7874"],
       ["light", "Light", "#F4F6FB", "#FFFFFF", "#3D3BF3"],
       ["grey", "Grey", "#CFD0D3", "#E3E4E6", "#3D3BF3"],
       ["mint", "Mint", "#E1F2EA", "#F5FBF8", "#0B7A5B"],
@@ -713,45 +715,623 @@
       ["tokyo", "Tokyo", "#140818", "#26102C", "#FF2E97"],
       ["oasis", "Oasis", "#06241C", "#0E3A2C", "#F0C14A"],
       ["peacock", "Peacock", "#041820", "#0C3040", "#14F1C8"],
-      ["volcano", "Volcano", "#1A0A08", "#2E1210", "#FF3D00"]
+      ["volcano", "Volcano", "#1A0A08", "#2E1210", "#FF3D00"],
+      ["coral", "Coral", "#FDE6DC", "#FFF7F3", "#D24528"],
+      ["tangerine", "Tangerine", "#FFE6C4", "#FFF8EE", "#D85A00"],
+      ["mango", "Mango", "#FFE9B4", "#FFF9E6", "#C26E00"],
+      ["kiwi", "Kiwi", "#E6F6C8", "#F7FCEC", "#4E8C12"],
+      ["olive", "Olive", "#E6E4C4", "#F6F5EA", "#5E6010"],
+      ["seafoam", "Seafoam", "#D6F6EC", "#F2FCF8", "#0C8870"],
+      ["tide", "Tide", "#D2F0F2", "#F0FBFC", "#087888"],
+      ["denim", "Denim", "#DCE4F6", "#F4F7FD", "#1A4E9C"],
+      ["periwinkle", "Periwinkle", "#E2E4FA", "#F5F6FD", "#4548C4"],
+      ["wisteria", "Wisteria", "#EBE2F8", "#F7F4FD", "#7440C0"],
+      ["heather", "Heather", "#EDE2EA", "#F8F3F6", "#864878"],
+      ["mulberry", "Mulberry", "#F6DEEA", "#FCF3F7", "#A02470"],
+      ["strawberry", "Strawberry", "#FDE0E6", "#FFF4F6", "#D01848"],
+      ["terracotta", "Terracotta", "#F6DCC6", "#FBF3EA", "#B45420"],
+      ["saffron", "Saffron", "#FFE6A4", "#FFF6D8", "#C07000"],
+      ["basil", "Basil", "#D8EED0", "#F2F9EE", "#247830"],
+      ["fern", "Fern", "#D4E6D0", "#F0F6EC", "#2A6824"],
+      ["eucalyptus", "Eucalyptus", "#D4EEE2", "#F1FAF5", "#147856"],
+      ["glacier", "Glacier", "#D8EEF8", "#F2FAFD", "#086890"],
+      ["parchment", "Parchment", "#F4EAD6", "#FBF6EC", "#8A6028"],
+      ["wheat", "Wheat", "#F6E8C4", "#FBF6E6", "#A07420"],
+      ["cinnamon", "Cinnamon", "#F6D8C0", "#FBF3E8", "#A04818"],
+      ["bubblegum", "Bubblegum", "#F8D6EC", "#FFF3FA", "#D02088"],
+      ["iris", "Iris", "#E4DEF8", "#F5F3FD", "#5438B4"],
+      ["navy", "Navy", "#081428", "#102040", "#4A90FF"],
+      ["sapphire", "Sapphire", "#0A1830", "#122848", "#3A78FF"],
+      ["nebula", "Nebula", "#120820", "#221030", "#C058FF"],
+      ["aurora", "Aurora", "#081820", "#102C28", "#3EE8A8"],
+      ["matrix", "Matrix", "#081208", "#102010", "#3CFF62"],
+      ["emerald", "Emerald", "#071610", "#0E281C", "#22E090"],
+      ["onyx", "Onyx", "#0C0C10", "#18181E", "#C8CCD8"],
+      ["garnet", "Garnet", "#260810", "#3A1018", "#FF4468"],
+      ["crimson", "Crimson", "#22080C", "#360E14", "#FF3858"],
+      ["amethyst", "Amethyst", "#160818", "#261028", "#C868F0"],
+      ["citrine", "Citrine", "#1C1608", "#2C240C", "#F0C040"],
+      ["canyon", "Canyon", "#221008", "#36180C", "#FF7840"],
+      ["arctic", "Arctic", "#0A141C", "#12202C", "#8AD0F0"],
+      ["caribbean", "Caribbean", "#062018", "#0C3028", "#22E0A8"],
+      ["sakura", "Sakura", "#1E0814", "#321020", "#FF78A8"],
+      ["eclipse", "Eclipse", "#0C0C12", "#181820", "#E8C848"],
+      ["papaya", "Papaya", "#FFE0C4", "#FFF4EA", "#E06018"],
+      ["lime", "Lime", "#E8F6C0", "#F7FCE8", "#568C08"],
+      ["wasabi", "Wasabi", "#E6F0BC", "#F6FAE6", "#6A8A08"],
+      ["clover", "Clover", "#D4EED8", "#F2FAF4", "#1E8840"],
+      ["snow", "Snow", "#F2F6F8", "#FFFFFF", "#2A5878"],
+      ["oat", "Oat", "#F2EBE0", "#FBF7F2", "#8A6840"],
+      ["tomato", "Tomato", "#FCD6CE", "#FFF3F0", "#D02414"],
+      ["cranberry", "Cranberry", "#F6D0D8", "#FBF0F2", "#A01240"],
+      ["raspberry", "Raspberry", "#F8D4E2", "#FFF1F6", "#C01458"],
+      ["hyacinth", "Hyacinth", "#DCE2F8", "#F3F5FD", "#2844C0"],
+      ["porcelain", "Porcelain", "#F0F3F6", "#FAFBFC", "#3A5874"],
+      ["sunflower", "Sunflower", "#FFE8A0", "#FFF7DC", "#D09000"],
+      ["turquoise", "Turquoise", "#D0F2EE", "#F0FBFA", "#0A8078"],
+      ["opal", "Opal", "#E4F2F0", "#F6FBFA", "#3A7880"],
+      ["vanilla", "Vanilla", "#F8F2E0", "#FFFCF4", "#A08040"],
+      ["caramel", "Caramel", "#F4DCC0", "#FBF4E8", "#A06020"],
+      ["rust", "Rust", "#F6D4C4", "#FBF1E8", "#B03814"],
+      ["khaki", "Khaki", "#E8E4C4", "#F6F4E6", "#6E6818"],
+      ["obsidian", "Obsidian", "#0A0A10", "#16161E", "#8088FF"],
+      ["galaxy", "Galaxy", "#0C0818", "#181028", "#A070FF"],
+      ["borealis", "Borealis", "#081418", "#102028", "#40F0C0"],
+      ["cyber", "Cyber", "#081018", "#102028", "#00E0C0"],
+      ["magma", "Magma", "#200808", "#341010", "#FF5020"],
+      ["burgundy", "Burgundy", "#240810", "#381018", "#E05070"],
+      ["amber", "Amber", "#201408", "#321C08", "#FFB020"],
+      ["sahara", "Sahara", "#1C1408", "#2C200C", "#E8B050"],
+      ["amazon", "Amazon", "#0C180C", "#142414", "#50D060"],
+      ["maldives", "Maldives", "#062018", "#0C302C", "#20E0C8"],
+      ["kyoto", "Kyoto", "#1C1014", "#2C1820", "#E07080"],
+      ["iceberg", "Iceberg", "#0C181C", "#142428", "#70D0E8"],
+      ["melon", "Melon", "#F0F6D0", "#F8FCE8", "#6A8C10"],
+      ["guava", "Guava", "#F8D4C8", "#FFF4EE", "#D04848"],
+      ["fig", "Fig", "#E0D0DC", "#F7F0F5", "#7A3068"],
+      ["grape", "Grape", "#E0D0F4", "#F6F0FA", "#6A28A8"],
+      ["apple", "Apple", "#C8EEC0", "#F2FAEA", "#2A8A28"],
+      ["bamboo", "Bamboo", "#E4ECC0", "#F6FAE4", "#708010"],
+      ["meadow", "Meadow", "#C8E8D0", "#F0FAF2", "#188848"],
+      ["chalk", "Chalk", "#F6F8F4", "#FFFFFF", "#4A6860"],
+      ["marble", "Marble", "#E8ECF0", "#F8F9FA", "#4A6070"],
+      ["mist", "Mist", "#E0E6E2", "#F4F8F6", "#4A6868"],
+      ["champagne", "Champagne", "#F8E8C0", "#FFF9EA", "#A88830"],
+      ["maple", "Maple", "#F0C898", "#FBF2E4", "#B06018"],
+      ["toffee", "Toffee", "#E8C8A4", "#FBF3E6", "#8C5018"],
+      ["latte", "Latte", "#F0E0D0", "#FBF6EE", "#8A6038"],
+      ["brick", "Brick", "#F0C8BC", "#FBF0EA", "#A03020"],
+      ["thistle", "Thistle", "#DCD4E4", "#F6F2F7", "#6A4878"],
+      ["fuchsia", "Fuchsia", "#F4C0E4", "#FFF2FA", "#C01888"],
+      ["persimmon", "Persimmon", "#FFD0A8", "#FFF4E8", "#D05010"],
+      ["charcoal", "Charcoal", "#141618", "#202428", "#90A0B0"],
+      ["raven", "Raven", "#0C1018", "#161C28", "#6A90C8"],
+      ["cosmos", "Cosmos", "#100818", "#1C1028", "#8860E0"],
+      ["neon", "Neon", "#101408", "#1C2410", "#C8FF40"],
+      ["vapor", "Vapor", "#181028", "#281840", "#E060C0"],
+      ["inferno", "Inferno", "#280C04", "#401408", "#FF6020"],
+      ["scarlet", "Scarlet", "#280810", "#401014", "#FF4060"],
+      ["merlot", "Merlot", "#1C0810", "#2C1018", "#C04060"],
+      ["bronze", "Bronze", "#1C140C", "#2C2014", "#D09050"],
+      ["jungle", "Jungle", "#081408", "#102010", "#30C040"],
+      ["aegean", "Aegean", "#081420", "#102430", "#3080D0"],
+      ["havana", "Havana", "#201410", "#322018", "#E09060"],
+      ["nectarine", "Nectarine", "#FCD8C4", "#FFF4EC", "#E07030"],
+      ["pumpkin", "Pumpkin", "#F8D090", "#FFF4DC", "#D07800"],
+      ["watermelon", "Watermelon", "#F4D4D8", "#FFF2F4", "#C81840"],
+      ["lychee", "Lychee", "#F8E0E4", "#FFF6F8", "#C05070"],
+      ["coconut", "Coconut", "#F6F2E4", "#FFFCFA", "#8A7A58"],
+      ["sherbet", "Sherbet", "#F8D8F0", "#FFF4FC", "#D040A0"],
+      ["mustard", "Mustard", "#F0E090", "#FBF6D4", "#A88800"],
+      ["chartreuse", "Chartreuse", "#E0F090", "#F4FCD4", "#78A000"],
+      ["cactus", "Cactus", "#C8E0C0", "#F0F8EC", "#2A7040"],
+      ["nutmeg", "Nutmeg", "#E8D0B0", "#F8F0E4", "#8A5820"],
+      ["salmon", "Salmon", "#F8D0C4", "#FFF4F0", "#E06050"],
+      ["quartz", "Quartz", "#E8E4F0", "#F6F4FA", "#6860A0"],
+      ["azure", "Azure", "#C8E4F8", "#F0F8FF", "#0870C0"],
+      ["teal", "Teal", "#C0E4E0", "#EEF8F6", "#0A7870"],
+      ["ivory", "Ivory", "#FAF6EC", "#FFFCFA", "#7A6848"],
+      ["sienna", "Sienna", "#E8C0A0", "#F8EDE4", "#A04820"],
+      ["santorini", "Santorini", "#D4E8F4", "#F4FAFD", "#1A6A9C"],
+      ["pewter", "Pewter", "#D4D8DC", "#F2F4F6", "#4A5868"],
+      ["rio", "Rio", "#081820", "#102C38", "#20C8E0"],
+      ["bali", "Bali", "#0C2018", "#143028", "#40C080"],
+      ["seoul", "Seoul", "#180818", "#281028", "#FF4088"],
+      ["marrakech", "Marrakech", "#201008", "#341808", "#E86830"],
+      ["lisbon", "Lisbon", "#141810", "#222818", "#C8B060"],
+      ["fuji", "Fuji", "#101820", "#1C2834", "#A0C8E0"],
+      ["polar", "Polar", "#0C1418", "#142028", "#B0D8F0"],
+      ["nordic", "Nordic", "#101418", "#1C242C", "#7090A8"],
+      ["baltic", "Baltic", "#0A1820", "#142830", "#48A0C0"],
+      ["tropic", "Tropic", "#041810", "#0C281C", "#18D090"],
+      ["topaz", "Topaz", "#1C1408", "#2C200C", "#F0A030"],
+      ["brass", "Brass", "#1C1808", "#2C260C", "#E0C060"]
     ];
     const THEME_NAMES = { auto: "Auto" };
     THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
     const THEME_KEY = "enquiz-theme";
+    const CUSTOM_THEME_KEY = "enquiz-custom-themes";
+    const CUSTOM_COLOR_KEYS = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc", "--photo-wash"];
+    function clampNum(n, a, b) { return Math.max(a, Math.min(b, n)); }
+    function hexByte(n) { return clampNum(Math.round(n), 0, 255).toString(16).padStart(2, "0"); }
+    function rgbHex(r, g, b) { return "#" + hexByte(r) + hexByte(g) + hexByte(b); }
+    function hslRgb(h, s, l) {
+      h = ((h % 360) + 360) % 360;
+      s = clampNum(s, 0, 1);
+      l = clampNum(l, 0, 1);
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const hp = h / 60;
+      const x = c * (1 - Math.abs((hp % 2) - 1));
+      let r = 0, g = 0, b = 0;
+      if (hp < 1) { r = c; g = x; }
+      else if (hp < 2) { r = x; g = c; }
+      else if (hp < 3) { g = c; b = x; }
+      else if (hp < 4) { g = x; b = c; }
+      else if (hp < 5) { r = x; b = c; }
+      else { r = c; b = x; }
+      const m = l - c / 2;
+      return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
+    }
+    function hexHsl(h, s, l) {
+      const rgb = hslRgb(h, s, l);
+      return rgbHex(rgb[0], rgb[1], rgb[2]);
+    }
+    function rgbHsl(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      let h = 0, s = 0;
+      const d = max - min;
+      if (d) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+      }
+      return { h: h, s: s, l: l };
+    }
+    function channelLum(c) {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    function relLum(r, g, b) {
+      return 0.2126 * channelLum(r) + 0.7152 * channelLum(g) + 0.0722 * channelLum(b);
+    }
+    function paletteFromPixels(pixels) {
+      const buckets = new Map();
+      pixels.forEach((p) => {
+        const hsl = rgbHsl(p.r, p.g, p.b);
+        const key = Math.round(hsl.h / 12) + "|" + (hsl.s < 0.12 ? 0 : Math.round(hsl.s * 5)) + "|" + Math.round(hsl.l * 8);
+        let bucket = buckets.get(key);
+        if (!bucket) {
+          bucket = { h: 0, s: 0, l: 0, n: 0 };
+          buckets.set(key, bucket);
+        }
+        bucket.h += hsl.h;
+        bucket.s += hsl.s;
+        bucket.l += hsl.l;
+        bucket.n += 1;
+      });
+      const clusters = Array.from(buckets.values()).map((bucket) => ({
+        h: bucket.h / bucket.n,
+        s: bucket.s / bucket.n,
+        l: bucket.l / bucket.n,
+        n: bucket.n
+      })).sort((a, b) => b.n - a.n);
+      if (!clusters.length) return null;
+      const ground = clusters[0];
+      let accent = null;
+      let best = -1;
+      clusters.forEach((cluster) => {
+        if (cluster.n < pixels.length * 0.015) return;
+        const distance = Math.min(Math.abs(cluster.h - ground.h), 360 - Math.abs(cluster.h - ground.h));
+        const score = cluster.s * (0.35 + Math.min(distance, 80) / 80) * Math.sqrt(cluster.n);
+        if (cluster.s > 0.16 && score > best) {
+          best = score;
+          accent = cluster;
+        }
+      });
+      if (!accent) accent = clusters.find((cluster) => cluster.s > ground.s + 0.05) || ground;
+      const dark = ground.l < 0.45;
+      const groundSat = clampNum(ground.s, dark ? 0.12 : 0.08, dark ? 0.5 : 0.4);
+      const accentSat = clampNum(Math.max(accent.s, 0.45), 0.45, 0.88);
+      const accentLight = dark ? clampNum(Math.max(accent.l, 0.56), 0.56, 0.72) : clampNum(Math.min(accent.l, 0.38), 0.28, 0.42);
+      const accentRgb = hslRgb(accent.h, accentSat, accentLight);
+      const onAcc = relLum(accentRgb[0], accentRgb[1], accentRgb[2]) > 0.62 ? hexHsl(accent.h, 0.25, 0.12) : "#FFFFFF";
+      const bg = hexHsl(ground.h, groundSat, dark ? 0.11 : 0.9);
+      const vars = dark ? {
+        "--bg": bg,
+        "--card": hexHsl(ground.h, groundSat * 0.85, 0.17),
+        "--ink": hexHsl(ground.h, 0.12, 0.94),
+        "--mute": hexHsl(ground.h, 0.1, 0.72),
+        "--line": hexHsl(ground.h, 0.16, 0.28),
+        "--acc": rgbHex(accentRgb[0], accentRgb[1], accentRgb[2]),
+        "--acc-s": hexHsl(accent.h, 0.32, 0.22),
+        "--ok": "#7DDE6A",
+        "--ok-s": "#14361C",
+        "--bad": "#FF8A80",
+        "--bad-s": "#402420",
+        "--on-acc": onAcc,
+        "--photo-wash": bg + "99",
+        "color-scheme": "dark"
+      } : {
+        "--bg": bg,
+        "--card": hexHsl(ground.h, groundSat * 0.45, 0.97),
+        "--ink": hexHsl(ground.h, 0.25, 0.16),
+        "--mute": hexHsl(ground.h, 0.14, 0.4),
+        "--line": hexHsl(ground.h, 0.16, 0.78),
+        "--acc": rgbHex(accentRgb[0], accentRgb[1], accentRgb[2]),
+        "--acc-s": hexHsl(accent.h, 0.28, 0.88),
+        "--ok": "#1F8A56",
+        "--ok-s": "#D7F3E6",
+        "--bad": "#C4373C",
+        "--bad-s": "#F8D6D8",
+        "--on-acc": "#FFFFFF",
+        "--photo-wash": bg + "99",
+        "color-scheme": "light"
+      };
+      return { bg: vars["--bg"], card: vars["--card"], acc: vars["--acc"], vars: vars };
+    }
+    function customThemeOk(row) {
+      return !!(row && typeof row.id === "string" && row.id.indexOf("user-") === 0 && row.vars && typeof row.vars["--bg"] === "string" && typeof row.vars["--card"] === "string" && typeof row.vars["--acc"] === "string");
+    }
+    function loadCustomThemes() {
+      try {
+        const list = JSON.parse(localStorage.getItem(CUSTOM_THEME_KEY) || "[]");
+        return Array.isArray(list) ? list.filter(customThemeOk) : [];
+      } catch (e) { return []; }
+    }
+    function saveCustomThemes(list) {
+      const next = list.slice(0, 8);
+      try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
+      catch (e) {
+        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: "" })))); }
+        catch (err) {}
+      }
+      if (typeof syncChange === "function") syncChange({ op: "put-setting", key: "customThemes", value: loadCustomThemes() });
+    }
+    const DEFAULT_THEME = "almond";
+    function themeCut() {
+      const cut = THEMES.findIndex((row) => row[0] === "coral");
+      return cut < 0 ? THEMES.length : cut;
+    }
+    function visibleThemes() {
+      const pub = THEMES.slice(0, themeCut());
+      return samePersonStudy() ? THEMES : pub;
+    }
+    function privateThemeId(name) {
+      return THEMES.slice(themeCut()).some((row) => row[0] === name);
+    }
+    function visibleCustomThemes() {
+      const login = viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : "");
+      return loadCustomThemes().filter((row) => {
+        const owner = row.owner ? String(row.owner) : "";
+        if (!login) return !owner;
+        return !owner || owner === login;
+      });
+    }
     function currentTheme() {
-      try { return localStorage.getItem(THEME_KEY) || "auto"; }
-      catch (e) { return "auto"; }
+      try { return localStorage.getItem(THEME_KEY) || DEFAULT_THEME; }
+      catch (e) { return DEFAULT_THEME; }
+    }
+    function installCustomThemes(list) {
+      const next = (Array.isArray(list) ? list : []).filter(customThemeOk).slice(0, 8);
+      try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
+      catch (e) {
+        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: "" })))); }
+        catch (err) {}
+      }
+    }
+    function settleThemeAudience() {
+      const name = currentTheme();
+      const customOk = visibleCustomThemes().some((row) => row.id === name);
+      if ((privateThemeId(name) && !samePersonStudy()) || (String(name).indexOf("user-") === 0 && !customOk)) applyTheme(DEFAULT_THEME);
+      paintThemeSegs();
+    }
+    function themeLabel(name) {
+      const custom = loadCustomThemes().find((row) => row.id === name);
+      if (custom) return custom.name || "Picture";
+      return THEME_NAMES[name || "auto"] || "Auto";
+    }
+    function clearCustomPaint(root) {
+      CUSTOM_COLOR_KEYS.forEach((key) => root.style.removeProperty(key));
+      root.style.removeProperty("--theme-photo");
+      root.style.removeProperty("color-scheme");
+    }
+    function paintCustomVars(root, theme) {
+      clearCustomPaint(root);
+      const vars = theme && theme.vars ? theme.vars : {};
+      CUSTOM_COLOR_KEYS.forEach((key) => {
+        if (typeof vars[key] === "string") root.style.setProperty(key, vars[key]);
+      });
+      if (vars["color-scheme"] === "dark" || vars["color-scheme"] === "light") root.style.setProperty("color-scheme", vars["color-scheme"]);
+      if (theme && typeof theme.photo === "string" && theme.photo.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", 'url("' + theme.photo + '")');
+    }
+    function themeNameParts(name) {
+      const text = String(name || "").trim();
+      const match = text.match(/^(.*?)\s*(?:—|–|\s-\s)\s*(.*)$/);
+      if (!match) return [text];
+      const left = match[1].trim();
+      const right = match[2].trim();
+      if (!left || !right) return [text];
+      return [left, right];
+    }
+    function themeNameHtml(name) {
+      const parts = themeNameParts(name);
+      if (parts.length < 2) return esc(parts[0]);
+      return esc(parts[0]) + '<span class="theme-sub">' + esc(parts[1]) + "</span>";
     }
     function applyTheme(name) {
       const root = document.documentElement;
-      if (!name || name === "auto") root.removeAttribute("data-theme");
-      else root.setAttribute("data-theme", name);
-      try {
-        if (!name || name === "auto") localStorage.removeItem(THEME_KEY);
-        else localStorage.setItem(THEME_KEY, name);
-      } catch (e) {}
+      const custom = name && name.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === name) : null;
+      if (name === "auto") {
+        clearCustomPaint(root);
+        root.removeAttribute("data-theme");
+      } else if (custom) {
+        root.setAttribute("data-theme", "user");
+        paintCustomVars(root, custom);
+      } else if (name && THEME_NAMES[name]) {
+        clearCustomPaint(root);
+        root.setAttribute("data-theme", name);
+      } else {
+        name = DEFAULT_THEME;
+        clearCustomPaint(root);
+        root.setAttribute("data-theme", name);
+      }
+      try { localStorage.setItem(THEME_KEY, name); } catch (e) {}
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
         btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
       });
       const sideTheme = document.getElementById("themeCycle");
-      if (sideTheme) sideTheme.textContent = "Theme · " + (THEME_NAMES[name || "auto"] || "Auto");
+      if (sideTheme) sideTheme.innerHTML = '<span class="theme-side">Theme · ' + themeNameHtml(themeLabel(name || "auto")) + "</span>";
     }
     function paintThemeSegs() {
       const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
-      const rest = THEMES.map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span>' + row[1] + "</button>").join("");
-      document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + rest; });
+      const mine = visibleCustomThemes().map((row) => '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + row.bg + '"><i style="background:' + row.card + '"></i><b style="background:' + row.acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + '</span></button><button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button></div>').join("");
+      const rest = visibleThemes().map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>").join("");
+      document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
       applyTheme(currentTheme());
+    }
+    let editingThemeId = "";
+    let themeBeforeEdit = "";
+    let beginThemeEdit = function () {};
+    let endThemeEdit = function () {};
+    function removeCustomTheme(id) {
+      const editing = editingThemeId === id;
+      saveCustomThemes(loadCustomThemes().filter((row) => row.id !== id));
+      if (editing) endThemeEdit();
+      paintThemeSegs();
+    }
+    function jpegDataUrl(canvas, quality) {
+      return new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(""); return; }
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(blob);
+        }, "image/jpeg", quality);
+      });
+    }
+    function themeFromFile(file) {
+      return createImageBitmap(file).then((bitmap) => {
+        const max = 1100;
+        const scale = Math.min(max / bitmap.width, max / bitmap.height, 1);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+        canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        bitmap.close();
+        const sample = document.createElement("canvas");
+        sample.width = 72;
+        sample.height = Math.max(1, Math.round(72 * canvas.height / canvas.width));
+        const sampleCtx = sample.getContext("2d", { willReadFrequently: true });
+        sampleCtx.drawImage(canvas, 0, 0, sample.width, sample.height);
+        const data = sampleCtx.getImageData(0, 0, sample.width, sample.height).data;
+        const pixels = [];
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 200) continue;
+          pixels.push({ r: data[i], g: data[i + 1], b: data[i + 2] });
+        }
+        const palette = paletteFromPixels(pixels);
+        if (!palette) return null;
+        return jpegDataUrl(canvas, 0.62).then((photo) => {
+          if (photo.length > 420000) return jpegDataUrl(canvas, 0.42).then((smaller) => ({ palette: palette, photo: smaller.length > 450000 ? "" : smaller }));
+          return { palette: palette, photo: photo };
+        });
+      });
     }
     paintThemeSegs();
     document.querySelectorAll("[data-theme-seg]").forEach((box) => {
       box.addEventListener("click", (e) => {
+        const edit = e.target.closest("[data-theme-edit]");
+        if (edit) {
+          e.preventDefault();
+          beginThemeEdit(edit.getAttribute("data-theme-edit"));
+          return;
+        }
+        const remove = e.target.closest("[data-theme-remove]");
+        if (remove) {
+          e.preventDefault();
+          removeCustomTheme(remove.getAttribute("data-theme-remove"));
+          return;
+        }
         const btn = e.target.closest("[data-th]");
         if (btn) applyTheme(btn.dataset.th);
       });
     });
+    const customThemeForm = document.getElementById("customThemeForm");
+    if (customThemeForm) {
+      const customThemeFile = document.getElementById("customThemeFile");
+      const customThemePreview = document.getElementById("customThemePreview");
+      const customThemeShot = document.getElementById("customThemeShot");
+      const customThemeWash = document.getElementById("customThemeWash");
+      const customThemeVeil = document.getElementById("customThemeVeil");
+      const customThemeVeilOut = document.getElementById("customThemeVeilOut");
+      const customThemeStatus = document.getElementById("customThemeStatus");
+      let customThemePreviewUrl = "";
+      function veilByte(percent) {
+        return clampNum(Math.round(Number(percent) / 100 * 255), 0, 255).toString(16).padStart(2, "0");
+      }
+      const customThemeName = document.getElementById("customThemeName");
+      const customThemeHint = document.getElementById("customThemeHint");
+      const customThemeSubmit = document.getElementById("customThemeSubmit");
+      const customThemeCancel = document.getElementById("customThemeCancel");
+      function veilPercent(wash) {
+        const alpha = parseInt(String(wash || "").slice(7, 9), 16);
+        if (!Number.isFinite(alpha)) return 60;
+        return clampNum(Math.round(alpha / 255 * 100), 0, 100);
+      }
+      function typedThemeName(list) {
+        const typed = (customThemeName.value || "").trim().replace(/\s+/g, " ").slice(0, 64);
+        return typed || ("Picture " + (list.length + 1));
+      }
+      function setThemeFormMode(editing) {
+        if (customThemeSubmit) customThemeSubmit.textContent = editing ? "Save" : "Make a theme";
+        if (customThemeCancel) customThemeCancel.hidden = !editing;
+        if (customThemeHint) customThemeHint.textContent = editing
+          ? "Change the name, the picture, or how much the picture is dimmed."
+          : "Add a painting. The theme takes its colors, and the picture stays on the background, dimmed.";
+      }
+      function clearThemeDraft() {
+        editingThemeId = "";
+        themeBeforeEdit = "";
+        customThemeForm.reset();
+        if (customThemePreviewUrl) URL.revokeObjectURL(customThemePreviewUrl);
+        customThemePreviewUrl = "";
+        if (customThemeShot) customThemeShot.hidden = true;
+        customThemePreview.removeAttribute("src");
+        if (customThemeWash) customThemeWash.style.background = "#fff";
+        setThemeFormMode(false);
+        paintVeil();
+      }
+      function paintVeil() {
+        const percent = customThemeVeil ? clampNum(Number(customThemeVeil.value) || 0, 0, 100) : 60;
+        if (customThemeVeilOut) customThemeVeilOut.textContent = percent + "%";
+        if (customThemeWash) customThemeWash.style.opacity = String(percent / 100);
+        if (!editingThemeId || currentTheme() !== editingThemeId) return;
+        const theme = loadCustomThemes().find((row) => row.id === editingThemeId);
+        if (!theme || !theme.vars) return;
+        paintCustomVars(document.documentElement, {
+          vars: Object.assign({}, theme.vars, { "--photo-wash": String(theme.vars["--bg"] || "#FFFFFF").slice(0, 7) + veilByte(percent) }),
+          photo: theme.photo
+        });
+      }
+      function storeTheme(theme, message) {
+        const list = loadCustomThemes();
+        const index = list.findIndex((row) => row.id === theme.id);
+        if (index >= 0) list[index] = theme;
+        else list.unshift(theme);
+        saveCustomThemes(list);
+        clearThemeDraft();
+        paintThemeSegs();
+        applyTheme(theme.id);
+        customThemeStatus.textContent = message;
+        customThemeStatus.className = "hint";
+      }
+      beginThemeEdit = function (id) {
+        const theme = loadCustomThemes().find((row) => row.id === id);
+        if (!theme) return;
+        if (!editingThemeId) themeBeforeEdit = currentTheme();
+        editingThemeId = id;
+        customThemeName.value = theme.name || "";
+        if (customThemeVeil) customThemeVeil.value = String(veilPercent(theme.vars && theme.vars["--photo-wash"]));
+        if (customThemePreviewUrl) URL.revokeObjectURL(customThemePreviewUrl);
+        customThemePreviewUrl = "";
+        customThemeFile.value = "";
+        if (theme.photo) {
+          customThemePreview.src = theme.photo;
+          if (customThemeShot) customThemeShot.hidden = false;
+        } else if (customThemeShot) {
+          customThemeShot.hidden = true;
+          customThemePreview.removeAttribute("src");
+        }
+        if (customThemeWash && theme.vars && theme.vars["--bg"]) customThemeWash.style.background = theme.vars["--bg"];
+        setThemeFormMode(true);
+        customThemeStatus.textContent = "";
+        customThemeStatus.className = "hint";
+        applyTheme(id);
+        paintVeil();
+        customThemeForm.scrollIntoView({ block: "nearest" });
+      };
+      endThemeEdit = function () {
+        const back = themeBeforeEdit;
+        clearThemeDraft();
+        if (back) applyTheme(back);
+      };
+      paintVeil();
+      if (customThemeVeil) customThemeVeil.addEventListener("input", paintVeil);
+      if (customThemeCancel) customThemeCancel.addEventListener("click", endThemeEdit);
+      customThemeFile.addEventListener("change", () => {
+        if (customThemePreviewUrl) URL.revokeObjectURL(customThemePreviewUrl);
+        customThemePreviewUrl = "";
+        const file = customThemeFile.files && customThemeFile.files[0];
+        if (!file) return;
+        customThemePreviewUrl = URL.createObjectURL(file);
+        customThemePreview.src = customThemePreviewUrl;
+        if (customThemeShot) customThemeShot.hidden = false;
+        if (customThemeWash && !editingThemeId) customThemeWash.style.background = "#fff";
+        paintVeil();
+        customThemeStatus.textContent = "";
+        customThemeStatus.className = "hint";
+      });
+      customThemeForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const file = customThemeFile.files && customThemeFile.files[0];
+        const existing = editingThemeId ? loadCustomThemes().find((row) => row.id === editingThemeId) : null;
+        if (file && file.size > 15 * 1024 * 1024) {
+          customThemeStatus.textContent = "This picture is too large.";
+          customThemeStatus.className = "hint bad";
+          return;
+        }
+        if (!file && !existing) {
+          customThemeStatus.textContent = "Choose a picture first.";
+          customThemeStatus.className = "hint bad";
+          return;
+        }
+        const submit = customThemeSubmit;
+        if (submit) submit.disabled = true;
+        const percent = customThemeVeil ? customThemeVeil.value : 60;
+        const done = (theme, message) => {
+          storeTheme(theme, message);
+          if (submit) submit.disabled = false;
+        };
+        const fail = () => {
+          customThemeStatus.textContent = "This picture could not be read.";
+          customThemeStatus.className = "hint bad";
+          if (submit) submit.disabled = false;
+        };
+        if (!file && existing) {
+          const vars = Object.assign({}, existing.vars, { "--photo-wash": String(existing.vars["--bg"] || existing.bg || "#FFFFFF").slice(0, 7) + veilByte(percent) });
+          done(Object.assign({}, existing, { name: typedThemeName(loadCustomThemes()), vars: vars }), "Theme saved.");
+          return;
+        }
+        customThemeStatus.textContent = "Reading the picture…";
+        customThemeStatus.className = "hint";
+        themeFromFile(file).then((made) => {
+          if (!made || !made.palette) throw new Error("empty");
+          const list = loadCustomThemes();
+          made.palette.vars["--photo-wash"] = made.palette.vars["--bg"] + veilByte(percent);
+          const ownerLogin = existing && existing.owner ? existing.owner : (viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : ""));
+          done({
+            id: existing ? existing.id : "user-" + Date.now().toString(36),
+            name: typedThemeName(list),
+            bg: made.palette.bg,
+            card: made.palette.card,
+            acc: made.palette.acc,
+            vars: made.palette.vars,
+            photo: made.photo || (existing && existing.photo) || "",
+            owner: ownerLogin
+          }, existing ? "Theme saved." : (made.photo ? "Theme added." : "Theme added. The picture was too heavy to keep as a background."));
+        }).catch(fail);
+      });
+    }
     function cycleTheme() {
       const now = currentTheme();
-      const choices = THEMES.map((row) => row[0]).filter((name) => name !== now);
+      const choices = visibleThemes().map((row) => row[0]).concat(visibleCustomThemes().map((row) => row.id)).filter((name) => name !== now);
+      if (!choices.length) return;
       applyTheme(choices[Math.floor(Math.random() * choices.length)]);
     }
     document.querySelectorAll("[data-theme-cycle]").forEach((btn) => btn.addEventListener("click", cycleTheme));
@@ -5282,7 +5862,193 @@
       document.querySelectorAll("[data-lesson-rules]").forEach((btn) => {
         btn.textContent = "Rules · " + (lessonRules[btn.dataset.lessonRules] || []).length;
       });
+      paintDayLinks();
     }
+    const LINK_KEY = "enquiz-day-links";
+    const DAY_LINKS = {
+      "lesson-07": {
+        pdf: "pdf/07.09.2026.pdf",
+        classwork: [],
+        homework: [{ title: "Real Easy English", href: "https://www.bbc.co.uk/learningenglish/english/features/real-easy-english/251017" }]
+      },
+      "lesson-09": {
+        pdf: "pdf/09.09.2026.pdf",
+        classwork: [{ title: "make a sentence · is it true for you?", href: "https://wordwall.net/ru/resource/118706505/02-make-a-sentence-is-it-true-for-you" }],
+        homework: [
+          { title: "Flashcards", href: "https://wordwall.net/ru/resource/118847987/02" },
+          { title: "Make collocations", href: "https://wordwall.net/ru/resource/118696199/make-collocations" },
+          { title: "02", href: "https://wordwall.net/ru/resource/118848497/02" },
+          { title: "LearningApps", href: "https://learningapps.org/view53599574" },
+          { title: "do / does · am / is / are", href: "https://wordwall.net/ru/resource/99233427/do-does-am-is-are" },
+          { title: "do / does or is / am / are", href: "https://wordwall.net/ru/resource/5578473/do-does-or-is-am-are" }
+        ]
+      },
+      "lesson-14": {
+        pdf: "pdf/14.09.2026.pdf",
+        classwork: [{ title: "03", href: "https://wordwall.net/ru/resource/119086527/03" }],
+        homework: []
+      },
+      "lesson-16": {
+        pdf: "pdf/16.09.2026.pdf",
+        classwork: [
+          { title: "how often · student 1", href: "https://wordwall.net/ru/resource/119031666/03-how-often-are-you-do-you-student-1" },
+          { title: "how often · student 2", href: "https://wordwall.net/ru/resource/119031707/03-how-often-are-you-do-you-student-2" },
+          { title: "sorting out", href: "https://wordwall.net/ru/resource/119186978/04-sorting-out" }
+        ],
+        homework: [
+          { title: "Flashcards", href: "https://wordwall.net/ru/resource/119364241?wwmethod=link&wwshareintent=student" },
+          { title: "making a conversation", href: "https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" },
+          { title: "Flashcards 2", href: "https://wordwall.net/ru/resource/119365101?wwmethod=link&wwshareintent=student" }
+        ]
+      },
+      "lesson-21": {
+        pdf: "pdf/21.09.2026.pdf",
+        classwork: [{ title: "Classwork", href: "https://wordwall.net/ru/resource/119542975/05-best-weather-for" }],
+        homework: [
+          { title: "Weather flashcards", href: "https://wordwall.net/ru/resource/119605817" },
+          { title: "Navigate 1.4", href: "https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" },
+          { title: "Likes flashcards", href: "https://wordwall.net/ru/resource/119607073" },
+          { title: "true / false", href: "https://wordwall.net/ru/resource/119607967" },
+          { title: "type the verb", href: "https://wordwall.net/ru/resource/119608490" }
+        ]
+      },
+      "lesson-23": {
+        pdf: "pdf/23.09.2026.pdf",
+        classwork: [],
+        homework: [
+          { title: "Flashcards", href: "https://wordwall.net/ru/resource/119364241?wwmethod=link&wwshareintent=student" },
+          { title: "making a conversation", href: "https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" },
+          { title: "Flashcards 2", href: "https://wordwall.net/ru/resource/119365101?wwmethod=link&wwshareintent=student" }
+        ]
+      }
+    };
+    function loadDayLinks() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LINK_KEY) || "{}");
+        return saved && typeof saved === "object" ? saved : {};
+      } catch (e) { return {}; }
+    }
+    function saveDayLinks(map) {
+      localStorage.setItem(LINK_KEY, JSON.stringify(map));
+      if (typeof syncChange === "function") syncChange({ op: "put-setting", key: "dayLinks", value: map });
+    }
+    function dayLinkList(day, kind) {
+      const base = (DAY_LINKS[day] && DAY_LINKS[day][kind]) || [];
+      const extra = (loadDayLinks()[day] && loadDayLinks()[day][kind]) || [];
+      return base.map((item) => Object.assign({ added: false }, item)).concat(extra.map((item, index) => Object.assign({ added: true, index: index }, item)));
+    }
+    function linkChip(item) {
+      const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
+      return '<span class="link-chip"><a class="btn chip" href="' + esc(item.href) + '" target="_blank" rel="noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+    }
+    function linkAdd(kind) {
+      return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';
+    }
+    const DAY_FACE = {
+      "lesson-07": { screen: "lesson07", when: "7 September" },
+      "lesson-09": { screen: "lesson09", when: "9 September" },
+      "lesson-14": { screen: "lesson14", when: "14 September" },
+      "lesson-16": { screen: "lesson16", when: "16 September" },
+      "lesson-21": { screen: "lesson", when: "21 September" },
+      "lesson-23": { screen: "lesson23", when: "23 September" }
+    };
+    let openWork = { day: "", kind: "classwork" };
+    function workHref(day, kind) {
+      return "preview.html?work=" + kind + "&day=" + encodeURIComponent(day);
+    }
+    function paintDayLinks() {
+      document.querySelectorAll("[data-day-links]").forEach((box) => {
+        const day = box.dataset.dayLinks;
+        const pack = DAY_LINKS[day] || { pdf: "" };
+        const pdf = pack.pdf ? '<a class="btn primary" href="' + esc(pack.pdf) + '" target="_blank" rel="noreferrer">Lesson PDF</a>' : "";
+        const classwork = '<a class="btn chip" href="' + esc(workHref(day, "classwork")) + '" data-work-open="classwork" data-work-day="' + esc(day) + '">Classwork</a>';
+        const homework = '<a class="btn primary" href="' + esc(workHref(day, "homework")) + '" data-work-open="homework" data-work-day="' + esc(day) + '">Homework</a>';
+        box.innerHTML = pdf + classwork + homework;
+      });
+    }
+    function paintDayWork() {
+      const box = document.getElementById("dayworkList");
+      const face = DAY_FACE[openWork.day] || { screen: "days", when: "" };
+      const kind = openWork.kind === "homework" ? "homework" : "classwork";
+      const title = document.getElementById("dayworkTitle");
+      const sub = document.getElementById("dayworkSub");
+      const back = document.getElementById("dayworkBack");
+      if (title) title.textContent = kind === "homework" ? "Homework" : "Classwork";
+      if (sub) sub.textContent = face.when;
+      if (back) back.dataset.fallback = face.screen;
+      if (!box) return;
+      box.dataset.workDay = openWork.day;
+      box.dataset.workKind = kind;
+      box.innerHTML = dayLinkList(openWork.day, kind).map(linkChip).join("") + linkAdd(kind);
+    }
+    function openDayWork(day, kind, keep) {
+      if (!DAY_LINKS[day]) return;
+      openWork = { day: day, kind: kind === "homework" ? "homework" : "classwork" };
+      paintDayWork();
+      if (keep) show("daywork");
+      else visit("daywork");
+    }
+    function workFromLocation() {
+      const params = new URLSearchParams(location.search);
+      const kind = params.get("work");
+      const day = params.get("day");
+      if ((kind !== "classwork" && kind !== "homework") || !DAY_LINKS[day]) return false;
+      openDayWork(day, kind, true);
+      history.replaceState(null, "", location.pathname + location.hash);
+      return true;
+    }
+    document.addEventListener("click", (event) => {
+      const work = event.target.closest("[data-work-open]");
+      if (work && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+        event.preventDefault();
+        openDayWork(work.dataset.workDay, work.dataset.workOpen);
+        return;
+      }
+      const add = event.target.closest("[data-link-add]");
+      if (add) {
+        const box = add.closest("[data-work-list]");
+        if (!box) return;
+        const open = box.querySelector(".day-link-form");
+        if (open && open.dataset.kind === add.dataset.linkAdd) { open.remove(); return; }
+        if (open) open.remove();
+        add.insertAdjacentHTML("afterend", '<div class="day-link-form" data-kind="' + add.dataset.linkAdd + '"><input type="text" data-link-title placeholder="Weather flashcards" autocomplete="off" /><input type="url" data-link-url placeholder="https://wordwall.net/..." autocomplete="off" /><button class="btn primary" type="button" data-link-save>Add</button></div>');
+        const title = box.querySelector("[data-link-title]");
+        if (title) title.focus();
+        return;
+      }
+      const save = event.target.closest("[data-link-save]");
+      if (save) {
+        const form = save.closest(".day-link-form");
+        const box = save.closest("[data-work-list]");
+        if (!form || !box) return;
+        const title = form.querySelector("[data-link-title]").value.trim();
+        let href = form.querySelector("[data-link-url]").value.trim();
+        if (!title || !href) return;
+        if (!/^https?:\/\//i.test(href)) href = "https://" + href;
+        const map = loadDayLinks();
+        const day = box.dataset.workDay;
+        if (!map[day]) map[day] = { classwork: [], homework: [] };
+        const kind = box.dataset.workKind === "homework" ? "homework" : "classwork";
+        if (!Array.isArray(map[day][kind])) map[day][kind] = [];
+        map[day][kind].push({ title: title, href: href });
+        saveDayLinks(map);
+        paintDayWork();
+        return;
+      }
+      const remove = event.target.closest("[data-link-remove]");
+      if (!remove) return;
+      const bag = remove.closest("[data-work-list]");
+      if (!bag) return;
+      const which = bag.dataset.workKind === "homework" ? "homework" : "classwork";
+      const map = loadDayLinks();
+      const day = bag.dataset.workDay;
+      const list = map[day] && map[day][which];
+      const index = Number(remove.dataset.linkRemove);
+      if (!list || !list[index]) return;
+      list.splice(index, 1);
+      saveDayLinks(map);
+      paintDayWork();
+    });
     function formToken(card) {
       return (card && card.gap) || (card && card.en) || "";
     }
@@ -6377,6 +7143,8 @@
       stats.mistakes = Object.keys(loadMistakeMap()).map((key) => loadMistakeMap()[key]);
       try { stats.demonstratives = JSON.parse(localStorage.getItem("enquiz-demonstratives") || "null"); } catch (e) { stats.demonstratives = null; }
       try { stats.cardEdits = JSON.parse(localStorage.getItem(EDIT_KEY) || "null"); } catch (e) { stats.cardEdits = null; }
+      try { stats.dayLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "null"); } catch (e) { stats.dayLinks = null; }
+      stats.customThemes = loadCustomThemes();
       return {
         added: addedCache || read(ADDED_KEY, "[]"),
         songs: songs,
@@ -6477,6 +7245,9 @@
       if (window.paintDemonstratives) window.paintDemonstratives();
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
+      if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
+      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      settleThemeAudience();
       applyLessonEdits();
       applySongEdits();
       refreshCatalog();
@@ -6822,7 +7593,7 @@
       });
     }
     function viewKeys() {
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY];
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY];
     }
     function stashDeveloper() {
       return idbGetStash().then((existing) => {
@@ -6897,6 +7668,9 @@
       else localStorage.removeItem("enquiz-demonstratives");
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
+      if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
+      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      settleThemeAudience();
       applyLessonEdits();
       applySongEdits();
       refreshCatalog();
@@ -6967,6 +7741,7 @@
         paintHomeStats();
         paintHomeAccount();
         paintAccount();
+        settleThemeAudience();
         paintViewBar();
         accountReady = !!authUser;
         show("home");
@@ -7328,6 +8103,7 @@
         paintLyrics();
         refreshCatalog();
         if (window.paintDemonstratives) window.paintDemonstratives();
+        settleThemeAudience();
         paintHomeAccount();
         paintAccount();
         show("home");
@@ -7498,6 +8274,7 @@
       return null;
     }
     function resumePlace() {
+      if (workFromLocation()) return;
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
@@ -7528,6 +8305,7 @@
         show("add");
         return;
       }
+      if (place.id === "daywork" && place.workDay) { openDayWork(place.workDay, place.workKind, true); return; }
       if (place.id === "daywords" && place.lessonPlace) { openLessonWords(place.lessonPlace, true); return; }
       if (place.id === "rules" && place.lessonPlace) { openLessonRules(place.lessonPlace, true); return; }
       if (place.id === "daysetup") { openDayQuiz(place.dayQuizPlace || dayQuizPlace); return; }
@@ -7701,6 +8479,13 @@
       if (!Object.keys(localEdits).length && state.stats && state.stats.cardEdits && Object.keys(state.stats.cardEdits).length) {
         try { localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits)); } catch (e) {}
       }
+      let localLinks = {};
+      try { localLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "{}") || {}; } catch (e) { localLinks = {}; }
+      if (!Object.keys(localLinks).length && state.stats && state.stats.dayLinks && Object.keys(state.stats.dayLinks).length) {
+        try { localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks)); } catch (e) {}
+      }
+      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      settleThemeAudience();
       paintAdded();
       paintLyrics();
       refreshCatalog();
@@ -7721,6 +8506,8 @@
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
           if (personal) { leaveAccount(); return; }
+          try { localStorage.removeItem(CUSTOM_THEME_KEY); } catch (e) {}
+          settleThemeAudience();
           paintHomeAccount();
           resumePlace();
           return;

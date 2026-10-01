@@ -1196,6 +1196,34 @@ function studyTwinLogin(login) {
   return "";
 }
 
+function themesForLogin(login, ownState, twinState) {
+  const pair = login === "TsovakDev" || login === "Tsovak";
+  const rows = cleanCustomThemes(ownState && ownState.stats && ownState.stats.customThemes).concat(
+    pair ? cleanCustomThemes(twinState && twinState.stats && twinState.stats.customThemes) : []
+  );
+  const seen = {};
+  const out = [];
+  rows.forEach((row) => {
+    if (!row || seen[row.id]) return;
+    const owner = row.owner || "";
+    if (owner && owner !== login) return;
+    seen[row.id] = 1;
+    out.push(row);
+  });
+  return out.slice(0, 8);
+}
+
+async function withVisibleThemes(env, login, state) {
+  const shown = state || emptyState();
+  let twinState = null;
+  if (studyTwinLogin(login)) {
+    const pair = await studyPair(env, login);
+    if (pair) twinState = await readAccountFile(env, pair.twin.id);
+  }
+  shown.stats = Object.assign({}, shown.stats, { customThemes: themesForLogin(login, shown, twinState) });
+  return shown;
+}
+
 async function studyPair(env, login) {
   const twinLogin = studyTwinLogin(login);
   if (!twinLogin) return null;
@@ -1220,6 +1248,32 @@ function cardEditsOf(state) {
 function plainObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value;
+}
+
+function cleanCustomThemes(value) {
+  const colorKeys = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc"];
+  const hex = /^#[0-9A-Fa-f]{6}$/;
+  const wash = /^#[0-9A-Fa-f]{8}$/;
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 8).map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+    const id = String(row.id || "").slice(0, 40);
+    if (id.indexOf("user-") !== 0) return null;
+    const name = String(row.name || "Picture").replace(/[\u0000-\u001f]/g, "").slice(0, 64) || "Picture";
+    const src = row.vars && typeof row.vars === "object" && !Array.isArray(row.vars) ? row.vars : {};
+    const vars = {};
+    colorKeys.forEach((key) => {
+      if (typeof src[key] === "string" && hex.test(src[key])) vars[key] = src[key];
+    });
+    if (typeof src["--photo-wash"] === "string" && wash.test(src["--photo-wash"])) vars["--photo-wash"] = src["--photo-wash"];
+    if (src["color-scheme"] === "dark" || src["color-scheme"] === "light") vars["color-scheme"] = src["color-scheme"];
+    if (!vars["--bg"] || !vars["--card"] || !vars["--acc"]) return null;
+    let photo = "";
+    if (typeof row.photo === "string" && row.photo.indexOf("data:image/jpeg;base64,") === 0 && row.photo.length <= 450000) photo = row.photo;
+    const theme = { id, name, bg: vars["--bg"], card: vars["--card"], acc: vars["--acc"], vars, photo };
+    if (typeof row.owner === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(row.owner)) theme.owner = row.owner;
+    return theme;
+  }).filter(Boolean);
 }
 
 function mistakesOf(state) {
@@ -1406,7 +1460,8 @@ async function myState(env, request, ctx) {
     }
   }
   const state = await readAccountFile(env, user.id) || emptyState();
-  return json(await withSidecars(env, user.login, user.id, state));
+  const shown = await withSidecars(env, user.login, user.id, state);
+  return json(await withVisibleThemes(env, user.login, shown));
 }
 
 function asArray(value) {
@@ -1499,6 +1554,8 @@ function applyStateOp(state, body) {
     }
     if (body.key === "lyricSize") stats.lyricSize = body.value;
     else if (body.key === "demonstratives") stats.demonstratives = body.value;
+    else if (body.key === "dayLinks") stats.dayLinks = body.value;
+    else if (body.key === "customThemes") stats.customThemes = cleanCustomThemes(body.value);
     else return json({ error: "The request was not valid." }, 400);
     return null;
   }
@@ -2090,7 +2147,7 @@ async function readManagedState(env, actor, userId, ctx) {
   }
   const state = await readAccountFile(env, userId) || emptyState();
   const shown = found.songs ? await withSidecars(env, found.row.login, userId, state) : state;
-  return json(stateForViewer(shown, found.songs));
+  return json(await withVisibleThemes(env, found.row.login, stateForViewer(shown, found.songs)));
 }
 
 async function writeManagedState(env, actor, userId, body, ctx) {

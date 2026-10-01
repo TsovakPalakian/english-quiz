@@ -11,8 +11,24 @@
   <link rel="stylesheet" href="preview.css" />
   <script>
     try {
-      var savedTheme = localStorage.getItem("enquiz-theme");
-      if (savedTheme && savedTheme !== "auto") document.documentElement.setAttribute("data-theme", savedTheme);
+      var savedTheme = localStorage.getItem("enquiz-theme") || "almond";
+      if (savedTheme && savedTheme.indexOf("user-") === 0) {
+        var customList = JSON.parse(localStorage.getItem("enquiz-custom-themes") || "[]");
+        var customTheme = null;
+        for (var i = 0; i < customList.length; i++) {
+          if (customList[i] && customList[i].id === savedTheme) customTheme = customList[i];
+        }
+        if (customTheme && customTheme.vars) {
+          var root = document.documentElement;
+          root.setAttribute("data-theme", "user");
+          var themeKeys = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc", "--photo-wash"];
+          for (var k = 0; k < themeKeys.length; k++) {
+            if (customTheme.vars[themeKeys[k]]) root.style.setProperty(themeKeys[k], customTheme.vars[themeKeys[k]]);
+          }
+          if (customTheme.vars["color-scheme"]) root.style.setProperty("color-scheme", customTheme.vars["color-scheme"]);
+          if (customTheme.photo && customTheme.photo.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", "url(\"" + customTheme.photo + "\")");
+        }
+      } else if (savedTheme && savedTheme !== "auto") document.documentElement.setAttribute("data-theme", savedTheme);
     } catch (e) {}
   </script>
 </head>
@@ -28,7 +44,7 @@
     <div class="side-foot">
       <button class="btn ghost" type="button" data-jump="account">Profile</button>
       <button class="btn ghost" type="button" data-jump="guide">How to use</button>
-      <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle>Theme · Auto</button>
+      <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side">Theme · Almond blossom<span class="theme-sub">Van Gogh</span></span></button>
     </div>
   </aside>
   <div class="phone"><div class="wrap">
@@ -87,7 +103,7 @@
     </section>
 
     <section id="library">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1><button class="btn primary plus" type="button" data-jump="add" aria-label="Add a word">+</button></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1></div>
       <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
       <h2 class="lib-h">Words</h2>
       <div class="decks">
@@ -526,8 +542,7 @@
           <button class="btn chip" type="button" data-lesson-words="lesson-21">Words · 22</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-21">Rules · 4</button>
         </div>
-        <p class="src"><a href="pdf/21.09.2026.pdf" target="_blank" rel="noreferrer">Lesson PDF</a> <a href="https://wordwall.net/ru/resource/119542975/05-best-weather-for" target="_blank" rel="noreferrer">Wordwall</a></p>
-        <p class="src">Homework: <a href="https://wordwall.net/ru/resource/119605817" target="_blank" rel="noreferrer">Weather flashcards</a> <a href="https://wordwall.net/ru/resource/107569088/navigate-pre-int-14-2" target="_blank" rel="noreferrer">Navigate 1.4</a> <a href="https://wordwall.net/ru/resource/119607073" target="_blank" rel="noreferrer">Likes flashcards</a> <a href="https://wordwall.net/ru/resource/119607967" target="_blank" rel="noreferrer">true / false</a> <a href="https://wordwall.net/ru/resource/119608490" target="_blank" rel="noreferrer">type the verb</a></p>
+        <div class="day-links" data-day-links="lesson-21"></div>
         <div class="here-add" data-place="lesson-21" style="margin-bottom:12px">
           <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
@@ -573,6 +588,12 @@
     <section id="word">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Word card</h1></div>
       <div class="card grow" id="wordView"></div>
+    </section>
+
+    <section id="daywork">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days" id="dayworkBack">Back</button><h1 id="dayworkTitle">Classwork</h1></div>
+      <p class="sub" id="dayworkSub"></p>
+      <div class="day-links day-work" id="dayworkList" data-work-list></div>
     </section>
 
     <section id="daywords">
@@ -768,11 +789,11 @@
           </div>
         </div>
         <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-07">Day quiz</button>
           <button class="btn chip" type="button" data-lesson-words="lesson-07">Words</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-07">Rules</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-07">This day's quiz</button>
         </div>
-        <p class="src"><a href="pdf/07.09.2026.pdf" target="_blank" rel="noreferrer">07.09.2026.pdf</a></p>
+        <div class="day-links" data-day-links="lesson-07"></div>
         <h2>1. What you will learn</h2>
         <p class="src">How to open a question about another person, answer, then hand the question back. How to agree and disagree with "Most people…". A reading about habits we share, and a short list of speaking problems and solutions.</p>
         <h2>2. Key phrases</h2>
@@ -789,7 +810,7 @@
         <p class="src"><button class="btn chip" type="button" data-topic="ps">Present Simple</button> <button class="btn chip" type="button" data-topic="going">be going to</button></p>
         <h2>12. Practice</h2>
         <p class="label">Classwork</p>
-        <p class="src">Lesson PDF · get to know each other. <a href="pdf/07.09.2026.pdf" target="_blank" rel="noreferrer">07.09.2026.pdf</a></p>
+        <p class="src">Lesson PDF · get to know each other.</p>
         <p class="label" style="margin-top:10px">Questions</p>
         <p class="src">So, tell me about … · I'd like to know about … · Can you tell me a little about …?</p>
         <p class="src">Answer, then ask: What about you? And you? Add a follow-up question.</p>
@@ -822,7 +843,6 @@
         <p class="src">If you're late, let me know. Homework = progress.</p>
         <p class="label" style="margin-top:10px">Homework</p>
         <p class="src">Listen to the podcast (5 min). Task: make a list of activities they find relaxing.</p>
-        <p class="src"><a href="https://www.bbc.co.uk/learningenglish/english/features/real-easy-english/251017" target="_blank" rel="noreferrer">BBC Learning English · Real Easy English · 17 Oct 2025</a></p>
         <p class="src">If you have time: 1 Listen and understand the main idea. 2 Listen again and read the script to understand everything, do the task.</p>
         <p class="src">Pronunciation / fluency: repeat sentences after the speakers. Grammar: pay attention to the grammar forms they use. Vocabulary: note down new words and make sentences with them.</p>
         <p class="src">If you have only 10 min: listen, understand the main idea and do the task, or read the script to understand everything and do the task.</p>
@@ -847,11 +867,11 @@
           </div>
         </div>
         <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-09">Day quiz</button>
           <button class="btn chip" type="button" data-lesson-words="lesson-09">Words</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-09">Rules</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-09">This day's quiz</button>
         </div>
-        <p class="src"><a href="pdf/09.09.2026.pdf" target="_blank" rel="noreferrer">09.09.2026.pdf</a></p>
+        <div class="day-links" data-day-links="lesson-09"></div>
         <h2>1. What you will learn</h2>
         <p class="src">14 collocations about plans, rest and fitness. Present Simple with be and with other verbs. Two days to compare: a busy day and a relaxing day.</p>
         <h2>2. Key phrases</h2>
@@ -867,8 +887,7 @@
         <p class="miss"><span class="no">She play tennis.</span> <span class="yes">She plays tennis.</span></p>
         <p class="miss"><span class="no">Does she plays tennis?</span> <span class="yes">Does she play tennis?</span> After do/does the verb has no -s.</p>
         <p class="label">Classwork</p>
-        <p class="src">Lesson PDF · collocations and Present Simple. <a href="pdf/09.09.2026.pdf" target="_blank" rel="noreferrer">09.09.2026.pdf</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/118706505/02-make-a-sentence-is-it-true-for-you" target="_blank" rel="noreferrer">Wordwall · make a sentence · is it true for you?</a></p>
+        <p class="src">Lesson PDF · collocations and Present Simple.</p>
         <p class="label" style="margin-top:10px">A 30-minute break · choose 3</p>
         <p class="src">Watching reels · Working · Going for a walk · Sleeping · Drinking tea · Chatting online · Looking at the window · Doing nothing</p>
         <p class="label" style="margin-top:10px">What activities do they find relaxing?</p>
@@ -897,11 +916,7 @@
         <p class="label" style="margin-top:10px">Make a true story about Bob · gaps on the slide</p>
         <p class="src">Hi! My name __ Bob. 1 I have a lie-in every Saturday, but I usually wake up at 6 AM because my cat not understand weekends. 2 I plan things in advance, but my plans __ always wrong. 3 I do some work at my desk, but mostly I think about lunch. 4 I try to keep fit. My favourite sport __ walking to the fridge and back. 5 At 3 PM, I have a nap on my chair. My boss call it "sleep", but I call it "creative thinking". 6 I go on a trip once a year, but I always forget my passport. 7 My life __ simple – I have a nap, eat, and make plans I never follow.</p>
         <p class="src">Filled on the next slide: My name is Bob. My cat doesn't understand weekends. My plans are always wrong. My favourite sport is walking to the fridge and back. My boss calls it "sleep". My life is simple.</p>
-        <p class="label" style="margin-top:10px">Homework</p>
-        <p class="src">To practise new collocations</p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/118847987/02" target="_blank" rel="noreferrer">Flashcards</a> · <a href="https://wordwall.net/ru/resource/118696199/make-collocations" target="_blank" rel="noreferrer">Make collocations</a> · <a href="https://wordwall.net/ru/resource/118848497/02" target="_blank" rel="noreferrer">Wordwall · 02</a></p>
-        <p class="src">To practise Present Simple</p>
-        <p class="src"><a href="https://learningapps.org/view53599574" target="_blank" rel="noreferrer">LearningApps</a> · <a href="https://wordwall.net/ru/resource/99233427/do-does-am-is-are" target="_blank" rel="noreferrer">do / does · am / is / are</a> · <a href="https://wordwall.net/ru/resource/5578473/do-does-or-is-am-are" target="_blank" rel="noreferrer">do / does or is / am / are</a></p>
+        <p class="src">To practise new collocations. To practise Present Simple.</p>
         <p class="label" style="margin-top:12px">Additional words</p>
         <p class="src">Words from this day's cards that were not already in All words.</p>
         <div class="words" id="extra09"></div>
@@ -924,11 +939,11 @@
           </div>
         </div>
         <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-14">Day quiz</button>
           <button class="btn chip" type="button" data-lesson-words="lesson-14">Words</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-14">Rules</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-14">This day's quiz</button>
         </div>
-        <p class="src"><a href="pdf/14.09.2026.pdf" target="_blank" rel="noreferrer">14.09.2026.pdf</a></p>
+        <div class="day-links" data-day-links="lesson-14"></div>
         <h2>1. What you will learn</h2>
         <p class="src">How often + Present Simple. Adverbs that say how regularly something happens, and phrases that say how many times. Two collocations: achieve a goal, beat others.</p>
         <h2>3. Grammar from this lesson</h2>
@@ -961,8 +976,7 @@
         <p class="miss"><span class="no">Do you afraid of Monday mornings?</span> <span class="yes">Are you afraid of Monday mornings?</span> afraid needs be.</p>
         <div class="words" id="adverbGrid"></div>
         <p class="label">Classwork</p>
-        <p class="src">Lesson PDF · adverbs of frequency. <a href="pdf/14.09.2026.pdf" target="_blank" rel="noreferrer">14.09.2026.pdf</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119086527/03" target="_blank" rel="noreferrer">Wordwall · 03</a></p>
+        <p class="src">Lesson PDF · adverbs of frequency.</p>
         <p class="label" style="margin-top:10px">Are you happy? · gaps, then the next slide</p>
         <p class="src">___ you happy? · ___ your friend happy? · ___ you feel happy? · ___ your boss feel happy?</p>
         <p class="src">Are you happy? · Is your friend happy? · Do you feel happy? · Does your boss feel happy?</p>
@@ -1064,10 +1078,11 @@
           </div>
         </div>
         <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-16">Day quiz</button>
           <button class="btn chip" type="button" data-lesson-words="lesson-16">Words</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-16">Rules</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-16">This day's quiz</button>
         </div>
+        <div class="day-links" data-day-links="lesson-16"></div>
         <p class="src"><a href="pdf/16.09.2026.pdf" target="_blank" rel="noreferrer">16.09.2026.pdf</a></p>
         <h2>1. What you will learn</h2>
         <p class="src">How to start, keep and end a short conversation with a stranger. How often + do/are. Polite requests with Do you mind if I…? Present Perfect in How long have you worked here?</p>
@@ -1127,15 +1142,7 @@
         <h2>9. Vocabulary</h2>
         <p class="src"><b>stranger</b> — незнакомец. It is underlined in the reading. I don't usually talk to strangers.</p>
         <div class="words" id="talkGrid"></div>
-        <p class="label">Classwork</p>
-        <p class="src">Lesson PDF · small talk. <a href="pdf/16.09.2026.pdf" target="_blank" rel="noreferrer">16.09.2026.pdf</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119031666/03-how-often-are-you-do-you-student-1" target="_blank" rel="noreferrer">Wordwall · how often are you / do you · student 1</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119031707/03-how-often-are-you-do-you-student-2" target="_blank" rel="noreferrer">Wordwall · how often are you / do you · student 2</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119186978/04-sorting-out" target="_blank" rel="noreferrer">Wordwall · sorting out</a></p>
-        <p class="label">Homework · to practise new phrases</p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119364241?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" target="_blank" rel="noreferrer">so intermediate 3rd edition unit 1c making a</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119365101?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="src">Lesson PDF · small talk.</p>
         <p class="label" style="margin-top:10px">Where would you like to take a seat?</p>
         <p class="src">Is there a favourite bench in your city? Talk about it.</p>
         <p class="src">The slide shows three photos, numbered 1 2 3. No names on the slide.</p>
@@ -1276,10 +1283,11 @@
           </div>
         </div>
         <div class="row" style="margin-bottom:10px">
+          <button class="btn primary" type="button" data-day-quiz="lesson-23">Day quiz</button>
           <button class="btn chip" type="button" data-lesson-words="lesson-23">Words</button>
           <button class="btn chip" type="button" data-lesson-rules="lesson-23">Rules</button>
-          <button class="btn primary" type="button" data-day-quiz="lesson-23">This day's quiz</button>
         </div>
+        <div class="day-links" data-day-links="lesson-23"></div>
         <h2>1. What you will learn</h2>
         <p class="src">How to say you love, like, prefer or can’t stand something. Past Simple, including was/were, for a holiday story. Weather opposites, using words that already have cards on 21 Sep.</p>
         <h2>2. Key phrases</h2>
@@ -1307,12 +1315,7 @@
         <h2>9. Vocabulary</h2>
         <p class="src">Weather on this PDF is the same set as <button class="src-more" type="button" data-jump="lesson">21 Sep</button>, including heavy rain. New cards here that were only topics before: flip flops, street food, gardening.</p>
         <p class="src">The student-2 list says visiting quite villages. That is the slide spelling. The word that fits the meaning is quiet.</p>
-        <p class="label">Lesson</p>
-        <p class="src"><a href="pdf/23.09.2026.pdf" target="_blank" rel="noreferrer">23.09.2026.pdf</a></p>
-        <p class="label">Homework · to practise new phrases</p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119364241?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/95566681/english/so-intermediate-3rd-edition-unit-1c-making-a" target="_blank" rel="noreferrer">so intermediate 3rd edition unit 1c making a</a></p>
-        <p class="src"><a href="https://wordwall.net/ru/resource/119365101?wwmethod=link&amp;wwshareintent=student" target="_blank" rel="noreferrer">Flashcards</a></p>
+        <p class="src">Lesson PDF.</p>
         <p class="label" style="margin-top:10px">Match the opposites</p>
         <p class="src">It’s freezing · It’s chilly · It’s boiling · There’s a shower · It’s humid / damp</p>
         <p class="src">It’s mild · It’s dry · There’s drizzle</p>
@@ -1537,6 +1540,25 @@
     <section id="themes">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="account">Back</button><h1>Theme</h1></div>
       <p class="sub">Your choice is saved in this browser. Auto follows the system.</p>
+      <form class="card theme-make" id="customThemeForm">
+        <p class="hint" id="customThemeHint">Add a painting. The theme takes its colors, and the picture stays on the background, dimmed.</p>
+        <input id="customThemeName" type="text" maxlength="64" placeholder="Name" autocomplete="off" />
+        <div class="theme-file">
+          <label class="btn">Picture<input id="customThemeFile" type="file" accept="image/*" hidden /></label>
+          <span class="theme-shot-wrap" id="customThemeShot" hidden>
+            <img id="customThemePreview" class="theme-shot" alt="" />
+            <span id="customThemeWash" class="theme-shot-wash"></span>
+          </span>
+        </div>
+        <label class="veil-line">Veil <output id="customThemeVeilOut">60%</output>
+          <input id="customThemeVeil" type="range" min="0" max="100" value="60" />
+        </label>
+        <div class="theme-make-actions">
+          <button class="btn primary" type="submit" id="customThemeSubmit">Make a theme</button>
+          <button class="btn" type="button" id="customThemeCancel" hidden>Cancel</button>
+        </div>
+        <p id="customThemeStatus" class="hint"></p>
+      </form>
       <div class="card"><div class="theme-seg" data-theme-seg></div></div>
     </section>
 
