@@ -1685,34 +1685,6 @@
         '<p><b>' + esc(text) + '</b></p><p class="hint">You added this variant to the card.</p>'
       ).join("");
     }
-    function variantForm(word, where, ru) {
-      const pen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
-      return '<div class="variant-box" data-variant-word="' + esc(word) + '" data-variant-where="' + where + '" data-variant-ru="' + esc(ru || "") + '">' +
-        '<button class="btn variant-open" type="button" data-variant-open aria-label="Add your translation">' + pen + '<span>your variant of the word</span></button>' +
-        '<div data-variant-form hidden>' +
-        '<input type="text" data-variant-input placeholder="in Russian" autocomplete="off" />' +
-        '<div class="row"><button class="btn" type="button" data-variant-add>Add to this card</button></div>' +
-        '<p class="hint" data-variant-status></p></div></div>';
-    }
-    function addVariant(word, text, status) {
-      const value = text.trim();
-      const write = (message, bad) => {
-        status.textContent = message;
-        status.classList.toggle("bad", !!bad);
-      };
-      if (!value) { write("Type a variant.", true); return false; }
-      const have = variantsOf(word);
-      if (have.some((line) => line.toLowerCase() === value.toLowerCase())) {
-        write("This variant is already on the card.", true);
-        return false;
-      }
-      const map = loadVariantMap();
-      const key = variantKey(word);
-      map[key] = have.concat([value]);
-      localStorage.setItem(VARIANT_KEY, JSON.stringify(map));
-      syncChange({ op: "put-variant", word: key, lines: map[key] });
-      return true;
-    }
     function wordPic(word, large) {
       const key = String(word || "").trim().toLowerCase();
       const bg = '<rect width="40" height="40" rx="12" fill="#e7f1fa"/>';
@@ -1986,21 +1958,21 @@
     }
     function renderWord(w) {
       document.getElementById("wordView").innerHTML =
+        catalogEditHtml(w) +
         '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>' +
         ipaHtml(w) +
         (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
-        (w.ru ? '<p><b>' + w.ru + '</b></p>' : '') + variantLines(w.en) + variantForm(w.en, "word", w.ru) +
+        (w.ru ? '<p><b>' + w.ru + '</b></p>' : '') +
         clipLine(clipOf(w)) +
         (meaningOf(w) ? '<p>' + meaningOf(w) + '</p>' : '') +
         (w.ru ? '' : '<p class="hint">No Russian translation on this slide.</p>') +
         (w.ex ? '<p>' + (w.deck ? '' : 'From the lesson: ') + w.ex + '</p>' : '') +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
-        catalogEditHtml(w) +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" id="toDayFlip">Flip this card</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button>' +
         (w.deck
           ? '<button class="btn primary" type="button" data-deck-study="' + w.deck + '">Study</button>'
           : '<button class="btn primary" type="button" data-day-quiz="' + (w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21") + '">This day\'s quiz</button>') +
-        '</div>';
+        '</div>' + cardQuizHtml(w.en, w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
       if (wordBack) wordBack.dataset.fallback = w.deck || "lesson";
@@ -2013,7 +1985,7 @@
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
       const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>';
-      const backHtml = '<p class="entry">' + (w.ru || w.gloss || "No Russian translation on this slide.") + '</p>' + variantLines(w.en) + '<p class="pos">' + w.en + ' · ' + w.pos + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + w.ex + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const backHtml = '<p class="entry">' + (w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + w.en + ' · ' + w.pos + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + w.ex + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;
@@ -2039,8 +2011,7 @@
     }
     function paintWordGrid() {
       document.getElementById("wordGrid").innerHTML = words.map((w, i) => !cardVisible(w) ? "" :
-        '<button class="wcard" type="button" data-i="' + i + '"><div class="en">' + w.en + '</div><div class="pos">' + w.pos + '</div>' + ipaHtml(w) + '<div class="label">' + w.ru + '</div>' +
-        (variantsOf(w.en).length ? '<div class="hint">You added a variant</div>' : "") + '</button>'
+        '<button class="wcard" type="button" data-i="' + i + '"><div class="en">' + w.en + '</div><div class="pos">' + w.pos + '</div>' + ipaHtml(w) + '<div class="label">' + w.ru + '</div></button>'
       ).join("");
       dressWords(document.getElementById("wordGrid"));
     }
@@ -2157,12 +2128,39 @@
         if (edit.ru != null) card.ru = edit.ru;
         return;
       }
-      if (!card.original) card.original = { en: card.en, ru: card.ru };
-      card.en = card.original.en;
-      card.ru = card.original.ru;
+      if (!card.original) {
+        card.original = {
+          en: card.en,
+          ru: card.ru,
+          pos: card.pos,
+          uk: card.uk,
+          us: card.us,
+          level: card.level,
+          gloss: card.gloss,
+          ex: card.ex,
+          url: card.url
+        };
+      }
+      const o = card.original;
+      card.en = o.en;
+      card.ru = o.ru;
+      card.pos = o.pos;
+      card.uk = o.uk;
+      card.us = o.us;
+      card.level = o.level;
+      card.gloss = o.gloss;
+      card.ex = o.ex;
+      card.url = o.url;
       if (card.deleted || !edit) return;
       if (edit.en) card.en = edit.en;
       if (edit.ru != null) card.ru = edit.ru;
+      if (edit.pos != null) card.pos = edit.pos;
+      if (edit.uk != null) card.uk = edit.uk;
+      if (edit.us != null) card.us = edit.us;
+      if (edit.level != null) card.level = edit.level;
+      if (edit.gloss != null) card.gloss = edit.gloss;
+      if (edit.ex != null) card.ex = edit.ex;
+      if (edit.url != null) card.url = edit.url;
     }
     function applyLessonEdits() {
       const map = loadEdits();
@@ -2185,21 +2183,443 @@
       const trash = actionIcon('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/>');
       return '<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">' + pencil + '</button><button class="icon-btn" type="button" data-card-delete aria-label="Delete">' + trash + "</button></span>";
     }
-    function editHost(kind, id) {
-      return '<div data-edit-host data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
+    function editHost(kind, id, corner) {
+      return '<div data-edit-host' + (corner ? ' class="card-edit"' : "") + ' data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
     }
     function catalogEditHtml(card) {
       if (!isTeacher() || !card) return "";
       if (!card.origin) card.origin = String(card.en || card.base || "").toLowerCase();
-      return editHost("card", card.origin);
+      return editHost("card", card.origin, true);
     }
     function canEditAdded(item) {
       return !!item && canEditLessons() && ((item.place || "mine") === "mine" || isTeacher());
     }
+    function addedIndexOf(item) {
+      const list = loadAdded();
+      if (!item) return -1;
+      let index = list.indexOf(item);
+      if (index >= 0) return index;
+      const key = String(item.word || "").toLowerCase();
+      const place = item.place || "mine";
+      return list.findIndex((row) => String(row.word || "").toLowerCase() === key && (row.place || "mine") === place);
+    }
     function addedEditHtml(item) {
-      const index = loadAdded().indexOf(item);
-      if (index < 0 || !canEditAdded(item)) return "";
-      return editHost("added", String(index));
+      const index = addedIndexOf(item);
+      if (index < 0 || !canEditAdded(loadAdded()[index])) return "";
+      return editHost("added", String(index), true);
+    }
+    function madeEditHtml(item) {
+      if (!isTeacher() || !item) return "";
+      return addedEditHtml(item) || catalogEditHtml(findCatalog(item.word)) || editHost("made", String(item.word || "").toLowerCase(), true);
+    }
+    const CARD_QUIZ_TYPES = ["Flip", "Choice", "Type", "Gap", "Build", "Match", "True / false", "Tap", "Select all", "Reverse", "Spell", "Letters", "Listen", "Definition", "Odd one out", "Memory", "Hangman"];
+    const CARD_QUIZ_KEY = "enquiz-card-quizzes";
+    function loadCardQuizzes() {
+      try { return JSON.parse(localStorage.getItem(CARD_QUIZ_KEY) || "{}") || {}; }
+      catch (e) { return {}; }
+    }
+    function plainCardQuizMap(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+      const out = {};
+      Object.keys(value).forEach((key) => {
+        const word = String(key || "").toLowerCase().trim();
+        if (!word || !Array.isArray(value[key])) return;
+        out[word] = value[key];
+      });
+      return out;
+    }
+    function mergeCardQuizMaps(localMap, serverMap) {
+      const out = plainCardQuizMap(localMap);
+      const server = plainCardQuizMap(serverMap);
+      Object.keys(server).forEach((key) => {
+        const incoming = server[key];
+        const have = out[key];
+        if (!Array.isArray(have) || !have.length) out[key] = incoming;
+        else if (incoming.length >= have.length) out[key] = incoming;
+      });
+      return out;
+    }
+    function saveCardQuizzes(map) {
+      const next = plainCardQuizMap(map);
+      localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(next));
+      syncChange({ op: "put-setting", key: "cardQuizzes", value: next });
+    }
+    function installCardQuizzes(serverMap, opts) {
+      const local = loadCardQuizzes();
+      const server = plainCardQuizMap(serverMap);
+      const merged = mergeCardQuizMaps(local, server);
+      Object.keys(local).forEach((key) => {
+        if (!merged[key]) merged[key] = local[key];
+      });
+      try { localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(merged)); } catch (e) {}
+      const push = opts && opts.sync;
+      if (push && JSON.stringify(merged) !== JSON.stringify(server)) {
+        syncChange({ op: "put-setting", key: "cardQuizzes", value: merged });
+      }
+      return merged;
+    }
+    function cardQuizzesOf(word) {
+      const list = loadCardQuizzes()[String(word || "").toLowerCase()];
+      return Array.isArray(list) ? list : [];
+    }
+    function cardQuizPrefill(type, en, ru) {
+      const item = {};
+      if (type === "Flip" || type === "Reverse") {
+        item.front = type === "Reverse" ? (ru || "") : (en || "");
+        item.back = type === "Reverse" ? (en || "") : (ru || "");
+      } else if (type === "Choice") {
+        item.prompt = en || "";
+        item.options = [ru || "", "", ""];
+        item.answer = 0;
+      } else if (type === "Type" || type === "Listen" || type === "Definition") {
+        item.prompt = type === "Definition" ? (ru || "") : (en || "");
+        item.answer = type === "Definition" ? (en || "") : (ru || "");
+      } else if (type === "Gap") {
+        item.shown = (en || "") + " ___";
+        item.answer = en || "";
+        item.hint = ru || "";
+      } else if (type === "Build") {
+        item.parts = String(en || "").split(/\s+/).filter(Boolean).join(" ");
+        item.answer = en || "";
+      } else if (type === "Match" || type === "Memory") {
+        item.left = en || "";
+        item.right = ru || "";
+      } else if (type === "True / false") {
+        item.prompt = (en || "") + " = " + (ru || "");
+        item.answer = "true";
+      } else if (type === "Tap") {
+        item.text = en || "";
+        item.answer = en || "";
+      } else if (type === "Select all") {
+        item.prompt = en || "";
+        item.options = [ru || "", "", ""];
+        item.answers = ru ? [0] : [];
+      } else if (type === "Spell" || type === "Letters" || type === "Hangman") {
+        item.word = en || "";
+      } else if (type === "Odd one out") {
+        item.options = [en || "", "", "", ""];
+        item.answer = 0;
+      } else {
+        item.prompt = en || "";
+        item.answer = ru || "";
+      }
+      return item;
+    }
+    function cardQuizFields(type, item) {
+      if (type === "Flip" || type === "Reverse") {
+        return [
+          { key: "front", label: type === "Reverse" ? "Russian" : "Front", value: item.front || "" },
+          { key: "back", label: type === "Reverse" ? "English" : "Back", value: item.back || "" }
+        ];
+      }
+      if (type === "Choice" || type === "Select all" || type === "Odd one out") {
+        const opts = item.options || [];
+        return [
+          { key: "prompt", label: "Prompt", value: item.prompt || "" },
+          { key: "opt0", label: "Option 1", value: opts[0] || "" },
+          { key: "opt1", label: "Option 2", value: opts[1] || "" },
+          { key: "opt2", label: "Option 3", value: opts[2] || "" },
+          { key: "opt3", label: "Option 4", value: opts[3] || "" },
+          { key: "answer", label: type === "Select all" ? "Correct indexes (0,1)" : "Correct index", value: type === "Select all" ? (item.answers || []).join(",") : String(item.answer || 0) }
+        ];
+      }
+      if (type === "Type" || type === "Listen" || type === "Definition") {
+        return [
+          { key: "prompt", label: type === "Definition" ? "Definition" : "Prompt", value: item.prompt || "" },
+          { key: "answer", label: type === "Definition" ? "Word" : "Answer", value: item.answer || "" }
+        ];
+      }
+      if (type === "Gap") {
+        return [
+          { key: "shown", label: "Sentence with ___", value: item.shown || "" },
+          { key: "answer", label: "Missing word", value: item.answer || "" },
+          { key: "hint", label: "Hint", value: item.hint || "" }
+        ];
+      }
+      if (type === "Build") {
+        return [
+          { key: "parts", label: "Parts", value: item.parts || "" },
+          { key: "answer", label: "Sentence", value: item.answer || "" }
+        ];
+      }
+      if (type === "Match" || type === "Memory") {
+        return [
+          { key: "left", label: "Left", value: item.left || "" },
+          { key: "right", label: "Right", value: item.right || "" }
+        ];
+      }
+      if (type === "True / false") {
+        return [
+          { key: "prompt", label: "Statement", value: item.prompt || "" },
+          { key: "answer", label: "true / false", value: String(item.answer == null ? "true" : item.answer) }
+        ];
+      }
+      if (type === "Tap") {
+        return [
+          { key: "text", label: "Sentence", value: item.text || "" },
+          { key: "answer", label: "Tap word", value: item.answer || "" }
+        ];
+      }
+      return [{ key: "word", label: "Word", value: item.word || "" }];
+    }
+    function cardQuizPairs(quiz) {
+      const items = Array.isArray(quiz && quiz.items) ? quiz.items : [];
+      if (items.length) return items.map((row) => ({ left: row.left || "", right: row.right || "" }));
+      return [{ left: "", right: "" }];
+    }
+    function cardQuizPairEditorHtml(quiz, quizIndex) {
+      const pairs = cardQuizPairs(quiz);
+      const rows = pairs.map((pair, pairIndex) =>
+        '<div class="card-quiz-pair" data-card-quiz-pair="' + pairIndex + '">' +
+          '<div class="card-quiz-pair-fields">' +
+            '<p class="label">Left</p><input type="text" data-card-quiz-pair-field="left" value="' + esc(pair.left) + '" autocomplete="off" />' +
+            '<p class="label">Right</p><input type="text" data-card-quiz-pair-field="right" value="' + esc(pair.right) + '" autocomplete="off" />' +
+          "</div>" +
+          (pairs.length > 1
+            ? '<button class="icon-btn" type="button" data-card-quiz-pair-del="' + quizIndex + ':' + pairIndex + '" aria-label="Remove pair">×</button>'
+            : "") +
+        "</div>"
+      ).join("");
+      return rows + '<button class="btn" type="button" data-card-quiz-pair-add="' + quizIndex + '">+ Add pair</button>';
+    }
+    function cardQuizActions(index) {
+      if (!cardQuizCanEdit()) return "";
+      const pencil = actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
+      return '<span class="edit-actions card-quiz-actions"><button class="icon-btn" type="button" data-card-quiz-edit="' + index + '" aria-label="Edit">' + pencil + '</button><button class="icon-btn" type="button" data-card-quiz-del="' + index + '" aria-label="Delete">×</button></span>';
+    }
+    function cardQuizListHtml(word, editIndex) {
+      const list = cardQuizzesOf(word);
+      if (!list.length) return "";
+      const openAt = editIndex == null || editIndex === "" ? -1 : Number(editIndex);
+      return list.map((quiz, index) => {
+        const type = quiz.type || "Quiz";
+        const head = '<div class="card-quiz-head"><p class="card-quiz-type">' + esc(type) + "</p>" + cardQuizActions(index) + "</div>";
+        if (index !== openAt) {
+          const pairCount = (type === "Match" || type === "Memory") ? cardQuizPairs(quiz).length : 0;
+          const note = pairCount > 1 ? '<p class="hint card-quiz-note">' + pairCount + " pairs</p>" : "";
+          return '<div class="card-quiz-item is-collapsed" data-card-quiz-index="' + index + '">' + head + note + "</div>";
+        }
+        const body = (type === "Match" || type === "Memory")
+          ? cardQuizPairEditorHtml(quiz, index)
+          : cardQuizFields(type, (quiz.items && quiz.items[0]) || {}).map((field) =>
+              '<p class="label">' + field.label + '</p><input type="text" data-card-quiz-field="' + esc(field.key) + '" data-card-quiz-index="' + index + '" value="' + esc(field.value) + '" autocomplete="off" />'
+            ).join("");
+        return '<div class="card-quiz-item is-editing" data-card-quiz-index="' + index + '">' + head + body +
+          '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-card-quiz-save="' + index + '">Done</button></div></div>';
+      }).join("");
+    }
+    function cardQuizHtml(word, en, ru, editIndex) {
+      const canEdit = cardQuizCanEdit();
+      const list = cardQuizzesOf(word);
+      if (!canEdit && !list.length) return "";
+      return '<div class="card-quiz-box" data-card-quiz-word="' + esc(String(word || "").toLowerCase()) + '" data-card-quiz-en="' + esc(en || word || "") + '" data-card-quiz-ru="' + esc(ru || "") + '">' +
+        cardQuizListHtml(word, editIndex) +
+        (canEdit
+          ? ('<button class="btn" type="button" data-card-quiz-open>+ Add Quiz</button>' +
+            '<div class="card-quiz-picker" hidden><div class="card-quiz-grid">' +
+            CARD_QUIZ_TYPES.map((type) => '<button type="button" data-card-quiz-add="' + esc(type) + '">' + esc(type) + "</button>").join("") +
+            "</div></div>")
+          : "") +
+        (list.length ? '<button class="btn primary" type="button" data-card-quiz-study>Study quizzes</button>' : "") +
+        "</div>";
+    }
+    function cardQuizCanEdit() {
+      return !!(isTeacher() || canEditLessons());
+    }
+    function readCardQuizPairs(itemBox) {
+      return [...itemBox.querySelectorAll(".card-quiz-pair")].map((row) => {
+        const left = row.querySelector('[data-card-quiz-pair-field="left"]');
+        const right = row.querySelector('[data-card-quiz-pair-field="right"]');
+        return { left: left ? left.value.trim() : "", right: right ? right.value.trim() : "" };
+      });
+    }
+    function writeCardQuizFromEditor(itemBox, quiz) {
+      const type = quiz.type || "Flip";
+      if (type === "Match" || type === "Memory") {
+        const pairs = readCardQuizPairs(itemBox).filter((row) => row.left || row.right);
+        quiz.items = pairs.length ? pairs : [{ left: "", right: "" }];
+        return quiz;
+      }
+      const read = (name) => {
+        const input = itemBox.querySelector('[data-card-quiz-field="' + name + '"]');
+        return input ? input.value.trim() : "";
+      };
+      const item = Object.assign({}, (quiz.items && quiz.items[0]) || {});
+      if (type === "Flip" || type === "Reverse") {
+        item.front = read("front");
+        item.back = read("back");
+      } else if (type === "Choice" || type === "Odd one out") {
+        item.prompt = read("prompt");
+        item.options = [read("opt0"), read("opt1"), read("opt2"), read("opt3")];
+        while (item.options.length > 3 && !item.options[item.options.length - 1]) item.options.pop();
+        item.answer = Number(read("answer") || 0);
+      } else if (type === "Select all") {
+        item.prompt = read("prompt");
+        item.options = [read("opt0"), read("opt1"), read("opt2"), read("opt3")];
+        while (item.options.length > 3 && !item.options[item.options.length - 1]) item.options.pop();
+        item.answers = String(read("answer") || "").split(",").map((n) => Number(n.trim())).filter((n) => Number.isFinite(n));
+      } else if (type === "Type" || type === "Listen" || type === "Definition") {
+        item.prompt = read("prompt");
+        item.answer = read("answer");
+      } else if (type === "Gap") {
+        item.shown = read("shown");
+        item.answer = read("answer");
+        item.hint = read("hint");
+      } else if (type === "Build") {
+        item.parts = read("parts");
+        item.answer = read("answer");
+      } else if (type === "True / false") {
+        item.prompt = read("prompt");
+        item.answer = read("answer") === "false" ? "false" : "true";
+      } else if (type === "Tap") {
+        item.text = read("text");
+        item.answer = read("answer");
+      } else {
+        item.word = read("word");
+      }
+      quiz.items = [item];
+      return quiz;
+    }
+    function handleCardQuizClick(e) {
+      const openBtn = e.target.closest("[data-card-quiz-open]");
+      if (openBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const box = openBtn.closest(".card-quiz-box");
+        if (!box) return true;
+        const picker = box.querySelector(".card-quiz-picker");
+        if (picker) picker.hidden = !picker.hidden;
+        return true;
+      }
+      const studyBtn = e.target.closest("[data-card-quiz-study]");
+      if (studyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const box = studyBtn.closest(".card-quiz-box");
+        if (!box) return true;
+        const en = box.dataset.cardQuizEn || box.dataset.cardQuizWord || "";
+        const ru = box.dataset.cardQuizRu || "";
+        const card = { en: en, ru: ru, pos: "", uk: "", us: "", ex: "", gloss: "" };
+        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home");
+        return true;
+      }
+      const addBtn = e.target.closest("[data-card-quiz-add]");
+      if (addBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = addBtn.closest(".card-quiz-box");
+        if (!box) return true;
+        const word = box.dataset.cardQuizWord || "";
+        const type = addBtn.getAttribute("data-card-quiz-add") || "";
+        const map = loadCardQuizzes();
+        const key = String(word || "").toLowerCase();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        list.push({ type: type, items: [cardQuizPrefill(type, box.dataset.cardQuizEn || word, box.dataset.cardQuizRu || "")] });
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box, list.length - 1);
+        return true;
+      }
+      const editBtn = e.target.closest("[data-card-quiz-edit]");
+      if (editBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = editBtn.closest(".card-quiz-box");
+        if (!box) return true;
+        refreshCardQuizBox(box, Number(editBtn.getAttribute("data-card-quiz-edit")));
+        return true;
+      }
+      const pairAdd = e.target.closest("[data-card-quiz-pair-add]");
+      if (pairAdd) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = pairAdd.closest(".card-quiz-box");
+        const itemBox = pairAdd.closest(".card-quiz-item");
+        if (!box || !itemBox) return true;
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const index = Number(pairAdd.getAttribute("data-card-quiz-pair-add"));
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const quiz = list[index];
+        if (!quiz) return true;
+        writeCardQuizFromEditor(itemBox, quiz);
+        quiz.items = cardQuizPairs(quiz).concat([{ left: "", right: "" }]);
+        list[index] = quiz;
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box, index);
+        return true;
+      }
+      const pairDel = e.target.closest("[data-card-quiz-pair-del]");
+      if (pairDel) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = pairDel.closest(".card-quiz-box");
+        const itemBox = pairDel.closest(".card-quiz-item");
+        if (!box || !itemBox) return true;
+        const bits = String(pairDel.getAttribute("data-card-quiz-pair-del") || "").split(":");
+        const index = Number(bits[0]);
+        const pairIndex = Number(bits[1]);
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const quiz = list[index];
+        if (!quiz) return true;
+        writeCardQuizFromEditor(itemBox, quiz);
+        const pairs = cardQuizPairs(quiz);
+        if (pairs.length <= 1) return true;
+        pairs.splice(pairIndex, 1);
+        quiz.items = pairs;
+        list[index] = quiz;
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box, index);
+        return true;
+      }
+      const delBtn = e.target.closest("[data-card-quiz-del]");
+      if (delBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = delBtn.closest(".card-quiz-box");
+        if (!box) return true;
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const index = Number(delBtn.getAttribute("data-card-quiz-del"));
+        list.splice(index, 1);
+        if (list.length) map[key] = list;
+        else delete map[key];
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box);
+        return true;
+      }
+      const saveBtn = e.target.closest("[data-card-quiz-save]");
+      if (saveBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = saveBtn.closest(".card-quiz-box");
+        const itemBox = saveBtn.closest(".card-quiz-item");
+        if (!box || !itemBox) return true;
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const index = Number(saveBtn.getAttribute("data-card-quiz-save"));
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const quiz = list[index];
+        if (!quiz) return true;
+        writeCardQuizFromEditor(itemBox, quiz);
+        list[index] = quiz;
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box);
+        return true;
+      }
+      return false;
     }
     function addedRow(item, index) {
       const main = '<button class="path" type="button" data-added="' + index + '"><b>' + esc(item.word) + '</b><span class="to">' + esc(item.ru) + "</span></button>";
@@ -2297,14 +2717,15 @@
       const w = songCards[key];
       document.getElementById("musicTitle").textContent = w.en;
       document.getElementById("musicView").innerHTML =
+        catalogEditHtml(w) +
         '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>' +
         ipaHtml(w) +
         (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
-        '<p><b>' + w.ru + '</b></p>' + variantLines(w.en) + variantForm(w.en, "song", w.ru) + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + w.ex + '</p>' +
+        '<p><b>' + w.ru + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + w.ex + '</p>' +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
-        catalogEditHtml(w) +
-        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
+        cardQuizHtml(w.en, w.en, w.ru);
     }
     function applySongEdits() {
       const map = loadEdits();
@@ -3478,10 +3899,10 @@
       document.getElementById("madeTitle").textContent = item.word;
       const ipa = ipaHtml({ en: item.word, uk: uk, us: us });
       const note = expressionNote(item);
-      let html = '<div class="gen"><h2>Word card</h2>';
+      let html = '<div class="gen card-edit-shell"><h2>Word card</h2>';
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
-      html += '<div class="word-head">' + wordPic(item.word, true) + '<div class="word-copy"><p class="entry">' + esc(item.word) + "</p>" + ruLine + "</div></div>";
-      html += addedEditHtml(item) || catalogEditHtml(findCatalog(item.word));
+      html += madeEditHtml(item);
+      html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + "</div></div>";
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
       html += ipa;
@@ -3491,7 +3912,6 @@
       if (origin) html += '<p class="label">' + esc(origin) + "</p>";
       if (data.base) html += '<p><span class="label">Base form</span> ' + esc(data.base) + "</p>";
       if (item.ru && note) html += "<p>" + esc(note) + "</p>";
-      html += variantLines(item.word) + variantForm(item.word, "made", item.ru);
       html += clipLine(clipOf({ en: item.word }));
       if (item.ru) html += '<p class="hint">Translation: ' + esc(data.ruSource || "Wooordhunt") + "." + (data.direction === "ru" && data.query ? " You looked up: " + esc(data.query) + "." : "") + "</p>";
       if (cam.definition) html += '<p><span class="label">Cambridge</span> ' + esc(cam.definition) + "</p>";
@@ -3509,7 +3929,8 @@
       if ((data.openRussian || {}).en) html += '<p><span class="label">OpenRussian</span> ' + esc(data.openRussian.en) + "</p>";
       const links = Object.assign({}, data.links || {});
       if (!links.oxford) links.oxford = oxfordUrl(item.word);
-      html += "<p>" + sourceLinks(links) + "</p></div>";
+      html += "<p>" + sourceLinks(links) + "</p>";
+      html += "</div>";
       html += usageList(usages);
 
       if (item.ru || note) html += '<div class="gen"><h2>' + (item.ru ? "English → Russian · Flip" : "Expression → meaning") + '</h2><div id="madeFlipEn"><p class="q">' + esc(item.word) + '</p><button class="btn" type="button" data-flip="en">Flip</button></div></div>';
@@ -3550,6 +3971,7 @@
         html += '<div class="gen"><h2>Phrases</h2><p class="hint">Wooordhunt has no phrases for this word.</p></div>';
       }
       html += usageQuizzes(usages);
+      html += cardQuizHtml(item.word, item.word, item.ru || note || "");
       document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
@@ -3557,6 +3979,7 @@
       show("made");
     }
     document.getElementById("madeView").addEventListener("click", (e) => {
+      if (handleCardQuizClick(e)) return;
       const view = document.getElementById("madeView");
       const flip = e.target.closest("[data-flip]");
       if (flip) {
@@ -3567,7 +3990,7 @@
         if (flip.dataset.open === "1") {
           face.innerHTML = '<p class="q">' + esc(front) + '</p><button class="btn" type="button" data-flip="' + dir + '">Flip</button>';
         } else {
-          face.innerHTML = '<p class="q">' + esc(back) + '</p>' + (dir === "en" ? variantLines(view.dataset.word) : "") + '<button class="btn" type="button" data-flip="' + dir + '" data-open="1">Card front</button>';
+          face.innerHTML = '<p class="q">' + esc(back) + '</p><button class="btn" type="button" data-flip="' + dir + '" data-open="1">Card front</button>';
         }
         return;
       }
@@ -3586,10 +4009,12 @@
         return;
       }
       const typeBtn = e.target.closest("[data-type]");
-      if (typeBtn) {
+      if (typeBtn && typeBtn.dataset.type && !typeBtn.closest(".card-quiz-box")) {
         const dir = typeBtn.dataset.type;
-        const typed = document.getElementById(dir === "ru" ? "madeTypeRu" : "madeTypeEn").value;
-        const gloss = view.dataset.ru + variantsOf(view.dataset.word).map((text) => ", " + text).join("");
+        const typedEl = document.getElementById(dir === "ru" ? "madeTypeRu" : "madeTypeEn");
+        if (!typedEl) return;
+        const typed = typedEl.value;
+        const gloss = view.dataset.ru || "";
         const ok = dir === "ru" ? ruMatch(typed, gloss) : typed.trim().toLowerCase() === view.dataset.word.trim().toLowerCase();
         const needed = dir === "ru" ? view.dataset.ru : view.dataset.word;
         document.getElementById(dir === "ru" ? "madeTypeFbRu" : "madeTypeFbEn").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' +
@@ -3652,32 +4077,6 @@
       renderMade({ word: word, ru: lessonRu || "", data: {} });
     }
     document.body.addEventListener("click", (e) => {
-      const variantOpen = e.target.closest("[data-variant-open]");
-      if (variantOpen) {
-        const form = variantOpen.closest(".variant-box").querySelector("[data-variant-form]");
-        form.hidden = !form.hidden;
-        if (!form.hidden) form.querySelector("[data-variant-input]").focus();
-        return;
-      }
-      const variantAdd = e.target.closest("[data-variant-add]");
-      if (variantAdd) {
-        const box = variantAdd.closest(".variant-box");
-        const word = box.dataset.variantWord;
-        const status = box.querySelector("[data-variant-status]");
-        const official = box.dataset.variantRu || "";
-        const typed = box.querySelector("[data-variant-input]").value.trim();
-        if (official && (typed.toLowerCase() === official.toLowerCase() || sensesOf(official).some((part) => part.toLowerCase() === typed.toLowerCase()))) {
-          status.textContent = "This is already on the card.";
-          status.classList.add("bad");
-          return;
-        }
-        if (!addVariant(word, typed, status)) return;
-        paintWordGrid();
-        if (box.dataset.variantWhere === "song") renderSong(songKey);
-        else if (box.dataset.variantWhere === "made" && madeItem) renderMade(madeItem);
-        else renderWord(words.find((w) => variantKey(w.en) === variantKey(word)) || current);
-        return;
-      }
       const statSongBtn = e.target.closest("[data-stat-song]");
       if (statSongBtn) {
         openStatSong(statSongBtn.dataset.statSong);
@@ -3923,18 +4322,23 @@
         saveWord(root.dataset.place, root.querySelector("[data-add-input]"), root.querySelector("[data-add-status]"), go, false);
         return;
       }
+      if (handleCardQuizClick(e)) return;
       const btn = e.target.closest("[data-usages]");
       if (!btn) return;
       openUsages(btn.dataset.usages, btn.dataset.usagesRu || "");
     });
+    function refreshCardQuizBox(box, editIndex) {
+      if (!box) return;
+      const word = box.dataset.cardQuizWord || "";
+      const en = box.dataset.cardQuizEn || word;
+      const ru = box.dataset.cardQuizRu || "";
+      const next = document.createElement("div");
+      next.innerHTML = cardQuizHtml(word, en, ru, editIndex);
+      const fresh = next.firstChild;
+      if (fresh) box.replaceWith(fresh);
+    }
     document.body.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
-      const variantInput = e.target.closest("[data-variant-input]");
-      if (variantInput) {
-        e.preventDefault();
-        variantInput.closest(".variant-box").querySelector("[data-variant-add]").click();
-        return;
-      }
       const editInput = e.target.closest("[data-edit-field]");
       if (editInput) {
         e.preventDefault();
@@ -3952,15 +4356,53 @@
         '<p class="label">' + field.label + '</p><input type="text" data-edit-field="' + field.key + '" value="' + esc(field.value) + '" autocomplete="off" />'
       ).join("") + '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-edit-save>Save</button></div><p class="hint" data-edit-status></p></div>';
     }
+    function cardEditFields(card) {
+      return [
+        { key: "en", label: "English", value: card.en || "" },
+        { key: "ru", label: "Russian", value: card.ru || "" },
+        { key: "pos", label: "Part of speech", value: card.pos || "" },
+        { key: "uk", label: "UK IPA", value: card.uk || "" },
+        { key: "us", label: "US IPA", value: card.us || "" },
+        { key: "level", label: "Level", value: card.level || "" },
+        { key: "gloss", label: "Meaning", value: card.gloss || "" },
+        { key: "ex", label: "Example", value: card.ex || "" },
+        { key: "url", label: "Dictionary link", value: card.url || "" }
+      ];
+    }
     function editFieldsFor(host) {
       const kind = host.dataset.editKind;
       const id = host.dataset.editId;
       if (kind === "added") {
         const item = loadAdded()[Number(id)];
         if (!item || !canEditAdded(item)) return null;
+        const cam = (item.data && item.data.cambridge) || {};
         return [
           { key: "en", label: "English", value: item.word || "" },
-          { key: "ru", label: "Russian", value: item.ru || "" }
+          { key: "ru", label: "Russian", value: item.ru || "" },
+          { key: "pos", label: "Part of speech", value: item.pos || cam.pos || "" },
+          { key: "uk", label: "UK IPA", value: item.uk || "" },
+          { key: "us", label: "US IPA", value: item.us || "" },
+          { key: "level", label: "Level", value: item.level || cam.level || "" },
+          { key: "gloss", label: "Meaning", value: item.gloss || cam.definition || "" },
+          { key: "ex", label: "Example", value: item.ex || "" },
+          { key: "url", label: "Dictionary link", value: item.url || "" }
+        ];
+      }
+      if (kind === "made") {
+        if (!isTeacher() || !madeItem) return null;
+        const data = madeItem.data || {};
+        const cam = data.cambridge || {};
+        const wh = data.wooordhunt || {};
+        return [
+          { key: "en", label: "English", value: madeItem.word || "" },
+          { key: "ru", label: "Russian", value: madeItem.ru || "" },
+          { key: "pos", label: "Part of speech", value: madeItem.pos || cam.pos || (data.grammar && data.grammar.form) || "" },
+          { key: "uk", label: "UK IPA", value: madeItem.uk || cam.uk || wh.uk || "" },
+          { key: "us", label: "US IPA", value: madeItem.us || cam.us || wh.us || "" },
+          { key: "level", label: "Level", value: madeItem.level || cam.level || "" },
+          { key: "gloss", label: "Meaning", value: madeItem.gloss || cam.definition || "" },
+          { key: "ex", label: "Example", value: madeItem.ex || "" },
+          { key: "url", label: "Dictionary link", value: madeItem.url || "" }
         ];
       }
       if (!isTeacher()) return null;
@@ -3974,10 +4416,7 @@
           { key: "ru", label: "Russian", value: card.ru || card.def || "" }
         ];
       }
-      return [
-        { key: "en", label: "English", value: card.en || "" },
-        { key: "ru", label: "Russian", value: card.ru || "" }
-      ];
+      return cardEditFields(card);
     }
     function refreshCatalog() {
       applyLessonEdits();
@@ -4016,13 +4455,27 @@
         if (!item || !canEditAdded(item)) return;
         const place = item.place || "mine";
         const word = item.word;
-        const open = madeItem === item;
+        const open = madeItem === item || (madeItem && String(madeItem.word || "").toLowerCase() === String(word || "").toLowerCase());
         list.splice(index, 1);
         saveAdded(list, { op: "delete-card", place: place, word: word });
         paintAdded();
         paintAllWords();
         if (typeof paintHomeStats === "function") paintHomeStats();
         if (open) show("add");
+        return;
+      }
+      if (kind === "made") {
+        if (!isTeacher() || !madeItem) return;
+        const list = loadAdded();
+        const index = addedIndexOf(madeItem);
+        if (index >= 0) {
+          const item = list[index];
+          saveAdded(list.filter((_, i) => i !== index), { op: "delete-card", place: item.place || "mine", word: item.word });
+          paintAdded();
+          paintAllWords();
+        }
+        madeItem = null;
+        show("add");
         return;
       }
       if (!isTeacher()) return;
@@ -4047,24 +4500,84 @@
         status.textContent = text;
         status.classList.toggle("bad", !!bad);
       };
-      if (kind === "added") {
+      if (kind === "added" || kind === "made") {
         const list = loadAdded();
-        const item = list[Number(id)];
-        if (!item || !canEditAdded(item)) return;
+        let item = kind === "added" ? list[Number(id)] : null;
+        if (kind === "made") {
+          if (!isTeacher() || !madeItem) return;
+          const at = addedIndexOf(madeItem);
+          item = at >= 0 ? list[at] : madeItem;
+        }
+        if (kind === "added" && (!item || !canEditAdded(item))) return;
         const en = read("en");
         const ru = read("ru");
         if (!en || !ru) { write("Write the English word and the Russian translation.", true); return; }
         const next = midTitle(en);
-        const clash = list.some((row, index) => index !== Number(id) && (row.place || "mine") === (item.place || "mine") && String(row.word).toLowerCase() === next.toLowerCase());
-        if (clash) { write("Already on this page.", true); return; }
-        const prevPlace = item.place || "mine";
-        const prevWord = item.word;
-        const openMade = madeItem === item;
-        item.word = next;
-        item.ru = ru;
-        saveAdded(list, { op: "put-card", card: item, replacePlace: prevPlace, replaceWord: prevWord });
-        paintAdded();
-        if (openMade) renderMade(item);
+        if (kind === "added") {
+          const clash = list.some((row, index) => index !== Number(id) && (row.place || "mine") === (item.place || "mine") && String(row.word).toLowerCase() === next.toLowerCase());
+          if (clash) { write("Already on this page.", true); return; }
+          const prevPlace = item.place || "mine";
+          const prevWord = item.word;
+          const openMade = madeItem === item || (madeItem && String(madeItem.word || "").toLowerCase() === String(prevWord || "").toLowerCase());
+          item.word = next;
+          item.ru = ru;
+          item.pos = read("pos");
+          item.uk = read("uk");
+          item.us = read("us");
+          item.level = read("level");
+          item.gloss = read("gloss");
+          item.ex = read("ex");
+          item.url = read("url");
+          saveAdded(list, { op: "put-card", card: item, replacePlace: prevPlace, replaceWord: prevWord });
+          paintAdded();
+          if (openMade) renderMade(item);
+          return;
+        }
+        madeItem.word = next;
+        madeItem.ru = ru;
+        madeItem.pos = read("pos");
+        madeItem.uk = read("uk");
+        madeItem.us = read("us");
+        madeItem.level = read("level");
+        madeItem.gloss = read("gloss");
+        madeItem.ex = read("ex");
+        madeItem.url = read("url");
+        if (item && list.indexOf(item) >= 0) {
+          const prevPlace = item.place || "mine";
+          const prevWord = item.word;
+          item.word = next;
+          item.ru = ru;
+          item.pos = madeItem.pos;
+          item.uk = madeItem.uk;
+          item.us = madeItem.us;
+          item.level = madeItem.level;
+          item.gloss = madeItem.gloss;
+          item.ex = madeItem.ex;
+          item.url = madeItem.url;
+          saveAdded(list, { op: "put-card", card: item, replacePlace: prevPlace, replaceWord: prevWord });
+          paintAdded();
+        } else {
+          const catalog = findCatalog(id) || findCatalog(next);
+          if (catalog) {
+            const map = loadEdits();
+            const origin = catalog.origin || String(catalog.en || "").toLowerCase();
+            map[origin] = {
+              en: next,
+              ru: ru,
+              pos: madeItem.pos,
+              uk: madeItem.uk,
+              us: madeItem.us,
+              level: madeItem.level,
+              gloss: madeItem.gloss,
+              ex: madeItem.ex,
+              url: madeItem.url
+            };
+            saveEdits(map, origin);
+            applyLessonEdits();
+            applySongEdits();
+          }
+        }
+        renderMade(madeItem);
         return;
       }
       if (!isTeacher()) return;
@@ -4084,7 +4597,17 @@
         const en = read("en");
         const ru = read("ru");
         if (!en || !ru) { write("Write the English word and the Russian translation.", true); return; }
-        map[origin] = { en: en, ru: ru };
+        map[origin] = {
+          en: en,
+          ru: ru,
+          pos: read("pos"),
+          uk: read("uk"),
+          us: read("us"),
+          level: read("level"),
+          gloss: read("gloss"),
+          ex: read("ex"),
+          url: read("url")
+        };
         if (host.closest("#madeView") && madeItem) {
           madeItem.word = en;
           madeItem.ru = ru;
@@ -5809,7 +6332,42 @@
     const MISTAKE_KEY = "enquiz-mistakes";
     const EXAM_MS = 20 * 60 * 1000;
     function quizPool() {
-      return dayPoolOverride || lessonPool(dayQuizPlace);
+      return mergeCardQuizCards(dayPoolOverride || lessonPool(dayQuizPlace));
+    }
+    function cardFromQuizWord(key, list) {
+      let en = key;
+      let ru = "";
+      (Array.isArray(list) ? list : []).forEach((quiz) => {
+        const item = (quiz && quiz.items && quiz.items[0]) || {};
+        const type = (quiz && quiz.type) || "";
+        if (!en && item.front) en = item.front;
+        if (!en && item.left) en = item.left;
+        if (!ru && item.back) ru = item.back;
+        if (!ru && item.right) ru = item.right;
+        if (!ru && type === "Choice" && Array.isArray(item.options)) ru = item.options[Number(item.answer) || 0] || item.options[0] || "";
+        if (!ru && (type === "Type" || type === "Listen") && item.answer) ru = item.answer;
+      });
+      return { en: en || key, ru: ru || "", pos: "", uk: "", us: "", ex: "", gloss: "" };
+    }
+    function cardsFromSavedQuizzes() {
+      const map = loadCardQuizzes();
+      return Object.keys(map).map((key) => cardFromQuizWord(key, map[key])).filter((card) => card.en);
+    }
+    function mergeCardQuizCards(cards) {
+      const base = Array.isArray(cards) ? cards.slice() : [];
+      const seen = new Set();
+      base.forEach((card) => {
+        const key = String(card && card.en || "").toLowerCase();
+        if (key) seen.add(key);
+      });
+      cardsFromSavedQuizzes().forEach((card) => {
+        const key = String(card.en || "").toLowerCase();
+        if (!key || seen.has(key)) return;
+        if (!cardQuizzesOf(key).some(customQuizReady)) return;
+        seen.add(key);
+        base.push(card);
+      });
+      return base;
     }
     function rowsForSong(rows, songId, inSong) {
       if (!songId) return rows;
@@ -6180,8 +6738,31 @@
       if (/^the slide title is /i.test(text)) return "";
       return text;
     }
+    function cardQuizKey(card) {
+      return String((card && (card.en || card.qid || card.word)) || "").toLowerCase();
+    }
+    function customQuizzesFor(card, type) {
+      return cardQuizzesOf(cardQuizKey(card)).filter((quiz) => (quiz.type || "Flip") === type);
+    }
+    function customQuizReady(quiz) {
+      const item = (quiz && quiz.items && quiz.items[0]) || {};
+      const type = (quiz && quiz.type) || "Flip";
+      if (type === "Flip" || type === "Reverse") return !!(item.front || item.back);
+      if (type === "Choice" || type === "Odd one out") return !!(item.prompt || (item.options || []).some(Boolean));
+      if (type === "Select all") return !!(item.prompt || (item.options || []).some(Boolean));
+      if (type === "Type" || type === "Listen" || type === "Definition") return !!(item.prompt || item.answer);
+      if (type === "Gap") return !!(item.shown || item.answer);
+      if (type === "Build") return !!(String(item.parts || "").trim() || String(item.answer || "").trim());
+      if (type === "Match" || type === "Memory") {
+        return cardQuizPairs(quiz).some((row) => row.left || row.right);
+      }
+      if (type === "True / false") return !!item.prompt;
+      if (type === "Tap") return !!(item.text || item.answer);
+      return !!(item.word || item.prompt || item.answer);
+    }
     function typesFor(card, types) {
       return types.filter((type) => {
+        if (customQuizzesFor(card, type).some(customQuizReady)) return true;
         if (type === "Match" || type === "Select all" || type === "Odd one out" || type === "Memory") return false;
         if ((type === "Choice" || type === "Type" || type === "True / false" || type === "Reverse" || type === "Listen") && !card.ru) return false;
         if ((type === "Gap" || type === "Build" || type === "Tap") && !lineOf(card)) return false;
@@ -6190,12 +6771,61 @@
         return true;
       });
     }
+    function pushCustomDayItem(queue, card, quiz) {
+      const type = quiz.type || "Flip";
+      const custom = Object.assign({}, (quiz.items && quiz.items[0]) || {});
+      if (type === "True / false") {
+        const ok = String(custom.answer) !== "false";
+        queue.push({ type: type, card: card, custom: custom, ru: custom.prompt || "", ok: ok, line: custom.prompt || card.en });
+        return;
+      }
+      if (type === "Match") {
+        const pairs = cardQuizPairs(quiz)
+          .filter((row) => row.left && row.right)
+          .map((row, i) => ({ id: String(i), en: row.left, ru: row.right }));
+        if (pairs.length) {
+          queue.push({ type: type, card: card, custom: custom, pairs: pairs });
+        }
+        return;
+      }
+      if (type === "Select all") {
+        const options = (custom.options || []).filter(Boolean).map((text, i) => ({ en: text, pos: (custom.answers || []).indexOf(i) >= 0 ? "yes" : "no" }));
+        if (options.length >= 2) {
+          queue.push({ type: type, card: card, custom: custom, pos: "yes", sample: options });
+        }
+        return;
+      }
+      if (type === "Odd one out") {
+        const options = (custom.options || []).filter(Boolean).map((text) => ({ en: text }));
+        if (options.length >= 2) {
+          const right = options[Number(custom.answer) || 0] || options[0];
+          queue.push({ type: type, card: card, custom: custom, options: options, right: right.en, pos: "match" });
+        }
+        return;
+      }
+      if (type === "Memory") {
+        const pairs = cardQuizPairs(quiz).filter((row) => row.left && row.right);
+        if (!pairs.length) return;
+        const faces = shuffle(pairs.reduce((all, row, i) => all.concat([
+          { id: String(i), text: row.left },
+          { id: String(i), text: row.right }
+        ]), []));
+        queue.push({ type: type, card: card, custom: custom, faces: faces, open: [], done: {} });
+        return;
+      }
+      queue.push({ type: type, card: card, custom: custom, line: custom.shown || custom.text || custom.answer || lineOf(card) || card.en });
+    }
     function buildDayQueue(cards, types, mix) {
       const queue = [];
       cards.forEach((card) => {
         let use = typesFor(card, types);
         if (mix && use.length) use = [use[Math.floor(Math.random() * use.length)]];
         use.forEach((type) => {
+          const customs = customQuizzesFor(card, type).filter(customQuizReady);
+          if (customs.length) {
+            customs.forEach((quiz) => pushCustomDayItem(queue, card, quiz));
+            return;
+          }
           if (type === "True / false") {
             const others = cards.filter((c) => c.ru !== card.ru);
             const lie = others.length > 0 && Math.random() < 0.5;
@@ -6943,36 +7573,85 @@
       document.getElementById("dayqBar").style.width = Math.round(((dayAt + 1) / dayQueue.length) * 100) + "%";
       const view = document.getElementById("dayqView");
       const card = item.card;
+      const custom = item.custom;
       if (item.type === "Choice") {
-        const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
-        const opts = shuffle(wrong.concat([card.ru]));
-        view.innerHTML = '<p class="prompt">' + (card.verb ? "Three forms → Russian" : "English → Russian") + '</p><div class="word-head">' + wordPic(card.base || card.en) + '<p class="q">' + esc(card.en) + '</p></div><div class="opts">' +
-          opts.map((ru) => '<button class="opt" type="button" data-opt="' + (ru === card.ru ? "ok" : "bad") + '"><span>' + esc(ru) + "</span></button>").join("") +
-          '</div><div id="dayFb"></div>';
+        if (custom && Array.isArray(custom.options) && custom.options.some(Boolean)) {
+          const opts = custom.options.filter(Boolean);
+          const right = opts[Number(custom.answer) || 0] || opts[0];
+          item.right = right;
+          view.innerHTML = choiceHtml(custom.prompt || "Choose", "", shuffle(opts.slice()), right);
+        } else {
+          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
+          const opts = shuffle(wrong.concat([card.ru]));
+          view.innerHTML = '<p class="prompt">' + (card.verb ? "Three forms → Russian" : "English → Russian") + '</p><div class="word-head">' + wordPic(card.base || card.en) + '<p class="q">' + esc(card.en) + '</p></div><div class="opts">' +
+            opts.map((ru) => '<button class="opt" type="button" data-opt="' + (ru === card.ru ? "ok" : "bad") + '"><span>' + esc(ru) + "</span></button>").join("") +
+            '</div><div id="dayFb"></div>';
+        }
       } else if (item.type === "Flip") {
-        view.innerHTML = '<p class="prompt">English → Russian</p><div class="flip-scene" tabindex="0" role="button" aria-label="Flip card"><div class="flip-inner"><div class="flip-face flip-front"><div class="word-head">' + wordPic(card.en, true) + '<div><p class="entry">' + esc(card.en) + '</p><p class="pos">' + esc(card.pos) + '</p></div></div></div><div class="flip-face flip-back" id="dayFlipBox"></div></div></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
+        if (custom && (custom.front || custom.back)) {
+          view.innerHTML = '<p class="prompt">Flip</p><div class="flip-scene" tabindex="0" role="button" aria-label="Flip card"><div class="flip-inner"><div class="flip-face flip-front"><p class="q">' + esc(custom.front || "") + '</p></div><div class="flip-face flip-back" id="dayFlipBox" data-custom-back="' + esc(custom.back || "") + '"></div></div></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
+        } else {
+          view.innerHTML = '<p class="prompt">English → Russian</p><div class="flip-scene" tabindex="0" role="button" aria-label="Flip card"><div class="flip-inner"><div class="flip-face flip-front"><div class="word-head">' + wordPic(card.en, true) + '<div><p class="entry">' + esc(card.en) + '</p><p class="pos">' + esc(card.pos) + '</p></div></div></div><div class="flip-face flip-back" id="dayFlipBox"></div></div></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
+        }
       } else if (item.type === "Type") {
-        view.innerHTML = '<p class="prompt">' + (card.verb ? "Type the three forms" : "Type it in English") + '</p><p class="q">' + esc(card.ru) + '</p><input id="dayType" type="text" placeholder="' + (card.verb ? "base – past – participle" : "Answer") + '" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-type-go>Check</button></div>';
+        if (custom && (custom.prompt || custom.answer)) {
+          item.right = custom.answer || "";
+          view.innerHTML = '<p class="prompt">' + esc(custom.prompt || "Type the answer") + '</p><input id="dayType" type="text" placeholder="Answer" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-type-go>Check</button></div>';
+        } else {
+          view.innerHTML = '<p class="prompt">' + (card.verb ? "Type the three forms" : "Type it in English") + '</p><p class="q">' + esc(card.ru) + '</p><input id="dayType" type="text" placeholder="' + (card.verb ? "base – past – participle" : "Answer") + '" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-type-go>Check</button></div>';
+        }
       } else if (item.type === "Gap") {
-        const blank = blankSentence(item.line, formToken(card));
-        item.answer = blank.answer;
-        view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(blank.shown) + '</p><input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+        if (custom && (custom.shown || custom.answer)) {
+          item.answer = custom.answer || "";
+          view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(custom.shown || "___") + '</p>' + (custom.hint ? '<p class="hint">' + esc(custom.hint) + "</p>" : "") + '<input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+        } else {
+          const blank = blankSentence(item.line, formToken(card));
+          item.answer = blank.answer;
+          view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(blank.shown) + '</p><input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+        }
       } else if (item.type === "Build") {
-        item.order = item.line.split(/\s+/);
-        item.bank = shuffle(item.order.slice());
-        item.slot = [];
+        if (custom && (custom.parts || custom.answer)) {
+          const answerParts = String(custom.answer || "").trim().split(/\s+/).filter(Boolean);
+          const partTokens = String(custom.parts || "").trim().split(/\s+/).filter(Boolean);
+          item.order = answerParts.length ? answerParts : partTokens;
+          const bankSource = (partTokens.length === item.order.length && partTokens.length) ? partTokens : item.order;
+          item.bank = shuffle(bankSource.slice());
+          item.slot = [];
+          item.buildAnswer = String(custom.answer || item.order.join(" ")).trim();
+        } else {
+          item.order = String(item.line || "").split(/\s+/).filter(Boolean);
+          item.bank = shuffle(item.order.slice());
+          item.slot = [];
+          item.buildAnswer = item.order.join(" ");
+        }
         paintBuild(item);
       } else if (item.type === "True / false") {
-        view.innerHTML = '<p class="prompt">Does this translation match?</p><p class="q">' + esc(item.line) + '</p><p><b>' + esc(item.ru) + '</b></p><div class="row"><button class="btn" type="button" data-tf="true">True</button><button class="btn" type="button" data-tf="false">False</button></div><div id="dayFb"></div>';
+        if (custom && custom.prompt) {
+          view.innerHTML = '<p class="prompt">True or false?</p><p class="q">' + esc(custom.prompt) + '</p><div class="row"><button class="btn" type="button" data-tf="true">True</button><button class="btn" type="button" data-tf="false">False</button></div><div id="dayFb"></div>';
+        } else {
+          view.innerHTML = '<p class="prompt">Does this translation match?</p><p class="q">' + esc(item.line) + '</p><p><b>' + esc(item.ru) + '</b></p><div class="row"><button class="btn" type="button" data-tf="true">True</button><button class="btn" type="button" data-tf="false">False</button></div><div id="dayFb"></div>';
+        }
       } else if (item.type === "Tap") {
-        const re = new RegExp("\\b" + formToken(card).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
-        let html = "";
-        item.line.split(/(\s+)/).forEach((part) => {
-          if (!part.trim()) { html += esc(part); return; }
-          const hit = re.test(part);
-          html += '<button type="button" data-tap="' + (hit ? "ok" : "bad") + '">' + esc(part) + "</button>";
-        });
-        view.innerHTML = '<p class="prompt">Tap ' + esc(formToken(card)) + '</p><p class="sentence">' + html + '</p><div id="dayFb"></div>';
+        if (custom && (custom.text || custom.answer)) {
+          const target = String(custom.answer || "").trim();
+          const re = target ? new RegExp("\\b" + target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i") : /$/;
+          let html = "";
+          String(custom.text || "").split(/(\s+)/).forEach((part) => {
+            if (!part.trim()) { html += esc(part); return; }
+            const hit = re.test(part);
+            html += '<button type="button" data-tap="' + (hit ? "ok" : "bad") + '">' + esc(part) + "</button>";
+          });
+          view.innerHTML = '<p class="prompt">Tap ' + esc(target || "the word") + '</p><p class="sentence">' + html + '</p><div id="dayFb"></div>';
+        } else {
+          const re = new RegExp("\\b" + formToken(card).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+          let html = "";
+          item.line.split(/(\s+)/).forEach((part) => {
+            if (!part.trim()) { html += esc(part); return; }
+            const hit = re.test(part);
+            html += '<button type="button" data-tap="' + (hit ? "ok" : "bad") + '">' + esc(part) + "</button>";
+          });
+          view.innerHTML = '<p class="prompt">Tap ' + esc(formToken(card)) + '</p><p class="sentence">' + html + '</p><div id="dayFb"></div>';
+        }
       } else if (item.type === "Match") {
         const right = shuffle(item.pairs.slice());
         view.innerHTML = '<p class="prompt">Match the English with the Russian translation</p><div class="pairs">' +
@@ -6985,30 +7664,56 @@
           item.sample.map((c, i) => '<button class="opt" type="button" data-sel="' + i + '"><span>' + esc(c.en) + "</span></button>").join("") +
           '</div><div class="bar"><button class="btn primary" type="button" data-sel-check>Check</button></div><div id="dayFb"></div>';
       } else if (item.type === "Reverse") {
-        item.right = card.en;
-        const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
-        view.innerHTML = choiceHtml("Russian → English", card.ru, shuffle(wrong.concat([card.en])), card.en);
+        if (custom && (custom.front || custom.back)) {
+          item.right = custom.back || "";
+          const opts = [custom.back || ""].filter(Boolean);
+          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== item.right)).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Russian → English", custom.front || "", shuffle(wrong.concat(opts)), item.right);
+        } else {
+          item.right = card.en;
+          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Russian → English", card.ru, shuffle(wrong.concat([card.en])), card.en);
+        }
       } else if (item.type === "Definition") {
-        item.right = card.en;
-        const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
-        view.innerHTML = choiceHtml("Which word is this?", meaningOf(card), shuffle(wrong.concat([card.en])), card.en);
+        if (custom && (custom.prompt || custom.answer)) {
+          item.right = custom.answer || "";
+          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== item.right)).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Which word is this?", custom.prompt || "", shuffle(wrong.concat([item.right].filter(Boolean))), item.right);
+        } else {
+          item.right = card.en;
+          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Which word is this?", meaningOf(card), shuffle(wrong.concat([card.en])), card.en);
+        }
       } else if (item.type === "Listen") {
-        item.right = card.ru;
-        const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
-        view.innerHTML = '<p class="prompt">Listen, then pick the translation</p><div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-speak>Play</button><span id="listenCard"></span></div>' +
-          choiceHtml("", "", shuffle(wrong.concat([card.ru])), card.ru).replace('<p class="prompt"></p>', "");
-        speakEnglish(card.speak || card.en);
+        if (custom && (custom.prompt || custom.answer)) {
+          item.right = custom.answer || "";
+          const speak = custom.prompt || card.speak || card.en;
+          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== item.right)).slice(0, 3).map((c) => c.ru);
+          view.innerHTML = '<p class="prompt">Listen, then pick the translation</p><div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-speak>Play</button><span id="listenCard"></span></div>' +
+            choiceHtml("", "", shuffle(wrong.concat([item.right].filter(Boolean))), item.right).replace('<p class="prompt"></p>', "");
+          speakEnglish(speak);
+        } else {
+          item.right = card.ru;
+          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
+          view.innerHTML = '<p class="prompt">Listen, then pick the translation</p><div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-speak>Play</button><span id="listenCard"></span></div>' +
+            choiceHtml("", "", shuffle(wrong.concat([card.ru])), card.ru).replace('<p class="prompt"></p>', "");
+          speakEnglish(card.speak || card.en);
+        }
       } else if (item.type === "Odd one out") {
         item.right = item.right;
         const art = /^[aeiou]/i.test(item.pos) ? "an" : "a";
-        view.innerHTML = choiceHtml("Which word is not " + art + " " + item.pos + "?", "", item.options.map((c) => c.en), item.right);
+        view.innerHTML = choiceHtml(custom ? "Odd one out" : ("Which word is not " + art + " " + item.pos + "?"), "", item.options.map((c) => c.en), item.right);
       } else if (item.type === "Spell") {
-        view.innerHTML = '<p class="prompt">Spell the word</p><p class="q">' + esc(scrambleLetters(card.en)) + '</p><p>' + esc(card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
+        const word = (custom && custom.word) || card.en;
+        item.right = word;
+        view.innerHTML = '<p class="prompt">Spell the word</p><p class="q">' + esc(scrambleLetters(word)) + '</p><p>' + esc(card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
       } else if (item.type === "Letters") {
-        if (!item.mask) item.mask = maskLetters(card.en);
+        const word = (custom && custom.word) || card.en;
+        item.right = word;
+        if (!item.mask) item.mask = maskLetters(word);
         view.innerHTML = '<p class="prompt">Fill the missing letters</p><p class="q">' + esc(item.mask) + '</p><p>' + esc(card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
       } else if (item.type === "Hangman") {
-        if (!item.answer) { item.answer = card.en; item.got = {}; item.missed = {}; item.misses = 0; }
+        if (!item.answer) { item.answer = (custom && custom.word) || card.en; item.got = {}; item.missed = {}; item.misses = 0; }
         paintHangman(item);
       } else if (item.type === "Memory") {
         paintMemory(item);
@@ -7050,7 +7755,11 @@
       }
       if (item.type === "Choice" || item.type === "Reverse" || item.type === "Definition" || item.type === "Listen" || item.type === "Odd one out") {
         if (item.type === "Listen" && e.target.closest("[data-listen-card]")) { openMistakeCard(item.card, "dayq"); return; }
-        if (item.type === "Listen" && e.target.closest("[data-speak]")) { speakEnglish(item.card.speak || item.card.en); return; }
+        if (item.type === "Listen" && e.target.closest("[data-speak]")) {
+          const speak = (item.custom && item.custom.prompt) || item.card.speak || item.card.en;
+          speakEnglish(speak);
+          return;
+        }
         const opt = e.target.closest("[data-opt]");
         if (!opt || document.getElementById("dayFb").innerHTML) return;
         document.querySelectorAll("#dayqView .opt").forEach((o) => o.classList.remove("ok", "bad"));
@@ -7059,21 +7768,29 @@
         markDay(opt.dataset.opt === "ok", item.right || (item.card && item.card.ru) || "");
       } else if (item.type === "Flip" && (e.target.closest("[data-flip-go]") || (e.target.closest(".flip-scene") && !e.target.closest("a, button")))) {
         const card = item.card;
+        const custom = item.custom;
         const gloss = meaningOf(card);
-        const back = card.ru || gloss;
+        const back = (custom && custom.back) || card.ru || gloss;
         const scene = e.target.closest("#dayqView") && e.target.closest("#dayqView").querySelector(".flip-scene");
         const box = document.getElementById("dayFlipBox");
         if (box && !box.dataset.filled) {
-          box.innerHTML = '<p class="q">' + esc(back) + "</p>" + ipaHtml(card) + (card.ru && gloss ? "<p>" + esc(gloss) + "</p>" : "");
+          box.innerHTML = custom
+            ? '<p class="q">' + esc(back) + "</p>"
+            : '<p class="q">' + esc(back) + "</p>" + ipaHtml(card) + (card.ru && gloss ? "<p>" + esc(gloss) + "</p>" : "");
           box.dataset.filled = "1";
         }
         if (scene) scene.classList.toggle("is-flipped");
       } else if (item.type === "Type" && e.target.closest("[data-type-go]")) {
         if (document.getElementById("dayFb").innerHTML) return;
-        markDay(item.card.accept ? formTypedOk(item.card, document.getElementById("dayType").value) : item.card.verb ? verbTypedOk(item.card, document.getElementById("dayType").value) : document.getElementById("dayType").value.trim().toLowerCase() === item.card.en.toLowerCase(), item.card.en);
+        if (item.custom && item.right != null) {
+          markDay(document.getElementById("dayType").value.trim().toLowerCase() === String(item.right).trim().toLowerCase(), item.right);
+        } else {
+          markDay(item.card.accept ? formTypedOk(item.card, document.getElementById("dayType").value) : item.card.verb ? verbTypedOk(item.card, document.getElementById("dayType").value) : document.getElementById("dayType").value.trim().toLowerCase() === item.card.en.toLowerCase(), item.card.en);
+        }
       } else if ((item.type === "Spell" || item.type === "Letters") && e.target.closest("[data-spell-go]")) {
         if (document.getElementById("dayFb").innerHTML) return;
-        markDay(document.getElementById("dayType").value.trim().toLowerCase() === item.card.en.toLowerCase(), item.card.en);
+        const right = item.right || item.card.en;
+        markDay(document.getElementById("dayType").value.trim().toLowerCase() === String(right).toLowerCase(), right);
       } else if (item.type === "Gap" && e.target.closest("[data-gap-go]")) {
         if (document.getElementById("dayFb").innerHTML) return;
         markDay(document.getElementById("dayGap").value.trim().toLowerCase() === String(item.answer).toLowerCase(), item.answer);
@@ -7084,16 +7801,19 @@
         if (fb.innerHTML) return;
         if (bank) { item.slot.push(item.bank.splice(Number(bank.dataset.bank), 1)[0]); paintBuild(item); }
         else if (slot) { item.bank.push(item.slot.splice(Number(slot.dataset.slot), 1)[0]); paintBuild(item); }
-        else if (e.target.closest("[data-build-check]")) markDay(item.slot.join(" ") === item.order.join(" "), item.order.join(" "));
+        else if (e.target.closest("[data-build-check]")) {
+          const right = item.buildAnswer || item.order.join(" ");
+          markDay(item.slot.join(" ") === right, right);
+        }
       } else if (item.type === "True / false") {
         const tf = e.target.closest("[data-tf]");
         if (!tf || document.getElementById("dayFb").innerHTML) return;
-        const right = (item.card && item.card.ru) || (item.ok ? "True" : "False");
+        const right = item.custom ? (item.ok ? "True" : "False") : ((item.card && item.card.ru) || (item.ok ? "True" : "False"));
         markDay((tf.dataset.tf === "true") === item.ok, right);
       } else if (item.type === "Tap") {
         const tap = e.target.closest("[data-tap]");
         if (!tap || document.getElementById("dayFb").innerHTML) return;
-        markDay(tap.dataset.tap === "ok", item.card.en);
+        markDay(tap.dataset.tap === "ok", (item.custom && item.custom.answer) || item.card.en);
       } else if (item.type === "Match") {
         const pair = e.target.closest(".pair");
         if (!pair || pair.classList.contains("ok")) return;
@@ -7298,6 +8018,7 @@
       stats.mistakes = Object.keys(loadMistakeMap()).map((key) => loadMistakeMap()[key]);
       try { stats.demonstratives = JSON.parse(localStorage.getItem("enquiz-demonstratives") || "null"); } catch (e) { stats.demonstratives = null; }
       try { stats.cardEdits = JSON.parse(localStorage.getItem(EDIT_KEY) || "null"); } catch (e) { stats.cardEdits = null; }
+      try { stats.cardQuizzes = JSON.parse(localStorage.getItem(CARD_QUIZ_KEY) || "null"); } catch (e) { stats.cardQuizzes = null; }
       try { stats.dayLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "null"); } catch (e) { stats.dayLinks = null; }
       stats.customThemes = loadCustomThemes();
       try { stats.hiddenLessons = JSON.parse(localStorage.getItem(HIDDEN_LESSONS_KEY) || "[]"); } catch (e) { stats.hiddenLessons = []; }
@@ -7412,6 +8133,7 @@
       if (window.paintDemonstratives) window.paintDemonstratives();
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
+      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: !viewAccount });
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
@@ -7426,6 +8148,7 @@
       paintHomeAccount();
       if (window.paintLmDays) window.paintLmDays();
       authSyncLock = false;
+      if (syncQueue.length) scheduleStateSave();
     }
     function personalCounts() {
       return {
@@ -7770,7 +8493,7 @@
       });
     }
     function viewKeys() {
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY];
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CARD_QUIZ_KEY, CUSTOM_THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY];
     }
     function stashDeveloper() {
       return idbGetStash().then((existing) => {
@@ -7845,6 +8568,7 @@
       else localStorage.removeItem("enquiz-demonstratives");
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
+      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: false });
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
@@ -8676,6 +9400,15 @@
       try { localEdits = JSON.parse(localStorage.getItem(EDIT_KEY) || "{}") || {}; } catch (e) { localEdits = {}; }
       if (!Object.keys(localEdits).length && state.stats && state.stats.cardEdits && Object.keys(state.stats.cardEdits).length) {
         try { localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits)); } catch (e) {}
+      }
+      const beforeQuizzes = JSON.stringify(loadCardQuizzes());
+      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: false });
+      const afterQuizzes = loadCardQuizzes();
+      if (JSON.stringify(afterQuizzes) !== beforeQuizzes || JSON.stringify(afterQuizzes) !== JSON.stringify(plainCardQuizMap(state.stats && state.stats.cardQuizzes))) {
+        const server = plainCardQuizMap(state.stats && state.stats.cardQuizzes);
+        if (JSON.stringify(afterQuizzes) !== JSON.stringify(server)) {
+          syncChange({ op: "put-setting", key: "cardQuizzes", value: afterQuizzes });
+        }
       }
       let localLinks = {};
       try { localLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "{}") || {}; } catch (e) { localLinks = {}; }
@@ -9523,7 +10256,25 @@
       const tag = link ? "button" : "div";
       return "<" + tag + ' class="g-topic tone-' + esc(tone) + '"' + attr + (link ? ' type="button"' : "") + "><b>" + esc(name) + '</b><span class="form">' + esc(form) + "</span></" + tag + ">";
     }
-    function lmBlank(type) {
+    function lmQuizBlankItem(quizType) {
+      const kind = quizType || "Choice";
+      if (kind === "Flip" || kind === "Reverse") return { front: "", back: "" };
+      if (kind === "Choice") return { prompt: "", options: ["", "", ""], answer: 0 };
+      if (kind === "Type" || kind === "Listen" || kind === "Definition") return { prompt: "", answer: "" };
+      if (kind === "Gap") return { shown: "", answer: "", hint: "" };
+      if (kind === "Build") return { parts: "", answer: "" };
+      if (kind === "Match" || kind === "Memory") return { left: "", right: "" };
+      if (kind === "True / false") return { prompt: "", answer: "true" };
+      if (kind === "Tap") return { text: "", answer: "" };
+      if (kind === "Select all") return { prompt: "", options: ["", "", ""], answers: [] };
+      if (kind === "Spell" || kind === "Letters" || kind === "Hangman") return { word: "" };
+      if (kind === "Odd one out") return { options: ["", "", "", ""], answer: 0 };
+      return { prompt: "", options: ["", "", ""], answer: 0 };
+    }
+    function lmQuizType(block) {
+      return (block && block.quizType) || "Choice";
+    }
+    function lmBlank(type, quizType) {
       const id = lmId();
       const base = { id: id, type: type, collapsed: false, tab: lmTab() };
       if (type === "heading") return Object.assign(base, { level: "h2", text: "New heading" });
@@ -9534,7 +10285,12 @@
       if (type === "video") return Object.assign(base, { source: "link", url: "", title: "", name: "", size: "" });
       if (type === "vocab") return Object.assign(base, { title: "Vocabulary", items: [{ word: "", translation: "", ipa: "", example: "" }] });
       if (type === "exercise") return Object.assign(base, { items: [{ prompt: "", kind: "choice", options: ["", "", ""], answer: 0, write: "" }] });
-      if (type === "quiz") return Object.assign(base, { title: "Quiz", items: [{ prompt: "", options: ["", "", ""], answer: 0 }] });
+      if (type === "quiz") {
+        const kind = quizType || "Choice";
+        const quiz = { title: kind, quizType: kind, items: [lmQuizBlankItem(kind)] };
+        if (kind === "Memory") quiz.memorySize = 4;
+        return Object.assign(base, quiz);
+      }
       if (type === "note") return Object.assign(base, { tone: "tip", text: "" });
       if (type === "dialogue") return Object.assign(base, { title: "Dialogue", lines: [{ speaker: "", text: "" }] });
       if (type === "pronunciation") return Object.assign(base, { word: "", ipa: "", name: "", size: "" });
@@ -9544,12 +10300,12 @@
       if (type === "phrase") return Object.assign(base, { items: [{ phrase: "", meaning: "", example: "" }] });
       return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }], type: "cards" });
     }
-    function lmNewItem(kind) {
+    function lmNewItem(kind, quizType) {
       if (kind === "vocab") return { word: "", translation: "", ipa: "", example: "" };
       if (kind === "dialogue") return { speaker: "", text: "" };
       if (kind === "phrase") return { phrase: "", meaning: "", example: "" };
       if (kind === "exercise") return { prompt: "", kind: "choice", options: ["", "", ""], answer: 0, write: "" };
-      if (kind === "quiz") return { prompt: "", options: ["", "", ""], answer: 0 };
+      if (kind === "quiz") return lmQuizBlankItem(quizType || "Choice");
       return { front: "", back: "", example: "" };
     }
     function lmSummary(block) {
@@ -9567,7 +10323,13 @@
       if (block.type === "phrase") return (block.items || []).map((row) => row.phrase).filter(Boolean).join(" · ") || "Phrase";
       if (block.type === "wordcard") return block.word || "Word";
       if (block.type === "rule") return block.name || "Rule";
-      if (block.type === "exercise" || block.type === "quiz") return (block.items || []).map((row) => row.prompt).filter(Boolean).join(" · ") || (block.title || "Questions");
+      if (block.type === "exercise") return (block.items || []).map((row) => row.prompt).filter(Boolean).join(" · ") || "Questions";
+      if (block.type === "quiz") {
+        const kind = lmQuizType(block);
+        const items = block.items || [];
+        const bits = items.map((row) => row.prompt || row.front || row.word || row.shown || row.text || row.left || row.definition || "").filter(Boolean);
+        return (kind + (bits.length ? " · " + bits.join(" · ") : "")) || block.title || "Quiz";
+      }
       return (block.items || []).map((card) => card.front).filter(Boolean).join(" · ") || "Cards";
     }
     function lmEmbed(url) {
@@ -9599,10 +10361,17 @@
     function lmLinkCard(block, href) {
       const title = block.title || href || "Link";
       const host = lmHostLabel(href);
-      const note = block.description || host || href;
-      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noreferrer" data-link-preview="' + esc(href) + '">' +
+      const note = block.description || "";
+      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noreferrer" data-link-preview="' + esc(href) + '"' + (note ? ' data-keep-desc="1"' : "") + '>' +
         '<span class="lm-link-card-media" aria-hidden="true"></span>' +
-        '<span class="lm-link-card-copy"><b>' + esc(title) + "</b><small class=\"lm-link-card-host\">" + esc(host) + "</small><span class=\"lm-link-card-desc\">" + esc(note) + "</span></span></a>";
+        '<span class="lm-link-card-copy"><b>' + esc(title) + '</b><span class="lm-link-card-desc">' + esc(note) + '</span><small class="lm-link-card-host">' + esc(host) + "</small></span></a>";
+    }
+    function lmDecodeEntities(text) {
+      const value = String(text || "");
+      if (!value || value.indexOf("&") < 0) return value;
+      const box = document.createElement("textarea");
+      box.innerHTML = value;
+      return box.value;
     }
     function lmHydrateLinkPreviews(root) {
       const box = root || document.getElementById("lmPreview");
@@ -9617,9 +10386,11 @@
           const host = card.querySelector(".lm-link-card-host");
           const desc = card.querySelector(".lm-link-card-desc");
           const media = card.querySelector(".lm-link-card-media");
-          if (title && data.title && card.getAttribute("data-keep-title") !== "1") title.textContent = data.title;
+          if (title && data.title && card.getAttribute("data-keep-title") !== "1") title.textContent = lmDecodeEntities(data.title);
           if (host && data.host) host.textContent = data.host;
-          if (desc) desc.textContent = data.description || data.host || "";
+          if (desc && card.getAttribute("data-keep-desc") !== "1") {
+            desc.textContent = lmDecodeEntities(data.description || "") || data.host || "";
+          }
           if (media && data.image) {
             media.style.backgroundImage = "url(\"" + String(data.image).replace(/"/g, "%22") + "\")";
             media.classList.add("has-image");
@@ -9684,6 +10455,77 @@
       const options = question.options || [];
       return '<div class="lm-opts">' + options.map((opt, oi) => '<label class="lm-opt"><input type="radio" name="ans-' + block.id + "-" + index + '" data-correct="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.answer) === oi ? " checked" : "") + ' /><input type="text" data-opt="' + block.id + ":" + index + ":" + oi + '" value="' + esc(opt) + '" placeholder="Option" /></label>').join("") + '</div><button class="lm-add-card" type="button" data-opt-add="' + block.id + ":" + index + '">+ Option</button>';
     }
+    function lmSelectAllEditor(block, index) {
+      const question = block.items[index];
+      const options = question.options || [];
+      const answers = Array.isArray(question.answers) ? question.answers.map(Number) : [];
+      return '<div class="lm-opts">' + options.map((opt, oi) => '<label class="lm-opt"><input type="checkbox" data-select-ans="' + block.id + ":" + index + ":" + oi + '"' + (answers.indexOf(oi) >= 0 ? " checked" : "") + ' /><input type="text" data-opt="' + block.id + ":" + index + ":" + oi + '" value="' + esc(opt) + '" placeholder="Option" /></label>').join("") + '</div><button class="lm-add-card" type="button" data-opt-add="' + block.id + ":" + index + '">+ Option</button>';
+    }
+    function lmOddEditor(block, index) {
+      const question = block.items[index];
+      const options = question.options || [];
+      return '<div class="lm-opts">' + options.map((opt, oi) => '<label class="lm-opt"><input type="radio" name="odd-' + block.id + "-" + index + '" data-correct="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.answer) === oi ? " checked" : "") + ' /><input type="text" data-opt="' + block.id + ":" + index + ":" + oi + '" value="' + esc(opt) + '" placeholder="Option" /></label>').join("") + '</div><button class="lm-add-card" type="button" data-opt-add="' + block.id + ":" + index + '">+ Option</button>';
+    }
+    function lmQuizItemEditor(block, index) {
+      const kind = lmQuizType(block);
+      const item = block.items[index];
+      if (kind === "Flip" || kind === "Reverse") {
+        return lmItemField(block, "items", index, "front", kind === "Reverse" ? "Russian" : "Front", true) +
+          lmItemField(block, "items", index, "back", kind === "Reverse" ? "English" : "Back", true);
+      }
+      if (kind === "Choice") {
+        return lmItemField(block, "items", index, "prompt", "Question", true) + lmChoiceEditor(block, index);
+      }
+      if (kind === "Type" || kind === "Listen") {
+        return lmItemField(block, "items", index, "prompt", kind === "Listen" ? "Prompt / transcript" : "Prompt", true) +
+          lmItemField(block, "items", index, "answer", "Answer", true);
+      }
+      if (kind === "Definition") {
+        return lmItemField(block, "items", index, "prompt", "Definition", true) +
+          lmItemField(block, "items", index, "answer", "Word", true);
+      }
+      if (kind === "Gap") {
+        return lmItemField(block, "items", index, "shown", "Sentence with ___", true) +
+          lmItemField(block, "items", index, "answer", "Missing word", true) +
+          lmItemField(block, "items", index, "hint", "Hint", true);
+      }
+      if (kind === "Build") {
+        return lmItemField(block, "items", index, "parts", "Parts (space-separated)", true) +
+          lmItemField(block, "items", index, "answer", "Correct sentence", true);
+      }
+      if (kind === "Match" || kind === "Memory") {
+        return lmItemField(block, "items", index, "left", "Left", true) +
+          lmItemField(block, "items", index, "right", "Right", true);
+      }
+      if (kind === "True / false") {
+        const yes = String(item.answer) !== "false";
+        return lmItemField(block, "items", index, "prompt", "Statement", true) +
+          '<label>Answer<select data-item-field="answer" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="true"' + (yes ? " selected" : "") + '>True</option><option value="false"' + (yes ? "" : " selected") + ">False</option></select></label>";
+      }
+      if (kind === "Tap") {
+        return lmItemField(block, "items", index, "text", "Sentence", true) +
+          lmItemField(block, "items", index, "answer", "Word to tap", true);
+      }
+      if (kind === "Select all") {
+        return lmItemField(block, "items", index, "prompt", "Question", true) + lmSelectAllEditor(block, index);
+      }
+      if (kind === "Spell" || kind === "Letters" || kind === "Hangman") {
+        return lmItemField(block, "items", index, "word", "Word", true);
+      }
+      if (kind === "Odd one out") {
+        return '<p class="lm-note">Mark the odd one out.</p>' + lmOddEditor(block, index);
+      }
+      return lmItemField(block, "items", index, "prompt", "Question", true) + lmChoiceEditor(block, index);
+    }
+    function lmQuizItems(block) {
+      const kind = lmQuizType(block);
+      const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : "+ Add card";
+      const memory = kind === "Memory" ? '<label>Pairs in one set<input type="number" min="2" data-field="memorySize" data-block="' + block.id + '" value="' + esc(String(block.memorySize || 4)) + '" /></label>' : "";
+      const rows = (block.items || []).map((item, index) =>
+        '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
+      ).join("");
+      return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
+    }
     function lmHead(block, label) {
       return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span><div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down">↓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button><button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
     }
@@ -9707,7 +10549,7 @@
       if (block.type === "audio") return lmFileTitle(block) + lmFileBox(block, "audio/*", "Drop audio here", "audio");
       if (block.type === "file") return lmFileTitle(block) + lmFileBox(block, "*/*", "Drop a file here", "");
       if (block.type === "link") {
-        return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>URL<input type="text" data-field="url" data-block="' + block.id + '" value="' + esc(block.url || "") + '" placeholder="https://" /></label><label>Description<input type="text" data-field="description" data-block="' + block.id + '" value="' + esc(block.description || "") + '" /></label>';
+        return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>Description<input type="text" data-field="description" data-block="' + block.id + '" value="' + esc(block.description || "") + '" /></label><label>URL<input type="text" data-field="url" data-block="' + block.id + '" value="' + esc(block.url || "") + '" placeholder="https://" /></label>';
       }
       if (block.type === "video") {
         const link = block.source !== "file";
@@ -9731,9 +10573,11 @@
       if (block.type === "phrase") return '<div class="lm-card-list">' + lmItemRows(block, "items", [["phrase", "Phrase"], ["meaning", "Meaning"], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':phrase">+ Add phrase</button>';
       if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
       if (block.type === "rule") return lmRuleCardHtml(block, false);
-      if (block.type === "exercise" || block.type === "quiz") {
-        const title = block.type === "quiz" ? '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label>' : "";
-        return title + '<div class="lm-card-list">' + lmQuestions(block) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ":" + block.type + '">+ Add question</button>';
+      if (block.type === "exercise") {
+        return '<div class="lm-card-list">' + lmQuestions(block) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':exercise">+ Add question</button>';
+      }
+      if (block.type === "quiz") {
+        return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || lmQuizType(block)) + '" /></label>' + lmQuizItems(block);
       }
       const rows = (block.items || []).map((card, index) => '<div class="lm-card-row"><div class="lm-card-fields"><label>Front<input type="text" data-card-field="front" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.front || "") + '" /></label><label>Back<input type="text" data-card-field="back" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.back || "") + '" /></label><label>Example<input type="text" data-card-field="example" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.example || "") + '" /></label></div><div class="lm-card-actions"><button class="lm-icon" type="button" data-card-up="' + block.id + ":" + index + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-card-down="' + block.id + ":" + index + '" aria-label="Move down">↓</button><button class="lm-icon danger" type="button" data-card-del="' + block.id + ":" + index + '" aria-label="Delete">×</button></div></div>').join("");
       return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-card-add="' + block.id + '">+ Add card</button>';
@@ -9754,7 +10598,10 @@
       }
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
-      box.innerHTML = blocks.length ? blocks.map((block) => '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, labels[block.type] || "Block") + '<div class="lm-body">' + lmBody(block) + "</div></article>").join("") : '<p class="hint">Nothing on this page yet.</p>';
+      box.innerHTML = blocks.length ? blocks.map((block) => {
+        const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
+        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, label) + '<div class="lm-body">' + lmBody(block) + "</div></article>";
+      }).join("") : '<p class="hint">Nothing on this page yet.</p>';
       dressWords(box);
       lmPaintTabTools();
     }
@@ -9844,8 +10691,26 @@
         return questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>';
       }
       if (block.type === "quiz") {
-        const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
-        return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+        const kind = lmQuizType(block);
+        const title = block.title ? "<h3>" + esc(block.title) + "</h3>" : "<h3>" + esc(kind) + "</h3>";
+        if (kind === "Choice" || (!block.quizType && (block.items || []).some((row) => row.options))) {
+          const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
+          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+        }
+        const cards = (block.items || []).map((item) => {
+          if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
+          if (kind === "Type" || kind === "Listen" || kind === "Definition") return '<article class="lm-read-card"><b>' + esc(item.prompt || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
+          if (kind === "Gap") return '<article class="lm-read-card"><b>' + esc(item.shown || "") + "</b><span>" + esc(item.answer || "") + "</span><i>" + esc(item.hint || "") + "</i></article>";
+          if (kind === "Build") return '<article class="lm-read-card"><b>' + esc(item.parts || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
+          if (kind === "Match" || kind === "Memory") return '<article class="lm-read-card"><b>' + esc(item.left || "") + "</b><span>" + esc(item.right || "") + "</span></article>";
+          if (kind === "True / false") return '<article class="lm-read-card"><b>' + esc(item.prompt || "") + "</b><span>" + esc(String(item.answer) === "false" ? "False" : "True") + "</span></article>";
+          if (kind === "Tap") return '<article class="lm-read-card"><b>' + esc(item.text || "") + '</b><span>Tap: ' + esc(item.answer || "") + '</span></article>';
+          if (kind === "Select all") return '<article class="lm-read-card"><b>' + esc(item.prompt || "") + "</b><span>" + esc((item.options || []).filter(Boolean).join(" · ")) + "</span></article>";
+          if (kind === "Spell" || kind === "Letters" || kind === "Hangman") return '<article class="lm-read-card"><b>' + esc(item.word || "") + "</b></article>";
+          if (kind === "Odd one out") return '<article class="lm-read-card"><b>' + esc((item.options || []).filter(Boolean).join(" · ")) + '</b><span>Odd: ' + esc((item.options || [])[Number(item.answer)] || "") + '</span></article>';
+          return '<article class="lm-read-card"><b>' + esc(item.prompt || item.front || item.word || "") + "</b></article>";
+        }).join("");
+        return title + '<p class="lm-note">' + esc(kind) + (kind === "Memory" ? " · " + (block.memorySize || 4) + " pairs" : "") + '</p><div class="lm-read-cards">' + cards + "</div>";
       }
       if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
       if (block.type === "rule") return lmRuleCardHtml(block, true);
@@ -9919,7 +10784,7 @@
     function lmOpenDayQuiz() {
       lmEnsure();
       if (!lmState) return;
-      const cards = lmQuizCards();
+      const cards = mergeCardQuizCards(lmQuizCards());
       dayPoolOverride = cards;
       dayQuizPlace = "material";
       studyTitle = "This day's quiz";
@@ -10380,7 +11245,10 @@
         const field = event.target.closest("[data-field]");
         if (field) {
           const block = lmBlock(field.dataset.block);
-          if (block) block[field.dataset.field] = field.value;
+          if (block) {
+            if (field.dataset.field === "memorySize") block.memorySize = Math.max(2, Number(field.value) || 4);
+            else block[field.dataset.field] = field.value;
+          }
           if (field.tagName === "SELECT") lmRenderEditor();
           lmSchedule();
           return;
@@ -10468,6 +11336,21 @@
           const block = lmBlock(bits[0]);
           const question = block && block.items && block.items[Number(bits[1])];
           if (question) question.answer = Number(bits[2]);
+          lmSchedule();
+        }
+        const selectAns = event.target.closest("[data-select-ans]");
+        if (selectAns) {
+          const bits = selectAns.dataset.selectAns.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            const oi = Number(bits[2]);
+            const answers = Array.isArray(question.answers) ? question.answers.map(Number) : [];
+            const at = answers.indexOf(oi);
+            if (selectAns.checked && at < 0) answers.push(oi);
+            if (!selectAns.checked && at >= 0) answers.splice(at, 1);
+            question.answers = answers;
+          }
           lmSchedule();
         }
         const pick = event.target.closest("[data-pick]");
@@ -10578,7 +11461,11 @@
         if (itemAdd) {
           const bits = itemAdd.dataset.itemAdd.split(":");
           const block = lmBlock(bits[0]);
-          if (block) lmList(block, bits[1] === "dialogue" ? "lines" : "items").push(lmNewItem(bits[1]));
+          if (block) {
+            const kind = bits[1];
+            if (kind === "quiz") lmList(block, "items").push(lmNewItem("quiz", lmQuizType(block)));
+            else lmList(block, kind === "dialogue" ? "lines" : "items").push(lmNewItem(kind));
+          }
           lmRenderEditor();
           lmSchedule();
           return;
@@ -10678,7 +11565,10 @@
           return;
         }
         if (!event.target.closest(".lm-pop") && !event.target.closest("[data-lm-menu]")) lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
-        if (!event.target.closest(".lm-add-wrap")) { const picker = document.getElementById("lmPicker"); if (picker) picker.hidden = true; }
+        if (!event.target.closest(".lm-add-wrap")) {
+          const picker = document.getElementById("lmPicker");
+          if (picker) picker.hidden = true;
+        }
       });
       lmRoot.addEventListener("dragstart", (event) => {
         const block = event.target.closest(".lm-block");

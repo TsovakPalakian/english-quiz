@@ -1062,9 +1062,25 @@ function pickMeta(html, names) {
     const re1 = new RegExp("<meta[^>]+(?:property|name)=[\"']" + name + "[\"'][^>]+content=[\"']([^\"']+)[\"']", "i");
     const re2 = new RegExp("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+(?:property|name)=[\"']" + name + "[\"']", "i");
     const match = source.match(re1) || source.match(re2);
-    if (match && match[1]) return match[1].trim();
+    if (match && match[1]) return decodeHtmlEntities(match[1].trim());
   }
   return "";
+}
+
+function decodeHtmlEntities(text) {
+  return String(text || "")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try { return String.fromCodePoint(parseInt(hex, 16)); } catch (e) { return ""; }
+    })
+    .replace(/&#(\d+);/g, (_, num) => {
+      try { return String.fromCodePoint(Number(num)); } catch (e) { return ""; }
+    })
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ");
 }
 
 function absolutizeUrl(base, value) {
@@ -1489,6 +1505,30 @@ async function studyPair(env, login) {
 }
 
 const PAIR_SETTINGS_KEY = "pair/tsovak-settings.json";
+const SHARED_CARD_QUIZZES_KEY = "shared/card-quizzes.json";
+
+function plainCardQuizzes(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value;
+}
+
+async function readSharedCardQuizzes(env) {
+  if (!env.MEDIA) return {};
+  const object = await env.MEDIA.get(SHARED_CARD_QUIZZES_KEY);
+  if (!object) return {};
+  try {
+    return plainCardQuizzes(JSON.parse(await object.text()));
+  } catch (e) {
+    return {};
+  }
+}
+
+async function writeSharedCardQuizzes(env, map) {
+  if (!env.MEDIA) return {};
+  const next = plainCardQuizzes(map);
+  await env.MEDIA.put(SHARED_CARD_QUIZZES_KEY, JSON.stringify(next), { httpMetadata: { contentType: "application/json" } });
+  return next;
+}
 
 async function readPairSettings(env) {
   if (!env.MEDIA) return null;
@@ -1522,6 +1562,8 @@ function mergePairSettings(devStats, otherStats) {
   else if (other.demonstratives != null) settings.demonstratives = other.demonstratives;
   if (dev.dayLinks != null) settings.dayLinks = dev.dayLinks;
   else if (other.dayLinks != null) settings.dayLinks = other.dayLinks;
+  const cardQuizzes = Object.assign({}, plainCardQuizzes(other.cardQuizzes), plainCardQuizzes(dev.cardQuizzes));
+  if (Object.keys(cardQuizzes).length) settings.cardQuizzes = cardQuizzes;
   return settings;
 }
 
@@ -1533,6 +1575,7 @@ function applyPairSettings(state, settings) {
   if (saved.lyricSize != null) stats.lyricSize = saved.lyricSize;
   if (saved.demonstratives != null) stats.demonstratives = saved.demonstratives;
   if (saved.dayLinks != null) stats.dayLinks = saved.dayLinks;
+  if (saved.cardQuizzes != null) stats.cardQuizzes = plainCardQuizzes(saved.cardQuizzes);
   state.stats = stats;
   return state;
 }
@@ -1545,6 +1588,7 @@ function settingsFromStats(stats) {
   if (src.lyricSize != null) settings.lyricSize = src.lyricSize;
   if (src.demonstratives != null) settings.demonstratives = src.demonstratives;
   if (src.dayLinks != null) settings.dayLinks = src.dayLinks;
+  if (src.cardQuizzes != null) settings.cardQuizzes = plainCardQuizzes(src.cardQuizzes);
   return settings;
 }
 
@@ -1810,6 +1854,12 @@ async function myState(env, request, ctx) {
     const settings = await readPairSettings(env);
     if (settings) applyPairSettings(shown, settings);
   }
+  try {
+    const sharedQuizzes = await readSharedCardQuizzes(env);
+    const stats = Object.assign({}, plainObject(shown.stats));
+    stats.cardQuizzes = sharedQuizzes;
+    shown.stats = stats;
+  } catch (e) {}
   shown.songs = await songsForLogin(env, user.login, shown.songs);
   return json(await withVisibleThemes(env, user.login, shown));
 }
@@ -1905,6 +1955,7 @@ function applyStateOp(state, body) {
     if (body.key === "lyricSize") stats.lyricSize = body.value;
     else if (body.key === "demonstratives") stats.demonstratives = body.value;
     else if (body.key === "dayLinks") stats.dayLinks = body.value;
+    else if (body.key === "cardQuizzes") stats.cardQuizzes = body.value && typeof body.value === "object" ? body.value : {};
     else if (body.key === "customThemes") stats.customThemes = cleanCustomThemes(body.value);
     else if (body.key === "theme") {
       const theme = cleanThemeName(body.value);
@@ -1940,6 +1991,9 @@ async function saveState(env, request, body, ctx) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   if (pairViewOnly(user) && pairBlockedOp(body)) return json({ error: "You cannot do that." }, 403);
+  if (body && body.op === "put-setting" && body.key === "cardQuizzes") {
+    if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
+  }
   return writeStateOp(env, user.id, body, studyTwinLogin(user.login), ctx);
 }
 
@@ -2048,11 +2102,24 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
         const rejected = applyStateOp(scratch, body);
         if (rejected) return rejected;
         const next = settingsFromStats(scratch.stats);
+        if (body.key === "cardQuizzes") {
+          next.cardQuizzes = await writeSharedCardQuizzes(env, body.value);
+          scratch.stats.cardQuizzes = next.cardQuizzes;
+        }
         await writePairSettings(env, next);
         await projectPairSettings(env, pair.self.id, next);
         await projectPairSettings(env, pair.twin.id, next);
         return json({ ok: true });
       }
+    }
+    if (op === "put-setting" && body.key === "cardQuizzes") {
+      const shared = await writeSharedCardQuizzes(env, body.value);
+      const state = await readAccountFile(env, userId) || emptyState();
+      const stats = Object.assign({}, plainObject(state.stats));
+      stats.cardQuizzes = shared;
+      state.stats = stats;
+      await writeAccountFile(env, userId, state);
+      return json({ ok: true });
     }
     if (pairLogin && studyMaterialOp(op)) {
       const pair = await studyPair(env, pairLogin);

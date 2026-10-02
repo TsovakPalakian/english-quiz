@@ -1549,7 +1549,7 @@ a.btn { text-decoration: none; }
 .word-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
 .word-head .entry { font-size: 40px; font-weight: 800; }
 .word-head .pos { margin: 2px 0 0; }
-.word-copy { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex: 1; min-width: 0; gap: 2px; }
+.word-copy { display: flex; flex-direction: column; align-items: flex-start; text-align: left; flex: 1; min-width: 0; gap: 2px; }
 .word-copy .entry { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .word-ru { margin: 0; font-weight: 800; }
 .wcard .en { font-size: 16px; font-weight: 800; }
@@ -1637,6 +1637,12 @@ a.btn { text-decoration: none; }
   align-self: center;
 }
 .q { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin: 0 0 12px; line-height: 1.15; }
+#madeView .gen .q {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
 .listen-word {
   display: inline;
   border: 0;
@@ -1768,6 +1774,112 @@ input[type="text"], input[type="search"], input[type="password"], input[type="em
 }
 .g-form th, .g-table th, .demo-table th, .stat-table th { font-size: 13px; color: var(--mute); font-weight: 700; }
 .funnel-step { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.card-quiz-box {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.card-quiz-box > .btn { margin: 8px 0; }
+.card-quiz-picker {
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+}
+.card-quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.card-quiz-grid button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--acc-s);
+  color: var(--acc);
+  font-weight: 800;
+}
+.card-quiz-item {
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+.card-quiz-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.card-quiz-type {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.card-quiz-actions { margin: 0; flex: none; }
+.card-quiz-item.is-collapsed { padding: 10px 12px; }
+.card-quiz-item.is-editing .card-quiz-head { margin-bottom: 10px; }
+.card-quiz-note { margin: 6px 0 0; }
+.card-quiz-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.card-quiz-pair:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.card-quiz-pair-fields { min-width: 0; }
+.card-quiz-pair .icon-btn {
+  margin-top: 28px;
+  width: 36px;
+  height: 36px;
+  background: var(--bad-s);
+  color: var(--bad);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.card-quiz-item [data-card-quiz-pair-add] { margin: 0 0 4px; }
+.card-quiz-actions .icon-btn { width: 36px; height: 36px; background: var(--acc-s); color: var(--acc); }
+.card-quiz-actions .icon-btn[data-card-quiz-del] {
+  background: var(--bad-s);
+  color: var(--bad);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+#wordView,
+#musicView,
+#madeView,
+#verbList,
+.card-edit-shell { position: relative; }
+.card-edit {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+.card-edit .edit-actions { gap: 8px; }
+.card-edit [data-edit-form] {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  width: min(320px, calc(100vw - 64px));
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, .12);
+  z-index: 4;
+}
+#wordView .card-edit ~ .word-head,
+#musicView .card-edit ~ .word-head,
+.card-edit-shell > h2 { padding-right: 104px; }
 .variant-box {
   display: flex;
   flex-direction: column;
@@ -2165,7 +2277,7 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-card-fields label:last-child { grid-column: 1 / -1; }
 .lm-card-actions { display: flex; flex-direction: column; gap: 4px; padding-top: 22px; }
 .lm-add-card { margin-top: 8px; border: 0; background: transparent; color: var(--lm); font-weight: 800; padding: 8px 0; }
-.lm-add-wrap { position: relative; display: flex; justify-content: center; margin: 8px 0 16px; }
+.lm-add-wrap { position: relative; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
 .lm-picker { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 48px)); max-height: min(68vh, 480px); overflow: auto; background: var(--card); border: 1px solid var(--lm-line); border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(15, 23, 42, .12); z-index: 4; }
 .lm-picker p { margin: 0 0 10px; font-weight: 800; }
 .lm-picker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
