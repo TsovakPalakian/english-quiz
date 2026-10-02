@@ -1721,6 +1721,14 @@ function applyStateOp(state, body) {
       if (!theme) return json({ error: "The request was not valid." }, 400);
       stats.theme = theme;
     }
+    else if (body.key === "hiddenLessons") {
+      const list = Array.isArray(body.value) ? body.value : [];
+      stats.hiddenLessons = list.map((id) => String(id || "").trim()).filter(Boolean).slice(0, 200);
+    }
+    else if (body.key === "allowedLessons") {
+      const list = Array.isArray(body.value) ? body.value : [];
+      stats.allowedLessons = list.map((id) => String(id || "").trim()).filter(Boolean).slice(0, 200);
+    }
     else return json({ error: "The request was not valid." }, 400);
     return null;
   }
@@ -1841,7 +1849,7 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
         body
       );
     }
-    if (pairLogin && op === "put-setting") {
+    if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons") {
       const pair = await studyPair(env, pairLogin);
       if (pair) {
         const settings = await readPairSettings(env) || {};

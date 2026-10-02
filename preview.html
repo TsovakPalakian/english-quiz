@@ -304,7 +304,7 @@
           <button class="btn chip" type="button">Listen</button>
           <button class="btn chip" type="button">Definition</button>
           <button class="btn chip" type="button">Odd one out</button>
-          <button class="btn chip" type="button">Memory</button>
+          <button class="btn chip chip-mem" type="button" data-quiz-type="Memory">Memory <input class="chip-n" type="number" min="2" value="4" data-memory-size aria-label="Words per Memory block"></button>
           <button class="btn chip" type="button">Hangman</button>
         </div>
         <p class="label" style="margin:14px 0 6px">How to combine</p>
@@ -533,7 +533,6 @@
             <button class="lm-btn" type="button" id="lmSave">Save draft</button>
             <button class="lm-btn lm-btn-primary" type="button" id="lmPublish">Publish</button>
             <button class="lm-btn" type="button" id="lmEditBack" hidden>Back to editor</button>
-            <button class="lm-btn danger" type="button" id="lmDelete" hidden>Delete</button>
           </div>
         </div>
         <div id="lmEditor">
@@ -551,8 +550,17 @@
               <label>Lesson<input id="lmLesson" type="text" data-meta="lesson" maxlength="40" /></label>
             </div>
           </section>
+          <div id="lmChromeSlot"></div>
           <section class="lm-sheet lm-sheet-blocks">
-            <div class="lm-content-head"><h2>Content</h2><span id="lmStatus" class="lm-status">Draft</span></div>
+            <div class="lm-content-head"><h2 id="lmPageTitle">Overview</h2><span id="lmStatus" class="lm-status">Draft</span></div>
+            <div id="lmWordAdd" class="lm-word-add" hidden>
+              <input type="text" id="lmWordInput" placeholder="One word" autocomplete="off" />
+              <button class="lm-btn lm-btn-primary" type="button" id="lmWordGo">Look up</button>
+              <p class="hint" id="lmWordStatus"></p>
+            </div>
+            <div id="lmRuleAdd" hidden>
+              <div id="lmGrammarNav"></div>
+            </div>
             <div id="lmBlocks"></div>
             <div class="lm-add-wrap">
               <button class="lm-add" type="button" id="lmAdd">+ Add content</button>
@@ -595,8 +603,8 @@
       <div class="tags"><span>#weather</span><span>#small-talk</span><span>#likes</span><span>#present-continuous</span></div>
       <div class="seg" role="tablist" aria-label="This day">
         <button type="button" data-day-tab="overview" class="on" role="tab" aria-selected="true">Overview</button>
-        <button type="button" data-day-tab="phrases" role="tab" aria-selected="false">Phrases</button>
         <button type="button" data-day-tab="words" role="tab" aria-selected="false">Words</button>
+        <button type="button" data-day-tab="phrases" role="tab" aria-selected="false">Phrases</button>
         <button type="button" data-day-tab="rules" role="tab" aria-selected="false">Rules</button>
       </div>
       <div data-day-panel="overview">
@@ -703,7 +711,7 @@
           <button class="btn chip" type="button">Listen</button>
           <button class="btn chip" type="button">Definition</button>
           <button class="btn chip" type="button">Odd one out</button>
-          <button class="btn chip" type="button">Memory</button>
+          <button class="btn chip chip-mem" type="button" data-quiz-type="Memory">Memory <input class="chip-n" type="number" min="2" value="4" data-memory-size aria-label="Words per Memory block"></button>
           <button class="btn chip" type="button">Hangman</button>
         </div>
         <p class="label" style="margin:14px 0 6px">How to combine</p>

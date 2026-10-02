@@ -853,6 +853,8 @@
     THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
     const THEME_KEY = "enquiz-theme";
     const CUSTOM_THEME_KEY = "enquiz-custom-themes";
+    const HIDDEN_LESSONS_KEY = "enquiz-hidden-lessons";
+    const ALLOWED_LESSONS_KEY = "enquiz-allowed-lessons";
     const CUSTOM_COLOR_KEYS = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc", "--photo-wash"];
     function clampNum(n, a, b) { return Math.max(a, Math.min(b, n)); }
     function hexByte(n) { return clampNum(Math.round(n), 0, 255).toString(16).padStart(2, "0"); }
@@ -1487,6 +1489,8 @@
       }
       const lmDeleteBtn = e.target.closest("[data-lm-delete]");
       if (lmDeleteBtn && window.lmDeleteLesson) { window.lmDeleteLesson(lmDeleteBtn.dataset.lmDelete); return; }
+      const lmHideBtn = e.target.closest("[data-lm-hide]");
+      if (lmHideBtn && window.lmHideLesson) { window.lmHideLesson(lmHideBtn.dataset.lmHide); return; }
       const lmOpenBtn = e.target.closest("[data-lm-open]");
       if (lmOpenBtn && window.lmOpenLesson) { window.lmOpenLesson(lmOpenBtn.dataset.lmOpen); return; }
       const jump = e.target.closest("[data-jump]");
@@ -1541,6 +1545,11 @@
       if (more) {
         const box = document.getElementById(more.dataset.typesMore);
         if (box) box.hidden = !box.hidden;
+        return;
+      }
+      if (e.target.closest("[data-memory-size]")) {
+        const chip = e.target.closest(".chip");
+        if (chip) chip.classList.add("on");
         return;
       }
       const btn = e.target.closest(".chip");
@@ -3889,6 +3898,15 @@
         else openUsages(item.word, item.ru);
         return;
       }
+      const lmWord = e.target.closest("[data-lm-word]");
+      if (lmWord) {
+        const block = lmBlock(lmWord.dataset.lmWord);
+        if (!block || block.type !== "wordcard") return;
+        const item = { word: block.word, ru: block.ru || "", data: block.data || {} };
+        if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
+        else openUsages(item.word, item.ru);
+        return;
+      }
       const openAdd = e.target.closest("[data-add-open]");
       if (openAdd) {
         const form = openAdd.parentElement.querySelector("[data-add-form]");
@@ -6182,8 +6200,21 @@
           } else queue.push({ type: type, card: card, line: lineOf(card) });
         });
       });
-      if (types.indexOf("Match") >= 0 && cards.length >= 2) {
-        queue.push({ type: "Match", pairs: cards.slice(0, Math.min(4, cards.length)).map((c, i) => ({ id: String(i), en: c.en, ru: c.ru })) });
+      if (types.indexOf("Match") >= 0) {
+        const matchable = cards.filter((c) => c.en && c.ru);
+        const size = 4;
+        for (let i = 0; i < matchable.length; ) {
+          let n = Math.min(size, matchable.length - i);
+          if (matchable.length - (i + n) === 1) n += 1;
+          const chunk = matchable.slice(i, i + n);
+          if (chunk.length >= 2) {
+            queue.push({
+              type: "Match",
+              pairs: chunk.map((c, j) => ({ id: String(i + j), en: c.en, ru: c.ru }))
+            });
+          }
+          i += n;
+        }
       }
       if (types.indexOf("Select all") >= 0) {
         const posed = cards.filter((c) => c.pos);
@@ -6215,10 +6246,19 @@
         }
       }
       if (types.indexOf("Memory") >= 0) {
-        const paired = cards.filter((c) => c.en && c.ru).slice(0, 4);
-        if (paired.length >= 2) {
-          const faces = shuffle(paired.reduce((all, c, i) => all.concat([{ id: String(i), text: c.en }, { id: String(i), text: c.ru }]), []));
-          queue.push({ type: "Memory", faces: faces, open: [], done: {} });
+        const matchable = cards.filter((c) => c.en && c.ru);
+        const size = memoryBlockSize(matchable.length);
+        for (let i = 0; i < matchable.length; ) {
+          const n = Math.min(size, matchable.length - i);
+          const chunk = matchable.slice(i, i + n);
+          if (chunk.length >= 1) {
+            const faces = shuffle(chunk.reduce((all, c, j) => all.concat([
+              { id: String(i + j), text: c.en },
+              { id: String(i + j), text: c.ru }
+            ]), []));
+            queue.push({ type: "Memory", faces: faces, open: [], done: {} });
+          }
+          i += n;
         }
       }
       return queue;
@@ -6366,15 +6406,36 @@
         note.classList.toggle("bad", !n);
         note.textContent = n + (n === 1 ? " card." : " cards.");
       }
+      syncMemorySizeInputs(n);
       visit("setup");
     }
     function chosenTypes(exam) {
       const here = (document.querySelector("section.on") || {}).id;
       const sel = here === "daysetup" ? "#dayModes .chip.on, #dayModesMore .chip.on" : "#modes .chip.on, #modesMore .chip.on";
-      let types = [...document.querySelectorAll(sel)].map((b) => b.textContent.trim()).filter((t) => t && t !== "...");
+      let types = [...document.querySelectorAll(sel)].map((b) => {
+        if (b.dataset.quizType) return b.dataset.quizType;
+        return b.textContent.trim();
+      }).filter((t) => t && t !== "...");
       if (exam) types = types.filter((t) => t !== "Flip");
       if (exam && !types.length) types = ["Choice", "Type", "Gap", "Build", "Match", "True / false", "Tap", "Select all", "Reverse", "Spell", "Letters", "Listen", "Definition", "Odd one out", "Memory", "Hangman"];
       return types;
+    }
+    function memoryBlockSize(total) {
+      const inp = document.querySelector("section.on [data-memory-size]");
+      let n = Math.floor(Number(inp && inp.value) || 4);
+      if (!Number.isFinite(n) || n < 2) n = 2;
+      if (total && n > total) n = total;
+      return Math.max(1, n);
+    }
+    function syncMemorySizeInputs(total) {
+      const max = Math.max(2, total || 2);
+      document.querySelectorAll("[data-memory-size]").forEach((inp) => {
+        inp.max = String(max);
+        let v = Math.floor(Number(inp.value) || 4);
+        if (!Number.isFinite(v) || v < 2) v = 2;
+        if (v > max) v = max;
+        inp.value = String(v);
+      });
     }
     function studyMix() {
       const here = (document.querySelector("section.on") || {}).id;
@@ -6654,6 +6715,7 @@
       const count = cards.length === 1 ? "1 card" : cards.length + " cards";
       note.textContent = cards.length ? title + " · " + count + ". Pick the types, then start." : "No cards on this page yet.";
       note.classList.toggle("bad", !cards.length);
+      syncMemorySizeInputs(cards.length);
       visit("daysetup");
     }
     function openPageStudy() {
@@ -6821,7 +6883,7 @@
       const card = item && item.card;
       const label = card && (card.en || card.speak);
       if (!slot || !label) return;
-      slot.innerHTML = '<button class="add-link" type="button" data-listen-card>' + esc(label) + "</button>";
+      slot.innerHTML = '<button class="listen-word" type="button" data-listen-card>' + esc(label) + "</button>";
     }
     function speakEnglish(text) {
       if (!window.speechSynthesis) return;
@@ -7023,7 +7085,8 @@
       } else if (item.type === "True / false") {
         const tf = e.target.closest("[data-tf]");
         if (!tf || document.getElementById("dayFb").innerHTML) return;
-        markDay((tf.dataset.tf === "true") === item.ok, item.ok ? "True" : "False");
+        const right = (item.card && item.card.ru) || (item.ok ? "True" : "False");
+        markDay((tf.dataset.tf === "true") === item.ok, right);
       } else if (item.type === "Tap") {
         const tap = e.target.closest("[data-tap]");
         if (!tap || document.getElementById("dayFb").innerHTML) return;
@@ -7234,6 +7297,10 @@
       try { stats.cardEdits = JSON.parse(localStorage.getItem(EDIT_KEY) || "null"); } catch (e) { stats.cardEdits = null; }
       try { stats.dayLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "null"); } catch (e) { stats.dayLinks = null; }
       stats.customThemes = loadCustomThemes();
+      try { stats.hiddenLessons = JSON.parse(localStorage.getItem(HIDDEN_LESSONS_KEY) || "[]"); } catch (e) { stats.hiddenLessons = []; }
+      if (!Array.isArray(stats.hiddenLessons)) stats.hiddenLessons = [];
+      try { stats.allowedLessons = JSON.parse(localStorage.getItem(ALLOWED_LESSONS_KEY) || "[]"); } catch (e) { stats.allowedLessons = []; }
+      if (!Array.isArray(stats.allowedLessons)) stats.allowedLessons = [];
       return {
         added: addedCache || read(ADDED_KEY, "[]"),
         songs: songs,
@@ -7252,20 +7319,28 @@
       syncTimer = setTimeout(flushUserState, 150);
     }
     function flushUserState() {
-      if (syncSending || authSyncLock || !authUser || !accountReady || !syncQueue.length) return;
+      if (syncSending || authSyncLock || !authUser || !accountReady || !syncQueue.length) return Promise.resolve();
       syncSending = true;
       const change = syncQueue[0];
-      accountFetch(viewAccount ? "/api/admin/users/" + encodeURIComponent(viewAccount.id) + "/state" : "/api/me/state", { method: "PUT", body: JSON.stringify(change) }).then(() => {
+      const target = viewAccount ? "/api/admin/users/" + encodeURIComponent(viewAccount.id) + "/state" : "/api/me/state";
+      return accountFetch(target, { method: "PUT", body: JSON.stringify(change) }).then(() => {
         syncFails = 0;
         syncQueue.shift();
         syncSending = false;
-        if (syncQueue.length) flushUserState();
+        if (syncQueue.length) return flushUserState();
       }).catch(() => {
         syncSending = false;
         syncFails += 1;
         if (syncFails >= 3) { syncFails = 0; syncQueue.shift(); return; }
-        syncTimer = setTimeout(flushUserState, 2000);
+        return new Promise((resolve) => {
+          syncTimer = setTimeout(() => resolve(flushUserState()), 2000);
+        });
       });
+    }
+    function drainUserState() {
+      clearTimeout(syncTimer);
+      syncTimer = 0;
+      return flushUserState();
     }
     window.addEventListener("pagehide", () => { flushUserState(); });
     window.syncDemoProgress = function () {
@@ -7336,6 +7411,8 @@
       else localStorage.removeItem(EDIT_KEY);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installHiddenLessons(state.stats && state.stats.hiddenLessons);
+      installAllowedLessons(state.stats && state.stats.allowedLessons);
       settleThemeAudience();
       applyLessonEdits();
       applySongEdits();
@@ -7344,6 +7421,7 @@
       paintAdded();
       paintLyrics();
       paintHomeAccount();
+      if (window.paintLmDays) window.paintLmDays();
       authSyncLock = false;
     }
     function personalCounts() {
@@ -7689,7 +7767,7 @@
       });
     }
     function viewKeys() {
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, TEXT_KEY];
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY];
     }
     function stashDeveloper() {
       return idbGetStash().then((existing) => {
@@ -7766,6 +7844,8 @@
       else localStorage.removeItem(EDIT_KEY);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installHiddenLessons(state.stats && state.stats.hiddenLessons);
+      installAllowedLessons(state.stats && state.stats.allowedLessons);
       settleThemeAudience();
       applyLessonEdits();
       applySongEdits();
@@ -7776,6 +7856,7 @@
       paintTexts();
       paintHomeStats();
       if (window.paintDemonstratives) window.paintDemonstratives();
+      if (window.paintLmDays) window.paintLmDays();
       authSyncLock = false;
     }
     function rememberView(user) {
@@ -7825,24 +7906,26 @@
       });
     }
     function exitStudentPages() {
-      viewAccount = null;
-      forgetViewFlags();
-      syncQueue.length = 0;
-      return restoreDeveloper().then(() => {
-        addedCache = null;
-        lyricSize = Number(localStorage.getItem("enquiz-lyric-size")) || 20;
-        applyLessonEdits();
-        applySongEdits();
-        refreshCatalog();
-        paintLyrics();
-        paintTexts();
-        paintHomeStats();
-        paintHomeAccount();
-        paintAccount();
-        settleThemeAudience();
-        paintViewBar();
-        accountReady = !!authUser;
-        show("home");
+      return drainUserState().catch(() => {}).then(() => {
+        viewAccount = null;
+        forgetViewFlags();
+        syncQueue.length = 0;
+        return restoreDeveloper().then(() => {
+          addedCache = null;
+          lyricSize = Number(localStorage.getItem("enquiz-lyric-size")) || 20;
+          applyLessonEdits();
+          applySongEdits();
+          refreshCatalog();
+          paintLyrics();
+          paintTexts();
+          paintHomeStats();
+          paintHomeAccount();
+          paintAccount();
+          settleThemeAudience();
+          paintViewBar();
+          accountReady = !!authUser;
+          show("home");
+        });
       });
     }
     function cardArea(place) {
@@ -8413,7 +8496,11 @@
       if (place.id === "daywork" && place.workDay) { openDayWork(place.workDay, place.workKind, true); return; }
       if (place.id === "daywords" && place.lessonPlace) { openLessonWords(place.lessonPlace, true); return; }
       if (place.id === "rules" && place.lessonPlace) { openLessonRules(place.lessonPlace, true); return; }
-      if (place.id === "daysetup") { openDayQuiz(place.dayQuizPlace || dayQuizPlace); return; }
+      if (place.id === "daysetup") {
+        if (place.dayReturn === "material") { lmOpenDayQuiz(); return; }
+        openDayQuiz(place.dayQuizPlace || dayQuizPlace);
+        return;
+      }
       if (place.id === "setup") { openGlobalStudy(); return; }
       restore(place);
     }
@@ -8591,6 +8678,8 @@
         try { localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks)); } catch (e) {}
       }
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installHiddenLessons(state.stats && state.stats.hiddenLessons);
+      installAllowedLessons(state.stats && state.stats.allowedLessons);
       const pendingTheme = syncQueue.some((change) => change && change.op === "put-setting" && change.key === "theme");
       const savedTheme = state.stats && typeof state.stats.theme === "string" ? state.stats.theme : "";
       if (!pendingTheme && savedTheme) applyTheme(savedTheme, { sync: false });
@@ -9003,6 +9092,17 @@
     let lmLibrary = null;
     let lmState = null;
     let lmSaveTimer = 0;
+    let lmFontRange = null;
+    const LM_FONTS = {
+      serif: "Georgia, 'Times New Roman', serif",
+      sans: "system-ui, sans-serif",
+      mono: "'Courier New', monospace",
+      georgia: "Georgia, serif",
+      verdana: "Verdana, sans-serif",
+      palatino: "Palatino, 'Palatino Linotype', serif",
+      trebuchet: "'Trebuchet MS', sans-serif",
+      courier: "'Courier New', Courier, monospace"
+    };
     function lmSeed() {
       return {
         id: "lm-demo",
@@ -9129,6 +9229,22 @@
       const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       return { day: String(date.getDate()).padStart(2, "0"), month: months[date.getMonth()] };
     }
+    function lmCourseBits(material) {
+      const row = material || {};
+      return [
+        ["Class", row.className],
+        ["Unit", row.unit],
+        ["Lesson", row.lesson]
+      ].filter((pair) => String(pair[1] || "").trim());
+    }
+    function lmCourseValue(label, value) {
+      return String(value || "").trim().replace(new RegExp("^" + label + "\\s+", "i"), "");
+    }
+    function lmCourseHtml(material) {
+      const bits = lmCourseBits(material);
+      if (!bits.length) return "";
+      return '<p class="lm-read-meta">' + bits.map((pair) => '<span><b>' + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1])) + "</span>").join("") + "</p>";
+    }
     function lmLongDate(iso) {
       if (!iso) return "";
       const date = new Date(iso + "T12:00:00");
@@ -9190,6 +9306,22 @@
       Array.from(box.querySelectorAll("*")).forEach((node) => {
         if (!node.parentNode) return;
         const tag = node.tagName;
+        if (tag === "SPAN") {
+          const px = /^(\d+(?:\.\d+)?)px$/.exec(String(node.style.fontSize || ""));
+          const familyKey = lmFontKey(node.style.fontFamily);
+          while (node.attributes.length) node.removeAttribute(node.attributes[0].name);
+          if (px) {
+            const size = Math.min(96, Math.max(10, Math.round(Number(px[1]))));
+            node.style.fontSize = size + "px";
+          }
+          if (familyKey) node.style.fontFamily = LM_FONTS[familyKey];
+          if (!node.getAttribute("style")) {
+            const parent = node.parentNode;
+            while (node.firstChild) parent.insertBefore(node.firstChild, node);
+            parent.removeChild(node);
+          }
+          return;
+        }
         if (!/^(B|STRONG|I|EM|U|A|UL|OL|LI|P|BR|DIV)$/.test(tag)) {
           const parent = node.parentNode;
           while (node.firstChild) parent.insertBefore(node.firstChild, node);
@@ -9208,17 +9340,118 @@
       });
       return box.innerHTML;
     }
+    function lmFontFamily(key) {
+      return LM_FONTS[key] || "";
+    }
+    function lmFontKey(value) {
+      const clean = String(value || "").replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+      if (!clean) return "";
+      const keys = Object.keys(LM_FONTS);
+      for (let i = 0; i < keys.length; i++) {
+        const stack = LM_FONTS[keys[i]].replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+        if (stack === clean) return keys[i];
+      }
+      return "";
+    }
+    function lmTextStyle(block) {
+      const bits = [];
+      const size = Math.round(Number(block && block.fontSize));
+      if (size >= 10 && size <= 96) bits.push("font-size:" + size + "px");
+      const family = lmFontFamily(block && block.fontFamily);
+      if (family) bits.push("font-family:" + family);
+      return bits.length ? ' style="' + esc(bits.join(";")) + '"' : "";
+    }
+    function lmTextTools(block) {
+      const size = block.fontSize >= 10 && block.fontSize <= 96 ? block.fontSize : 17;
+      const fonts = [["", "Font"], ["serif", "Serif"], ["sans", "Sans"], ["mono", "Mono"], ["georgia", "Georgia"], ["verdana", "Verdana"], ["palatino", "Palatino"], ["trebuchet", "Trebuchet"], ["courier", "Courier"]];
+      const options = fonts.map((pair) => '<option value="' + pair[0] + '"' + (block.fontFamily === pair[0] ? " selected" : "") + ">" + pair[1] + "</option>").join("");
+      return '<div class="lm-tools"><select data-font-family="' + block.id + '" aria-label="Font">' + options + '</select><button type="button" data-font="up" aria-label="Larger text">A+</button><button type="button" data-font="down" aria-label="Smaller text">A−</button><input class="lm-font-size" type="number" min="10" max="96" step="1" data-font-size="' + block.id + '" value="' + size + '" aria-label="Font size" /><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="insertUnorderedList">List</button><button type="button" data-cmd="link">Link</button></div>';
+    }
+    function lmActiveFontRange(rich) {
+      const sel = window.getSelection();
+      let range = null;
+      if (sel && sel.rangeCount && rich && rich.contains(sel.anchorNode)) range = sel.getRangeAt(0);
+      if ((!range || range.collapsed) && lmFontRange && lmFontRange.startContainer && rich && rich.contains(lmFontRange.startContainer)) range = lmFontRange;
+      return range && !range.collapsed ? range : null;
+    }
+    function lmCurrentTextSize(rich, block) {
+      const range = lmActiveFontRange(rich);
+      const node = range && range.startContainer;
+      const el = node && (node.nodeType === 1 ? node : node.parentElement);
+      if (el && rich && rich.contains(el)) {
+        const px = parseFloat(getComputedStyle(el).fontSize);
+        if (px) return Math.round(px);
+      }
+      const saved = Math.round(Number(block && block.fontSize));
+      return saved >= 10 && saved <= 96 ? saved : 17;
+    }
+    function lmApplyTextFont(rich, block, patch) {
+      if (!rich || !block) return;
+      const range = lmActiveFontRange(rich);
+      if (range) {
+        const span = document.createElement("span");
+        if (patch.size) span.style.fontSize = patch.size + "px";
+        if (patch.family) span.style.fontFamily = lmFontFamily(patch.family);
+        try {
+          span.appendChild(range.extractContents());
+          range.insertNode(span);
+          const next = document.createRange();
+          next.selectNodeContents(span);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(next);
+          lmFontRange = next.cloneRange();
+          block.html = rich.innerHTML;
+        } catch (e) {
+          if (patch.size) block.fontSize = patch.size;
+          if (patch.family !== undefined) block.fontFamily = patch.family;
+        }
+      } else {
+        if (patch.size) {
+          block.fontSize = patch.size;
+          rich.style.fontSize = patch.size + "px";
+        }
+        if (patch.family !== undefined) {
+          block.fontFamily = patch.family;
+          rich.style.fontFamily = lmFontFamily(patch.family);
+        }
+      }
+      lmSchedule();
+    }
     function lmFileSize(bytes) {
       if (bytes < 1024) return bytes + " B";
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(bytes < 10240 ? 1 : 0) + " KB";
       return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     }
+    function lmTab() {
+      const id = lmState && lmState.tab;
+      if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
+      return "overview";
+    }
+    function lmBlocksFor(tab) {
+      const id = tab || lmTab();
+      return (lmState && lmState.blocks || []).filter((block) => (block.tab || "overview") === id);
+    }
+    function lmWordCardHtml(block) {
+      const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
+      return '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
+    }
+    function lmRuleCardHtml(block, link) {
+      const topic = block.compare ? null : topicById(block.topic);
+      const compare = block.compare ? ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === block.topic)[0] : null;
+      const name = (topic && topic.name) || (compare && compare.title) || block.name || "Rule";
+      const form = (topic && topic.form) || (compare ? "compare" : "open");
+      const tone = (topic && topic.tone) || (compare && compare.tone) || "advanced";
+      const attr = link ? (block.compare ? ' data-compare="' + esc(block.topic) + '"' : ' data-topic="' + esc(block.topic) + '"') : "";
+      const tag = link ? "button" : "div";
+      return "<" + tag + ' class="g-topic tone-' + esc(tone) + '"' + attr + (link ? ' type="button"' : "") + "><b>" + esc(name) + '</b><span class="form">' + esc(form) + "</span></" + tag + ">";
+    }
     function lmBlank(type) {
       const id = lmId();
-      const base = { id: id, type: type, collapsed: false };
+      const base = { id: id, type: type, collapsed: false, tab: lmTab() };
       if (type === "heading") return Object.assign(base, { level: "h2", text: "New heading" });
       if (type === "text" || type === "reading") return Object.assign(base, type === "text" ? { html: "<p></p>" } : { title: "Reading", text: "", marks: [] });
-      if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "" });
+      if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "", title: "" });
       if (type === "link") return Object.assign(base, { title: "", url: "", description: "" });
       if (type === "cards") return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }] });
       if (type === "video") return Object.assign(base, { source: "link", url: "", title: "", name: "", size: "" });
@@ -9245,7 +9478,7 @@
     function lmSummary(block) {
       if (block.type === "heading") return block.text || "Heading";
       if (block.type === "text" || block.type === "reading") return lmPlain(block.html || block.text) || block.title || "Text";
-      if (block.type === "pdf" || block.type === "audio" || block.type === "file" || block.type === "image") return block.caption || block.name || "No file yet";
+      if (block.type === "pdf" || block.type === "audio" || block.type === "file" || block.type === "image") return block.title || block.caption || block.name || "No file yet";
       if (block.type === "link" || block.type === "video") return block.title || block.url || block.name || "Link";
       if (block.type === "note") return block.text || "Note";
       if (block.type === "divider") return block.label || "Divider";
@@ -9255,6 +9488,8 @@
       if (block.type === "dialogue") return (block.lines || []).map((line) => line.speaker).filter(Boolean).join(" · ") || "Dialogue";
       if (block.type === "vocab") return (block.items || []).map((row) => row.word).filter(Boolean).join(" · ") || "Vocabulary";
       if (block.type === "phrase") return (block.items || []).map((row) => row.phrase).filter(Boolean).join(" · ") || "Phrase";
+      if (block.type === "wordcard") return block.word || "Word";
+      if (block.type === "rule") return block.name || "Rule";
       if (block.type === "exercise" || block.type === "quiz") return (block.items || []).map((row) => row.prompt).filter(Boolean).join(" · ") || (block.title || "Questions");
       return (block.items || []).map((card) => card.front).filter(Boolean).join(" · ") || "Cards";
     }
@@ -9277,7 +9512,10 @@
     function lmFileBox(block, accept, emptyText, kind) {
       const preview = lmMedia(block.id, kind);
       if (!block.name) return '<label class="lm-drop">' + emptyText + '<small>or click to upload</small><input type="file" accept="' + accept + '" data-file="' + block.id + '" /></label>';
-      return preview + '<div class="lm-file"><span>📄</span><div><b>' + esc(block.name) + "</b><small>" + esc(block.size || "") + '</small></div><div class="lm-file-actions"><label class="lm-linkish">Replace<input type="file" accept="' + accept + '" data-file="' + block.id + '" hidden /></label><button class="lm-linkish" type="button" data-file-clear="' + block.id + '">Remove</button></div></div>';
+      return preview + '<div class="lm-file"><span aria-hidden="true">📄</span><div class="lm-file-copy"><b>' + esc(block.name) + "</b><small>" + esc(block.size || "") + '</small></div><div class="lm-file-actions"><label class="lm-linkish">Replace<input type="file" accept="' + accept + '" data-file="' + block.id + '" hidden /></label><button class="lm-linkish" type="button" data-file-clear="' + block.id + '">Remove</button></div></div>';
+    }
+    function lmFileTitle(block) {
+      return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" placeholder="Name for learners" /></label>';
     }
     function lmItemTools(blockId, list, index) {
       return '<div class="lm-card-actions"><button class="lm-icon" type="button" data-item-up="' + blockId + ":" + list + ":" + index + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-item-down="' + blockId + ":" + list + ":" + index + '" aria-label="Move down">↓</button><button class="lm-icon danger" type="button" data-item-del="' + blockId + ":" + list + ":" + index + '" aria-label="Delete">×</button></div>';
@@ -9310,12 +9548,12 @@
         return '<label>Heading<input type="text" data-field="text" data-block="' + block.id + '" value="' + esc(block.text || "") + '" /></label><label>Level<select data-field="level" data-block="' + block.id + '"><option value="h2"' + (block.level !== "h3" ? " selected" : "") + '>H2</option><option value="h3"' + (block.level === "h3" ? " selected" : "") + ">H3</option></select></label>";
       }
       if (block.type === "text") {
-        return '<div class="lm-tools"><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="insertUnorderedList">List</button><button type="button" data-cmd="link">Link</button></div><div class="lm-rich" contenteditable="true" data-rich="' + block.id + '">' + lmClean(block.html) + "</div>";
+        return lmTextTools(block) + '<div class="lm-rich" contenteditable="true" data-rich="' + block.id + '"' + lmTextStyle(block) + ">" + lmClean(block.html) + "</div>";
       }
-      if (block.type === "pdf") return lmFileBox(block, "application/pdf,.pdf", "Drop PDF here", "");
+      if (block.type === "pdf") return lmFileTitle(block) + lmFileBox(block, "application/pdf,.pdf", "Drop PDF here", "");
       if (block.type === "image") return lmFileBox(block, "image/*", "Drop image here", "image") + '<label>Caption<input type="text" data-field="caption" data-block="' + block.id + '" value="' + esc(block.caption || "") + '" /></label>';
-      if (block.type === "audio") return lmFileBox(block, "audio/*", "Drop audio here", "audio");
-      if (block.type === "file") return lmFileBox(block, "*/*", "Drop a file here", "");
+      if (block.type === "audio") return lmFileTitle(block) + lmFileBox(block, "audio/*", "Drop audio here", "audio");
+      if (block.type === "file") return lmFileTitle(block) + lmFileBox(block, "*/*", "Drop a file here", "");
       if (block.type === "link") {
         return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><label>URL<input type="text" data-field="url" data-block="' + block.id + '" value="' + esc(block.url || "") + '" placeholder="https://" /></label><label>Description<input type="text" data-field="description" data-block="' + block.id + '" value="' + esc(block.description || "") + '" /></label>';
       }
@@ -9339,6 +9577,8 @@
       if (block.type === "vocab") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list">' + lmItemRows(block, "items", [["word", "Word"], ["translation", "Translation"], ["ipa", "Transcription", true], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':vocab">+ Add word</button>';
       if (block.type === "dialogue") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list lm-lines">' + lmItemRows(block, "lines", [["speaker", "Speaker"], ["text", "Line"]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':dialogue">+ Add line</button>';
       if (block.type === "phrase") return '<div class="lm-card-list">' + lmItemRows(block, "items", [["phrase", "Phrase"], ["meaning", "Meaning"], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':phrase">+ Add phrase</button>';
+      if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
+      if (block.type === "rule") return lmRuleCardHtml(block, false);
       if (block.type === "exercise" || block.type === "quiz") {
         const title = block.type === "quiz" ? '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label>' : "";
         return title + '<div class="lm-card-list">' + lmQuestions(block) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ":" + block.type + '">+ Add question</button>';
@@ -9360,11 +9600,14 @@
         status.textContent = lmState.published ? "Published" : "Draft";
         status.classList.toggle("is-live", !!lmState.published);
       }
-      const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase" };
-      box.innerHTML = lmState.blocks.map((block) => '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, labels[block.type] || "Block") + '<div class="lm-body">' + lmBody(block) + "</div></article>").join("");
+      const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
+      const blocks = lmBlocksFor();
+      box.innerHTML = blocks.length ? blocks.map((block) => '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, labels[block.type] || "Block") + '<div class="lm-body">' + lmBody(block) + "</div></article>").join("") : '<p class="hint">Nothing on this page yet.</p>';
+      dressWords(box);
+      lmPaintTabTools();
     }
     function lmPreviewFile(block, label, action, attr) {
-      return '<div class="lm-read-pdf"><b>' + esc(block.name || label) + "</b><span>" + esc(block.size || "") + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
+      return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + "</b><span>" + esc([block.name && block.title ? block.name : "", block.size || ""].filter(Boolean).join(" · ")) + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
     }
     function lmPreviewChoices(block, index, question) {
       return (question.options || []).map((opt, oi) => '<label class="lm-opt"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.picked) === oi ? " checked" : "") + " /> " + esc(opt || "Option") + "</label>").join("");
@@ -9374,7 +9617,7 @@
         const tag = block.level === "h3" ? "h3" : "h2";
         return "<" + tag + ">" + esc(block.text || "") + "</" + tag + ">";
       }
-      if (block.type === "text") return '<div class="lm-copy">' + lmClean(block.html) + "</div>";
+      if (block.type === "text") return '<div class="lm-copy"' + lmTextStyle(block) + ">" + lmClean(block.html) + "</div>";
       if (block.type === "link") {
         const href = /^https?:\/\//i.test(block.url || "") ? block.url : "";
         return '<a class="lm-read-link" href="' + esc(href || "#") + '"' + (href ? ' target="_blank" rel="noreferrer"' : "") + "><b>" + esc(block.title || href || "Link") + "</b><span>" + esc(block.description || block.url || "") + "</span></a>";
@@ -9389,7 +9632,7 @@
         const src = lmFiles[block.id];
         const player = src ? '<audio class="lm-player" controls src="' + src + '"></audio>' : "<span>" + esc(block.sample ? "Sample clip. Drop a real audio file to play it." : "No audio yet") + "</span>";
         if (block.type === "pronunciation") return '<div class="lm-pron"><b>' + esc(block.word || "Word") + "</b><small>" + esc(block.ipa || "") + "</small>" + player + "</div>";
-        return '<div class="lm-read-pdf"><b>' + esc(block.name || "Audio") + "</b>" + player + "</div>";
+        return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || "Audio") + "</b>" + player + "</div>";
       }
       if (block.type === "video") {
         if (block.source === "file" && lmFiles[block.id]) return '<div class="lm-frame-video"><video controls src="' + lmFiles[block.id] + '"></video></div>';
@@ -9444,15 +9687,259 @@
         const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
         return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
       }
+      if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
+      if (block.type === "rule") return lmRuleCardHtml(block, true);
       const cards = (block.items || []).filter((card) => card.front || card.back || card.example).map((card) => '<article class="lm-read-card"><b>' + esc(card.front || "") + "</b><span>" + esc(card.back || "") + "</span><i>" + esc(card.example || "") + "</i></article>").join("");
       return "<h3>" + esc(block.title || "Vocabulary") + '</h3><div class="lm-read-cards">' + cards + "</div>";
+    }
+    function lmPreviewParts(blocks) {
+      let html = "";
+      let cards = [];
+      const flush = () => {
+        if (!cards.length) return;
+        html += '<div class="lm-panel"><div class="words">' + cards.join("") + "</div></div>";
+        cards = [];
+      };
+      blocks.forEach((block) => {
+        if (block.type === "wordcard") cards.push(lmWordCardHtml(block));
+        else {
+          flush();
+          html += '<div class="lm-panel">' + lmPreviewBlock(block) + "</div>";
+        }
+      });
+      flush();
+      return html;
     }
     function lmRenderPreview() {
       const box = document.getElementById("lmPreview");
       if (!box || !lmState) return;
-      const parts = lmState.blocks.map((block) => '<div class="lm-panel">' + lmPreviewBlock(block) + "</div>").join("");
+      const parts = lmPreviewParts(lmBlocksFor());
       const when = lmLongDate(lmState.date);
-      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + '</h2><p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + parts + "</article>";
+      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + lmChromeHtml() + parts + "</article>";
+      dressWords(box);
+    }
+    function lmChromeHtml() {
+      const tab = lmTab();
+      const tabs = [["overview", "Overview"], ["words", "Words"], ["phrases", "Phrases"], ["rules", "Rules"]];
+      const tools = [["quiz", "Day quiz", false], ["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
+      const tabBtns = tabs.map((pair) => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>").join("");
+      const toolBtns = tools.map((pair) => {
+        if (pair[2]) {
+          return '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
+        }
+        return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
+      }).join("");
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + "</div></div>";
+    }
+    function lmQuizCards() {
+      if (!lmState) return [];
+      const seen = new Set();
+      const cards = [];
+      (lmState.blocks || []).forEach((block) => {
+        if (block.type !== "wordcard") return;
+        const tab = block.tab || "overview";
+        if (tab !== "words" && tab !== "phrases") return;
+        const en = String(block.word || "").trim();
+        const key = en.toLowerCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        cards.push({
+          en: en,
+          ru: block.ru || "",
+          pos: block.pos || "",
+          uk: block.uk || "",
+          us: block.us || "",
+          ex: "",
+          gloss: ""
+        });
+      });
+      return cards;
+    }
+    function lmOpenDayQuiz() {
+      lmEnsure();
+      if (!lmState) return;
+      const cards = lmQuizCards();
+      dayPoolOverride = cards;
+      dayQuizPlace = "material";
+      studyTitle = "This day's quiz";
+      studyScreen = "daysetup";
+      dayReturn = "material";
+      document.getElementById("daySetupTitle").textContent = "This day's quiz";
+      document.getElementById("daySetupBack").dataset.fallback = "material";
+      document.getElementById("dayqBack").dataset.fallback = "material";
+      const note = document.getElementById("daySetupNote");
+      const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
+      const count = cards.length === 1 ? "1 card" : cards.length + " cards";
+      note.textContent = cards.length
+        ? label + " · " + count + ". Pick the types, then start."
+        : label + " · no cards yet. Add words or phrases first.";
+      note.classList.toggle("bad", !cards.length);
+      visit("daysetup");
+    }
+    function lmPaintChrome() {
+      const slot = document.getElementById("lmChromeSlot");
+      if (slot) slot.innerHTML = lmChromeHtml();
+    }
+    let lmGrammarArea = "";
+    function lmPaintGrammar() {
+      const box = document.getElementById("lmGrammarNav");
+      if (!box) return;
+      const data = window.GRAMMAR;
+      if (!data || !data.areas) {
+        box.innerHTML = '<p class="hint">Grammar is not loaded.</p>';
+        return;
+      }
+      if (!lmGrammarArea) {
+        const areas = data.areas.map((area) => '<button class="g-area tone-' + esc(area.tone || "advanced") + '" type="button" data-lm-area="' + esc(area.id) + '"><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb || "") + "</span></button>").join("");
+        const compare = (data.comparisons || []).length ? '<button class="g-area tone-advanced" type="button" data-lm-area="compare"><b>Often confused</b><span class="label">Pairs of rules that are easy to mix up.</span></button>' : "";
+        box.innerHTML = '<p class="label">Grammar</p><div class="lm-grammar">' + areas + compare + "</div>";
+        return;
+      }
+      if (lmGrammarArea === "compare") {
+        const rows = (data.comparisons || []).map((item) => {
+          const have = lmState.blocks.some((block) => block.type === "rule" && block.compare && block.topic === item.id);
+          return '<button class="g-topic tone-' + esc(item.tone || "advanced") + '" type="button" data-lm-rule="' + esc(item.id) + '" data-lm-compare="1"' + (have ? " disabled" : "") + "><b>" + esc(item.title) + '</b><span class="form">compare</span></button>';
+        }).join("");
+        box.innerHTML = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="g-head">Often confused</p>' + rows;
+        return;
+      }
+      const area = areaById(lmGrammarArea);
+      if (!area) { lmGrammarArea = ""; lmPaintGrammar(); return; }
+      let html = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="label">' + esc(area.title) + "</p>";
+      (area.groups || []).forEach((group) => {
+        html += '<p class="g-head tone-' + esc(group.tone || area.tone || "advanced") + '">' + esc(group.title) + "</p>";
+        html += (group.items || []).map((itemId) => {
+          const topic = topicById(itemId);
+          if (!topic) return "";
+          const have = lmState.blocks.some((block) => block.type === "rule" && !block.compare && block.topic === itemId && (block.tab || "rules") === "rules");
+          return '<button class="g-topic tone-' + esc(topic.tone || group.tone || area.tone || "advanced") + '" type="button" data-lm-rule="' + esc(itemId) + '"' + (have ? " disabled" : "") + "><b>" + esc(topic.name) + '</b><span class="form">' + esc(topic.form || "") + "</span></button>";
+        }).join("");
+      });
+      box.innerHTML = html;
+    }
+    function lmPaintTabTools() {
+      const tab = lmTab();
+      const names = { overview: "Overview", words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF" };
+      const title = document.getElementById("lmPageTitle");
+      if (title) title.textContent = names[tab] || "Overview";
+      const word = document.getElementById("lmWordAdd");
+      const rule = document.getElementById("lmRuleAdd");
+      if (word) word.hidden = tab !== "words" && tab !== "phrases";
+      if (rule) rule.hidden = tab !== "rules";
+      if (tab === "rules") lmPaintGrammar();
+    }
+    function lmSelectTab(id) {
+      if (!lmState || !id) return;
+      if (lmTab() === id && lmState.tab) return;
+      lmState.tab = id;
+      if (id !== "rules") lmGrammarArea = "";
+      const status = document.getElementById("lmWordStatus");
+      if (status) { status.textContent = ""; status.classList.remove("bad"); }
+      const picker = document.getElementById("lmPicker");
+      if (picker) picker.hidden = true;
+      const editing = lmState.mode !== "preview" && canEditLessons();
+      if (editing) {
+        document.querySelectorAll("#lmChromeSlot [data-lm-tab]").forEach((btn) => {
+          const on = btn.getAttribute("data-lm-tab") === id;
+          btn.classList.toggle("on", on);
+          btn.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        lmRenderEditor();
+      } else lmRenderPreview();
+    }
+    function lmMoveTabBlock(id, dir) {
+      const ids = lmBlocksFor().map((block) => block.id);
+      const at = ids.indexOf(id);
+      const next = at + dir;
+      if (at < 0 || next < 0 || next >= ids.length) return;
+      const from = lmState.blocks.findIndex((block) => block.id === ids[at]);
+      const to = lmState.blocks.findIndex((block) => block.id === ids[next]);
+      const item = lmState.blocks[from];
+      lmState.blocks[from] = lmState.blocks[to];
+      lmState.blocks[to] = item;
+    }
+    function lmInsertBlockFront(block) {
+      if (!lmState) return;
+      if (!Array.isArray(lmState.blocks)) lmState.blocks = [];
+      const tab = block.tab || "overview";
+      const at = lmState.blocks.findIndex((row) => (row.tab || "overview") === tab);
+      if (at < 0) lmState.blocks.push(block);
+      else lmState.blocks.splice(at, 0, block);
+    }
+    function lmSortWordcardsForPublish() {
+      if (!lmState || !Array.isArray(lmState.blocks)) return;
+      ["words", "phrases"].forEach((tab) => {
+        const indices = [];
+        const cards = [];
+        lmState.blocks.forEach((block, index) => {
+          if (block.type === "wordcard" && (block.tab || "overview") === tab) {
+            indices.push(index);
+            cards.push(block);
+          }
+        });
+        if (cards.length < 2) return;
+        cards.sort((a, b) => {
+          const aa = Number(a.addedAt) || 0;
+          const bb = Number(b.addedAt) || 0;
+          if (aa && bb && aa !== bb) return aa - bb;
+          if (aa && !bb) return 1;
+          if (!aa && bb) return -1;
+          return 0;
+        });
+        indices.forEach((index, n) => { lmState.blocks[index] = cards[n]; });
+      });
+    }
+    async function lmLookupWord() {
+      const input = document.getElementById("lmWordInput");
+      const status = document.getElementById("lmWordStatus");
+      const button = document.getElementById("lmWordGo");
+      const write = (text, bad) => {
+        if (!status) return;
+        status.textContent = text;
+        status.classList.toggle("bad", !!bad);
+      };
+      if (!input || !lmState) return;
+      const word = input.value.trim();
+      const tab = lmTab();
+      if (tab !== "words" && tab !== "phrases") return;
+      if (!word) { write("Type one word.", true); return; }
+      write("Looking up the dictionaries…", false);
+      if (button) button.disabled = true;
+      try {
+        const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
+        const data = await res.json();
+        if (!res.ok || !data.found) { write((data && data.error) || "No such word or phrase.", true); return; }
+        const key = String(data.word || word).toLowerCase();
+        if (lmBlocksFor(tab).some((block) => block.type === "wordcard" && String(block.word || "").toLowerCase() === key)) {
+          write("Already on this page.", true);
+          return;
+        }
+        const cam = data.cambridge || {};
+        const wh = data.wooordhunt || {};
+        lmInsertBlockFront({
+          id: lmId(),
+          type: "wordcard",
+          tab: tab,
+          collapsed: false,
+          addedAt: Date.now(),
+          word: data.word || word,
+          ru: data.ru || "",
+          pos: cam.pos || "",
+          uk: cam.uk || wh.uk || "",
+          us: cam.us || wh.us || "",
+          data: data
+        });
+        input.value = "";
+        write("", false);
+        lmRenderEditor();
+        lmSchedule();
+        const first = document.querySelector('#lmBlocks [data-block-id]');
+        if (first) first.scrollIntoView({ block: "nearest" });
+      } catch (err) {
+        write("The dictionary lookup is not running. Start it, then try again.", true);
+      } finally {
+        if (button) button.disabled = false;
+      }
     }
     function lmShow(mode) {
       if (!canEditLessons()) mode = "preview";
@@ -9463,9 +9950,9 @@
       document.getElementById("lmEditBack").hidden = editing || !canEditLessons();
       document.getElementById("lmSave").hidden = !editing;
       document.getElementById("lmPublish").hidden = !editing;
-      document.getElementById("lmDelete").hidden = !canEditLessons();
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
+      lmPaintChrome();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
       const top = document.getElementById("material");
@@ -9509,13 +9996,80 @@
       lmState = lmLibrary.materials.find((row) => row.id === lmLibrary.activeId) || lmLibrary.materials[0] || null;
       if (lmState) lmLibrary.activeId = lmState.id;
     }
+    function loadHiddenLessons() {
+      try {
+        const list = JSON.parse(localStorage.getItem(HIDDEN_LESSONS_KEY) || "[]");
+        return Array.isArray(list) ? list.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function saveHiddenLessons(list) {
+      const next = Array.isArray(list) ? list.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      try { localStorage.setItem(HIDDEN_LESSONS_KEY, JSON.stringify(next)); } catch (e) {}
+      syncChange({ op: "put-setting", key: "hiddenLessons", value: next });
+      flushUserState();
+      return next;
+    }
+    function installHiddenLessons(value) {
+      const list = Array.isArray(value) ? value.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      try { localStorage.setItem(HIDDEN_LESSONS_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+    function loadAllowedLessons() {
+      try {
+        const list = JSON.parse(localStorage.getItem(ALLOWED_LESSONS_KEY) || "[]");
+        return Array.isArray(list) ? list.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function saveAllowedLessons(list) {
+      const next = Array.isArray(list) ? list.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      try { localStorage.setItem(ALLOWED_LESSONS_KEY, JSON.stringify(next)); } catch (e) {}
+      syncChange({ op: "put-setting", key: "allowedLessons", value: next });
+      flushUserState();
+      return next;
+    }
+    function installAllowedLessons(value) {
+      const list = Array.isArray(value) ? value.map((id) => String(id || "").trim()).filter(Boolean) : [];
+      try { localStorage.setItem(ALLOWED_LESSONS_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+    function lmHiddenForStudent(id) {
+      return loadHiddenLessons().indexOf(String(id || "")) >= 0;
+    }
+    function lmAllowedForStudent(id) {
+      return loadAllowedLessons().indexOf(String(id || "")) >= 0;
+    }
+    function lmToggleIdInList(list, id) {
+      const next = list.slice();
+      const at = next.indexOf(id);
+      if (at >= 0) next.splice(at, 1);
+      else next.push(id);
+      return next;
+    }
+    function lmLessonHidden(material) {
+      if (!material) return false;
+      if (viewAccount) {
+        if (material.hiddenFromStudents) return !lmAllowedForStudent(material.id);
+        return lmHiddenForStudent(material.id);
+      }
+      return !!material.hiddenFromStudents;
+    }
+    function lmLessonVisibleToViewer(material) {
+      if (!material) return false;
+      if (canEditLessons()) return true;
+      if (!material.published) return false;
+      if (material.hiddenFromStudents && !lmAllowedForStudent(material.id)) return false;
+      if (lmHiddenForStudent(material.id)) return false;
+      return true;
+    }
     function paintLmDays() {
       const box = document.getElementById("lmDayList");
       const newer = document.getElementById("lmNew");
       if (newer) newer.hidden = !canEditLessons();
       if (!box) return;
       lmEnsure();
-      const rows = lmLibrary.materials.filter((row) => canEditLessons() || row.published).slice().sort((a, b) => {
+      const rows = lmLibrary.materials.filter((row) => lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
         if (!a.date && !b.date) return 0;
         if (!a.date) return -1;
         if (!b.date) return 1;
@@ -9523,19 +10077,38 @@
       });
       box.innerHTML = rows.map((material) => {
         const chip = lmDateChip(material.date);
+        const globalHidden = !!material.hiddenFromStudents;
+        const personalHidden = viewAccount && !globalHidden ? lmHiddenForStudent(material.id) : false;
+        const personalAllowed = viewAccount && globalHidden ? lmAllowedForStudent(material.id) : false;
+        const hidden = lmLessonHidden(material);
         let about = material.published ? "Published lesson" : "Draft";
         if (material.id === "lm-sep7") about = "Example · 7 Sep as content blocks";
         if (material.id === "lm-demo") about = "Trial · every block type";
+        if (viewAccount && globalHidden) about = personalAllowed ? "Hidden · allowed for this student" : "Hidden from students";
+        else if (globalHidden) about = "Hidden from students";
+        else if (personalHidden) about = "Hidden for this student";
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
-        const del = canEditLessons() ? '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "";
-        return '<div class="day-row"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + '</b><span class="label about">' + esc(about) + "</span></button>" + del + "</div>";
+        const eye = hidden
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
+        let hideLabel = globalHidden ? "Show to students" : "Hide from students";
+        if (viewAccount) {
+          if (globalHidden) hideLabel = personalAllowed ? "Remove access for this student" : "Allow for this student";
+          else hideLabel = personalHidden ? "Show to this student" : "Hide for this student";
+        }
+        const tools = canEditLessons()
+          ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-lm-hide="' + material.id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + '</button><button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button></div>"
+          : "";
+        const course = lmCourseBits(material);
+        const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
-      if (!canEditLessons() && !found.published) return;
+      if (!lmLessonVisibleToViewer(found)) return;
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
@@ -9566,6 +10139,26 @@
       if (on && on.id === "material") show("days");
       else paintLmDays();
     }
+    function lmHideLesson(id) {
+      if (!canEditLessons()) return;
+      lmEnsure();
+      if (viewAccount) {
+        const found = lmLibrary.materials.find((row) => row.id === id);
+        if (found && found.hiddenFromStudents) {
+          saveAllowedLessons(lmToggleIdInList(loadAllowedLessons(), id));
+        } else {
+          saveHiddenLessons(lmToggleIdInList(loadHiddenLessons(), id));
+        }
+        paintLmDays();
+        return;
+      }
+      const found = lmLibrary.materials.find((row) => row.id === id);
+      if (!found) return;
+      found.hiddenFromStudents = !found.hiddenFromStudents;
+      if (lmState && lmState.id === id) lmState.hiddenFromStudents = found.hiddenFromStudents;
+      try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+      paintLmDays();
+    }
     function lmCreateLesson() {
       if (!canEditLessons()) return;
       lmEnsure();
@@ -9583,11 +10176,20 @@
     window.paintLmDays = paintLmDays;
     window.lmOpenLesson = lmOpenLesson;
     window.lmDeleteLesson = lmDeleteLesson;
+    window.lmHideLesson = lmHideLesson;
+    window.lmOpenDayQuiz = lmOpenDayQuiz;
     window.paintMaterial = paintMaterial;
     const lmRoot = document.getElementById("material");
     if (lmRoot) {
       lmRoot.addEventListener("mousedown", (event) => {
-        if (event.target.closest("[data-cmd]")) event.preventDefault();
+        const tool = event.target.closest("[data-cmd], [data-font], [data-font-size], [data-font-family]");
+        if (!tool) return;
+        const tools = tool.closest(".lm-tools");
+        const rich = tools && tools.nextElementSibling;
+        const sel = window.getSelection();
+        if (rich && sel && sel.rangeCount && rich.contains(sel.anchorNode)) lmFontRange = sel.getRangeAt(0).cloneRange();
+        else lmFontRange = null;
+        if (event.target.closest("[data-cmd], [data-font]")) event.preventDefault();
       });
       lmRoot.addEventListener("input", (event) => {
         const meta = event.target.closest("[data-meta]");
@@ -9659,6 +10261,22 @@
         if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
       });
       lmRoot.addEventListener("change", (event) => {
+        const fontSize = event.target.closest("[data-font-size]");
+        if (fontSize) {
+          const rich = fontSize.closest(".lm-tools") && fontSize.closest(".lm-tools").nextElementSibling;
+          const block = lmBlock(fontSize.dataset.fontSize);
+          const size = Math.min(96, Math.max(10, Math.round(Number(fontSize.value) || 17)));
+          fontSize.value = size;
+          lmApplyTextFont(rich, block, { size: size });
+          return;
+        }
+        const fontFamily = event.target.closest("[data-font-family]");
+        if (fontFamily) {
+          const rich = fontFamily.closest(".lm-tools") && fontFamily.closest(".lm-tools").nextElementSibling;
+          const block = lmBlock(fontFamily.dataset.fontFamily);
+          lmApplyTextFont(rich, block, { family: fontFamily.value });
+          return;
+        }
         const file = event.target.closest("[data-file], [data-pdf]");
         if (file && file.files && file.files[0]) lmTakeFile(file.dataset.file || file.dataset.pdf, file.files[0]);
         const correct = event.target.closest("[data-correct]");
@@ -9678,6 +10296,46 @@
         }
       });
       lmRoot.addEventListener("click", (event) => {
+        const tab = event.target.closest("[data-lm-tab]");
+        if (tab) { lmSelectTab(tab.getAttribute("data-lm-tab")); return; }
+        const tool = event.target.closest("[data-lm-tool]");
+        if (tool && tool.getAttribute("data-lm-tool") === "quiz") {
+          lmOpenDayQuiz();
+          return;
+        }
+        const areaPick = event.target.closest("[data-lm-area]");
+        if (areaPick) {
+          lmGrammarArea = areaPick.getAttribute("data-lm-area") || "";
+          lmPaintGrammar();
+          return;
+        }
+        const rulePick = event.target.closest("[data-lm-rule]");
+        if (rulePick && lmState) {
+          const topicId = rulePick.getAttribute("data-lm-rule");
+          const compare = rulePick.getAttribute("data-lm-compare") === "1";
+          if (lmState.blocks.some((block) => block.type === "rule" && !!block.compare === compare && block.topic === topicId)) return;
+          const topic = compare ? null : topicById(topicId);
+          const named = compare ? (((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === topicId)[0] || {}).title : (topic && topic.name);
+          lmState.blocks.push({ id: lmId(), type: "rule", tab: "rules", collapsed: false, topic: topicId, compare: compare, name: named || "Rule" });
+          lmRenderEditor();
+          lmSchedule();
+          return;
+        }
+        if (event.target.closest("#lmWordGo")) { lmLookupWord(); return; }
+        const fontBtn = event.target.closest("[data-font]");
+        if (fontBtn) {
+          event.preventDefault();
+          const tools = fontBtn.closest(".lm-tools");
+          const rich = tools && tools.nextElementSibling;
+          const block = rich && lmBlock(rich.dataset.rich);
+          if (!block) return;
+          const current = lmCurrentTextSize(rich, block);
+          const size = fontBtn.dataset.font === "up" ? Math.min(96, current + 2) : Math.max(10, current - 2);
+          lmApplyTextFont(rich, block, { size: size });
+          const field = tools.querySelector("[data-font-size]");
+          if (field) field.value = size;
+          return;
+        }
         const cmd = event.target.closest("[data-cmd]");
         if (cmd) {
           event.preventDefault();
@@ -9720,9 +10378,9 @@
           return;
         }
         const up = event.target.closest("[data-lm-up]");
-        if (up) { lmMove(lmState.blocks, lmState.blocks.findIndex((row) => row.id === up.dataset.lmUp), -1); lmRenderEditor(); lmSchedule(); return; }
+        if (up) { lmMoveTabBlock(up.dataset.lmUp, -1); lmRenderEditor(); lmSchedule(); return; }
         const down = event.target.closest("[data-lm-down]");
-        if (down) { lmMove(lmState.blocks, lmState.blocks.findIndex((row) => row.id === down.dataset.lmDown), 1); lmRenderEditor(); lmSchedule(); return; }
+        if (down) { lmMoveTabBlock(down.dataset.lmDown, 1); lmRenderEditor(); lmSchedule(); return; }
         const del = event.target.closest("[data-lm-del]");
         if (del) { lmState.blocks = lmState.blocks.filter((row) => row.id !== del.dataset.lmDel); lmRenderEditor(); lmSchedule(); return; }
         const cardAdd = event.target.closest("[data-card-add]");
@@ -9869,6 +10527,13 @@
         const block = grip && grip.closest(".lm-block");
         if (block) block.setAttribute("draggable", "true");
       });
+      lmRoot.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        const input = event.target.closest("#lmWordInput");
+        if (!input) return;
+        event.preventDefault();
+        lmLookupWord();
+      });
       document.getElementById("lmAdd").addEventListener("click", () => {
         const picker = document.getElementById("lmPicker");
         picker.hidden = !picker.hidden;
@@ -9876,8 +10541,16 @@
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
       document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote("Draft saved. The lesson is in Classes."); });
-      document.getElementById("lmPublish").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = true; lmState.mode = "preview"; lmKeepLesson(); lmPersist(); lmNote(""); lmShow("preview"); });
-      document.getElementById("lmDelete").addEventListener("click", () => { if (lmState) lmDeleteLesson(lmState.id); });
+      document.getElementById("lmPublish").addEventListener("click", () => {
+        if (!canEditLessons()) return;
+        lmSortWordcardsForPublish();
+        lmState.published = true;
+        lmState.mode = "preview";
+        lmKeepLesson();
+        lmPersist();
+        lmNote("");
+        lmShow("preview");
+      });
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
       paintLmDays();
