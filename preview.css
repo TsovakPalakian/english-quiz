@@ -2142,6 +2142,39 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-read-link, .lm-read-pdf { display: block; margin: 14px 0; padding: 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--lm-line); color: inherit; text-decoration: none; }
 .lm-read-link b, .lm-read-pdf b { display: block; font-size: 17px; }
 .lm-read-link span, .lm-read-pdf span, .lm-pdf-msg { color: var(--lm-mute); }
+.lm-link-card {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  margin: 14px 0;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--lm-line);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+}
+.lm-link-card-media {
+  display: block;
+  min-height: 72px;
+  border-radius: 12px;
+  background: var(--lm-soft) center / cover no-repeat;
+}
+.lm-link-card-media.has-image { background-color: transparent; }
+.lm-link-card-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 4px 4px 4px 0; }
+.lm-link-card-copy b { font-size: 16px; line-height: 1.25; }
+.lm-link-card-host, .lm-link-card-desc { color: var(--lm-mute); font-size: 13px; line-height: 1.35; }
+.lm-link-card-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+@media (max-width: 560px) {
+  .lm-link-card { grid-template-columns: 72px minmax(0, 1fr); }
+}
 .lm-pdf-msg { margin: 8px 0 0; font-size: 14px; }
 .lm-read-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 8px; }
 .lm-read-card { background: var(--card); border: 1px solid var(--lm-line); border-radius: 16px; padding: 16px; }

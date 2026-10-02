@@ -8,6 +8,7 @@ accounts.sqlite
 .dev.vars
 preview-classic.html
 src/
+data/
 schema.sql
 wrangler.toml
 .gitignore

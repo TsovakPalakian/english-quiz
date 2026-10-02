@@ -519,6 +519,57 @@ async function songFile(request, env) {
   return json({ error: "Not found." }, 404);
 }
 
+async function lessonFile(request, env) {
+  if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
+  const user = await currentUser(env, request);
+  if (!user) return json({ error: "Sign in first." }, 401);
+  const url = new URL(request.url);
+  const fileId = (url.searchParams.get("id") || "").trim();
+  if (!/^[A-Za-z0-9_-]{4,80}$/.test(fileId)) return json({ error: "No such file." }, 400);
+  const key = "lessons/files/" + fileId;
+  const method = request.method;
+  if (method === "HEAD" || method === "GET") {
+    const range = method === "GET" && request.headers.has("Range") ? { range: request.headers } : undefined;
+    const object = method === "HEAD" ? await env.MEDIA.head(key) : await env.MEDIA.get(key, range);
+    if (!object) return new Response("Not found", { status: 404 });
+    const headers = songFileHeaders(object);
+    if (!headers.get("content-type") || headers.get("content-type") === "audio/mpeg") {
+      const type = object.httpMetadata && object.httpMetadata.contentType;
+      if (type) headers.set("content-type", type);
+    }
+    if (method === "HEAD") {
+      headers.set("content-length", String(object.size));
+      return new Response(null, { status: 200, headers });
+    }
+    if (object.range) {
+      const offset = object.range.offset == null ? Math.max(0, object.size - (object.range.suffix || 0)) : object.range.offset;
+      const length = object.range.length == null ? object.size - offset : object.range.length;
+      headers.set("content-length", String(length));
+      headers.set("content-range", "bytes " + offset + "-" + (offset + length - 1) + "/" + object.size);
+      return new Response(object.body, { status: 206, headers });
+    }
+    headers.set("content-length", String(object.size));
+    return new Response(object.body, { headers });
+  }
+  if (method === "PUT") {
+    if (!canReview(user)) return json({ error: "You cannot do that." }, 403);
+    const type = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+    const allowed = type.indexOf("image/") === 0 || type.indexOf("audio/") === 0 || type.indexOf("video/") === 0 || type === "application/pdf" || type === "application/octet-stream";
+    if (!allowed) return json({ error: "Choose a lesson file." }, 400);
+    const len = Number(request.headers.get("Content-Length") || "0");
+    if (!len) return json({ error: "The file is empty." }, 400);
+    if (len > 25000000) return json({ error: "That file is too large." }, 413);
+    await env.MEDIA.put(key, request.body, { httpMetadata: { contentType: type || "application/octet-stream" } });
+    return json({ ok: true });
+  }
+  if (method === "DELETE") {
+    if (!canReview(user)) return json({ error: "You cannot do that." }, 403);
+    await env.MEDIA.delete(key);
+    return json({ ok: true });
+  }
+  return json({ error: "Not found." }, 404);
+}
+
 const STAT_KINDS = { answer: 1, learned: 1, exam: 1, card: 1, song: 1 };
 const STAT_RESULTS = { ok: 1, miss: 1, pass: 1, fail: 1, add: 1, archive: 1 };
 
@@ -930,6 +981,9 @@ async function handleApi(request, env, ctx) {
   if (method === "PUT" && path === "/api/me/state") return saveState(env, request, body, ctx);
   if (method === "GET" && path === "/api/texts") return listTexts(env, request);
   if (method === "PUT" && path === "/api/texts") return saveTexts(env, request, body);
+  if (method === "GET" && path === "/api/lessons") return listLessons(env, request);
+  if (method === "PUT" && path === "/api/lessons") return saveLessons(env, request, body);
+  if (method === "GET" && path === "/api/link-preview") return linkPreview(env, request);
   if (method === "POST" && path === "/api/analyze") return analyzeExpressions(env, request, body);
   if (method === "POST" && path === "/api/phrase-card") return phraseCard(env, request, body);
   if (path.indexOf("/api/admin") === 0) return admin(env, request, method, path, body, ctx);
@@ -938,6 +992,142 @@ async function handleApi(request, env, ctx) {
 
 const PAIR_TEXTS_KEY = "pair/tsovak-texts.json";
 const PAIR_SONGS_KEY = "pair/tsovak-songs.json";
+const SHARED_LESSONS_KEY = "shared/lessons.json";
+
+function seedSharedLessons() {
+  return [];
+}
+
+function cleanLessonMaterial(row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  const id = String(row.id || "").trim();
+  if (!id || id === "lm-demo" || id === "lm-sep7") return null;
+  const blocks = Array.isArray(row.blocks) ? row.blocks : [];
+  return {
+    id: id.slice(0, 80),
+    title: String(row.title || "").slice(0, 120),
+    description: String(row.description || "").slice(0, 400),
+    className: String(row.className || "").slice(0, 80),
+    unit: String(row.unit || "").slice(0, 80),
+    lesson: String(row.lesson || "").slice(0, 80),
+    date: String(row.date || "").slice(0, 32),
+    published: !!row.published,
+    hiddenFromStudents: !!row.hiddenFromStudents,
+    mode: row.mode === "edit" ? "edit" : "preview",
+    blocks: blocks.slice(0, 400)
+  };
+}
+
+async function readSharedLessons(env) {
+  if (!env.MEDIA) return [];
+  const object = await env.MEDIA.get(SHARED_LESSONS_KEY);
+  if (!object) return [];
+  try {
+    const saved = JSON.parse(await object.text());
+    const list = Array.isArray(saved) ? saved : (saved && Array.isArray(saved.materials) ? saved.materials : []);
+    return list.map(cleanLessonMaterial).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function writeSharedLessons(env, materials) {
+  const list = (Array.isArray(materials) ? materials : []).map(cleanLessonMaterial).filter(Boolean).slice(0, 200);
+  await env.MEDIA.put(SHARED_LESSONS_KEY, JSON.stringify({ materials: list }), { httpMetadata: { contentType: "application/json" } });
+  return list;
+}
+
+async function listLessons(env, request) {
+  const user = await currentUser(env, request);
+  if (!user) return json({ error: "Sign in first." }, 401);
+  const materials = await readSharedLessons(env);
+  if (canReview(user)) return json({ materials: materials });
+  return json({
+    materials: materials.filter((row) => row.published).map((row) => Object.assign({}, row, { mode: "preview" }))
+  });
+}
+
+async function saveLessons(env, request, body) {
+  const user = await currentUser(env, request);
+  if (!canReview(user)) return json({ error: "You cannot do that." }, 403);
+  if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
+  const materials = await writeSharedLessons(env, body && body.materials);
+  return json({ ok: true, materials: materials });
+}
+
+function pickMeta(html, names) {
+  const source = String(html || "");
+  for (let i = 0; i < names.length; i++) {
+    const name = names[i];
+    const re1 = new RegExp("<meta[^>]+(?:property|name)=[\"']" + name + "[\"'][^>]+content=[\"']([^\"']+)[\"']", "i");
+    const re2 = new RegExp("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+(?:property|name)=[\"']" + name + "[\"']", "i");
+    const match = source.match(re1) || source.match(re2);
+    if (match && match[1]) return match[1].trim();
+  }
+  return "";
+}
+
+function absolutizeUrl(base, value) {
+  try {
+    return new URL(value, base).toString();
+  } catch (e) {
+    return "";
+  }
+}
+
+async function linkPreview(env, request) {
+  const user = await currentUser(env, request);
+  if (!user) return json({ error: "Sign in first." }, 401);
+  const raw = String(new URL(request.url).searchParams.get("url") || "").trim();
+  let target;
+  try { target = new URL(raw); } catch (e) { return json({ error: "Enter a valid link." }, 400); }
+  if (target.protocol !== "http:" && target.protocol !== "https:") return json({ error: "Enter a valid link." }, 400);
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(target.toString(), {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; LearnEnglishBot/1.0)",
+        "Accept": "text/html,application/xhtml+xml"
+      }
+    });
+    clearTimeout(timer);
+    const type = String(res.headers.get("content-type") || "").toLowerCase();
+    if (!res.ok || type.indexOf("text/html") < 0) {
+      return json({
+        url: target.toString(),
+        host: target.hostname.replace(/^www\./, ""),
+        title: target.hostname.replace(/^www\./, ""),
+        description: "",
+        image: ""
+      });
+    }
+    const html = (await res.text()).slice(0, 250000);
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title = pickMeta(html, ["og:title", "twitter:title"]) || (titleMatch && titleMatch[1] ? titleMatch[1].trim() : "") || target.hostname;
+    const description = pickMeta(html, ["og:description", "twitter:description", "description"]);
+    const imageRaw = pickMeta(html, ["og:image", "twitter:image", "twitter:image:src"]);
+    const image = imageRaw ? absolutizeUrl(res.url || target.toString(), imageRaw) : "";
+    return json({
+      url: target.toString(),
+      host: target.hostname.replace(/^www\./, ""),
+      title: String(title || "").replace(/\s+/g, " ").trim().slice(0, 160),
+      description: String(description || "").replace(/\s+/g, " ").trim().slice(0, 240),
+      image: image.slice(0, 500)
+    });
+  } catch (e) {
+    return json({
+      url: target.toString(),
+      host: target.hostname.replace(/^www\./, ""),
+      title: target.hostname.replace(/^www\./, ""),
+      description: "",
+      image: ""
+    });
+  }
+}
 
 async function pairSongIds(env) {
   const ids = {};
@@ -3406,6 +3596,7 @@ export default {
       return json(await translateSelection(word));
     }
     if (url.pathname === "/api/song-file") return songFile(request, env);
+    if (url.pathname === "/api/lesson-file") return lessonFile(request, env);
     if (url.pathname.startsWith("/api/")) {
       try { return await handleApi(request, env, ctx); }
       catch (error) {

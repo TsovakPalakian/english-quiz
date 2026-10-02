@@ -622,8 +622,10 @@
       });
       return pdfJsLoad;
     }
-    async function openPdf(href) {
-      const name = decodeURIComponent(String(href || "").split("/").pop() || "PDF");
+    async function openPdf(href, title) {
+      const fromTitle = String(title || "").trim();
+      const fromPath = decodeURIComponent(String(href || "").split("/").pop() || "");
+      const name = fromTitle || fromPath || "PDF";
       document.getElementById("pdfTitle").textContent = name;
       const status = document.getElementById("pdfStatus");
       const box = document.getElementById("pdfPages");
@@ -1422,7 +1424,7 @@
         const href = pdfLink.getAttribute("href") || "";
         if (/\.pdf(\?|$)/i.test(href) && href.indexOf("://") < 0) {
           e.preventDefault();
-          openPdf(href);
+          openPdf(href, pdfLink.getAttribute("data-title") || pdfLink.textContent);
           return;
         }
       }
@@ -7894,6 +7896,7 @@
           addedCache = null;
           applyViewState(state || {});
           accountReady = true;
+          lmPullFromServer();
           paintViewBar();
           show("home");
         }).catch((err) => exitStudentPages().then(() => alert(err.message)));
@@ -8247,6 +8250,7 @@
         fillEmptyFromAccount(state);
         accountReady = true;
         startAccountPull();
+        lmPullFromServer();
         if (syncQueue.length) scheduleStateSave();
       }).catch(() => {
         accountReady = !!(loadAdded().length || loadSongs().length);
@@ -8720,6 +8724,7 @@
           fillEmptyFromAccount(state);
           accountReady = true;
           startAccountPull();
+          lmPullFromServer();
           if (syncQueue.length) scheduleStateSave();
           if (pendingId && data.user && (data.user.role === "DEVELOPER" || (data.user.role === "ADMIN" && pendingRole === "USER"))) openStudentPages({ id: pendingId, login: pendingLogin, role: pendingRole, email: pendingEmail, name: pendingName });
           else resumePlace();
@@ -9093,6 +9098,8 @@
     let lmState = null;
     let lmSaveTimer = 0;
     let lmFontRange = null;
+    let lmServerReady = false;
+    let lmPushTimer = 0;
     const LM_FONTS = {
       serif: "Georgia, 'Times New Roman', serif",
       sans: "system-ui, sans-serif",
@@ -9257,6 +9264,9 @@
       const date = new Date();
       return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
     }
+    function lmIsDemoId(id) {
+      return id === "lm-demo" || id === "lm-sep7";
+    }
     function lmBlankMaterial() {
       return { id: lmId(), title: "", description: "", className: "", unit: "", lesson: "", date: "", published: false, mode: "edit", blocks: [] };
     }
@@ -9266,14 +9276,12 @@
       let materials = [];
       if (raw && Array.isArray(raw.materials)) materials = raw.materials;
       else if (raw && Array.isArray(raw.blocks)) {
-        if (!raw.id) raw.id = "lm-demo";
+        if (!raw.id) raw.id = "lm-local";
         if (!raw.date) raw.date = "";
-        materials = [raw];
+        materials = lmIsDemoId(raw.id) ? [] : [raw];
       }
-      const removed = raw && Array.isArray(raw.removed) ? raw.removed : [];
-      if (!materials.length && !raw) materials = [lmSep7(), lmSeed()];
-      if (!materials.some((row) => row.id === "lm-sep7") && removed.indexOf("lm-sep7") < 0) materials.unshift(lmSep7());
-      if (!materials.some((row) => row.id === "lm-demo") && removed.indexOf("lm-demo") < 0) materials.push(lmSeed());
+      materials = materials.filter((row) => row && row.id && !lmIsDemoId(row.id));
+      const removed = raw && Array.isArray(raw.removed) ? raw.removed.filter((id) => !lmIsDemoId(id)) : [];
       const activeId = raw && raw.activeId && materials.some((row) => row.id === raw.activeId) ? raw.activeId : (materials[0] ? materials[0].id : "");
       return { materials: materials, activeId: activeId, removed: removed };
     }
@@ -9286,8 +9294,76 @@
           lmLibrary.activeId = lmState.id;
         }
       }
+      lmLibrary.materials = lmLibrary.materials.filter((row) => row && row.id && !lmIsDemoId(row.id));
       try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
       paintLmDays();
+      lmSchedulePush();
+    }
+    function lmSchedulePush() {
+      if (!canEditLessons() || viewAccount || !lmServerReady || !authUser) return;
+      clearTimeout(lmPushTimer);
+      lmPushTimer = setTimeout(lmPushToServer, 500);
+    }
+    function lmPushToServer() {
+      if (!canEditLessons() || viewAccount || !authUser || !lmLibrary) return Promise.resolve();
+      const materials = lmLibrary.materials.filter((row) => row && row.id && !lmIsDemoId(row.id));
+      return accountFetch("/api/lessons", { method: "PUT", body: JSON.stringify({ materials: materials }) }).catch(() => {});
+    }
+    function lmMergeRemote(localList, remoteList) {
+      const map = new Map();
+      (remoteList || []).forEach((row) => {
+        if (!row || !row.id || lmIsDemoId(row.id)) return;
+        map.set(row.id, row);
+      });
+      (localList || []).forEach((row) => {
+        if (!row || !row.id || lmIsDemoId(row.id)) return;
+        const have = map.get(row.id);
+        if (!have) {
+          map.set(row.id, row);
+          return;
+        }
+        const localBlocks = Array.isArray(row.blocks) ? row.blocks.length : 0;
+        const remoteBlocks = Array.isArray(have.blocks) ? have.blocks.length : 0;
+        if (localBlocks > remoteBlocks) map.set(row.id, row);
+        else if (localBlocks === remoteBlocks && String(row.title || "") && !String(have.title || "")) map.set(row.id, row);
+      });
+      return Array.from(map.values());
+    }
+    function lmApplyRemote(materials, opts) {
+      lmEnsure();
+      const next = (materials || []).filter((row) => row && row.id && !lmIsDemoId(row.id));
+      lmLibrary.materials = next;
+      if (!lmLibrary.materials.some((row) => row.id === lmLibrary.activeId)) {
+        lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
+      }
+      if (lmState && !lmLibrary.materials.some((row) => row.id === lmState.id)) {
+        lmState = lmLibrary.materials[0] || null;
+      } else if (lmState) {
+        lmState = lmLibrary.materials.find((row) => row.id === lmState.id) || lmState;
+      }
+      try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+      paintLmDays();
+      if (opts && opts.push) lmSchedulePush();
+    }
+    function lmPullFromServer() {
+      if (!authUser) return Promise.resolve();
+      return accountFetch("/api/lessons").then((data) => {
+        lmServerReady = true;
+        const remote = data && Array.isArray(data.materials) ? data.materials : [];
+        lmEnsure();
+        const local = lmLibrary.materials.slice();
+        const merged = canEditLessons() && !viewAccount ? lmMergeRemote(local, remote) : remote.filter((row) => row && !lmIsDemoId(row.id));
+        const richerLocal = canEditLessons() && !viewAccount && local.some((row) => {
+          if (!row || lmIsDemoId(row.id)) return false;
+          const remoteRow = remote.find((item) => item && item.id === row.id);
+          const localBlocks = Array.isArray(row.blocks) ? row.blocks.length : 0;
+          const remoteBlocks = remoteRow && Array.isArray(remoteRow.blocks) ? remoteRow.blocks.length : 0;
+          return localBlocks > remoteBlocks;
+        });
+        lmApplyRemote(merged, { push: !!richerLocal || (canEditLessons() && !viewAccount && !remote.length && local.length) });
+      }).catch(() => {
+        lmServerReady = !!authUser;
+      });
     }
     function lmSchedule() {
       clearTimeout(lmSaveTimer);
@@ -9499,10 +9575,85 @@
       if (match) return "https://www.youtube-nocookie.com/embed/" + match[1];
       match = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
       if (match) return "https://player.vimeo.com/video/" + match[1];
+      match = raw.match(/(?:youtube\.com\/live\/)([\w-]{6,})/i);
+      if (match) return "https://www.youtube-nocookie.com/embed/" + match[1];
       return "";
     }
+    function lmHostLabel(url) {
+      try { return new URL(url).hostname.replace(/^www\./, ""); }
+      catch (e) { return ""; }
+    }
+    function lmUrlKind(url) {
+      const href = String(url || "").trim();
+      if (!/^https?:\/\//i.test(href)) return { kind: "", href: "" };
+      const embed = lmEmbed(href);
+      if (embed) return { kind: "video-embed", href: href, src: embed };
+      if (/\.(mp4|webm|ogv|mov)(\?|#|$)/i.test(href)) return { kind: "video-file", href: href, src: href };
+      if (/\.(mp3|wav|m4a|aac|ogg|flac)(\?|#|$)/i.test(href)) return { kind: "audio-file", href: href, src: href };
+      return { kind: "page", href: href, src: href };
+    }
+    function lmVideoFrame(src, title) {
+      return (title ? "<h3>" + esc(title) + "</h3>" : "") + '<div class="lm-frame-video"><iframe src="' + esc(src) + '" title="' + esc(title || "Video") + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
+    }
+    function lmLinkCard(block, href) {
+      const title = block.title || href || "Link";
+      const host = lmHostLabel(href);
+      const note = block.description || host || href;
+      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noreferrer" data-link-preview="' + esc(href) + '">' +
+        '<span class="lm-link-card-media" aria-hidden="true"></span>' +
+        '<span class="lm-link-card-copy"><b>' + esc(title) + "</b><small class=\"lm-link-card-host\">" + esc(host) + "</small><span class=\"lm-link-card-desc\">" + esc(note) + "</span></span></a>";
+    }
+    function lmHydrateLinkPreviews(root) {
+      const box = root || document.getElementById("lmPreview");
+      if (!box || !authUser) return;
+      box.querySelectorAll("[data-link-preview]").forEach((card) => {
+        const href = card.getAttribute("data-link-preview") || "";
+        if (!href || card.dataset.previewLoaded) return;
+        card.dataset.previewLoaded = "1";
+        accountFetch("/api/link-preview?url=" + encodeURIComponent(href)).then((data) => {
+          if (!data || !card.isConnected) return;
+          const title = card.querySelector("b");
+          const host = card.querySelector(".lm-link-card-host");
+          const desc = card.querySelector(".lm-link-card-desc");
+          const media = card.querySelector(".lm-link-card-media");
+          if (title && data.title && card.getAttribute("data-keep-title") !== "1") title.textContent = data.title;
+          if (host && data.host) host.textContent = data.host;
+          if (desc) desc.textContent = data.description || data.host || "";
+          if (media && data.image) {
+            media.style.backgroundImage = "url(\"" + String(data.image).replace(/"/g, "%22") + "\")";
+            media.classList.add("has-image");
+          }
+        }).catch(() => {});
+      });
+    }
+    function lmFileUrl(id) {
+      return "/api/lesson-file?id=" + encodeURIComponent(id);
+    }
+    function lmSrc(block) {
+      if (!block || !block.id) return "";
+      if (lmFiles[block.id]) return lmFiles[block.id];
+      if (block.hasFile || (block.name && !block.sample)) return lmFileUrl(block.id);
+      return "";
+    }
+    function lmUploadFile(id, file) {
+      if (!authUser || !canEditLessons() || viewAccount || !id || !file) return Promise.resolve(false);
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", lmFileUrl(id));
+        xhr.withCredentials = true;
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+        xhr.onerror = () => resolve(false);
+        xhr.send(file);
+      });
+    }
+    function lmDeleteRemoteFile(id) {
+      if (!authUser || !canEditLessons() || viewAccount || !id) return Promise.resolve();
+      return fetch(lmFileUrl(id), { method: "DELETE", credentials: "include" }).catch(() => {});
+    }
     function lmMedia(id, kind) {
-      const url = lmFiles[id];
+      const block = lmBlock(id);
+      const url = lmSrc(block) || lmFiles[id];
       if (!url) return "";
       if (kind === "image") return '<img class="lm-shot" alt="" src="' + url + '" />';
       if (kind === "audio") return '<audio class="lm-player" controls src="' + url + '"></audio>';
@@ -9619,27 +9770,35 @@
       }
       if (block.type === "text") return '<div class="lm-copy"' + lmTextStyle(block) + ">" + lmClean(block.html) + "</div>";
       if (block.type === "link") {
-        const href = /^https?:\/\//i.test(block.url || "") ? block.url : "";
-        return '<a class="lm-read-link" href="' + esc(href || "#") + '"' + (href ? ' target="_blank" rel="noreferrer"' : "") + "><b>" + esc(block.title || href || "Link") + "</b><span>" + esc(block.description || block.url || "") + "</span></a>";
+        const media = lmUrlKind(block.url);
+        if (media.kind === "video-embed") return lmVideoFrame(media.src, block.title);
+        if (media.kind === "video-file") return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame-video"><video controls src="' + esc(media.src) + '"></video></div>';
+        if (media.kind === "audio-file") return '<div class="lm-read-pdf"><b>' + esc(block.title || "Audio") + '</b><audio class="lm-player" controls src="' + esc(media.src) + '"></audio></div>';
+        if (media.kind === "page") {
+          const card = lmLinkCard(block, media.href);
+          return block.title ? card.replace('data-link-preview=', 'data-keep-title="1" data-link-preview=') : card;
+        }
+        return '<a class="lm-read-link" href="#"><b>' + esc(block.title || "Link") + "</b><span>" + esc(block.description || block.url || "") + "</span></a>";
       }
       if (block.type === "pdf") return lmPreviewFile(block, "PDF", "Open PDF", "data-pdf-open");
       if (block.type === "image") {
-        const src = lmFiles[block.id];
+        const src = lmSrc(block);
         const pic = src ? '<img class="lm-shot" alt="' + esc(block.caption || "") + '" src="' + src + '" />' : '<div class="lm-shot lm-shot-empty">' + esc(block.name || "Image") + "</div>";
         return '<figure class="lm-figure">' + pic + (block.caption ? "<figcaption>" + esc(block.caption) + "</figcaption>" : "") + "</figure>";
       }
       if (block.type === "audio" || block.type === "pronunciation") {
-        const src = lmFiles[block.id];
+        const src = lmSrc(block);
         const player = src ? '<audio class="lm-player" controls src="' + src + '"></audio>' : "<span>" + esc(block.sample ? "Sample clip. Drop a real audio file to play it." : "No audio yet") + "</span>";
         if (block.type === "pronunciation") return '<div class="lm-pron"><b>' + esc(block.word || "Word") + "</b><small>" + esc(block.ipa || "") + "</small>" + player + "</div>";
         return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || "Audio") + "</b>" + player + "</div>";
       }
       if (block.type === "video") {
-        if (block.source === "file" && lmFiles[block.id]) return '<div class="lm-frame-video"><video controls src="' + lmFiles[block.id] + '"></video></div>';
-        const embed = lmEmbed(block.url);
-        if (embed) return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame-video"><iframe src="' + embed + '" title="' + esc(block.title || "Video") + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
-        const href = /^https?:\/\//i.test(block.url || "") ? block.url : "";
-        if (href) return '<a class="lm-read-link" href="' + esc(href) + '" target="_blank" rel="noreferrer"><b>' + esc(block.title || "Video") + "</b><span>" + esc(block.url) + "</span></a>";
+        if (block.source === "file" && lmSrc(block)) return '<div class="lm-frame-video"><video controls src="' + lmSrc(block) + '"></video></div>';
+        const media = lmUrlKind(block.url);
+        if (media.kind === "video-embed") return lmVideoFrame(media.src, block.title);
+        if (media.kind === "video-file") return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame-video"><video controls src="' + esc(media.src) + '"></video></div>';
+        if (media.kind === "audio-file") return '<div class="lm-read-pdf"><b>' + esc(block.title || "Audio") + '</b><audio class="lm-player" controls src="' + esc(media.src) + '"></audio></div>';
+        if (media.kind === "page") return lmLinkCard(block, media.href);
         return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame lm-shot-empty">' + esc(block.name || "YouTube link or video file") + "</div>";
       }
       if (block.type === "file") return lmPreviewFile(block, "File", "Open file", "data-file-open");
@@ -9717,6 +9876,7 @@
       const when = lmLongDate(lmState.date);
       box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + lmChromeHtml() + parts + "</article>";
       dressWords(box);
+      lmHydrateLinkPreviews(box);
     }
     function lmChromeHtml() {
       const tab = lmTab();
@@ -9974,17 +10134,40 @@
       block.name = file.name;
       block.size = lmFileSize(file.size);
       block.sample = false;
+      block.hasFile = true;
+      block.fileType = file.type || "";
       if (lmFiles[id]) URL.revokeObjectURL(lmFiles[id]);
       lmFiles[id] = URL.createObjectURL(file);
       lmRenderEditor();
       lmSchedule();
+      lmUploadFile(id, file).then((ok) => {
+        if (!ok) {
+          block.hasFile = false;
+          lmNote("The file stayed in this browser only. Check the connection and drop it again.");
+        } else {
+          lmPersist();
+        }
+      });
     }
     function lmClearFile(id) {
       const block = lmBlock(id);
-      if (block) { block.name = ""; block.size = ""; block.sample = false; }
+      if (block) { block.name = ""; block.size = ""; block.sample = false; block.hasFile = false; block.fileType = ""; }
       if (lmFiles[id]) { URL.revokeObjectURL(lmFiles[id]); delete lmFiles[id]; }
+      lmDeleteRemoteFile(id);
       lmRenderEditor();
       lmSchedule();
+    }
+    async function lmResolveFile(id) {
+      if (lmFiles[id]) return lmFiles[id];
+      try {
+        const res = await fetch(lmFileUrl(id), { credentials: "include" });
+        if (!res.ok) return "";
+        const blob = await res.blob();
+        lmFiles[id] = URL.createObjectURL(blob);
+        return lmFiles[id];
+      } catch (e) {
+        return "";
+      }
     }
     function lmList(block, name) {
       if (name === "lines") return block.lines || (block.lines = []);
@@ -10082,8 +10265,6 @@
         const personalAllowed = viewAccount && globalHidden ? lmAllowedForStudent(material.id) : false;
         const hidden = lmLessonHidden(material);
         let about = material.published ? "Published lesson" : "Draft";
-        if (material.id === "lm-sep7") about = "Example · 7 Sep as content blocks";
-        if (material.id === "lm-demo") about = "Trial · every block type";
         if (viewAccount && globalHidden) about = personalAllowed ? "Hidden · allowed for this student" : "Hidden from students";
         else if (globalHidden) about = "Hidden from students";
         else if (personalHidden) about = "Hidden for this student";
@@ -10130,9 +10311,10 @@
       if (found) {
         lmLibrary.materials = lmLibrary.materials.filter((row) => row.id !== id);
         if (!Array.isArray(lmLibrary.removed)) lmLibrary.removed = [];
-        if ((id === "lm-sep7" || id === "lm-demo") && lmLibrary.removed.indexOf(id) < 0) lmLibrary.removed.push(id);
+        if (lmLibrary.removed.indexOf(id) < 0) lmLibrary.removed.push(id);
         if (!lmLibrary.materials.some((row) => row.id === lmLibrary.activeId)) lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
         try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+        lmSchedulePush();
       }
       if (lmState && lmState.id === id) lmState = null;
       const on = document.querySelector("section.on");
@@ -10468,21 +10650,30 @@
         if (openPdfBtn) {
           const id = openPdfBtn.dataset.pdfOpen || openPdfBtn.dataset.fileOpen;
           const block = lmBlock(id);
-          if (lmFiles[id] && openPdfBtn.dataset.pdfOpen) openPdf(lmFiles[id]);
-          else if (lmFiles[id]) {
-            const link = document.createElement("a");
-            link.href = lmFiles[id];
-            link.download = (block && block.name) || "file";
-            link.click();
-          } else {
-            const msg = document.createElement("p");
-            msg.className = "lm-pdf-msg";
-            msg.textContent = block && block.sample ? "This sample shows the block. Drop a real file in the editor to open it." : "This file is not stored in the trial.";
-            const holder = openPdfBtn.parentElement;
-            const old = holder.querySelector(".lm-pdf-msg");
-            if (old) old.remove();
-            holder.appendChild(msg);
-          }
+          const title = block && (block.title || block.name);
+          const openStored = async () => {
+            const href = await lmResolveFile(id);
+            if (!href) {
+              const msg = document.createElement("p");
+              msg.className = "lm-pdf-msg";
+              msg.textContent = block && block.sample
+                ? "This sample shows the block. Drop a real file in the editor to open it."
+                : "This file is not on the server yet. Open the editor and drop it again.";
+              const holder = openPdfBtn.parentElement;
+              const old = holder.querySelector(".lm-pdf-msg");
+              if (old) old.remove();
+              holder.appendChild(msg);
+              return;
+            }
+            if (openPdfBtn.dataset.pdfOpen) openPdf(href, title);
+            else {
+              const link = document.createElement("a");
+              link.href = href;
+              link.download = (block && block.name) || "file";
+              link.click();
+            }
+          };
+          openStored();
           return;
         }
         if (!event.target.closest(".lm-pop") && !event.target.closest("[data-lm-menu]")) lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
