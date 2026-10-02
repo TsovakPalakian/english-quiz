@@ -1686,8 +1686,9 @@
       ).join("");
     }
     function variantForm(word, where, ru) {
+      const pen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
       return '<div class="variant-box" data-variant-word="' + esc(word) + '" data-variant-where="' + where + '" data-variant-ru="' + esc(ru || "") + '">' +
-        '<button class="account-link" type="button" data-variant-open>your variant of the word</button>' +
+        '<button class="btn variant-open" type="button" data-variant-open aria-label="Add your translation">' + pen + '<span>your variant of the word</span></button>' +
         '<div data-variant-form hidden>' +
         '<input type="text" data-variant-input placeholder="in Russian" autocomplete="off" />' +
         '<div class="row"><button class="btn" type="button" data-variant-add>Add to this card</button></div>' +
