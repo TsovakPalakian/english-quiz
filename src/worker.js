@@ -2023,13 +2023,30 @@ const PAIR_SETTINGS_KEY = "pair/tsovak-settings.json";
 const SHARED_CARD_QUIZZES_KEY = "shared/card-quizzes.json";
 const SHARED_CARD_EDITS_KEY = "shared/card-edits.json";
 
+function cardQuizStableId(word, quiz, index) {
+  const copy = Object.assign({}, quiz || {});
+  delete copy.id;
+  const source = String(word || "") + "|" + index + "|" + JSON.stringify(copy);
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return "q_" + (hash >>> 0).toString(36);
+}
+
 function plainCardQuizzes(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
   Object.keys(value).forEach((key) => {
     const word = String(key || "").toLowerCase().trim();
     if (!word || !Array.isArray(value[key])) return;
-    out[word] = value[key];
+    out[word] = value[key].map((quiz, index) => {
+      if (!quiz || typeof quiz !== "object" || Array.isArray(quiz)) return quiz;
+      const next = Object.assign({}, quiz);
+      next.id = String(next.id || cardQuizStableId(word, next, index)).slice(0, 64);
+      return next;
+    });
   });
   return out;
 }
@@ -2053,7 +2070,7 @@ async function writeSharedCardQuizzes(env, map) {
     let prev = {};
     let etag = "";
     if (object) {
-      etag = object.httpEtag || "";
+      etag = object.etag || "";
       try { prev = plainCardQuizzes(JSON.parse(await object.text())); } catch (e) { prev = {}; }
     }
     // Merge by word key so a partial client map cannot wipe unrelated words.
@@ -2061,6 +2078,22 @@ async function writeSharedCardQuizzes(env, map) {
     const next = Object.assign({}, prev, incoming);
     const saved = await putMediaJson(env, SHARED_CARD_QUIZZES_KEY, next, etag);
     if (saved) return next;
+  }
+  return null;
+}
+
+async function deleteSharedCardQuiz(env, word, quizId) {
+  if (!env.MEDIA) return null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const object = await env.MEDIA.get(SHARED_CARD_QUIZZES_KEY);
+    if (!object) return {};
+    let current = {};
+    try { current = plainCardQuizzes(JSON.parse(await object.text())); } catch (e) { return null; }
+    const list = Array.isArray(current[word]) ? current[word] : [];
+    const nextList = list.filter((quiz) => String(quiz && quiz.id || "") !== quizId);
+    if (nextList.length === list.length) return current;
+    current[word] = nextList;
+    if (await putMediaJson(env, SHARED_CARD_QUIZZES_KEY, current, object.etag || "")) return current;
   }
   return null;
 }
@@ -2090,7 +2123,7 @@ async function writeSharedCardEdits(env, patch) {
   for (let attempt = 0; attempt < 8; attempt++) {
     const object = await env.MEDIA.get(SHARED_CARD_EDITS_KEY);
     let prev = {};
-    const etag = object ? (object.httpEtag || "") : "";
+    const etag = object ? (object.etag || "") : "";
     if (object) { try { prev = plainCardEdits(JSON.parse(await object.text())); } catch (e) {} }
     const next = Object.assign({}, prev, incoming);
     if (await putMediaJson(env, SHARED_CARD_EDITS_KEY, next, etag)) return next;
@@ -2691,6 +2724,7 @@ async function saveState(env, request, body, ctx) {
   if (!user) return json({ error: "Sign in first." }, 401);
   const sharedTeacherChange = user && (user.role === "ADMIN" || user.role === "DEVELOPER") && body && (
     body.op === "put-edit" ||
+    body.op === "delete-card-quiz" ||
     (body.op === "put-setting" && body.key === "cardQuizzes")
   );
   if (pairViewOnly(user) && pairBlockedOp(body) && !sharedTeacherChange) {
@@ -2700,6 +2734,9 @@ async function saveState(env, request, body, ctx) {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   }
   if (body && body.op === "put-edit") {
+    if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
+  }
+  if (body && body.op === "delete-card-quiz") {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   }
   // Students cannot self-grant access to hidden teacher lessons.
@@ -2835,6 +2872,18 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
       if (!(await writeSharedCardEdits(env, edits))) return json({ error: "The change could not be saved. Try again." }, 409);
       return json({ ok: true });
     }
+    if (op === "put-setting" && body.key === "cardQuizzes") {
+      const shared = await writeSharedCardQuizzes(env, body.value);
+      if (!shared) return json({ error: "The change could not be saved. Try again." }, 409);
+      return json({ ok: true });
+    }
+    if (op === "delete-card-quiz") {
+      const word = String(body.word || "").toLowerCase().trim().slice(0, 120);
+      const quizId = String(body.quizId || "").trim().slice(0, 64);
+      if (!word || !/^q_[a-z0-9_-]+$/i.test(quizId)) return json({ error: "The request was not valid." }, 400);
+      if (!(await deleteSharedCardQuiz(env, word, quizId))) return json({ error: "The change could not be saved. Try again." }, 409);
+      return json({ ok: true });
+    }
     if (op === "put-text-card") {
       const pair = !!pairLogin;
       const key = pair ? "pair/tsovak-added.json" : (userId + "/added.json");
@@ -2858,7 +2907,7 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
         body
       );
     }
-    if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons") {
+    if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons" && body.key !== "cardQuizzes") {
       const pair = await studyPair(env, pairLogin);
       if (pair) {
         for (let attempt = 0; attempt < 8; attempt++) {
@@ -2877,16 +2926,9 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
           const rejected = applyStateOp(scratch, body);
           if (rejected) return rejected;
           const next = settingsFromStats(scratch.stats);
-          if (body.key === "cardQuizzes") {
-            const shared = await writeSharedCardQuizzes(env, body.value);
-            if (!shared) continue;
-            next.cardQuizzes = shared;
-            scratch.stats.cardQuizzes = next.cardQuizzes;
-          } else {
-            try {
-              next.cardQuizzes = await readSharedCardQuizzes(env);
-            } catch (e) {}
-          }
+          try {
+            next.cardQuizzes = await readSharedCardQuizzes(env);
+          } catch (e) {}
           if (!(await writePairSettings(env, next, etag))) continue;
           await projectPairSettings(env, pair.self.id, next);
           await projectPairSettings(env, pair.twin.id, next);
@@ -2894,19 +2936,6 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
         }
         return json({ error: "The change could not be saved. Try again." }, 409);
       }
-    }
-    if (op === "put-setting" && body.key === "cardQuizzes") {
-      const shared = await writeSharedCardQuizzes(env, body.value);
-      if (!shared) return json({ error: "The change could not be saved. Try again." }, 409);
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const meta = await readAccountFileMeta(env, userId);
-        const state = meta.state || emptyState();
-        const stats = Object.assign({}, plainObject(state.stats));
-        stats.cardQuizzes = shared;
-        state.stats = stats;
-        if (await writeAccountFile(env, userId, state, meta.etag || "")) return json({ ok: true });
-      }
-      return json({ error: "The change could not be saved. Try again." }, 409);
     }
     if (pairLogin && studyMaterialOp(op)) {
       const pair = await studyPair(env, pairLogin);

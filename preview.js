@@ -2272,13 +2272,32 @@
       try { return JSON.parse(localStorage.getItem(CARD_QUIZ_KEY) || "{}") || {}; }
       catch (e) { return {}; }
     }
+    function cardQuizStableId(word, quiz, index) {
+      const copy = Object.assign({}, quiz || {});
+      delete copy.id;
+      const source = String(word || "") + "|" + index + "|" + JSON.stringify(copy);
+      let hash = 2166136261;
+      for (let i = 0; i < source.length; i++) {
+        hash ^= source.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+      return "q_" + (hash >>> 0).toString(36);
+    }
+    function newCardQuizId() {
+      return "q_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
+    }
     function plainCardQuizMap(value) {
       if (!value || typeof value !== "object" || Array.isArray(value)) return {};
       const out = {};
       Object.keys(value).forEach((key) => {
         const word = String(key || "").toLowerCase().trim();
         if (!word || !Array.isArray(value[key])) return;
-        out[word] = value[key];
+        out[word] = value[key].map((quiz, index) => {
+          if (!quiz || typeof quiz !== "object" || Array.isArray(quiz)) return quiz;
+          const next = Object.assign({}, quiz);
+          next.id = String(next.id || cardQuizStableId(word, next, index)).slice(0, 64);
+          return next;
+        });
       });
       return out;
     }
@@ -2863,7 +2882,7 @@
         const map = loadCardQuizzes();
         const key = String(word || "").toLowerCase();
         const list = Array.isArray(map[key]) ? map[key].slice() : [];
-        list.push({ type: type, items: cardQuizPrefillItems(type, box.dataset.cardQuizEn || word, box.dataset.cardQuizRu || "") });
+        list.push({ id: newCardQuizId(), type: type, items: cardQuizPrefillItems(type, box.dataset.cardQuizEn || word, box.dataset.cardQuizRu || "") });
         map[key] = list;
         saveCardQuizzes(map);
         refreshCardQuizBox(box, list.length - 1);
@@ -2904,7 +2923,7 @@
         if (!box || !itemBox) return true;
         const key = String(box.dataset.cardQuizWord || "").toLowerCase();
         const index = Number(pairAdd.getAttribute("data-card-quiz-pair-add"));
-        const map = loadCardQuizzes();
+        const map = plainCardQuizMap(loadCardQuizzes());
         const list = Array.isArray(map[key]) ? map[key].slice() : [];
         const quiz = list[index];
         if (!quiz) return true;
@@ -3028,12 +3047,16 @@
         const box = delBtn.closest(".card-quiz-box");
         if (!box) return true;
         const key = String(box.dataset.cardQuizWord || "").toLowerCase();
-        const map = loadCardQuizzes();
+        const map = plainCardQuizMap(loadCardQuizzes());
         const list = Array.isArray(map[key]) ? map[key].slice() : [];
         const index = Number(delBtn.getAttribute("data-card-quiz-del"));
+        const quiz = list[index];
+        if (!quiz) return true;
+        const quizId = String(quiz.id || cardQuizStableId(key, quiz, index));
         list.splice(index, 1);
         map[key] = list;
-        saveCardQuizzes(map);
+        localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(plainCardQuizMap(map)));
+        syncChange({ op: "delete-card-quiz", word: key, quizId: quizId });
         refreshCardQuizBox(box);
         return true;
       }
@@ -8726,7 +8749,7 @@
         next = { op: "put-setting", key: "cardQuizzes", value: merged };
       }
       // Shared card quizzes and catalog edits always target the signed-in teacher.
-      const selfTarget = (next.op === "put-setting" && next.key === "cardQuizzes") || next.op === "put-edit";
+      const selfTarget = (next.op === "put-setting" && next.key === "cardQuizzes") || next.op === "delete-card-quiz" || next.op === "put-edit";
       // Stamp intended account at enqueue time so flush never retargets across view switches.
       next.forUserId = selfTarget ? null : (viewAccount && viewAccount.id ? viewAccount.id : null);
       syncQueue.push(next);
@@ -8743,6 +8766,7 @@
       const change = syncQueue[0];
       const selfTarget = change && (
         (change.op === "put-setting" && change.key === "cardQuizzes") ||
+        change.op === "delete-card-quiz" ||
         change.op === "put-edit"
       );
       let targetUserId = null;
