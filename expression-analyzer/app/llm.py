@@ -35,6 +35,18 @@ def valid_item(row):
     if row.get("type") not in TYPES:
         row = dict(row)
         row["type"] = "OTHER"
+    # Coerce isExpression to a real bool; non-bool / missing defaults to True (keep).
+    flag = row.get("isExpression", True)
+    if isinstance(flag, bool):
+        pass
+    elif flag in (0, "0", "false", "False", "no", "No"):
+        flag = False
+    elif flag in (1, "1", "true", "True", "yes", "Yes"):
+        flag = True
+    else:
+        return None
+    row = dict(row)
+    row["isExpression"] = flag
     for key in ("usefulnessScore", "idiomaticityScore", "reusabilityScore", "confidence"):
         value = row.get(key)
         if value is None:
@@ -89,15 +101,22 @@ def classify(candidates):
     try:
         response = httpx.post(url, json=body, timeout=settings.llm_timeout)
         response.raise_for_status()
+        # Cap wire size before json parse (env-trusted peer, still bound memory).
+        if len(response.content or b"") > 2_000_000:
+            print("llm response discarded: too large")
+            return {"status": "invalid", "items": []}
         payload = response.json()
         content = payload.get("message", {}).get("content", "")
+        if isinstance(content, str) and len(content) > 1_000_000:
+            print("llm response discarded: content too large")
+            return {"status": "invalid", "items": []}
         parsed = json.loads(content)
         rows = parsed.get("items") if isinstance(parsed, dict) else None
         if not isinstance(rows, list):
             print("llm response discarded: items array missing")
             return {"status": "invalid", "items": []}
         items = []
-        for row in rows:
+        for row in rows[:500]:
             clean = valid_item(row)
             if clean:
                 items.append(clean)

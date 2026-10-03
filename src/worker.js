@@ -70,6 +70,105 @@ function now() {
   return Math.floor(Date.now() / 1000);
 }
 
+const LOGIN_FAIL_LIMIT = 8;
+const LOGIN_LOCK_SECONDS = 15 * 60;
+
+function clientIp(request) {
+  return String(
+    request.headers.get("CF-Connecting-IP") ||
+    (request.headers.get("X-Forwarded-For") || "").split(",")[0] ||
+    ""
+  ).trim() || "unknown";
+}
+
+function loginFailKey(ip) {
+  return "login-fail/" + encodeURIComponent(String(ip || "unknown")).slice(0, 120);
+}
+
+async function tooManyLoginFailures(env, ip) {
+  // Fail closed: without durable fail state, reject rather than allow unlimited guesses.
+  if (!env.MEDIA) return true;
+  try {
+    const object = await env.MEDIA.get(loginFailKey(ip));
+    if (!object) return false;
+    const row = JSON.parse(await object.text());
+    return !!(row && row.until && row.until > now());
+  } catch (e) {
+    return true;
+  }
+}
+
+async function noteLoginFailure(env, ip) {
+  if (!env.MEDIA) return false;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let count = 0;
+    let until = 0;
+    let etag = "";
+    try {
+      const object = await env.MEDIA.get(loginFailKey(ip));
+      if (object) {
+        etag = object.httpEtag || "";
+        const row = JSON.parse(await object.text());
+        count = Number(row && row.count) || 0;
+        until = Number(row && row.until) || 0;
+        if (until > now()) return true;
+      }
+    } catch (e) {
+      return false;
+    }
+    count += 1;
+    if (count >= LOGIN_FAIL_LIMIT) {
+      until = now() + LOGIN_LOCK_SECONDS;
+      count = 0;
+    } else {
+      until = 0;
+    }
+    const saved = await putMediaJson(env, loginFailKey(ip), { count: count, until: until }, etag);
+    if (saved) return true;
+  }
+  return false;
+}
+
+async function clearLoginFailures(env, ip) {
+  if (!env.MEDIA) return;
+  try { await env.MEDIA.delete(loginFailKey(ip)); } catch (e) {}
+}
+
+async function tokenFingerprint(token) {
+  const dig = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(token || "")));
+  return bytesToHex(dig).slice(0, 40);
+}
+
+async function revokeSessionToken(env, token) {
+  if (!env.MEDIA || !token) return;
+  const fp = await tokenFingerprint(token);
+  await env.MEDIA.put("revoked-sid/" + fp, JSON.stringify({ exp: now() + SESSION_SECONDS }), {
+    httpMetadata: { contentType: "application/json" }
+  });
+}
+
+async function sessionTokenRevoked(env, token) {
+  if (!token) return false;
+  // Fail closed: without a denylist check, a stolen cookie would survive logout.
+  if (!env.MEDIA) return true;
+  try {
+    return !!(await env.MEDIA.head("revoked-sid/" + await tokenFingerprint(token)));
+  } catch (e) {
+    return true;
+  }
+}
+
+async function putMediaJson(env, key, value, etag) {
+  const options = { httpMetadata: { contentType: "application/json" } };
+  if (etag) options.onlyIf = { etagMatches: etag };
+  else options.onlyIf = { etagDoesNotMatch: "*" };
+  try {
+    return await env.MEDIA.put(key, JSON.stringify(value), options);
+  } catch (e) {
+    return null;
+  }
+}
+
 function publicUser(row) {
   return {
     id: row.id,
@@ -89,7 +188,8 @@ function canReview(user) {
 }
 
 function signupRole(body) {
-  return body && body.role === "ADMIN" ? "ADMIN" : "USER";
+  // Registration is always a student request. Teacher promotion is a separate admin action.
+  return "USER";
 }
 
 function cookieHeader(token, secure) {
@@ -238,6 +338,8 @@ async function signSession(env, user) {
     email: user.email,
     name: user.name || "",
     role: user.role,
+    // Bind cookie to password hash so changePassword / reset invalidates other sessions.
+    pwdv: String(user.password_hash || "").slice(0, 24),
     createdAt: user.created_at || user.createdAt || 0,
     exp: now() + SESSION_SECONDS
   };
@@ -269,16 +371,58 @@ async function verifySession(env, token) {
     email: payload.email,
     name: payload.name || "",
     role: payload.role,
+    pwdv: payload.pwdv || "",
     is_personal_data_revoked: 0,
     created_at: payload.createdAt || 0
   };
 }
 
 async function currentUser(env, request) {
-  const user = await verifySession(env, readCookie(request.headers.get("Cookie")));
-  if (!user || !env.MEDIA) return user;
-  const gone = await env.MEDIA.head("gone/" + user.id);
-  return gone ? null : user;
+  const token = readCookie(request.headers.get("Cookie"));
+  const session = await verifySession(env, token);
+  if (!session) return null;
+  if (await sessionTokenRevoked(env, token)) return null;
+  if (env.MEDIA) {
+    const gone = await env.MEDIA.head("gone/" + session.id);
+    if (gone) return null;
+  }
+  // Live role/active/password from D1 — never trust JWT alone.
+  if (!env.DB) return null;
+  try {
+    const row = await env.DB.prepare(
+      "SELECT id, login, email, name, role, password_hash, is_personal_data_revoked, active, created_at FROM users WHERE id = ?"
+    ).bind(session.id).first();
+    if (!row || row.is_personal_data_revoked) return null;
+    if (row.active === 0) return null;
+    const livePwd = String(row.password_hash || "").slice(0, 24);
+    if (!session.pwdv || session.pwdv !== livePwd) return null;
+    return {
+      id: row.id,
+      login: row.login,
+      email: row.email,
+      name: row.name || "",
+      role: row.role,
+      is_personal_data_revoked: 0,
+      created_at: row.created_at || 0
+    };
+  } catch (error) {
+    if (String(error && error.message || error).indexOf("no such column: active") < 0) throw error;
+    const row = await env.DB.prepare(
+      "SELECT id, login, email, name, role, password_hash, is_personal_data_revoked, created_at FROM users WHERE id = ?"
+    ).bind(session.id).first();
+    if (!row || row.is_personal_data_revoked) return null;
+    const livePwd = String(row.password_hash || "").slice(0, 24);
+    if (!session.pwdv || session.pwdv !== livePwd) return null;
+    return {
+      id: row.id,
+      login: row.login,
+      email: row.email,
+      name: row.name || "",
+      role: row.role,
+      is_personal_data_revoked: 0,
+      created_at: row.created_at || 0
+    };
+  }
 }
 
 function validateSignup(body) {
@@ -390,18 +534,45 @@ async function readGone(db, userId) {
   }
 }
 
-async function writeAccountFile(env, userId, state) {
-  await env.MEDIA.put(accountStateKey(userId), JSON.stringify({
+async function readAccountFileMeta(env, userId) {
+  if (!env.MEDIA) return { state: null, etag: "" };
+  const object = await env.MEDIA.get(accountStateKey(userId));
+  if (!object) return { state: null, etag: "" };
+  try {
+    const saved = JSON.parse(await object.text());
+    return {
+      state: {
+        added: Array.isArray(saved.added) ? saved.added : [],
+        songs: Array.isArray(saved.songs) ? saved.songs : [],
+        learned: Array.isArray(saved.learned) ? saved.learned : [],
+        variants: saved.variants && typeof saved.variants === "object" && !Array.isArray(saved.variants) ? saved.variants : {},
+        stats: saved.stats && typeof saved.stats === "object" && !Array.isArray(saved.stats) ? saved.stats : {}
+      },
+      etag: object.httpEtag || ""
+    };
+  } catch (e) {
+    return { state: null, etag: object.httpEtag || "" };
+  }
+}
+
+async function writeAccountFile(env, userId, state, etag) {
+  const payload = {
     added: Array.isArray(state.added) ? state.added : [],
     songs: Array.isArray(state.songs) ? state.songs : [],
     learned: Array.isArray(state.learned) ? state.learned : [],
     variants: state.variants && typeof state.variants === "object" && !Array.isArray(state.variants) ? state.variants : {},
     stats: state.stats && typeof state.stats === "object" && !Array.isArray(state.stats) ? state.stats : {}
-  }), { httpMetadata: { contentType: "application/json" } });
+  };
+  if (etag !== undefined) {
+    return !!(await putMediaJson(env, accountStateKey(userId), payload, etag || ""));
+  }
+  await env.MEDIA.put(accountStateKey(userId), JSON.stringify(payload), { httpMetadata: { contentType: "application/json" } });
+  return true;
 }
 
 async function copyStateOnce(env, userId) {
   if (!env.MEDIA) return;
+  if (!(await accountWritable(env, userId))) return;
   if (await readAccountFile(env, userId)) return;
   const state = await readState(env, userId);
   const songs = Array.isArray(state.songs) ? state.songs : [];
@@ -411,7 +582,8 @@ async function copyStateOnce(env, userId) {
     }
   });
   state.songs = songs;
-  await writeAccountFile(env, userId, state);
+  // Create-if-absent only — never clobber a concurrent live write.
+  await writeAccountFile(env, userId, state, "");
 }
 
 async function readState(env, userId) {
@@ -466,9 +638,25 @@ async function songFile(request, env) {
   let ownerLogin = user.login || "";
   const forId = (url.searchParams.get("for") || "").trim();
   if (forId && forId !== user.id) {
+    let row = null;
+    try {
+      row = await env.DB.prepare(
+        "SELECT id, login, email, name, role, is_personal_data_revoked, active, hidden FROM users WHERE id = ?"
+      ).bind(forId).first();
+    } catch (error) {
+      if (String(error && error.message || error).indexOf("no such column") < 0) throw error;
+      row = await env.DB.prepare(
+        "SELECT id, login, email, name, role, is_personal_data_revoked FROM users WHERE id = ?"
+      ).bind(forId).first();
+    }
+    if (!row || row.is_personal_data_revoked) return json({ error: "No such account." }, 404);
+    if (row.active === 0) return json({ error: "No such account." }, 404);
+    if (row.role !== "USER" && row.role !== "ADMIN") return json({ error: "No such account." }, 404);
+    // Teachers get song-redacted managed state; song-file?for= stays developer-only.
     if (user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
-    const row = await directoryUser(env, forId);
-    if (!row || (row.role !== "USER" && row.role !== "ADMIN")) return json({ error: "No such account." }, 404);
+    if (studyTwinLogin(row.login) && !studyTwinLogin(user.login)) {
+      return json({ error: "You cannot do that." }, 403);
+    }
     ownerId = row.id;
     ownerLogin = row.login || "";
   }
@@ -498,25 +686,56 @@ async function songFile(request, env) {
     return new Response(object.body, { headers });
   }
   if (method === "PUT") {
+    if (pairViewOnly(user)) return json({ error: "You cannot do that." }, 403);
+    if (!(await accountWritable(env, ownerId))) return json({ error: "Sign in first." }, 401);
     const type = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
     const allowed = type.indexOf("audio/") === 0 || type.indexOf("video/") === 0 || type === "application/octet-stream";
     if (!allowed) return json({ error: "Choose an audio file." }, 400);
-    const len = Number(request.headers.get("Content-Length") || "0");
-    if (!len) return json({ error: "The file is empty." }, 400);
-    if (len > 25000000) return json({ error: "That file is too large." }, 413);
-    await env.MEDIA.put(key, request.body, { httpMetadata: { contentType: type || "audio/mpeg" } });
+    // Enforce size on the real body — Content-Length alone can be spoofed.
+    const bytes = await request.arrayBuffer();
+    if (!bytes.byteLength) return json({ error: "The file is empty." }, 400);
+    if (bytes.byteLength > 25000000) return json({ error: "That file is too large." }, 413);
+    await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: type || "audio/mpeg" } });
     if (twinKey) {
-      const saved = await env.MEDIA.get(key);
-      if (saved) await env.MEDIA.put(twinKey, saved.body, { httpMetadata: saved.httpMetadata });
+      const twinId = twinKey.slice(0, twinKey.lastIndexOf("/"));
+      if (await accountWritable(env, twinId)) {
+        await env.MEDIA.put(twinKey, bytes, { httpMetadata: { contentType: type || "audio/mpeg" } });
+      }
     }
     return json({ ok: true });
   }
   if (method === "DELETE") {
+    if (pairViewOnly(user)) return json({ error: "You cannot do that." }, 403);
+    if (!(await accountWritable(env, ownerId))) return json({ error: "Sign in first." }, 401);
     await env.MEDIA.delete(key);
-    if (twinKey) await env.MEDIA.delete(twinKey);
+    if (twinKey) {
+      const twinId = twinKey.slice(0, twinKey.lastIndexOf("/"));
+      if (await accountWritable(env, twinId)) await env.MEDIA.delete(twinKey);
+    }
     return json({ ok: true });
   }
   return json({ error: "Not found." }, 404);
+}
+
+async function lessonFileVisible(env, user, fileId) {
+  if (canReview(user)) return true;
+  const materials = await readSharedLessons(env);
+  const state = await readAccountFile(env, user.id) || emptyState();
+  const stats = plainObject(state.stats);
+  const allowed = new Set((Array.isArray(stats.allowedLessons) ? stats.allowedLessons : []).map((id) => String(id || "").trim()).filter(Boolean));
+  const personalHidden = new Set((Array.isArray(stats.hiddenLessons) ? stats.hiddenLessons : []).map((id) => String(id || "").trim()).filter(Boolean));
+  for (let i = 0; i < materials.length; i++) {
+    const row = materials[i];
+    if (!row || !row.published) continue;
+    if (personalHidden.has(row.id)) continue;
+    if (row.hiddenFromStudents && !allowed.has(row.id)) continue;
+    const blocks = Array.isArray(row.blocks) ? row.blocks : [];
+    for (let j = 0; j < blocks.length; j++) {
+      const block = blocks[j];
+      if (block && String(block.id || "") === fileId && (block.hasFile || block.name || block.sample)) return true;
+    }
+  }
+  return false;
 }
 
 async function lessonFile(request, env) {
@@ -529,6 +748,7 @@ async function lessonFile(request, env) {
   const key = "lessons/files/" + fileId;
   const method = request.method;
   if (method === "HEAD" || method === "GET") {
+    if (!(await lessonFileVisible(env, user, fileId))) return new Response("Not found", { status: 404 });
     const range = method === "GET" && request.headers.has("Range") ? { range: request.headers } : undefined;
     const object = method === "HEAD" ? await env.MEDIA.head(key) : await env.MEDIA.get(key, range);
     if (!object) return new Response("Not found", { status: 404 });
@@ -556,10 +776,10 @@ async function lessonFile(request, env) {
     const type = String(request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
     const allowed = type.indexOf("image/") === 0 || type.indexOf("audio/") === 0 || type.indexOf("video/") === 0 || type === "application/pdf" || type === "application/octet-stream";
     if (!allowed) return json({ error: "Choose a lesson file." }, 400);
-    const len = Number(request.headers.get("Content-Length") || "0");
-    if (!len) return json({ error: "The file is empty." }, 400);
-    if (len > 25000000) return json({ error: "That file is too large." }, 413);
-    await env.MEDIA.put(key, request.body, { httpMetadata: { contentType: type || "application/octet-stream" } });
+    const bytes = await request.arrayBuffer();
+    if (!bytes.byteLength) return json({ error: "The file is empty." }, 400);
+    if (bytes.byteLength > 25000000) return json({ error: "That file is too large." }, 413);
+    await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: type || "application/octet-stream" } });
     return json({ ok: true });
   }
   if (method === "DELETE") {
@@ -605,18 +825,78 @@ function inStatRange(ts, start, end) {
   return ts >= start && ts < end + 86400;
 }
 
-async function readStatMonth(env, month) {
-  if (!env.MEDIA) return { ids: {}, events: [] };
+async function readStatMonthMeta(env, month) {
+  if (!env.MEDIA) return { page: { ids: {}, events: [] }, etag: "" };
   const object = await env.MEDIA.get("stats/month/" + month + ".json");
-  if (!object) return { ids: {}, events: [] };
+  if (!object) return { page: { ids: {}, events: [] }, etag: "" };
   try {
     const saved = JSON.parse(await object.text());
     return {
-      ids: saved && saved.ids && typeof saved.ids === "object" ? saved.ids : {},
-      events: saved && Array.isArray(saved.events) ? saved.events : []
+      page: {
+        ids: saved && saved.ids && typeof saved.ids === "object" ? saved.ids : {},
+        events: saved && Array.isArray(saved.events) ? saved.events : []
+      },
+      etag: object.httpEtag || ""
     };
   } catch (e) {
-    return { ids: {}, events: [] };
+    return { page: { ids: {}, events: [] }, etag: object.httpEtag || "" };
+  }
+}
+
+async function readStatMonth(env, month) {
+  const meta = await readStatMonthMeta(env, month);
+  return meta.page;
+}
+
+async function d1UserById(env, userId) {
+  if (!userId) return null;
+  try {
+    return await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked, active, hidden FROM users WHERE id = ?"
+    ).bind(userId).first();
+  } catch (error) {
+    if (String(error && error.message || error).indexOf("no such column") < 0) throw error;
+    return await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked FROM users WHERE id = ?"
+    ).bind(userId).first();
+  }
+}
+
+function d1RowLive(row) {
+  if (!row || row.is_personal_data_revoked) return false;
+  if (row.active === 0) return false;
+  return true;
+}
+
+async function resolveStatTarget(env, actor, forId) {
+  if (!forId || forId === actor.id) return { uid: actor.id, role: actor.role || "USER" };
+  const row = await d1UserById(env, forId);
+  if (!d1RowLive(row)) return { uid: actor.id, role: actor.role || "USER" };
+  if (row.hidden && actor.role !== "DEVELOPER") return { uid: actor.id, role: actor.role || "USER" };
+  if (actor.role === "DEVELOPER" && (row.role === "USER" || row.role === "ADMIN")) {
+    return { uid: row.id, role: row.role };
+  }
+  if (actor.role === "ADMIN" && row.role === "USER") {
+    return { uid: row.id, role: row.role };
+  }
+  return { uid: actor.id, role: actor.role || "USER" };
+}
+
+function cleanLyricSize(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 14 || n > 40) return null;
+  return Math.round(n);
+}
+
+function cleanDemonstratives(value) {
+  if (value == null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  try {
+    const raw = JSON.stringify(value);
+    if (raw.length > 200000) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
   }
 }
 
@@ -649,20 +929,41 @@ async function saveStatEvent(env, request, body) {
   let uid = user.id;
   let role = user.role || "USER";
   if (user.role === "DEVELOPER" || user.role === "ADMIN") {
-    const directory = await readDirectory(env);
-    const owner = statEventOwner(user, body, directory.users || []);
-    uid = owner.uid;
-    role = owner.role;
+    const forId = String(body && body.for || "");
+    if (forId && /^[a-f0-9]{32}$/.test(forId)) {
+      const owner = await resolveStatTarget(env, user, forId);
+      // ADMIN cannot attribute "song" events to students (directory path had the same rule).
+      if (user.role === "ADMIN" && kind === "song" && owner.uid !== user.id) {
+        uid = user.id;
+        role = user.role;
+      } else {
+        uid = owner.uid;
+        role = owner.role;
+      }
+    }
   }
   const t = now();
   const month = statMonth(t);
-  const page = await readStatMonth(env, month);
-  if (page.ids[id]) return json({ ok: true });
-  if (page.events.length >= 20000) return json({ error: "Statistics for this month are full." }, 503);
-  page.ids[id] = 1;
-  page.events.push({ id: id, t: t, role: role, uid: uid, kind: kind, area: area, result: result });
-  await env.MEDIA.put("stats/month/" + month + ".json", JSON.stringify(page), { httpMetadata: { contentType: "application/json" } });
-  return json({ ok: true });
+  const key = "stats/month/" + month + ".json";
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readStatMonthMeta(env, month);
+    const page = {
+      ids: Object.assign({}, meta.page.ids),
+      events: meta.page.events.slice()
+    };
+    if (page.ids[id]) return json({ ok: true });
+    if (page.events.length >= 20000) return json({ error: "Statistics for this month are full." }, 503);
+    // Per-actor cap so one account cannot fill the shared month file for everyone.
+    let own = 0;
+    for (let i = 0; i < page.events.length; i++) {
+      if (page.events[i] && page.events[i].uid === uid) own += 1;
+      if (own >= 2000) return json({ error: "Too many events for this account this month." }, 429);
+    }
+    page.ids[id] = 1;
+    page.events.push({ id: id, t: t, role: role, uid: uid, kind: kind, area: area, result: result });
+    if (await putMediaJson(env, key, page, meta.etag || "")) return json({ ok: true });
+  }
+  return json({ error: "The change could not be saved. Try again." }, 409);
 }
 
 function countAccounts(users, start, end) {
@@ -801,8 +1102,8 @@ async function statReport(env, request) {
   const audience = statAudience(user, url.searchParams);
   if (audience.error) return json({ error: audience.error }, audience.status, { "Cache-Control": "no-store, private" });
   if (audience.needsStudent) {
-    const student = await directoryUser(env, audience.userId);
-    if (!student || student.revoked || student.role !== "USER" || student.hidden) {
+    const student = await d1UserById(env, audience.userId);
+    if (!d1RowLive(student) || student.role !== "USER" || (student.hidden && user.role !== "DEVELOPER")) {
       return json({ error: "You can only open your own statistics." }, 403, { "Cache-Control": "no-store, private" });
     }
   }
@@ -954,8 +1255,13 @@ async function handleApi(request, env, ctx) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "") || "/";
   const method = request.method;
-  const statsPath = path === "/api/stats" || path === "/api/stats/event";
-  if (!env.DB && !statsPath) return json({ error: "Accounts are not connected yet." }, 503);
+  // All authenticated routes need D1 for live role/pwdv checks — no JWT-only fallback.
+  if (!env.DB) return json({ error: "Accounts are not connected yet." }, 503);
+  // Defense in depth with SameSite=Lax: reject cross-site mutating calls.
+  // (Top-level Origin check also runs in fetch for song/lesson file routes.)
+  if (method === "POST" || method === "PUT" || method === "DELETE") {
+    if (!sameSiteMutation(request, url)) return json({ error: "The request was not valid." }, 403);
+  }
   const secure = url.protocol === "https:";
   let body = {};
   if (method === "POST" || method === "PUT") {
@@ -968,9 +1274,9 @@ async function handleApi(request, env, ctx) {
   }
   if (method === "POST" && path === "/api/stats/event") return saveStatEvent(env, request, body);
   if (method === "GET" && path === "/api/stats") return statReport(env, request);
-  if (method === "POST" && path === "/api/register") return register(env, body, secure);
-  if (method === "POST" && path === "/api/login") return login(env, body, secure);
-  if (method === "POST" && path === "/api/logout") return logout(secure);
+  if (method === "POST" && path === "/api/register") return register(env, request, body, secure);
+  if (method === "POST" && path === "/api/login") return login(env, request, body, secure);
+  if (method === "POST" && path === "/api/logout") return logout(env, request, secure);
   if (method === "GET" && path === "/api/me") return me(env, request);
   if (method === "GET" && path === "/api/me/account") return myAccount(env, request);
   if (method === "POST" && path === "/api/me/account") return requestAccountChange(env, request, body);
@@ -1018,23 +1324,33 @@ function cleanLessonMaterial(row) {
   };
 }
 
-async function readSharedLessons(env) {
-  if (!env.MEDIA) return [];
+async function readSharedLessonsMeta(env) {
+  if (!env.MEDIA) return { list: [], etag: "" };
   const object = await env.MEDIA.get(SHARED_LESSONS_KEY);
-  if (!object) return [];
+  if (!object) return { list: [], etag: "" };
   try {
     const saved = JSON.parse(await object.text());
     const list = Array.isArray(saved) ? saved : (saved && Array.isArray(saved.materials) ? saved.materials : []);
-    return list.map(cleanLessonMaterial).filter(Boolean);
+    return { list: list.map(cleanLessonMaterial).filter(Boolean), etag: object.httpEtag || "" };
   } catch (e) {
-    return [];
+    return { list: [], etag: object.httpEtag || "" };
   }
 }
 
-async function writeSharedLessons(env, materials) {
+async function readSharedLessons(env) {
+  const meta = await readSharedLessonsMeta(env);
+  return meta.list;
+}
+
+async function writeSharedLessons(env, materials, etag) {
   const list = (Array.isArray(materials) ? materials : []).map(cleanLessonMaterial).filter(Boolean).slice(0, 200);
-  await env.MEDIA.put(SHARED_LESSONS_KEY, JSON.stringify({ materials: list }), { httpMetadata: { contentType: "application/json" } });
-  return list;
+  try {
+    if (JSON.stringify(list).length > 4000000) return null;
+  } catch (e) {
+    return null;
+  }
+  const saved = await putMediaJson(env, SHARED_LESSONS_KEY, { materials: list }, etag || "");
+  return saved ? list : null;
 }
 
 async function listLessons(env, request) {
@@ -1042,8 +1358,17 @@ async function listLessons(env, request) {
   if (!user) return json({ error: "Sign in first." }, 401);
   const materials = await readSharedLessons(env);
   if (canReview(user)) return json({ materials: materials });
+  const state = await readAccountFile(env, user.id) || emptyState();
+  const stats = plainObject(state.stats);
+  const allowed = new Set((Array.isArray(stats.allowedLessons) ? stats.allowedLessons : []).map((id) => String(id || "").trim()).filter(Boolean));
+  const personalHidden = new Set((Array.isArray(stats.hiddenLessons) ? stats.hiddenLessons : []).map((id) => String(id || "").trim()).filter(Boolean));
   return json({
-    materials: materials.filter((row) => row.published).map((row) => Object.assign({}, row, { mode: "preview" }))
+    materials: materials.filter((row) => {
+      if (!row || !row.published) return false;
+      if (personalHidden.has(row.id)) return false;
+      if (row.hiddenFromStudents && !allowed.has(row.id)) return false;
+      return true;
+    }).map((row) => Object.assign({}, row, { mode: "preview" }))
   });
 }
 
@@ -1051,8 +1376,28 @@ async function saveLessons(env, request, body) {
   const user = await currentUser(env, request);
   if (!canReview(user)) return json({ error: "You cannot do that." }, 403);
   if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
-  const materials = await writeSharedLessons(env, body && body.materials);
-  return json({ ok: true, materials: materials });
+  if (!body || !Array.isArray(body.materials)) return json({ error: "The request was not valid." }, 400);
+  // Empty replace needs an explicit clear flag so a buggy client cannot wipe the catalog.
+  if (!body.materials.length && body.clear !== true) {
+    const current = await readSharedLessons(env);
+    if (current.length) return json({ error: "Lesson list cannot be emptied this way." }, 400);
+  }
+  try {
+    if (JSON.stringify(body.materials).length > 4000000) {
+      return json({ error: "That lesson catalog is too large." }, 413);
+    }
+  } catch (e) {
+    return json({ error: "The request was not valid." }, 400);
+  }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readSharedLessonsMeta(env);
+    if (!body.materials.length && body.clear !== true && meta.list.length) {
+      return json({ error: "Lesson list cannot be emptied this way." }, 400);
+    }
+    const materials = await writeSharedLessons(env, body.materials, meta.etag || "");
+    if (materials) return json({ ok: true, materials: materials });
+  }
+  return json({ error: "The change could not be saved. Try again." }, 409);
 }
 
 function pickMeta(html, names) {
@@ -1091,25 +1436,59 @@ function absolutizeUrl(base, value) {
   }
 }
 
+function isPublicHttpUrl(target) {
+  if (!target || (target.protocol !== "http:" && target.protocol !== "https:")) return false;
+  const host = String(target.hostname || "").toLowerCase().replace(/\.+$/, "");
+  if (!host || host === "localhost" || host.endsWith(".localhost") || host === "0.0.0.0") return false;
+  // Block DNS-rebinding helpers and numeric/hex IP encodings.
+  if (host === "localtest.me" || host.endsWith(".localtest.me") || host.endsWith(".nip.io") || host.endsWith(".sslip.io")) return false;
+  if (/^0x[0-9a-f]+$/i.test(host) || /^\d+$/.test(host)) return false;
+  // Reject all IPv6 literals (including ::ffff:127.0.0.1 mapped forms).
+  if (host.indexOf(":") >= 0) return false;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+    const p = host.split(".").map(Number);
+    if (p.some((n) => n > 255)) return false;
+    if (p[0] === 0 || p[0] === 10 || p[0] === 127) return false;
+    if (p[0] === 169 && p[1] === 254) return false;
+    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return false;
+    if (p[0] === 192 && p[1] === 168) return false;
+    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return false;
+  }
+  return true;
+}
+
+async function fetchPublicPage(url, signal, hops) {
+  if ((hops || 0) > 3) throw new Error("Too many redirects");
+  const target = new URL(url);
+  if (!isPublicHttpUrl(target)) throw new Error("Private host");
+  const res = await fetch(target.toString(), {
+    method: "GET",
+    redirect: "manual",
+    signal: signal,
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; LearnEnglishBot/1.0)",
+      "Accept": "text/html,application/xhtml+xml"
+    }
+  });
+  if (res.status >= 300 && res.status < 400) {
+    const loc = res.headers.get("Location");
+    if (!loc) throw new Error("Bad redirect");
+    return fetchPublicPage(new URL(loc, target).toString(), signal, (hops || 0) + 1);
+  }
+  return res;
+}
+
 async function linkPreview(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   const raw = String(new URL(request.url).searchParams.get("url") || "").trim();
   let target;
   try { target = new URL(raw); } catch (e) { return json({ error: "Enter a valid link." }, 400); }
-  if (target.protocol !== "http:" && target.protocol !== "https:") return json({ error: "Enter a valid link." }, 400);
+  if (!isPublicHttpUrl(target)) return json({ error: "Enter a valid link." }, 400);
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(target.toString(), {
-      method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; LearnEnglishBot/1.0)",
-        "Accept": "text/html,application/xhtml+xml"
-      }
-    });
+    const res = await fetchPublicPage(target.toString(), controller.signal, 0);
     clearTimeout(timer);
     const type = String(res.headers.get("content-type") || "").toLowerCase();
     if (!res.ok || type.indexOf("text/html") < 0) {
@@ -1126,7 +1505,14 @@ async function linkPreview(env, request) {
     const title = pickMeta(html, ["og:title", "twitter:title"]) || (titleMatch && titleMatch[1] ? titleMatch[1].trim() : "") || target.hostname;
     const description = pickMeta(html, ["og:description", "twitter:description", "description"]);
     const imageRaw = pickMeta(html, ["og:image", "twitter:image", "twitter:image:src"]);
-    const image = imageRaw ? absolutizeUrl(res.url || target.toString(), imageRaw) : "";
+    let image = imageRaw ? absolutizeUrl(res.url || target.toString(), imageRaw) : "";
+    try {
+      const img = new URL(image);
+      if (img.protocol !== "http:" && img.protocol !== "https:") image = "";
+      else if (!isPublicHttpUrl(img)) image = "";
+    } catch (e) {
+      image = "";
+    }
     return json({
       url: target.toString(),
       host: target.hostname.replace(/^www\./, ""),
@@ -1170,8 +1556,9 @@ async function ensurePairTexts(env) {
   const second = await readJsonList(env, pair.twin.id + "/texts.json") || [];
   const merged = mergeTextRecords(first, second);
   const texts = merged && !merged.error ? merged : [];
-  await writeJsonList(env, PAIR_TEXTS_KEY, texts);
-  return texts;
+  if (await writeJsonList(env, PAIR_TEXTS_KEY, texts, "")) return texts;
+  const again = await readJsonList(env, PAIR_TEXTS_KEY);
+  return Array.isArray(again) ? again : texts;
 }
 
 function withoutHiddenIds(list, hidden) {
@@ -1229,22 +1616,33 @@ export { mergeTextRecords };
 
 async function saveTextsFor(env, login, userId, body) {
   if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
+  if (!(await accountWritable(env, userId))) return json({ error: "Sign in first." }, 401);
   const incoming = Array.isArray(body && body.texts) ? body.texts : [];
   if (studyTwinLogin(login)) {
-    const existing = await ensurePairTexts(env);
-    const merged = mergeTextRecords(existing, incoming);
-    if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
-    await writeJsonList(env, PAIR_TEXTS_KEY, merged);
-    return json({ ok: true, texts: merged });
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const existing = await ensurePairTexts(env);
+      const meta = await readJsonListMeta(env, PAIR_TEXTS_KEY);
+      const merged = mergeTextRecords(meta.list || existing || [], incoming);
+      if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+      if (await writeJsonList(env, PAIR_TEXTS_KEY, merged, meta.etag || "")) {
+        return json({ ok: true, texts: merged });
+      }
+    }
+    return json({ error: "The change could not be saved. Try again." }, 409);
   }
   const shared = await ensurePairTexts(env);
   const hidden = {};
   shared.forEach((item) => { if (item && item.id) hidden[String(item.id)] = 1; });
-  const existing = withoutHiddenIds(await readJsonList(env, userId + "/texts.json") || [], hidden);
-  const merged = mergeTextRecords(existing, withoutHiddenIds(incoming, hidden));
-  if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
-  await writeJsonList(env, userId + "/texts.json", merged);
-  return json({ ok: true, texts: merged });
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readJsonListMeta(env, userId + "/texts.json");
+    const existing = withoutHiddenIds(meta.list || [], hidden);
+    const merged = mergeTextRecords(existing, withoutHiddenIds(incoming, hidden));
+    if (merged && merged.error) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+    if (await writeJsonList(env, userId + "/texts.json", merged, meta.etag || "")) {
+      return json({ ok: true, texts: merged });
+    }
+  }
+  return json({ error: "The change could not be saved. Try again." }, 409);
 }
 
 async function saveTexts(env, request, body) {
@@ -1259,7 +1657,7 @@ async function analyzeExpressions(env, request, body) {
   if (!user) return json({ error: "Sign in first." }, 401);
   const text = String((body && body.text) || "").trim();
   if (!text) return json({ error: "Write a text first." }, 400);
-  if (text.length > 2000000) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+  if (text.length > 100000) return json({ error: "That text is too long. Limit is 100000 characters." }, 413);
   const base = String(env.EXPRESSION_ANALYZER_URL || "").replace(/\/$/, "");
   if (!base) return json({ error: "Analysis service temporarily unavailable." }, 503);
   const timeout = analyzerTimeoutMs(env.EXPRESSION_ANALYZER_TIMEOUT);
@@ -1332,38 +1730,72 @@ async function phraseCard(env, request, body) {
   return json({ card: card });
 }
 
-async function register(env, body, secure) {
+async function register(env, request, body, secure) {
   const db = env.DB;
+  const ip = clientIp(request);
+  if (env.MEDIA && (await tooManyLoginFailures(env, ip))) {
+    return json({ error: "Too many attempts. Wait and try again." }, 429);
+  }
   const fields = validateSignup(body);
-  if (fields.error) return json({ error: fields.error }, 400);
+  if (fields.error) {
+    if (env.MEDIA) await noteLoginFailure(env, ip);
+    return json({ error: fields.error }, 400);
+  }
+  const pairBlock = reservedPairLogin(fields.login, "");
+  if (pairBlock) {
+    if (env.MEDIA) await noteLoginFailure(env, ip);
+    return json({ error: pairBlock }, 403);
+  }
   const conflict = await activeConflict(db, fields.login, fields.email);
-  if (conflict) return json({ error: conflict }, 409);
+  if (conflict) {
+    if (env.MEDIA) await noteLoginFailure(env, ip);
+    return json({ error: conflict }, 409);
+  }
   const hashed = await hashPassword(fields.password);
   const created = now();
-  const reviewer = await db.prepare(
+  const liveTeacher = await db.prepare(
     "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND role IN ('ADMIN', 'DEVELOPER')"
   ).first();
-  if (!reviewer) {
-    const userId = randomId();
-    const user = {
-      id: userId,
-      login: fields.login,
-      email: fields.email,
-      name: fields.name,
-      role: "ADMIN",
-      is_personal_data_revoked: 0,
-      created_at: created
-    };
-    await db.prepare(
-      "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?)"
-    ).bind(userId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created).run();
-    const regId = randomId();
-    await db.prepare(
-      "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?)"
-    ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).run();
-    await rememberUser(env, user);
-    await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
-    return startSession(env, user, { status: "active", user: publicUser(user) }, secure);
+  if (!liveTeacher) {
+    // One-shot bootstrap: any historical teacher (even revoked) blocks a second ADMIN mint.
+    const everTeacher = await db.prepare(
+      "SELECT id FROM users WHERE role IN ('ADMIN', 'DEVELOPER') LIMIT 1"
+    ).first();
+    if (everTeacher) {
+      return json({ error: "Registration is closed until a teacher restores access." }, 403);
+    }
+    if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
+    const claimed = !!(await putMediaJson(env, "bootstrap/admin.lock", { login: fields.login, at: created }, ""));
+    if (claimed) {
+      const userId = randomId();
+      const user = {
+        id: userId,
+        login: fields.login,
+        email: fields.email,
+        name: fields.name,
+        role: "ADMIN",
+        password_hash: hashed.hash,
+        is_personal_data_revoked: 0,
+        created_at: created
+      };
+      try {
+        await db.prepare(
+          "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?)"
+        ).bind(userId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created).run();
+        const regId = randomId();
+        await db.prepare(
+          "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?)"
+        ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).run();
+        await rememberUser(env, user);
+        await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
+        return startSession(env, user, { status: "active", user: publicUser(user) }, secure);
+      } catch (error) {
+        // Release the create-only lock so a failed D1 insert cannot brick first-admin signup forever.
+        try { await env.MEDIA.delete("bootstrap/admin.lock"); } catch (e) {}
+        return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
+      }
+    }
+    return json({ error: "Registration is busy. Try again." }, 409);
   }
   const regId = randomId();
   try {
@@ -1374,29 +1806,32 @@ async function register(env, body, secure) {
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
   await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(body), user_id: "", created_at: created, decided_at: 0 });
+  // Count successful pending inserts toward the IP lockout to limit registration floods.
+  if (env.MEDIA) await noteLoginFailure(env, ip);
   return json({ status: "pending" });
 }
 
-async function login(env, body, secure) {
+async function login(env, request, body, secure) {
   const db = env.DB;
+  const ip = clientIp(request);
+  if (!env.MEDIA) return json({ error: "Sign-in is not configured." }, 503);
+  if (await tooManyLoginFailures(env, ip)) {
+    return json({ error: "Too many attempts. Wait and try again." }, 429);
+  }
   const key = String(body.login || "").trim();
   const password = String(body.password || "");
   const row = await db.prepare(
     "SELECT * FROM users WHERE is_personal_data_revoked = 0 AND (login = ? OR email = ?)"
   ).bind(key, key.toLowerCase()).first();
   if (!row || !timingSafeEqual(await pbkdf2(password, row.password_salt), row.password_hash)) {
-    if (!row) {
-      const deleted = await db.prepare(
-        "SELECT id FROM users WHERE is_personal_data_revoked = 1 AND (login = ? OR email = ?)"
-      ).bind(key, key.toLowerCase()).first();
-      if (deleted) return json({ error: "This account was deleted." }, 403);
+    if (!(await noteLoginFailure(env, ip))) {
+      return json({ error: "Too many attempts. Wait and try again." }, 429);
     }
-    const pending = await db.prepare(
-      "SELECT id FROM registrations WHERE status = 'pending' AND (login = ? OR email = ?)"
-    ).bind(key, key.toLowerCase()).first();
-    if (pending) return json({ error: "This registration is waiting for approval." }, 403);
+    // Same body for pending / deleted / wrong — avoid account-existence oracle.
     return json({ error: "Wrong login or password." }, 401);
   }
+  if (row.active === 0) return json({ error: "This account is deactivated." }, 403);
+  await clearLoginFailures(env, ip);
   try { await copyStateOnce(env, row.id); } catch (e) {}
   if (canReview(row)) {
     try {
@@ -1407,40 +1842,100 @@ async function login(env, body, secure) {
   return startSession(env, row, { user: publicUser(row) }, secure);
 }
 
-async function logout(secure) {
+async function logout(env, request, secure) {
+  const token = readCookie(request.headers.get("Cookie"));
+  if (token) {
+    if (!env.MEDIA) return json({ error: "Could not sign out safely. Try again." }, 503);
+    try {
+      await revokeSessionToken(env, token);
+    } catch (e) {
+      return json({ error: "Could not sign out safely. Try again." }, 503);
+    }
+  }
   return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
 }
 
 async function me(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ user: null });
+  // Prefer live D1 identity over directory cache (directory can lag after profile edits).
+  let live = null;
+  try {
+    live = await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked, hidden, active, created_at FROM users WHERE id = ?"
+    ).bind(user.id).first();
+  } catch (error) {
+    if (String(error && error.message || error).indexOf("no such column") < 0) throw error;
+    live = await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked, created_at FROM users WHERE id = ?"
+    ).bind(user.id).first();
+  }
+  if (!live || live.is_personal_data_revoked) return json({ user: null });
   const saved = await directoryUser(env, user.id);
-  if (!saved || saved.revoked) return json({ user: publicUser(user) });
   const next = {
-    id: user.id,
-    login: saved.login || user.login,
-    email: saved.email || user.email,
-    name: saved.name || "",
-    role: user.role,
+    id: live.id,
+    login: live.login,
+    email: live.email,
+    name: live.name || "",
+    role: live.role,
     is_personal_data_revoked: 0,
-    hidden: !!saved.hidden,
-    created_at: saved.createdAt || user.created_at || 0
+    hidden: !!(live.hidden != null ? live.hidden : saved && saved.hidden),
+    created_at: live.created_at || 0
   };
   const same = next.login === user.login && next.email === user.email && next.name === (user.name || "");
   if (same) return json({ user: publicUser(next) });
   const secure = new URL(request.url).protocol === "https:";
-  const token = await signSession(env, next);
+  let passwordHash = "";
+  try {
+    const pwdRow = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(user.id).first();
+    passwordHash = pwdRow && pwdRow.password_hash || "";
+  } catch (e) {}
+  const token = await signSession(env, Object.assign({}, next, { password_hash: passwordHash }));
   return json({ user: publicUser(next) }, 200, token ? { "Set-Cookie": cookieHeader(token, secure) } : {});
+}
+
+async function scrubStatUid(env, userId) {
+  if (!env.MEDIA || !userId) return;
+  const months = [statMonth(now()), statMonth(now() - 40 * 86400)];
+  const seen = {};
+  for (let m = 0; m < months.length; m++) {
+    const month = months[m];
+    if (!month || seen[month]) continue;
+    seen[month] = 1;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const meta = await readStatMonthMeta(env, month);
+      let changed = false;
+      const events = (meta.page.events || []).map((ev) => {
+        if (!ev || ev.uid !== userId) return ev;
+        changed = true;
+        return Object.assign({}, ev, { uid: "revoked" });
+      });
+      if (!changed) break;
+      const page = { ids: Object.assign({}, meta.page.ids), events: events };
+      if (await putMediaJson(env, "stats/month/" + month + ".json", page, meta.etag || "")) break;
+    }
+  }
 }
 
 async function revoke(env, request, secure) {
   const db = env.DB;
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
+  // Wipe media (gone marker first) before DB revoke so a failed wipe can abort
+  // without leaving a revoked row that still has live objects and no marker.
+  try {
+    await deleteAccountFiles(env, user.id);
+  } catch (e) {
+    const marked = await accountMediaGone(env, user.id);
+    if (!marked) return json({ error: "Could not delete account files. Try again." }, 503);
+  }
   const revokedAt = now();
   await db.prepare("UPDATE users SET is_personal_data_revoked = 1, revoked_at = ? WHERE id = ?").bind(revokedAt, user.id).run();
   await ignoreMissingTable(db.prepare("UPDATE account_changes SET status = 'rejected', decided_at = ? WHERE user_id = ? AND status = 'pending'").bind(revokedAt, user.id));
-  await patchDirectory(env, (directory) => {
+  await ignoreMissingTable(db.prepare("DELETE FROM user_state WHERE user_id = ?").bind(user.id));
+  await ignoreMissingTable(db.prepare("DELETE FROM user_added WHERE user_id = ?").bind(user.id));
+  await ignoreMissingTable(db.prepare("DELETE FROM user_card_gone WHERE user_id = ?").bind(user.id));
+  const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
       if (item && item.id === user.id) item.revoked = true;
     });
@@ -1451,7 +1946,18 @@ async function revoke(env, request, secure) {
       }
     });
   });
-  if (env.MEDIA) await env.MEDIA.put("gone/" + user.id, "1", { httpMetadata: { contentType: "text/plain" } });
+  if (!dirOk && env.MEDIA) {
+    // Best-effort second pass — gone/ + D1 already block writes/login.
+    try {
+      await patchDirectory(env, (directory) => {
+        directory.users.forEach((item) => {
+          if (item && item.id === user.id) item.revoked = true;
+        });
+      });
+    } catch (e) {}
+  }
+  try { await scrubStatUid(env, user.id); } catch (e) {}
+  try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie"))); } catch (e) {}
   return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
 }
 
@@ -1459,6 +1965,13 @@ function studyTwinLogin(login) {
   if (login === "TsovakDev") return "Tsovak";
   if (login === "Tsovak") return "TsovakDev";
   return "";
+}
+
+function reservedPairLogin(login, currentLogin) {
+  // Pair sharing is keyed by login name; block minting/renaming onto those names.
+  if (!studyTwinLogin(login)) return "";
+  if (currentLogin && currentLogin === login) return "";
+  return "That login is reserved.";
 }
 
 function themesForLogin(login, ownState, twinState) {
@@ -1501,6 +2014,8 @@ async function studyPair(env, login) {
     if (item.login === twinLogin) twin = item;
   });
   if (!self || !twin || self.id === twin.id) return null;
+  // Directory can lag behind revoke; refuse twin projection if either side is gone.
+  if (!(await accountWritable(env, self.id)) || !(await accountWritable(env, twin.id))) return null;
   return { self: self, twin: twin };
 }
 
@@ -1509,7 +2024,13 @@ const SHARED_CARD_QUIZZES_KEY = "shared/card-quizzes.json";
 
 function plainCardQuizzes(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return value;
+  const out = {};
+  Object.keys(value).forEach((key) => {
+    const word = String(key || "").toLowerCase().trim();
+    if (!word || !Array.isArray(value[key])) return;
+    out[word] = value[key];
+  });
+  return out;
 }
 
 async function readSharedCardQuizzes(env) {
@@ -1524,10 +2045,23 @@ async function readSharedCardQuizzes(env) {
 }
 
 async function writeSharedCardQuizzes(env, map) {
-  if (!env.MEDIA) return {};
-  const next = plainCardQuizzes(map);
-  await env.MEDIA.put(SHARED_CARD_QUIZZES_KEY, JSON.stringify(next), { httpMetadata: { contentType: "application/json" } });
-  return next;
+  if (!env.MEDIA) return null;
+  const incoming = plainCardQuizzes(map);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const object = await env.MEDIA.get(SHARED_CARD_QUIZZES_KEY);
+    let prev = {};
+    let etag = "";
+    if (object) {
+      etag = object.httpEtag || "";
+      try { prev = plainCardQuizzes(JSON.parse(await object.text())); } catch (e) { prev = {}; }
+    }
+    // Merge by word key so a partial client map cannot wipe unrelated words.
+    // Empty arrays are kept as delete tombstones.
+    const next = Object.assign({}, prev, incoming);
+    const saved = await putMediaJson(env, SHARED_CARD_QUIZZES_KEY, next, etag);
+    if (saved) return next;
+  }
+  return null;
 }
 
 async function readPairSettings(env) {
@@ -1592,16 +2126,29 @@ function settingsFromStats(stats) {
   return settings;
 }
 
-async function writePairSettings(env, settings) {
-  await env.MEDIA.put(PAIR_SETTINGS_KEY, JSON.stringify(settings), { httpMetadata: { contentType: "application/json" } });
+async function writePairSettings(env, settings, etag) {
+  if (!env.MEDIA) return false;
+  if (etag !== undefined) {
+    return !!(await putMediaJson(env, PAIR_SETTINGS_KEY, settings, etag || ""));
+  }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const object = await env.MEDIA.get(PAIR_SETTINGS_KEY);
+    const liveEtag = object ? (object.httpEtag || "") : "";
+    if (await putMediaJson(env, PAIR_SETTINGS_KEY, settings, liveEtag)) return true;
+  }
+  return false;
 }
 
 async function projectPairSettings(env, userId, settings) {
-  const state = await readAccountFile(env, userId) || emptyState();
-  const before = JSON.stringify(plainObject(state.stats));
-  applyPairSettings(state, settings);
-  if (JSON.stringify(plainObject(state.stats)) === before) return;
-  await writeAccountFile(env, userId, state);
+  if (!(await accountWritable(env, userId))) return;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readAccountFileMeta(env, userId);
+    const state = meta.state || emptyState();
+    const before = JSON.stringify(plainObject(state.stats));
+    applyPairSettings(state, settings);
+    if (JSON.stringify(plainObject(state.stats)) === before) return;
+    if (await writeAccountFile(env, userId, state, meta.etag || "")) return;
+  }
 }
 
 async function ensurePairSettings(env, login) {
@@ -1614,8 +2161,17 @@ async function ensurePairSettings(env, login) {
     const devState = await readAccountFile(env, dev.id) || emptyState();
     const otherState = await readAccountFile(env, other.id) || emptyState();
     settings = mergePairSettings(devState.stats, otherState.stats);
-    await writePairSettings(env, settings);
+    if (!(await writePairSettings(env, settings, ""))) {
+      settings = await readPairSettings(env) || settings;
+    }
   }
+  try {
+    const shared = await readSharedCardQuizzes(env);
+    if (!Object.keys(shared).length) {
+      const seed = plainCardQuizzes(settings && settings.cardQuizzes);
+      if (Object.keys(seed).length) await writeSharedCardQuizzes(env, seed);
+    }
+  } catch (e) {}
   await projectPairSettings(env, pair.self.id, settings);
   await projectPairSettings(env, pair.twin.id, settings);
   return settings;
@@ -1625,6 +2181,36 @@ function cardEditsOf(state) {
   const edits = state && state.stats && state.stats.cardEdits;
   if (!edits || typeof edits !== "object" || Array.isArray(edits)) return {};
   return edits;
+}
+
+function cleanDayLinks(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  Object.keys(value).slice(0, 40).forEach((day) => {
+    const pack = value[day];
+    if (!pack || typeof pack !== "object" || Array.isArray(pack)) return;
+    const next = {};
+    ["classwork", "homework"].forEach((kind) => {
+      const list = Array.isArray(pack[kind]) ? pack[kind] : [];
+      next[kind] = list.slice(0, 40).map((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+        const title = String(item.title || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 120);
+        let href = String(item.href || "").trim().slice(0, 500);
+        if (!title || !href) return null;
+        try {
+          if (!/^https?:\/\//i.test(href)) href = "https://" + href;
+          const parsed = new URL(href);
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+          href = parsed.toString();
+        } catch (e) {
+          return null;
+        }
+        return { title: title, href: href };
+      }).filter(Boolean);
+    });
+    out[String(day).slice(0, 40)] = next;
+  });
+  return out;
 }
 
 function plainObject(value) {
@@ -1753,47 +2339,71 @@ function stateFromMaterial(material) {
 
 const PAIR_STUDY_KEY = "pair/tsovak-study.json";
 
-async function readSharedStudy(env) {
-  if (!env.MEDIA) return null;
+async function readSharedStudyMeta(env) {
+  if (!env.MEDIA) return { material: null, etag: "" };
   const object = await env.MEDIA.get(PAIR_STUDY_KEY);
-  if (!object) return null;
+  if (!object) return { material: null, etag: "" };
   try {
     const saved = JSON.parse(await object.text());
-    if (!saved || !Array.isArray(saved.added) || !Array.isArray(saved.songs)) return null;
+    if (!saved || !Array.isArray(saved.added) || !Array.isArray(saved.songs)) {
+      return { material: null, etag: object.httpEtag || "" };
+    }
     return {
-      added: saved.added,
-      songs: saved.songs,
-      variants: plainObject(saved.variants),
-      cardEdits: plainObject(saved.cardEdits),
-      learned: Array.isArray(saved.learned) ? saved.learned : [],
-      mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : []
+      material: {
+        added: saved.added,
+        songs: saved.songs,
+        variants: plainObject(saved.variants),
+        cardEdits: plainObject(saved.cardEdits),
+        learned: Array.isArray(saved.learned) ? saved.learned : [],
+        mistakes: Array.isArray(saved.mistakes) ? saved.mistakes : []
+      },
+      etag: object.httpEtag || ""
     };
   } catch (e) {
-    return null;
+    return { material: null, etag: object.httpEtag || "" };
   }
 }
 
-async function writeSharedStudy(env, material) {
-  await env.MEDIA.put(PAIR_STUDY_KEY, JSON.stringify({
+async function readSharedStudy(env) {
+  const meta = await readSharedStudyMeta(env);
+  return meta.material;
+}
+
+async function writeSharedStudy(env, material, etag) {
+  if (!env.MEDIA) return false;
+  const payload = {
     added: material.added || [],
     songs: material.songs || [],
     variants: material.variants || {},
     cardEdits: material.cardEdits || {},
     learned: material.learned || [],
     mistakes: material.mistakes || []
-  }), { httpMetadata: { contentType: "application/json" } });
+  };
+  if (etag !== undefined) {
+    return !!(await putMediaJson(env, PAIR_STUDY_KEY, payload, etag || ""));
+  }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readSharedStudyMeta(env);
+    if (await putMediaJson(env, PAIR_STUDY_KEY, payload, meta.etag || "")) return true;
+  }
+  return false;
 }
 
 async function projectStudy(env, userId, material) {
-  const state = await readAccountFile(env, userId) || emptyState();
-  if (sameMaterial(state, material)) return;
-  await writeAccountFile(env, userId, overlayMaterial(state, material));
+  if (!(await accountWritable(env, userId))) return;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const meta = await readAccountFileMeta(env, userId);
+    const state = meta.state || emptyState();
+    if (sameMaterial(state, material)) return;
+    if (await writeAccountFile(env, userId, overlayMaterial(state, material), meta.etag || "")) return;
+  }
 }
 
 async function ensureSharedStudy(env, login) {
   const pair = await studyPair(env, login);
   if (!pair) return null;
-  let material = await readSharedStudy(env);
+  let meta = await readSharedStudyMeta(env);
+  let material = meta.material;
   let created = false;
   if (!material) {
     const dev = pair.self.login === "TsovakDev" ? pair.self : pair.twin;
@@ -1801,8 +2411,13 @@ async function ensureSharedStudy(env, login) {
     const devState = await readAccountFile(env, dev.id) || emptyState();
     const otherState = await readAccountFile(env, other.id) || emptyState();
     material = unionStudyMaterial(devState, otherState);
-    await writeSharedStudy(env, material);
-    created = true;
+    if (await writeSharedStudy(env, material, "")) {
+      created = true;
+    } else {
+      // Lost the create race — use the material another request wrote.
+      meta = await readSharedStudyMeta(env);
+      material = meta.material || material;
+    }
   }
   await projectStudy(env, pair.self.id, material);
   await projectStudy(env, pair.twin.id, material);
@@ -1817,6 +2432,7 @@ function later(ctx, task) {
 async function copyMissingSong(env, fromId, toId, songId) {
   if (!env.MEDIA || !fromId || !toId || fromId === toId) return;
   if (!/^[A-Za-z0-9_-]{4,64}$/.test(songId)) return;
+  if (!(await accountWritable(env, toId))) return;
   const destKey = toId + "/" + songId;
   if (await env.MEDIA.head(destKey)) return;
   const source = await env.MEDIA.get(fromId + "/" + songId);
@@ -1917,6 +2533,7 @@ function applyStateOp(state, body) {
       return key !== keep && key !== drop;
     });
     state.added.push(next);
+    if (state.added.length > 5000) state.added = state.added.slice(-5000);
     return null;
   }
   if (op === "put-song") {
@@ -1927,19 +2544,41 @@ function applyStateOp(state, body) {
     const index = state.songs.findIndex((item) => item && item.id === copy.id);
     if (index >= 0) state.songs[index] = copy;
     else state.songs.push(copy);
+    if (state.songs.length > 500) state.songs = state.songs.slice(-500);
     return null;
   }
   if (op === "put-variant") {
     if (!body.word || !Array.isArray(body.lines)) return json({ error: "The request was not valid." }, 400);
-    state.variants[String(body.word)] = body.lines;
+    const word = String(body.word).slice(0, 120);
+    if (!word) return json({ error: "The request was not valid." }, 400);
+    try {
+      if (JSON.stringify(body.lines).length > 100000) return json({ error: "The request was not valid." }, 400);
+    } catch (e) {
+      return json({ error: "The request was not valid." }, 400);
+    }
+    state.variants[word] = body.lines.slice(0, 200);
+    const keys = Object.keys(state.variants);
+    if (keys.length > 2000) {
+      keys.slice(0, keys.length - 2000).forEach((key) => { delete state.variants[key]; });
+    }
     return null;
   }
   if (op === "put-edit" || op === "put-mistake" || op === "delete-mistake" || op === "put-setting") {
     const stats = state.stats;
     if (op === "put-edit") {
       if (!body.id || !body.edit || typeof body.edit !== "object" || Array.isArray(body.edit)) return json({ error: "The request was not valid." }, 400);
+      try {
+        if (JSON.stringify(body.edit).length > 50000) return json({ error: "The request was not valid." }, 400);
+      } catch (e) {
+        return json({ error: "The request was not valid." }, 400);
+      }
       const edits = plainObject(stats.cardEdits);
-      edits[String(body.id)] = body.edit;
+      const id = String(body.id).slice(0, 120);
+      edits[id] = body.edit;
+      const keys = Object.keys(edits);
+      if (keys.length > 2000) {
+        keys.slice(0, keys.length - 2000).forEach((key) => { delete edits[key]; });
+      }
       stats.cardEdits = edits;
       return null;
     }
@@ -1947,15 +2586,37 @@ function applyStateOp(state, body) {
       const en = op === "put-mistake" ? body.mistake && body.mistake.en : body.en;
       const type = op === "put-mistake" ? body.mistake && body.mistake.type : body.type;
       if (!en || !type) return json({ error: "The request was not valid." }, 400);
-      const mistakes = Array.isArray(stats.mistakes) ? stats.mistakes : [];
-      stats.mistakes = mistakes.filter((item) => !(item && item.en === en && item.type === type));
-      if (op === "put-mistake" && body.mistake.misses > 0) stats.mistakes.push(body.mistake);
+      const enClean = String(en).slice(0, 120);
+      const typeClean = String(type).slice(0, 40);
+      let mistakes = Array.isArray(stats.mistakes) ? stats.mistakes : [];
+      mistakes = mistakes.filter((item) => !(item && item.en === enClean && item.type === typeClean));
+      if (op === "put-mistake" && body.mistake && body.mistake.misses > 0) {
+        mistakes.push({
+          en: enClean,
+          type: typeClean,
+          misses: Math.min(999, Math.max(1, Number(body.mistake.misses) || 1)),
+          streak: Math.min(99, Math.max(0, Number(body.mistake.streak) || 0))
+        });
+      }
+      stats.mistakes = mistakes.slice(-500);
       return null;
     }
-    if (body.key === "lyricSize") stats.lyricSize = body.value;
-    else if (body.key === "demonstratives") stats.demonstratives = body.value;
-    else if (body.key === "dayLinks") stats.dayLinks = body.value;
-    else if (body.key === "cardQuizzes") stats.cardQuizzes = body.value && typeof body.value === "object" ? body.value : {};
+    if (body.key === "lyricSize") {
+      const size = cleanLyricSize(body.value);
+      if (size == null) return json({ error: "The request was not valid." }, 400);
+      stats.lyricSize = size;
+    }
+    else if (body.key === "demonstratives") {
+      if (body.value == null) {
+        stats.demonstratives = null;
+      } else {
+        const demo = cleanDemonstratives(body.value);
+        if (demo == null) return json({ error: "The request was not valid." }, 400);
+        stats.demonstratives = demo;
+      }
+    }
+    else if (body.key === "dayLinks") stats.dayLinks = cleanDayLinks(body.value);
+    else if (body.key === "cardQuizzes") stats.cardQuizzes = plainCardQuizzes(body.value);
     else if (body.key === "customThemes") stats.customThemes = cleanCustomThemes(body.value);
     else if (body.key === "theme") {
       const theme = cleanThemeName(body.value);
@@ -1983,7 +2644,9 @@ function pairViewOnly(user) {
 function pairBlockedOp(body) {
   const op = body && body.op;
   if (op === "put-edit" || op === "put-card" || op === "delete-card" || op === "put-song" || op === "put-variant" || op === "put-text-card") return true;
-  if (op === "put-setting" && body.key === "customThemes") return true;
+  if (op === "put-mistake" || op === "delete-mistake") return true;
+  // Shared pair settings (theme, dayLinks, quizzes, …) are Dev-only; personal hide list stays allowed.
+  if (op === "put-setting" && body.key !== "hiddenLessons") return true;
   return false;
 }
 
@@ -1994,24 +2657,37 @@ async function saveState(env, request, body, ctx) {
   if (body && body.op === "put-setting" && body.key === "cardQuizzes") {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   }
+  // Students cannot self-grant access to hidden teacher lessons.
+  if (body && body.op === "put-setting" && body.key === "allowedLessons") {
+    if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
+  }
   return writeStateOp(env, user.id, body, studyTwinLogin(user.login), ctx);
 }
 
-async function readJsonList(env, key) {
-  if (!env.MEDIA || !key) return null;
+async function readJsonListMeta(env, key) {
+  if (!env.MEDIA || !key) return { list: null, etag: "" };
   const object = await env.MEDIA.get(key);
-  if (!object) return null;
+  if (!object) return { list: null, etag: "" };
   try {
     const saved = JSON.parse(await object.text());
-    if (Array.isArray(saved)) return saved;
-    if (saved && Array.isArray(saved.songs)) return saved.songs;
-    if (saved && Array.isArray(saved.added)) return saved.added;
+    if (Array.isArray(saved)) return { list: saved, etag: object.httpEtag || "" };
+    if (saved && Array.isArray(saved.songs)) return { list: saved.songs, etag: object.httpEtag || "" };
+    if (saved && Array.isArray(saved.added)) return { list: saved.added, etag: object.httpEtag || "" };
   } catch (e) {}
-  return null;
+  return { list: null, etag: object.httpEtag || "" };
 }
 
-async function writeJsonList(env, key, list) {
+async function readJsonList(env, key) {
+  const meta = await readJsonListMeta(env, key);
+  return meta.list;
+}
+
+async function writeJsonList(env, key, list, etag) {
+  if (etag !== undefined) {
+    return !!(await putMediaJson(env, key, list, etag || ""));
+  }
   await env.MEDIA.put(key, JSON.stringify(list), { httpMetadata: { contentType: "application/json" } });
+  return true;
 }
 
 function mergeSongLists(base, extra) {
@@ -2038,7 +2714,7 @@ function upsertCards(list, cards) {
     if (index >= 0) next[index] = copy;
     else next.push(copy);
   });
-  return next;
+  return next.length > 5000 ? next.slice(-5000) : next;
 }
 
 async function saveSongSidecar(env, songsKey, cardsKey, body) {
@@ -2046,17 +2722,25 @@ async function saveSongSidecar(env, songsKey, cardsKey, body) {
   if (!song || typeof song !== "object" || Array.isArray(song) || !song.id) return json({ error: "The request was not valid." }, 400);
   const copy = Object.assign({}, song);
   delete copy.blob;
-  const songs = await readJsonList(env, songsKey) || [];
-  const index = songs.findIndex((item) => item && item.id === copy.id);
-  if (index >= 0) songs[index] = copy;
-  else songs.push(copy);
-  await writeJsonList(env, songsKey, songs);
-  const cards = Array.isArray(body.cards) ? body.cards : [];
-  if (cards.length) {
-    const have = await readJsonList(env, cardsKey) || [];
-    await writeJsonList(env, cardsKey, upsertCards(have, cards));
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const songsMeta = await readJsonListMeta(env, songsKey);
+    const songs = Array.isArray(songsMeta.list) ? songsMeta.list.slice() : [];
+    const index = songs.findIndex((item) => item && item.id === copy.id);
+    if (index >= 0) songs[index] = copy;
+    else songs.push(copy);
+    const trimmed = songs.length > 500 ? songs.slice(-500) : songs;
+    if (!(await writeJsonList(env, songsKey, trimmed, songsMeta.etag || ""))) continue;
+    const cards = Array.isArray(body.cards) ? body.cards : [];
+    if (cards.length) {
+      for (let cardAttempt = 0; cardAttempt < 8; cardAttempt++) {
+        const cardsMeta = await readJsonListMeta(env, cardsKey);
+        const have = Array.isArray(cardsMeta.list) ? cardsMeta.list : [];
+        if (await writeJsonList(env, cardsKey, upsertCards(have, cards), cardsMeta.etag || "")) break;
+      }
+    }
+    return json({ ok: true });
   }
-  return json({ ok: true });
+  return json({ error: "The change could not be saved. Try again." }, 409);
 }
 
 async function withSidecars(env, login, userId, state) {
@@ -2071,16 +2755,45 @@ async function withSidecars(env, login, userId, state) {
   return saved;
 }
 
+async function accountMediaGone(env, userId) {
+  if (!env.MEDIA || !userId) return true;
+  try {
+    return !!(await env.MEDIA.head("gone/" + userId));
+  } catch (e) {
+    return true;
+  }
+}
+
+async function accountWritable(env, userId) {
+  if (!userId) return false;
+  if (await accountMediaGone(env, userId)) return false;
+  try {
+    const row = await env.DB.prepare("SELECT is_personal_data_revoked FROM users WHERE id = ?").bind(userId).first();
+    if (!row || row.is_personal_data_revoked) return false;
+  } catch (e) {
+    return false;
+  }
+  return true;
+}
+
 async function writeStateOp(env, userId, body, pairLogin, ctx) {
   if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
   const op = body && body.op;
+  if (!op) return json({ error: "The request was not valid." }, 400);
+  // Block resurrection after revoke: gone marker or revoked row.
+  if (!(await accountWritable(env, userId))) return json({ error: "Sign in first." }, 401);
   try {
     if (op === "put-text-card") {
       const pair = !!pairLogin;
       const key = pair ? "pair/tsovak-added.json" : (userId + "/added.json");
-      const have = await readJsonList(env, key) || [];
-      await writeJsonList(env, key, upsertCards(have, [body.card]));
-      return json({ ok: true });
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const meta = await readJsonListMeta(env, key);
+        const have = Array.isArray(meta.list) ? meta.list : [];
+        if (await writeJsonList(env, key, upsertCards(have, [body.card]), meta.etag || "")) {
+          return json({ ok: true });
+        }
+      }
+      return json({ error: "The change could not be saved. Try again." }, 409);
     }
     if (op === "put-song") {
       const pair = !!pairLogin;
@@ -2096,50 +2809,83 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
     if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons") {
       const pair = await studyPair(env, pairLogin);
       if (pair) {
-        const settings = await readPairSettings(env) || {};
-        const scratch = emptyState();
-        applyPairSettings(scratch, settings);
-        const rejected = applyStateOp(scratch, body);
-        if (rejected) return rejected;
-        const next = settingsFromStats(scratch.stats);
-        if (body.key === "cardQuizzes") {
-          next.cardQuizzes = await writeSharedCardQuizzes(env, body.value);
-          scratch.stats.cardQuizzes = next.cardQuizzes;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const object = env.MEDIA ? await env.MEDIA.get(PAIR_SETTINGS_KEY) : null;
+          let settings = {};
+          let etag = "";
+          if (object) {
+            etag = object.httpEtag || "";
+            try {
+              const saved = JSON.parse(await object.text());
+              if (saved && typeof saved === "object" && !Array.isArray(saved)) settings = saved;
+            } catch (e) {}
+          }
+          const scratch = emptyState();
+          applyPairSettings(scratch, settings);
+          const rejected = applyStateOp(scratch, body);
+          if (rejected) return rejected;
+          const next = settingsFromStats(scratch.stats);
+          if (body.key === "cardQuizzes") {
+            const shared = await writeSharedCardQuizzes(env, body.value);
+            if (!shared) continue;
+            next.cardQuizzes = shared;
+            scratch.stats.cardQuizzes = next.cardQuizzes;
+          } else {
+            try {
+              next.cardQuizzes = await readSharedCardQuizzes(env);
+            } catch (e) {}
+          }
+          if (!(await writePairSettings(env, next, etag))) continue;
+          await projectPairSettings(env, pair.self.id, next);
+          await projectPairSettings(env, pair.twin.id, next);
+          return json({ ok: true });
         }
-        await writePairSettings(env, next);
-        await projectPairSettings(env, pair.self.id, next);
-        await projectPairSettings(env, pair.twin.id, next);
-        return json({ ok: true });
+        return json({ error: "The change could not be saved. Try again." }, 409);
       }
     }
     if (op === "put-setting" && body.key === "cardQuizzes") {
       const shared = await writeSharedCardQuizzes(env, body.value);
-      const state = await readAccountFile(env, userId) || emptyState();
-      const stats = Object.assign({}, plainObject(state.stats));
-      stats.cardQuizzes = shared;
-      state.stats = stats;
-      await writeAccountFile(env, userId, state);
-      return json({ ok: true });
+      if (!shared) return json({ error: "The change could not be saved. Try again." }, 409);
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const meta = await readAccountFileMeta(env, userId);
+        const state = meta.state || emptyState();
+        const stats = Object.assign({}, plainObject(state.stats));
+        stats.cardQuizzes = shared;
+        state.stats = stats;
+        if (await writeAccountFile(env, userId, state, meta.etag || "")) return json({ ok: true });
+      }
+      return json({ error: "The change could not be saved. Try again." }, 409);
     }
     if (pairLogin && studyMaterialOp(op)) {
       const pair = await studyPair(env, pairLogin);
-      const existing = pair && await readSharedStudy(env);
-      if (pair && existing) {
-        const state = stateFromMaterial(existing);
+      if (!pair) return json({ error: "The change could not be saved." }, 500);
+      for (let attempt = 0; attempt < 8; attempt++) {
+        let meta = await readSharedStudyMeta(env);
+        if (!meta.material) {
+          const ensured = await ensureSharedStudy(env, pairLogin);
+          if (!ensured || !ensured.material) return json({ error: "The change could not be saved." }, 500);
+          meta = await readSharedStudyMeta(env);
+          if (!meta.material) meta = { material: ensured.material, etag: "" };
+        }
+        const state = stateFromMaterial(meta.material);
         const rejected = applyStateOp(state, body);
         if (rejected) return rejected;
         const material = materialSnapshot(state);
-        await writeSharedStudy(env, material);
+        if (!(await writeSharedStudy(env, material, meta.etag || ""))) continue;
         await projectStudy(env, pair.self.id, material);
         await projectStudy(env, pair.twin.id, material);
         return json({ ok: true });
       }
+      return json({ error: "The change could not be saved. Try again." }, 409);
     }
-    const state = await readAccountFile(env, userId) || emptyState();
-    const rejected = applyStateOp(state, body);
-    if (rejected) return rejected;
-    await writeAccountFile(env, userId, state);
-    return json({ ok: true });
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const meta = await readAccountFileMeta(env, userId);
+      const state = meta.state || emptyState();
+      const rejected = applyStateOp(state, body);
+      if (rejected) return rejected;
+      if (await writeAccountFile(env, userId, state, meta.etag || "")) return json({ ok: true });
+    }
+    return json({ error: "The change could not be saved. Try again." }, 409);
   } catch (e) {
     return json({ error: "The change could not be saved." }, 500);
   }
@@ -2197,23 +2943,34 @@ async function readDirectory(env) {
 }
 
 async function writeDirectory(env, directory) {
-  if (!env.MEDIA) return;
+  if (!env.MEDIA) return false;
   const data = directoryData(directory);
-  await env.MEDIA.put("directory/accounts.json", JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+  // Create-if-absent only — never blind-overwrite a live directory (patchDirectory owns updates).
+  return !!(await putMediaJson(env, "directory/accounts.json", data, ""));
 }
 
 async function patchDirectory(env, change) {
-  if (!env.MEDIA) return;
-  const object = await env.MEDIA.get("directory/accounts.json");
-  if (!object) return;
-  let directory;
-  try {
-    directory = directoryData(JSON.parse(await object.text()));
-  } catch (e) {
-    return;
+  if (!env.MEDIA) return false;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let object = await env.MEDIA.get("directory/accounts.json");
+    if (!object) {
+      await refreshDirectory(env);
+      object = await env.MEDIA.get("directory/accounts.json");
+      if (!object) return false;
+    }
+    let directory;
+    try {
+      directory = directoryData(JSON.parse(await object.text()));
+    } catch (e) {
+      await refreshDirectory(env);
+      continue;
+    }
+    const etag = object.httpEtag || "";
+    change(directory);
+    const saved = await putMediaJson(env, "directory/accounts.json", directoryData(directory), etag);
+    if (saved) return true;
   }
-  change(directory);
-  await writeDirectory(env, directory);
+  return false;
 }
 
 async function refreshDirectory(env) {
@@ -2245,6 +3002,9 @@ async function refreshDirectory(env) {
     registrations: (regs.results || []).map(registrationPublic),
     changes: changeRows
   };
+  if (!env.MEDIA) return directory;
+  const existing = await env.MEDIA.head("directory/accounts.json");
+  if (existing) return readDirectory(env);
   await writeDirectory(env, directory);
   return directory;
 }
@@ -2354,7 +3114,14 @@ async function changePassword(env, request, body) {
   await env.DB.prepare(
     "UPDATE users SET password_salt = ?, password_hash = ?, password_iterations = ? WHERE id = ?"
   ).bind(hashed.salt, hashed.hash, ITERATIONS, user.id).run();
-  return json({ ok: true });
+  const fresh = await env.DB.prepare(
+    "SELECT id, login, email, name, role, password_hash, is_personal_data_revoked, created_at FROM users WHERE id = ?"
+  ).bind(user.id).first();
+  if (!fresh) return json({ ok: true });
+  // Drop the pre-change cookie; new pwdv also kills other devices.
+  try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie"))); } catch (e) {}
+  // Re-issue cookie so this browser stays signed in; other sessions die via pwdv mismatch.
+  return startSession(env, fresh, { ok: true, user: publicUser(fresh) }, new URL(request.url).protocol === "https:");
 }
 
 async function myAccount(env, request) {
@@ -2389,6 +3156,8 @@ async function requestAccountChange(env, request, body) {
   if (fields.login === current.login && fields.email === current.email && fields.name === current.name) {
     return json({ error: "These details already match the account." }, 400);
   }
+  const pairBlock = reservedPairLogin(fields.login, current.login);
+  if (pairBlock) return json({ error: pairBlock }, 403);
   await ensureChangeTable(env);
   const existing = await env.DB.prepare(
     "SELECT id, created_at FROM account_changes WHERE user_id = ? AND status = 'pending'"
@@ -2445,12 +3214,12 @@ async function decideChange(env, actor, changeId, action) {
   await ensureChangeTable(env);
   const change = await env.DB.prepare("SELECT * FROM account_changes WHERE id = ?").bind(changeId).first();
   if (!change || change.status !== "pending") return json({ error: "This request is no longer waiting." }, 409);
-  const directory = await readDirectory(env);
-  const person = directory.users.find((item) => item && item.id === change.user_id);
-  if (!person) return json({ error: "No such account." }, 404);
-  if (actor.role !== "DEVELOPER" && (person.role === "DEVELOPER" || person.hidden || person.revoked)) {
+  const person = await d1UserById(env, change.user_id);
+  if (!d1RowLive(person)) return json({ error: "No such account." }, 404);
+  if (actor.role !== "DEVELOPER" && (person.role === "DEVELOPER" || person.hidden)) {
     return json({ error: "No such account." }, 404);
   }
+  const directory = await readDirectory(env);
   if (action === "approve" && soleFirstTeacher(directory.users, person.id)) {
     return json({ error: "This teacher can change account details after a second active teacher joins." }, 403);
   }
@@ -2470,11 +3239,13 @@ async function decideChange(env, actor, changeId, action) {
   }
   const clash = await accountClash(env, change.user_id, change.login, change.email, change.id);
   if (clash) return json({ error: clash }, 409);
+  const pairBlock = reservedPairLogin(change.login, person.login);
+  if (pairBlock) return json({ error: pairBlock }, 403);
   await env.DB.prepare("UPDATE users SET login = ?, email = ?, name = ? WHERE id = ?").bind(change.login, change.email, change.name, change.user_id).run();
   await env.DB.prepare(
     "UPDATE account_changes SET status = 'approved', decided_at = ? WHERE id = ? AND status = 'pending'"
   ).bind(decided, change.id).run();
-  await patchDirectory(env, (next) => {
+  const dirOk = await patchDirectory(env, (next) => {
     next.users.forEach((item) => {
       if (!item || item.id !== change.user_id) return;
       item.login = change.login;
@@ -2482,6 +3253,7 @@ async function decideChange(env, actor, changeId, action) {
       item.name = change.name;
     });
   });
+  if (!dirOk) return json({ error: "The change was saved, but the teacher list could not update. Try again." }, 503);
   await rememberChange(env, Object.assign({}, change, { status: "approved", decided_at: decided }));
   return json({ ok: true });
 }
@@ -2541,14 +3313,18 @@ async function admin(env, request, method, path, body, ctx) {
     return deleteAccount(env, user, parts[4]);
   }
   if (parts.length === 5 && parts[2] === "admin" && parts[3] === "users" && method === "GET") {
+    const found = await managedAccount(env, user, parts[4]);
+    if (found.error) return found.error;
     const directory = await readDirectory(env);
-    const row = directory.users.find((item) => item && item.id === parts[4]);
-    if (!row || (user.role !== "DEVELOPER" && (row.role === "DEVELOPER" || row.hidden || row.revoked))) return json({ error: "No such account." }, 404);
-    const history = forReviewer(user, directory.registrations.filter((item) => item && (item.user_id === row.id || item.email === row.email)), directory.users);
-    return json({ user: row, registrations: history });
+    const history = forReviewer(
+      user,
+      directory.registrations.filter((item) => item && (item.user_id === found.row.id || item.email === found.row.email)),
+      directory.users
+    );
+    return json({ user: publicUser(found.row), registrations: history });
   }
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "registrations" && method === "POST") {
-    return decide(env, parts[4], parts[5]);
+    return decide(env, user, parts[4], parts[5]);
   }
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "changes" && method === "POST") {
     return decideChange(env, user, parts[4], parts[5]);
@@ -2582,8 +3358,21 @@ async function admin(env, request, method, path, body, ctx) {
 
 async function managedAccount(env, actor, userId) {
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return { error: json({ error: "You cannot do that." }, 403) };
-  const row = await directoryUser(env, userId);
-  if (!row || (row.hidden && actor.role !== "DEVELOPER") || (row.revoked && actor.role !== "DEVELOPER")) return { error: json({ error: "No such account." }, 404) };
+  // Authz from D1 (source of truth), not the R2 directory cache.
+  let row = null;
+  try {
+    row = await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked, active, hidden FROM users WHERE id = ?"
+    ).bind(userId).first();
+  } catch (error) {
+    if (String(error && error.message || error).indexOf("no such column") < 0) throw error;
+    row = await env.DB.prepare(
+      "SELECT id, login, email, name, role, is_personal_data_revoked FROM users WHERE id = ?"
+    ).bind(userId).first();
+  }
+  if (!row || row.is_personal_data_revoked) return { error: json({ error: "No such account." }, 404) };
+  if (row.active === 0) return { error: json({ error: "No such account." }, 404) };
+  if (row.hidden && actor.role !== "DEVELOPER") return { error: json({ error: "No such account." }, 404) };
   if (actor.role === "ADMIN") {
     if (row.role !== "USER") return { error: json({ error: "You cannot do that." }, 403) };
     return { row: row, songs: false };
@@ -2607,24 +3396,37 @@ function stateForViewer(state, songs) {
 async function readManagedState(env, actor, userId, ctx) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
+  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+    return json({ error: "You cannot do that." }, 403);
+  }
   if (!(await readAccountFile(env, userId))) {
     try { await copyStateOnce(env, userId); } catch (e) {}
   }
   const state = await readAccountFile(env, userId) || emptyState();
   const shown = found.songs ? await withSidecars(env, found.row.login, userId, state) : state;
   shown.songs = await songsForLogin(env, found.row.login, shown.songs);
+  try {
+    const sharedQuizzes = await readSharedCardQuizzes(env);
+    const stats = Object.assign({}, plainObject(shown.stats));
+    stats.cardQuizzes = sharedQuizzes;
+    shown.stats = stats;
+  } catch (e) {}
   return json(await withVisibleThemes(env, found.row.login, stateForViewer(shown, found.songs)));
 }
 
 async function readManagedTexts(env, actor, userId) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
+  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+    return json({ error: "You cannot do that." }, 403);
+  }
   return json({ texts: await textsForLogin(env, found.row.login, userId) });
 }
 
 async function writeManagedTexts(env, actor, userId, body) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
+  if (pairViewOnly(actor)) return json({ error: "You cannot do that." }, 403);
   if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) return json({ error: "You cannot do that." }, 403);
   return saveTextsFor(env, found.row.login, userId, body);
 }
@@ -2632,10 +3434,23 @@ async function writeManagedTexts(env, actor, userId, body) {
 async function writeManagedState(env, actor, userId, body, ctx) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
+  if (pairViewOnly(actor) && pairBlockedOp(body)) return json({ error: "You cannot do that." }, 403);
+  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+    return json({ error: "You cannot do that." }, 403);
+  }
   if (!found.songs) {
     const op = body && body.op;
-    const place = op === "put-card" ? (body.card && body.card.place) : body && body.place;
-    if (op === "put-song" || (place || "") === "music") return json({ error: "You cannot do that." }, 403);
+    let place = "";
+    if ((op === "put-card" || op === "put-text-card") && body.card && typeof body.card === "object") {
+      place = body.card.place || "";
+    } else if (body) {
+      place = body.place || "";
+    }
+    if (op === "put-song" || String(place || "") === "music") return json({ error: "You cannot do that." }, 403);
+  }
+  // Shared card quizzes must be written via the actor's own /api/me/state, never through a viewed account.
+  if (body && body.op === "put-setting" && body.key === "cardQuizzes") {
+    return json({ error: "You cannot do that." }, 403);
   }
   return writeStateOp(env, userId, body, studyTwinLogin(found.row.login), ctx);
 }
@@ -2653,6 +3468,8 @@ async function updateProfile(env, actor, userId, body) {
   const name = String(body && body.name || "").trim().slice(0, 80);
   if (!LOGIN_RE.test(login)) return json({ error: "Login needs 3 to 32 letters, numbers, dots, dashes or underscores." }, 400);
   if (!EMAIL_RE.test(email) || email.length > 120) return json({ error: "Enter a valid email." }, 400);
+  const pairBlock = reservedPairLogin(login, found.row.login);
+  if (pairBlock) return json({ error: pairBlock }, 403);
   const reserved = await env.DB.prepare("SELECT id FROM users WHERE login = ? AND id != ?").bind(login, userId).first();
   if (reserved) return json({ error: "That login is already in use." }, 409);
   const clash = await env.DB.prepare(
@@ -2665,7 +3482,7 @@ async function updateProfile(env, actor, userId, body) {
   const pendingText = fieldClash(pending, login, email, true);
   if (pendingText) return json({ error: pendingText }, 409);
   await env.DB.prepare("UPDATE users SET login = ?, email = ?, name = ? WHERE id = ?").bind(login, email, name, userId).run();
-  await patchDirectory(env, (directory) => {
+  const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
       if (!item || item.id !== userId) return;
       item.login = login;
@@ -2673,6 +3490,7 @@ async function updateProfile(env, actor, userId, body) {
       item.name = name;
     });
   });
+  if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
   return json({ user: Object.assign({}, found.row, { login: login, email: email, name: name }) });
 }
 
@@ -2685,7 +3503,9 @@ async function ignoreMissingTable(statement) {
 }
 
 async function deleteAccountFiles(env, userId) {
-  if (!env.MEDIA) return;
+  if (!env.MEDIA) throw new Error("Files are not connected yet.");
+  // Mark gone first so in-flight sync cannot recreate keys after (or during) wipe.
+  await env.MEDIA.put("gone/" + userId, "1", { httpMetadata: { contentType: "text/plain" } });
   let cursor = undefined;
   do {
     const page = await env.MEDIA.list({ prefix: userId + "/", cursor: cursor });
@@ -2693,7 +3513,6 @@ async function deleteAccountFiles(env, userId) {
     for (let i = 0; i < objects.length; i++) await env.MEDIA.delete(objects[i].key);
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
-  await env.MEDIA.put("gone/" + userId, "1", { httpMetadata: { contentType: "text/plain" } });
 }
 
 async function deleteAccount(env, actor, userId) {
@@ -2702,13 +3521,19 @@ async function deleteAccount(env, actor, userId) {
   const row = await env.DB.prepare("SELECT id, role, email FROM users WHERE id = ?").bind(userId).first();
   if (!row) return json({ error: "No such account." }, 404);
   if (row.role !== "USER" && row.role !== "ADMIN") return json({ error: "Only student and teacher accounts can be deleted." }, 403);
+  // Gone + wipe first (same order as revoke) so writers abort before D1 disappears.
+  try {
+    await deleteAccountFiles(env, userId);
+  } catch (e) {
+    const marked = await accountMediaGone(env, userId);
+    if (!marked) return json({ error: "Could not delete account files. Try again." }, 503);
+  }
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_state WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_added WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_card_gone WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM registrations WHERE user_id = ? OR email = ?").bind(userId, row.email));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM account_changes WHERE user_id = ?").bind(userId));
   await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
-  await deleteAccountFiles(env, userId);
   await forgetUser(env, userId, row.email);
   return json({ ok: true });
 }
@@ -2726,17 +3551,21 @@ async function setHidden(env, actor, userId, body) {
     result = await env.DB.prepare(sql).bind(hidden ? 1 : 0, userId).run();
   }
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
-  await patchDirectory(env, (directory) => {
+  const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
       if (item && item.id === userId) item.hidden = hidden;
     });
   });
+  if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
   return json({ ok: true, hidden: hidden });
 }
 
 async function setActive(env, actor, userId, body) {
   if (!actor || actor.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   const active = !!(body && body.active);
+  if (actor.id === userId && !active) {
+    return json({ error: "You cannot deactivate your own account." }, 400);
+  }
   const sql = "UPDATE users SET active = ? WHERE id = ?";
   let result;
   try {
@@ -2747,11 +3576,12 @@ async function setActive(env, actor, userId, body) {
     result = await env.DB.prepare(sql).bind(active ? 1 : 0, userId).run();
   }
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
-  await patchDirectory(env, (directory) => {
+  const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
       if (item && item.id === userId) item.active = active;
     });
   });
+  if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
   return json({ ok: true, active: active });
 }
 
@@ -2759,21 +3589,31 @@ async function setUserRole(env, actor, userId, body) {
   if (!actor || actor.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   const role = String(body && body.role || "");
   if (role !== "USER" && role !== "ADMIN" && role !== "DEVELOPER") return json({ error: "The request was not valid." }, 400);
+  // Do not let a developer demote their own live session away from DEVELOPER.
+  if (actor.id === userId && role !== "DEVELOPER") {
+    return json({ error: "You cannot change your own developer role." }, 400);
+  }
   const result = await env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, userId).run();
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
-  await patchDirectory(env, (directory) => {
+  const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
       if (item && item.id === userId) item.role = role;
     });
   });
+  if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
   return json({ ok: true });
 }
 
-async function decide(env, regId, action) {
+async function decide(env, actor, regId, action) {
   const db = env.DB;
+  if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);
   if (action !== "approve" && action !== "reject") return json({ error: "Not found." }, 404);
   const reg = await db.prepare("SELECT * FROM registrations WHERE id = ?").bind(regId).first();
   if (!reg || reg.status !== "pending") return json({ error: "This request is no longer waiting." }, 409);
+  // Same visibility as GET /api/admin/registrations — no approve-by-id for hidden-linked rows.
+  const directory = await readDirectory(env);
+  const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
+  if (!visible.length) return json({ error: "No such account." }, 404);
   const decided = now();
   if (action === "reject") {
     await db.prepare("UPDATE registrations SET status = 'rejected', decided_at = ? WHERE id = ? AND status = 'pending'").bind(decided, regId).run();
@@ -2786,8 +3626,11 @@ async function decide(env, regId, action) {
     "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND email = ?"
   ).bind(reg.email).first();
   if (taken) return json({ error: "That email is already in use." }, 409);
+  const pairBlock = reservedPairLogin(reg.login, "");
+  if (pairBlock) return json({ error: pairBlock }, 403);
   const userId = randomId();
-  const role = reg.role === "ADMIN" ? "ADMIN" : "USER";
+  // Approvals always create students. Promoting to teacher is a separate developer action.
+  const role = "USER";
   try {
     await db.batch([
       db.prepare(
@@ -3645,11 +4488,26 @@ async function translateSelection(word) {
   };
 }
 
+function sameSiteMutation(request, url) {
+  const origin = request.headers.get("Origin");
+  if (origin) {
+    try {
+      return new URL(origin).origin === url.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+  const site = request.headers.get("Sec-Fetch-Site");
+  return site !== "cross-site";
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/") return Response.redirect(new URL("/preview.html", request.url), 302);
     if (url.pathname === "/lookup" && request.method === "GET") {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: "Sign in first." }, 401);
       const word = (url.searchParams.get("word") || "").trim();
       const context = (url.searchParams.get("context") || "").trim();
       if (!word || word.length > 80) return json({ error: "Type a word or a short phrase." }, 400);
@@ -3658,9 +4516,14 @@ export default {
       return json(data);
     }
     if (url.pathname === "/translate" && request.method === "GET") {
+      const user = await currentUser(env, request);
+      if (!user) return json({ error: "Sign in first." }, 401);
       const word = (url.searchParams.get("word") || "").trim();
       if (!word || word.length > 80) return json({ error: "Type a word or a short phrase." }, 400);
       return json(await translateSelection(word));
+    }
+    if ((request.method === "POST" || request.method === "PUT" || request.method === "DELETE") && !sameSiteMutation(request, url)) {
+      return json({ error: "The request was not valid." }, 403);
     }
     if (url.pathname === "/api/song-file") return songFile(request, env);
     if (url.pathname === "/api/lesson-file") return lessonFile(request, env);

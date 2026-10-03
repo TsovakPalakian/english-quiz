@@ -1845,6 +1845,28 @@ input[type="text"], input[type="search"], input[type="password"], input[type="em
   line-height: 1;
 }
 .card-quiz-item [data-card-quiz-pair-add] { margin: 0 0 4px; }
+.card-quiz-opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.card-quiz-opt:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.card-quiz-opt-fields { min-width: 0; }
+.card-quiz-opt .icon-btn {
+  margin-top: 28px;
+  width: 36px;
+  height: 36px;
+  background: var(--bad-s);
+  color: var(--bad);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.card-quiz-item [data-card-quiz-opt-add] { margin: 0 0 4px; }
 .card-quiz-actions .icon-btn { width: 36px; height: 36px; background: var(--acc-s); color: var(--acc); }
 .card-quiz-actions .icon-btn[data-card-quiz-del] {
   background: var(--bad-s);

@@ -1065,6 +1065,13 @@ class Handler(BaseHTTPRequestHandler):
         self._cors()
         self.end_headers()
 
+    def _signed_in(self):
+        conn = accounts.db()
+        try:
+            return accounts.current_user(conn, self)
+        finally:
+            conn.close()
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path.startswith("/api/"):
@@ -1073,12 +1080,18 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path not in ("/lookup", "/translate"):
             self.send_error(404)
             return
+        # Match Worker: dictionary lookup requires a signed-in session.
+        if not self._signed_in():
+            self._json(401, {"error": "Sign in first."})
+            return
         query = urllib.parse.parse_qs(parsed.query)
         word = (query.get("word") or [""])[0].strip()
         context = (query.get("context") or [""])[0].strip()
         if not word or len(word) > 80:
             self._json(400, {"error": "Type a word or a short phrase."})
             return
+        if len(context) > 400:
+            context = context[:400]
         if parsed.path == "/translate":
             self._json(200, translate_selection(word))
             return
@@ -1103,9 +1116,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404)
 
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin") or ""
+        if origin in accounts.ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Credentials", "true")
         self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Vary", "Origin")
 
     def _json(self, code, obj):
         body = json.dumps(obj, ensure_ascii=False).encode()

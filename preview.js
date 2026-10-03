@@ -3,6 +3,9 @@
     const navStack = [];
     let authUser = null;
     let viewAccount = null;
+    let viewGen = 0;
+    let viewSwitching = false;
+    let stashOwned = false;
     let authSyncLock = false;
     let accountReady = false;
     let syncTimer = 0;
@@ -10,7 +13,9 @@
     let accountPulling = false;
     let syncSending = false;
     let syncFails = 0;
+    let syncInFlight = null;
     const syncQueue = [];
+    let textsInFlight = Promise.resolve();
     let authTimer = 0;
     let addedCache = null;
     let grammarView = "hub";
@@ -27,6 +32,8 @@
     };
     function show(id) {
       if (hideStudentSongs() && (id === "music" || id === "song" || id === "lyricadd" || id === "musicword")) id = "library";
+      // Administration is teacher-only chrome; never open it while viewing another account.
+      if (id === "admin" && viewAccount) id = "home";
       if (id === "account" && authUser) id = "profile";
       if (id === "allwords") paintAllWords();
       if (id === "add") renderAddedList();
@@ -980,7 +987,28 @@
       return { bg: vars["--bg"], card: vars["--card"], acc: vars["--acc"], vars: vars };
     }
     function customThemeOk(row) {
-      return !!(row && typeof row.id === "string" && row.id.indexOf("user-") === 0 && row.vars && typeof row.vars["--bg"] === "string" && typeof row.vars["--card"] === "string" && typeof row.vars["--acc"] === "string");
+      const hex = /^#[0-9A-Fa-f]{6}$/;
+      const wash = /^#[0-9A-Fa-f]{8}$/;
+      const photoRe = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+      if (!row || typeof row.id !== "string" || row.id.indexOf("user-") !== 0 || !row.vars) return false;
+      for (let i = 0; i < CUSTOM_COLOR_KEYS.length; i++) {
+        const key = CUSTOM_COLOR_KEYS[i];
+        const val = row.vars[key];
+        if (val == null || val === "") continue;
+        if (typeof val !== "string") return false;
+        if (key === "--photo-wash") {
+          if (!wash.test(val) && !hex.test(val)) return false;
+        } else if (!hex.test(val)) {
+          return false;
+        }
+      }
+      if (typeof row.vars["--bg"] !== "string" || !hex.test(row.vars["--bg"])) return false;
+      if (typeof row.vars["--card"] !== "string" || !hex.test(row.vars["--card"])) return false;
+      if (typeof row.vars["--acc"] !== "string" || !hex.test(row.vars["--acc"])) return false;
+      if (row.photo != null && row.photo !== "") {
+        if (typeof row.photo !== "string" || row.photo.length > 450000 || !photoRe.test(row.photo)) return false;
+      }
+      return true;
     }
     function loadCustomThemes() {
       try {
@@ -995,7 +1023,7 @@
         try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: "" })))); }
         catch (err) {}
       }
-      if (typeof syncChange === "function") syncChange({ op: "put-setting", key: "customThemes", value: loadCustomThemes() });
+      if (typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "customThemes", value: loadCustomThemes() });
     }
     const DEFAULT_THEME = "almond";
     function themeCut() {
@@ -1057,11 +1085,21 @@
     function paintCustomVars(root, theme) {
       clearCustomPaint(root);
       const vars = theme && theme.vars ? theme.vars : {};
+      const hex = /^#[0-9A-Fa-f]{6}$/;
+      const wash = /^#[0-9A-Fa-f]{8}$/;
       CUSTOM_COLOR_KEYS.forEach((key) => {
-        if (typeof vars[key] === "string") root.style.setProperty(key, vars[key]);
+        const val = vars[key];
+        if (typeof val !== "string") return;
+        if (key === "--photo-wash") {
+          if (wash.test(val) || hex.test(val)) root.style.setProperty(key, val);
+          return;
+        }
+        if (hex.test(val)) root.style.setProperty(key, val);
       });
       if (vars["color-scheme"] === "dark" || vars["color-scheme"] === "light") root.style.setProperty("color-scheme", vars["color-scheme"]);
-      if (theme && typeof theme.photo === "string" && theme.photo.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", 'url("' + theme.photo + '")');
+      if (theme && typeof theme.photo === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(theme.photo)) {
+        root.style.setProperty("--theme-photo", "url(" + JSON.stringify(theme.photo) + ")");
+      }
     }
     function themeNameParts(name) {
       const text = String(name || "").trim();
@@ -1095,7 +1133,8 @@
       if (opts.persist !== false && themeCanShow(name)) {
         try { localStorage.setItem(THEME_KEY, chosen); } catch (e) {}
       }
-      if (opts.sync && themeCanShow(name)) syncChange({ op: "put-setting", key: "theme", value: chosen });
+      // Never push theme onto a viewed account; Open pages is display-only for theme.
+      if (opts.sync && !viewAccount && themeCanShow(name)) syncChange({ op: "put-setting", key: "theme", value: chosen });
       name = chosen;
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
         btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
@@ -1107,7 +1146,10 @@
       const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
       const mine = visibleCustomThemes().map((row) => {
         const tools = canEditLessons() ? '<button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button>' : "";
-        return '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + row.bg + '"><i style="background:' + row.card + '"></i><b style="background:' + row.acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + "</span></button>" + tools + "</div>";
+        const bg = /^#[0-9A-Fa-f]{6}$/.test(row.bg) ? row.bg : "#CCCCCC";
+        const card = /^#[0-9A-Fa-f]{6}$/.test(row.card) ? row.card : "#FFFFFF";
+        const acc = /^#[0-9A-Fa-f]{6}$/.test(row.acc) ? row.acc : "#333333";
+        return '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + bg + '"><i style="background:' + card + '"></i><b style="background:' + acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + "</span></button>" + tools + "</div>";
       }).join("");
       const rest = visibleThemes().map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>").join("");
       document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
@@ -1959,19 +2001,19 @@
     function renderWord(w) {
       document.getElementById("wordView").innerHTML =
         catalogEditHtml(w) +
-        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>' +
+        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
         ipaHtml(w) +
-        (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
-        (w.ru ? '<p><b>' + w.ru + '</b></p>' : '') +
+        (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
+        (w.ru ? '<p><b>' + esc(w.ru) + '</b></p>' : '') +
         clipLine(clipOf(w)) +
-        (meaningOf(w) ? '<p>' + meaningOf(w) + '</p>' : '') +
+        (meaningOf(w) ? '<p>' + esc(meaningOf(w)) + '</p>' : '') +
         (w.ru ? '' : '<p class="hint">No Russian translation on this slide.</p>') +
-        (w.ex ? '<p>' + (w.deck ? '' : 'From the lesson: ') + w.ex + '</p>' : '') +
+        (w.ex ? '<p>' + (w.deck ? '' : 'From the lesson: ') + esc(w.ex) + '</p>' : '') +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" id="toDayFlip">Flip this card</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button>' +
         (w.deck
-          ? '<button class="btn primary" type="button" data-deck-study="' + w.deck + '">Study</button>'
-          : '<button class="btn primary" type="button" data-day-quiz="' + (w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21") + '">This day\'s quiz</button>') +
+          ? '<button class="btn primary" type="button" data-deck-study="' + esc(w.deck) + '">Study</button>'
+          : '<button class="btn primary" type="button" data-day-quiz="' + esc((w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21")) + '">This day\'s quiz</button>') +
         '</div>' + cardQuizHtml(w.en, w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
@@ -1984,8 +2026,8 @@
       const back = document.getElementById("dayFlipBack");
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
-      const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>';
-      const backHtml = '<p class="entry">' + (w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + w.en + ' · ' + w.pos + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + w.ex + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>';
+      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;
@@ -2011,7 +2053,7 @@
     }
     function paintWordGrid() {
       document.getElementById("wordGrid").innerHTML = words.map((w, i) => !cardVisible(w) ? "" :
-        '<button class="wcard" type="button" data-i="' + i + '"><div class="en">' + w.en + '</div><div class="pos">' + w.pos + '</div>' + ipaHtml(w) + '<div class="label">' + w.ru + '</div></button>'
+        '<button class="wcard" type="button" data-i="' + i + '"><div class="en">' + esc(w.en) + '</div><div class="pos">' + esc(w.pos) + '</div>' + ipaHtml(w) + '<div class="label">' + esc(w.ru) + '</div></button>'
       ).join("");
       dressWords(document.getElementById("wordGrid"));
     }
@@ -2073,12 +2115,16 @@
       return !!(viewAccount && authUser && authUser.role === "ADMIN");
     }
     function isTeacher() {
-      if (hideStudentSongs()) return true;
       if (viewAccount) return viewAccount.role === "ADMIN";
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canEditLessons() {
+      // Shared lesson catalog edits are blocked while viewing another account.
+      if (viewAccount) return false;
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
+    }
+    function canTuneStudentLessons() {
+      return !!(viewAccount && authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function isDeveloper() {
       if (viewAccount) return false;
@@ -2187,12 +2233,20 @@
       return '<div data-edit-host' + (corner ? ' class="card-edit"' : "") + ' data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
     }
     function catalogEditHtml(card) {
-      if (!isTeacher() || !card) return "";
+      // Shared catalog edits only on own teacher session — not while viewing another account.
+      if (!canEditLessons() || !card) return "";
       if (!card.origin) card.origin = String(card.en || card.base || "").toLowerCase();
       return editHost("card", card.origin, true);
     }
     function canEditAdded(item) {
-      return !!item && canEditLessons() && ((item.place || "mine") === "mine" || isTeacher());
+      if (!item || !authUser) return false;
+      const place = item.place || "mine";
+      if (viewAccount) {
+        // Open pages: edit only that student's personal cards — not shared catalogs.
+        return (authUser.role === "ADMIN" || authUser.role === "DEVELOPER") && place === "mine";
+      }
+      if (!(authUser.role === "ADMIN" || authUser.role === "DEVELOPER")) return false;
+      return place === "mine" || isTeacher();
     }
     function addedIndexOf(item) {
       const list = loadAdded();
@@ -2209,7 +2263,7 @@
       return editHost("added", String(index), true);
     }
     function madeEditHtml(item) {
-      if (!isTeacher() || !item) return "";
+      if (!canEditLessons() || !item) return "";
       return addedEditHtml(item) || catalogEditHtml(findCatalog(item.word)) || editHost("made", String(item.word || "").toLowerCase(), true);
     }
     const CARD_QUIZ_TYPES = ["Flip", "Choice", "Type", "Gap", "Build", "Match", "True / false", "Tap", "Select all", "Reverse", "Spell", "Letters", "Listen", "Definition", "Odd one out", "Memory", "Hangman"];
@@ -2229,117 +2283,308 @@
       return out;
     }
     function mergeCardQuizMaps(localMap, serverMap) {
-      const out = plainCardQuizMap(localMap);
+      const local = plainCardQuizMap(localMap);
       const server = plainCardQuizMap(serverMap);
-      Object.keys(server).forEach((key) => {
-        const incoming = server[key];
-        const have = out[key];
-        if (!Array.isArray(have) || !have.length) out[key] = incoming;
-        else if (incoming.length >= have.length) out[key] = incoming;
+      const pending = {};
+      syncQueue.forEach((change) => {
+        if (!change || change.op !== "put-setting" || change.key !== "cardQuizzes") return;
+        const patch = plainCardQuizMap(change.value);
+        Object.keys(patch).forEach((key) => { pending[key] = 1; });
+      });
+      const out = Object.assign({}, server);
+      Object.keys(local).forEach((key) => {
+        // Remote delete tombstone wins over stale local content.
+        if (Array.isArray(server[key]) && server[key].length === 0) {
+          out[key] = [];
+          return;
+        }
+        // Stale local tombstone must not wipe newer shared quizzes from another device.
+        if (Array.isArray(local[key]) && local[key].length === 0) {
+          if (!(key in server)) out[key] = [];
+          return;
+        }
+        // Keep unsynced local edits and local-only orphans; otherwise server wins.
+        if (pending[key] || !(key in server)) {
+          out[key] = local[key];
+          return;
+        }
+        out[key] = server[key];
       });
       return out;
     }
     function saveCardQuizzes(map) {
+      const prev = loadCardQuizzes();
       const next = plainCardQuizMap(map);
-      localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(next));
-      syncChange({ op: "put-setting", key: "cardQuizzes", value: next });
-    }
-    function installCardQuizzes(serverMap, opts) {
-      const local = loadCardQuizzes();
-      const server = plainCardQuizMap(serverMap);
-      const merged = mergeCardQuizMaps(local, server);
-      Object.keys(local).forEach((key) => {
-        if (!merged[key]) merged[key] = local[key];
+      const patch = {};
+      const keys = new Set(Object.keys(prev).concat(Object.keys(next)));
+      keys.forEach((key) => {
+        if (JSON.stringify(next[key] || null) !== JSON.stringify(prev[key] || null)) {
+          patch[key] = Array.isArray(next[key]) ? next[key] : [];
+        }
       });
+      localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(next));
+      // Patch only changed words so a stale local tombstone cannot wipe unrelated shared keys.
+      if (Object.keys(patch).length) syncChange({ op: "put-setting", key: "cardQuizzes", value: patch });
+    }
+    function installCardQuizzes(serverMap) {
+      const server = plainCardQuizMap(serverMap);
+      // Shared quizzes: server wins for students and while viewing another account.
+      // Editors keep non-empty local edits; stale local tombstones do not wipe server content.
+      const merged = (!viewAccount && cardQuizCanEdit())
+        ? mergeCardQuizMaps(loadCardQuizzes(), server)
+        : server;
       try { localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(merged)); } catch (e) {}
-      const push = opts && opts.sync;
-      if (push && JSON.stringify(merged) !== JSON.stringify(server)) {
-        syncChange({ op: "put-setting", key: "cardQuizzes", value: merged });
-      }
       return merged;
     }
     function cardQuizzesOf(word) {
       const list = loadCardQuizzes()[String(word || "").toLowerCase()];
       return Array.isArray(list) ? list : [];
     }
+    function cardQuizLookup(en) {
+      const key = String(en || "").toLowerCase();
+      if (!key) return null;
+      let found = null;
+      lessonBanks().some((bank) => {
+        const hit = bank.find((card) => cardVisible(card) && String(card.en || "").toLowerCase() === key);
+        if (hit) { found = hit; return true; }
+        return false;
+      });
+      if (found) return found;
+      const added = loadAdded().find((item) => String(item.word || "").toLowerCase() === key);
+      if (!added) return null;
+      const cam = added.data && added.data.cambridge ? added.data.cambridge : {};
+      return { en: added.word, ru: added.ru || "", pos: cam.pos || "", ex: "", gloss: cam.definition || "" };
+    }
+    function cardQuizDistractorPool(en, ru) {
+      const card = cardQuizLookup(en) || { en: en || "", ru: ru || "", pos: "", ex: "", gloss: "" };
+      let pool = cardDeck(card).filter(cardVisible);
+      if (pool.length < 4) {
+        pool = [];
+        lessonBanks().forEach((bank) => {
+          bank.forEach((row) => {
+            if (cardVisible(row) && row.en) pool.push(row);
+          });
+        });
+      }
+      return { card: card, pool: pool };
+    }
+    function cardQuizPickWrong(pool, field, correct, count) {
+      const skip = String(correct || "").trim().toLowerCase();
+      const seen = new Set(skip ? [skip] : []);
+      const out = [];
+      shuffle(pool).forEach((row) => {
+        const value = String((row && row[field]) || "").trim();
+        const key = value.toLowerCase();
+        if (!value || seen.has(key)) return;
+        seen.add(key);
+        out.push(value);
+      });
+      return out.slice(0, count);
+    }
+    function cardQuizShuffledOptions(right, wrongs) {
+      const correct = String(right || "").trim();
+      const options = shuffle((correct ? [correct] : []).concat(wrongs || []).map((row) => String(row || "").trim()).filter(Boolean));
+      if (correct && options.indexOf(correct) < 0) options.unshift(correct);
+      while (options.length < 2) options.push("");
+      // -1 = no correct option yet (keeps customQuizReady false until the teacher sets one).
+      const answer = correct ? Math.max(0, options.indexOf(correct)) : -1;
+      return { options: options, answer: answer };
+    }
     function cardQuizPrefill(type, en, ru) {
+      const bag = cardQuizDistractorPool(en, ru);
+      const card = bag.card;
+      const pool = bag.pool;
       const item = {};
-      if (type === "Flip" || type === "Reverse") {
-        item.front = type === "Reverse" ? (ru || "") : (en || "");
-        item.back = type === "Reverse" ? (en || "") : (ru || "");
-      } else if (type === "Choice") {
+      if (type === "Flip") {
+        item.front = en || "";
+        item.back = ru || "";
+      } else if (type === "Reverse") {
+        item.front = ru || "";
+        item.back = en || "";
+        const packed = cardQuizShuffledOptions(en || "", cardQuizPickWrong(pool, "en", en, 3));
+        item.options = packed.options;
+        item.answer = packed.answer;
+      } else if (type === "Choice" || type === "Listen") {
         item.prompt = en || "";
-        item.options = [ru || "", "", ""];
-        item.answer = 0;
-      } else if (type === "Type" || type === "Listen" || type === "Definition") {
-        item.prompt = type === "Definition" ? (ru || "") : (en || "");
-        item.answer = type === "Definition" ? (en || "") : (ru || "");
-      } else if (type === "Gap") {
-        item.shown = (en || "") + " ___";
+        const packed = cardQuizShuffledOptions(ru || "", cardQuizPickWrong(pool, "ru", ru, 3));
+        item.options = packed.options;
+        item.answer = packed.answer;
+        if (type === "Listen") item.word = packed.options[packed.answer] || ru || "";
+      } else if (type === "Definition") {
+        item.prompt = meaningOf(card) || card.gloss || "";
+        const packed = cardQuizShuffledOptions(en || "", cardQuizPickWrong(pool, "en", en, 3));
+        item.options = packed.options;
+        item.answer = packed.answer;
+        item.word = packed.options[packed.answer] || en || "";
+      } else if (type === "Type") {
+        item.prompt = ru || "";
         item.answer = en || "";
+      } else if (type === "Gap") {
+        const blank = card.ex ? blankSentence(card.ex, formToken(card) || en || "") : null;
+        if (blank) {
+          item.shown = blank.shown;
+          item.answer = blank.answer;
+        } else {
+          item.shown = (en || "") + " ___";
+          item.answer = en || "";
+        }
         item.hint = ru || "";
       } else if (type === "Build") {
-        item.parts = String(en || "").split(/\s+/).filter(Boolean).join(" ");
-        item.answer = en || "";
+        const line = String(card.ex || en || "").trim();
+        const parts = line.split(/\s+/).filter(Boolean);
+        item.parts = parts.join(" ");
+        item.answer = line;
       } else if (type === "Match" || type === "Memory") {
         item.left = en || "";
         item.right = ru || "";
       } else if (type === "True / false") {
-        item.prompt = (en || "") + " = " + (ru || "");
-        item.answer = "true";
+        const others = pool.filter((row) => row.ru && !choiceSame(row.ru, ru));
+        const lie = others.length > 0 && Math.random() < 0.5;
+        const shownRu = lie ? others[Math.floor(Math.random() * others.length)].ru : (ru || "");
+        item.prompt = (en || "") + " = " + shownRu;
+        item.answer = lie ? "false" : "true";
       } else if (type === "Tap") {
-        item.text = en || "";
-        item.answer = en || "";
+        item.text = card.ex || en || "";
+        item.answer = formToken(card) || en || "";
       } else if (type === "Select all") {
-        item.prompt = en || "";
-        item.options = [ru || "", "", ""];
-        item.answers = ru ? [0] : [];
+        const pos = card.pos || "";
+        const same = pool.filter((row) => row.en && row.pos && pos && row.pos === pos);
+        const other = pool.filter((row) => row.en && (!pos || row.pos !== pos) && String(row.en).toLowerCase() !== String(en || "").toLowerCase());
+        let rights = shuffle([{ en: en || "", pos: pos || "yes" }].concat(same)).filter((row, i, all) =>
+          all.findIndex((x) => String(x.en).toLowerCase() === String(row.en).toLowerCase()) === i
+        ).slice(0, 2);
+        let wrongs = shuffle(other).slice(0, Math.max(2, 4 - rights.length));
+        if (rights.length < 1 && en) rights = [{ en: en, pos: "yes" }];
+        if (wrongs.length < 1) wrongs = cardQuizPickWrong(pool, "en", en, 2).map((text) => ({ en: text }));
+        const mixed = shuffle(rights.concat(wrongs).map((row) => ({ en: row.en || row, mark: rights.some((r) => String(r.en).toLowerCase() === String(row.en || row).toLowerCase()) })));
+        item.prompt = pos ? ("Select every " + pos) : "Select all that match";
+        item.options = mixed.map((row) => row.en);
+        item.answers = mixed.map((row, i) => row.mark ? i : -1).filter((i) => i >= 0);
       } else if (type === "Spell" || type === "Letters" || type === "Hangman") {
         item.word = en || "";
+        item.hint = ru || "";
       } else if (type === "Odd one out") {
-        item.options = [en || "", "", "", ""];
-        item.answer = 0;
+        const pos = card.pos || "";
+        const same = pool.filter((row) => row.en && row.pos && pos && row.pos === pos && String(row.en).toLowerCase() !== String(en || "").toLowerCase());
+        const other = pool.filter((row) => row.en && (!pos || row.pos !== pos) && String(row.en).toLowerCase() !== String(en || "").toLowerCase());
+        if (same.length >= 2 && other.length) {
+          const odd = shuffle(other)[0].en;
+          const group = shuffle(same).slice(0, 2).map((row) => row.en).concat([en || ""]);
+          item.options = shuffle(group.concat([odd]));
+          item.answer = Math.max(0, item.options.indexOf(odd));
+        } else {
+          // Fallback: keep the card word in the "same" group; a random other word is the odd one.
+          const picks = cardQuizPickWrong(pool, "en", en, 4);
+          if (en && picks.length >= 3) {
+            const odd = picks[0];
+            const group = [en].concat(picks.slice(1, 3));
+            item.options = shuffle(group.concat([odd]));
+            item.answer = Math.max(0, item.options.indexOf(odd));
+          } else {
+            item.options = [en || "", "", ""];
+            item.answer = 0;
+          }
+        }
       } else {
         item.prompt = en || "";
         item.answer = ru || "";
       }
       return item;
     }
+    function cardQuizPrefillItems(type, en, ru) {
+      if (type === "Match" || type === "Memory") {
+        const bag = cardQuizDistractorPool(en, ru);
+        const pairs = [{ left: en || "", right: ru || "" }];
+        shuffle(bag.pool.filter((row) => row.en && row.ru && String(row.en).toLowerCase() !== String(en || "").toLowerCase()))
+          .slice(0, 3)
+          .forEach((row) => pairs.push({ left: row.en, right: row.ru }));
+        return pairs;
+      }
+      return [cardQuizPrefill(type, en, ru)];
+    }
+    function cardQuizUsesOptions(type) {
+      return type === "Choice" || type === "Listen" || type === "Reverse" || type === "Definition" || type === "Select all" || type === "Odd one out";
+    }
+    function cardQuizOptionsOf(item) {
+      const opts = Array.isArray(item && item.options) ? item.options.map((row) => String(row == null ? "" : row)) : [];
+      while (opts.length < 2) opts.push("");
+      return opts.slice(0, 12);
+    }
+    function cardQuizOptionLabel(type, index) {
+      if (type === "Choice" || type === "Listen") return "Russian option " + (index + 1);
+      if (type === "Reverse") return "English option " + (index + 1);
+      if (type === "Definition" || type === "Odd one out") return "Word " + (index + 1);
+      return "Option " + (index + 1);
+    }
+    function cardQuizOptionsEditorHtml(quiz, quizIndex) {
+      const type = quiz.type || "Choice";
+      const item = (quiz.items && quiz.items[0]) || {};
+      const opts = cardQuizOptionsOf(item);
+      const multi = type === "Select all";
+      let html = "";
+      if (type === "Choice") {
+        html += '<p class="label">English word / prompt</p><input type="text" data-card-quiz-field="prompt" value="' + esc(item.prompt || "") + '" autocomplete="off" />';
+      } else if (type === "Listen") {
+        html += '<p class="label">English to speak</p><input type="text" data-card-quiz-field="prompt" value="' + esc(item.prompt || "") + '" autocomplete="off" />';
+      } else if (type === "Reverse") {
+        html += '<p class="label">Shown · Russian</p><input type="text" data-card-quiz-field="front" value="' + esc(item.front || "") + '" autocomplete="off" />';
+      } else if (type === "Definition") {
+        html += '<p class="label">Definition / meaning</p><input type="text" data-card-quiz-field="prompt" value="' + esc(item.prompt || "") + '" autocomplete="off" />';
+      } else if (type === "Select all") {
+        html += '<p class="label">Question</p><input type="text" data-card-quiz-field="prompt" value="' + esc(item.prompt || "") + '" autocomplete="off" />';
+      }
+      html += opts.map((opt, optIndex) =>
+        '<div class="card-quiz-opt" data-card-quiz-opt="' + optIndex + '">' +
+          '<div class="card-quiz-opt-fields">' +
+            '<p class="label">' + esc(cardQuizOptionLabel(type, optIndex)) + "</p>" +
+            '<input type="text" data-card-quiz-opt-field value="' + esc(opt) + '" autocomplete="off" />' +
+          "</div>" +
+          (opts.length > 2
+            ? '<button class="icon-btn" type="button" data-card-quiz-opt-del="' + quizIndex + ":" + optIndex + '" aria-label="Remove option">×</button>'
+            : "") +
+        "</div>"
+      ).join("");
+      if (opts.length < 12) {
+        html += '<button class="btn" type="button" data-card-quiz-opt-add="' + quizIndex + '">+ Add option</button>';
+      }
+      if (multi) {
+        const answers = (item.answers || []).map(Number).filter((n) => Number.isFinite(n) && n >= 0).map((n) => n + 1).join(",");
+        html += '<p class="label">Correct option numbers, e.g. 1,3</p><input type="text" data-card-quiz-field="answer" value="' + esc(answers) + '" autocomplete="off" />';
+      } else {
+        const rawAnswer = Number(item.answer);
+        const hasAnswer = Number.isFinite(rawAnswer) && rawAnswer >= 0 && rawAnswer < opts.length;
+        const selected = hasAnswer ? rawAnswer : -1;
+        html += '<p class="label">' + (type === "Odd one out" ? "Odd one" : "Correct option") + "</p><select data-card-quiz-field=\"answer\">" +
+          (hasAnswer ? "" : '<option value="" selected>Choose…</option>') +
+          opts.map((_, i) => '<option value="' + (i + 1) + '"' + (i === selected ? " selected" : "") + ">" + (i + 1) + "</option>").join("") +
+          "</select>";
+      }
+      return html;
+    }
     function cardQuizFields(type, item) {
-      if (type === "Flip" || type === "Reverse") {
+      if (type === "Flip") {
         return [
-          { key: "front", label: type === "Reverse" ? "Russian" : "Front", value: item.front || "" },
-          { key: "back", label: type === "Reverse" ? "English" : "Back", value: item.back || "" }
+          { key: "front", label: "Front · English", value: item.front || "" },
+          { key: "back", label: "Back · Russian", value: item.back || "" }
         ];
       }
-      if (type === "Choice" || type === "Select all" || type === "Odd one out") {
-        const opts = item.options || [];
+      if (type === "Type") {
         return [
-          { key: "prompt", label: "Prompt", value: item.prompt || "" },
-          { key: "opt0", label: "Option 1", value: opts[0] || "" },
-          { key: "opt1", label: "Option 2", value: opts[1] || "" },
-          { key: "opt2", label: "Option 3", value: opts[2] || "" },
-          { key: "opt3", label: "Option 4", value: opts[3] || "" },
-          { key: "answer", label: type === "Select all" ? "Correct indexes (0,1)" : "Correct index", value: type === "Select all" ? (item.answers || []).join(",") : String(item.answer || 0) }
-        ];
-      }
-      if (type === "Type" || type === "Listen" || type === "Definition") {
-        return [
-          { key: "prompt", label: type === "Definition" ? "Definition" : "Prompt", value: item.prompt || "" },
-          { key: "answer", label: type === "Definition" ? "Word" : "Answer", value: item.answer || "" }
+          { key: "prompt", label: "Shown · Russian", value: item.prompt || "" },
+          { key: "answer", label: "Type · English answer", value: item.answer || "" }
         ];
       }
       if (type === "Gap") {
         return [
           { key: "shown", label: "Sentence with ___", value: item.shown || "" },
           { key: "answer", label: "Missing word", value: item.answer || "" },
-          { key: "hint", label: "Hint", value: item.hint || "" }
+          { key: "hint", label: "Hint (optional)", value: item.hint || "" }
         ];
       }
       if (type === "Build") {
         return [
-          { key: "parts", label: "Parts", value: item.parts || "" },
-          { key: "answer", label: "Sentence", value: item.answer || "" }
+          { key: "parts", label: "Parts to scramble (space-separated)", value: item.parts || "" },
+          { key: "answer", label: "Correct sentence / order", value: item.answer || "" }
         ];
       }
       if (type === "Match" || type === "Memory") {
@@ -2351,13 +2596,19 @@
       if (type === "True / false") {
         return [
           { key: "prompt", label: "Statement", value: item.prompt || "" },
-          { key: "answer", label: "true / false", value: String(item.answer == null ? "true" : item.answer) }
+          { key: "answer", label: "Answer", value: String(item.answer) === "false" ? "false" : "true", kind: "tf" }
         ];
       }
       if (type === "Tap") {
         return [
-          { key: "text", label: "Sentence", value: item.text || "" },
-          { key: "answer", label: "Tap word", value: item.answer || "" }
+          { key: "text", label: "Full sentence", value: item.text || "" },
+          { key: "answer", label: "Word to tap", value: item.answer || "" }
+        ];
+      }
+      if (type === "Spell" || type === "Letters" || type === "Hangman") {
+        return [
+          { key: "word", label: "English word", value: item.word || "" },
+          { key: "hint", label: "Hint · Russian (optional)", value: item.hint || "" }
         ];
       }
       return [{ key: "word", label: "Word", value: item.word || "" }];
@@ -2387,6 +2638,17 @@
       const pencil = actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
       return '<span class="edit-actions card-quiz-actions"><button class="icon-btn" type="button" data-card-quiz-edit="' + index + '" aria-label="Edit">' + pencil + '</button><button class="icon-btn" type="button" data-card-quiz-del="' + index + '" aria-label="Delete">×</button></span>';
     }
+    function cardQuizFieldInput(field, index) {
+      if (field.kind === "tf") {
+        const yes = field.value !== "false";
+        return '<p class="label">' + field.label + '</p><select data-card-quiz-field="' + esc(field.key) + '" data-card-quiz-index="' + index + '"><option value="true"' + (yes ? " selected" : "") + '>True</option><option value="false"' + (yes ? "" : " selected") + ">False</option></select>";
+      }
+      const type = field.kind === "number" ? "number" : "text";
+      const extra = field.kind === "number"
+        ? ' min="' + (field.min == null ? 1 : field.min) + '" max="' + (field.max == null ? 4 : field.max) + '"'
+        : "";
+      return '<p class="label">' + field.label + '</p><input type="' + type + '" data-card-quiz-field="' + esc(field.key) + '" data-card-quiz-index="' + index + '" value="' + esc(field.value) + '" autocomplete="off"' + extra + " />";
+    }
     function cardQuizListHtml(word, editIndex) {
       const list = cardQuizzesOf(word);
       if (!list.length) return "";
@@ -2395,15 +2657,18 @@
         const type = quiz.type || "Quiz";
         const head = '<div class="card-quiz-head"><p class="card-quiz-type">' + esc(type) + "</p>" + cardQuizActions(index) + "</div>";
         if (index !== openAt) {
+          const item = (quiz.items && quiz.items[0]) || {};
           const pairCount = (type === "Match" || type === "Memory") ? cardQuizPairs(quiz).length : 0;
-          const note = pairCount > 1 ? '<p class="hint card-quiz-note">' + pairCount + " pairs</p>" : "";
+          const optCount = cardQuizUsesOptions(type) ? cardQuizOptionsOf(item).filter(Boolean).length : 0;
+          const note = pairCount > 1
+            ? '<p class="hint card-quiz-note">' + pairCount + " pairs</p>"
+            : (optCount > 2 ? '<p class="hint card-quiz-note">' + optCount + " options</p>" : "");
           return '<div class="card-quiz-item is-collapsed" data-card-quiz-index="' + index + '">' + head + note + "</div>";
         }
-        const body = (type === "Match" || type === "Memory")
-          ? cardQuizPairEditorHtml(quiz, index)
-          : cardQuizFields(type, (quiz.items && quiz.items[0]) || {}).map((field) =>
-              '<p class="label">' + field.label + '</p><input type="text" data-card-quiz-field="' + esc(field.key) + '" data-card-quiz-index="' + index + '" value="' + esc(field.value) + '" autocomplete="off" />'
-            ).join("");
+        let body = "";
+        if (type === "Match" || type === "Memory") body = cardQuizPairEditorHtml(quiz, index);
+        else if (cardQuizUsesOptions(type)) body = cardQuizOptionsEditorHtml(quiz, index);
+        else body = cardQuizFields(type, (quiz.items && quiz.items[0]) || {}).map((field) => cardQuizFieldInput(field, index)).join("");
         return '<div class="card-quiz-item is-editing" data-card-quiz-index="' + index + '">' + head + body +
           '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-card-quiz-save="' + index + '">Done</button></div></div>';
       }).join("");
@@ -2424,7 +2689,8 @@
         "</div>";
     }
     function cardQuizCanEdit() {
-      return !!(isTeacher() || canEditLessons());
+      // Shared quizzes: edit only on your own session, never while viewing another account.
+      return !viewAccount && !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function readCardQuizPairs(itemBox) {
       return [...itemBox.querySelectorAll(".card-quiz-pair")].map((row) => {
@@ -2432,6 +2698,9 @@
         const right = row.querySelector('[data-card-quiz-pair-field="right"]');
         return { left: left ? left.value.trim() : "", right: right ? right.value.trim() : "" };
       });
+    }
+    function readCardQuizOptions(itemBox) {
+      return [...itemBox.querySelectorAll("[data-card-quiz-opt-field]")].map((input) => String(input.value || "").trim());
     }
     function writeCardQuizFromEditor(itemBox, quiz) {
       const type = quiz.type || "Flip";
@@ -2442,23 +2711,71 @@
       }
       const read = (name) => {
         const input = itemBox.querySelector('[data-card-quiz-field="' + name + '"]');
-        return input ? input.value.trim() : "";
+        return input ? String(input.value || "").trim() : "";
       };
       const item = Object.assign({}, (quiz.items && quiz.items[0]) || {});
-      if (type === "Flip" || type === "Reverse") {
+      if (cardQuizUsesOptions(type)) {
+        const rawOptions = readCardQuizOptions(itemBox);
+        const kept = [];
+        const oldIndexes = [];
+        rawOptions.forEach((text, i) => {
+          if (!String(text || "").trim()) return;
+          oldIndexes.push(i);
+          kept.push(String(text).trim());
+        });
+        while (kept.length < 2) {
+          oldIndexes.push(rawOptions.length + kept.length);
+          kept.push("");
+        }
+        item.options = kept.slice(0, 12);
+        // Drop duplicate labels so only one option can be correct by text.
+        const seen = new Set();
+        const unique = [];
+        const remap = [];
+        item.options.forEach((text, i) => {
+          const key = String(text || "").trim().toLowerCase();
+          if (!key || seen.has(key)) {
+            remap[i] = -1;
+            return;
+          }
+          seen.add(key);
+          remap[i] = unique.length;
+          unique.push(text);
+        });
+        while (unique.length < 2) unique.push("");
+        item.options = unique.slice(0, 12);
+        if (type === "Reverse") item.front = read("front");
+        else if (type !== "Odd one out") item.prompt = read("prompt");
+        if (type === "Select all") {
+          const picked = String(read("answer") || "").split(",").map((n) => Number(n.trim()) - 1).filter((n) => Number.isFinite(n) && n >= 0);
+          item.answers = picked
+            .map((old) => {
+              const keptAt = oldIndexes.indexOf(old);
+              return keptAt >= 0 ? remap[keptAt] : -1;
+            })
+            .filter((n) => n >= 0 && n < item.options.length);
+        } else {
+          const rawAnswer = read("answer");
+          if (!rawAnswer) {
+            item.answer = -1;
+            if (type === "Reverse") item.back = "";
+            if (type === "Definition" || type === "Listen") item.word = "";
+          } else {
+            const old = Number(rawAnswer) - 1;
+            let mapped = Number.isFinite(old) ? oldIndexes.indexOf(old) : -1;
+            if (mapped >= 0) mapped = remap[mapped];
+            item.answer = (mapped >= 0 && mapped < item.options.length) ? mapped : -1;
+            if (type === "Reverse") item.back = item.answer >= 0 ? (item.options[item.answer] || "") : "";
+            if (type === "Definition" || type === "Listen") item.word = item.answer >= 0 ? (item.options[item.answer] || "") : "";
+          }
+        }
+        quiz.items = [item];
+        return quiz;
+      }
+      if (type === "Flip") {
         item.front = read("front");
         item.back = read("back");
-      } else if (type === "Choice" || type === "Odd one out") {
-        item.prompt = read("prompt");
-        item.options = [read("opt0"), read("opt1"), read("opt2"), read("opt3")];
-        while (item.options.length > 3 && !item.options[item.options.length - 1]) item.options.pop();
-        item.answer = Number(read("answer") || 0);
-      } else if (type === "Select all") {
-        item.prompt = read("prompt");
-        item.options = [read("opt0"), read("opt1"), read("opt2"), read("opt3")];
-        while (item.options.length > 3 && !item.options[item.options.length - 1]) item.options.pop();
-        item.answers = String(read("answer") || "").split(",").map((n) => Number(n.trim())).filter((n) => Number.isFinite(n));
-      } else if (type === "Type" || type === "Listen" || type === "Definition") {
+      } else if (type === "Type") {
         item.prompt = read("prompt");
         item.answer = read("answer");
       } else if (type === "Gap") {
@@ -2476,6 +2793,7 @@
         item.answer = read("answer");
       } else {
         item.word = read("word");
+        item.hint = read("hint");
       }
       quiz.items = [item];
       return quiz;
@@ -2499,8 +2817,17 @@
         if (!box) return true;
         const en = box.dataset.cardQuizEn || box.dataset.cardQuizWord || "";
         const ru = box.dataset.cardQuizRu || "";
-        const card = { en: en, ru: ru, pos: "", uk: "", us: "", ex: "", gloss: "" };
-        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home");
+        const looked = cardQuizLookup(en) || {};
+        const card = {
+          en: looked.en || en,
+          ru: looked.ru || ru,
+          pos: looked.pos || "",
+          uk: looked.uk || "",
+          us: looked.us || "",
+          ex: looked.ex || "",
+          gloss: looked.gloss || ""
+        };
+        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home", { strict: true });
         return true;
       }
       const addBtn = e.target.closest("[data-card-quiz-add]");
@@ -2515,7 +2842,7 @@
         const map = loadCardQuizzes();
         const key = String(word || "").toLowerCase();
         const list = Array.isArray(map[key]) ? map[key].slice() : [];
-        list.push({ type: type, items: [cardQuizPrefill(type, box.dataset.cardQuizEn || word, box.dataset.cardQuizRu || "")] });
+        list.push({ type: type, items: cardQuizPrefillItems(type, box.dataset.cardQuizEn || word, box.dataset.cardQuizRu || "") });
         map[key] = list;
         saveCardQuizzes(map);
         refreshCardQuizBox(box, list.length - 1);
@@ -2580,6 +2907,83 @@
         refreshCardQuizBox(box, index);
         return true;
       }
+      const optAdd = e.target.closest("[data-card-quiz-opt-add]");
+      if (optAdd) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = optAdd.closest(".card-quiz-box");
+        const itemBox = optAdd.closest(".card-quiz-item");
+        if (!box || !itemBox) return true;
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const index = Number(optAdd.getAttribute("data-card-quiz-opt-add"));
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const quiz = list[index];
+        if (!quiz) return true;
+        writeCardQuizFromEditor(itemBox, quiz);
+        const item = (quiz.items && quiz.items[0]) || {};
+        const options = cardQuizOptionsOf(item);
+        if (options.length >= 12) return true;
+        options.push("");
+        item.options = options;
+        quiz.items = [item];
+        list[index] = quiz;
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box, index);
+        return true;
+      }
+      const optDel = e.target.closest("[data-card-quiz-opt-del]");
+      if (optDel) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!cardQuizCanEdit()) return true;
+        const box = optDel.closest(".card-quiz-box");
+        const itemBox = optDel.closest(".card-quiz-item");
+        if (!box || !itemBox) return true;
+        const bits = String(optDel.getAttribute("data-card-quiz-opt-del") || "").split(":");
+        const index = Number(bits[0]);
+        const optIndex = Number(bits[1]);
+        const key = String(box.dataset.cardQuizWord || "").toLowerCase();
+        const map = loadCardQuizzes();
+        const list = Array.isArray(map[key]) ? map[key].slice() : [];
+        const quiz = list[index];
+        if (!quiz) return true;
+        writeCardQuizFromEditor(itemBox, quiz);
+        const item = (quiz.items && quiz.items[0]) || {};
+        const options = cardQuizOptionsOf(item);
+        if (options.length <= 2 || !Number.isFinite(optIndex) || optIndex < 0 || optIndex >= options.length) return true;
+        options.splice(optIndex, 1);
+        item.options = options;
+        if (quiz.type === "Select all") {
+          item.answers = (item.answers || [])
+            .map((n) => {
+              const a = Number(n);
+              if (!Number.isFinite(a) || a === optIndex) return -1;
+              return a > optIndex ? a - 1 : a;
+            })
+            .filter((n) => n >= 0 && n < options.length);
+        } else {
+          let answer = Number(item.answer);
+          if (!Number.isFinite(answer) || answer < 0) {
+            item.answer = -1;
+          } else if (answer === optIndex) {
+            item.answer = -1;
+          } else {
+            if (answer > optIndex) answer -= 1;
+            item.answer = (answer >= 0 && answer < options.length) ? answer : -1;
+          }
+          if (quiz.type === "Reverse") item.back = item.answer >= 0 ? (options[item.answer] || "") : "";
+          if (quiz.type === "Definition" || quiz.type === "Listen") item.word = item.answer >= 0 ? (options[item.answer] || "") : "";
+        }
+        quiz.items = [item];
+        list[index] = quiz;
+        map[key] = list;
+        saveCardQuizzes(map);
+        refreshCardQuizBox(box, index);
+        return true;
+      }
       const delBtn = e.target.closest("[data-card-quiz-del]");
       if (delBtn) {
         e.preventDefault();
@@ -2592,8 +2996,7 @@
         const list = Array.isArray(map[key]) ? map[key].slice() : [];
         const index = Number(delBtn.getAttribute("data-card-quiz-del"));
         list.splice(index, 1);
-        if (list.length) map[key] = list;
-        else delete map[key];
+        map[key] = list;
         saveCardQuizzes(map);
         refreshCardQuizBox(box);
         return true;
@@ -2718,10 +3121,10 @@
       document.getElementById("musicTitle").textContent = w.en;
       document.getElementById("musicView").innerHTML =
         catalogEditHtml(w) +
-        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + w.en + '</p><p class="pos">' + w.pos + '</p></div></div>' +
+        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
         ipaHtml(w) +
-        (w.level ? '<p><span class="level">' + w.level + '</span></p>' : '') +
-        '<p><b>' + w.ru + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + w.ex + '</p>' +
+        (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
+        '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
@@ -2782,7 +3185,7 @@
       try {
         localStorage.setItem(ADDED_KEY, raw);
       } catch (e) {
-        idbPutAdded(list);
+        if (!viewAccount) idbPutAdded(list);
         try { localStorage.removeItem(ADDED_KEY); } catch (err) {}
       }
     }
@@ -3730,11 +4133,14 @@
       show("verbs");
     }
     function blankSentence(sentence, word) {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const text = String(sentence || "");
+      const token = String(word || "").trim();
+      if (!text || !token) return null;
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const re = new RegExp("\\b" + escaped + "\\b", "i");
-      const found = sentence.match(re);
+      const found = text.match(re);
       if (!found) return null;
-      return { shown: sentence.replace(re, "____"), answer: found[0] };
+      return { shown: text.replace(re, "____"), answer: found[0] };
     }
     function shuffle(list) {
       const copy = list.slice();
@@ -3756,11 +4162,14 @@
       return sensesOf(gloss).some((part) => part.toLowerCase() === text);
     }
     function blankRu(sentence, word) {
-      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const text = String(sentence || "");
+      const token = String(word || "").trim();
+      if (!text || !token) return null;
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const re = new RegExp("(^|[^А-Яа-яЁё])(" + escaped + ")(?![А-Яа-яЁё])", "i");
-      const found = sentence.match(re);
+      const found = text.match(re);
       if (!found) return null;
-      return { shown: sentence.replace(re, "$1____"), answer: found[2] };
+      return { shown: text.replace(re, "$1____"), answer: found[2] };
     }
     function choiceBlock(title, prompt, options, correct, dir) {
       if (options.length < 2) {
@@ -4389,7 +4798,7 @@
         ];
       }
       if (kind === "made") {
-        if (!isTeacher() || !madeItem) return null;
+        if (!canEditLessons() || !madeItem) return null;
         const data = madeItem.data || {};
         const cam = data.cambridge || {};
         const wh = data.wooordhunt || {};
@@ -4405,7 +4814,7 @@
           { key: "url", label: "Dictionary link", value: madeItem.url || "" }
         ];
       }
-      if (!isTeacher()) return null;
+      if (!canEditLessons()) return null;
       const card = findCatalog(id);
       if (!card) return null;
       if (card.base != null && card.past != null) {
@@ -4465,7 +4874,7 @@
         return;
       }
       if (kind === "made") {
-        if (!isTeacher() || !madeItem) return;
+        if (!canEditLessons() || !madeItem) return;
         const list = loadAdded();
         const index = addedIndexOf(madeItem);
         if (index >= 0) {
@@ -4478,7 +4887,7 @@
         show("add");
         return;
       }
-      if (!isTeacher()) return;
+      if (!canEditLessons()) return;
       const card = findCatalog(id);
       if (!card) return;
       const map = loadEdits();
@@ -4504,7 +4913,7 @@
         const list = loadAdded();
         let item = kind === "added" ? list[Number(id)] : null;
         if (kind === "made") {
-          if (!isTeacher() || !madeItem) return;
+          if (!canEditLessons() || !madeItem) return;
           const at = addedIndexOf(madeItem);
           item = at >= 0 ? list[at] : madeItem;
         }
@@ -4580,7 +4989,7 @@
         renderMade(madeItem);
         return;
       }
-      if (!isTeacher()) return;
+      if (!canEditLessons()) return;
       const card = findCatalog(id);
       if (!card) return;
       const map = loadEdits();
@@ -4686,6 +5095,7 @@
     }
     function freeStorageRoom() {
       try { localStorage.removeItem("enquiz-anon-backup"); } catch (e) {}
+      if (viewAccount || viewSwitching) return;
       const raw = localStorage.getItem(ADDED_KEY);
       if (!raw) return;
       try { idbPutAdded(JSON.parse(raw)); } catch (e) {}
@@ -4702,10 +5112,12 @@
       try {
         localStorage.setItem(SONG_KEY, raw);
       } catch (e) {}
-      idbPutSongs(list);
+      if (!viewAccount) idbPutSongs(list);
     }
     function saveSongs(list, song, cards) {
       writeSongs(list);
+      // Song metadata belongs to the viewed student only when Open pages shows songs (developer).
+      if (viewAccount && hideStudentSongs()) return;
       if (song && song.id) {
         const copy = Object.assign({}, song);
         delete copy.blob;
@@ -4802,6 +5214,7 @@
       });
     }
     function idbPutFile(id, file) {
+      if (viewAccount || viewSwitching) return Promise.resolve();
       return mediaDb().then((db) => new Promise((resolve, reject) => {
         const tx = db.transaction("files", "readwrite");
         tx.objectStore("files").put({ blob: file, name: file.name, type: file.type || "" }, id);
@@ -4818,6 +5231,7 @@
       }));
     }
     function idbPutSongs(list) {
+      if (viewAccount || viewSwitching) return Promise.resolve();
       return mediaDb().then((db) => new Promise((resolve, reject) => {
         if (!db.objectStoreNames.contains("songs")) { resolve(); return; }
         const tx = db.transaction("songs", "readwrite");
@@ -4835,6 +5249,7 @@
       })).catch(() => null);
     }
     function idbPutAdded(list) {
+      if (viewAccount || viewSwitching) return Promise.resolve();
       return mediaDb().then((db) => new Promise((resolve, reject) => {
         const tx = db.transaction("added", "readwrite");
         tx.objectStore("added").put(list, "list");
@@ -4871,8 +5286,8 @@
         if (!db.objectStoreNames.contains("stash")) { resolve(null); return; }
         const req = db.transaction("stash", "readonly").objectStore("stash").get("developer");
         req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
-      })).catch(() => null);
+        req.onerror = () => reject(req.error || new Error("stash"));
+      }));
     }
     function idbDeleteStash() {
       return mediaDb().then((db) => new Promise((resolve) => {
@@ -4890,6 +5305,8 @@
       delete songBlobUrls[id];
     }
     function blobUrlFor(id) {
+      // While viewing another account, never resolve shared IDB blobs (id collisions).
+      if (viewAccount) return Promise.resolve("");
       if (songBlobUrls[id]) return Promise.resolve(songBlobUrls[id]);
       return idbGetFile(id).then((rec) => {
         if (!rec || !rec.blob) return "";
@@ -4934,13 +5351,25 @@
       return '<iframe class="player" style="height:' + height + 'px" src="https://open.spotify.com/embed/' + kind + "/" + encodeURIComponent(id) + '" title="Music" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>';
     }
     function isDirectAudio(url) {
-      return /\.(mp3|ogg|wav|m4a|aac|flac)(\?|#|$)/i.test(String(url || ""));
+      const raw = String(url || "").trim();
+      if (!/\.(mp3|ogg|wav|m4a|aac|flac)(\?|#|$)/i.test(raw)) return false;
+      if (/^(javascript|data|vbscript):/i.test(raw)) return false;
+      const parsed = linkParts(raw);
+      if (!parsed) return true;
+      return parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "blob:";
     }
     function isDirectVideo(url) {
-      return /\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(String(url || ""));
+      const raw = String(url || "").trim();
+      if (!/\.(mp4|webm|ogv|mov|m4v)(\?|#|$)/i.test(raw)) return false;
+      if (/^(javascript|data|vbscript):/i.test(raw)) return false;
+      const parsed = linkParts(raw);
+      if (!parsed) return true;
+      return parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "blob:";
     }
     function openLink(label, url) {
-      return '<p><a href="' + esc(url) + '" target="_blank" rel="noreferrer">' + label + "</a></p>";
+      const parsed = linkParts(url);
+      if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return "";
+      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noreferrer">' + esc(label) + "</a></p>";
     }
     function videoHtml(url) {
       const link = String(url || "").trim();
@@ -5259,9 +5688,12 @@
       const remote = !accountApi() && authUser ? songFilePath(song.id) : "";
       blobUrlFor(song.id).then((src) => {
         if (token !== mediaPaint) return;
-        if (src) {
+          if (src) {
           draw(filePlayerHtml(src, song.fileType, song.fileName));
-          idbGetFile(song.id).then((rec) => { if (rec && rec.blob) pushSongFile(song.id, rec.blob, rec.type || song.fileType); });
+          // Never push a local IDB blob onto a viewed account (id collisions).
+          if (!viewAccount) {
+            idbGetFile(song.id).then((rec) => { if (rec && rec.blob) pushSongFile(song.id, rec.blob, rec.type || song.fileType); });
+          }
           return;
         }
         if (!remote) {
@@ -5490,8 +5922,10 @@
           song.fileName = "";
           song.fileType = "";
         } else if (pendingEditFile) {
-          await idbPutFile(song.id, pendingEditFile);
-          forgetBlobUrl(song.id);
+          if (!viewAccount) {
+            await idbPutFile(song.id, pendingEditFile);
+            forgetBlobUrl(song.id);
+          }
           if (!editFileSent) await uploadSongFile(song.id, pendingEditFile, pendingEditFile.type || "", (ratio) => paintEditRing(ratio, "Uploading…"), editUpload);
           song.fileName = pendingEditFile.name;
           song.fileType = pendingEditFile.type || "";
@@ -5870,7 +6304,7 @@
         let fileFailed = false;
         if (!editing && pendingLyricFile) {
           try {
-            await idbPutFile(song.id, pendingLyricFile);
+            if (!viewAccount) await idbPutFile(song.id, pendingLyricFile);
             if (!lyricFileSent) await uploadSongFile(song.id, pendingLyricFile, pendingLyricFile.type || "", (ratio) => paintLyricRing(ratio, "Uploading…"), lyricUpload);
           }
           catch (err) {
@@ -6156,7 +6590,7 @@
       if (smaller) {
         lyricSize = Math.min(40, Math.max(14, lyricSize + Number(smaller.dataset.lyricSize) * 2));
         localStorage.setItem("enquiz-lyric-size", String(lyricSize));
-        syncChange({ op: "put-setting", key: "lyricSize", value: lyricSize });
+        if (!viewAccount) syncChange({ op: "put-setting", key: "lyricSize", value: lyricSize });
         applyLyricSize(document.getElementById("songUser"));
         return;
       }
@@ -6267,7 +6701,9 @@
     paintLyrics();
     paintVerbs();
     function restoreOverflowStores() {
+      const bootGen = viewGen;
       idbGetSongs().then((saved) => {
+        if (bootGen !== viewGen || viewAccount || viewSwitching) return;
         if (!saved || !saved.length) return;
         const local = loadSongs();
         const seen = {};
@@ -6280,10 +6716,12 @@
           changed = true;
         });
         if (!changed) return;
+        if (bootGen !== viewGen || viewAccount || viewSwitching) return;
         songCache = local;
         paintLyrics();
       });
       idbGetAdded().then((saved) => {
+        if (bootGen !== viewGen || viewAccount || viewSwitching) return;
         if (!saved || !saved.length) return;
         if (localStorage.getItem(ADDED_KEY)) return;
         if (addedCache && addedCache.length) return;
@@ -6331,8 +6769,12 @@
     let studyScreen = "setup";
     const MISTAKE_KEY = "enquiz-mistakes";
     const EXAM_MS = 20 * 60 * 1000;
+    let dayPoolStrict = false;
     function quizPool() {
-      return mergeCardQuizCards(dayPoolOverride || lessonPool(dayQuizPlace));
+      const base = dayPoolOverride || lessonPool(dayQuizPlace);
+      // Keep the active pool as-is. Custom quizzes weave in per card in buildDayQueue.
+      // Material explicitly calls mergeCardQuizCards; do not pull unrelated custom words into lesson pools.
+      return Array.isArray(base) ? base.slice() : [];
     }
     function cardFromQuizWord(key, list) {
       let en = key;
@@ -6344,10 +6786,23 @@
         if (!en && item.left) en = item.left;
         if (!ru && item.back) ru = item.back;
         if (!ru && item.right) ru = item.right;
-        if (!ru && type === "Choice" && Array.isArray(item.options)) ru = item.options[Number(item.answer) || 0] || item.options[0] || "";
-        if (!ru && (type === "Type" || type === "Listen") && item.answer) ru = item.answer;
+        if (!ru && (type === "Choice" || type === "Listen" || type === "Definition") && Array.isArray(item.options)) {
+          const packed = customQuizPackedOptions(item);
+          ru = packed.right || item.word || "";
+        }
+        if (!ru && type === "Type") ru = item.prompt || "";
+        if (!ru && type === "Reverse") ru = item.front || "";
       });
-      return { en: en || key, ru: ru || "", pos: "", uk: "", us: "", ex: "", gloss: "" };
+      const looked = cardQuizLookup(en || key);
+      return {
+        en: (looked && looked.en) || en || key,
+        ru: ru || (looked && looked.ru) || "",
+        pos: (looked && looked.pos) || "",
+        uk: (looked && looked.uk) || "",
+        us: (looked && looked.us) || "",
+        ex: (looked && looked.ex) || "",
+        gloss: (looked && looked.gloss) || ""
+      };
     }
     function cardsFromSavedQuizzes() {
       const map = loadCardQuizzes();
@@ -6593,16 +7048,30 @@
     }
     function saveDayLinks(map) {
       localStorage.setItem(LINK_KEY, JSON.stringify(map));
-      if (typeof syncChange === "function") syncChange({ op: "put-setting", key: "dayLinks", value: map });
+      if (typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "dayLinks", value: map });
     }
     function dayLinkList(day, kind) {
       const base = (DAY_LINKS[day] && DAY_LINKS[day][kind]) || [];
       const extra = (loadDayLinks()[day] && loadDayLinks()[day][kind]) || [];
       return base.map((item) => Object.assign({ added: false }, item)).concat(extra.map((item, index) => Object.assign({ added: true, index: index }, item)));
     }
+    function safeHttpHref(url) {
+      let href = String(url || "").trim();
+      if (!href) return "";
+      try {
+        if (!/^https?:\/\//i.test(href)) href = "https://" + href;
+        const parsed = new URL(href);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+        return parsed.toString();
+      } catch (e) {
+        return "";
+      }
+    }
     function linkChip(item) {
+      const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(item.href) + '" target="_blank" rel="noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';
@@ -6684,10 +7153,12 @@
         const form = save.closest(".day-link-form");
         const box = save.closest("[data-work-list]");
         if (!form || !box) return;
-        const title = form.querySelector("[data-link-title]").value.trim();
-        let href = form.querySelector("[data-link-url]").value.trim();
+        const titleEl = form.querySelector("[data-link-title]");
+        const urlEl = form.querySelector("[data-link-url]");
+        if (!titleEl || !urlEl) return;
+        const title = String(titleEl.value || "").trim();
+        let href = safeHttpHref(urlEl.value);
         if (!title || !href) return;
-        if (!/^https?:\/\//i.test(href)) href = "https://" + href;
         const map = loadDayLinks();
         const day = box.dataset.workDay;
         if (!map[day]) map[day] = { classwork: [], homework: [] };
@@ -6716,9 +7187,10 @@
       return (card && card.gap) || (card && card.en) || "";
     }
     function lineOf(card) {
-      if (!card.ex) return "";
-      const token = formToken(card);
-      const re = new RegExp("\\b" + String(token).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      if (!card || !card.ex) return "";
+      const token = String(formToken(card) || "").trim();
+      if (!token) return "";
+      const re = new RegExp("\\b" + token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
       return re.test(card.ex) ? card.ex : "";
     }
     function spellable(card) {
@@ -6744,32 +7216,70 @@
     function customQuizzesFor(card, type) {
       return cardQuizzesOf(cardQuizKey(card)).filter((quiz) => (quiz.type || "Flip") === type);
     }
+    function customQuizPackedOptions(item) {
+      const raw = Array.isArray(item && item.options) ? item.options : [];
+      const options = [];
+      const oldIndexes = [];
+      raw.forEach((text, i) => {
+        const value = String(text == null ? "" : text).trim();
+        if (!value) return;
+        oldIndexes.push(i);
+        options.push(value);
+      });
+      const oldAnswer = Number(item && item.answer);
+      let answer = 0;
+      let answerOk = false;
+      if (Number.isFinite(oldAnswer)) {
+        const mapped = oldIndexes.indexOf(oldAnswer);
+        if (mapped >= 0) {
+          answer = mapped;
+          answerOk = true;
+        }
+      }
+      const answerSet = new Set((item && item.answers || []).map(Number).filter((n) => Number.isFinite(n)));
+      const answers = oldIndexes.map((old, neu) => answerSet.has(old) ? neu : -1).filter((n) => n >= 0);
+      return {
+        options: options,
+        answer: answer,
+        answers: answers,
+        answerOk: answerOk,
+        right: answerOk ? (options[answer] || "") : ""
+      };
+    }
     function customQuizReady(quiz) {
       const item = (quiz && quiz.items && quiz.items[0]) || {};
       const type = (quiz && quiz.type) || "Flip";
-      if (type === "Flip" || type === "Reverse") return !!(item.front || item.back);
-      if (type === "Choice" || type === "Odd one out") return !!(item.prompt || (item.options || []).some(Boolean));
-      if (type === "Select all") return !!(item.prompt || (item.options || []).some(Boolean));
-      if (type === "Type" || type === "Listen" || type === "Definition") return !!(item.prompt || item.answer);
-      if (type === "Gap") return !!(item.shown || item.answer);
-      if (type === "Build") return !!(String(item.parts || "").trim() || String(item.answer || "").trim());
+      const packed = customQuizPackedOptions(item);
+      const opts = packed.options;
+      if (type === "Flip") return !!(item.front && item.back);
+      if (type === "Reverse") return !!(item.front && opts.length >= 2 && packed.answerOk && packed.right);
+      if (type === "Choice" || type === "Listen") return !!(item.prompt && opts.length >= 2 && packed.answerOk && packed.right);
+      if (type === "Definition") return !!(item.prompt && opts.length >= 2 && packed.answerOk && packed.right);
+      if (type === "Odd one out") return opts.length >= 2 && packed.answerOk && !!packed.right;
+      if (type === "Select all") return opts.length >= 2 && packed.answers.length >= 1;
+      if (type === "Type") return !!(item.prompt && item.answer);
+      if (type === "Gap") return !!(item.shown && item.answer);
+      if (type === "Build") return !!(String(item.parts || "").trim() && String(item.answer || "").trim());
       if (type === "Match" || type === "Memory") {
-        return cardQuizPairs(quiz).some((row) => row.left || row.right);
+        return cardQuizPairs(quiz).some((row) => row.left && row.right);
       }
       if (type === "True / false") return !!item.prompt;
-      if (type === "Tap") return !!(item.text || item.answer);
-      return !!(item.word || item.prompt || item.answer);
+      if (type === "Tap") return !!(item.text && item.answer);
+      if (type === "Spell" || type === "Letters" || type === "Hangman") {
+        return !!(item.word && /[a-zA-Z]/.test(String(item.word)));
+      }
+      return !!(item.word);
+    }
+    function autoTypeOk(card, type) {
+      if (type === "Match" || type === "Select all" || type === "Odd one out" || type === "Memory") return false;
+      if ((type === "Choice" || type === "Type" || type === "True / false" || type === "Reverse" || type === "Listen") && !card.ru) return false;
+      if ((type === "Gap" || type === "Build" || type === "Tap") && !lineOf(card)) return false;
+      if (type === "Definition" && !meaningOf(card)) return false;
+      if ((type === "Spell" || type === "Letters" || type === "Hangman") && !spellable(card)) return false;
+      return true;
     }
     function typesFor(card, types) {
-      return types.filter((type) => {
-        if (customQuizzesFor(card, type).some(customQuizReady)) return true;
-        if (type === "Match" || type === "Select all" || type === "Odd one out" || type === "Memory") return false;
-        if ((type === "Choice" || type === "Type" || type === "True / false" || type === "Reverse" || type === "Listen") && !card.ru) return false;
-        if ((type === "Gap" || type === "Build" || type === "Tap") && !lineOf(card)) return false;
-        if (type === "Definition" && !meaningOf(card)) return false;
-        if ((type === "Spell" || type === "Letters" || type === "Hangman") && !spellable(card)) return false;
-        return true;
-      });
+      return types.filter((type) => customQuizzesFor(card, type).some(customQuizReady) || autoTypeOk(card, type));
     }
     function pushCustomDayItem(queue, card, quiz) {
       const type = quiz.type || "Flip";
@@ -6789,17 +7299,19 @@
         return;
       }
       if (type === "Select all") {
-        const options = (custom.options || []).filter(Boolean).map((text, i) => ({ en: text, pos: (custom.answers || []).indexOf(i) >= 0 ? "yes" : "no" }));
+        const packed = customQuizPackedOptions(custom);
+        const answerSet = new Set(packed.answers);
+        const options = packed.options.map((text, i) => ({ en: text, pos: answerSet.has(i) ? "yes" : "no" }));
         if (options.length >= 2) {
-          queue.push({ type: type, card: card, custom: custom, pos: "yes", sample: options });
+          queue.push({ type: type, card: card, custom: custom, pos: "yes", sample: options, prompt: custom.prompt || "" });
         }
         return;
       }
       if (type === "Odd one out") {
-        const options = (custom.options || []).filter(Boolean).map((text) => ({ en: text }));
+        const packed = customQuizPackedOptions(custom);
+        const options = packed.options.map((text) => ({ en: text }));
         if (options.length >= 2) {
-          const right = options[Number(custom.answer) || 0] || options[0];
-          queue.push({ type: type, card: card, custom: custom, options: options, right: right.en, pos: "match" });
+          queue.push({ type: type, card: card, custom: custom, options: options, right: packed.right || options[0].en, pos: "match" });
         }
         return;
       }
@@ -6821,19 +7333,21 @@
         let use = typesFor(card, types);
         if (mix && use.length) use = [use[Math.floor(Math.random() * use.length)]];
         use.forEach((type) => {
-          const customs = customQuizzesFor(card, type).filter(customQuizReady);
-          if (customs.length) {
-            customs.forEach((quiz) => pushCustomDayItem(queue, card, quiz));
-            return;
-          }
+          customQuizzesFor(card, type).filter(customQuizReady).forEach((quiz) => pushCustomDayItem(queue, card, quiz));
+          // Study quizzes / strict pools stay on custom items only.
+          if (dayPoolStrict) return;
+          if (!autoTypeOk(card, type)) return;
           if (type === "True / false") {
-            const others = cards.filter((c) => c.ru !== card.ru);
+            const others = cards.filter((c) => c.ru && !choiceSame(c.ru, card.ru));
             const lie = others.length > 0 && Math.random() < 0.5;
             queue.push({ type: type, card: card, ru: lie ? others[Math.floor(Math.random() * others.length)].ru : card.ru, ok: !lie, line: lineOf(card) || card.en });
           } else queue.push({ type: type, card: card, line: lineOf(card) });
         });
       });
-      if (types.indexOf("Match") >= 0) {
+      if (dayPoolStrict) return queue;
+      const deckKinds = ["Match", "Select all", "Odd one out", "Memory"].filter((type) => types.indexOf(type) >= 0);
+      const deckAllow = !mix ? deckKinds : (deckKinds.length ? [deckKinds[Math.floor(Math.random() * deckKinds.length)]] : []);
+      if (deckAllow.indexOf("Match") >= 0) {
         const matchable = cards.filter((c) => c.en && c.ru);
         const size = 4;
         for (let i = 0; i < matchable.length; ) {
@@ -6849,7 +7363,7 @@
           i += n;
         }
       }
-      if (types.indexOf("Select all") >= 0) {
+      if (deckAllow.indexOf("Select all") >= 0) {
         const posed = cards.filter((c) => c.pos);
         if (posed.length >= 2) {
           const nouns = cards.filter((c) => c.pos === "noun").slice(0, 2);
@@ -6859,7 +7373,7 @@
           queue.push({ type: "Select all", pos: pos, sample: sample });
         }
       }
-      if (types.indexOf("Odd one out") >= 0) {
+      if (deckAllow.indexOf("Odd one out") >= 0) {
         const byPos = {};
         cards.forEach((c) => {
           if (!c.pos || !c.en) return;
@@ -6878,13 +7392,13 @@
           }
         }
       }
-      if (types.indexOf("Memory") >= 0) {
+      if (deckAllow.indexOf("Memory") >= 0) {
         const matchable = cards.filter((c) => c.en && c.ru);
         const size = memoryBlockSize(matchable.length);
         for (let i = 0; i < matchable.length; ) {
           const n = Math.min(size, matchable.length - i);
           const chunk = matchable.slice(i, i + n);
-          if (chunk.length >= 1) {
+          if (chunk.length >= 2) {
             const faces = shuffle(chunk.reduce((all, c, j) => all.concat([
               { id: String(i + j), text: c.en },
               { id: String(i + j), text: c.ru }
@@ -7169,8 +7683,10 @@
       groups.forEach((group) => {
         const types = group.rows.map((row) => row.type);
         typesFor(group.card, types).forEach((type) => {
+          customQuizzesFor(group.card, type).filter(customQuizReady).forEach((quiz) => pushCustomDayItem(queue, group.card, quiz));
+          if (!autoTypeOk(group.card, type)) return;
           if (type === "True / false") {
-            const others = mistakePool.filter((card) => card.ru && card.ru !== group.card.ru);
+            const others = mistakePool.filter((card) => card.ru && !choiceSame(card.ru, group.card.ru));
             const lie = others.length > 0 && Math.random() < 0.5;
             queue.push({ type: type, card: group.card, ru: lie ? others[Math.floor(Math.random() * others.length)].ru : group.card.ru, ok: !lie, line: lineOf(group.card) || group.card.en });
           } else queue.push({ type: type, card: group.card, line: lineOf(group.card) });
@@ -7200,8 +7716,10 @@
       renderDay();
     }
     function openMistakeCard(card, backTo) {
+      if (!card) return;
       const backId = backTo || "errors";
       const key = String(card.en || "").trim().toLowerCase();
+      if (!key) return;
       const lesson = cardByEn(key);
       if (lesson) {
         current = lesson;
@@ -7301,6 +7819,7 @@
       }
       if (here === "setup") {
         dayPoolOverride = allStudyCards();
+        dayPoolStrict = false;
         studyScreen = "setup";
         studyTitle = "Study";
         dayReturn = "home";
@@ -7336,10 +7855,11 @@
       renderDay();
       if (examMode) armExamClock();
     }
-    function openListedStudy(cards, title, backTo) {
+    function openListedStudy(cards, title, backTo, opts) {
       studyTitle = title;
       studyScreen = "daysetup";
       dayPoolOverride = cards;
+      dayPoolStrict = !!(opts && opts.strict);
       dayReturn = backTo;
       document.getElementById("daySetupTitle").textContent = title;
       document.getElementById("daySetupBack").dataset.fallback = backTo;
@@ -7439,6 +7959,7 @@
     function openDayQuiz(place) {
       dayQuizPlace = place;
       dayPoolOverride = null;
+      dayPoolStrict = false;
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
       const home = lessonHome(place);
@@ -7457,9 +7978,11 @@
       return '<div class="row" style="margin-top:12px"><button class="btn primary" type="button" data-day-next>' + label + "</button></div>";
     }
     function paintBuild(item) {
+      const slot = Array.isArray(item.slot) ? item.slot : [];
+      const bank = Array.isArray(item.bank) ? item.bank : [];
       document.getElementById("dayqView").innerHTML =
-        '<p class="prompt">Build the sentence</p><div class="slot">' + (item.slot.map((word, i) => '<button class="token" type="button" data-slot="' + i + '">' + esc(word) + "</button>").join(" ") || "…") + "</div>" +
-        '<div class="row">' + item.bank.map((word, i) => '<button class="token" type="button" data-bank="' + i + '">' + esc(word) + "</button>").join("") + "</div>" +
+        '<p class="prompt">Build the sentence</p><div class="slot">' + (slot.map((word, i) => '<button class="token" type="button" data-slot="' + i + '">' + esc(word) + "</button>").join(" ") || "…") + "</div>" +
+        '<div class="row">' + bank.map((word, i) => '<button class="token" type="button" data-bank="' + i + '">' + esc(word) + "</button>").join("") + "</div>" +
         '<div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-build-check>Check</button></div>';
     }
     let dayTimer = 0;
@@ -7481,7 +8004,8 @@
     }
     function markDay(ok, right) {
       const fb = document.getElementById("dayFb");
-      if (!fb) return;
+      if (!fb || fb.dataset.marked === "1") return;
+      fb.dataset.marked = "1";
       clearDayTimer();
       const item = dayQueue[dayAt];
       if (item) noteAnswer(item, ok);
@@ -7525,10 +8049,43 @@
       utter.lang = "en-US";
       window.speechSynthesis.speak(utter);
     }
+    function choiceSame(a, b) {
+      return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+    }
     function choiceHtml(prompt, question, options, right) {
+      let used = false;
       return '<p class="prompt">' + esc(prompt) + '</p>' + (question ? '<p class="q">' + esc(question) + '</p>' : '') + '<div class="opts">' +
-        options.map((text) => '<button class="opt" type="button" data-opt="' + (text === right ? "ok" : "bad") + '"><span>' + esc(text) + "</span></button>").join("") +
+        options.map((text) => {
+          const ok = !used && choiceSame(text, right);
+          if (ok) used = true;
+          return '<button class="opt" type="button" data-opt="' + (ok ? "ok" : "bad") + '"><span>' + esc(text) + "</span></button>";
+        }).join("") +
         '</div><div id="dayFb"></div>';
+    }
+    function tapSentenceHtml(text, target) {
+      const parts = String(text || "").split(/(\s+)/);
+      const tokens = parts.map((part) => part.trim() ? { word: part } : { space: part });
+      const words = String(target || "").trim().split(/\s+/).filter(Boolean);
+      const wordAt = [];
+      tokens.forEach((token, i) => { if (token.word) wordAt.push(i); });
+      const hit = new Set();
+      const strip = (value) => String(value || "").replace(/^[^\wА-Яа-яЁё]+|[^\wА-Яа-яЁё]+$/g, "");
+      if (words.length) {
+        for (let start = 0; start <= wordAt.length - words.length; start++) {
+          let ok = true;
+          for (let k = 0; k < words.length; k++) {
+            const token = tokens[wordAt[start + k]];
+            if (!token || !choiceSame(strip(token.word) || token.word, words[k])) { ok = false; break; }
+          }
+          if (!ok) continue;
+          for (let k = 0; k < words.length; k++) hit.add(wordAt[start + k]);
+          break;
+        }
+      }
+      return tokens.map((token, i) => {
+        if (token.space != null) return esc(token.space);
+        return '<button type="button" data-tap="' + (hit.has(i) ? "ok" : "bad") + '">' + esc(token.word) + "</button>";
+      }).join("");
     }
     function scrambleLetters(word) {
       const letters = String(word).replace(/[^a-zA-Z]/g, "").split("");
@@ -7552,7 +8109,7 @@
         }).join("") + '</div><div id="dayFb"></div>';
     }
     function paintHangman(item) {
-      const shown = item.answer.split("").map((ch) => {
+      const shown = String(item.answer || "").split("").map((ch) => {
         if (!/[a-zA-Z]/.test(ch)) return ch;
         return item.got[ch.toLowerCase()] ? ch : "_";
       }).join(" ");
@@ -7560,7 +8117,8 @@
         const used = item.got[letter] || item.missed[letter];
         return '<button class="token" type="button" data-hang="' + letter + '"' + (used ? " disabled" : "") + ">" + letter + "</button>";
       }).join("");
-      document.getElementById("dayqView").innerHTML = '<p class="prompt">Hangman · ' + esc(item.card.ru || "") + '</p><p class="q">' + esc(shown) + '</p><p class="hint">Misses ' + item.misses + " / 6</p><div class=\"row\">" + keys + '</div><div id="dayFb"></div>';
+      const hint = (item.custom && item.custom.hint) || (item.card && item.card.ru) || "";
+      document.getElementById("dayqView").innerHTML = '<p class="prompt">Hangman' + (hint ? " · " + esc(hint) : "") + '</p><p class="q">' + esc(shown) + '</p><p class="hint">Misses ' + item.misses + " / 6</p><div class=\"row\">" + keys + '</div><div id="dayFb"></div>';
     }
     function renderDay() {
       if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -7572,19 +8130,25 @@
       if (dayqType) dayqType.textContent = item.type;
       document.getElementById("dayqBar").style.width = Math.round(((dayAt + 1) / dayQueue.length) * 100) + "%";
       const view = document.getElementById("dayqView");
-      const card = item.card;
+      const card = item.card || {};
       const custom = item.custom;
       if (item.type === "Choice") {
         if (custom && Array.isArray(custom.options) && custom.options.some(Boolean)) {
-          const opts = custom.options.filter(Boolean);
-          const right = opts[Number(custom.answer) || 0] || opts[0];
+          const packed = customQuizPackedOptions(custom);
+          const opts = packed.options;
+          const right = packed.right || opts[0] || "";
           item.right = right;
           view.innerHTML = choiceHtml(custom.prompt || "Choose", "", shuffle(opts.slice()), right);
         } else {
-          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
-          const opts = shuffle(wrong.concat([card.ru]));
+          const wrong = shuffle(quizPool().filter((c) => c.ru && !choiceSame(c.ru, card.ru))).slice(0, 3).map((c) => c.ru);
+          const opts = shuffle(wrong.concat([card.ru].filter(Boolean)));
+          let used = false;
           view.innerHTML = '<p class="prompt">' + (card.verb ? "Three forms → Russian" : "English → Russian") + '</p><div class="word-head">' + wordPic(card.base || card.en) + '<p class="q">' + esc(card.en) + '</p></div><div class="opts">' +
-            opts.map((ru) => '<button class="opt" type="button" data-opt="' + (ru === card.ru ? "ok" : "bad") + '"><span>' + esc(ru) + "</span></button>").join("") +
+            opts.map((ru) => {
+              const ok = !used && choiceSame(ru, card.ru);
+              if (ok) used = true;
+              return '<button class="opt" type="button" data-opt="' + (ok ? "ok" : "bad") + '"><span>' + esc(ru) + "</span></button>";
+            }).join("") +
             '</div><div id="dayFb"></div>';
         }
       } else if (item.type === "Flip") {
@@ -7605,24 +8169,36 @@
           item.answer = custom.answer || "";
           view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(custom.shown || "___") + '</p>' + (custom.hint ? '<p class="hint">' + esc(custom.hint) + "</p>" : "") + '<input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
         } else {
-          const blank = blankSentence(item.line, formToken(card));
-          item.answer = blank.answer;
-          view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(blank.shown) + '</p><input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+          const token = formToken(card) || card.en || "";
+          const blank = blankSentence(item.line, token);
+          if (!blank) {
+            item.answer = token;
+            const shown = token
+              ? String(item.line || "").replace(new RegExp(String(token).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), "____")
+              : String(item.line || "___");
+            view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(shown || "___") + '</p><input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+          } else {
+            item.answer = blank.answer;
+            view.innerHTML = '<p class="prompt">Fill in the word</p><p class="q">' + esc(blank.shown) + '</p><input id="dayGap" type="text" placeholder="Missing word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-gap-go>Check</button></div>';
+          }
         }
       } else if (item.type === "Build") {
-        if (custom && (custom.parts || custom.answer)) {
-          const answerParts = String(custom.answer || "").trim().split(/\s+/).filter(Boolean);
-          const partTokens = String(custom.parts || "").trim().split(/\s+/).filter(Boolean);
-          item.order = answerParts.length ? answerParts : partTokens;
-          const bankSource = (partTokens.length === item.order.length && partTokens.length) ? partTokens : item.order;
-          item.bank = shuffle(bankSource.slice());
-          item.slot = [];
-          item.buildAnswer = String(custom.answer || item.order.join(" ")).trim();
-        } else {
-          item.order = String(item.line || "").split(/\s+/).filter(Boolean);
-          item.bank = shuffle(item.order.slice());
-          item.slot = [];
-          item.buildAnswer = item.order.join(" ");
+        // Keep in-progress bank/slot if renderDay runs again for the same item.
+        if (!Array.isArray(item.bank) || !Array.isArray(item.slot)) {
+          if (custom && (custom.parts || custom.answer)) {
+            const answerParts = String(custom.answer || "").trim().split(/\s+/).filter(Boolean);
+            const partTokens = String(custom.parts || "").trim().split(/\s+/).filter(Boolean);
+            item.order = answerParts.length ? answerParts : partTokens;
+            const bankSource = (partTokens.length === item.order.length && partTokens.length) ? partTokens : item.order;
+            item.bank = shuffle(bankSource.slice());
+            item.slot = [];
+            item.buildAnswer = String(custom.answer || item.order.join(" ")).trim();
+          } else {
+            item.order = String(item.line || "").split(/\s+/).filter(Boolean);
+            item.bank = shuffle(item.order.slice());
+            item.slot = [];
+            item.buildAnswer = item.order.join(" ");
+          }
         }
         paintBuild(item);
       } else if (item.type === "True / false") {
@@ -7634,84 +8210,85 @@
       } else if (item.type === "Tap") {
         if (custom && (custom.text || custom.answer)) {
           const target = String(custom.answer || "").trim();
-          const re = target ? new RegExp("\\b" + target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i") : /$/;
-          let html = "";
-          String(custom.text || "").split(/(\s+)/).forEach((part) => {
-            if (!part.trim()) { html += esc(part); return; }
-            const hit = re.test(part);
-            html += '<button type="button" data-tap="' + (hit ? "ok" : "bad") + '">' + esc(part) + "</button>";
-          });
-          view.innerHTML = '<p class="prompt">Tap ' + esc(target || "the word") + '</p><p class="sentence">' + html + '</p><div id="dayFb"></div>';
+          view.innerHTML = '<p class="prompt">Tap ' + esc(target || "the word") + '</p><p class="sentence">' + tapSentenceHtml(custom.text || "", target) + '</p><div id="dayFb"></div>';
         } else {
-          const re = new RegExp("\\b" + formToken(card).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
-          let html = "";
-          item.line.split(/(\s+)/).forEach((part) => {
-            if (!part.trim()) { html += esc(part); return; }
-            const hit = re.test(part);
-            html += '<button type="button" data-tap="' + (hit ? "ok" : "bad") + '">' + esc(part) + "</button>";
-          });
-          view.innerHTML = '<p class="prompt">Tap ' + esc(formToken(card)) + '</p><p class="sentence">' + html + '</p><div id="dayFb"></div>';
+          const target = formToken(card);
+          view.innerHTML = '<p class="prompt">Tap ' + esc(target) + '</p><p class="sentence">' + tapSentenceHtml(item.line, target) + '</p><div id="dayFb"></div>';
         }
       } else if (item.type === "Match") {
-        const right = shuffle(item.pairs.slice());
+        const pairs = Array.isArray(item.pairs) ? item.pairs : [];
+        const right = shuffle(pairs.slice());
         view.innerHTML = '<p class="prompt">Match the English with the Russian translation</p><div class="pairs">' +
-          item.pairs.map((p) => '<button class="pair" type="button" data-side="l" data-id="' + p.id + '">' + esc(p.en) + "</button>").join("") +
+          pairs.map((p) => '<button class="pair" type="button" data-side="l" data-id="' + p.id + '">' + esc(p.en) + "</button>").join("") +
           right.map((p) => '<button class="pair" type="button" data-side="r" data-id="' + p.id + '">' + esc(p.ru) + "</button>").join("") +
           '</div><div id="dayFb"></div>';
         item.left = "";
       } else if (item.type === "Select all") {
-        view.innerHTML = '<p class="prompt">Select every ' + esc(item.pos) + '</p><div class="opts">' +
-          item.sample.map((c, i) => '<button class="opt" type="button" data-sel="' + i + '"><span>' + esc(c.en) + "</span></button>").join("") +
+        const sample = Array.isArray(item.sample) ? item.sample : [];
+        const prompt = (custom && custom.prompt) || item.prompt || ("Select every " + (item.pos || "match"));
+        view.innerHTML = '<p class="prompt">' + esc(prompt) + '</p><div class="opts">' +
+          sample.map((c, i) => '<button class="opt" type="button" data-sel="' + i + '"><span>' + esc(c.en) + "</span></button>").join("") +
           '</div><div class="bar"><button class="btn primary" type="button" data-sel-check>Check</button></div><div id="dayFb"></div>';
       } else if (item.type === "Reverse") {
-        if (custom && (custom.front || custom.back)) {
-          item.right = custom.back || "";
-          const opts = [custom.back || ""].filter(Boolean);
-          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== item.right)).slice(0, 3).map((c) => c.en);
-          view.innerHTML = choiceHtml("Russian → English", custom.front || "", shuffle(wrong.concat(opts)), item.right);
+        if (custom && (custom.front || custom.back || (custom.options || []).some(Boolean))) {
+          const packed = customQuizPackedOptions(custom);
+          const opts = packed.options;
+          const right = packed.right || custom.back || opts[0] || "";
+          item.right = right;
+          const pool = opts.length >= 2 ? opts : shuffle(quizPool().filter((c) => c.en && !choiceSame(c.en, right)).slice(0, 3).map((c) => c.en).concat([right].filter(Boolean)));
+          view.innerHTML = choiceHtml("Russian → English", custom.front || "", shuffle(pool.slice()), right);
         } else {
           item.right = card.en;
-          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
-          view.innerHTML = choiceHtml("Russian → English", card.ru, shuffle(wrong.concat([card.en])), card.en);
+          const wrong = shuffle(quizPool().filter((c) => c.en && !choiceSame(c.en, card.en))).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Russian → English", card.ru, shuffle(wrong.concat([card.en].filter(Boolean))), card.en);
         }
       } else if (item.type === "Definition") {
-        if (custom && (custom.prompt || custom.answer)) {
-          item.right = custom.answer || "";
-          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== item.right)).slice(0, 3).map((c) => c.en);
-          view.innerHTML = choiceHtml("Which word is this?", custom.prompt || "", shuffle(wrong.concat([item.right].filter(Boolean))), item.right);
+        if (custom && (custom.prompt || (custom.options || []).some(Boolean) || custom.answer === 0 || custom.answer)) {
+          const packed = customQuizPackedOptions(custom);
+          const opts = packed.options;
+          const right = packed.right || custom.word || opts[0] || "";
+          item.right = right;
+          const pool = opts.length >= 2 ? opts : shuffle(quizPool().filter((c) => c.en && !choiceSame(c.en, right)).slice(0, 3).map((c) => c.en).concat([right].filter(Boolean)));
+          view.innerHTML = choiceHtml("Which word is this?", custom.prompt || "", shuffle(pool.slice()), right);
         } else {
           item.right = card.en;
-          const wrong = shuffle(quizPool().filter((c) => c.en && c.en !== card.en)).slice(0, 3).map((c) => c.en);
-          view.innerHTML = choiceHtml("Which word is this?", meaningOf(card), shuffle(wrong.concat([card.en])), card.en);
+          const wrong = shuffle(quizPool().filter((c) => c.en && !choiceSame(c.en, card.en))).slice(0, 3).map((c) => c.en);
+          view.innerHTML = choiceHtml("Which word is this?", meaningOf(card), shuffle(wrong.concat([card.en].filter(Boolean))), card.en);
         }
       } else if (item.type === "Listen") {
-        if (custom && (custom.prompt || custom.answer)) {
-          item.right = custom.answer || "";
-          const speak = custom.prompt || card.speak || card.en;
-          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== item.right)).slice(0, 3).map((c) => c.ru);
+        if (custom && (custom.prompt || custom.answer === 0 || custom.answer || (custom.options || []).some(Boolean))) {
+          const speak = custom.prompt || (card && (card.speak || card.en)) || "";
+          const packed = customQuizPackedOptions(custom);
+          let opts = packed.options.slice();
+          if (!opts.length && custom.answer && typeof custom.answer === "string") {
+            const wrong = shuffle(quizPool().filter((c) => c.ru && !choiceSame(c.ru, custom.answer))).slice(0, 3).map((c) => c.ru);
+            opts = shuffle(wrong.concat([custom.answer]));
+          }
+          const right = packed.right || (typeof custom.answer === "string" ? custom.answer : "") || opts[0] || "";
+          item.right = right;
           view.innerHTML = '<p class="prompt">Listen, then pick the translation</p><div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-speak>Play</button><span id="listenCard"></span></div>' +
-            choiceHtml("", "", shuffle(wrong.concat([item.right].filter(Boolean))), item.right).replace('<p class="prompt"></p>', "");
-          speakEnglish(speak);
+            choiceHtml("", "", shuffle(opts.slice()), right).replace('<p class="prompt"></p>', "");
+          if (speak) speakEnglish(speak);
         } else {
           item.right = card.ru;
-          const wrong = shuffle(quizPool().filter((c) => c.ru && c.ru !== card.ru)).slice(0, 3).map((c) => c.ru);
+          const wrong = shuffle(quizPool().filter((c) => c.ru && !choiceSame(c.ru, card.ru))).slice(0, 3).map((c) => c.ru);
           view.innerHTML = '<p class="prompt">Listen, then pick the translation</p><div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-speak>Play</button><span id="listenCard"></span></div>' +
-            choiceHtml("", "", shuffle(wrong.concat([card.ru])), card.ru).replace('<p class="prompt"></p>', "");
+            choiceHtml("", "", shuffle(wrong.concat([card.ru].filter(Boolean))), card.ru).replace('<p class="prompt"></p>', "");
           speakEnglish(card.speak || card.en);
         }
       } else if (item.type === "Odd one out") {
-        item.right = item.right;
-        const art = /^[aeiou]/i.test(item.pos) ? "an" : "a";
-        view.innerHTML = choiceHtml(custom ? "Odd one out" : ("Which word is not " + art + " " + item.pos + "?"), "", item.options.map((c) => c.en), item.right);
+        const options = Array.isArray(item.options) ? item.options : [];
+        const art = /^[aeiou]/i.test(item.pos || "") ? "an" : "a";
+        view.innerHTML = choiceHtml(custom ? "Odd one out" : ("Which word is not " + art + " " + item.pos + "?"), "", options.map((c) => c && c.en != null ? c.en : c), item.right);
       } else if (item.type === "Spell") {
         const word = (custom && custom.word) || card.en;
         item.right = word;
-        view.innerHTML = '<p class="prompt">Spell the word</p><p class="q">' + esc(scrambleLetters(word)) + '</p><p>' + esc(card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
+        view.innerHTML = '<p class="prompt">Spell the word</p><p class="q">' + esc(scrambleLetters(word)) + '</p><p>' + esc((custom && custom.hint) || card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
       } else if (item.type === "Letters") {
         const word = (custom && custom.word) || card.en;
         item.right = word;
         if (!item.mask) item.mask = maskLetters(word);
-        view.innerHTML = '<p class="prompt">Fill the missing letters</p><p class="q">' + esc(item.mask) + '</p><p>' + esc(card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
+        view.innerHTML = '<p class="prompt">Fill the missing letters</p><p class="q">' + esc(item.mask) + '</p><p>' + esc((custom && custom.hint) || card.ru || "") + '</p><input id="dayType" type="text" placeholder="Word" autocomplete="off" /><div id="dayFb"></div><div class="bar"><button class="btn primary" type="button" data-spell-go>Check</button></div>';
       } else if (item.type === "Hangman") {
         if (!item.answer) { item.answer = (custom && custom.word) || card.en; item.got = {}; item.missed = {}; item.misses = 0; }
         paintHangman(item);
@@ -7733,6 +8310,16 @@
     document.getElementById("studyExam").onclick = () => beginQuiz(true);
     document.getElementById("studyMistakes").onclick = () => openMistakes(allStudyCards());
     document.getElementById("dayq").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const typeGo = e.target.closest("#dayType") && document.querySelector("#dayqView [data-type-go], #dayqView [data-spell-go]");
+        const gapGo = e.target.closest("#dayGap") && document.querySelector("#dayqView [data-gap-go]");
+        const btn = typeGo || gapGo;
+        if (btn) {
+          e.preventDefault();
+          btn.click();
+          return;
+        }
+      }
       const scene = e.target.closest(".flip-scene");
       if (!scene || (e.key !== "Enter" && e.key !== " ")) return;
       e.preventDefault();
@@ -7756,21 +8343,25 @@
       if (item.type === "Choice" || item.type === "Reverse" || item.type === "Definition" || item.type === "Listen" || item.type === "Odd one out") {
         if (item.type === "Listen" && e.target.closest("[data-listen-card]")) { openMistakeCard(item.card, "dayq"); return; }
         if (item.type === "Listen" && e.target.closest("[data-speak]")) {
-          const speak = (item.custom && item.custom.prompt) || item.card.speak || item.card.en;
-          speakEnglish(speak);
+          const speak = (item.custom && item.custom.prompt) || (item.card && (item.card.speak || item.card.en)) || "";
+          if (speak) speakEnglish(speak);
           return;
         }
         const opt = e.target.closest("[data-opt]");
-        if (!opt || document.getElementById("dayFb").innerHTML) return;
+        const fb = document.getElementById("dayFb");
+        if (!opt || !fb || fb.innerHTML) return;
         document.querySelectorAll("#dayqView .opt").forEach((o) => o.classList.remove("ok", "bad"));
         opt.classList.add(opt.dataset.opt === "ok" ? "ok" : "bad");
-        if (opt.dataset.opt !== "ok") document.querySelector('#dayqView [data-opt="ok"]').classList.add("ok");
+        if (opt.dataset.opt !== "ok") {
+          const good = document.querySelector('#dayqView [data-opt="ok"]');
+          if (good) good.classList.add("ok");
+        }
         markDay(opt.dataset.opt === "ok", item.right || (item.card && item.card.ru) || "");
       } else if (item.type === "Flip" && (e.target.closest("[data-flip-go]") || (e.target.closest(".flip-scene") && !e.target.closest("a, button")))) {
-        const card = item.card;
+        const card = item.card || {};
         const custom = item.custom;
         const gloss = meaningOf(card);
-        const back = (custom && custom.back) || card.ru || gloss;
+        const back = (custom && custom.back) || card.ru || gloss || "";
         const scene = e.target.closest("#dayqView") && e.target.closest("#dayqView").querySelector(".flip-scene");
         const box = document.getElementById("dayFlipBox");
         if (box && !box.dataset.filled) {
@@ -7781,79 +8372,120 @@
         }
         if (scene) scene.classList.toggle("is-flipped");
       } else if (item.type === "Type" && e.target.closest("[data-type-go]")) {
-        if (document.getElementById("dayFb").innerHTML) return;
+        const fb = document.getElementById("dayFb");
+        const input = document.getElementById("dayType");
+        if (!fb || fb.innerHTML || !input) return;
         if (item.custom && item.right != null) {
-          markDay(document.getElementById("dayType").value.trim().toLowerCase() === String(item.right).trim().toLowerCase(), item.right);
-        } else {
-          markDay(item.card.accept ? formTypedOk(item.card, document.getElementById("dayType").value) : item.card.verb ? verbTypedOk(item.card, document.getElementById("dayType").value) : document.getElementById("dayType").value.trim().toLowerCase() === item.card.en.toLowerCase(), item.card.en);
+          markDay(input.value.trim().toLowerCase() === String(item.right).trim().toLowerCase(), item.right);
+        } else if (item.card) {
+          const typed = input.value;
+          const ok = item.card.accept
+            ? formTypedOk(item.card, typed)
+            : item.card.verb
+              ? verbTypedOk(item.card, typed)
+              : typed.trim().toLowerCase() === String(item.card.en || "").toLowerCase();
+          markDay(ok, item.card.en);
         }
       } else if ((item.type === "Spell" || item.type === "Letters") && e.target.closest("[data-spell-go]")) {
-        if (document.getElementById("dayFb").innerHTML) return;
-        const right = item.right || item.card.en;
-        markDay(document.getElementById("dayType").value.trim().toLowerCase() === String(right).toLowerCase(), right);
+        const fb = document.getElementById("dayFb");
+        const input = document.getElementById("dayType");
+        if (!fb || fb.innerHTML || !input) return;
+        const right = item.right || (item.card && item.card.en) || "";
+        markDay(input.value.trim().toLowerCase() === String(right).toLowerCase(), right);
       } else if (item.type === "Gap" && e.target.closest("[data-gap-go]")) {
-        if (document.getElementById("dayFb").innerHTML) return;
-        markDay(document.getElementById("dayGap").value.trim().toLowerCase() === String(item.answer).toLowerCase(), item.answer);
+        const fb = document.getElementById("dayFb");
+        const input = document.getElementById("dayGap");
+        if (!fb || fb.innerHTML || !input) return;
+        markDay(input.value.trim().toLowerCase() === String(item.answer || "").toLowerCase(), item.answer || "");
       } else if (item.type === "Build") {
         const bank = e.target.closest("[data-bank]");
         const slot = e.target.closest("[data-slot]");
         const fb = document.getElementById("dayFb");
-        if (fb.innerHTML) return;
-        if (bank) { item.slot.push(item.bank.splice(Number(bank.dataset.bank), 1)[0]); paintBuild(item); }
-        else if (slot) { item.bank.push(item.slot.splice(Number(slot.dataset.slot), 1)[0]); paintBuild(item); }
+        if (!fb || fb.innerHTML) return;
+        if (bank) {
+          const took = item.bank.splice(Number(bank.dataset.bank), 1)[0];
+          if (took != null) item.slot.push(took);
+          paintBuild(item);
+        } else if (slot) {
+          const took = item.slot.splice(Number(slot.dataset.slot), 1)[0];
+          if (took != null) item.bank.push(took);
+          paintBuild(item);
+        }
         else if (e.target.closest("[data-build-check]")) {
-          const right = item.buildAnswer || item.order.join(" ");
-          markDay(item.slot.join(" ") === right, right);
+          const right = item.buildAnswer || (item.order || []).join(" ");
+          markDay((item.slot || []).join(" ").toLowerCase() === String(right).toLowerCase(), right);
         }
       } else if (item.type === "True / false") {
         const tf = e.target.closest("[data-tf]");
-        if (!tf || document.getElementById("dayFb").innerHTML) return;
-        const right = item.custom ? (item.ok ? "True" : "False") : ((item.card && item.card.ru) || (item.ok ? "True" : "False"));
-        markDay((tf.dataset.tf === "true") === item.ok, right);
+        const fb = document.getElementById("dayFb");
+        if (!tf || !fb || fb.innerHTML) return;
+        markDay((tf.dataset.tf === "true") === item.ok, item.ok ? "True" : "False");
       } else if (item.type === "Tap") {
         const tap = e.target.closest("[data-tap]");
-        if (!tap || document.getElementById("dayFb").innerHTML) return;
-        markDay(tap.dataset.tap === "ok", (item.custom && item.custom.answer) || item.card.en);
+        const fb = document.getElementById("dayFb");
+        if (!tap || !fb || fb.innerHTML) return;
+        markDay(tap.dataset.tap === "ok", (item.custom && item.custom.answer) || (item.card && item.card.en) || "");
       } else if (item.type === "Match") {
         const pair = e.target.closest(".pair");
-        if (!pair || pair.classList.contains("ok")) return;
+        const fb = document.getElementById("dayFb");
+        if (!pair || pair.classList.contains("ok") || !fb || fb.innerHTML) return;
         if (pair.dataset.side === "l") {
           document.querySelectorAll('#dayqView [data-side="l"]').forEach((b) => b.classList.remove("pick"));
           pair.classList.add("pick");
           item.left = pair.dataset.id;
         } else if (item.left) {
           if (pair.dataset.id === item.left) {
-            document.querySelectorAll('#dayqView [data-id="' + item.left + '"]').forEach((b) => { b.classList.add("ok"); b.classList.remove("pick"); });
+            const idSel = (typeof CSS !== "undefined" && CSS.escape) ? CSS.escape(item.left) : String(item.left).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+            document.querySelectorAll('#dayqView [data-id="' + idSel + '"]').forEach((b) => { b.classList.add("ok"); b.classList.remove("pick"); });
             item.left = "";
             if (!document.querySelector("#dayqView .pair:not(.ok)")) markDay(true, "");
           } else {
             pair.classList.add("bad");
+            item.misses = (item.misses || 0) + 1;
             setTimeout(() => pair.classList.remove("bad"), 400);
+            if (examMode || item.misses >= 3) {
+              item.left = "";
+              document.querySelectorAll("#dayqView .pair.pick").forEach((b) => b.classList.remove("pick"));
+              markDay(false, "Match the pairs");
+            }
           }
         }
       } else if (item.type === "Select all") {
         const sel = e.target.closest("[data-sel]");
-        if (sel && !document.getElementById("dayFb").innerHTML) sel.classList.toggle("pick");
-        if (e.target.closest("[data-sel-check]") && !document.getElementById("dayFb").innerHTML) {
+        const fb = document.getElementById("dayFb");
+        if (sel && fb && !fb.innerHTML) sel.classList.toggle("pick");
+        if (e.target.closest("[data-sel-check]") && fb && !fb.innerHTML) {
+          const sample = Array.isArray(item.sample) ? item.sample : [];
           const picked = [...document.querySelectorAll("#dayqView [data-sel].pick")].map((b) => Number(b.dataset.sel));
-          const right = item.sample.map((c, i) => c.pos === item.pos ? i : -1).filter((i) => i >= 0);
-          const ok = picked.length === right.length && right.every((i) => picked.indexOf(i) >= 0);
-          markDay(ok, item.sample.filter((c) => c.pos === item.pos).map((c) => c.en).join(", "));
+          const right = sample.map((c, i) => c.pos === item.pos ? i : -1).filter((i) => i >= 0);
+          const ok = right.length > 0 && picked.length === right.length && right.every((i) => picked.indexOf(i) >= 0);
+          markDay(ok, sample.filter((c) => c.pos === item.pos).map((c) => c.en).join(", "));
         }
       } else if (item.type === "Hangman") {
         const key = e.target.closest("[data-hang]");
-        if (!key || document.getElementById("dayFb").innerHTML) return;
+        const fb = document.getElementById("dayFb");
+        if (!key || !fb || fb.innerHTML) return;
         const letter = key.dataset.hang;
+        if (!item.got) item.got = {};
+        if (!item.missed) item.missed = {};
+        if (item.misses == null) item.misses = 0;
         if (item.got[letter] || item.missed[letter]) return;
-        if (item.answer.toLowerCase().indexOf(letter) >= 0) item.got[letter] = true;
+        const answer = String(item.answer || "");
+        if (!/[a-zA-Z]/.test(answer)) {
+          paintHangman(item);
+          markDay(false, answer || "—");
+          return;
+        }
+        if (answer.toLowerCase().indexOf(letter) >= 0) item.got[letter] = true;
         else { item.missed[letter] = true; item.misses += 1; }
         paintHangman(item);
-        const done = item.answer.split("").every((ch) => !/[a-zA-Z]/.test(ch) || item.got[ch.toLowerCase()]);
+        const done = answer.split("").every((ch) => !/[a-zA-Z]/.test(ch) || item.got[ch.toLowerCase()]);
         if (done) markDay(true, item.answer);
         else if (item.misses >= 6) markDay(false, item.answer);
       } else if (item.type === "Memory") {
         const mem = e.target.closest("[data-mem]");
-        if (!mem || item.busy || document.getElementById("dayFb").innerHTML) return;
+        const fb = document.getElementById("dayFb");
+        if (!mem || item.busy || !fb || fb.innerHTML) return;
         const index = Number(mem.dataset.mem);
         const face = item.faces[index];
         if (!face || item.done[face.id] || item.open.indexOf(index) >= 0) return;
@@ -7870,11 +8502,16 @@
           item.faces.forEach((row) => { ids[row.id] = true; });
           if (Object.keys(ids).every((id) => item.done[id])) markDay(true, "");
         } else {
+          item.misses = (item.misses || 0) + 1;
           item.busy = true;
           setTimeout(() => {
             item.open = [];
             item.busy = false;
             if (!document.getElementById("dayFb") || document.getElementById("dayFb").innerHTML) return;
+            if (examMode || item.misses >= 3) {
+              markDay(false, "Find the pairs");
+              return;
+            }
             paintMemory(item);
           }, 700);
         }
@@ -8035,7 +8672,28 @@
     }
     function syncChange(change) {
       if (!change || !change.op) return;
-      syncQueue.push(change);
+      // Drop mutations while Open pages is mid-stash/restore so payloads cannot retarget.
+      if (viewSwitching) return;
+      // While viewing with sync frozen, do not enqueue teacher/student LS as the wrong target.
+      if (!accountReady && viewAccount) return;
+      let next = change;
+      // Coalesce pending cardQuizzes patches (merge keys; newer values win).
+      if (change.op === "put-setting" && change.key === "cardQuizzes") {
+        let merged = Object.assign({}, plainCardQuizMap(change.value));
+        for (let i = syncQueue.length - 1; i >= 0; i--) {
+          const prev = syncQueue[i];
+          if (!prev || prev.op !== "put-setting" || prev.key !== "cardQuizzes") continue;
+          if (syncSending && i === 0) continue;
+          merged = Object.assign({}, plainCardQuizMap(prev.value), merged);
+          syncQueue.splice(i, 1);
+        }
+        next = { op: "put-setting", key: "cardQuizzes", value: merged };
+      }
+      // Shared card quizzes and catalog edits always target the signed-in teacher.
+      const selfTarget = (next.op === "put-setting" && next.key === "cardQuizzes") || next.op === "put-edit";
+      // Stamp intended account at enqueue time so flush never retargets across view switches.
+      next.forUserId = selfTarget ? null : (viewAccount && viewAccount.id ? viewAccount.id : null);
+      syncQueue.push(next);
       scheduleStateSave();
     }
     function scheduleStateSave() {
@@ -8043,34 +8701,84 @@
       syncTimer = setTimeout(flushUserState, 150);
     }
     function flushUserState() {
-      if (syncSending || authSyncLock || !authUser || !accountReady || !syncQueue.length) return Promise.resolve();
+      if (syncSending) return syncInFlight || Promise.resolve();
+      if (authSyncLock || viewSwitching || !authUser || !accountReady || !syncQueue.length) return Promise.resolve();
       syncSending = true;
       const change = syncQueue[0];
-      const target = viewAccount ? "/api/admin/users/" + encodeURIComponent(viewAccount.id) + "/state" : "/api/me/state";
-      return accountFetch(target, { method: "PUT", body: JSON.stringify(change) }).then(() => {
+      const selfTarget = change && (
+        (change.op === "put-setting" && change.key === "cardQuizzes") ||
+        change.op === "put-edit"
+      );
+      let targetUserId = null;
+      if (!selfTarget) {
+        if (Object.prototype.hasOwnProperty.call(change, "forUserId")) targetUserId = change.forUserId || null;
+        else if (viewAccount && viewAccount.id) targetUserId = viewAccount.id;
+      }
+      const target = targetUserId
+        ? "/api/admin/users/" + encodeURIComponent(targetUserId) + "/state"
+        : "/api/me/state";
+      const body = Object.assign({}, change);
+      delete body.forUserId;
+      syncInFlight = accountFetch(target, { method: "PUT", body: JSON.stringify(body) }).then(() => {
         syncFails = 0;
-        syncQueue.shift();
+        // Only drop the op we actually sent. Queue may have been cleared/replaced (view switch).
+        if (syncQueue[0] === change) syncQueue.shift();
+        else {
+          const idx = syncQueue.indexOf(change);
+          if (idx >= 0) syncQueue.splice(idx, 1);
+        }
         syncSending = false;
+        syncInFlight = null;
         if (syncQueue.length) return flushUserState();
       }).catch(() => {
         syncSending = false;
+        syncInFlight = null;
         syncFails += 1;
-        if (syncFails >= 3) { syncFails = 0; syncQueue.shift(); return; }
+        if (syncFails >= 3) {
+          syncFails = 0;
+          // Keep the failed op at the front; stop auto-drop so data is not silently lost.
+          return;
+        }
         return new Promise((resolve) => {
           syncTimer = setTimeout(() => resolve(flushUserState()), 2000);
         });
       });
+      return syncInFlight;
     }
     function drainUserState() {
       clearTimeout(syncTimer);
       syncTimer = 0;
-      return flushUserState();
+      const pump = () => {
+        if (!syncQueue.length) return Promise.resolve();
+        if (syncSending) return (syncInFlight || Promise.resolve()).then(pump);
+        const before = syncQueue.length;
+        return flushUserState().then(() => {
+          if (!syncQueue.length) return;
+          // Stalled after repeated failures — do not wipe the queue.
+          if (syncQueue.length === before && !syncSending) {
+            throw new Error("Some changes could not be saved. Try again.");
+          }
+          return pump();
+        });
+      };
+      return (syncInFlight || Promise.resolve()).then(pump).then(() => {
+        // Fail closed: wait until the latest texts PUT head has settled (a late writeTexts can chain after the first await).
+        const waitTexts = () => {
+          const head = textsInFlight;
+          return head.then(() => {}, (err) => {
+            throw err || new Error("Some texts could not be saved. Try again.");
+          }).then(() => {
+            if (textsInFlight !== head) return waitTexts();
+          });
+        };
+        return waitTexts();
+      });
     }
     window.addEventListener("pagehide", () => { flushUserState(); });
     window.syncDemoProgress = function () {
       let value = null;
       try { value = JSON.parse(localStorage.getItem("enquiz-demonstratives") || "null"); } catch (e) { value = null; }
-      syncChange({ op: "put-setting", key: "demonstratives", value: value });
+      if (!viewAccount && !viewSwitching) syncChange({ op: "put-setting", key: "demonstratives", value: value });
     };
     function stashAnon() {
       if (localStorage.getItem("enquiz-auth-on") === "1") return;
@@ -8133,7 +8841,7 @@
       if (window.paintDemonstratives) window.paintDemonstratives();
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
-      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: !viewAccount });
+      installCardQuizzes(state.stats && state.stats.cardQuizzes);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
@@ -8298,7 +9006,7 @@
       box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (isTeacher() ? '<button class="btn" type="button" data-jump="admin">Administration</button>' : "") +
+        (isTeacher() && !viewAccount ? '<button class="btn" type="button" data-jump="admin">Administration</button>' : "") +
         (viewAccount ? "" : '<button class="btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
         (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
@@ -8461,6 +9169,9 @@
       slot.innerHTML = '<p class="hint">Loading…</p>';
       accountFetch("/api/admin/users/" + encodeURIComponent(id)).then((data) => {
         const user = data.user;
+        const openPages = canOpenPages(user)
+          ? '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button>'
+          : "";
         slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
           '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
           (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
@@ -8468,7 +9179,7 @@
             '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +
             '<p class="label">Name</p><input data-profile-name type="text" value="' + esc(user.name || "") + '" autocomplete="off" />' +
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save details</button>' +
-            '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button></div>' +
+            openPages + '</div>' +
             '<p class="label">Role</p><select data-role-pick>' +
             '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
             '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
@@ -8478,8 +9189,7 @@
             '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>' +
             '<button class="btn stop" type="button" data-account="delete-user" data-id="' + esc(user.id) + '">Delete account</button></div>'
             : '<p>' + esc(user.email) + (user.name ? " · " + esc(user.name) : "") + '</p>' +
-              (authUser && authUser.role === "ADMIN" && user.role === "USER" ?
-                '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="USER" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button></div>' : '') +
+              (openPages ? '<div class="row" style="margin-top:8px">' + openPages + '</div>' : '') +
               (isDeveloper() ? '<p class="label">Role</p><select data-role-pick>' +
                 '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
                 '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
@@ -8493,18 +9203,26 @@
       });
     }
     function viewKeys() {
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CARD_QUIZ_KEY, CUSTOM_THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY];
+      // Personal browser keys swapped while viewing another account.
+      // CARD_QUIZ_KEY is stashed separately: shared install overwrites it during view, then restore brings the teacher's local map back.
+      // LM_KEY must stash too — otherwise lmPullFromServer overwrites local drafts while viewing.
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY, LINK_KEY, STARTED_KEY, LM_KEY];
     }
     function stashDeveloper() {
-      return idbGetStash().then((existing) => {
-        if (existing) return;
-        const snap = {};
-        viewKeys().forEach((key) => { snap[key] = localStorage.getItem(key); });
-        return idbPutStash(snap).then(() => {
-          viewKeys().forEach((key) => localStorage.removeItem(key));
-          addedCache = null;
-          localStorage.removeItem("enquiz-dev-stash");
-        });
+      // Always refresh stash from current keys so an orphan IDB stash cannot restore stale teacher data.
+      const snap = {};
+      viewKeys().forEach((key) => { snap[key] = localStorage.getItem(key); });
+      snap[CARD_QUIZ_KEY] = localStorage.getItem(CARD_QUIZ_KEY);
+      Object.keys(songBlobUrls).forEach(forgetBlobUrl);
+      return idbPutStash(snap).then(() => {
+        stashOwned = true;
+        viewKeys().forEach((key) => localStorage.removeItem(key));
+        addedCache = null;
+        lmLibrary = null;
+        lmState = null;
+        localStorage.removeItem("enquiz-dev-stash");
+        // Drop shared song blobs/overflow so Open pages cannot play/write colliding ids.
+        return clearMediaStore(["files", "songs", "added"]);
       });
     }
     function applyStash(snap) {
@@ -8513,6 +9231,10 @@
         if (snap[key] == null) localStorage.removeItem(key);
         else localStorage.setItem(key, snap[key]);
       });
+      if (Object.prototype.hasOwnProperty.call(snap, CARD_QUIZ_KEY)) {
+        if (snap[CARD_QUIZ_KEY] == null) localStorage.removeItem(CARD_QUIZ_KEY);
+        else localStorage.setItem(CARD_QUIZ_KEY, snap[CARD_QUIZ_KEY]);
+      }
       addedCache = null;
     }
     function restoreDeveloper() {
@@ -8521,10 +9243,24 @@
       if (raw != null) {
         try { legacy = JSON.parse(raw) || {}; } catch (e) { legacy = {}; }
       }
+      Object.keys(songBlobUrls).forEach(forgetBlobUrl);
+      let applied = false;
       return idbGetStash().then((snap) => {
-        applyStash(snap || legacy);
+        const use = snap || legacy;
+        if (!use) {
+          const err = new Error("Could not restore your pages.");
+          err.code = "NO_STASH";
+          throw err;
+        }
+        applyStash(use);
+        applied = true;
         localStorage.removeItem("enquiz-dev-stash");
-        return idbDeleteStash();
+        return Promise.all([idbDeleteStash(), clearMediaStore(["files", "songs", "added"])]).then(() => {
+          stashOwned = false;
+        });
+      }).catch((err) => {
+        if (err && typeof err === "object") err.stashApplied = applied;
+        throw err || new Error("Could not restore your pages.");
       });
     }
     function paintViewBar() {
@@ -8568,11 +9304,14 @@
       else localStorage.removeItem("enquiz-demonstratives");
       if (state.stats && state.stats.cardEdits) localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits));
       else localStorage.removeItem(EDIT_KEY);
-      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: false });
+      installCardQuizzes(state.stats && state.stats.cardQuizzes);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
+      else localStorage.removeItem(LINK_KEY);
       installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
       installAllowedLessons(state.stats && state.stats.allowedLessons);
+      const viewTheme = state.stats && typeof state.stats.theme === "string" ? state.stats.theme : "";
+      applyTheme(viewTheme || DEFAULT_THEME, { sync: false });
       settleThemeAudience();
       applyLessonEdits();
       applySongEdits();
@@ -8594,6 +9333,7 @@
         email: user.email || "",
         name: user.name || ""
       };
+      viewGen += 1;
       localStorage.setItem("enquiz-view-id", viewAccount.id);
       localStorage.setItem("enquiz-view-login", viewAccount.login);
       localStorage.setItem("enquiz-view-role", viewAccount.role);
@@ -8605,42 +9345,89 @@
     }
     function canOpenPages(user) {
       if (!user || !user.id || !authUser) return false;
+      // Pair study accounts are shared only between Tsovak / TsovakDev — not via "Open pages".
+      if (user.login === "Tsovak" || user.login === "TsovakDev") return false;
       if (sessionIsDeveloper()) return user.role === "USER" || user.role === "ADMIN";
       return authUser.role === "ADMIN" && user.role === "USER";
     }
     function openStudentPages(user) {
       if (!canOpenPages(user)) return;
-      accountReady = false;
-      return stashDeveloper().then(() => {
-        rememberView(user);
+      if (viewAccount || viewSwitching) {
+        alert("Exit the current pages first.");
+        return;
+      }
+      // Flush teacher ops to /api/me/state before switching the sync target.
+      return drainUserState().then(() => {
+        accountReady = false;
+        viewSwitching = true;
         syncQueue.length = 0;
-        refreshCatalog();
-        paintViewBar();
-        show("home");
-        return accountFetch("/api/admin/users/" + encodeURIComponent(user.id) + "/state").then((state) => {
-          addedCache = null;
-          applyViewState(state || {});
-          accountReady = true;
-          lmPullFromServer();
+        return stashDeveloper().then(() => {
+          rememberView(user);
+          const openedGen = viewGen;
+          const openedId = user.id;
+          refreshCatalog();
           paintViewBar();
           show("home");
-        }).catch((err) => exitStudentPages().then(() => alert(err.message)));
-      }).catch(() => {
-        viewAccount = null;
-        forgetViewFlags();
-        return restoreDeveloper().then(() => {
-          alert("This browser could not switch pages. Your own pages are still here.");
+          return accountFetch("/api/admin/users/" + encodeURIComponent(user.id) + "/state").then((state) => {
+            if (openedGen !== viewGen || !viewAccount || viewAccount.id !== openedId) {
+              viewSwitching = false;
+              return;
+            }
+            addedCache = null;
+            applyViewState(state || {});
+            viewSwitching = false;
+            accountReady = true;
+            lmPullFromServer();
+            paintViewBar();
+            paintTexts();
+            show("home");
+          }).catch((err) => {
+            if (openedGen !== viewGen) {
+              viewSwitching = false;
+              return;
+            }
+            viewSwitching = false;
+            return exitStudentPages().then(() => alert(err.message));
+          });
+        }).catch(() => {
+          viewAccount = null;
+          viewGen += 1;
+          forgetViewFlags();
+          const done = () => {
+            viewSwitching = false;
+            accountReady = !!authUser;
+            alert("This browser could not switch pages. Your own pages are still here.");
+          };
+          // Only restore if we actually wrote a stash; otherwise LS is still the teacher and an orphan stash must not apply.
+          if (stashOwned) {
+            return restoreDeveloper().then(done).catch(() => {
+              stashOwned = false;
+              done();
+            });
+          }
+          done();
         });
+      }).catch((err) => {
+        viewSwitching = false;
+        accountReady = !!authUser;
+        alert(err && err.message ? err.message : "Some changes could not be saved. Try again.");
       });
     }
     function exitStudentPages() {
-      return drainUserState().catch(() => {}).then(() => {
-        viewAccount = null;
-        forgetViewFlags();
+      return drainUserState().then(() => {
+        accountReady = false;
+        viewSwitching = true;
         syncQueue.length = 0;
+        // Keep viewAccount until stash is restored so stray paths cannot write teacher LS as /api/me.
         return restoreDeveloper().then(() => {
+          viewAccount = null;
+          viewGen += 1;
+          forgetViewFlags();
           addedCache = null;
           lyricSize = Number(localStorage.getItem("enquiz-lyric-size")) || 20;
+          // Reload lesson materials from restored LM_KEY after viewing.
+          lmLibrary = null;
+          lmState = null;
           applyLessonEdits();
           applySongEdits();
           refreshCatalog();
@@ -8651,9 +9438,47 @@
           paintAccount();
           settleThemeAudience();
           paintViewBar();
+          viewSwitching = false;
           accountReady = !!authUser;
           show("home");
+          if (window.paintLmDays) window.paintLmDays();
+          lmPullFromServer();
+          // Reconcile shared quizzes after restore: keep teacher local-only keys, prefer server elsewhere.
+          return accountFetch("/api/me/state").then((state) => {
+            installCardQuizzes(state && state.stats && state.stats.cardQuizzes);
+            if (cardQuizCanEdit()) {
+              const server = plainCardQuizMap(state && state.stats && state.stats.cardQuizzes);
+              const local = loadCardQuizzes();
+              const orphan = {};
+              let hasOrphan = false;
+              Object.keys(local).forEach((key) => {
+                if (!Array.isArray(local[key]) || !local[key].length) return;
+                if (key in server) return;
+                orphan[key] = local[key];
+                hasOrphan = true;
+              });
+              if (hasOrphan) syncChange({ op: "put-setting", key: "cardQuizzes", value: orphan });
+            }
+          }).catch(() => {});
+        }).catch((err) => {
+          if (err && err.stashApplied) {
+            // Teacher LS already applied — clear viewAccount so we never write teacher data as the student.
+            viewAccount = null;
+            viewGen += 1;
+            forgetViewFlags();
+            viewSwitching = false;
+            accountReady = !!authUser;
+            paintViewBar();
+          } else {
+            viewSwitching = false;
+            accountReady = false;
+          }
+          throw err || new Error("Could not restore your pages.");
         });
+      }).catch((err) => {
+        viewSwitching = false;
+        if (!viewAccount) accountReady = !!authUser;
+        alert(err && err.message ? err.message : "Some changes could not be saved. Try again.");
       });
     }
     function cardArea(place) {
@@ -8665,7 +9490,7 @@
       return String(value).slice(0, 32);
     }
     function trackEvent(kind, area, result) {
-      if (!authUser) return;
+      if (!authUser || viewSwitching) return;
       const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       const payload = { id: id, kind: kind, area: area || "", result: result || "" };
       if (viewAccount) payload.for = viewAccount.id;
@@ -8982,28 +9807,45 @@
         if (syncQueue.length) scheduleStateSave();
       });
     }
-    function clearMediaStore() {
-      return mediaDb().then((db) => new Promise((resolve) => {
-        const names = ["files", "added"].filter((name) => db.objectStoreNames.contains(name));
-        if (!names.length) { resolve(); return; }
-        const tx = db.transaction(names, "readwrite");
-        names.forEach((name) => tx.objectStore(name).clear());
+    function clearMediaStore(names) {
+      const want = names && names.length ? names : ["files", "added", "songs"];
+      return mediaDb().then((db) => new Promise((resolve, reject) => {
+        const have = want.filter((name) => db.objectStoreNames.contains(name));
+        if (!have.length) { resolve(); return; }
+        const tx = db.transaction(have, "readwrite");
+        have.forEach((name) => tx.objectStore(name).clear());
         tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
-      })).catch(() => {});
+        tx.onerror = () => reject(tx.error || new Error("Could not clear local files."));
+      }));
     }
-    function clearOwnBrowserData() {
+    function clearOwnBrowserData(opts) {
       viewKeys().forEach((key) => localStorage.removeItem(key));
-      ["enquiz-anon-backup", "enquiz-auth-on", "enquiz-dev-stash", "enquiz-view-id", "enquiz-view-login", "enquiz-view-role", "enquiz-view-email", "enquiz-view-name"].forEach((key) => localStorage.removeItem(key));
+      [CARD_QUIZ_KEY, STARTED_KEY, LM_KEY, "enquiz-anon-backup", "enquiz-auth-on", "enquiz-dev-stash", "enquiz-view-id", "enquiz-view-login", "enquiz-view-role", "enquiz-view-email", "enquiz-view-name"].forEach((key) => localStorage.removeItem(key));
       try { sessionStorage.removeItem("enquiz-place"); } catch (e) {}
       Object.keys(songBlobUrls).forEach(forgetBlobUrl);
+      try { revokePreviewUrl(); } catch (e) {}
+      try { revokeEditPreviewUrl(); } catch (e) {}
+      try {
+        Object.keys(lmFiles).forEach((id) => {
+          try { URL.revokeObjectURL(lmFiles[id]); } catch (err) {}
+          delete lmFiles[id];
+        });
+      } catch (e) {}
       addedCache = null;
       lyricSize = 20;
-      return Promise.all([clearMediaStore(), idbDeleteStash()]);
+      lmLibrary = null;
+      lmState = null;
+      viewGen += 1;
+      // Wipe IndexedDB audio blobs on logout so the next account on this browser
+      // cannot resolve a colliding song id to the previous user's file.
+      const mediaNames = (opts && opts.wipeFiles === false) ? ["added", "songs"] : ["files", "added", "songs"];
+      return Promise.all([clearMediaStore(mediaNames), idbDeleteStash()]);
     }
     function leaveAccount() {
       signedOutHello = true;
       viewAccount = null;
+      viewSwitching = false;
+      stashOwned = false;
       authUser = null;
       accountReady = false;
       syncQueue.length = 0;
@@ -9091,16 +9933,20 @@
       if (action === "show-register") { paintAccountForm(true); return; }
       if (action === "show-login") { paintAccountForm(false); return; }
       if (action === "logout") {
-        const theme = currentTheme();
-        const save = authUser && themeCanShow(theme)
-          ? accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {})
-          : Promise.resolve();
-        save.then(() => accountFetch("/api/logout", { method: "POST", body: "{}" }).catch(() => {})).then(() => leaveAccount());
+        drainUserState().then(() => {
+          const theme = currentTheme();
+          if (authUser && themeCanShow(theme)) {
+            return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});
+          }
+        }).then(() => accountFetch("/api/logout", { method: "POST", body: "{}" })).then(() => leaveAccount())
+          .catch((err) => alert(err && err.message ? err.message : "Could not sign out safely. Try again."));
         return;
       }
       if (action === "revoke") {
         if (!confirm("This deletes your words, songs and progress. You will be signed out and cannot sign in to this account again. Registering with the same email starts a new empty account.")) return;
-        accountFetch("/api/me/revoke", { method: "POST", body: "{}" }).then(() => leaveAccount()).catch((err) => alert(err.message));
+        drainUserState().then(() => accountFetch("/api/me/revoke", { method: "POST", body: "{}" }).then(() => {
+          return clearOwnBrowserData({ wipeFiles: true }).then(() => leaveAccount());
+        })).catch((err) => alert(err && err.message ? err.message : "Some changes could not be saved. Try again."));
         return;
       }
       if (action === "edit-details") { openOwnAccountForm(); return; }
@@ -9110,6 +9956,7 @@
         return;
       }
       if (action === "approve-change" || action === "reject-change") {
+        if (!isTeacher() || viewAccount) return;
         const verb = action === "approve-change" ? "approve" : "reject";
         accountFetch("/api/admin/changes/" + encodeURIComponent(button.dataset.id) + "/" + verb, { method: "POST", body: "{}" })
           .then(() => paintAdmin())
@@ -9117,12 +9964,14 @@
         return;
       }
       if (action === "approve" || action === "reject") {
+        if (!isTeacher() || viewAccount) return;
         accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: "{}" })
           .then(() => paintAdmin())
           .catch((err) => alert(err.message));
         return;
       }
       if (action === "save-profile") {
+        if (!sessionIsDeveloper() || viewAccount) return;
         const card = button.closest(".card");
         const login = card && card.querySelector("[data-profile-login]");
         const email = card && card.querySelector("[data-profile-email]");
@@ -9142,6 +9991,7 @@
         return;
       }
       if (action === "open-pages") {
+        if (!isTeacher() || viewAccount) return;
         openStudentPages({ id: button.dataset.id, login: button.dataset.login || "", role: button.dataset.role || "", email: button.dataset.email || "", name: button.dataset.name || "" });
         return;
       }
@@ -9150,6 +10000,7 @@
         return;
       }
       if (action === "hide-user") {
+        if (!sessionIsDeveloper() || viewAccount) return;
         accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/hidden", {
           method: "POST",
           body: JSON.stringify({ hidden: button.dataset.hidden !== "1" })
@@ -9157,6 +10008,7 @@
         return;
       }
       if (action === "active-user") {
+        if (!sessionIsDeveloper() || viewAccount) return;
         accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/active", {
           method: "POST",
           body: JSON.stringify({ active: button.dataset.active !== "1" })
@@ -9164,6 +10016,7 @@
         return;
       }
       if (action === "set-role") {
+        if (!sessionIsDeveloper() || viewAccount) return;
         const pick = button.parentElement && button.parentElement.parentElement && button.parentElement.parentElement.querySelector("[data-role-pick]");
         if (!pick) return;
         accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/role", { method: "POST", body: JSON.stringify({ role: pick.value }) })
@@ -9172,13 +10025,17 @@
         return;
       }
       if (action === "delete-user") {
+        if (!sessionIsDeveloper() || viewAccount) return;
         if (!confirm("Delete this account permanently? The login, cards and songs stored for it will be removed.")) return;
         accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id), { method: "DELETE" })
           .then(() => paintAdmin())
           .catch((err) => alert(err.message));
         return;
       }
-      if (action === "user") paintAdminUser(button.dataset.id);
+      if (action === "user") {
+        if (!isTeacher() || viewAccount) return;
+        paintAdminUser(button.dataset.id);
+      }
     });
     function cardByEn(en) {
       const key = String(en || "").trim().toLowerCase();
@@ -9357,8 +10214,7 @@
       }
       takeNewCards(state);
       const savedSongs = Array.isArray(state.songs) ? state.songs : [];
-      if (!samePersonStudy()) writeSongs(savedSongs);
-      else if (savedSongs.length) {
+      if (savedSongs.length) {
         const localSongs = loadSongs();
         const seen = {};
         localSongs.forEach((song) => { if (song && song.id) seen[song.id] = 1; });
@@ -9401,21 +10257,32 @@
       if (!Object.keys(localEdits).length && state.stats && state.stats.cardEdits && Object.keys(state.stats.cardEdits).length) {
         try { localStorage.setItem(EDIT_KEY, JSON.stringify(state.stats.cardEdits)); } catch (e) {}
       }
-      const beforeQuizzes = JSON.stringify(loadCardQuizzes());
-      installCardQuizzes(state.stats && state.stats.cardQuizzes, { sync: false });
-      const afterQuizzes = loadCardQuizzes();
-      if (JSON.stringify(afterQuizzes) !== beforeQuizzes || JSON.stringify(afterQuizzes) !== JSON.stringify(plainCardQuizMap(state.stats && state.stats.cardQuizzes))) {
+      installCardQuizzes(state.stats && state.stats.cardQuizzes);
+      // Only upload local-only words (missing on server). Never push a full local-wins
+      // map on login — that can overwrite newer shared edits from another device.
+      if (cardQuizCanEdit()) {
         const server = plainCardQuizMap(state.stats && state.stats.cardQuizzes);
-        if (JSON.stringify(afterQuizzes) !== JSON.stringify(server)) {
-          syncChange({ op: "put-setting", key: "cardQuizzes", value: afterQuizzes });
-        }
+        const local = loadCardQuizzes();
+        const orphan = {};
+        let hasOrphan = false;
+        Object.keys(local).forEach((key) => {
+          if (!Array.isArray(local[key]) || !local[key].length) return;
+          if (key in server) return;
+          orphan[key] = local[key];
+          hasOrphan = true;
+        });
+        if (hasOrphan) syncChange({ op: "put-setting", key: "cardQuizzes", value: orphan });
       }
       let localLinks = {};
       try { localLinks = JSON.parse(localStorage.getItem(LINK_KEY) || "{}") || {}; } catch (e) { localLinks = {}; }
       if (!Object.keys(localLinks).length && state.stats && state.stats.dayLinks && Object.keys(state.stats.dayLinks).length) {
         try { localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks)); } catch (e) {}
       }
-      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installCustomThemes(
+        state.stats && Array.isArray(state.stats.customThemes) && state.stats.customThemes.length
+          ? state.stats.customThemes
+          : loadCustomThemes()
+      );
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
       installAllowedLessons(state.stats && state.stats.allowedLessons);
       const pendingTheme = syncQueue.some((change) => change && change.op === "put-setting" && change.key === "theme");
@@ -9475,15 +10342,22 @@
       try { return JSON.parse(localStorage.getItem(TEXT_KEY) || "[]"); }
       catch (e) { return []; }
     }
-    function textsApiPath() {
+    function textsApiPath(forId) {
+      if (forId) return "/api/admin/users/" + encodeURIComponent(forId) + "/texts";
       if (viewAccount && viewAccount.id) return "/api/admin/users/" + encodeURIComponent(viewAccount.id) + "/texts";
       return "/api/texts";
     }
     function writeTexts(list) {
       localStorage.setItem(TEXT_KEY, JSON.stringify(list));
       paintTextCount();
-      if (authUser) {
-        accountFetch(textsApiPath(), { method: "PUT", body: JSON.stringify({ texts: list }) }).catch(() => {});
+      if (authUser && !viewSwitching && accountReady) {
+        const forId = viewAccount && viewAccount.id ? viewAccount.id : "";
+        const path = textsApiPath(forId);
+        const payload = JSON.stringify({ texts: list });
+        textsInFlight = textsInFlight.catch(() => {}).then(() =>
+          accountFetch(path, { method: "PUT", body: payload })
+        );
+        // Keep the chain rejectable for drainUserState; do not swallow here.
       }
     }
     function paintTextCount() {
@@ -9541,10 +10415,17 @@
     }
     function paintTexts() {
       renderTextList();
-      if (!authUser) return;
-      accountFetch(textsApiPath()).then((data) => {
+      if (!authUser || viewSwitching || !accountReady) return;
+      const forId = viewAccount ? viewAccount.id : "";
+      const gen = viewGen;
+      accountFetch(textsApiPath(forId)).then((data) => {
+        if (gen !== viewGen || viewSwitching || !accountReady) return;
+        const stillViewing = !!(viewAccount && viewAccount.id === forId);
+        if (forId && !stillViewing) return;
+        if (!forId && viewAccount) return;
         const remote = Array.isArray(data.texts) ? data.texts : [];
-        const merged = viewAccount ? remote : mergeTextLists(loadTexts(), remote);
+        // Always merge so an in-flight local write is not wiped by a stale GET.
+        const merged = mergeTextLists(loadTexts(), remote);
         localStorage.setItem(TEXT_KEY, JSON.stringify(merged));
         renderTextList();
       }).catch(() => {});
@@ -10034,14 +10915,17 @@
       lmSchedulePush();
     }
     function lmSchedulePush() {
-      if (!canEditLessons() || viewAccount || !lmServerReady || !authUser) return;
+      if (!canEditLessons() || viewAccount || viewSwitching || !lmServerReady || !authUser) return;
       clearTimeout(lmPushTimer);
       lmPushTimer = setTimeout(lmPushToServer, 500);
     }
     function lmPushToServer() {
-      if (!canEditLessons() || viewAccount || !authUser || !lmLibrary) return Promise.resolve();
+      if (!canEditLessons() || viewAccount || viewSwitching || !authUser || !lmLibrary) return Promise.resolve();
       const materials = lmLibrary.materials.filter((row) => row && row.id && !lmIsDemoId(row.id));
-      return accountFetch("/api/lessons", { method: "PUT", body: JSON.stringify({ materials: materials }) }).catch(() => {});
+      return accountFetch("/api/lessons", {
+        method: "PUT",
+        body: JSON.stringify({ materials: materials, clear: materials.length === 0 })
+      }).catch(() => {});
     }
     function lmMergeRemote(localList, remoteList) {
       const map = new Map();
@@ -10080,22 +10964,29 @@
       if (opts && opts.push) lmSchedulePush();
     }
     function lmPullFromServer() {
-      if (!authUser) return Promise.resolve();
+      if (!authUser || viewSwitching) return Promise.resolve();
+      const bootGen = viewGen;
+      const viewing = !!(viewAccount && viewAccount.id);
       return accountFetch("/api/lessons").then((data) => {
+        if (bootGen !== viewGen || viewSwitching) return;
+        const stillViewing = !!(viewAccount && viewAccount.id);
+        if (viewing !== stillViewing) return;
         lmServerReady = true;
         const remote = data && Array.isArray(data.materials) ? data.materials : [];
         lmEnsure();
         const local = lmLibrary.materials.slice();
-        const merged = canEditLessons() && !viewAccount ? lmMergeRemote(local, remote) : remote.filter((row) => row && !lmIsDemoId(row.id));
-        const richerLocal = canEditLessons() && !viewAccount && local.some((row) => {
+        const canMerge = canEditLessons() && !viewAccount;
+        const merged = canMerge ? lmMergeRemote(local, remote) : remote.filter((row) => row && !lmIsDemoId(row.id));
+        const richerLocal = canMerge && local.some((row) => {
           if (!row || lmIsDemoId(row.id)) return false;
           const remoteRow = remote.find((item) => item && item.id === row.id);
           const localBlocks = Array.isArray(row.blocks) ? row.blocks.length : 0;
           const remoteBlocks = remoteRow && Array.isArray(remoteRow.blocks) ? remoteRow.blocks.length : 0;
           return localBlocks > remoteBlocks;
         });
-        lmApplyRemote(merged, { push: !!richerLocal || (canEditLessons() && !viewAccount && !remote.length && local.length) });
+        lmApplyRemote(merged, { push: !!richerLocal || (canMerge && !remote.length && local.length) });
       }).catch(() => {
+        if (bootGen !== viewGen || viewSwitching) return;
         lmServerReady = !!authUser;
       });
     }
@@ -10106,13 +10997,14 @@
     function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
     function lmBlock(id) { return (lmState.blocks || []).find((row) => row.id === id); }
     function lmPlain(html) {
-      const box = document.createElement("div");
-      box.innerHTML = html || "";
-      return (box.textContent || "").replace(/\s+/g, " ").trim();
+      const parsed = new DOMParser().parseFromString("<div>" + (html || "") + "</div>", "text/html");
+      const box = parsed.body && parsed.body.firstElementChild ? parsed.body.firstElementChild : null;
+      return ((box && box.textContent) || "").replace(/\s+/g, " ").trim();
     }
     function lmClean(html) {
-      const box = document.createElement("div");
-      box.innerHTML = html || "";
+      // Parse off-document so <img onerror> etc. cannot run during sanitize.
+      const parsed = new DOMParser().parseFromString("<div>" + (html || "") + "</div>", "text/html");
+      const box = parsed.body && parsed.body.firstElementChild ? parsed.body.firstElementChild : parsed.createElement("div");
       Array.from(box.querySelectorAll("*")).forEach((node) => {
         if (!node.parentNode) return;
         const tag = node.tagName;
@@ -10392,8 +11284,15 @@
             desc.textContent = lmDecodeEntities(data.description || "") || data.host || "";
           }
           if (media && data.image) {
-            media.style.backgroundImage = "url(\"" + String(data.image).replace(/"/g, "%22") + "\")";
-            media.classList.add("has-image");
+            let imageUrl = "";
+            try {
+              const parsed = new URL(String(data.image || "").trim());
+              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();
+            } catch (e) {}
+            if (imageUrl) {
+              media.style.backgroundImage = "url(\"" + imageUrl.replace(/\\/g, "\\\\").replace(/"/g, "%22") + "\")";
+              media.classList.add("has-image");
+            }
           }
         }).catch(() => {});
       });
@@ -10427,9 +11326,9 @@
       const block = lmBlock(id);
       const url = lmSrc(block) || lmFiles[id];
       if (!url) return "";
-      if (kind === "image") return '<img class="lm-shot" alt="" src="' + url + '" />';
-      if (kind === "audio") return '<audio class="lm-player" controls src="' + url + '"></audio>';
-      if (kind === "video") return '<video class="lm-player" controls src="' + url + '"></video>';
+      if (kind === "image") return '<img class="lm-shot" alt="" src="' + esc(url) + '" />';
+      if (kind === "audio") return '<audio class="lm-player" controls src="' + esc(url) + '"></audio>';
+      if (kind === "video") return '<video class="lm-player" controls src="' + esc(url) + '"></video>';
       return "";
     }
     function lmFileBox(block, accept, emptyText, kind) {
@@ -10631,17 +11530,17 @@
       if (block.type === "pdf") return lmPreviewFile(block, "PDF", "Open PDF", "data-pdf-open");
       if (block.type === "image") {
         const src = lmSrc(block);
-        const pic = src ? '<img class="lm-shot" alt="' + esc(block.caption || "") + '" src="' + src + '" />' : '<div class="lm-shot lm-shot-empty">' + esc(block.name || "Image") + "</div>";
+        const pic = src ? '<img class="lm-shot" alt="' + esc(block.caption || "") + '" src="' + esc(src) + '" />' : '<div class="lm-shot lm-shot-empty">' + esc(block.name || "Image") + "</div>";
         return '<figure class="lm-figure">' + pic + (block.caption ? "<figcaption>" + esc(block.caption) + "</figcaption>" : "") + "</figure>";
       }
       if (block.type === "audio" || block.type === "pronunciation") {
         const src = lmSrc(block);
-        const player = src ? '<audio class="lm-player" controls src="' + src + '"></audio>' : "<span>" + esc(block.sample ? "Sample clip. Drop a real audio file to play it." : "No audio yet") + "</span>";
+        const player = src ? '<audio class="lm-player" controls src="' + esc(src) + '"></audio>' : "<span>" + esc(block.sample ? "Sample clip. Drop a real audio file to play it." : "No audio yet") + "</span>";
         if (block.type === "pronunciation") return '<div class="lm-pron"><b>' + esc(block.word || "Word") + "</b><small>" + esc(block.ipa || "") + "</small>" + player + "</div>";
         return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || "Audio") + "</b>" + player + "</div>";
       }
       if (block.type === "video") {
-        if (block.source === "file" && lmSrc(block)) return '<div class="lm-frame-video"><video controls src="' + lmSrc(block) + '"></video></div>';
+        if (block.source === "file" && lmSrc(block)) return '<div class="lm-frame-video"><video controls src="' + esc(lmSrc(block)) + '"></video></div>';
         const media = lmUrlKind(block.url);
         if (media.kind === "video-embed") return lmVideoFrame(media.src, block.title);
         if (media.kind === "video-file") return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-frame-video"><video controls src="' + esc(media.src) + '"></video></div>';
@@ -10769,14 +11668,22 @@
         const key = en.toLowerCase();
         if (!key || seen.has(key)) return;
         seen.add(key);
+        const looked = cardQuizLookup(en) || {};
+        const data = block.data && typeof block.data === "object" ? block.data : {};
+        const cam = data.cambridge && typeof data.cambridge === "object" ? data.cambridge : {};
+        const usages = Array.isArray(data.usages) ? data.usages : [];
+        const usageEn = (usages.find((row) => row && row.en) || {}).en || "";
+        const camEx = Array.isArray(cam.examples) ? cam.examples.find((row) => row) : "";
+        const ex = String(usageEn || (typeof camEx === "string" ? camEx : (camEx && camEx.en)) || looked.ex || "").trim();
         cards.push({
-          en: en,
-          ru: block.ru || "",
-          pos: block.pos || "",
-          uk: block.uk || "",
-          us: block.us || "",
-          ex: "",
-          gloss: ""
+          en: looked.en || en,
+          ru: block.ru || looked.ru || "",
+          pos: block.pos || cam.pos || looked.pos || "",
+          uk: block.uk || looked.uk || "",
+          us: block.us || looked.us || "",
+          ex: ex,
+          gloss: cam.definition || looked.gloss || "",
+          gap: looked.gap || ""
         });
       });
       return cards;
@@ -10784,8 +11691,10 @@
     function lmOpenDayQuiz() {
       lmEnsure();
       if (!lmState) return;
-      const cards = mergeCardQuizCards(lmQuizCards());
+      // Only words/phrases from this material. Custom quizzes weave in per card at Start.
+      const cards = lmQuizCards();
       dayPoolOverride = cards;
+      dayPoolStrict = true;
       dayQuizPlace = "material";
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
@@ -11143,8 +12052,10 @@
           if (globalHidden) hideLabel = personalAllowed ? "Remove access for this student" : "Allow for this student";
           else hideLabel = personalHidden ? "Show to this student" : "Hide for this student";
         }
-        const tools = canEditLessons()
-          ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-lm-hide="' + material.id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + '</button><button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button></div>"
+        const tools = (canEditLessons() || canTuneStudentLessons())
+          ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-lm-hide="' + material.id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + '</button>' +
+            (canEditLessons() ? '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "") +
+            "</div>"
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
@@ -11168,7 +12079,7 @@
       lmLibrary.activeId = lmState.id;
     }
     function lmDeleteLesson(id) {
-      if (!canEditLessons()) return;
+      if (!canEditLessons() || viewAccount) return;
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       const unsaved = !found && lmState && lmState.id === id;
@@ -11188,7 +12099,7 @@
       else paintLmDays();
     }
     function lmHideLesson(id) {
-      if (!canEditLessons()) return;
+      if (!canEditLessons() && !canTuneStudentLessons()) return;
       lmEnsure();
       if (viewAccount) {
         const found = lmLibrary.materials.find((row) => row.id === id);

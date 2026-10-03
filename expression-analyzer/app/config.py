@@ -17,7 +17,9 @@ class Settings:
         self.llm_model = os.environ.get("LLM_MODEL", "")
         self.llm_timeout = num("LLM_TIMEOUT", 20)
         self.api_key = os.environ.get("ANALYZER_API_KEY", "")
-        self.require_key = os.environ.get("ANALYZER_REQUIRE_KEY", "").lower() in ("1", "true", "yes")
+        # Default closed: require a key unless explicitly disabled with ANALYZER_REQUIRE_KEY=0.
+        req = os.environ.get("ANALYZER_REQUIRE_KEY", "1").lower()
+        self.require_key = req not in ("0", "false", "no")
         self.min_score = num("MIN_OVERALL_SCORE", 0.55)
         self.weights = {
             "usefulness": num("RANK_USEFULNESS", 0.34),

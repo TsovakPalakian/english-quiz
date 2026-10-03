@@ -7,6 +7,12 @@ from app import llm
 
 ENTRIES = compiled()
 
+# Bound worst-case O(tokens × lexicon) work on max-size texts.
+MAX_SENTENCES = 400
+MAX_TOKENS_PER_SENTENCE = 300
+MAX_TOTAL_TOKENS = 12000
+ANALYZE_DEADLINE_MS = 8000
+
 SPLITS = {
     "don't": ["do", "not"],
     "doesn't": ["does", "not"],
@@ -405,8 +411,15 @@ def apply_llm(items):
         extra = by_exact.get(item["exactText"].lower())
         if not extra:
             continue
+        flag = extra.get("isExpression", True)
+        if isinstance(flag, bool):
+            is_expr = flag
+        elif flag in (0, "0", "false", "False", "no", "No"):
+            is_expr = False
+        else:
+            is_expr = True
         item["llmDecision"] = {
-            "isExpression": extra.get("isExpression", True),
+            "isExpression": is_expr,
             "suggestedType": extra.get("type"),
             "suggestedCanonical": extra.get("canonicalForm"),
             "applied": True,
@@ -445,24 +458,42 @@ def ngram_count(words):
 
 def analyze(text, content_type="TEXT"):
     started = time.perf_counter()
+    deadline = started + (ANALYZE_DEADLINE_MS / 1000.0)
     raw = []
     rejected = []
     ordinary = []
     grams = 0
+    total_tokens = 0
     for sentence_index, sentence in enumerate(sentences_of(text)):
+        if sentence_index >= MAX_SENTENCES or time.perf_counter() > deadline:
+            break
         words = words_of(sentence)
+        if len(words) > MAX_TOKENS_PER_SENTENCE:
+            words = words[:MAX_TOKENS_PER_SENTENCE]
+        total_tokens += len(words)
+        if total_tokens > MAX_TOTAL_TOKENS:
+            break
         raw.extend(hits_in(words, sentence, sentence_index))
         grams += ngram_count(words)
         ordinary.extend(ordinary_phrases(words))
+        if time.perf_counter() > deadline:
+            break
     raw = same_span(raw)
     kept, nested = link_nested(raw)
     rejected.extend(nested)
     merged = dedupe(kept)
     llm_note = "skipped"
-    if settings.llm_base_url and settings.llm_model and merged:
+    if settings.llm_base_url and settings.llm_model and merged and time.perf_counter() <= deadline:
         llm_note = apply_llm(merged)
     accepted = []
     for item in merged:
+        if item.get("llmDecision", {}).get("isExpression") is False:
+            rejected.append({
+                "exactText": item["exactText"],
+                "canonicalForm": item["canonicalForm"],
+                "reason": "llm-not-expression",
+            })
+            continue
         if item["overallScore"] < settings.min_score:
             rejected.append({"exactText": item["exactText"], "canonicalForm": item["canonicalForm"], "reason": "below-minimum-score"})
             continue
