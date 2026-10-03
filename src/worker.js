@@ -2689,7 +2689,13 @@ function pairBlockedOp(body) {
 async function saveState(env, request, body, ctx) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
-  if (pairViewOnly(user) && pairBlockedOp(body)) return json({ error: "You cannot do that." }, 403);
+  const sharedTeacherChange = user && (user.role === "ADMIN" || user.role === "DEVELOPER") && body && (
+    body.op === "put-edit" ||
+    (body.op === "put-setting" && body.key === "cardQuizzes")
+  );
+  if (pairViewOnly(user) && pairBlockedOp(body) && !sharedTeacherChange) {
+    return json({ error: "You cannot do that." }, 403);
+  }
   if (body && body.op === "put-setting" && body.key === "cardQuizzes") {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   }

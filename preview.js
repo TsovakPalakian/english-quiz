@@ -8766,13 +8766,15 @@
         syncSending = false;
         syncInFlight = null;
         if (syncQueue.length) return flushUserState();
-      }).catch(() => {
+      }).catch((error) => {
         syncSending = false;
         syncInFlight = null;
         syncFails += 1;
         if (syncFails >= 3) {
           syncFails = 0;
           // Keep the failed op at the front; stop auto-drop so data is not silently lost.
+          const message = error && error.message ? error.message : "The change could not be saved on the server.";
+          alert(message);
           return;
         }
         return new Promise((resolve) => {
