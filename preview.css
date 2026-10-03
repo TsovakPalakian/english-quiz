@@ -2115,8 +2115,8 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .seg button.on { background: var(--card); }
 .lm-chrome { margin: 0 0 16px; }
 .lm-chrome .seg { margin: 0 0 8px; border-radius: 16px; }
-.lm-daytools { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0; background: var(--acc-s); border-radius: 16px; padding: 4px; }
-.lm-daytools button { flex: 1 1 120px; border: 0; background: transparent; color: var(--acc); border-radius: 10px; min-height: 40px; padding: 8px 6px; font-weight: 800; }
+.lm-daytools { display: flex; gap: 4px; margin-top: 0; background: var(--acc-s); border-radius: 16px; padding: 4px; }
+.lm-daytools button { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--acc); border-radius: 10px; min-height: 40px; padding: 8px 6px; font-weight: 800; }
 .lm-daytools button.on { background: var(--card); }
 .flip-scene { perspective: 900px; margin: 8px 0 12px; cursor: pointer; }
 .flip-inner {

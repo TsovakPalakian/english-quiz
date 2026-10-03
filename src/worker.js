@@ -2021,6 +2021,7 @@ async function studyPair(env, login) {
 
 const PAIR_SETTINGS_KEY = "pair/tsovak-settings.json";
 const SHARED_CARD_QUIZZES_KEY = "shared/card-quizzes.json";
+const SHARED_CARD_EDITS_KEY = "shared/card-edits.json";
 
 function plainCardQuizzes(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -2060,6 +2061,39 @@ async function writeSharedCardQuizzes(env, map) {
     const next = Object.assign({}, prev, incoming);
     const saved = await putMediaJson(env, SHARED_CARD_QUIZZES_KEY, next, etag);
     if (saved) return next;
+  }
+  return null;
+}
+
+function plainCardEdits(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  Object.keys(value).slice(0, 2000).forEach((key) => {
+    const id = String(key || "").trim().slice(0, 120);
+    const edit = value[key];
+    if (!id || !edit || typeof edit !== "object" || Array.isArray(edit)) return;
+    try { if (JSON.stringify(edit).length <= 50000) out[id] = edit; } catch (e) {}
+  });
+  return out;
+}
+
+async function readSharedCardEdits(env) {
+  if (!env.MEDIA) return {};
+  const object = await env.MEDIA.get(SHARED_CARD_EDITS_KEY);
+  if (!object) return {};
+  try { return plainCardEdits(JSON.parse(await object.text())); } catch (e) { return {}; }
+}
+
+async function writeSharedCardEdits(env, patch) {
+  if (!env.MEDIA) return null;
+  const incoming = plainCardEdits(patch);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const object = await env.MEDIA.get(SHARED_CARD_EDITS_KEY);
+    let prev = {};
+    const etag = object ? (object.httpEtag || "") : "";
+    if (object) { try { prev = plainCardEdits(JSON.parse(await object.text())); } catch (e) {} }
+    const next = Object.assign({}, prev, incoming);
+    if (await putMediaJson(env, SHARED_CARD_EDITS_KEY, next, etag)) return next;
   }
   return null;
 }
@@ -2472,8 +2506,10 @@ async function myState(env, request, ctx) {
   }
   try {
     const sharedQuizzes = await readSharedCardQuizzes(env);
+    const sharedEdits = await readSharedCardEdits(env);
     const stats = Object.assign({}, plainObject(shown.stats));
     stats.cardQuizzes = sharedQuizzes;
+    stats.cardEdits = sharedEdits;
     shown.stats = stats;
   } catch (e) {}
   shown.songs = await songsForLogin(env, user.login, shown.songs);
@@ -2657,6 +2693,9 @@ async function saveState(env, request, body, ctx) {
   if (body && body.op === "put-setting" && body.key === "cardQuizzes") {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   }
+  if (body && body.op === "put-edit") {
+    if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
+  }
   // Students cannot self-grant access to hidden teacher lessons.
   if (body && body.op === "put-setting" && body.key === "allowedLessons") {
     if (user.role !== "ADMIN" && user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
@@ -2783,6 +2822,13 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
   // Block resurrection after revoke: gone marker or revoked row.
   if (!(await accountWritable(env, userId))) return json({ error: "Sign in first." }, 401);
   try {
+    if (op === "put-edit") {
+      const id = String(body.id || "").trim().slice(0, 120);
+      const edits = plainCardEdits(id ? { [id]: body.edit } : {});
+      if (!id || !edits[id]) return json({ error: "The request was not valid." }, 400);
+      if (!(await writeSharedCardEdits(env, edits))) return json({ error: "The change could not be saved. Try again." }, 409);
+      return json({ ok: true });
+    }
     if (op === "put-text-card") {
       const pair = !!pairLogin;
       const key = pair ? "pair/tsovak-added.json" : (userId + "/added.json");
@@ -3407,8 +3453,10 @@ async function readManagedState(env, actor, userId, ctx) {
   shown.songs = await songsForLogin(env, found.row.login, shown.songs);
   try {
     const sharedQuizzes = await readSharedCardQuizzes(env);
+    const sharedEdits = await readSharedCardEdits(env);
     const stats = Object.assign({}, plainObject(shown.stats));
     stats.cardQuizzes = sharedQuizzes;
+    stats.cardEdits = sharedEdits;
     shown.stats = stats;
   } catch (e) {}
   return json(await withVisibleThemes(env, found.row.login, stateForViewer(shown, found.songs)));
