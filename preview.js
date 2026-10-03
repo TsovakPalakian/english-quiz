@@ -2649,13 +2649,34 @@
         : "";
       return '<p class="label">' + field.label + '</p><input type="' + type + '" data-card-quiz-field="' + esc(field.key) + '" data-card-quiz-index="' + index + '" value="' + esc(field.value) + '" autocomplete="off"' + extra + " />";
     }
-    function cardQuizListHtml(word, editIndex) {
+    function cardQuizPreviewHtml(quiz) {
+      const type = quiz.type || "Quiz";
+      if (type === "Match" || type === "Memory") {
+        return cardQuizPairs(quiz).map((pair) => '<p class="card-quiz-note">' + esc(pair.left) + ' — ' + esc(pair.right) + "</p>").join("");
+      }
+      const item = (quiz.items && quiz.items[0]) || {};
+      if (cardQuizUsesOptions(type)) {
+        const prompt = item.prompt || item.front || "";
+        const options = cardQuizOptionsOf(item).filter(Boolean);
+        return (prompt ? '<p class="card-quiz-note">' + esc(prompt) + "</p>" : "") +
+          options.map((option) => '<p class="card-quiz-note">• ' + esc(option) + "</p>").join("");
+      }
+      return Object.keys(item).filter((key) => key !== "answer" && key !== "answers").map((key) =>
+        '<p class="card-quiz-note">' + esc(String(item[key] == null ? "" : item[key])) + "</p>"
+      ).join("");
+    }
+    function cardQuizListHtml(word, editIndex, viewIndex) {
       const list = cardQuizzesOf(word);
       if (!list.length) return "";
       const openAt = editIndex == null || editIndex === "" ? -1 : Number(editIndex);
+      const viewAt = viewIndex == null || viewIndex === "" ? -1 : Number(viewIndex);
       return list.map((quiz, index) => {
         const type = quiz.type || "Quiz";
         const head = '<div class="card-quiz-head"><p class="card-quiz-type">' + esc(type) + "</p>" + cardQuizActions(index) + "</div>";
+        if (index === viewAt) {
+          return '<div class="card-quiz-item" data-card-quiz-index="' + index + '">' + head + cardQuizPreviewHtml(quiz) +
+            '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-card-quiz-close>Close</button></div></div>';
+        }
         if (index !== openAt) {
           const item = (quiz.items && quiz.items[0]) || {};
           const pairCount = (type === "Match" || type === "Memory") ? cardQuizPairs(quiz).length : 0;
@@ -2673,12 +2694,12 @@
           '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-card-quiz-save="' + index + '">Done</button></div></div>';
       }).join("");
     }
-    function cardQuizHtml(word, en, ru, editIndex) {
+    function cardQuizHtml(word, en, ru, editIndex, viewIndex) {
       const canEdit = cardQuizCanEdit();
       const list = cardQuizzesOf(word);
       if (!canEdit && !list.length) return "";
       return '<div class="card-quiz-box" data-card-quiz-word="' + esc(String(word || "").toLowerCase()) + '" data-card-quiz-en="' + esc(en || word || "") + '" data-card-quiz-ru="' + esc(ru || "") + '">' +
-        cardQuizListHtml(word, editIndex) +
+        cardQuizListHtml(word, editIndex, viewIndex) +
         (canEdit
           ? ('<button class="btn" type="button" data-card-quiz-open>+ Add Quiz</button>' +
             '<div class="card-quiz-picker" hidden><div class="card-quiz-grid">' +
@@ -2856,6 +2877,21 @@
         const box = editBtn.closest(".card-quiz-box");
         if (!box) return true;
         refreshCardQuizBox(box, Number(editBtn.getAttribute("data-card-quiz-edit")));
+        return true;
+      }
+      const closeBtn = e.target.closest("[data-card-quiz-close]");
+      if (closeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        refreshCardQuizBox(closeBtn.closest(".card-quiz-box"));
+        return true;
+      }
+      const collapsedQuiz = e.target.closest(".card-quiz-item.is-collapsed");
+      if (collapsedQuiz && !e.target.closest(".edit-actions")) {
+        e.preventDefault();
+        e.stopPropagation();
+        const box = collapsedQuiz.closest(".card-quiz-box");
+        if (box) refreshCardQuizBox(box, null, Number(collapsedQuiz.dataset.cardQuizIndex));
         return true;
       }
       const pairAdd = e.target.closest("[data-card-quiz-pair-add]");
@@ -4736,13 +4772,13 @@
       if (!btn) return;
       openUsages(btn.dataset.usages, btn.dataset.usagesRu || "");
     });
-    function refreshCardQuizBox(box, editIndex) {
+    function refreshCardQuizBox(box, editIndex, viewIndex) {
       if (!box) return;
       const word = box.dataset.cardQuizWord || "";
       const en = box.dataset.cardQuizEn || word;
       const ru = box.dataset.cardQuizRu || "";
       const next = document.createElement("div");
-      next.innerHTML = cardQuizHtml(word, en, ru, editIndex);
+      next.innerHTML = cardQuizHtml(word, en, ru, editIndex, viewIndex);
       const fresh = next.firstChild;
       if (fresh) box.replaceWith(fresh);
     }

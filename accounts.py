@@ -11,11 +11,14 @@ import os
 import re
 import secrets
 import sqlite3
+import threading
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "accounts.sqlite"
+SHARED_CARD_QUIZZES_PATH = ROOT / "shared-card-quizzes.json"
+SHARED_QUIZ_LOCK = threading.Lock()
 SCHEMA = (ROOT / "schema.sql").read_text(encoding="utf-8")
 ITERATIONS = 100000
 SESSION_SECONDS = 180 * 24 * 3600
@@ -252,18 +255,24 @@ def read_state(conn, user_id):
     if not row:
         state = empty_state()
         state["added"] = read_added(conn, user_id, [])
-        return state
-    try:
-        state = {
-            "added": json.loads(row["added"]),
-            "songs": json.loads(row["songs"]),
-            "learned": json.loads(row["learned"]),
-            "variants": json.loads(row["variants"]),
-            "stats": json.loads(row["stats"]),
-        }
-    except json.JSONDecodeError:
-        state = empty_state()
+    else:
+        try:
+            state = {
+                "added": json.loads(row["added"]),
+                "songs": json.loads(row["songs"]),
+                "learned": json.loads(row["learned"]),
+                "variants": json.loads(row["variants"]),
+                "stats": json.loads(row["stats"]),
+            }
+        except json.JSONDecodeError:
+            state = empty_state()
     state["added"] = read_added(conn, user_id, state["added"])
+    stats = state.get("stats") if isinstance(state.get("stats"), dict) else {}
+    stats = dict(stats)
+    # Shared quizzes live in their own file, never in the per-user database row.
+    stats.pop("cardQuizzes", None)
+    stats["cardQuizzes"] = read_shared_card_quizzes(conn)
+    state["stats"] = stats
     return state
 
 def active_conflict(conn, login, email):
@@ -466,6 +475,8 @@ def write_state(conn, user_id, state, commit=True):
     learned = state.get("learned") if isinstance(state.get("learned"), list) else []
     variants = state.get("variants") if isinstance(state.get("variants"), dict) else {}
     stats = state.get("stats") if isinstance(state.get("stats"), dict) else {}
+    stats = dict(stats)
+    stats.pop("cardQuizzes", None)
     for song in songs:
         if isinstance(song, dict):
             song.pop("blob", None)
@@ -567,6 +578,24 @@ def plain_card_quizzes(value):
         if len(out) >= 2000:
             break
     return out
+
+
+def read_shared_card_quizzes(conn):
+    try:
+        return plain_card_quizzes(json.loads(SHARED_CARD_QUIZZES_PATH.read_text(encoding="utf-8")))
+    except (OSError, TypeError, json.JSONDecodeError):
+        return {}
+
+
+def write_shared_card_quizzes(conn, patch):
+    # This is intentionally file-backed: shared quizzes must not consume database rows.
+    with SHARED_QUIZ_LOCK:
+        current = read_shared_card_quizzes(conn)
+        current.update(plain_card_quizzes(patch))
+        temp_path = SHARED_CARD_QUIZZES_PATH.with_suffix(".json.tmp")
+        temp_path.write_text(json.dumps(current, ensure_ascii=False), encoding="utf-8")
+        os.replace(temp_path, SHARED_CARD_QUIZZES_PATH)
+        return current
 
 
 def card_key(card):
@@ -715,15 +744,8 @@ def apply_state_op(conn, user, body):
         elif key == "dayLinks":
             stats["dayLinks"] = clean_day_links(body.get("value"))
         elif key == "cardQuizzes":
-            # Local accounts.py has no shared R2 merge; store on this account only.
-            incoming = plain_card_quizzes(body.get("value"))
-            prev = plain_card_quizzes(stats.get("cardQuizzes"))
-            merged = dict(prev)
-            merged.update(incoming)
-            if len(merged) > 2000:
-                for old in list(merged.keys())[: len(merged) - 2000]:
-                    merged.pop(old, None)
-            stats["cardQuizzes"] = merged
+            write_shared_card_quizzes(conn, body.get("value"))
+            stats.pop("cardQuizzes", None)
         elif key == "customThemes":
             stats["customThemes"] = clean_custom_themes(body.get("value"))
         elif key == "theme":
