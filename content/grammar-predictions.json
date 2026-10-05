@@ -1,0 +1,72 @@
+{
+  "area": {
+    "id": "predictions",
+    "title": "Predictions",
+    "badge": "Future meaning",
+    "tone": "future",
+    "blurb": "The essential rules for future predictions: forms, certainty, word order and present evidence.",
+    "groups": [{"title": "Making predictions", "tone": "future", "items": ["predictions"]}]
+  },
+  "topic": {
+    "id": "predictions",
+    "name": "Predictions",
+    "form": "It will rain. / It might rain. / It is going to rain.",
+    "tone": "future",
+    "kind": "Future meaning",
+    "formula": "will / may / might / could + base verb; be going to + base verb; be likely / unlikely / certain / bound to + base verb",
+    "affirmative": "The team will win. / The team might win.",
+    "negative": "The team won't win. / The team might not win.",
+    "question": "Will the team win? / Do you think the team will win?",
+    "note": "A prediction says what we expect to happen, not what we have arranged or decided to do. It is a use of several forms, not an extra tense. The examples here are original teaching examples; references are linked below.",
+    "usage": {
+      "en": "Use will or won't to state what you expect to happen. Use may, might or could when an outcome is possible but uncertain. Use be going to to highlight evidence you can see now. These are useful tendencies, not absolute rules: will and be going to can overlap.",
+      "ru": ""
+    },
+    "cases": [
+      "1. Belief or expectation: subject + will / won't + base verb. I think our team will win. I don't think the match will be easy. Use will for all subjects; do not add -s or to to the next verb.",
+      "2. Questions: Will + subject + base verb? Will the match finish before nine? To ask about someone's opinion, use Do you think + subject + will...? Do you think our team will win?",
+      "3. Strong confidence: will definitely / certainly + base verb. In a typical negative prediction, definitely / certainly comes before won't: The train definitely won't be empty.",
+      "4. Probability: will probably + base verb; probably won't + base verb. The bus will probably arrive soon. It probably won't arrive before six. Will probably not arrive is also possible. Perhaps / maybe often starts the sentence: Maybe the bus will be late.",
+      "5. Uncertain possibility: may / might / could + base verb. We may, might or could get tickets. There is no fixed percentage for each modal; certainty depends on the context and the way it is said.",
+      "6. Possible negative outcome: may not / might not + base verb. We might not get tickets means perhaps we will not get them. We won't get tickets states an expected negative outcome. Couldn't usually describes inability, not this kind of uncertain future possibility.",
+      "7. Present evidence: am / is / are going to + base verb. Look at those clouds! It's going to rain. For the negative use isn't / aren't going to; for a question put am / is / are before the subject. Will and going to can overlap; evidence versus belief is a useful tendency, not an absolute boundary.",
+      "8. Other ways to express certainty: be likely to = an expected or probable outcome; be unlikely to = an outcome not expected; be certain to / be bound to = strong confidence. The roads are likely to be busy. The delay is unlikely to last long. There is no need to put will before these phrases."
+    ],
+    "signals": ["I think", "I don't think", "I'm sure", "probably", "definitely", "certainly", "perhaps", "maybe", "likely", "unlikely", "tomorrow", "in the future"],
+    "mistakes": {
+      "en": "Keep one modal before the base verb: it might rain, not it will might rain. Use no to or -s after will/may/might/could. Form Will it rain?, not Does it will rain? Use be in going to and likely to: it is going to rain; it is likely to rain. Write Maybe it will rain (one-word adverb), but It may be cold (modal + verb). Be likely to and will probably are alternatives, not forms to combine automatically.",
+      "ru": ""
+    },
+    "differs": {
+      "en": "Will often presents the speaker's belief; be going to often draws attention to present evidence. Neither form has an automatic percentage of certainty. May and might can both express uncertainty; context, stress and intonation matter. A prediction is not necessarily a plan or an arrangement.",
+      "ru": ""
+    },
+    "examples": [
+      {"en": "I think electric buses will become more common.", "ru": ""},
+      {"en": "I don't think this shop will close early today.", "ru": ""},
+      {"en": "The station will definitely be crowded tomorrow.", "ru": ""},
+      {"en": "It definitely won't be quiet during the festival.", "ru": ""},
+      {"en": "Our teacher will probably give us a short quiz.", "ru": ""},
+      {"en": "The quiz probably won't take more than ten minutes.", "ru": ""},
+      {"en": "We may have a lesson outside if the weather stays warm.", "ru": ""},
+      {"en": "Some students might not arrive on time because of the traffic.", "ru": ""},
+      {"en": "The new timetable could make the journey faster.", "ru": ""},
+      {"en": "Look at that glass near the edge! It's going to fall.", "ru": ""},
+      {"en": "Is it going to rain? The sky is getting very dark.", "ru": ""},
+      {"en": "Maybe the next lesson will be shorter.", "ru": ""},
+      {"en": "The museum is likely to be busy on Sunday.", "ru": ""},
+      {"en": "The delay is unlikely to last more than an hour.", "ru": ""},
+      {"en": "The park is bound to be popular when the weather improves.", "ru": ""}
+    ],
+    "related": ["will", "going", "may", "might", "could"],
+    "links": [
+      ["Cambridge: will", "https://dictionary.cambridge.org/us/grammar/british-grammar/will"],
+      ["Cambridge: be going to", "https://dictionary.cambridge.org/grammar/british-grammar/future-going-to"],
+      ["Cambridge: could, may and might", "https://dictionary.cambridge.org/us/grammar/british-grammar/could-may-and-might"],
+      ["Cambridge: maybe or may be", "https://dictionary.cambridge.org/us/grammar/british-grammar/maybe-or-may-be"],
+      ["Oxford: prediction", "https://www.oxfordlearnersdictionaries.com/definition/english/prediction"],
+      ["Oxford: will", "https://www.oxfordlearnersdictionaries.com/us/definition/english/will_3"],
+      ["British Council: degrees of certainty", "https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/future-degrees-certainty"]
+    ]
+  }
+}
