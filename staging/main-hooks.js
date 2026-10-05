@@ -1,4 +1,19 @@
 // App-private hooks appended to the isolated copy of preview.js.
+let stageTenseLoading=null;
+function stageEnsureTenseBank(){
+  if(tenseBankReady)return Promise.resolve(tenseBank);
+  if(!stageTenseLoading)stageTenseLoading=(window.TursoLoadCatalog?window.TursoLoadCatalog('TENSE_BANK'):
+    fetch('tense-bank.json').then(response=>{if(!response.ok)throw new Error('Unable to load tense examples.');return response.json();}))
+    .then(data=>{tenseBank=data||{};tenseBankReady=true;return tenseBank;})
+    .catch(error=>{stageTenseLoading=null;throw error;});
+  return stageTenseLoading;
+}
+function stageLoadTenseView(section,id){
+  const generation=viewGen;
+  const active=()=>generation===viewGen&&document.querySelector('section.on')?.id===section&&(section==='tense'?openTenseId===id:openMarkerName===id);
+  return stageEnsureTenseBank().then(()=>{if(active()){if(section==='tense')openTopic(id,true);else openMarker(id,true);}})
+    .catch(error=>{if(active())window.TursoMain.notice(error.message,true);});
+}
 let stagePdfModule=null,stagePdfTask=null,stagePdfJob=0;
 function stageExternalKind(value){
   let url;try{url=new URL(String(value||''));}catch{return {kind:'',href:''};}
@@ -12,13 +27,22 @@ function stageExternalPlayer(value,label){
   return '<iframe class="player tall" src="'+esc(media.src)+'" title="'+esc(label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>';
 }
 let stageDictionaryToken=0;
+async function stageHydrateCatalogWord(card){
+  current=card;const token=++stageDictionaryToken,generation=viewGen;
+  const box=document.getElementById('wordView');if(box)box.textContent='Loading card…';show('word');
+  try{
+    const full=await window.TursoMain.catalogDictionary(card);
+    if(token!==stageDictionaryToken||generation!==viewGen||current!==card||document.querySelector('section.on')?.id!=='word')return;
+    Object.assign(card,full,{stageDataDeferred:false});window.TursoMain.register(card);renderWord(card);
+  }catch(error){if(token===stageDictionaryToken&&generation===viewGen){if(box)box.textContent=error.message;window.TursoMain.notice(error.message,true);}}
+}
 async function stageHydrateMade(item){
-  if(!authUser||!accountReady||viewSwitching)return;
+  if(!item.stagePublicCatalog&&(!authUser||!accountReady||viewSwitching))return;
   const token=++stageDictionaryToken,generation=viewGen,target=viewAccount?.id||'',actor=authUser.id;
   const box=document.getElementById('madeView');if(box)box.textContent='Loading saved dictionary…';
   show('made');
   try{
-    const full=await window.TursoMain.dictionary(item,target);
+    const full=await (item.stagePublicCatalog?window.TursoMain.catalogDictionary(item):window.TursoMain.dictionary(item,target));
     if(token!==stageDictionaryToken||generation!==viewGen||actor!==authUser?.id||target!==(viewAccount?.id||'')||document.querySelector('section.on')?.id!=='made')return;
     if(full.stageId!==item.stageId||full.stageRevision!==item.stageRevision)throw new Error('Dictionary changed. Reload the profile before opening it.');
     const ready={...item,...full,word:full.en,stageDataDeferred:false};
@@ -27,6 +51,43 @@ async function stageHydrateMade(item){
     if(changed)rememberAdded(rows);
     window.TursoMain.register(ready);renderMade(ready);
   }catch(error){if(token===stageDictionaryToken&&generation===viewGen){if(box)box.textContent=error.message;window.TursoMain.notice(error.message,true);}}
+}
+const stageLessonLoads=new Map();
+const stageLoadedLessons=new WeakSet();
+let stageLessonOpenToken=0;
+async function stagePullLessons(){
+  if(!authUser||viewSwitching)return;
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser.id;
+  const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
+  try{
+    const data=await accountFetch(path+'?summary=1');
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching)return;
+    // Keep an open editor/draft, but only within the same profile and revision.
+    const old=new Map((lmLibrary?.materials||[]).map(row=>[row.id,row]));
+    const next=(data.materials||[]).map(row=>{
+      const previous=old.get(row.id);
+      return previous&&stageLoadedLessons.has(previous)&&!previous.stageLessonDeferred&&previous.stageLessonOwner===actor+':'+target&&previous.stageRevision===row.stageRevision?previous:{...row,stageLessonOwner:actor+':'+target};
+    });
+    lmServerReady=true;lmApplyRemote(next,{push:false});
+  }catch(error){if(generation===viewGen)window.TursoMain.notice(error.message,true);}
+}
+async function stageOpenLesson(material){
+  if(!authUser||!accountReady||viewSwitching||!lmLessonVisibleToViewer(material))return;
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser.id,token=++stageLessonOpenToken,section=document.querySelector('section.on')?.id;
+  const key=actor+':'+target+':'+generation+':'+material.id+':'+material.stageRevision;
+  const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
+  const root=document.getElementById('material');if(root)root.inert=true;
+  try{
+    if(!stageLessonLoads.has(key))stageLessonLoads.set(key,accountFetch(path+'?id='+encodeURIComponent(material.id)));
+    const data=await stageLessonLoads.get(key);
+    if(token!==stageLessonOpenToken||generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching||section!==document.querySelector('section.on')?.id)return;
+    const full=data.materials?.find(row=>row.id===material.id);if(!full)throw new Error('Lesson not found.');
+    const index=lmLibrary.materials.findIndex(row=>row===material);if(index<0)return;
+    lmLibrary.materials[index]={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
+    stageLoadedLessons.add(lmLibrary.materials[index]);
+    lmOpenLesson(material.id);
+  }catch(error){if(token===stageLessonOpenToken&&generation===viewGen)window.TursoMain.notice(error.message,true);}
+  finally{stageLessonLoads.delete(key);if(root&&token===stageLessonOpenToken)root.inert=false;}
 }
 function stageStatsIntro(){
   for(const id of ['statsRole','statsUser']){const field=document.getElementById(id);if(field){field.hidden=true;field.value='';}}

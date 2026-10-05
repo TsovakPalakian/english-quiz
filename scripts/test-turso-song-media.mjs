@@ -183,6 +183,26 @@ test('Lesson file validation rejects unsafe formats, block type mismatch and tra
     assert.equal(await mediaKey(f.db,f.own,'lesson','legacy-file'),'lessons/files/legacy-file','Existing shared legacy file IDs retain compatibility');
   }finally{f.close();}
 });
+test('Imported attachment block IDs resolve only live files in accessible lessons',async()=>{
+  const f=fixture();try{
+    await lesson(f);
+    const set=content=>f.sqlite.prepare("UPDATE lesson_blocks SET content_json=? WHERE id='pdf'").run(JSON.stringify(content));
+    set({hasFile:true,name:'legacy.pdf',sample:false});
+    assert.equal(await mediaKey(f.db,f.own,'lesson','pdf'),'lessons/files/pdf');
+    await assert.rejects(mediaKey(f.db,f.own,'lesson','unknown'),e=>e.status===404);
+    f.sqlite.exec("UPDATE lessons SET hidden_from_students=1 WHERE id='lesson'");
+    await assert.rejects(mediaKey(f.db,f.own,'lesson','pdf'),e=>e.status===404);
+    assert.equal(await mediaKey(f.db,f.other,'lesson','pdf'),'lessons/files/pdf');
+    f.sqlite.exec("UPDATE lessons SET hidden_from_students=0 WHERE id='lesson'");
+    for(const content of [{hasFile:false,name:''},{hasFile:true,sample:true},{hasFile:true,localMediaKey:null},{hasFile:true,fileId:'sf_'+'a'.repeat(64)}]){
+      set(content);await assert.rejects(mediaKey(f.db,f.own,'lesson','pdf'),e=>e.status===404);
+    }
+    set({hasFile:true});f.sqlite.exec("UPDATE lesson_blocks SET deleted_at=unixepoch() WHERE id='pdf'");
+    await assert.rejects(mediaKey(f.db,f.own,'lesson','pdf'),e=>e.status===404);
+    f.sqlite.exec("UPDATE lesson_blocks SET content_json='{\"hasFile\":true}' WHERE id='text'");
+    await assert.rejects(mediaKey(f.db,f.own,'lesson','text'),e=>e.status===404);
+  }finally{f.close();}
+});
 test('Lesson media HTTP protects role/origin and resolves local files without R2',async()=>{
   const f=fixture();let server;try{
     await lesson(f);let reads=0;

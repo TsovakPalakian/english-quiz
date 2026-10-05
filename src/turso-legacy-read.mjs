@@ -32,6 +32,25 @@ export async function publicCatalogs(db,keys=null){
   return Object.fromEntries(documents.map(row=>[row.key,hydrate(JSON.parse(row.value_json))]));
 }
 const review=actor=>+['ADMIN','DEVELOPER'].includes(actor.role);
+export async function publicCatalogPage(db,key,{after='',limit=60}={}){
+  if(!banks.includes(key)||!Number.isInteger(limit)||limit<1||limit>60||after&&!/^[A-Za-z0-9_-]{1,100}$/.test(after))throw new StudyError(400,'Invalid catalog page.');
+  const keys=key==='IRREGULAR'?[key,'VERB_IPA','VERB_IPA_CASE']:key==='TENSE_BANK'?[key]:[key];
+  const [documents,cards]=await db.readMany([
+    s("SELECT key,value_json FROM catalog_documents WHERE namespace='static' AND key IN ("+keys.map(()=>'?').join(',')+") AND ?=''",[...keys,after]),
+    s(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred FROM cards c
+      WHERE c.scope='shared' AND c.id>? AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace=?) ORDER BY c.id LIMIT ?`,[after,key,limit+1])
+  ]);
+  const more=cards.length>limit,rows=cards.slice(0,limit);
+  return {documents:Object.fromEntries(documents.map(row=>[row.key,JSON.parse(row.value_json)])),
+    cards:rows.map(row=>({...legacyCard(row),stagePublicCatalog:true,...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{})})),
+    next:more?rows.at(-1).id:null};
+}
+export async function publicCatalogCard(db,id){
+  if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))throw new StudyError(400,'Invalid card ID.');
+  const rows=await db.read(`SELECT c.* FROM cards c WHERE c.id=? AND c.scope='shared' AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[id,...banks]);
+  if(rows.length!==1)throw new StudyError(404,'Catalog card not found.');
+  return {...legacyCard(rows[0]),stagePublicCatalog:true};
+}
 export async function legacyState(db,actor,{compact=false}={}){
   const member=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
   if(member.length!==1)throw new StudyError(409,'This account has not been imported into test Turso. No profile is created automatically.');
@@ -71,14 +90,21 @@ export async function legacyTexts(db,actor){
     AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
   return {texts:rows.map(libraryDto)};
 }
-export async function legacyLessons(db,actor){
+export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
+  if(lessonId&&!/^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new StudyError(400,'Invalid lesson ID.');
+  const filter=lessonId?' AND l.id=?':'',args=[review(actor),actor.id,actor.id,...(lessonId?[lessonId]:[])];
+  if(summary){
+    const rows=await db.read(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args);
+    return {materials:rows.map(l=>({...JSON.parse(l.extra_json),id:l.id,title:l.title,description:l.description,className:l.class_name,unit:l.unit,lesson:l.lesson,date:l.lesson_date,mode:l.mode,published:!!l.published,hiddenFromStudents:!!l.hidden_from_students,stageRevision:l.revision,stageLessonDeferred:true,blocks:[]}))};
+  }
   const [lessons,blocks]=await db.readMany([
-    s(`SELECT l.* FROM lessons l WHERE ${lessonAccess} ORDER BY l.lesson_date,l.id`,[review(actor),actor.id,actor.id]),
+    s(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args),
     s(`SELECT b.*,c.en,c.ru,c.part_of_speech,c.extra_json card_extra,c.revision card_revision,c.deleted_at card_deleted,
       r.response_json,r.revision response_revision FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id LEFT JOIN cards c ON c.id=b.card_id
       LEFT JOIN profile_members m ON m.account_id=? LEFT JOIN lesson_responses r ON r.profile_id=m.profile_id AND r.lesson_id=b.lesson_id AND r.block_id=b.id
-      WHERE b.deleted_at IS NULL AND ${lessonAccess} ORDER BY b.position,b.id`,[actor.id,review(actor),actor.id,actor.id])
+      WHERE b.deleted_at IS NULL AND ${lessonAccess}${filter} ORDER BY b.position,b.id`,[actor.id,...args])
   ]);
+  if(lessonId&&!lessons.length)throw new StudyError(404,'Lesson not found.');
   const materials=lessons.map(l=>({...JSON.parse(l.extra_json),id:l.id,title:l.title,description:l.description,className:l.class_name,unit:l.unit,lesson:l.lesson,date:l.lesson_date,mode:l.mode,published:!!l.published,hiddenFromStudents:!!l.hidden_from_students,stageRevision:l.revision,blocks:[]}));
   const byId=new Map(materials.map(l=>[l.id,l]));
   for(const material of materials)material.stageBlockOrder=blocks.filter(b=>b.lesson_id===material.id).map(b=>b.id);

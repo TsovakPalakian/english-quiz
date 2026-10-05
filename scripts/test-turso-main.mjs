@@ -9,7 +9,7 @@ import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {createMainServer} from './run-turso-main.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
-import {legacyState,legacyLessons,publicCatalogs} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyLessons,publicCatalogs,publicCatalogPage,publicCatalogCard} from '../src/turso-legacy-read.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
 
 function fixture(){
@@ -45,6 +45,78 @@ function fixture(){
   const source={byLogin:async login=>{queries++;return users.get(login)||null;},byId:async id=>{queries++;return users.get(id)||null;},gone:async id=>gone.has(id)};
   return {sqlite,db,source,users,gone,password,queries:()=>queries};
 }
+test('Public catalog pages are bounded, cursor-based, compact and exclude private dictionaries',async()=>{
+  const f=fixture();try{
+    f.sqlite.prepare('UPDATE cards SET extra_json=? WHERE id=?').run(JSON.stringify({data:{links:{url:'large'},usages:['kept']}}),'shared');
+    f.sqlite.exec("INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/1','hidden-card','run');");
+    const first=await publicCatalogPage(f.db,'LESSON_DATA',{limit:1});
+    assert.equal(first.cards.length,1);assert.ok(first.next);assert.ok(first.documents.LESSON_DATA);
+    const second=await publicCatalogPage(f.db,'LESSON_DATA',{limit:1,after:first.next});
+    assert.equal(second.cards.length,1);assert.equal(second.next,null);assert.deepEqual(second.documents,{});
+    assert.notEqual(first.cards[0].stageId,second.cards[0].stageId);
+    const compact=[...first.cards,...second.cards].find(row=>row.stageId==='shared');
+    assert.equal(compact.stageDataDeferred,true);assert.equal(compact.data.links,undefined);assert.deepEqual(compact.data.usages,['kept']);
+    assert.deepEqual((await publicCatalogCard(f.db,'shared')).data.links,{url:'large'});
+    await assert.rejects(publicCatalogCard(f.db,'private'),e=>e.status===404);
+    await assert.rejects(publicCatalogPage(f.db,'LESSON_DATA',{limit:61}),e=>e.status===400);
+    await assert.rejects(publicCatalogPage(f.db,'private'),e=>e.status===400);
+  }finally{f.sqlite.close();}
+});
+test('Lesson summaries omit all blocks; one-lesson loading preserves access and learner responses',async()=>{
+  const f=fixture();try{
+    const actor={id:'student',role:'USER'},summary=await legacyLessons(f.db,actor,{summary:true});
+    assert.equal(summary.materials.length,1);assert.deepEqual(summary.materials[0].blocks,[]);assert.equal(summary.materials[0].stageLessonDeferred,true);
+    const detail=await legacyLessons(f.db,actor,{lessonId:'lesson'});
+    assert.equal(detail.materials.length,1);assert.equal(detail.materials[0].blocks[0].response,'my answer');
+    await assert.rejects(legacyLessons(f.db,actor,{lessonId:'hidden'}),e=>e.status===404);
+    assert.equal((await legacyLessons(f.db,{id:'student2',role:'USER'},{lessonId:'lesson'})).materials[0].blocks[0].response,undefined);
+  }finally{f.sqlite.close();}
+});
+test('Catalog loader uses paged endpoints, registers before starting UI and coalesces deferred tense loads',async()=>{
+  const calls=[],loaded=[],window={TursoMain:{register:rows=>loaded.push(rows)}};
+  const scope={window,Map,Promise,AbortSignal,encodeURIComponent,
+    fetch:async path=>{calls.push(path);const key=path.split('/').at(-1);return {ok:true,json:async()=>({documents:{[key]:[{cardId:key}]},cards:[{stageId:key,en:key}],next:null})};},
+    document:{getElementById:()=>null,createElement:()=>({}),body:{append:script=>{assert.equal(loaded.length,1);assert.equal(script.src,'/preview.js');script.onload();}}}};
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
+  await window.TursoCatalogReady;
+  assert.equal(window.LESSON_DATA[0].stageId,'LESSON_DATA');assert.equal(calls.length,4);
+  const [a,b]=await Promise.all([window.TursoLoadCatalog('TENSE_BANK'),window.TursoLoadCatalog('TENSE_BANK')]);
+  assert.equal(a,b);assert.equal(calls.length,5);assert.ok(calls.every(path=>path.startsWith('/api/catalogs/')));
+});
+test('Tense bank does not load at startup, coalesces first use, and ignores a closed view',async()=>{
+  const generated=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
+  const start=generated.indexOf('    let tenseBank = {};'),end=generated.indexOf('    function markerLinks(card)',start);
+  assert.doesNotMatch(generated.slice(start,end),/fetch\(|TursoLoadCatalog\(/);
+  assert.doesNotMatch(generated,/fetch\("tense-bank\.json"\)/);
+  const pending=[],painted=[];let section='tense',requests=0;
+  const scope={tenseBank:{},tenseBankReady:false,viewGen:1,openTenseId:'ps',openMarkerName:'today',
+    openTopic:id=>painted.push(id),openMarker:id=>painted.push(id),
+    document:{addEventListener(){},querySelector:()=>({id:section})},window:{TursoLoadCatalog:()=>{requests++;return new Promise(resolve=>pending.push(resolve));},TursoMain:{notice(){}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  assert.equal(requests,0);
+  const first=scope.stageLoadTenseView('tense','ps'),second=scope.stageLoadTenseView('marker','today');
+  assert.equal(requests,1);section='home';pending.shift()({ps:{markers:[]}});await Promise.all([first,second]);
+  assert.deepEqual(painted,[]);assert.equal(scope.tenseBankReady,true);
+  section='tense';await scope.stageLoadTenseView('tense','ps');assert.deepEqual(painted,['ps']);assert.equal(requests,1);
+});
+test('Lazy lesson open coalesces clicks, guards navigation/profile changes, and never trusts disk-cached answers',async()=>{
+  const pending=[],opened=[],root={},material={id:'lesson',stageRevision:1,stageLessonDeferred:true};let section='days';
+  const scope={authUser:{id:'student'},accountReady:true,viewSwitching:false,viewGen:1,viewAccount:null,lmLibrary:{materials:[material]},
+    lmLessonVisibleToViewer:()=>true,accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),lmOpenLesson:id=>opened.push(id),
+    lmApplyRemote(rows){scope.lmLibrary.materials=rows;},
+    document:{addEventListener(){},getElementById:()=>root,querySelector:()=>({id:section})},window:{TursoMain:{notice(){}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  const first=scope.stageOpenLesson(material),second=scope.stageOpenLesson(material);
+  assert.equal(pending.length,1);assert.equal(root.inert,true);
+  pending.shift().resolve({materials:[{id:'lesson',stageRevision:1,blocks:[{response:'own'}]}]});await Promise.all([first,second]);
+  assert.deepEqual(opened,['lesson']);assert.equal(root.inert,false);
+  const disk={id:'lesson',stageRevision:1,stageLessonOwner:'student:',blocks:[{response:'old disk answer'}]};scope.lmLibrary.materials=[disk];
+  const pull=scope.stagePullLessons();assert.match(pending[0].path,/summary=1$/);
+  pending.shift().resolve({materials:[material]});await pull;assert.equal(scope.lmLibrary.materials[0].stageLessonDeferred,true);
+  const stale=scope.stageOpenLesson(scope.lmLibrary.materials[0]);section='home';pending.shift().resolve({materials:[disk]});await stale;assert.equal(opened.length,1);
+  section='days';const switched=scope.stageOpenLesson(scope.lmLibrary.materials[0]);scope.viewGen++;scope.authUser={id:'student2'};
+  pending.shift().resolve({materials:[disk]});await switched;assert.equal(opened.length,1);
+});
 test('Staging word rendering preserves the displayed identity across catalog refresh',()=>{
   const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
   const start=source.indexOf('    function renderWord(w) {'),end=source.indexOf('    function setDayFlip(w, open) {',start);

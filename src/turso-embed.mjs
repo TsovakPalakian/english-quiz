@@ -1,5 +1,13 @@
 // Exact HTTPS providers only. No arbitrary iframe, script or media origins.
-export const stageContentPolicy="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+export const stageContentPolicy="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://screens.cdn.wordwall.net; font-src 'self'; media-src 'self' blob:; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+// Keep link-preview requests aligned with img-src; blocked providers remain
+// ordinary text links instead of generating a failing request on every render.
+export function previewImage(value,origin){
+  let url;try{url=new URL(String(value||'').trim(),origin);}catch{return '';}
+  if(!value||url.username||url.password||url.href.length>2048)return '';
+  if(url.origin===origin&&['https:','http:'].includes(url.protocol))return url.href;
+  return url.protocol==='https:'&&!url.port&&url.hostname==='screens.cdn.wordwall.net'?url.href:'';
+}
 export function embedSource(value){
   let url;try{url=new URL(String(value||''));}catch{return '';}
   if(url.protocol!=='https:'||url.username||url.password||url.port)return '';

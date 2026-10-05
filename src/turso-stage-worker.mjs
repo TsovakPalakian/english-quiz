@@ -2,7 +2,7 @@
 import {StudyService,TursoStudyClient,StudyError} from './turso-study.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
-import {legacyState,legacyTexts,legacyLessons,publicCatalogs,legacyCard} from './turso-legacy-read.mjs';
+import {legacyState,legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard} from './turso-legacy-read.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
 import {LessonMediaService} from './turso-lesson-media.mjs';
@@ -118,13 +118,16 @@ export default {async fetch(request,env){
       ||(path==='/api/me/theme'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
     const read=method==='GET'&&(allowedRead.includes(path)||dictionary||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/song-file','/api/lesson-file'].includes(path)||inline&&['GET','HEAD'].includes(method);
-    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/almond-blossom.jpg','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
-    const publicAsset=publicPaths.includes(path)||!!pdfAsset(path);
+    const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([A-Za-z0-9_-]{1,100})$/);
+    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
+    const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard;
     if(!read&&!write&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
     const db=studyClient(env);
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){
+      if(catalogPage)return json(await publicCatalogPage(db,catalogPage[1],{after:url.searchParams.get('after')||''}));
+      if(catalogCard)return json(await publicCatalogCard(db,catalogCard[1]));
       if(banks[path]){const data=await publicCatalogs(db,banks[path]);if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
       headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');
@@ -159,7 +162,7 @@ export default {async fetch(request,env){
     if(path==='/api/me/cards/new')return json(await p.createOwnCard(actor,value));
     if(path==='/api/me/cards')return json(await s.linkCard(actor,value));
     if(own)return json(await s.unlinkCard(actor,id(own),value));
-    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor)));
+    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor,{summary:url.searchParams.get('summary')==='1',lessonId:url.searchParams.get('id')||''})));
     if(lesson)return json(await s[method==='DELETE'?'deleteLesson':'editLesson'](actor,id(lesson),value));
     if(path==='/api/cards')return json(await s.cards(actor,{query:url.searchParams.get('q')||'',exact:url.searchParams.get('exact')==='1',offset:Number(url.searchParams.get('offset')||0),lessonId:url.searchParams.get('lessonId')||''}));
     if(progress)return json(await s[progress[2]==='answers'?'answerCard':'saveCardProgress'](actor,id(progress),value));

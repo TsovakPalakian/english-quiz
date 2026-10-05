@@ -187,7 +187,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           return json({...value,hideSongs:!found.songs,statisticsSource:'turso-activity',targetAccountId:target.id});
         }
         // Teacher may inspect definitions; responses belong strictly to target.
-        if(managedRead[2]==='lessons')return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role})));
+        if(managedRead[2]==='lessons')return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:new URL(request.url).searchParams.get('summary')==='1',lessonId:new URL(request.url).searchParams.get('id')||''})));
         if(managedRead[2]==='texts')return json(await legacyTexts(db,target));
         const value=mediaPlaceholders(await legacyState(db,target,{compact:true}));
         if(!found.songs){value.songs=[];value.added=value.added.filter(card=>(card.place||'mine')!=='music');}

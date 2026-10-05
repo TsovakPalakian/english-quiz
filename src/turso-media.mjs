@@ -66,7 +66,16 @@ export async function mediaKey(db,actor,kind,id){
     if(rows.length!==1||!rows[0].media_key)throw new StudyError(404,'Song media not found.');
     const key=rows[0].media_key;if(!/^[A-Za-z0-9_/-]{1,400}$/.test(key)||key.includes('..'))throw new StudyError(404,'Invalid media reference.');return key;
   }
-  const rows=await db.read(`SELECT l.id lesson_id,b.id block_id,b.content_json FROM lessons l JOIN lesson_blocks b ON b.lesson_id=l.id WHERE b.deleted_at IS NULL AND json_extract(b.content_json,'$.fileId')=? AND ${lessonAccess} LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,actor.id]);
+  // Imported attachments used the block ID before fileId existed. Resolve only
+  // an explicit live attachment in a readable lesson, never an arbitrary R2 ID.
+  const rows=await db.read(`SELECT l.id lesson_id,b.id block_id,b.content_json FROM lessons l JOIN lesson_blocks b ON b.lesson_id=l.id
+    WHERE b.deleted_at IS NULL AND (json_extract(b.content_json,'$.fileId')=? OR
+      (b.id=? AND b.type IN ('image','audio','pronunciation','pdf','file')
+       AND COALESCE(json_extract(b.content_json,'$.fileId'),'')=''
+       AND json_type(b.content_json,'$.localMediaKey') IS NULL
+       AND COALESCE(json_extract(b.content_json,'$.sample'),0)=0
+       AND (json_extract(b.content_json,'$.hasFile')=1 OR length(trim(COALESCE(json_extract(b.content_json,'$.name'),'')))>0)))
+    AND ${lessonAccess} LIMIT 2`,[id,id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,actor.id]);
   if(!rows.length)throw new StudyError(404,'Lesson file not found.');
   if(rows.every(row=>JSON.parse(row.content_json).localMediaKey===undefined)){
     if(id.startsWith('sf_'))throw new StudyError(404,'Local lesson media unavailable. No production fallback.');

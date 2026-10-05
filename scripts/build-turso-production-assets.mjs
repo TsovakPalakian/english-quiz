@@ -20,6 +20,7 @@ const presentation=text=>Object.entries(english).sort(([a],[b])=>b.length-a.leng
 for(const name of ['preview.css','almond-blossom.jpg','demonstratives.js','main-stage.css'])
   copyFileSync(resolve(accepted,name),resolve(target,name));
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
+copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
 const anchor="const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);";
 assert.equal(bridge.split(anchor).length,2);
@@ -27,7 +28,8 @@ bridge=bridge.replace(anchor,`const mediaAllowed=()=>${JSON.stringify([host,'lea
 writeFileSync(resolve(target,'main-bridge.js'),presentation(bridge));
 assert.ok(!/[А-Яа-яЁё]/.test(presentation(bridge)),'Untranslated bridge UI text');
 assert.ok(!/[А-Яа-яЁё]/.test(presentation(readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))),'Untranslated hook UI text');
-writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))));
+writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')))
+  .replaceAll('fetch("tense-bank.json")','window.TursoLoadCatalog("TENSE_BANK").then(data=>({ok:true,json:async()=>data}))'));
 const html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 const banner='TEST Turso — отдельный Worker. Рабочий сайт не переключён.';
 assert.equal(html.split(banner).length,2);
@@ -36,7 +38,10 @@ const productionHtml=html.replace(banner,'')
   .replace('id="turso-main-banner"','id="turso-main-banner" data-compact-notices="true" hidden')
   .replace('>Проверить сервер</button>','>Reload server</button>')
   .replace('>Повторить</button>','>Retry</button>');
-for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),productionHtml);
+const pagedHtml=productionHtml.replace(/<script src="(?:grammar|irregular|lesson-data|speakout|preview)\.js"><\/script>/g,'')+'\n';
+assert.ok(!pagedHtml.includes('src="preview.js"'));
+assert.ok(pagedHtml.includes('</body>'));
+for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),pagedHtml.replace('</body>','<script src="/catalog-loader.js"></script></body>'));
 for(const path of pdfAssetPaths()){
   const file=resolve(target,path.slice(1));mkdirSync(resolve(file,'..'),{recursive:true,mode:0o700});copyFileSync(pdfAssetFile(path).file,file);
 }

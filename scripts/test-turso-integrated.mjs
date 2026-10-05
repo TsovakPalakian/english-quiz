@@ -9,7 +9,7 @@ test('R5 managed media requires source authorization, target ownership and devel
   const worker=integratedWorker({authenticate:async()=>({id,role,login:'SyntheticReviewer'}),
     authorizeManaged:async()=>allowed?{row:{id:target,role:'USER',login:'SyntheticStudent'},songs}:{error:Response.json({error:'denied'},{status:403})},
     studyDatabase:()=>({read:async(sql,args)=>{reads++;if(sql.includes('library_items')){assert.equal(args[0],target);return [{media_key:'songs/target'}];}
-      assert.deepEqual(args,['lesson-file',0,target,target]);return [{lesson_id:'lesson',block_id:'block',content_json:JSON.stringify({fileId:'lesson-file'})}];}})});
+      assert.deepEqual(args,['lesson-file','lesson-file',0,target,target]);return [{lesson_id:'lesson',block_id:'block',content_json:JSON.stringify({fileId:'lesson-file'})}];}})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',MEDIA:{head:async()=>{objects++;return {size:4,writeHttpMetadata:h=>h.set('Content-Type','audio/mpeg')};}}};
   const call=(path,query='id=lesson-file&for='+target)=>worker.fetch(new Request('https://test.invalid'+path+'?'+query,{method:'HEAD'}),env);
   assert.equal((await call('/api/lesson-file')).status,200);assert.equal(objects,1);

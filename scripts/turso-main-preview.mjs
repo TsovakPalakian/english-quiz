@@ -1,11 +1,28 @@
 // Inject hooks only into the served staging copy. Production preview.js stays
 // byte-for-byte unchanged. Exact anchors fail closed if the main source changes.
-import {embedSource} from '../src/turso-embed.mjs';
+import {embedSource,previewImage} from '../src/turso-embed.mjs';
 export function mainPreview(source,hooks){
   const insert=(anchor,text)=>{
     if(source.split(anchor).length!==2)throw new Error('Main preview hook anchor changed: '+anchor);
     source=source.replace(anchor,anchor+'\n'+text);
   };
+  const replace=(anchor,text)=>{
+    if(source.split(anchor).length!==2)throw new Error('Main preview replacement anchor changed: '+anchor);
+    source=source.replace(anchor,text);
+  };
+  replace(`    fetch("tense-bank.json").then((res) => res.json()).then((data) => {
+      tenseBank = data || {};
+      tenseBankReady = true;
+    });`,'    // Tense examples are loaded only when their topic/marker is opened.');
+  replace(`      if (!quiet && !tenseBankReady && (legacy || tenseBank[id])) {
+        fetch("tense-bank.json").then((res) => res.json()).then((data) => {
+          tenseBank = data || {};
+          tenseBankReady = true;
+          if (openTenseId === id && (document.querySelector("section.on") || {}).id === "tense") openTopic(id, true);
+        });
+      }`,'      if(!tenseBankReady && (legacy || tenseBank[id]))stageLoadTenseView("tense",id);');
+  insert('    function openMarker(en, quiet) {','      if(!tenseBankReady)stageLoadTenseView("marker",en);');
+  replace('              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();','              imageUrl = stagePreviewImage(parsed.href,location.origin);');
   insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
   insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      return window.TursoMain.unsupported(change && change.op);');
   const logoutTheme='return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});';
@@ -34,6 +51,7 @@ export function mainPreview(source,hooks){
   insert('    function editFieldsFor(host) {','      const stageCard=stageHostCard(host);\n      if(!stageCard || !stageCanEditTranslation(stageCard))return null;\n      return [{key:"ru",label:"Russian",value:stageCard.ru||""}];');
   insert('    function saveCardEdit(host) {','      stageSaveTranslation(host); return;');
   insert('    function renderWord(w) {','      current=w; // Keep the displayed card selected across Save/catalog refresh.');
+  insert('    function renderWord(w) {','      if(w?.stagePublicCatalog && w.stageDataDeferred)return stageHydrateCatalogWord(w);');
   insert('    function deleteCard(host) {','      stageDeleteDefinition(host); return;');
   insert('    function handleCardQuizClick(e) {','      if(stageQuizWrite(e))return true;');
   insert('    function noteAnswer(item, ok) {','      stageNoteAnswer(item,ok); return;');
@@ -55,11 +73,9 @@ export function mainPreview(source,hooks){
   insert('        view.querySelectorAll("[data-usage-choice]").forEach((btn) => btn.classList.remove("ok", "bad"));',"        stageMadeAnswer('Choice','usage',usageChoice.dataset.usageChoice==='ok',usageChoice.textContent);");
   insert('        const ok = tf.dataset.tf === "ok";',"        stageMadeAnswer('True / false','usage',ok,tf.textContent);");
   insert('    async function openUsages(word, lessonRu) {','      const stored=loadAdded().filter(item=>String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
-  insert('    function lmPullFromServer() {',`      if(!authUser || viewSwitching)return Promise.resolve();
-      const generation=viewGen,targetId=viewAccount?.id||'';
-      const path=viewAccount?'/api/admin/users/'+encodeURIComponent(viewAccount.id)+'/lessons':'/api/lessons';
-      return accountFetch(path).then(data=>{if(generation!==viewGen||targetId!==(viewAccount?.id||''))return;
-        lmServerReady=true;lmApplyRemote(data.materials||[],{push:false});}).catch(error=>window.TursoMain.notice(error.message,true));`);
+  insert('    function lmPullFromServer() {','      return stagePullLessons();');
+  insert('    function lmOpenLesson(id) {','      const deferred=lmLibrary?.materials?.find(row=>row.id===id);if(deferred?.stageLessonDeferred)return stageOpenLesson(deferred);');
+  insert('    function paintMaterial() {','      if(lmState?.stageLessonDeferred){const deferred=lmState;queueMicrotask(()=>stageOpenLesson(deferred));return;}');
   insert('    function lmSchedulePush() {','      if(canEditLessons())lmNote("Черновик в браузере. Нажмите Save Draft или Publish для сохранения в тестовую Turso."); return;');
   insert('    function lmPushToServer() {','      return stageSaveLesson();');
   insert('    function lmDeleteLesson(id) {','      stageDeleteLesson(id); return;');
@@ -77,5 +93,5 @@ export function mainPreview(source,hooks){
   insert('    function paintSongMedia(song, box) {','      stageMountSongAudio(song,box); if(stagePaintLocalAudio(song,box))return;');
   insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.TursoMain.unsupported("Добавление личных карточек");');
   insert('    async function saveWord(place, input, status, button, openCard) {','      return stageSaveWord(place,input,status,button,openCard);');
-  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+source+'\n'+hooks;
+  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+source+'\n'+hooks;
 }

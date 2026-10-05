@@ -6,6 +6,7 @@
   },true);
   const queueKey='turso-main-pending',cards=new Map(),collections=new Map(),quizzes=new Map();
   const managedLinkRevisions=new Map();
+  const catalogDetails=new Map();
   const personalKey='turso-main-personal-pending',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
@@ -88,8 +89,8 @@
       if(path==='/api/me/state'){registerState(value);void drainPersonal();}
       const managedState=path.match(/^\/api\/admin\/users\/([a-f0-9]{16,64})\/state$/);
       if(managedState)managedLinkRevisions.set(managedState[1],value.stageAddedRevision||0);
-      if(path==='/api/lessons'){
-        for(const lesson of value.materials||[])lesson.stageLessonBaseline=lessonSnapshot(lesson);
+      if(/^\/api\/(?:lessons|admin\/users\/[^/]+\/lessons)(?:\?|$)/.test(path)){
+        for(const lesson of value.materials||[])if(!lesson.stageLessonDeferred)lesson.stageLessonBaseline=lessonSnapshot(lesson);
         register(value.materials||[]);
       }
       if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();location.reload();}
@@ -209,6 +210,11 @@
   const bridge=window.TursoMain={
     fetch:accountFetch,register,notice,perform,mediaAllowed,
     capabilities:()=>({...backendCapabilities}),
+    catalogDictionary(card){
+      const key=card.stageId+':'+card.stageRevision;
+      if(!catalogDetails.has(key))catalogDetails.set(key,api('/api/catalogs/cards/'+encodeURIComponent(card.stageId)).catch(error=>{catalogDetails.delete(key);throw error;}));
+      return catalogDetails.get(key);
+    },
     theme(value){enqueuePersonal({kind:'theme',key:'theme',theme:value,path:'/api/me/theme',method:'PUT'},150);},
     flushPersonal:()=>drainPersonal(true),
     cardForProgress:id=>cards.get(id),
@@ -238,6 +244,7 @@
         if(candidates.length!==1)throw new Error('Select an existing shared card before publishing. Remove this unlinked word and add it again using the lesson card selector.');
         block.stageId=candidates[0].id;block.stageRevision=candidates[0].revision;block.stageScope='shared';
       }
+      if(material.stageLessonDeferred)throw new Error('Open the lesson before saving changes.');
       const snapshot=lessonSnapshot(material),baseline=material.stageLessonBaseline;
       let result;const changedIds=new Set();
       if(!material.stageRevision){
