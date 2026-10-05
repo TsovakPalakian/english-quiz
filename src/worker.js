@@ -377,7 +377,7 @@ async function verifySession(env, token) {
   };
 }
 
-async function currentUser(env, request) {
+export async function currentUser(env, request) {
   const token = readCookie(request.headers.get("Cookie"));
   const session = await verifySession(env, token);
   if (!session) return null;
@@ -1961,7 +1961,7 @@ async function revoke(env, request, secure) {
   return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
 }
 
-function studyTwinLogin(login) {
+export function studyTwinLogin(login) {
   if (login === "TsovakDev") return "Tsovak";
   if (login === "Tsovak") return "TsovakDev";
   return "";
@@ -3379,7 +3379,9 @@ async function admin(env, request, method, path, body, ctx) {
   }
   if (method === "GET" && path === "/api/admin/changes") {
     const directory = await readDirectory(env);
-    const changes = forReviewer(user, directory.changes, directory.users).map((item) => {
+    const accountIds = new Set(directory.users.filter((item) => item && !item.revoked).map((item) => item.id));
+    const linkedChanges = directory.changes.filter((item) => item && accountIds.has(item.user_id));
+    const changes = forReviewer(user, linkedChanges, directory.users).map((item) => {
       if (item && item.status === "pending" && soleFirstTeacher(directory.users, item.user_id)) return Object.assign({}, item, { locked: true });
       return item;
     });
@@ -3387,7 +3389,8 @@ async function admin(env, request, method, path, body, ctx) {
   }
   if (method === "GET" && path === "/api/admin/users") {
     const directory = await readDirectory(env);
-    return json({ users: forReviewer(user, directory.users, directory.users) });
+    const accounts = directory.users.filter((item) => item && !item.revoked);
+    return json({ users: forReviewer(user, accounts, directory.users) });
   }
   const parts = path.split("/");
   if (parts.length === 5 && parts[2] === "admin" && parts[3] === "users" && method === "DELETE") {
@@ -3437,7 +3440,7 @@ async function admin(env, request, method, path, body, ctx) {
   return json({ error: "Not found." }, 404);
 }
 
-async function managedAccount(env, actor, userId) {
+export async function managedAccount(env, actor, userId) {
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return { error: json({ error: "You cannot do that." }, 403) };
   // Authz from D1 (source of truth), not the R2 directory cache.
   let row = null;

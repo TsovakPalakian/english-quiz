@@ -1,0 +1,77 @@
+// Inject hooks only into the served staging copy. Production preview.js stays
+// byte-for-byte unchanged. Exact anchors fail closed if the main source changes.
+import {embedSource} from '../src/turso-embed.mjs';
+export function mainPreview(source,hooks){
+  const insert=(anchor,text)=>{
+    if(source.split(anchor).length!==2)throw new Error('Main preview hook anchor changed: '+anchor);
+    source=source.replace(anchor,anchor+'\n'+text);
+  };
+  insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
+  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      return window.TursoMain.unsupported(change && change.op);');
+  insert('    function canEditAdded(item) {','      return !!(item && item.stageId && authUser && accountReady && !viewSwitching && (!viewAccount || stageCanManageAdded(item)));');
+  insert('    function addedEditHtml(item) {','      return stageAddedEditHtml(item);');
+  insert('    function madeEditHtml(item) {','      return addedIndexOf(item)>=0 ? stageAddedEditHtml(item) : (canEditLessons()?catalogEditHtml(findCatalog(item.word)):"");');
+  insert('    function addedRow(item, index) {','      return stageAddedRow(item,index);');
+  insert('    function addedIndexOf(item) {','      if(item && item.stageId)return loadAdded().findIndex(row=>row.stageId===item.stageId&&(row.place||"mine")===(item.place||"mine"));');
+  insert('    function idbGetAdded() {','      return Promise.resolve([]);');
+  insert('    function idbGetSongs() {','      return Promise.resolve([]);');
+  insert('    function renderOwnAccount(data) {',`      if(data && data.testReadonly){
+        const box=document.getElementById('ownAccount');
+        if(box)box.textContent='Настройки аккаунта на этом стенде только для чтения. Пароли, регистрации и профили в production не изменяются.';
+        return;
+      }`);
+  insert('    function saveCardQuizzes(map) {','      localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(plainCardQuizMap(map)));\n      window.TursoMain.notice("Черновик квиза. Нажмите Done, чтобы сохранить в тестовую Turso."); return;');
+  insert('    function plainCardQuizMap(value) {','      return stageQuizMap(value);');
+  insert('    function installCardQuizzes(serverMap) {','      const authoritative=plainCardQuizMap(serverMap);\n      localStorage.setItem(CARD_QUIZ_KEY,JSON.stringify(authoritative)); return authoritative;');
+  insert('    function mergeCardQuizMaps(localMap, serverMap) {','      return plainCardQuizMap(serverMap);');
+  insert('    function fillEmptyFromAccount(state) {','      applyViewState(state); return;');
+  insert('    function applyAccountState(state) {','      applyViewState(state); return;');
+  insert('    function applyViewState(state) {','      stageSetActivity(state.stageActivity);');
+  insert('    function applySharedStudy(state) {','      return false;');
+  insert('    function editFieldsFor(host) {','      const stageCard=stageHostCard(host);\n      if(!stageCard || !stageCanEditTranslation(stageCard))return null;\n      return [{key:"ru",label:"Russian",value:stageCard.ru||""}];');
+  insert('    function saveCardEdit(host) {','      stageSaveTranslation(host); return;');
+  insert('    function renderWord(w) {','      current=w; // Keep the displayed card selected across Save/catalog refresh.');
+  insert('    function deleteCard(host) {','      stageDeleteDefinition(host); return;');
+  insert('    function handleCardQuizClick(e) {','      if(stageQuizWrite(e))return true;');
+  insert('    function noteAnswer(item, ok) {','      stageNoteAnswer(item,ok); return;');
+  insert('    function trackEvent(kind, area, result) {','      if(stageOwnReady())try{window.TursoMain.event(kind,area,result);}catch(error){window.TursoMain.notice(error.message,true);} return;');
+  insert('    function statsIntro() {','      stageStatsIntro(); return;');
+  insert('    function lmEmbed(url) {','      return stageEmbedSource(url);');
+  insert('    function lmUrlKind(url) {','      return stageExternalKind(url);');
+  insert('    function videoHtml(url) {',"      return stageExternalPlayer(url,'Video');");
+  insert('    function musicHtml(url) {',"      return stageExternalPlayer(url,'Music');");
+  insert('    function attachSpotify(iframe) {','      return; // Native iframe controls; no third-party script in the app.');
+  insert('    function lmFileUrl(id) {',"      const stageBase='/api/lesson-file?id='+encodeURIComponent(id);return viewAccount?stageBase+'&for='+encodeURIComponent(viewAccount.id):stageBase;");
+  insert('    function paintStats() {','      return stagePaintStats();');
+  insert('    function renderMade(item) {','      if(item?.stageDataDeferred)return stageHydrateMade(item);');
+  insert('    function renderMade(item) {','      stageMadeAttempts.clear();');
+  insert('        const dir = choice.dataset.choiceDir;',"        stageMadeAnswer('Choice',dir,choice.dataset.madeChoice==='ok',choice.textContent);");
+  insert('        const needed = dir === "ru" ? view.dataset.ru : view.dataset.word;',"        stageMadeAnswer('Type',dir,ok,typed);");
+  insert('        const ok = input.value.trim().toLowerCase() === input.dataset.gapAnswer.trim().toLowerCase();',"        stageMadeAnswer('Gap',index,ok,input.value);");
+  insert('        view.querySelectorAll("[data-usage-choice]").forEach((btn) => btn.classList.remove("ok", "bad"));',"        stageMadeAnswer('Choice','usage',usageChoice.dataset.usageChoice==='ok',usageChoice.textContent);");
+  insert('        const ok = tf.dataset.tf === "ok";',"        stageMadeAnswer('True / false','usage',ok,tf.textContent);");
+  insert('    async function openUsages(word, lessonRu) {','      const stored=loadAdded().filter(item=>String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
+  insert('    function lmPullFromServer() {',`      if(!authUser || viewSwitching)return Promise.resolve();
+      const generation=viewGen,targetId=viewAccount?.id||'';
+      const path=viewAccount?'/api/admin/users/'+encodeURIComponent(viewAccount.id)+'/lessons':'/api/lessons';
+      return accountFetch(path).then(data=>{if(generation!==viewGen||targetId!==(viewAccount?.id||''))return;
+        lmServerReady=true;lmApplyRemote(data.materials||[],{push:false});}).catch(error=>window.TursoMain.notice(error.message,true));`);
+  insert('    function lmSchedulePush() {','      if(canEditLessons())lmNote("Черновик в браузере. Нажмите Save Draft или Publish для сохранения в тестовую Turso."); return;');
+  insert('    function lmPushToServer() {','      return stageSaveLesson();');
+  insert('    function lmDeleteLesson(id) {','      stageDeleteLesson(id); return;');
+  insert('    function lmHideLesson(id) {','      stageHideLesson(id); return;');
+  insert('    function lmTakeFile(id, file) {','      return stageUploadLessonFile(id,file);');
+  insert('    function lmClearFile(id) {','      return stageClearLessonFile(id);');
+  insert('    function lmSrc(block) {','      if(block && block.fileId)return lmFileUrl(block.fileId);');
+  insert('    async function lmResolveFile(id) {','      const stageBlock=lmBlock(id); if(stageBlock && stageBlock.fileId)return lmFileUrl(stageBlock.fileId);');
+  insert('    async function openPdf(href, title) {','      return stageOpenPdf(href,title);');
+  insert('    function writeTexts(list) {','      return window.TursoMain.unsupported("Редактирование текстов");');
+  insert('    function storeText(analyze) {','      return stageStoreText(analyze);');
+  insert('    function showText(id) {','      stageMountTextArchive(id);');
+  insert('    async function readLyrics(existingId) {','      return stageStoreSong(existingId);');
+  insert('    async function saveSongMeta() {','      return stageSaveSongMeta();');
+  insert('    function paintSongMedia(song, box) {','      stageMountSongAudio(song,box); if(stagePaintLocalAudio(song,box))return;');
+  insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.TursoMain.unsupported("Добавление личных карточек");');
+  insert('    async function saveWord(place, input, status, button, openCard) {','      return stageSaveWord(place,input,status,button,openCard);');
+  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+source+'\n'+hooks;
+}

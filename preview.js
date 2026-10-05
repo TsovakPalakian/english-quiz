@@ -9154,7 +9154,7 @@
       return date.toLocaleString();
     }
     function accountVisible(row) {
-      if (!row) return false;
+      if (!row || row.revoked) return false;
       if (isDeveloper()) return true;
       return row.role !== "DEVELOPER" && !row.hidden && !row.revoked;
     }
@@ -9186,7 +9186,8 @@
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
         const history = (regs.registrations || []).filter(accountVisible);
         const accounts = (users.users || []).filter(accountVisible);
-        const changeRows = (changes.changes || []).filter(accountVisible);
+        const accountIds = new Set(accounts.map((row) => row.id));
+        const changeRows = (changes.changes || []).filter((row) => accountVisible(row) && accountIds.has(row.user_id));
         box.innerHTML = '<div class="card"><p class="label">Account changes</p>' +
           (changeRows.length ? recentRows(changeRows, (row, n) => {
             if (row.status !== "pending") {

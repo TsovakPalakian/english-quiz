@@ -1,0 +1,40 @@
+name = "learn-english-turso-test"
+account_id = "22f73bd94b002b9aee8eed13d261cf13"
+main = "../src/turso-stage-worker.mjs"
+compatibility_date = "2026-08-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "../rollback/turso-worker-assets"
+binding = "ASSETS"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "learn-english"
+database_id = "00083392-f0d6-4c56-a0a3-cd1a6a16bd67"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "learn-english-media"
+
+[[r2_buckets]]
+binding = "STAGE_MEDIA"
+bucket_name = "learn-english-turso-test-media"
+
+[[durable_objects.bindings]]
+name = "AUTH_BUDGET"
+class_name = "StageAuthBudget"
+
+[[migrations]]
+tag = "stage-auth-v1"
+new_sqlite_classes = ["StageAuthBudget"]
+
+[vars]
+STAGE_ENABLED = "false"
+STAGE_WRITES = "false"
+STAGE_ALLOWED_HOST = "unconfigured.invalid"
+STAGE_MEDIA_BUCKET = "learn-english-turso-test-media"
+# TURSO_URL, TURSO_AUTH_TOKEN, STAGE_SESSION_SECRET must be dedicated Worker secrets.
+# No production session secret is reused. Keep this Worker disabled until acceptance.

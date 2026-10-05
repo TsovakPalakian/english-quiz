@@ -16,3 +16,8 @@ wrangler.toml
 versions.json
 rollback-stable.js
 rollback/
+docs/
+migrations/
+scripts/
+staging/
+production/

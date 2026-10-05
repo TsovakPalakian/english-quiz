@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>English Quiz — тест Turso</title><link rel="stylesheet" href="/app.css"><script type="module" src="/app.js"></script></head>
+<body><main>
+<h1>Тестовый интерфейс Turso</h1>
+<p class="notice">Только тестовая БД. Рабочий сайт не переключён. Здесь демонстрационные сессии, не настоящий вход в аккаунт.</p>
+<label>Проверяемая роль <select id="persona"></select></label>
+<p id="status" role="status" aria-live="polite">Выберите роль.</p>
+<form id="search"><label>Урок <select id="lesson"><option value="">Все доступные карточки</option></select></label><label>Слово <input id="query" value="competitive" maxlength="120"></label><button>Найти</button><button type="button" id="refresh">Обновить с сервера</button></form>
+<div class="columns"><nav aria-label="Карточки"><div id="cards"></div><button id="more" type="button" hidden>Следующие 40</button></nav><article id="detail"><p>Выберите карточку.</p></article></div>
+<section id="pending" hidden><p>Есть неподтверждённая операция. Повтор отправит тот же ID, без дублирования.</p><button id="retry" type="button">Повторить</button><button id="discard" type="button">Отменить повтор и перечитать сервер</button></section>
+</main></body></html>
