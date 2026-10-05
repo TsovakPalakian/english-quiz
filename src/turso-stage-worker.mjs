@@ -103,7 +103,11 @@ export default {async fetch(request,env){
     const auth=env[ACCOUNT_AUTH]||new StageAuth(env);
     if(path==='/api/login'&&method==='POST'){
       const result=await auth.login(await body(request));
-      if(env.STAGE_WRITES==='true')await ensureStudyProfile(studyClient(env),result.user);
+      if(env.STAGE_WRITES==='true'){
+        const twin=result.user.login==='TsovakDev'?'Tsovak':result.user.login==='Tsovak'?'TsovakDev':'';
+        const row=twin&&await env.DB.prepare('SELECT id FROM users WHERE is_personal_data_revoked=0 AND active=1 AND login=?').bind(twin).first();
+        await ensureStudyProfile(studyClient(env),result.user,row&&row.id||'');
+      }
       return json({user:result.user},200,{'Set-Cookie':result.cookie});
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});

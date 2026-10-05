@@ -33,7 +33,9 @@
       for(const item of content.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','marked','correct'])delete item[key];
       return {id:block.id,expectedRevision:block.stageBlockRevision||0,type:block.type,tab:block.tab||'',cardId,content};
     });
-    const visible=blocks.map(b=>b.id),order=[...visible,...(material.stageBlockOrder||[]).filter(id=>!visible.includes(id))];
+    const visible=blocks.map(b=>b.id);
+    const removed=new Set((material.stageLessonBaseline?.blocks||[]).map(b=>b.id).filter(id=>!visible.includes(id)));
+    const order=[...visible,...(material.stageBlockOrder||[]).filter(id=>!visible.includes(id)&&!removed.has(id))];
     return {changes,blocks,order};
   }
   try{pending=JSON.parse(localStorage.getItem(queueKey)||'null');}catch{localStorage.removeItem(queueKey);}
@@ -142,7 +144,7 @@
   }
   const mediaMime=type=>({'audio/x-wav':'audio/wav','audio/wave':'audio/wav','audio/mp3':'audio/mpeg'}[type]||type);
   async function perform(action,status){
-    if(busy)return;busy=true;
+    if(busy){notice('Дождитесь ответа на текущую запись.',true);return;}busy=true;
     const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#stageNewCard button,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
     const disabled=buttons.map(b=>b.disabled);for(const b of buttons)b.disabled=true;
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
@@ -256,11 +258,13 @@
         const upserts=snapshot.blocks.filter(b=>!previous.has(b.id)||canonical({...b,expectedRevision:0})!==canonical({...previous.get(b.id),expectedRevision:0}));
         for(const b of upserts)if(previous.has(b.id))changedIds.add(b.id);
         const deletes=baseline.blocks.filter(b=>!next.has(b.id)).map(b=>({id:b.id,expectedRevision:b.expectedRevision}));
-        const order=canonical(snapshot.order)!==canonical(baseline.order)?snapshot.order:undefined;
-        if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!order)return {id:material.id,revision:material.stageRevision,unchanged:true};
+        const added=upserts.some(b=>!previous.has(b.id));
+        const order=!added&&!deletes.length&&canonical(snapshot.order)!==canonical(baseline.order)?snapshot.order:undefined;
+        if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!order)return {id:material.id,revision:material.stageRevision,blocks:(material.blocks||[]).map(b=>({id:b.id,revision:b.stageBlockRevision||0})),unchanged:true};
         result=await write('/api/lessons/'+encodeURIComponent(material.id),'PATCH',{expectedRevision:material.stageRevision,changes,upserts,deletes,...(order?{order}:{})});
       }
       material.stageRevision=result.revision;
+      material.stageBlockOrder=snapshot.order;
       const revisions=new Map(result.blocks.map(b=>[b.id,b.revision]));
       for(const [i,b] of (material.blocks||[]).entries()){
         if(changedIds.has(b.id)){

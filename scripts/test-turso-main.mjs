@@ -23,7 +23,7 @@ function fixture(){
     INSERT INTO cards(id,scope,en,word_key,ru) VALUES('shared','shared','competitive','competitive','before'),('hidden-card','shared','hidden','hidden','hidden');
     INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES('private','profile','p1','personal','personal','личное');
     INSERT INTO profile_cards(profile_id,card_id,place) VALUES('p1','private','mine');
-    INSERT INTO lesson_blocks(lesson_id,id,position,type,card_id) VALUES('lesson','block',0,'wordcard','shared'),('hidden','block',0,'wordcard','hidden-card');
+    INSERT INTO lesson_blocks(lesson_id,id,position,type,tab,card_id) VALUES('lesson','block',0,'wordcard','words','shared'),('hidden','block',0,'wordcard','words','hidden-card');
     INSERT INTO lesson_responses(profile_id,lesson_id,block_id,response_json) VALUES('p1','lesson','block','"my answer"');
     INSERT INTO migration_runs(id,source_manifest_sha256,status) VALUES('run','unused','verified');
     INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/0','shared','run');
@@ -66,8 +66,10 @@ test('Lesson summaries omit all blocks; one-lesson loading preserves access and 
   const f=fixture();try{
     const actor={id:'student',role:'USER'},summary=await legacyLessons(f.db,actor,{summary:true});
     assert.equal(summary.materials.length,1);assert.deepEqual(summary.materials[0].blocks,[]);assert.equal(summary.materials[0].stageLessonDeferred,true);
+    assert.equal(summary.materials[0].wordCount,1);assert.equal(summary.materials[0].phraseCount,0);assert.equal(summary.materials[0].ruleCount,0);
     const detail=await legacyLessons(f.db,actor,{lessonId:'lesson'});
     assert.equal(detail.materials.length,1);assert.equal(detail.materials[0].blocks[0].response,'my answer');
+    assert.equal(detail.materials[0].wordCount,1);assert.equal(detail.materials[0].phraseCount,0);assert.equal(detail.materials[0].ruleCount,0);
     await assert.rejects(legacyLessons(f.db,actor,{lessonId:'hidden'}),e=>e.status===404);
     assert.equal((await legacyLessons(f.db,{id:'student2',role:'USER'},{lessonId:'lesson'})).materials[0].blocks[0].response,undefined);
   }finally{f.sqlite.close();}
@@ -278,6 +280,7 @@ test('Read-only R2 provider rejects malformed ranges before requests and forward
 test('Main source hooks are exact, syntax-valid, original files never rewritten',()=>{
   const original=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),hooks=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8');
   new Function(mainPreview(original,hooks));assert.equal(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),original);
+  assert.match(mainPreview(original,hooks),/lmInsertBlockFront\(\{ id: lmId\(\), type: "rule", tab: "rules"[\s\S]{0,500}Rule added\. Click Save draft or Publish\./);
   assert.throws(()=>mainPreview(original.replace('function saveCardEdit(host)','function movedSaveCardEdit(host)'),hooks));
   const quizId='quiz_'+'a'.repeat(64),scope={document:{addEventListener(){}},result:null,value:{competitive:[{id:quizId,type:'Flip',items:[{}]}]}};
   runInNewContext(hooks+'\nresult=stageQuizMap(value);',scope);
@@ -715,8 +718,44 @@ test('Lesson word insertion sends one linked block, not dictionary or unchanged 
   assert.equal(sent.length,1);assert.equal(sent[0].path,'/api/lessons/lesson');
   assert.deepEqual(sent[0].body.changes,{published:true});assert.equal(sent[0].body.upserts.length,1);
   assert.equal(sent[0].body.upserts[0].cardId,'shared_card');assert.deepEqual(sent[0].body.upserts[0].content,{});
+  assert.equal(sent[0].body.order,undefined);
   assert.ok(JSON.stringify(sent[0].body).length<1000);assert.ok(!JSON.stringify(sent[0].body).includes('Neighbour'));
   lesson.published=false;await window.TursoMain.saveLesson(lesson);assert.deepEqual(sent[1].body.upserts,[]);
+});
+test('Lesson rule insert sends a rules-tab block without catalog text',async()=>{
+  const sent=[],window={},remote={id:'lesson',title:'Saved',published:true,stageRevision:2,blocks:[]};
+  const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
+      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'rule1',revision:1}]})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');const lesson=(await window.TursoMain.fetch('/api/lessons')).materials[0];
+  lesson.blocks.push({id:'rule1',type:'rule',tab:'rules',topic:'predictions',compare:false,name:'Predictions',collapsed:false});
+  await window.TursoMain.saveLesson(lesson);
+  assert.equal(sent.length,1);assert.equal(sent[0].body.upserts.length,1);
+  assert.equal(sent[0].body.upserts[0].type,'rule');assert.equal(sent[0].body.upserts[0].tab,'rules');
+  assert.equal(sent[0].body.upserts[0].content.topic,'predictions');
+  assert.equal(sent[0].body.order,undefined);
+  assert.equal(JSON.stringify(sent[0].body).includes('will rain'),false);
+});
+test('Lesson block removal sends deletes and does not resurrect the id in order',async()=>{
+  const sent=[],window={},remote={id:'lesson',title:'Saved',published:true,stageRevision:4,stageBlockOrder:['keep','gone'],blocks:[
+    {id:'keep',type:'text',html:'A',stageBlockRevision:1},{id:'gone',type:'rule',tab:'rules',topic:'predictions',stageBlockRevision:2}
+  ]};
+  const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
+      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'keep',revision:1}]})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');const lesson=(await window.TursoMain.fetch('/api/lessons')).materials[0];
+  lesson.blocks=lesson.blocks.filter(block=>block.id!=='gone');
+  await window.TursoMain.saveLesson(lesson);
+  assert.equal(sent.length,1);assert.deepEqual(sent[0].body.deletes,[{id:'gone',expectedRevision:2}]);
+  assert.equal(sent[0].body.order,undefined);assert.equal(JSON.stringify(lesson.stageBlockOrder),JSON.stringify(['keep']));
 });
 test('Lesson card lookup retains the shared ID and never uses the external dictionary route',async()=>{
   const input={value:'competitive'},status={},button={},blocks=[];

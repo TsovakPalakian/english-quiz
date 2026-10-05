@@ -149,3 +149,26 @@ test('Registration history hides missing or revoked owners but retains pending n
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM registrations').get().n,4,'History not physically deleted');
   }finally{f.close();}
 });
+test('Unused pair login Tsovak can be restored as a student; rename onto the pair stays reserved',async()=>{
+  const f=fixture();try{
+    const dev=f.client(),student=f.client();
+    assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
+    const registration=await student.call('/api/register','POST',{login:'Tsovak',email:'tsovak@example.invalid',name:'Student',password});
+    assert.equal(registration.status,200);assert.equal(registration.value.status,'pending');
+    const row=f.sqlite.prepare("SELECT id FROM registrations WHERE login='Tsovak'").get();
+    assert.equal((await dev.call('/api/admin/registrations/'+row.id+'/approve','POST',{})).status,200);
+    const account=f.sqlite.prepare("SELECT id,role FROM users WHERE login='Tsovak'").get();
+    assert.equal(account.role,'USER');
+    assert.equal((await student.call('/api/login','POST',{login:'Tsovak',password})).status,200);
+    assert.equal((await student.call('/api/admin/users')).status,403);
+    const taken=await f.client().call('/api/register','POST',{login:'Tsovak',email:'other@example.invalid',name:'Other',password});
+    assert.equal(taken.status,409);
+    const other=await f.client().call('/api/register','POST',{login:'OtherStudent',email:'other@example.invalid',name:'Other',password});
+    assert.equal(other.status,200);
+    const otherId=f.sqlite.prepare("SELECT id FROM registrations WHERE login='OtherStudent'").get().id;
+    assert.equal((await dev.call('/api/admin/registrations/'+otherId+'/approve','POST',{})).status,200);
+    const userId=f.sqlite.prepare("SELECT id FROM users WHERE login='OtherStudent'").get().id;
+    const renamed=await dev.call('/api/admin/users/'+userId+'/profile','POST',{login:'TsovakDev',email:'other@example.invalid',name:'Other'});
+    assert.equal(renamed.status,403);assert.equal(renamed.value.error,'That login is reserved.');
+  }finally{f.close();}
+});

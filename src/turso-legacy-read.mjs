@@ -94,8 +94,20 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
   if(lessonId&&!/^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new StudyError(400,'Invalid lesson ID.');
   const filter=lessonId?' AND l.id=?':'',args=[review(actor),actor.id,actor.id,...(lessonId?[lessonId]:[])];
   if(summary){
-    const rows=await db.read(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args);
-    return {materials:rows.map(l=>({...JSON.parse(l.extra_json),id:l.id,title:l.title,description:l.description,className:l.class_name,unit:l.unit,lesson:l.lesson,date:l.lesson_date,mode:l.mode,published:!!l.published,hiddenFromStudents:!!l.hidden_from_students,stageRevision:l.revision,stageLessonDeferred:true,blocks:[]}))};
+    const [rows,counts]=await db.readMany([
+      s(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args),
+      s(`SELECT b.lesson_id,
+        SUM(CASE WHEN b.type IN ('wordcard','word') AND b.tab='words' AND (b.card_id IS NULL OR c.deleted_at IS NULL) THEN 1 ELSE 0 END) word_count,
+        SUM(CASE WHEN (b.type='phrase' OR (b.type IN ('wordcard','word') AND b.tab='phrases')) AND (b.card_id IS NULL OR c.deleted_at IS NULL) THEN 1 ELSE 0 END) phrase_count,
+        SUM(CASE WHEN b.type='rule' THEN 1 ELSE 0 END) rule_count
+        FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id LEFT JOIN cards c ON c.id=b.card_id
+        WHERE b.deleted_at IS NULL AND ${lessonAccess}${filter} GROUP BY b.lesson_id`,args)
+    ]);
+    const byId=new Map(counts.map(row=>[row.lesson_id,row]));
+    return {materials:rows.map(l=>{
+      const n=byId.get(l.id);
+      return {...JSON.parse(l.extra_json),id:l.id,title:l.title,description:l.description,className:l.class_name,unit:l.unit,lesson:l.lesson,date:l.lesson_date,mode:l.mode,published:!!l.published,hiddenFromStudents:!!l.hidden_from_students,stageRevision:l.revision,stageLessonDeferred:true,blocks:[],wordCount:Number(n?.word_count||0),phraseCount:Number(n?.phrase_count||0),ruleCount:Number(n?.rule_count||0)};
+    })};
   }
   const [lessons,blocks]=await db.readMany([
     s(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args),
@@ -131,6 +143,11 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
       }else if(typeof response==='string')block.response=response;
     }
     byId.get(b.lesson_id)?.blocks.push(block);
+  }
+  for(const material of materials){
+    material.wordCount=(material.blocks||[]).filter(b=>['wordcard','word'].includes(b.type)&&(b.tab||'')==='words').length;
+    material.phraseCount=(material.blocks||[]).filter(b=>b.type==='phrase'||(['wordcard','word'].includes(b.type)&&(b.tab||'')==='phrases')).length;
+    material.ruleCount=(material.blocks||[]).filter(b=>b.type==='rule').length;
   }
   return {materials};
 }

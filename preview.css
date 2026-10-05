@@ -2096,7 +2096,11 @@ button:disabled { opacity: .45; }
 .g-area { padding: 12px 14px; }
 .g-area b, .g-topic b { display: block; font-size: 16px; font-weight: 800; }
 .g-badge { display: inline-block; margin-bottom: 4px; font-size: 13px; font-weight: 700; color: var(--tone, var(--acc)); }
-.g-head { margin: 16px 0 6px; font-size: 14px; font-weight: 800; color: var(--tone, var(--mute)); }
+.g-section { margin: 18px 0 10px; }
+.g-section > h3 { font-size: 16px; font-weight: 800; margin: 0 0 8px; color: var(--ink); }
+#tense li b { display: block; margin-bottom: 2px; }
+#tense li span { display: block; }
+.g-table td, .g-form td { white-space: normal; vertical-align: top; }
 .g-topic { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; margin-bottom: 6px; }
 .g-topic .form { color: var(--tone, var(--acc)); font-size: 13px; font-weight: 700; }
 .formula { font-weight: 800; color: var(--tone, var(--acc)); margin: 0 0 8px; }

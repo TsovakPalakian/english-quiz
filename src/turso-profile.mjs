@@ -1,12 +1,28 @@
 // The actor comes ONLY from successful live authentication, never request JSON.
 // Account/password/role stay in D1. This provisions empty educational state only.
 import {StudyError,statement as s} from './turso-study.mjs';
-export async function ensureStudyProfile(db,actor){
-  if(!actor||!/^[a-f0-9]{16,64}$/.test(actor.id)||actor.revoked||!['USER','ADMIN','DEVELOPER'].includes(actor.role))
+const accountId=value=>typeof value==='string'&&/^[a-f0-9]{16,64}$/.test(value);
+export async function ensureStudyProfile(db,actor,pairAccountId=''){
+  if(!actor||!accountId(actor.id)||actor.revoked||!['USER','ADMIN','DEVELOPER'].includes(actor.role))
     throw new StudyError(401,'Live authenticated account required.');
   const existing=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
   if(existing.length===1)return existing[0].profile_id; // Preserve retained/pair IDs.
   if(existing.length)throw new StudyError(409,'Ambiguous profile membership.');
+  if(accountId(pairAccountId)&&pairAccountId!==actor.id){
+    const twin=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[pairAccountId]);
+    if(twin.length>1)throw new StudyError(409,'Ambiguous profile membership.');
+    if(twin.length===1){
+      const profile=twin[0].profile_id;
+      await db.atomic([
+        s('INSERT OR IGNORE INTO account_refs(id) VALUES(?)',[actor.id]),
+        s('INSERT OR IGNORE INTO profile_members(account_id,profile_id) VALUES(?,?)',[actor.id,profile])
+      ]);
+      const after=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
+      if(after.length!==1)throw new StudyError(503,'Educational profile not acknowledged. Retry sign-in.');
+      if(after[0].profile_id!==profile)throw new StudyError(409,'Ambiguous profile membership.');
+      return profile;
+    }
+  }
   const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(['account',actor.id])));
   const profile='profile_'+Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
   await db.atomic([

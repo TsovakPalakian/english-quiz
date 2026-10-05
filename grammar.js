@@ -80,6 +80,22 @@ window.GRAMMAR = {
       ]
     },
     {
+      "id": "predictions",
+      "title": "Predictions",
+      "badge": "Future meaning",
+      "tone": "future",
+      "blurb": "The essential rules for future predictions: forms, certainty, word order and present evidence.",
+      "groups": [
+        {
+          "title": "Making predictions",
+          "tone": "future",
+          "items": [
+            "predictions"
+          ]
+        }
+      ]
+    },
+    {
       "id": "conditionals",
       "title": "Conditional sentences",
       "badge": "Conditionals",
@@ -1361,6 +1377,637 @@ window.GRAMMAR = {
         "pcfut"
       ],
       "bank": "going"
+    },
+    "predictions": {
+      "id": "predictions",
+      "name": "Predictions",
+      "form": "It will rain. / It might rain. / It is going to rain.",
+      "tone": "future",
+      "kind": "Future meaning",
+      "formula": "will / may / might / could + V1 \u00b7 be going to + V1 \u00b7 be likely / bound / certain to + V1",
+      "affirmative": "It will rain. \u00b7 It might rain. \u00b7 It is going to rain.",
+      "negative": "It won't rain. \u00b7 It might not rain. \u00b7 It isn't going to rain.",
+      "question": "Will it rain? \u00b7 Do you think it will rain? \u00b7 Is it going to rain?",
+      "note": {
+        "en": "A prediction says what we expect. It is not a plan, an arrangement or a timetable. There is no extra tense called Predictions.",
+        "ru": "\u041f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u0435 \u0433\u043e\u0432\u043e\u0440\u0438\u0442, \u0447\u0435\u0433\u043e \u043c\u044b \u0436\u0434\u0435\u043c. \u042d\u0442\u043e \u043d\u0435 \u043f\u043b\u0430\u043d, \u043d\u0435 \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c \u0438 \u043d\u0435 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435. \u041e\u0442\u0434\u0435\u043b\u044c\u043d\u043e\u0433\u043e \u0432\u0440\u0435\u043c\u0435\u043d\u0438 Predictions \u043d\u0435\u0442."
+      },
+      "usage": {
+        "en": "Choose the form by how sure you are and by whether you can point to evidence now.",
+        "ru": "\u0424\u043e\u0440\u043c\u0443 \u0432\u044b\u0431\u0438\u0440\u0430\u044e\u0442 \u043f\u043e \u0441\u0442\u0435\u043f\u0435\u043d\u0438 \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u0438 \u0438 \u043f\u043e \u0442\u043e\u043c\u0443, \u0435\u0441\u0442\u044c \u043b\u0438 \u043f\u0440\u0438\u0437\u043d\u0430\u043a \u0441\u0435\u0439\u0447\u0430\u0441."
+      },
+      "sections": [
+        {
+          "title": {
+            "en": "1. What a prediction is",
+            "ru": "1. \u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 \u043f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u0435"
+          },
+          "body": {
+            "en": "A prediction answers: what do you expect to happen? Keep it separate from a plan already made, a named arrangement, or a timetable.",
+            "ru": "\u041f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u0435 \u043e\u0442\u0432\u0435\u0447\u0430\u0435\u0442: \u0447\u0435\u0433\u043e \u0432\u044b \u0436\u0434\u0435\u0442\u0435? \u0415\u0433\u043e \u043d\u0435 \u043f\u0443\u0442\u0430\u044e\u0442 \u0441 \u0443\u0436\u0435 \u043f\u0440\u0438\u043d\u044f\u0442\u044b\u043c \u043f\u043b\u0430\u043d\u043e\u043c, \u043d\u0430\u0437\u0432\u0430\u043d\u043d\u043e\u0439 \u0434\u043e\u0433\u043e\u0432\u043e\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c\u044e \u0438\u043b\u0438 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435\u043c."
+          },
+          "table": {
+            "headers": {
+              "en": [
+                "Meaning",
+                "Typical form",
+                "Example"
+              ],
+              "ru": [
+                "\u0421\u043c\u044b\u0441\u043b",
+                "\u041e\u0431\u044b\u0447\u043d\u0430\u044f \u0444\u043e\u0440\u043c\u0430",
+                "\u041f\u0440\u0438\u043c\u0435\u0440"
+              ]
+            },
+            "rows": [
+              {
+                "en": [
+                  "Prediction / belief",
+                  "will",
+                  "I think it will rain."
+                ],
+                "ru": [
+                  "\u041f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u0435 / \u043c\u043d\u0435\u043d\u0438\u0435",
+                  "will",
+                  "I think it will rain."
+                ]
+              },
+              {
+                "en": [
+                  "Uncertain possibility",
+                  "may / might / could",
+                  "It might rain."
+                ],
+                "ru": [
+                  "\u041d\u0435\u0443\u0432\u0435\u0440\u0435\u043d\u043d\u0430\u044f \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0441\u0442\u044c",
+                  "may / might / could",
+                  "It might rain."
+                ]
+              },
+              {
+                "en": [
+                  "Prediction from evidence now",
+                  "be going to",
+                  "Look at the sky. It is going to rain."
+                ],
+                "ru": [
+                  "\u041f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u0435 \u043f\u043e \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0443 \u0441\u0435\u0439\u0447\u0430\u0441",
+                  "be going to",
+                  "Look at the sky. It is going to rain."
+                ]
+              },
+              {
+                "en": [
+                  "Plan already made",
+                  "be going to",
+                  "I am going to start a course in June."
+                ],
+                "ru": [
+                  "\u0423\u0436\u0435 \u043f\u0440\u0438\u043d\u044f\u0442\u044b\u0439 \u043f\u043b\u0430\u043d",
+                  "be going to",
+                  "I am going to start a course in June."
+                ]
+              },
+              {
+                "en": [
+                  "Arrangement",
+                  "Present Continuous",
+                  "I am meeting Anna at six."
+                ],
+                "ru": [
+                  "\u0414\u043e\u0433\u043e\u0432\u043e\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c",
+                  "Present Continuous",
+                  "I am meeting Anna at six."
+                ]
+              },
+              {
+                "en": [
+                  "Timetable",
+                  "Present Simple",
+                  "The train leaves at 6."
+                ],
+                "ru": [
+                  "\u0420\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435",
+                  "Present Simple",
+                  "The train leaves at 6."
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "title": {
+            "en": "2. Forms",
+            "ru": "2. \u0424\u043e\u0440\u043c\u044b"
+          },
+          "body": {
+            "en": "After will, may, might and could use the base verb: no -s, no to. be going to and be likely to keep be.",
+            "ru": "\u041f\u043e\u0441\u043b\u0435 will, may, might \u0438 could \u2014 \u043f\u0435\u0440\u0432\u0430\u044f \u0444\u043e\u0440\u043c\u0430: \u0431\u0435\u0437 -s \u0438 \u0431\u0435\u0437 to. \u0412 be going to \u0438 be likely to \u0433\u043b\u0430\u0433\u043e\u043b be \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u0435\u043d."
+          },
+          "table": {
+            "headers": {
+              "en": [
+                "Form",
+                "Affirmative",
+                "Negative",
+                "Question"
+              ],
+              "ru": [
+                "\u0424\u043e\u0440\u043c\u0430",
+                "\u0423\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435",
+                "\u041e\u0442\u0440\u0438\u0446\u0430\u043d\u0438\u0435",
+                "\u0412\u043e\u043f\u0440\u043e\u0441"
+              ]
+            },
+            "rows": [
+              {
+                "en": [
+                  "will",
+                  "It will rain.",
+                  "It won't rain.",
+                  "Will it rain?"
+                ],
+                "ru": [
+                  "will",
+                  "It will rain.",
+                  "It won't rain.",
+                  "Will it rain?"
+                ]
+              },
+              {
+                "en": [
+                  "may / might",
+                  "It might rain.",
+                  "It might not rain.",
+                  "Do you think it might rain?"
+                ],
+                "ru": [
+                  "may / might",
+                  "It might rain.",
+                  "It might not rain.",
+                  "Do you think it might rain?"
+                ]
+              },
+              {
+                "en": [
+                  "could",
+                  "It could rain.",
+                  "\u2014 (not couldn't for this meaning)",
+                  "Could it rain later?"
+                ],
+                "ru": [
+                  "could",
+                  "It could rain.",
+                  "\u2014 (couldn't \u0437\u0434\u0435\u0441\u044c \u043d\u0435 \u0434\u043b\u044f \u043f\u0440\u0435\u0434\u0441\u043a\u0430\u0437\u0430\u043d\u0438\u044f)",
+                  "Could it rain later?"
+                ]
+              },
+              {
+                "en": [
+                  "be going to",
+                  "It is going to rain.",
+                  "It isn't going to rain.",
+                  "Is it going to rain?"
+                ],
+                "ru": [
+                  "be going to",
+                  "It is going to rain.",
+                  "It isn't going to rain.",
+                  "Is it going to rain?"
+                ]
+              },
+              {
+                "en": [
+                  "be likely to",
+                  "It is likely to rain.",
+                  "It is unlikely to rain.",
+                  "Is it likely to rain?"
+                ],
+                "ru": [
+                  "be likely to",
+                  "It is likely to rain.",
+                  "It is unlikely to rain.",
+                  "Is it likely to rain?"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "title": {
+            "en": "3. Certainty",
+            "ru": "3. \u0423\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c"
+          },
+          "body": {
+            "en": "This is a useful scale, not a percentage. Intonation can make might sound stronger or weaker. will and be going to often overlap.",
+            "ru": "\u042d\u0442\u043e \u043f\u043e\u043b\u0435\u0437\u043d\u0430\u044f \u0448\u043a\u0430\u043b\u0430, \u043d\u0435 \u043f\u0440\u043e\u0446\u0435\u043d\u0442\u044b. \u0418\u043d\u0442\u043e\u043d\u0430\u0446\u0438\u044f \u043c\u043e\u0436\u0435\u0442 \u0441\u0434\u0435\u043b\u0430\u0442\u044c might \u0441\u0438\u043b\u044c\u043d\u0435\u0435 \u0438\u043b\u0438 \u0441\u043b\u0430\u0431\u0435\u0435. will \u0438 be going to \u0447\u0430\u0441\u0442\u043e \u043f\u0435\u0440\u0435\u0441\u0435\u043a\u0430\u044e\u0442\u0441\u044f."
+          },
+          "table": {
+            "headers": {
+              "en": [
+                "How sure",
+                "Form",
+                "Example"
+              ],
+              "ru": [
+                "\u041d\u0430\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0443\u0432\u0435\u0440\u0435\u043d\u044b",
+                "\u0424\u043e\u0440\u043c\u0430",
+                "\u041f\u0440\u0438\u043c\u0435\u0440"
+              ]
+            },
+            "rows": [
+              {
+                "en": [
+                  "Almost certain",
+                  "will definitely / certainly \u00b7 be bound / certain / sure to",
+                  "The station will definitely be crowded. She is bound to be tired."
+                ],
+                "ru": [
+                  "\u041f\u043e\u0447\u0442\u0438 \u0442\u043e\u0447\u043d\u043e",
+                  "will definitely / certainly \u00b7 be bound / certain / sure to",
+                  "The station will definitely be crowded. She is bound to be tired."
+                ]
+              },
+              {
+                "en": [
+                  "High chance",
+                  "will probably \u00b7 be likely to",
+                  "The bus will probably arrive soon. The museum is likely to be busy."
+                ],
+                "ru": [
+                  "\u0412\u044b\u0441\u043e\u043a\u0438\u0439 \u0448\u0430\u043d\u0441",
+                  "will probably \u00b7 be likely to",
+                  "The bus will probably arrive soon. The museum is likely to be busy."
+                ]
+              },
+              {
+                "en": [
+                  "Belief",
+                  "will \u00b7 I think / I'm sure + will",
+                  "I think electric buses will become more common."
+                ],
+                "ru": [
+                  "\u041c\u043d\u0435\u043d\u0438\u0435",
+                  "will \u00b7 I think / I'm sure + will",
+                  "I think electric buses will become more common."
+                ]
+              },
+              {
+                "en": [
+                  "Possible",
+                  "may / might / could \u00b7 maybe / perhaps + will",
+                  "We might get tickets. Maybe the next lesson will be shorter."
+                ],
+                "ru": [
+                  "\u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e",
+                  "may / might / could \u00b7 maybe / perhaps + will",
+                  "We might get tickets. Maybe the next lesson will be shorter."
+                ]
+              },
+              {
+                "en": [
+                  "Possible no",
+                  "may not / might not",
+                  "Some students might not arrive on time."
+                ],
+                "ru": [
+                  "\u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0435 \u043d\u0435\u0442",
+                  "may not / might not",
+                  "Some students might not arrive on time."
+                ]
+              },
+              {
+                "en": [
+                  "Expected no",
+                  "won't \u00b7 probably won't \u00b7 definitely won't \u00b7 be unlikely to",
+                  "I don't think this shop will close early. The delay is unlikely to last long."
+                ],
+                "ru": [
+                  "\u041e\u0436\u0438\u0434\u0430\u0435\u043c\u043e\u0435 \u043d\u0435\u0442",
+                  "won't \u00b7 probably won't \u00b7 definitely won't \u00b7 be unlikely to",
+                  "I don't think this shop will close early. The delay is unlikely to last long."
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "title": {
+            "en": "4. Word order",
+            "ru": "4. \u041f\u043e\u0440\u044f\u0434\u043e\u043a \u0441\u043b\u043e\u0432"
+          },
+          "body": {
+            "en": "One modal only. Opinion verbs usually take I don't think + will. maybe / perhaps start the sentence.",
+            "ru": "\u0422\u043e\u043b\u044c\u043a\u043e \u043e\u0434\u0438\u043d \u043c\u043e\u0434\u0430\u043b\u044c\u043d\u044b\u0439. \u041f\u0440\u0438 \u0433\u043b\u0430\u0433\u043e\u043b\u0430\u0445 \u043c\u043d\u0435\u043d\u0438\u044f \u043e\u0431\u044b\u0447\u043d\u043e I don't think + will. maybe / perhaps \u0441\u0442\u043e\u044f\u0442 \u0432 \u043d\u0430\u0447\u0430\u043b\u0435."
+          },
+          "table": {
+            "headers": {
+              "en": [
+                "Pattern",
+                "Correct",
+                "Not this"
+              ],
+              "ru": [
+                "\u0421\u0445\u0435\u043c\u0430",
+                "\u0412\u0435\u0440\u043d\u043e",
+                "\u041d\u0435 \u0442\u0430\u043a"
+              ]
+            },
+            "rows": [
+              {
+                "en": [
+                  "will + adverb + V1",
+                  "The bus will probably arrive soon.",
+                  "The bus probably will arrive soon."
+                ],
+                "ru": [
+                  "will + \u043d\u0430\u0440\u0435\u0447\u0438\u0435 + V1",
+                  "The bus will probably arrive soon.",
+                  "The bus probably will arrive soon."
+                ]
+              },
+              {
+                "en": [
+                  "adverb + won't",
+                  "It probably won't rain. It definitely won't be quiet.",
+                  "It won't probably rain."
+                ],
+                "ru": [
+                  "\u043d\u0430\u0440\u0435\u0447\u0438\u0435 + won't",
+                  "It probably won't rain. It definitely won't be quiet.",
+                  "It won't probably rain."
+                ]
+              },
+              {
+                "en": [
+                  "full negative",
+                  "It will probably not arrive before six.",
+                  "\u2014"
+                ],
+                "ru": [
+                  "\u043f\u043e\u043b\u043d\u043e\u0435 \u043e\u0442\u0440\u0438\u0446\u0430\u043d\u0438\u0435",
+                  "It will probably not arrive before six.",
+                  "\u2014"
+                ]
+              },
+              {
+                "en": [
+                  "maybe / perhaps + will",
+                  "Maybe the bus will be late.",
+                  "Maybe it will might rain."
+                ],
+                "ru": [
+                  "maybe / perhaps + will",
+                  "Maybe the bus will be late.",
+                  "Maybe it will might rain."
+                ]
+              },
+              {
+                "en": [
+                  "opinion",
+                  "I don't think this shop will close early.",
+                  "Does it will rain?"
+                ],
+                "ru": [
+                  "\u043c\u043d\u0435\u043d\u0438\u0435",
+                  "I don't think this shop will close early.",
+                  "Does it will rain?"
+                ]
+              },
+              {
+                "en": [
+                  "maybe vs may be",
+                  "Maybe it will rain. / It may be cold.",
+                  "May be it will rain."
+                ],
+                "ru": [
+                  "maybe \u0438 may be",
+                  "Maybe it will rain. / It may be cold.",
+                  "May be it will rain."
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "title": {
+            "en": "5. Present evidence \u00b7 be going to",
+            "ru": "5. \u041f\u0440\u0438\u0437\u043d\u0430\u043a \u0441\u0435\u0439\u0447\u0430\u0441 \u00b7 be going to"
+          },
+          "body": {
+            "en": "Name what you can see, hear or know now, then the result. will can still name the same future; going to points to the evidence.",
+            "ru": "\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0442\u043e, \u0447\u0442\u043e \u0432\u0438\u0434\u043d\u043e, \u0441\u043b\u044b\u0448\u043d\u043e \u0438\u043b\u0438 \u0438\u0437\u0432\u0435\u0441\u0442\u043d\u043e \u0441\u0435\u0439\u0447\u0430\u0441, \u0437\u0430\u0442\u0435\u043c \u0438\u0441\u0445\u043e\u0434. will \u043c\u043e\u0436\u0435\u0442 \u043d\u0430\u0437\u0432\u0430\u0442\u044c \u0442\u043e \u0436\u0435 \u0431\u0443\u0434\u0443\u0449\u0435\u0435; going to \u0443\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u043d\u0430 \u043f\u0440\u0438\u0437\u043d\u0430\u043a."
+          },
+          "examples": [
+            {
+              "en": "Look at that glass near the edge. It is going to fall.",
+              "ru": "\u0421\u043c\u043e\u0442\u0440\u0438, \u0441\u0442\u0430\u043a\u0430\u043d \u0443 \u0441\u0430\u043c\u043e\u0433\u043e \u043a\u0440\u0430\u044f. \u0421\u0435\u0439\u0447\u0430\u0441 \u0443\u043f\u0430\u0434\u0435\u0442."
+            },
+            {
+              "en": "The sky is getting very dark. Is it going to rain?",
+              "ru": "\u041d\u0435\u0431\u043e \u0441\u0438\u043b\u044c\u043d\u043e \u0442\u0435\u043c\u043d\u0435\u0435\u0442. \u0421\u0435\u0439\u0447\u0430\u0441 \u043f\u043e\u0439\u0434\u0435\u0442 \u0434\u043e\u0436\u0434\u044c?"
+            },
+            {
+              "en": "Those bags look heavy. She is going to need help.",
+              "ru": "\u0421\u0443\u043c\u043a\u0438 \u0432\u044b\u0433\u043b\u044f\u0434\u044f\u0442 \u0442\u044f\u0436\u0435\u043b\u044b\u043c\u0438. \u0415\u0439 \u043f\u043e\u043d\u0430\u0434\u043e\u0431\u0438\u0442\u0441\u044f \u043f\u043e\u043c\u043e\u0449\u044c."
+            },
+            {
+              "en": "It isn't going to be a short walk in this heat.",
+              "ru": "\u0412 \u0442\u0430\u043a\u0443\u044e \u0436\u0430\u0440\u0443 \u043f\u0440\u043e\u0433\u0443\u043b\u043a\u0430 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u0439 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442."
+            }
+          ]
+        },
+        {
+          "title": {
+            "en": "6. Other certainty phrases",
+            "ru": "6. \u0414\u0440\u0443\u0433\u0438\u0435 \u0444\u043e\u0440\u043c\u0443\u043b\u044b \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u0438"
+          },
+          "body": {
+            "en": "be + adjective + to + base verb. Do not put will in front. It is likely that + clause is also possible.",
+            "ru": "be + \u043f\u0440\u0438\u043b\u0430\u0433\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0435 + to + \u043f\u0435\u0440\u0432\u0430\u044f \u0444\u043e\u0440\u043c\u0430. will \u043f\u0435\u0440\u0435\u0434 \u043d\u0438\u043c\u0438 \u043d\u0435 \u0441\u0442\u0430\u0432\u044f\u0442. \u0422\u0430\u043a\u0436\u0435 \u0431\u044b\u0432\u0430\u0435\u0442 It is likely that + \u043f\u0440\u0438\u0434\u0430\u0442\u043e\u0447\u043d\u043e\u0435."
+          },
+          "examples": [
+            {
+              "en": "The museum is likely to be busy on Sunday.",
+              "ru": "\u0412 \u0432\u043e\u0441\u043a\u0440\u0435\u0441\u0435\u043d\u044c\u0435 \u043c\u0443\u0437\u0435\u0439, \u0441\u043a\u043e\u0440\u0435\u0435 \u0432\u0441\u0435\u0433\u043e, \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d."
+            },
+            {
+              "en": "The delay is unlikely to last more than an hour.",
+              "ru": "\u0417\u0430\u0434\u0435\u0440\u0436\u043a\u0430 \u0432\u0440\u044f\u0434 \u043b\u0438 \u043f\u0440\u043e\u0434\u043b\u0438\u0442\u0441\u044f \u0431\u043e\u043b\u044c\u0448\u0435 \u0447\u0430\u0441\u0430."
+            },
+            {
+              "en": "After three hours of classes she is certain to be tired.",
+              "ru": "\u041f\u043e\u0441\u043b\u0435 \u0442\u0440\u0435\u0445 \u0447\u0430\u0441\u043e\u0432 \u0437\u0430\u043d\u044f\u0442\u0438\u0439 \u043e\u043d\u0430 \u0442\u043e\u0447\u043d\u043e \u0431\u0443\u0434\u0435\u0442 \u0443\u0441\u0442\u0430\u0432\u0448\u0435\u0439."
+            },
+            {
+              "en": "The park is bound to be popular when the weather improves.",
+              "ru": "\u041a\u043e\u0433\u0434\u0430 \u043f\u043e\u0433\u043e\u0434\u0430 \u0441\u0442\u0430\u043d\u0435\u0442 \u043b\u0443\u0447\u0448\u0435, \u043f\u0430\u0440\u043a \u0442\u043e\u0447\u043d\u043e \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u043f\u0443\u043b\u044f\u0440\u043d\u044b\u043c."
+            },
+            {
+              "en": "There is a good chance that the shop will still have tickets.",
+              "ru": "\u0415\u0441\u0442\u044c \u0445\u043e\u0440\u043e\u0448\u0438\u0439 \u0448\u0430\u043d\u0441, \u0447\u0442\u043e \u0432 \u043c\u0430\u0433\u0430\u0437\u0438\u043d\u0435 \u0435\u0449\u0435 \u0431\u0443\u0434\u0443\u0442 \u0431\u0438\u043b\u0435\u0442\u044b."
+            },
+            {
+              "en": "There is no way that the train will leave before we arrive.",
+              "ru": "\u041d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c, \u0447\u0442\u043e\u0431\u044b \u043f\u043e\u0435\u0437\u0434 \u0443\u0448\u0435\u043b \u0434\u043e \u043d\u0430\u0448\u0435\u0433\u043e \u043f\u0440\u0438\u0445\u043e\u0434\u0430."
+            }
+          ]
+        }
+      ],
+      "cases": [
+        {
+          "title": {
+            "en": "will \u2014 belief",
+            "ru": "will \u2014 \u043c\u043d\u0435\u043d\u0438\u0435"
+          },
+          "en": "Subject + will / won't + base verb. Same form for every subject. I think the shop will close at six. She won't be late.",
+          "ru": "\u041f\u043e\u0434\u043b\u0435\u0436\u0430\u0449\u0435\u0435 + will / won't + \u043f\u0435\u0440\u0432\u0430\u044f \u0444\u043e\u0440\u043c\u0430. \u041e\u0434\u043d\u0430 \u0444\u043e\u0440\u043c\u0430 \u0434\u043b\u044f \u0432\u0441\u0435\u0445 \u043b\u0438\u0446. I think the shop will close at six. She won't be late."
+        },
+        {
+          "title": {
+            "en": "Questions",
+            "ru": "\u0412\u043e\u043f\u0440\u043e\u0441\u044b"
+          },
+          "en": "Will + subject + V1? To ask for an opinion: Do you think + subject + will + V1?",
+          "ru": "Will + \u043f\u043e\u0434\u043b\u0435\u0436\u0430\u0449\u0435\u0435 + V1? \u0412\u043e\u043f\u0440\u043e\u0441 \u043e \u043c\u043d\u0435\u043d\u0438\u0438: Do you think + \u043f\u043e\u0434\u043b\u0435\u0436\u0430\u0449\u0435\u0435 + will + V1?"
+        },
+        {
+          "title": {
+            "en": "may / might / could",
+            "ru": "may / might / could"
+          },
+          "en": "Possible but not sure. may well / might well / could well sound more likely. For a possible no, use may not / might not, not couldn't.",
+          "ru": "\u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u043d\u043e \u043d\u0435 \u0442\u043e\u0447\u043d\u043e. may well / might well / could well \u0437\u0432\u0443\u0447\u0430\u0442 \u0432\u0435\u0440\u043e\u044f\u0442\u043d\u0435\u0435. \u0414\u043b\u044f \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0433\u043e \u00ab\u043d\u0435\u0442\u00bb \u2014 may not / might not, \u043d\u0435 couldn't."
+        }
+      ],
+      "signals": [
+        "I think",
+        "I don't think",
+        "I'm sure",
+        "I doubt",
+        "probably",
+        "definitely",
+        "certainly",
+        "perhaps",
+        "maybe",
+        "likely",
+        "unlikely",
+        "bound to",
+        "look",
+        "those clouds",
+        "tomorrow",
+        "later"
+      ],
+      "mistakes": {
+        "en": "Keep one modal: it might rain, not it will might rain. No -s or to after will / may / might / could. Will it rain?, not Does it will rain? Keep be: it is going to rain; it is likely to rain. Maybe is one word. may be is modal + verb. In short negatives put probably / definitely before won't.",
+        "ru": "\u041e\u0434\u0438\u043d \u043c\u043e\u0434\u0430\u043b\u044c\u043d\u044b\u0439: it might rain, \u043d\u0435 it will might rain. \u041f\u043e\u0441\u043b\u0435 will / may / might / could \u043d\u0435\u0442 -s \u0438 \u043d\u0435\u0442 to. Will it rain?, \u043d\u0435 Does it will rain? be \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u0435\u043d: it is going to rain; it is likely to rain. Maybe \u2014 \u043e\u0434\u043d\u043e \u0441\u043b\u043e\u0432\u043e. may be \u2014 \u043c\u043e\u0434\u0430\u043b\u044c\u043d\u044b\u0439 + \u0433\u043b\u0430\u0433\u043e\u043b. \u0412 \u043a\u043e\u0440\u043e\u0442\u043a\u043e\u043c \u043e\u0442\u0440\u0438\u0446\u0430\u043d\u0438\u0438 probably / definitely \u0441\u0442\u043e\u044f\u0442 \u043f\u0435\u0440\u0435\u0434 won't."
+      },
+      "differs": {
+        "en": "will often presents a belief. be going to often points to evidence now. Neither form has a fixed percent. may, might and could all leave the future open. A plan is usually be going to or Present Continuous. An arrangement is Present Continuous. A timetable is Present Simple.",
+        "ru": "will \u0447\u0430\u0441\u0442\u043e \u043f\u043e\u0434\u0430\u0435\u0442 \u043c\u043d\u0435\u043d\u0438\u0435. be going to \u0447\u0430\u0449\u0435 \u0432\u0435\u0434\u0435\u0442 \u043a \u043f\u0440\u0438\u0437\u043d\u0430\u043a\u0443 \u0441\u0435\u0439\u0447\u0430\u0441. \u0424\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u043e\u0433\u043e \u043f\u0440\u043e\u0446\u0435\u043d\u0442\u0430 \u043d\u0435\u0442. may, might \u0438 could \u043e\u0441\u0442\u0430\u0432\u043b\u044f\u044e\u0442 \u0431\u0443\u0434\u0443\u0449\u0435\u0435 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u043c. \u041f\u043b\u0430\u043d \u043e\u0431\u044b\u0447\u043d\u043e be going to \u0438\u043b\u0438 Present Continuous. \u0414\u043e\u0433\u043e\u0432\u043e\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c \u2014 Present Continuous. \u0420\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u2014 Present Simple."
+      },
+      "examples": [
+        {
+          "en": "I think electric buses will become more common in this city.",
+          "ru": "\u042f \u0434\u0443\u043c\u0430\u044e, \u044d\u043b\u0435\u043a\u0442\u0440\u043e\u0431\u0443\u0441\u044b \u0432 \u044d\u0442\u043e\u043c \u0433\u043e\u0440\u043e\u0434\u0435 \u0441\u0442\u0430\u043d\u0443\u0442 \u043e\u0431\u044b\u0447\u043d\u0435\u0435."
+        },
+        {
+          "en": "I don't think this shop will close early today.",
+          "ru": "\u041d\u0435 \u0434\u0443\u043c\u0430\u044e, \u0447\u0442\u043e \u044d\u0442\u043e\u0442 \u043c\u0430\u0433\u0430\u0437\u0438\u043d \u0441\u0435\u0433\u043e\u0434\u043d\u044f \u0437\u0430\u043a\u0440\u043e\u0435\u0442\u0441\u044f \u0440\u0430\u043d\u043e."
+        },
+        {
+          "en": "The station will definitely be crowded tomorrow morning.",
+          "ru": "\u0417\u0430\u0432\u0442\u0440\u0430 \u0443\u0442\u0440\u043e\u043c \u043d\u0430 \u0441\u0442\u0430\u043d\u0446\u0438\u0438 \u0442\u043e\u0447\u043d\u043e \u0431\u0443\u0434\u0435\u0442 \u0442\u0435\u0441\u043d\u043e."
+        },
+        {
+          "en": "It definitely won't be quiet during the festival.",
+          "ru": "\u0412\u043e \u0432\u0440\u0435\u043c\u044f \u0444\u0435\u0441\u0442\u0438\u0432\u0430\u043b\u044f \u0442\u043e\u0447\u043d\u043e \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u0442\u0438\u0445\u043e."
+        },
+        {
+          "en": "Our teacher will probably give us a short quiz.",
+          "ru": "\u0423\u0447\u0438\u0442\u0435\u043b\u044c, \u0432\u0435\u0440\u043e\u044f\u0442\u043d\u043e, \u0434\u0430\u0441\u0442 \u043d\u0430\u043c \u043a\u043e\u0440\u043e\u0442\u043a\u0438\u0439 \u0442\u0435\u0441\u0442."
+        },
+        {
+          "en": "The quiz probably won't take more than ten minutes.",
+          "ru": "\u0422\u0435\u0441\u0442, \u0432\u0435\u0440\u043e\u044f\u0442\u043d\u043e, \u043d\u0435 \u0437\u0430\u0439\u043c\u0435\u0442 \u0431\u043e\u043b\u044c\u0448\u0435 \u0434\u0435\u0441\u044f\u0442\u0438 \u043c\u0438\u043d\u0443\u0442."
+        },
+        {
+          "en": "Maybe the next lesson will be shorter.",
+          "ru": "\u041c\u043e\u0436\u0435\u0442, \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0443\u0440\u043e\u043a \u0431\u0443\u0434\u0435\u0442 \u043a\u043e\u0440\u043e\u0447\u0435."
+        },
+        {
+          "en": "We may have a lesson outside if the weather stays warm.",
+          "ru": "\u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u0443\u0440\u043e\u043a \u0431\u0443\u0434\u0435\u0442 \u043d\u0430 \u0443\u043b\u0438\u0446\u0435, \u0435\u0441\u043b\u0438 \u043f\u043e\u0433\u043e\u0434\u0430 \u043e\u0441\u0442\u0430\u043d\u0435\u0442\u0441\u044f \u0442\u0435\u043f\u043b\u043e\u0439."
+        },
+        {
+          "en": "Some students might not arrive on time because of the traffic.",
+          "ru": "\u041d\u0435\u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0441\u0442\u0443\u0434\u0435\u043d\u0442\u044b \u043c\u043e\u0433\u0443\u0442 \u043d\u0435 \u0443\u0441\u043f\u0435\u0442\u044c \u0438\u0437-\u0437\u0430 \u043f\u0440\u043e\u0431\u043e\u043a."
+        },
+        {
+          "en": "The new timetable could make the journey faster.",
+          "ru": "\u041d\u043e\u0432\u043e\u0435 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043c\u043e\u0433\u043b\u043e \u0431\u044b \u0441\u0434\u0435\u043b\u0430\u0442\u044c \u0434\u043e\u0440\u043e\u0433\u0443 \u0431\u044b\u0441\u0442\u0440\u0435\u0435."
+        },
+        {
+          "en": "I'm sure the next bus will stop here.",
+          "ru": "\u042f \u0443\u0432\u0435\u0440\u0435\u043d, \u0447\u0442\u043e \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0430\u0432\u0442\u043e\u0431\u0443\u0441 \u0437\u0434\u0435\u0441\u044c \u043e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u0441\u044f."
+        },
+        {
+          "en": "I doubt they will find an empty table at eight.",
+          "ru": "\u0421\u043e\u043c\u043d\u0435\u0432\u0430\u044e\u0441\u044c, \u0447\u0442\u043e \u0432 \u0432\u043e\u0441\u0435\u043c\u044c \u043e\u043d\u0438 \u043d\u0430\u0439\u0434\u0443\u0442 \u043f\u0443\u0441\u0442\u043e\u0439 \u0441\u0442\u043e\u043b\u0438\u043a."
+        },
+        {
+          "en": "It may well be cold on the platform, so take a coat.",
+          "ru": "\u041d\u0430 \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u0435 \u0432\u043f\u043e\u043b\u043d\u0435 \u043c\u043e\u0436\u0435\u0442 \u0431\u044b\u0442\u044c \u0445\u043e\u043b\u043e\u0434\u043d\u043e, \u0442\u0430\u043a \u0447\u0442\u043e \u0432\u043e\u0437\u044c\u043c\u0438 \u043f\u0430\u043b\u044c\u0442\u043e."
+        }
+      ],
+      "related": [
+        "will",
+        "going",
+        "may",
+        "might",
+        "could",
+        "belikely",
+        "pcfut",
+        "psfut"
+      ],
+      "links": [
+        [
+          "Cambridge: will",
+          "https://dictionary.cambridge.org/grammar/british-grammar/will"
+        ],
+        [
+          "Cambridge: be going to",
+          "https://dictionary.cambridge.org/grammar/british-grammar/future-going-to"
+        ],
+        [
+          "Cambridge: could, may and might",
+          "https://dictionary.cambridge.org/grammar/british-grammar/could-may-and-might"
+        ],
+        [
+          "Cambridge: maybe or may be",
+          "https://dictionary.cambridge.org/grammar/british-grammar/maybe-or-may-be"
+        ],
+        [
+          "Cambridge: likely and unlikely",
+          "https://dictionary.cambridge.org/grammar/british-grammar/likely-or-unlikely"
+        ],
+        [
+          "Oxford: prediction",
+          "https://www.oxfordlearnersdictionaries.com/definition/english/prediction"
+        ],
+        [
+          "Oxford: will",
+          "https://www.oxfordlearnersdictionaries.com/definition/english/will_3"
+        ],
+        [
+          "Oxford: going to",
+          "https://www.oxfordlearnersdictionaries.com/definition/english/going-to"
+        ],
+        [
+          "British Council: degrees of certainty",
+          "https://learnenglish.britishcouncil.org/grammar/b1-b2-grammar/the-future-degrees-of-certainty"
+        ]
+      ]
     },
     "pcfut": {
       "id": "pcfut",

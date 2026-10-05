@@ -347,6 +347,34 @@
       const html = foldedLinkHtml(links);
       return html ? '<p class="src">' + html + "</p>" : "";
     }
+    function topicPair(value, tag) {
+      const name = tag || "p";
+      if (!value) return "";
+      if (typeof value === "string") return "<" + name + ">" + esc(value) + "</" + name + ">";
+      return "<" + name + ' class="ru">' + esc(value.ru || "") + "</" + name + "><" + name + ' class="en">' + esc(value.en || "") + "</" + name + ">";
+    }
+    function topicTable(table) {
+      if (!table || !table.rows || !table.rows.length) return "";
+      const headers = table.headers || {};
+      const headEn = Array.isArray(headers) ? headers : (headers.en || []);
+      const headRu = Array.isArray(headers) ? headers : (headers.ru || headEn);
+      const cells = (row, lang) => (Array.isArray(row) ? row : (row[lang] || row.en || [])).map((cell) => "<td>" + esc(cell) + "</td>").join("");
+      let html = '<table class="g-form g-table">';
+      if (headEn.length) html += '<thead class="en"><tr>' + headEn.map((cell) => "<th>" + esc(cell) + "</th>").join("") + "</tr></thead>";
+      if (headRu.length) html += '<thead class="ru"><tr>' + headRu.map((cell) => "<th>" + esc(cell) + "</th>").join("") + "</tr></thead>";
+      html += "<tbody>" + table.rows.map((row) => '<tr class="en">' + cells(row, "en") + '</tr><tr class="ru">' + cells(row, "ru") + "</tr>").join("") + "</tbody></table>";
+      return html;
+    }
+    function topicSections(sections) {
+      return (sections || []).map((section) => {
+        let html = '<section class="g-section">';
+        html += topicPair(section.title, "h3");
+        html += topicPair(section.body, "p");
+        html += topicTable(section.table);
+        if (section.examples && section.examples.length) html += exampleBlock(section.examples);
+        return html + "</section>";
+      }).join("");
+    }
     function topicById(id) {
       return (window.GRAMMAR && window.GRAMMAR.topics && window.GRAMMAR.topics[id]) || null;
     }
@@ -511,7 +539,7 @@
     function exampleBlock(items) {
       const rows = (items || []).filter((item) => item && item.en);
       if (!rows.length) return '<p class="hint bad">No sourced example is stored for this topic.</p>';
-      return rows.slice(0, 5).map((item) => {
+      return rows.map((item) => {
         const links = [];
         if (item.url) links.push([item.source || "Source", item.url]);
         (item.more || []).forEach((pair) => links.push(pair));
@@ -519,6 +547,55 @@
           (item.ru ? '<br><span class="hint">Translation: ' + esc(item.ru) + "</span>" : '<br><span class="hint">This source line has no Russian gloss.</span>') +
           (links.length ? sourceList(links) : '<p class="src">' + esc(item.source || "") + "</p>") + "</div>";
       }).join("");
+    }
+    function topicArticleHtml(id, topic, legacy) {
+      const form = (topic && topic.form) || (legacy && legacy.form) || "";
+      let html = '<p class="g-badge">' + esc((topic && topic.kind) || "Grammar") + "</p>";
+      html += '<p class="q">' + esc(form) + "</p>";
+      if (topic && topic.formula) html += '<p class="formula">' + esc(topic.formula) + "</p>";
+      if (topic && topic.affirmative) {
+        html += '<table class="g-form"><tr><th>Affirmative</th><th>Negative</th><th>Question</th></tr><tr><td>' +
+          esc(topic.affirmative) + "</td><td>" + esc(topic.negative || "") + "</td><td>" + esc(topic.question || "") + "</td></tr></table>";
+      }
+      if (topic && topic.note) {
+        if (typeof topic.note === "object") html += '<p class="sub ru">' + esc(topic.note.ru || "") + '</p><p class="sub en">' + esc(topic.note.en || "") + "</p>";
+        else html += '<p class="sub">' + esc(topic.note) + "</p>";
+      }
+      const usage = (topic && topic.usage) || null;
+      if (usage) html += '<p class="ru">' + esc(usage.ru) + '</p><p class="en">' + esc(usage.en) + "</p>";
+      else if (legacy) html += '<p class="ru">' + legacy.ru + '</p><p class="en">' + legacy.en + "</p>";
+      if (topic && topic.sections && topic.sections.length) html += topicSections(topic.sections);
+      if (topic && topic.cases && topic.cases.length) {
+        html += '<p class="label">Main uses</p><ul>' + topic.cases.map((line) => {
+          if (line && typeof line === "object") {
+            return "<li>" + topicPair(line.title, "b") + '<span class="ru">' + esc(line.ru || "") + '</span><span class="en">' + esc(line.en || "") + "</span></li>";
+          }
+          return "<li>" + esc(line) + "</li>";
+        }).join("") + "</ul>";
+      }
+      if (topic && topic.signals && topic.signals.length) {
+        html += '<p class="label">Signal words</p><div class="chips">' + topic.signals.map((word) => "<span>" + esc(word) + "</span>").join("") + "</div>";
+      }
+      html += '<p class="label">Examples</p>' + exampleBlock(topic && topic.examples);
+      if (topic && topic.mistakes) {
+        html += '<details class="g-fold"><summary>Common mistakes</summary><p class="ru">' + esc(topic.mistakes.ru || "") + '</p><p class="en">' + esc(topic.mistakes.en || "") + "</p></details>";
+      }
+      if (topic && topic.differs) {
+        html += '<details class="g-fold" open><summary>How it differs</summary><p class="ru">' + esc(topic.differs.ru || "") + '</p><p class="en">' + esc(topic.differs.en || "") + "</p></details>";
+      }
+      html += '<p class="label">Sources</p>' + sourceList(topicLinks(id, topic));
+      return html;
+    }
+    function compareArticleHtml(item) {
+      let html = '<p class="g-badge">Comparison</p><p class="q">' + esc(item.title) + "</p>";
+      if (item.note) html += '<p class="ru">' + esc(item.note.ru || "") + '</p><p class="en">' + esc(item.note.en || "") + "</p>";
+      html += '<table class="g-table"><tr>' + (item.heads || []).map((head) => "<th>" + esc(head) + "</th>").join("") + "</tr>";
+      (item.rows || []).forEach((row) => {
+        html += "<tr>" + row.map((cell) => "<td>" + esc(cell) + "</td>").join("") + "</tr>";
+      });
+      html += "</table>";
+      html += '<p class="label">Sources</p>' + sourceList(item.links || []);
+      return html;
     }
     function openTopic(id, quiet) {
       const topic = topicById(id);
@@ -532,43 +609,18 @@
       tenseKind = "topic";
       openTenseId = id;
       const name = (topic && topic.name) || legacy.name;
-      const form = (topic && topic.form) || legacy.form;
       const tone = (topic && topic.tone) || "present";
       document.getElementById("tenseTitle").textContent = name;
       document.getElementById("tense").dataset.lang = "en";
       document.getElementById("tense").className = "on tone-" + tone;
       document.querySelectorAll("#tenseLang .chip").forEach((b) => b.classList.toggle("on", b.dataset.tenseLang === "en"));
-      let html = '<p class="g-badge">' + esc((topic && topic.kind) || "Grammar") + "</p>";
-      html += '<p class="q">' + esc(form) + "</p>";
-      if (topic && topic.formula) html += '<p class="formula">' + esc(topic.formula) + "</p>";
-      if (topic && topic.affirmative) {
-        html += '<table class="g-form"><tr><th>Affirmative</th><th>Negative</th><th>Question</th></tr><tr><td>' +
-          esc(topic.affirmative) + "</td><td>" + esc(topic.negative || "") + "</td><td>" + esc(topic.question || "") + "</td></tr></table>";
-      }
-      if (topic && topic.note) html += '<p class="sub">' + esc(topic.note) + "</p>";
-      const usage = (topic && topic.usage) || null;
-      if (usage) html += '<p class="ru">' + esc(usage.ru) + '</p><p class="en">' + esc(usage.en) + "</p>";
-      else if (legacy) html += '<p class="ru">' + legacy.ru + '</p><p class="en">' + legacy.en + "</p>";
-      if (topic && topic.cases && topic.cases.length) {
-        html += '<p class="label">Main uses</p><ul>' + topic.cases.map((line) => "<li>" + esc(line) + "</li>").join("") + "</ul>";
-      }
-      if (topic && topic.signals && topic.signals.length) {
-        html += '<p class="label">Signal words</p><div class="chips">' + topic.signals.map((word) => "<span>" + esc(word) + "</span>").join("") + "</div>";
-      }
-      html += '<p class="label">Examples</p>' + exampleBlock(topic && topic.examples);
-      if (topic && topic.mistakes) {
-        html += '<details class="g-fold"><summary>Common mistakes</summary><p class="ru">' + esc(topic.mistakes.ru || "") + '</p><p class="en">' + esc(topic.mistakes.en || "") + "</p></details>";
-      }
-      if (topic && topic.differs) {
-        html += '<details class="g-fold" open><summary>How it differs</summary><p class="ru">' + esc(topic.differs.ru || "") + '</p><p class="en">' + esc(topic.differs.en || "") + "</p></details>";
-      }
+      let html = topicArticleHtml(id, topic, legacy);
       if (topic && topic.related && topic.related.length) {
         html += '<p class="label">Related</p>' + topic.related.map((rel) => {
           const other = topicById(rel) || tenses[rel];
           return other ? '<button class="g-topic tone-' + ((topicById(rel) || {}).tone || tone) + '" type="button" data-topic="' + rel + '"><b>' + esc(other.name) + '</b><span class="form">open</span></button>' : "";
         }).join("");
       }
-      html += '<p class="label">Sources</p>' + sourceList(topicLinks(id, topic));
       html += '<div class="row" style="margin-top:12px"><button class="btn primary" type="button" data-jump="gap">This form\'s quiz</button><button class="btn" type="button" data-jump="errors">Mistakes</button></div>';
       if (legacy || tenseBank[id]) html += tenseExtras(id);
       document.getElementById("tenseView").innerHTML = html;
@@ -595,15 +647,7 @@
       compareId = id;
       document.getElementById("tenseTitle").textContent = item.title;
       document.getElementById("tense").className = "on tone-" + (item.tone || "advanced");
-      let html = '<p class="g-badge">Comparison</p><p class="q">' + esc(item.title) + "</p>";
-      if (item.note) html += '<p class="ru">' + esc(item.note.ru || "") + '</p><p class="en">' + esc(item.note.en || "") + "</p>";
-      html += '<table class="g-table"><tr>' + (item.heads || []).map((head) => "<th>" + esc(head) + "</th>").join("") + "</tr>";
-      (item.rows || []).forEach((row) => {
-        html += "<tr>" + row.map((cell) => "<td>" + esc(cell) + "</td>").join("") + "</tr>";
-      });
-      html += "</table>";
-      html += '<p class="label">Sources</p>' + sourceList(item.links || []);
-      document.getElementById("tenseView").innerHTML = html;
+      document.getElementById("tenseView").innerHTML = compareArticleHtml(item);
       show("tense");
     }
     document.getElementById("tenseLang").addEventListener("click", (e) => {
@@ -1155,7 +1199,11 @@
       document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
       const themeOpen = document.getElementById("customThemeOpen");
       if (themeOpen) themeOpen.hidden = !canEditLessons();
-      applyTheme(currentTheme(), { persist: themeCanShow(currentTheme()) });
+      const shown = document.documentElement.getAttribute("data-theme");
+      const name = shown === "user" ? currentTheme() : (shown || "auto");
+      document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
+        btn.setAttribute("aria-pressed", btn.dataset.th === name ? "true" : "false");
+      });
     }
     let editingThemeId = "";
     let themeBeforeEdit = "";
@@ -9408,8 +9456,6 @@
     }
     function canOpenPages(user) {
       if (!user || !user.id || !authUser) return false;
-      // Pair study accounts are shared only between Tsovak / TsovakDev — not via "Open pages".
-      if (user.login === "Tsovak" || user.login === "TsovakDev") return false;
       if (sessionIsDeveloper()) return user.role === "USER" || user.role === "ADMIN";
       return authUser.role === "ADMIN" && user.role === "USER";
     }
@@ -10930,6 +10976,35 @@
       if (!bits.length) return "";
       return '<p class="lm-read-meta">' + bits.map((pair) => '<span><b>' + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1])) + "</span>").join("") + "</p>";
     }
+    function lmBlockCounts(material) {
+      const blocks = material && Array.isArray(material.blocks) ? material.blocks : [];
+      if (blocks.length) {
+        let words = 0, phrases = 0, rules = 0;
+        for (const block of blocks) {
+          if (block.type === "wordcard" || block.type === "word") {
+            if ((block.tab || "") === "phrases") phrases += 1;
+            else if ((block.tab || "") === "words") words += 1;
+          } else if (block.type === "phrase") phrases += 1;
+          else if (block.type === "rule") rules += 1;
+        }
+        return { words, phrases, rules };
+      }
+      return {
+        words: Number(material && material.wordCount) || 0,
+        phrases: Number(material && material.phraseCount) || 0,
+        rules: Number(material && material.ruleCount) || 0
+      };
+    }
+    function lmIsNewestLesson(material, n) {
+      if (!material) return false;
+      lmEnsure();
+      return lmLibrary.materials.filter((row) => lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
+        if (!a.date && !b.date) return 0;
+        if (!a.date) return -1;
+        if (!b.date) return 1;
+        return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+      }).slice(0, n).some((row) => row.id === material.id);
+    }
     function lmLongDate(iso) {
       if (!iso) return "";
       const date = new Date(iso + "T12:00:00");
@@ -11563,8 +11638,9 @@
       box.innerHTML = blocks.length ? blocks.map((block) => {
         const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, label) + '<div class="lm-body">' + lmBody(block) + "</div></article>";
-      }).join("") : '<p class="hint">Nothing on this page yet.</p>';
+      }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
       dressWords(box);
+      lmPaintChrome();
       lmPaintTabTools();
     }
     function lmPreviewFile(block, label, action, attr) {
@@ -11708,7 +11784,8 @@
     }
     function lmChromeHtml() {
       const tab = lmTab();
-      const tabs = [["overview", "Overview"], ["words", "Words"], ["phrases", "Phrases"], ["rules", "Rules"]];
+      const counts = lmIsNewestLesson(lmState, 3) ? lmBlockCounts(lmState) : null;
+      const tabs = [["overview", "Overview"], ["words", counts ? "Words · " + counts.words : "Words"], ["phrases", counts ? "Phrases · " + counts.phrases : "Phrases"], ["rules", counts ? "Rules · " + counts.rules : "Rules"]];
       const tools = [["quiz", "Day quiz", false], ["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map((pair) => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>").join("");
       const toolBtns = tools.map((pair) => {
@@ -11798,12 +11875,12 @@
           const have = lmState.blocks.some((block) => block.type === "rule" && block.compare && block.topic === item.id);
           return '<button class="g-topic tone-' + esc(item.tone || "advanced") + '" type="button" data-lm-rule="' + esc(item.id) + '" data-lm-compare="1"' + (have ? " disabled" : "") + "><b>" + esc(item.title) + '</b><span class="form">compare</span></button>';
         }).join("");
-        box.innerHTML = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="g-head">Often confused</p>' + rows;
+        box.innerHTML = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="g-head">Often confused</p><p class="hint">Click a pair to add it to this lesson.</p>' + rows;
         return;
       }
       const area = areaById(lmGrammarArea);
       if (!area) { lmGrammarArea = ""; lmPaintGrammar(); return; }
-      let html = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="label">' + esc(area.title) + "</p>";
+      let html = '<button class="lm-btn lm-grammar-back" type="button" data-lm-area="">← Grammar</button><p class="label">' + esc(area.title) + '</p><p class="hint">Click a topic to add it to this lesson.</p>';
       (area.groups || []).forEach((group) => {
         html += '<p class="g-head tone-' + esc(group.tone || area.tone || "advanced") + '">' + esc(group.title) + "</p>";
         html += (group.items || []).map((itemId) => {
@@ -12070,7 +12147,7 @@
     }
     function lmLessonHidden(material) {
       if (!material) return false;
-      if (viewAccount) {
+      if (viewAccount || (authUser && authUser.role === "USER")) {
         if (material.hiddenFromStudents) return !lmAllowedForStudent(material.id);
         return lmHiddenForStudent(material.id);
       }
@@ -12078,7 +12155,8 @@
     }
     function lmLessonVisibleToViewer(material) {
       if (!material) return false;
-      if (canEditLessons()) return true;
+      if (!viewAccount && authUser && authUser.login === "TsovakDev") return true;
+      if (canEditLessons() || (canTuneStudentLessons() && material.published)) return true;
       if (!material.published) return false;
       if (material.hiddenFromStudents && !lmAllowedForStudent(material.id)) return false;
       if (lmHiddenForStudent(material.id)) return false;
@@ -12353,12 +12431,18 @@
         if (rulePick && lmState) {
           const topicId = rulePick.getAttribute("data-lm-rule");
           const compare = rulePick.getAttribute("data-lm-compare") === "1";
-          if (lmState.blocks.some((block) => block.type === "rule" && !!block.compare === compare && block.topic === topicId)) return;
+          if (!Array.isArray(lmState.blocks)) lmState.blocks = [];
+          if (lmState.blocks.some((block) => block.type === "rule" && !!block.compare === compare && block.topic === topicId && (compare || (block.tab || "rules") === "rules"))) {
+            lmNote("This rule is already on this page.");
+            return;
+          }
           const topic = compare ? null : topicById(topicId);
           const named = compare ? (((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === topicId)[0] || {}).title : (topic && topic.name);
-          lmState.blocks.push({ id: lmId(), type: "rule", tab: "rules", collapsed: false, topic: topicId, compare: compare, name: named || "Rule" });
+          lmInsertBlockFront({ id: lmId(), type: "rule", tab: "rules", collapsed: false, topic: topicId, compare: compare, name: named || "Rule" });
+          lmKeepLesson();
+          lmState.ruleCount = (lmState.blocks || []).filter((block) => block.type === "rule").length;
           lmRenderEditor();
-          lmSchedule();
+          lmNote("Rule added. Click Save draft or Publish.");
           return;
         }
         if (event.target.closest("#lmWordGo")) { lmLookupWord(); return; }
@@ -12422,7 +12506,14 @@
         const down = event.target.closest("[data-lm-down]");
         if (down) { lmMoveTabBlock(down.dataset.lmDown, 1); lmRenderEditor(); lmSchedule(); return; }
         const del = event.target.closest("[data-lm-del]");
-        if (del) { lmState.blocks = lmState.blocks.filter((row) => row.id !== del.dataset.lmDel); lmRenderEditor(); lmSchedule(); return; }
+        if (del) {
+          const id = del.dataset.lmDel;
+          lmState.blocks = lmState.blocks.filter((row) => row.id !== id);
+          if (Array.isArray(lmState.stageBlockOrder)) lmState.stageBlockOrder = lmState.stageBlockOrder.filter((row) => row !== id);
+          lmRenderEditor();
+          lmSchedule();
+          return;
+        }
         const cardAdd = event.target.closest("[data-card-add]");
         if (cardAdd) { const block = lmBlock(cardAdd.dataset.cardAdd); if (block) block.items.push({ front: "", back: "", example: "" }); lmRenderEditor(); lmSchedule(); return; }
         const cardDel = event.target.closest("[data-card-del]");

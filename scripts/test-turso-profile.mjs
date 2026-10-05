@@ -32,6 +32,27 @@ test('Retained shared/former-pair profile is not replaced, split or duplicated',
     assert.equal(f.sqlite.prepare('SELECT kind FROM study_profiles').get().kind,'shared');
   }finally{f.sqlite.close();}
 });
+test('Restored pair student joins the retained twin profile and does not mint a second one',async()=>{
+  const f=fixture(),student={id:'b'.repeat(32),role:'USER',revoked:false};try{
+    f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(actor.id);
+    f.sqlite.exec("INSERT INTO study_profiles(id,kind) VALUES('retained_pair','shared');");
+    f.sqlite.prepare("INSERT INTO profile_members(account_id,profile_id) VALUES(?,'retained_pair')").run(actor.id);
+    assert.equal(await ensureStudyProfile(f.db,student,actor.id),'retained_pair');
+    assert.equal(await ensureStudyProfile(f.db,student,'c'.repeat(32)),'retained_pair');
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM profile_members').get().n,2);
+    assert.deepEqual(f.sqlite.prepare('SELECT account_id FROM profile_members ORDER BY account_id').all().map(row=>row.account_id),[actor.id,student.id]);
+  }finally{f.sqlite.close();}
+});
+test('Pair join is skipped when the twin has no profile, then isolation stays intact',async()=>{
+  const f=fixture(),student={id:'b'.repeat(32),role:'USER',revoked:false};try{
+    const own=await ensureStudyProfile(f.db,student,actor.id);
+    assert.match(own,/^profile_[a-f0-9]{64}$/);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
+    const other=await ensureStudyProfile(f.db,actor);assert.notEqual(other,own);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,2);
+  }finally{f.sqlite.close();}
+});
 test('Missing/revoked/invalid identity or role creates no educational rows and never registers a D1 user',async()=>{
   const f=fixture();try{
     for(const value of [null,{...actor,id:'client supplied'},{...actor,revoked:true},{...actor,role:'FAKE'}])await assert.rejects(ensureStudyProfile(f.db,value),e=>e.status===401);

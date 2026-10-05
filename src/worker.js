@@ -654,7 +654,7 @@ async function songFile(request, env) {
     if (row.role !== "USER" && row.role !== "ADMIN") return json({ error: "No such account." }, 404);
     // Teachers get song-redacted managed state; song-file?for= stays developer-only.
     if (user.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
-    if (studyTwinLogin(row.login) && !studyTwinLogin(user.login)) {
+    if (pairManageDenied(user, row.login, "study")) {
       return json({ error: "You cannot do that." }, 403);
     }
     ownerId = row.id;
@@ -1741,11 +1741,6 @@ async function register(env, request, body, secure) {
     if (env.MEDIA) await noteLoginFailure(env, ip);
     return json({ error: fields.error }, 400);
   }
-  const pairBlock = reservedPairLogin(fields.login, "");
-  if (pairBlock) {
-    if (env.MEDIA) await noteLoginFailure(env, ip);
-    return json({ error: pairBlock }, 403);
-  }
   const conflict = await activeConflict(db, fields.login, fields.email);
   if (conflict) {
     if (env.MEDIA) await noteLoginFailure(env, ip);
@@ -1965,6 +1960,22 @@ export function studyTwinLogin(login) {
   if (login === "TsovakDev") return "Tsovak";
   if (login === "Tsovak") return "TsovakDev";
   return "";
+}
+
+export function pairManageDenied(actor, targetLogin, mode) {
+  if (!studyTwinLogin(targetLogin)) return false;
+  if (studyTwinLogin(actor && actor.login)) return false;
+  if (targetLogin === "Tsovak" && actor && (actor.role === "ADMIN" || actor.role === "DEVELOPER") && (mode === "read" || mode === "restrict")) return false;
+  return true;
+}
+
+export async function twinStudyAccountId(db, login) {
+  const twin = studyTwinLogin(login);
+  if (!twin || !db || !db.prepare) return "";
+  const row = await db.prepare(
+    "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND active = 1 AND login = ?"
+  ).bind(twin).first();
+  return row && row.id ? row.id : "";
 }
 
 function reservedPairLogin(login, currentLogin) {
@@ -3492,7 +3503,7 @@ function stateForViewer(state, songs) {
 async function readManagedState(env, actor, userId, ctx) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
-  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+  if (pairManageDenied(actor, found.row.login, "read")) {
     return json({ error: "You cannot do that." }, 403);
   }
   if (!(await readAccountFile(env, userId))) {
@@ -3515,7 +3526,7 @@ async function readManagedState(env, actor, userId, ctx) {
 async function readManagedTexts(env, actor, userId) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
-  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+  if (pairManageDenied(actor, found.row.login, "read")) {
     return json({ error: "You cannot do that." }, 403);
   }
   return json({ texts: await textsForLogin(env, found.row.login, userId) });
@@ -3525,7 +3536,7 @@ async function writeManagedTexts(env, actor, userId, body) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
   if (pairViewOnly(actor)) return json({ error: "You cannot do that." }, 403);
-  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) return json({ error: "You cannot do that." }, 403);
+  if (pairManageDenied(actor, found.row.login, "study")) return json({ error: "You cannot do that." }, 403);
   return saveTextsFor(env, found.row.login, userId, body);
 }
 
@@ -3533,7 +3544,8 @@ async function writeManagedState(env, actor, userId, body, ctx) {
   const found = await managedAccount(env, actor, userId);
   if (found.error) return found.error;
   if (pairViewOnly(actor) && pairBlockedOp(body)) return json({ error: "You cannot do that." }, 403);
-  if (studyTwinLogin(found.row.login) && !studyTwinLogin(actor.login)) {
+  const restrict = body && body.op === "put-setting" && (body.key === "allowedLessons" || body.key === "hiddenLessons");
+  if (pairManageDenied(actor, found.row.login, restrict ? "restrict" : "study")) {
     return json({ error: "You cannot do that." }, 403);
   }
   if (!found.songs) {
@@ -3724,8 +3736,6 @@ async function decide(env, actor, regId, action) {
     "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND email = ?"
   ).bind(reg.email).first();
   if (taken) return json({ error: "That email is already in use." }, 409);
-  const pairBlock = reservedPairLogin(reg.login, "");
-  if (pairBlock) return json({ error: pairBlock }, 403);
   const userId = randomId();
   // Approvals always create students. Promoting to teacher is a separate developer action.
   const role = "USER";

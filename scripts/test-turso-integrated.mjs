@@ -130,6 +130,20 @@ test('Managed access writes require source authorization, Origin and stage write
   assert.equal((await call({...body,profileId:'injected'})).status,400);
   allowed=false;assert.equal((await call(body)).status,403);assert.equal(commands.length,count);
 });
+test('Teachers may restrict Tsovak lessons, not pair study writes or TsovakDev',async()=>{
+  const target='b'.repeat(32),commands=[],env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
+  const body={mutationId:'synthetic-operation',expected:{allowHidden:false,personalHidden:false},changes:{allowHidden:true,personalHidden:false}};
+  const access=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
+    authorizeManaged:async()=>({row:{id:target,role:'USER',login:'Tsovak'}}),
+    studyDatabase:()=>({read:async sql=>sql.includes('operation_receipts')?[]:[{allow_hidden:0,personal_hidden:0}],atomic:async values=>commands.push(...values)})});
+  assert.equal((await access.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/lesson/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,200);
+  const blocked=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
+    authorizeManaged:async()=>({row:{id:target,role:'USER',login:'Tsovak'},songs:true}),studyDatabase:()=>{throw new Error('pair study');}});
+  assert.equal((await blocked.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/texts',{method:'POST',headers:{Origin:'https://test.invalid'},body:'{}'}),env)).status,403);
+  const dev=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
+    authorizeManaged:async()=>({row:{id:target,role:'DEVELOPER',login:'TsovakDev'}}),studyDatabase:()=>{throw new Error('dev pair');}});
+  assert.equal((await dev.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/lesson/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,403);
+});
 test('Managed study reads reuse source authorization and read only the target Turso profile',async()=>{
   const targetId='b'.repeat(32),reads=[];let actor={id,role:'ADMIN'},allowed=true;
   const worker=integratedWorker({authenticate:async()=>actor,authorizeManaged:async(env,user,target)=>{

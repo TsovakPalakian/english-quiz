@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Turso.
-import accounts,{currentUser,managedAccount,studyTwinLogin} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied} from './worker.js';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './turso-stage-worker.mjs';
 import {StudyError,StudyService} from './turso-study.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
@@ -107,7 +107,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedLink[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>(managedLink[2]?64000:4096))throw new StudyError(413,'Card request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!found.songs&&body.place==='music')throw new StudyError(403,'Teacher cannot manage student songs.');
@@ -119,7 +119,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedCard[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>12000)throw new StudyError(413,'Card request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(method==='DELETE'){
@@ -133,7 +133,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedText[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const kind=managedText[2]==='texts'?'text':'song';
         if(kind==='song'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song management only.');
         const raw=await request.text();if(raw.length>64000)throw new StudyError(413,'Text request too large.');
@@ -146,7 +146,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedAccess[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'restrict'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>4096)throw new StudyError(413,'Access request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         return json(await new StudyService(studyDatabase(env)).setLessonAccess(actor,found.row.id,managedAccess[2],body));
@@ -156,7 +156,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if([...params.keys()].some(key=>!['id','for'].includes(key)||params.getAll(key).length!==1)||!new RegExp('^'+identity+'$').test(params.get('for')||''))throw new StudyError(400,'Invalid managed media request.');
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,params.get('for'));if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,path==='/api/lesson-file'?'read':'study'))throw new StudyError(403,'You cannot do that.');
         if(path==='/api/song-file'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song inspection only.');
         const target={id:found.row.id,role:found.row.role},key=await mediaKey(studyDatabase(env),target,path==='/api/song-file'?'song':'lesson',params.get('id')||'');
         return key.startsWith('stage-local/')?await stageR2Media(env).response(key,method,request.headers.get('range')||''):await storedMediaResponse(env.MEDIA,key,request);
@@ -165,7 +165,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(managedDictionary&&method==='GET'){
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedDictionary[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
         const db=studyDatabase(env),target={id:found.row.id,role:found.row.role};
         if(!found.songs){const rows=await db.read("SELECT p.card_id FROM profile_cards p JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND p.card_id=? AND p.place<>'music'",[target.id,managedDictionary[2]]);if(!rows.length)throw new StudyError(403,'Song cards are unavailable to teachers.');}
         return json(legacyCard(await new StudyService(db).readableCard(target,managedDictionary[2])));
@@ -175,7 +175,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         // Source account authorization remains authoritative and budgeted.
         const found=await authorizeManaged(accountEnv,actor,managedRead[1]);if(found.error)return found.error;
-        if(studyTwinLogin(found.row.login)&&!studyTwinLogin(actor.login))throw new StudyError(403,'You cannot do that.');
+        if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
         const target={id:found.row.id,role:found.row.role},db=studyDatabase(env);
         if(managedRead[2]==='stats'){
           const params=new URL(request.url).searchParams;
@@ -212,7 +212,10 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         // Only the trusted original login response can provision an empty profile.
         if(path==='/api/login'&&method==='POST'&&response.ok&&env.STAGE_WRITES==='true'){
           const value=await response.clone().json();
-          if(value.user)await ensureStudyProfile(studyClient(env),value.user);
+          if(value.user){
+            const twinId=await twinStudyAccountId(accountEnv.DB,value.user.login);
+            await ensureStudyProfile(studyClient(env),value.user,twinId);
+          }
         }
         if(response.ok&&['/api/me','/api/login'].includes(path)){
           const value=await response.clone().json(),headers=new Headers(response.headers);headers.delete('Content-Length');

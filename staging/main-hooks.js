@@ -83,7 +83,9 @@ async function stageOpenLesson(material){
     if(token!==stageLessonOpenToken||generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching||section!==document.querySelector('section.on')?.id)return;
     const full=data.materials?.find(row=>row.id===material.id);if(!full)throw new Error('Lesson not found.');
     const index=lmLibrary.materials.findIndex(row=>row===material);if(index<0)return;
-    lmLibrary.materials[index]={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
+    const extras=(material.blocks||[]).filter(b=>b&&b.id&&!(full.blocks||[]).some(row=>row.id===b.id));
+    const blocks=extras.length?[...(full.blocks||[]),...extras]:full.blocks;
+    lmLibrary.materials[index]={...full,blocks,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
     stageLoadedLessons.add(lmLibrary.materials[index]);
     lmOpenLesson(material.id);
   }catch(error){if(token===stageLessonOpenToken&&generation===viewGen)window.TursoMain.notice(error.message,true);}
@@ -479,16 +481,29 @@ function stageResponseValue(block,checked=false){
   if(block.type==='task')return block.response||'';
   return {items:(block.items||[]).map(item=>({...('picked' in item?{picked:item.picked}:{}),...('typed' in item?{typed:item.typed}:{})})),...(checked?{checked:true}:{})};
 }
+function stageLessonCounts(blocks){
+  let words=0,phrases=0,rules=0;
+  for(const block of blocks||[]){
+    if(block.type==='wordcard'||block.type==='word'){if((block.tab||'')==='phrases')phrases+=1;else if((block.tab||'')==='words')words+=1;}
+    else if(block.type==='phrase')phrases+=1;
+    else if(block.type==='rule')rules+=1;
+  }
+  return {wordCount:words,phraseCount:phrases,ruleCount:rules};
+}
 function stageSaveLesson(published){
   if(!canEditLessons()||viewAccount||viewSwitching||!lmState){
     window.TursoMain.notice('Урок не отправлен: дождитесь загрузки собственного профиля учителя и откройте редактор.',true);return Promise.resolve();
   }
+  if(lmState.stageLessonDeferred){
+    window.TursoMain.notice('The lesson is still opening. Wait, then click Publish again.',true);return Promise.resolve();
+  }
   clearTimeout(lmSaveTimer);
-  const current=lmState,draft=JSON.parse(JSON.stringify(current));
-  if(published!==undefined){draft.published=published;draft.mode=published?'preview':'edit';}
+  const current=lmState;
   return window.TursoMain.perform(async()=>{
+    const draft=JSON.parse(JSON.stringify(current));
+    if(published!==undefined){draft.published=published;draft.mode=published?'preview':'edit';}
     await window.TursoMain.saveLesson(draft);
-    Object.assign(current,draft);lmState=current;lmKeepLesson();lmPersist();
+    Object.assign(current,draft,stageLessonCounts(draft.blocks));lmState=current;lmKeepLesson();lmPersist();
     lmShow(current.published?'preview':'edit');lmNote('Сохранено в тестовую Turso.');
   },document.getElementById('lmNote'));
 }

@@ -13,60 +13,159 @@
     "form": "It will rain. / It might rain. / It is going to rain.",
     "tone": "future",
     "kind": "Future meaning",
-    "formula": "will / may / might / could + base verb; be going to + base verb; be likely / unlikely / certain / bound to + base verb",
-    "affirmative": "The team will win. / The team might win.",
-    "negative": "The team won't win. / The team might not win.",
-    "question": "Will the team win? / Do you think the team will win?",
-    "note": "A prediction says what we expect to happen, not what we have arranged or decided to do. It is a use of several forms, not an extra tense. The examples here are original teaching examples; references are linked below.",
-    "usage": {
-      "en": "Use will or won't to state what you expect to happen. Use may, might or could when an outcome is possible but uncertain. Use be going to to highlight evidence you can see now. These are useful tendencies, not absolute rules: will and be going to can overlap.",
-      "ru": ""
+    "formula": "will / may / might / could + V1 · be going to + V1 · be likely / bound / certain to + V1",
+    "affirmative": "It will rain. · It might rain. · It is going to rain.",
+    "negative": "It won't rain. · It might not rain. · It isn't going to rain.",
+    "question": "Will it rain? · Do you think it will rain? · Is it going to rain?",
+    "note": {
+      "en": "A prediction says what we expect. It is not a plan, an arrangement or a timetable. There is no extra tense called Predictions.",
+      "ru": "Предсказание говорит, чего мы ждем. Это не план, не договоренность и не расписание. Отдельного времени Predictions нет."
     },
-    "cases": [
-      "1. Belief or expectation: subject + will / won't + base verb. I think our team will win. I don't think the match will be easy. Use will for all subjects; do not add -s or to to the next verb.",
-      "2. Questions: Will + subject + base verb? Will the match finish before nine? To ask about someone's opinion, use Do you think + subject + will...? Do you think our team will win?",
-      "3. Strong confidence: will definitely / certainly + base verb. In a typical negative prediction, definitely / certainly comes before won't: The train definitely won't be empty.",
-      "4. Probability: will probably + base verb; probably won't + base verb. The bus will probably arrive soon. It probably won't arrive before six. Will probably not arrive is also possible. Perhaps / maybe often starts the sentence: Maybe the bus will be late.",
-      "5. Uncertain possibility: may / might / could + base verb. We may, might or could get tickets. There is no fixed percentage for each modal; certainty depends on the context and the way it is said.",
-      "6. Possible negative outcome: may not / might not + base verb. We might not get tickets means perhaps we will not get them. We won't get tickets states an expected negative outcome. Couldn't usually describes inability, not this kind of uncertain future possibility.",
-      "7. Present evidence: am / is / are going to + base verb. Look at those clouds! It's going to rain. For the negative use isn't / aren't going to; for a question put am / is / are before the subject. Will and going to can overlap; evidence versus belief is a useful tendency, not an absolute boundary.",
-      "8. Other ways to express certainty: be likely to = an expected or probable outcome; be unlikely to = an outcome not expected; be certain to / be bound to = strong confidence. The roads are likely to be busy. The delay is unlikely to last long. There is no need to put will before these phrases."
+    "usage": {
+      "en": "Choose the form by how sure you are and by whether you can point to evidence now.",
+      "ru": "Форму выбирают по степени уверенности и по тому, есть ли признак сейчас."
+    },
+    "sections": [
+      {
+        "title": {"en": "1. What a prediction is", "ru": "1. Что такое предсказание"},
+        "body": {
+          "en": "A prediction answers: what do you expect to happen? Keep it separate from a plan already made, a named arrangement, or a timetable.",
+          "ru": "Предсказание отвечает: чего вы ждете? Его не путают с уже принятым планом, названной договоренностью или расписанием."
+        },
+        "table": {
+          "headers": {"en": ["Meaning", "Typical form", "Example"], "ru": ["Смысл", "Обычная форма", "Пример"]},
+          "rows": [
+            {"en": ["Prediction / belief", "will", "I think it will rain."], "ru": ["Предсказание / мнение", "will", "I think it will rain."]},
+            {"en": ["Uncertain possibility", "may / might / could", "It might rain."], "ru": ["Неуверенная возможность", "may / might / could", "It might rain."]},
+            {"en": ["Prediction from evidence now", "be going to", "Look at the sky. It is going to rain."], "ru": ["Предсказание по признаку сейчас", "be going to", "Look at the sky. It is going to rain."]},
+            {"en": ["Plan already made", "be going to", "I am going to start a course in June."], "ru": ["Уже принятый план", "be going to", "I am going to start a course in June."]},
+            {"en": ["Arrangement", "Present Continuous", "I am meeting Anna at six."], "ru": ["Договоренность", "Present Continuous", "I am meeting Anna at six."]},
+            {"en": ["Timetable", "Present Simple", "The train leaves at 6."], "ru": ["Расписание", "Present Simple", "The train leaves at 6."]}
+          ]
+        }
+      },
+      {
+        "title": {"en": "2. Forms", "ru": "2. Формы"},
+        "body": {
+          "en": "After will, may, might and could use the base verb: no -s, no to. be going to and be likely to keep be.",
+          "ru": "После will, may, might и could — первая форма: без -s и без to. В be going to и be likely to глагол be обязателен."
+        },
+        "table": {
+          "headers": {"en": ["Form", "Affirmative", "Negative", "Question"], "ru": ["Форма", "Утверждение", "Отрицание", "Вопрос"]},
+          "rows": [
+            {"en": ["will", "It will rain.", "It won't rain.", "Will it rain?"], "ru": ["will", "It will rain.", "It won't rain.", "Will it rain?"]},
+            {"en": ["may / might", "It might rain.", "It might not rain.", "Do you think it might rain?"], "ru": ["may / might", "It might rain.", "It might not rain.", "Do you think it might rain?"]},
+            {"en": ["could", "It could rain.", "— (not couldn't for this meaning)", "Could it rain later?"], "ru": ["could", "It could rain.", "— (couldn't здесь не для предсказания)", "Could it rain later?"]},
+            {"en": ["be going to", "It is going to rain.", "It isn't going to rain.", "Is it going to rain?"], "ru": ["be going to", "It is going to rain.", "It isn't going to rain.", "Is it going to rain?"]},
+            {"en": ["be likely to", "It is likely to rain.", "It is unlikely to rain.", "Is it likely to rain?"], "ru": ["be likely to", "It is likely to rain.", "It is unlikely to rain.", "Is it likely to rain?"]}
+          ]
+        }
+      },
+      {
+        "title": {"en": "3. Certainty", "ru": "3. Уверенность"},
+        "body": {
+          "en": "This is a useful scale, not a percentage. Intonation can make might sound stronger or weaker. will and be going to often overlap.",
+          "ru": "Это полезная шкала, не проценты. Интонация может сделать might сильнее или слабее. will и be going to часто пересекаются."
+        },
+        "table": {
+          "headers": {"en": ["How sure", "Form", "Example"], "ru": ["Насколько уверены", "Форма", "Пример"]},
+          "rows": [
+            {"en": ["Almost certain", "will definitely / certainly · be bound / certain / sure to", "The station will definitely be crowded. She is bound to be tired."], "ru": ["Почти точно", "will definitely / certainly · be bound / certain / sure to", "The station will definitely be crowded. She is bound to be tired."]},
+            {"en": ["High chance", "will probably · be likely to", "The bus will probably arrive soon. The museum is likely to be busy."], "ru": ["Высокий шанс", "will probably · be likely to", "The bus will probably arrive soon. The museum is likely to be busy."]},
+            {"en": ["Belief", "will · I think / I'm sure + will", "I think electric buses will become more common."], "ru": ["Мнение", "will · I think / I'm sure + will", "I think electric buses will become more common."]},
+            {"en": ["Possible", "may / might / could · maybe / perhaps + will", "We might get tickets. Maybe the next lesson will be shorter."], "ru": ["Возможно", "may / might / could · maybe / perhaps + will", "We might get tickets. Maybe the next lesson will be shorter."]},
+            {"en": ["Possible no", "may not / might not", "Some students might not arrive on time."], "ru": ["Возможное нет", "may not / might not", "Some students might not arrive on time."]},
+            {"en": ["Expected no", "won't · probably won't · definitely won't · be unlikely to", "I don't think this shop will close early. The delay is unlikely to last long."], "ru": ["Ожидаемое нет", "won't · probably won't · definitely won't · be unlikely to", "I don't think this shop will close early. The delay is unlikely to last long."]}
+          ]
+        }
+      },
+      {
+        "title": {"en": "4. Word order", "ru": "4. Порядок слов"},
+        "body": {
+          "en": "One modal only. Opinion verbs usually take I don't think + will. maybe / perhaps start the sentence.",
+          "ru": "Только один модальный. При глаголах мнения обычно I don't think + will. maybe / perhaps стоят в начале."
+        },
+        "table": {
+          "headers": {"en": ["Pattern", "Correct", "Not this"], "ru": ["Схема", "Верно", "Не так"]},
+          "rows": [
+            {"en": ["will + adverb + V1", "The bus will probably arrive soon.", "The bus probably will arrive soon."], "ru": ["will + наречие + V1", "The bus will probably arrive soon.", "The bus probably will arrive soon."]},
+            {"en": ["adverb + won't", "It probably won't rain. It definitely won't be quiet.", "It won't probably rain."], "ru": ["наречие + won't", "It probably won't rain. It definitely won't be quiet.", "It won't probably rain."]},
+            {"en": ["full negative", "It will probably not arrive before six.", "—"], "ru": ["полное отрицание", "It will probably not arrive before six.", "—"]},
+            {"en": ["maybe / perhaps + will", "Maybe the bus will be late.", "Maybe it will might rain."], "ru": ["maybe / perhaps + will", "Maybe the bus will be late.", "Maybe it will might rain."]},
+            {"en": ["opinion", "I don't think this shop will close early.", "Does it will rain?"], "ru": ["мнение", "I don't think this shop will close early.", "Does it will rain?"]},
+            {"en": ["maybe vs may be", "Maybe it will rain. / It may be cold.", "May be it will rain."], "ru": ["maybe и may be", "Maybe it will rain. / It may be cold.", "May be it will rain."]}
+          ]
+        }
+      },
+      {
+        "title": {"en": "5. Present evidence · be going to", "ru": "5. Признак сейчас · be going to"},
+        "body": {
+          "en": "Name what you can see, hear or know now, then the result. will can still name the same future; going to points to the evidence.",
+          "ru": "Сначала то, что видно, слышно или известно сейчас, затем исход. will может назвать то же будущее; going to указывает на признак."
+        },
+        "examples": [
+          {"en": "Look at that glass near the edge. It is going to fall.", "ru": "Смотри, стакан у самого края. Сейчас упадет."},
+          {"en": "The sky is getting very dark. Is it going to rain?", "ru": "Небо сильно темнеет. Сейчас пойдет дождь?"},
+          {"en": "Those bags look heavy. She is going to need help.", "ru": "Сумки выглядят тяжелыми. Ей понадобится помощь."},
+          {"en": "It isn't going to be a short walk in this heat.", "ru": "В такую жару прогулка короткой не будет."}
+        ]
+      },
+      {
+        "title": {"en": "6. Other certainty phrases", "ru": "6. Другие формулы уверенности"},
+        "body": {
+          "en": "be + adjective + to + base verb. Do not put will in front. It is likely that + clause is also possible.",
+          "ru": "be + прилагательное + to + первая форма. will перед ними не ставят. Также бывает It is likely that + придаточное."
+        },
+        "examples": [
+          {"en": "The museum is likely to be busy on Sunday.", "ru": "В воскресенье музей, скорее всего, будет заполнен."},
+          {"en": "The delay is unlikely to last more than an hour.", "ru": "Задержка вряд ли продлится больше часа."},
+          {"en": "After three hours of classes she is certain to be tired.", "ru": "После трех часов занятий она точно будет уставшей."},
+          {"en": "The park is bound to be popular when the weather improves.", "ru": "Когда погода станет лучше, парк точно будет популярным."},
+          {"en": "There is a good chance that the shop will still have tickets.", "ru": "Есть хороший шанс, что в магазине еще будут билеты."},
+          {"en": "There is no way that the train will leave before we arrive.", "ru": "Не может быть, чтобы поезд ушел до нашего прихода."}
+        ]
+      }
     ],
-    "signals": ["I think", "I don't think", "I'm sure", "probably", "definitely", "certainly", "perhaps", "maybe", "likely", "unlikely", "tomorrow", "in the future"],
+    "cases": [
+      {"title": {"en": "will — belief", "ru": "will — мнение"}, "en": "Subject + will / won't + base verb. Same form for every subject. I think the shop will close at six. She won't be late.", "ru": "Подлежащее + will / won't + первая форма. Одна форма для всех лиц. I think the shop will close at six. She won't be late."},
+      {"title": {"en": "Questions", "ru": "Вопросы"}, "en": "Will + subject + V1? To ask for an opinion: Do you think + subject + will + V1?", "ru": "Will + подлежащее + V1? Вопрос о мнении: Do you think + подлежащее + will + V1?"},
+      {"title": {"en": "may / might / could", "ru": "may / might / could"}, "en": "Possible but not sure. may well / might well / could well sound more likely. For a possible no, use may not / might not, not couldn't.", "ru": "Возможно, но не точно. may well / might well / could well звучат вероятнее. Для возможного «нет» — may not / might not, не couldn't."}
+    ],
+    "signals": ["I think", "I don't think", "I'm sure", "I doubt", "probably", "definitely", "certainly", "perhaps", "maybe", "likely", "unlikely", "bound to", "look", "those clouds", "tomorrow", "later"],
     "mistakes": {
-      "en": "Keep one modal before the base verb: it might rain, not it will might rain. Use no to or -s after will/may/might/could. Form Will it rain?, not Does it will rain? Use be in going to and likely to: it is going to rain; it is likely to rain. Write Maybe it will rain (one-word adverb), but It may be cold (modal + verb). Be likely to and will probably are alternatives, not forms to combine automatically.",
-      "ru": ""
+      "en": "Keep one modal: it might rain, not it will might rain. No -s or to after will / may / might / could. Will it rain?, not Does it will rain? Keep be: it is going to rain; it is likely to rain. Maybe is one word. may be is modal + verb. In short negatives put probably / definitely before won't.",
+      "ru": "Один модальный: it might rain, не it will might rain. После will / may / might / could нет -s и нет to. Will it rain?, не Does it will rain? be обязателен: it is going to rain; it is likely to rain. Maybe — одно слово. may be — модальный + глагол. В коротком отрицании probably / definitely стоят перед won't."
     },
     "differs": {
-      "en": "Will often presents the speaker's belief; be going to often draws attention to present evidence. Neither form has an automatic percentage of certainty. May and might can both express uncertainty; context, stress and intonation matter. A prediction is not necessarily a plan or an arrangement.",
-      "ru": ""
+      "en": "will often presents a belief. be going to often points to evidence now. Neither form has a fixed percent. may, might and could all leave the future open. A plan is usually be going to or Present Continuous. An arrangement is Present Continuous. A timetable is Present Simple.",
+      "ru": "will часто подает мнение. be going to чаще ведет к признаку сейчас. Фиксированного процента нет. may, might и could оставляют будущее открытым. План обычно be going to или Present Continuous. Договоренность — Present Continuous. Расписание — Present Simple."
     },
     "examples": [
-      {"en": "I think electric buses will become more common.", "ru": ""},
-      {"en": "I don't think this shop will close early today.", "ru": ""},
-      {"en": "The station will definitely be crowded tomorrow.", "ru": ""},
-      {"en": "It definitely won't be quiet during the festival.", "ru": ""},
-      {"en": "Our teacher will probably give us a short quiz.", "ru": ""},
-      {"en": "The quiz probably won't take more than ten minutes.", "ru": ""},
-      {"en": "We may have a lesson outside if the weather stays warm.", "ru": ""},
-      {"en": "Some students might not arrive on time because of the traffic.", "ru": ""},
-      {"en": "The new timetable could make the journey faster.", "ru": ""},
-      {"en": "Look at that glass near the edge! It's going to fall.", "ru": ""},
-      {"en": "Is it going to rain? The sky is getting very dark.", "ru": ""},
-      {"en": "Maybe the next lesson will be shorter.", "ru": ""},
-      {"en": "The museum is likely to be busy on Sunday.", "ru": ""},
-      {"en": "The delay is unlikely to last more than an hour.", "ru": ""},
-      {"en": "The park is bound to be popular when the weather improves.", "ru": ""}
+      {"en": "I think electric buses will become more common in this city.", "ru": "Я думаю, электробусы в этом городе станут обычнее."},
+      {"en": "I don't think this shop will close early today.", "ru": "Не думаю, что этот магазин сегодня закроется рано."},
+      {"en": "The station will definitely be crowded tomorrow morning.", "ru": "Завтра утром на станции точно будет тесно."},
+      {"en": "It definitely won't be quiet during the festival.", "ru": "Во время фестиваля точно не будет тихо."},
+      {"en": "Our teacher will probably give us a short quiz.", "ru": "Учитель, вероятно, даст нам короткий тест."},
+      {"en": "The quiz probably won't take more than ten minutes.", "ru": "Тест, вероятно, не займет больше десяти минут."},
+      {"en": "Maybe the next lesson will be shorter.", "ru": "Может, следующий урок будет короче."},
+      {"en": "We may have a lesson outside if the weather stays warm.", "ru": "Возможно, урок будет на улице, если погода останется теплой."},
+      {"en": "Some students might not arrive on time because of the traffic.", "ru": "Некоторые студенты могут не успеть из-за пробок."},
+      {"en": "The new timetable could make the journey faster.", "ru": "Новое расписание могло бы сделать дорогу быстрее."},
+      {"en": "I'm sure the next bus will stop here.", "ru": "Я уверен, что следующий автобус здесь остановится."},
+      {"en": "I doubt they will find an empty table at eight.", "ru": "Сомневаюсь, что в восемь они найдут пустой столик."},
+      {"en": "It may well be cold on the platform, so take a coat.", "ru": "На платформе вполне может быть холодно, так что возьми пальто."}
     ],
-    "related": ["will", "going", "may", "might", "could"],
+    "related": ["will", "going", "may", "might", "could", "belikely", "pcfut", "psfut"],
     "links": [
-      ["Cambridge: will", "https://dictionary.cambridge.org/us/grammar/british-grammar/will"],
+      ["Cambridge: will", "https://dictionary.cambridge.org/grammar/british-grammar/will"],
       ["Cambridge: be going to", "https://dictionary.cambridge.org/grammar/british-grammar/future-going-to"],
-      ["Cambridge: could, may and might", "https://dictionary.cambridge.org/us/grammar/british-grammar/could-may-and-might"],
-      ["Cambridge: maybe or may be", "https://dictionary.cambridge.org/us/grammar/british-grammar/maybe-or-may-be"],
+      ["Cambridge: could, may and might", "https://dictionary.cambridge.org/grammar/british-grammar/could-may-and-might"],
+      ["Cambridge: maybe or may be", "https://dictionary.cambridge.org/grammar/british-grammar/maybe-or-may-be"],
+      ["Cambridge: likely and unlikely", "https://dictionary.cambridge.org/grammar/british-grammar/likely-or-unlikely"],
       ["Oxford: prediction", "https://www.oxfordlearnersdictionaries.com/definition/english/prediction"],
-      ["Oxford: will", "https://www.oxfordlearnersdictionaries.com/us/definition/english/will_3"],
-      ["British Council: degrees of certainty", "https://learnenglish.britishcouncil.org/free-resources/grammar/b1-b2/future-degrees-certainty"]
+      ["Oxford: will", "https://www.oxfordlearnersdictionaries.com/definition/english/will_3"],
+      ["Oxford: going to", "https://www.oxfordlearnersdictionaries.com/definition/english/going-to"],
+      ["British Council: degrees of certainty", "https://learnenglish.britishcouncil.org/grammar/b1-b2-grammar/the-future-degrees-of-certainty"]
     ]
   }
 }
