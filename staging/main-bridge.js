@@ -9,7 +9,7 @@
   const personalKey='turso-main-personal-pending',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
-  let actorId='',busy=false,pending=null,addedRevision=0,backendCapabilities={};
+  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,backendCapabilities={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
@@ -21,6 +21,7 @@
       let content;
       const cardId=block.stageDefinition?.cardId||(['word','wordcard'].includes(block.type)?block.stageId:null)||null;
       if(cardId && block.stageDefinition)content={...clone(block.stageDefinition.content),...(block.collapsed!==undefined?{collapsed:block.collapsed}:{})};
+      else if(cardId && ['word','wordcard'].includes(block.type))content={}; // Link the definition; never copy its dictionary into the lesson.
       else content=Object.fromEntries(Object.entries(clone(block)).filter(([key])=>!key.startsWith('stage')&&!['id','type','tab','response','score'].includes(key)));
       delete content.response;delete content.score;
       // Expanding a block is local UI state, not an edit to its definition.
@@ -40,6 +41,12 @@
   sessionStorage.removeItem('enquiz-place');
   function notice(message,bad=false){
     const el=document.getElementById('turso-main-status');if(!el)return;
+    const banner=document.getElementById('turso-main-banner');
+    if(banner?.dataset?.compactNotices==='true'){
+      banner.hidden=!bad;
+      const retry=document.getElementById('turso-main-retry');
+      if(retry)retry.hidden=!(pending||personalQueue.length);
+    }
     if(document.getElementById('turso-main-banner')?.dataset?.offlineFixture==='true')
       message=String(message).replaceAll('тестовой Turso','автономной SQLite').replaceAll('тестовую Turso','автономную SQLite');
     el.textContent=message;el.classList.toggle('bad',bad);
@@ -52,6 +59,7 @@
     }
   }
   function registerState(data){
+    themeRevision=data.stageThemeRevision||0;
     addedRevision=data.stageAddedRevision||0;
     register(data.added||[]);
     collections.clear();quizzes.clear();
@@ -72,6 +80,7 @@
   }
   async function accountFetch(path,options={}){
     try{
+      if(path==='/api/logout')await drainPersonal(true);
       if(path==='/api/logout' && (pending||personalQueue.length))throw new Error('Есть несохранённые изменения. Повторите запись или явно отмените её через «Проверить сервер» перед выходом.');
       const value=await api(path,options);
       if(path==='/api/me' || path==='/api/login'){actorId=value.user?.id||'';backendCapabilities=value.user?value.migrationCapabilities||{}:{};}
@@ -154,8 +163,8 @@
         if(!delay)void drainPersonal();return;
       }
     }
-    const queued=['response','activity'].includes(job.kind) && personalQueue.find(row=>row.kind===job.kind&&row.key===job.key&&!row.body&&(row.events?.length||0)<100);
-    if(queued){if(job.kind==='activity')queued.events.push(...job.events);else queued.response=job.response;} // Preserve the first editor baseline.
+    const queued=['response','activity','theme'].includes(job.kind) && personalQueue.find(row=>row.kind===job.kind&&row.key===job.key&&!row.body&&(row.events?.length||0)<100);
+    if(queued){if(job.kind==='activity')queued.events.push(...job.events);else if(job.kind==='theme')queued.theme=job.theme;else queued.response=job.response;} // Preserve the first editor baseline.
     else{
       if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
       personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
@@ -173,7 +182,8 @@
         const job=personalQueue[0];
         if(job.actorId!==actorId)throw new Error('Несохранённая операция принадлежит другому аккаунту.');
         if(!job.body){
-          job.body=job.kind==='answer'?{mutationId:job.mutationId,expectedRevision:quizProgress.get(job.key)||0,quizType:job.type,correct:job.correct}
+          job.body=job.kind==='theme'?{mutationId:job.mutationId,expectedRevision:themeRevision,theme:job.theme}
+            :job.kind==='answer'?{mutationId:job.mutationId,expectedRevision:quizProgress.get(job.key)||0,quizType:job.type,correct:job.correct}
             :job.kind==='progress'?{mutationId:job.mutationId,expectedRevision:cardProgress.get(job.cardId)||0,changes:job.changes}
             :job.kind==='activity'?{mutationId:job.mutationId,events:job.events}
             :{mutationId:job.mutationId,expectedRevision:job.baseRevision,expectedBlockRevision:job.blockRevision,response:job.response};
@@ -181,6 +191,7 @@
         job.paused=false;savePersonal();
         notice('Сохранение личных данных в тестовую Turso…');
         const result=await api(job.path,{method:job.method,body:JSON.stringify(job.body)});
+        if(job.kind==='theme')themeRevision=result.revision;
         if(job.kind==='answer')quizProgress.set(job.key,result.revision);
         if(job.kind==='progress')cardProgress.set(job.cardId,result.revision);
         if(job.kind==='response')savedResponses.set(job.key,{revision:result.revision,blockRevision:job.blockRevision,intent:JSON.stringify(job.response)});
@@ -198,6 +209,8 @@
   const bridge=window.TursoMain={
     fetch:accountFetch,register,notice,perform,mediaAllowed,
     capabilities:()=>({...backendCapabilities}),
+    theme(value){enqueuePersonal({kind:'theme',key:'theme',theme:value,path:'/api/me/theme',method:'PUT'},150);},
+    flushPersonal:()=>drainPersonal(true),
     cardForProgress:id=>cards.get(id),
     async dictionary(item,accountId=''){
       if(!/^[A-Za-z0-9_-]{1,100}$/.test(item.stageId||'')||accountId&&!/^[a-f0-9]{16,64}$/.test(accountId))throw new Error('Missing dictionary identity.');
@@ -218,6 +231,13 @@
         path:'/api/lessons/'+encodeURIComponent(lessonId)+'/blocks/'+encodeURIComponent(block.id)+'/response',method:'PUT'},immediate?0:1000);
     },
     async saveLesson(material){
+      for(const block of material.blocks||[])if(['word','wordcard'].includes(block.type)&&!block.stageDefinition?.cardId&&!block.stageId){
+        const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(block.word||''));
+        const shared=rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===String(block.word||'').trim().toLowerCase());
+        const matching=shared.filter(row=>row.ru===block.ru),candidates=matching.length?matching:shared;
+        if(candidates.length!==1)throw new Error('Select an existing shared card before publishing. Remove this unlinked word and add it again using the lesson card selector.');
+        block.stageId=candidates[0].id;block.stageRevision=candidates[0].revision;block.stageScope='shared';
+      }
       const snapshot=lessonSnapshot(material),baseline=material.stageLessonBaseline;
       let result;const changedIds=new Set();
       if(!material.stageRevision){
@@ -265,6 +285,11 @@
       if(found.length!==1)throw new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.');
       return found[0];
     },
+    async lessonCards(word){
+      const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(word));
+      return rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===word.trim().toLowerCase());
+    },
+    lookupLessonCard:word=>write('/api/cards/lookup','POST',{word}),
     async newManagedCard(accountId,id,en,ru){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
       const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{id,expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru}});
@@ -373,6 +398,9 @@
     register([window.LESSON_DATA,window.IRREGULAR,window.GRAMMAR,window.SPEAKOUT]);
     const banner=document.getElementById('turso-main-banner');
     const reserveBanner=()=>{
+      if(banner?.dataset?.compactNotices==='true'){
+        document.documentElement?.style?.setProperty('--turso-banner-offset','0px');return;
+      }
       if(banner?.getBoundingClientRect && document.documentElement?.style)document.documentElement.style.setProperty('--turso-banner-offset',Math.ceil(banner.getBoundingClientRect().height+12)+'px');
     };
     reserveBanner();

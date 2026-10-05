@@ -22,6 +22,43 @@ function fixture(){
   return {sqlite,db,own:{id:'u1',role:'USER'},other:{id:'u2',role:'USER'},dev:{id:'dev',role:'DEVELOPER'}};
 }
 const mutation=()=>crypto.randomUUID();
+test('Shared dictionary lookup creates one definition, replays before lookup and preserves existing/shared/private data',async()=>{
+  const f=fixture(),service=new PersonalService(f.db);let lookups=0;
+  const data={found:true,word:'new fixture word',ru:'translation',cambridge:{pos:'adjective',uk:'ipa'},wooordhunt:{us:'ipa-us'}};
+  const lookup=async()=>{lookups++;return data;},body={mutationId:mutation(),word:'new fixture word'};
+  try{
+    await assert.rejects(service.lookupSharedCard(f.own,body,lookup),e=>e.status===403);assert.equal(lookups,0);
+    const card=await service.lookupSharedCard(f.dev,body,lookup);assert.equal(card.scope,'shared');assert.equal(lookups,1);
+    assert.deepEqual(await service.lookupSharedCard(f.dev,body,lookup),card);assert.equal(lookups,1);
+    const again=await service.lookupSharedCard(f.dev,{...body,mutationId:mutation()},lookup);assert.equal(again.id,card.id);
+    assert.equal(f.sqlite.prepare("SELECT count(*) n FROM cards WHERE scope='shared'").get().n,1);
+    const stored=f.sqlite.prepare('SELECT * FROM cards WHERE id=?').get(card.id);assert.equal(JSON.parse(stored.extra_json).uk,'ipa');
+    const lesson=await service.createLesson(f.dev,{mutationId:mutation(),id:'lookup-lesson',changes:{title:'Lookup'},blocks:[{id:'word',type:'wordcard',tab:'words',cardId:card.id,content:{},expectedRevision:0}]});assert.equal(lesson.revision,1);
+    assert.equal(f.sqlite.prepare("SELECT card_id FROM lesson_blocks WHERE lesson_id='lookup-lesson'").get().card_id,card.id);
+    await assert.rejects(service.lookupSharedCard(f.dev,{...body,mutationId:mutation()},async()=>({found:false})),e=>e.status===404);
+    assert.equal(f.sqlite.prepare("SELECT count(*) n FROM cards WHERE scope='shared'").get().n,1);
+  }finally{f.sqlite.close();}
+});
+test('Own account theme persists, overrides legacy profile theme and retains replay/CAS and pair isolation',async()=>{
+  const f=fixture(),service=new PersonalService(f.db);
+  try{
+    f.sqlite.prepare("INSERT INTO profile_settings(profile_id,key,value_json) VALUES('p1','theme','\"almond\"')").run();
+    const body={mutationId:mutation(),expectedRevision:0,theme:'mint'};
+    assert.equal((await service.saveTheme(f.own,body)).revision,1);
+    assert.deepEqual(await service.saveTheme(f.own,body),{theme:'mint',revision:1});
+    assert.equal((await legacyState(f.db,f.own)).stats.theme,'mint');
+    assert.equal((await legacyState(f.db,f.own)).stageThemeRevision,1);
+    assert.equal((await legacyState(f.db,f.dev)).stats.theme,'almond','Shared profile does not share new theme choice');
+    assert.equal((await legacyState(f.db,f.other)).stageThemeRevision,0);
+    await assert.rejects(service.saveTheme(f.own,{...body,mutationId:mutation(),theme:'dark'}),e=>e.status===409);
+    await assert.rejects(service.saveTheme(f.own,{...body,mutationId:mutation(),account_id:'u2'}),e=>e.status===400);
+    await assert.rejects(service.saveTheme(f.own,{...body,mutationId:mutation(),theme:'<script>'}),e=>e.status===400);
+    await service.saveTheme(f.own,{mutationId:mutation(),expectedRevision:1,theme:'dark'});
+    assert.equal((await legacyState(f.db,f.own)).stats.theme,'dark');
+    assert.equal((await legacyState(f.db,f.own)).stageThemeRevision,2);
+    assert.equal(f.sqlite.prepare("SELECT value_json FROM profile_settings WHERE key='theme'").get().value_json,'"almond"');
+  }finally{f.sqlite.close();}
+});
 test('R2 managed texts: target ownership, teacher receipts, replay, isolation and recoverable archive',async()=>{
   const f=fixture(),service=new PersonalService(f.db),teacher={id:'u1',role:'ADMIN'};
   const body={mutationId:mutation(),id:'managed-text',changes:{title:'Student text',text:'Content'}};

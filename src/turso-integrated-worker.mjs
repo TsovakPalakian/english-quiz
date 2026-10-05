@@ -79,12 +79,26 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/cards/lookup'&&method==='POST'){
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+        const raw=await request.text();if(raw.length>4096)throw new StudyError(413,'Lookup request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        const result=await new StudyService(studyDatabase(env)).lookupSharedCard(actor,body,async word=>{
+          const target=new URL(request.url);target.pathname='/lookup';target.search='';target.searchParams.set('word',word);
+          const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);
+          if(!response.ok)throw new StudyError(response.status,'Dictionary lookup failed. Try again.');
+          return response.json();
+        });
+        return json(result);
+      }
       // Recover registration visibility even when the legacy directory CAS
       // failed. Developer-only, account fields only, one budgeted query.
       if(path==='/api/admin/registrations'&&method==='GET'){
         const actor=await authenticate(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(actor.role==='DEVELOPER'){
-          const rows=await accountEnv.DB.prepare('SELECT id,login,email,name,status,role,user_id,created_at,decided_at FROM registrations ORDER BY created_at DESC').all();
+          const rows=await accountEnv.DB.prepare('SELECT r.id,r.login,r.email,r.name,r.status,r.role,r.user_id,r.created_at,r.decided_at FROM registrations r LEFT JOIN users u ON u.id=r.user_id WHERE r.user_id IS NULL OR r.user_id=\'\' OR u.is_personal_data_revoked=0 ORDER BY r.created_at DESC').all();
           return json({registrations:(rows.results||[]).map(row=>({id:row.id,login:row.login,email:row.email,name:row.name,status:row.status,role:row.role,user_id:row.user_id,createdAt:row.created_at,decidedAt:row.decided_at}))});
         }
       }

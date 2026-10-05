@@ -7,6 +7,14 @@ const rev=value=>{if(!Number.isSafeInteger(value)||value<0)bad(400,'Invalid expe
 const text=(value,max)=>{if(typeof value!=='string'||value.length>max)bad(400,'Invalid content size.');return value;};
 export const libraryDto=row=>({...JSON.parse(row.content_json),stageId:row.id,stageRevision:row.revision,stageScope:row.scope,stageLocalMedia:!!row.media_key?.startsWith('stage-local/')});
 export class PersonalService extends StudyService {
+  async saveTheme(actor,body){
+    only(body,['mutationId','expectedRevision','theme']);const expected=rev(body.expectedRevision);
+    if(typeof body.theme!=='string'||! /^[a-z][a-z0-9-]{0,99}$/.test(body.theme))bad(400,'Invalid theme.');
+    return this.personal(actor,body,['account-theme'],async()=>({statements:[
+      expected===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'theme',?)",[actor.id,JSON.stringify(body.theme)])
+        :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='theme' AND revision=?",[JSON.stringify(body.theme),actor.id,expected]),this.guard()],
+      result:{theme:body.theme,revision:expected+1}}));
+  }
   async createManagedCard(actor,accountId,body){
     id(accountId);only(body,['mutationId','id','expectedRevision','card']);id(body.id);const expected=rev(body.expectedRevision);
     only(body.card,['en','ru']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim();

@@ -9184,9 +9184,9 @@
         accountFetch("/api/admin/changes")
       ]).then(([regs, users, changes]) => {
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
-        const history = (regs.registrations || []).filter(accountVisible);
         const accounts = (users.users || []).filter(accountVisible);
         const accountIds = new Set(accounts.map((row) => row.id));
+        const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
         const changeRows = (changes.changes || []).filter((row) => accountVisible(row) && accountIds.has(row.user_id));
         box.innerHTML = '<div class="card"><p class="label">Account changes</p>' +
           (changeRows.length ? recentRows(changeRows, (row, n) => {

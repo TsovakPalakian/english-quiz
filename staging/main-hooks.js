@@ -431,6 +431,36 @@ function stageSaveLesson(published){
     lmShow(current.published?'preview':'edit');lmNote('Сохранено в тестовую Turso.');
   },document.getElementById('lmNote'));
 }
+async function stageLookupLessonWord(){
+  if(!canEditLessons()||!accountReady||viewAccount||viewSwitching||!lmState)return;
+  const input=document.getElementById('lmWordInput'),status=document.getElementById('lmWordStatus'),button=document.getElementById('lmWordGo');
+  const word=input?.value.trim(),current=lmState,tab=lmTab(),generation=viewGen;
+  if(!word||!['words','phrases'].includes(tab))return;
+  if(button)button.disabled=true;
+  status.textContent='Finding shared cards…';
+  const add=async card=>{
+    const definition=await window.TursoMain.dictionary({stageId:card.id});
+    if(current!==lmState||generation!==viewGen||viewAccount||viewSwitching)return;
+    if(current.blocks.some(block=>block.tab===tab&&block.stageId===card.id)){status.textContent='This card is already on this page.';return;}
+    const item={...definition,id:lmId(),type:'wordcard',tab,collapsed:false,word:definition.en,stageId:card.id,stageScope:'shared'};
+    lmInsertBlockFront(item);input.value='';status.textContent='';lmRenderEditor();lmSchedule();
+  };
+  try{
+    const rows=await window.TursoMain.lessonCards(word);
+    if(current!==lmState||generation!==viewGen||viewAccount||viewSwitching)return;
+    if(!rows.length){
+      status.textContent='Looking up and saving this card…';
+      const card=await window.TursoMain.lookupLessonCard(word);
+      await add(card);return;
+    }
+    if(rows.length===1){await add(rows[0]);return;}
+    const select=document.createElement('select'),choose=document.createElement('button');
+    for(const row of rows){const option=document.createElement('option');option.value=row.id;option.textContent=row.en+' — '+row.ru+' ['+row.id.slice(-8)+']';select.append(option);}
+    choose.type='button';choose.className='btn';choose.textContent='Add selected card';choose.onclick=()=>{choose.disabled=true;void add(rows.find(row=>row.id===select.value)).catch(error=>{status.textContent=error.message;window.TursoMain.notice(error.message,true);}).finally(()=>{choose.disabled=false;});};
+    status.replaceChildren(document.createTextNode('Select the exact card: '),select,choose);
+  }catch(error){status.textContent=error.message;window.TursoMain.notice(error.message,true);}
+  finally{if(button)button.disabled=false;}
+}
 function stageUploadLessonFile(id,file){
   if(!canEditLessons()||viewAccount||viewSwitching||!file)return;
   const block=lmBlock(id);if(!block)return;

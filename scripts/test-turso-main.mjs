@@ -335,6 +335,46 @@ test('Offline UI status cannot claim real Turso acceptance',async()=>{
   await window.TursoMain.fetch('/api/me');assert.match(status.textContent,/автономной SQLite/);assert.doesNotMatch(status.textContent,/Turso/);
   banner.dataset.offlineFixture='false';window.TursoMain.notice('Подтверждено тестовой Turso.');assert.match(status.textContent,/Turso/);
 });
+test('Production notices hide success, show errors and retain retry only for pending operations',()=>{
+  for(const pending of [null,{actorId:'fixture',path:'/api/cards/fixture',method:'PATCH',body:{mutationId:'same-id'}}]){
+    const banner={dataset:{compactNotices:'true'},hidden:true},status={classList:{toggle(){}}},retry={},window={};
+    const scope={window,crypto,sessionStorage:{removeItem(){}},
+      localStorage:{getItem:key=>key==='turso-main-pending'?JSON.stringify(pending):null,removeItem(){}},
+      document:{addEventListener(){},getElementById:id=>({'turso-main-banner':banner,'turso-main-status':status,'turso-main-retry':retry}[id]||null)}};
+    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+    window.TursoMain.notice('Saving');assert.equal(banner.hidden,true);
+    window.TursoMain.notice('Network error',true);assert.equal(banner.hidden,false);
+    assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,!pending);
+    window.TursoMain.notice('Saved');assert.equal(banner.hidden,true);
+  }
+  const css=readFileSync(new URL('../production/notification.css',import.meta.url),'utf8');
+  assert.match(css,/padding-top:0!important/);assert.match(css,/\[hidden\]\{display:none\}/);
+});
+test('Theme queue coalesces clicks, retries the same operation and drains before logout without legacy PUT',async()=>{
+  const window={},saved=new Map(),sent=[];let fail=true;
+  const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+      if(path==='/api/me/state')return {ok:true,json:async()=>({stageThemeRevision:3})};
+      if(path==='/api/me/theme'){
+        const body=JSON.parse(options.body);sent.push(body);
+        if(fail){fail=false;throw Error('offline');}
+        return {ok:true,json:async()=>({theme:body.theme,revision:body.expectedRevision+1})};
+      }
+      assert.equal(path,'/api/logout');return {ok:true,json:async()=>({ok:true})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
+  window.TursoMain.theme('mint');window.TursoMain.theme('dark');
+  await window.TursoMain.flushPersonal();assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,3);
+  await window.TursoMain.fetch('/api/logout',{method:'POST',body:'{}'});
+  assert.equal(sent.length,2);assert.deepEqual(sent[0],sent[1]);assert.equal(saved.has('turso-main-personal-pending'),false);
+  const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
+  assert.ok(!source.includes('return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme })'));
+});
 test('Static catalog IDs initialize before edits; broken login never falls back to GET',()=>{
   const listeners=new Map(),card={stageId:'card_static',stageRevision:1,en:'gardening',ru:'садоводство'},window={LESSON_DATA:{words:[card]}};
   const context={window,crypto,console,location:{hostname:'learn-english-turso-integrated-test.east-tarsal.workers.dev'},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,removeItem(){}},
@@ -586,6 +626,42 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   lesson.description='Unsaved text';await bridge.hideLesson(lesson,true);
   assert.deepEqual(sent.at(-1).body.changes,{hiddenFromStudents:true});assert.deepEqual(sent.at(-1).body.upserts,[]);
   assert.equal(lesson.description,'Unsaved text');assert.equal(lesson.stageLessonBaseline.changes.description,'');
+});
+test('Lesson word insertion sends one linked block, not dictionary or unchanged lesson content',async()=>{
+  const sent=[],window={},remote={id:'lesson',title:'Saved',published:false,stageRevision:1,blocks:[{id:'text',type:'text',html:'Neighbour'.repeat(1000),stageBlockRevision:1}]};
+  const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
+      if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[{id:'shared_card',en:'competitive',ru:'before',scope:'shared',revision:1}]};
+      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'text',revision:1},{id:'newword',revision:1}]})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');const lesson=(await window.TursoMain.fetch('/api/lessons')).materials[0];
+  lesson.published=true;lesson.blocks.push({id:'newword',type:'wordcard',word:'competitive',ru:'before',data:{dictionary:'Huge'.repeat(10000)}});
+  await window.TursoMain.saveLesson(lesson);
+  assert.equal(sent.length,1);assert.equal(sent[0].path,'/api/lessons/lesson');
+  assert.deepEqual(sent[0].body.changes,{published:true});assert.equal(sent[0].body.upserts.length,1);
+  assert.equal(sent[0].body.upserts[0].cardId,'shared_card');assert.deepEqual(sent[0].body.upserts[0].content,{});
+  assert.ok(JSON.stringify(sent[0].body).length<1000);assert.ok(!JSON.stringify(sent[0].body).includes('Neighbour'));
+  lesson.published=false;await window.TursoMain.saveLesson(lesson);assert.deepEqual(sent[1].body.upserts,[]);
+});
+test('Lesson card lookup retains the shared ID and never uses the external dictionary route',async()=>{
+  const input={value:'competitive'},status={},button={},blocks=[];
+  const context={canEditLessons:()=>true,accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,lmState:{blocks},
+    lmTab:()=> 'words',lmId:()=> 'new_word',lmInsertBlockFront:block=>blocks.push(block),lmRenderEditor(){},lmSchedule(){},
+    document:{addEventListener(){},getElementById:id=>({lmWordInput:input,lmWordStatus:status,lmWordGo:button}[id])},
+    window:{TursoMain:{lessonCards:async()=>[{id:'shared',en:'competitive'}],dictionary:async card=>({en:'competitive',ru:'before',stageId:card.stageId,stageRevision:2,data:{uk:'ipa'}}),notice(){}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  await context.stageLookupLessonWord();assert.equal(blocks.length,1);assert.equal(blocks[0].stageId,'shared');assert.equal(blocks[0].stageRevision,2);assert.equal(button.disabled,false);
+});
+test('New lesson words fall back to shared dictionary creation before adding an ID-linked block',async()=>{
+  const blocks=[],calls=[],context={canEditLessons:()=>true,accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,lmState:{blocks},
+    lmTab:()=> 'words',lmId:()=> 'new_word',lmInsertBlockFront:block=>blocks.push(block),lmRenderEditor(){},lmSchedule(){},
+    document:{addEventListener(){},getElementById:id=>({lmWordInput:{value:'new word'},lmWordStatus:{},lmWordGo:{}}[id])},
+    window:{TursoMain:{lessonCards:async()=>[],lookupLessonCard:async word=>{calls.push(word);return {id:'created-shared'};},dictionary:async card=>({en:'new word',ru:'translation',stageId:card.stageId,stageRevision:1}),notice(){}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  await context.stageLookupLessonWord();assert.deepEqual(calls,['new word']);assert.equal(blocks[0].stageId,'created-shared');assert.equal(blocks[0].stageScope,'shared');
 });
 test('Main HTTP lesson routes: teacher create/edit/delete, real-role denial and no whole-library PUT',async()=>{
   const f=fixture(),server=createMainServer({db:f.db,auth:new RealStageAuth(f.source)});

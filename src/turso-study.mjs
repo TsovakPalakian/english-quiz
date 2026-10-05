@@ -139,6 +139,24 @@ function lessonBlock(value){
 
 export class StudyService {
   constructor(db) { this.db=db; }
+  async lookupSharedCard(actor,body,lookup){
+    fields(body,['mutationId','word']);
+    if(typeof body.word!=='string'||!body.word.trim()||body.word.length>120)fail(400,'Enter a word or phrase.');
+    return this.mutate(actor,body,['lookup-shared-card'],async()=>{
+      const data=await lookup(body.word.trim());
+      if(!data?.found||typeof data.word!=='string'||!data.word.trim()||data.word.length>200)fail(404,'No dictionary entry found.');
+      const en=data.word.trim(),ru=typeof data.ru==='string'?data.ru:'',pos=data.cambridge?.pos||'';
+      if(ru.length>10000||typeof pos!=='string'||pos.length>100||stable(data).length>256000)fail(413,'Dictionary entry is too large.');
+      const existing=await this.db.read("SELECT id,revision FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?",[en,ru,pos]);
+      if(existing.length>1)fail(409,'Multiple shared cards match. Select the exact card instead.');
+      const id=existing[0]?.id||'card_'+await requestHash({en:en.toLowerCase(),ru,pos});
+      const extra={data,uk:data.cambridge?.uk||data.wooordhunt?.uk||'',us:data.cambridge?.us||data.wooordhunt?.us||''};
+      return {statements:existing.length?[]:[
+        stmt("INSERT INTO cards(id,scope,en,word_key,ru,part_of_speech,extra_json) VALUES(?,'shared',?,?,?,?,?) ON CONFLICT(id) DO NOTHING",[id,en,en.toLowerCase(),ru,pos,stable(extra)]),
+        stmt("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?)",[id,en,ru,pos])],
+        result:{id,en,ru,partOfSpeech:pos,scope:'shared',revision:existing[0]?.revision||1}};
+    });
+  }
   async lessons(actor) {
     signedIn(actor);
     return this.db.read(`SELECT l.id,l.title,l.revision,l.published FROM lessons l WHERE ${lessonAccess} ORDER BY l.lesson_date,l.id`,[+reviewer(actor),actor.id,actor.id]);

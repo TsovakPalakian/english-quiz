@@ -43,7 +43,7 @@ export async function legacyState(db,actor,{compact=false}={}){
       WHERE p.profile_id=? AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?) ORDER BY p.position,l.id`,[profile,profile]),
     s(`SELECT c.id,c.en,p.learned,p.variants_json,p.revision FROM card_progress p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=? AND ${cardAccess}`,[profile,...accessArgs(actor)]),
     s(`SELECT p.card_id,p.quiz_type,p.progress_json,p.revision FROM quiz_progress p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=? AND ${cardAccess}`,[profile,...accessArgs(actor)]),
-    s('SELECT key,value_json FROM account_settings WHERE account_id=?',[actor.id]),
+    s('SELECT key,value_json,revision FROM account_settings WHERE account_id=?',[actor.id]),
     s('SELECT key,value_json,revision FROM profile_settings WHERE profile_id=?',[profile]),
     s('SELECT lesson_id,allow_hidden,personal_hidden FROM lesson_access WHERE account_id=?',[actor.id]),
     s(`SELECT q.id,q.legacy_word_key,q.revision FROM quiz_collections q WHERE ${visibleCollection}`,accessArgs(actor)),
@@ -57,7 +57,9 @@ export async function legacyState(db,actor,{compact=false}={}){
   const stats={...Object.fromEntries(accountSettings.map(r=>[r.key,JSON.parse(r.value_json)])),...Object.fromEntries(profileSettings.filter(r=>r.key!=='tursoCardLinks'&&!r.key.startsWith('activity:')).map(r=>[r.key,JSON.parse(r.value_json)])),
     cardEdits:{},cardQuizzes,mistakes:mistakes.map(r=>JSON.parse(r.progress_json)).filter(row=>!row.cleared),
     hiddenLessons:access.filter(a=>a.personal_hidden).map(a=>a.lesson_id),allowedLessons:access.filter(a=>a.allow_hidden).map(a=>a.lesson_id)};
-  return {added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(libraryDto),
+  const theme=accountSettings.find(row=>row.key==='theme');
+  if(theme)stats.theme=JSON.parse(theme.value_json); // Own theme overrides a legacy shared-profile setting.
+  return {stageThemeRevision:theme?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(libraryDto),
     learned:progress.filter(p=>p.learned).map(p=>p.en.toLowerCase()),variants:Object.fromEntries(progress.map(p=>[p.en.toLowerCase(),JSON.parse(p.variants_json)])),stats,
     stageCollections:collections,stageProfile:profile,
     stageCardProgress:progress.map(row=>({id:row.id,revision:row.revision})),

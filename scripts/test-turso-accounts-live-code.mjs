@@ -92,28 +92,33 @@ test('Developer deactivation and deletion stay account-scoped; no old educationa
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users WHERE id=?').get(devId).n,1);assert.ok(f.queries<=50);
   }finally{f.close();}
 });
-test('Accounts excludes revoked entries for developers without another D1 query or directory mutation',async()=>{
+test('Accounts uses live account rows rather than stale R2 without N+1 queries or directory mutation',async()=>{
   const f=fixture();try{
     const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
     const directory=await(await f.env.MEDIA.get('directory/accounts.json')).json();
     directory.users.push({id:'b'.repeat(32),login:'Deleted',role:'USER',revoked:true},
       {id:'c'.repeat(32),login:'Inactive',role:'USER',active:false},
-      {id:'d'.repeat(32),login:'Hidden',role:'USER',hidden:true});
+      {id:'d'.repeat(32),login:'Hidden',role:'USER',hidden:true},
+      {id:'e'.repeat(32),login:'DeletedDirectly',role:'USER'});
+    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Inactive','USER',0,0)").run('c'.repeat(32));
+    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Hidden','USER',1,1)").run('d'.repeat(32));
     await f.env.MEDIA.put('directory/accounts.json',JSON.stringify(directory));
     const before=f.queries,result=await dev.call('/api/admin/users');assert.equal(result.status,200);
     assert.ok(!result.value.users.some(row=>row.revoked));
+    assert.ok(!result.value.users.some(row=>row.login==='DeletedDirectly'));
     assert.ok(result.value.users.some(row=>row.login==='Inactive'));
     assert.ok(result.value.users.some(row=>row.login==='Hidden'));
-    assert.equal(f.queries-before,1,'Only existing authentication query');
+    assert.equal(f.queries-before,2,'Authentication plus one bounded account list SELECT');
     assert.equal((await(await f.env.MEDIA.get('directory/accounts.json')).json()).users.length,directory.users.length);
   }finally{f.close();}
 });
-test('Account changes excludes deleted and orphaned owners without extra D1 queries or history mutation',async()=>{
+test('Account changes excludes deleted and orphaned owners against live D1 without history mutation',async()=>{
   const f=fixture();try{
     const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
     const directory=await(await f.env.MEDIA.get('directory/accounts.json')).json();
     const deletedId='b'.repeat(32),inactiveId='c'.repeat(32);
-    directory.users.push({id:deletedId,role:'USER',revoked:true},{id:inactiveId,role:'USER',active:false});
+    directory.users.push({id:deletedId,role:'USER'},{id:inactiveId,role:'USER',active:false});
+    f.sqlite.prepare("INSERT INTO users(id,login,role,active) VALUES(?,'Inactive','USER',0)").run(inactiveId);
     directory.changes=[
       {id:'existing',user_id:devId,status:'approved'},
       {id:'inactive',user_id:inactiveId,status:'pending'},
@@ -125,7 +130,22 @@ test('Account changes excludes deleted and orphaned owners without extra D1 quer
     const before=f.queries,result=await dev.call('/api/admin/changes');
     assert.equal(result.status,200);
     assert.deepEqual(result.value.changes.map(row=>row.id),['existing','inactive']);
-    assert.equal(f.queries-before,1,'Only existing authentication query');
+    assert.equal(f.queries-before,2,'Authentication plus one bounded account list SELECT');
     assert.deepEqual((await(await f.env.MEDIA.get('directory/accounts.json')).json()).changes,directory.changes);
+  }finally{f.close();}
+});
+test('Registration history hides missing or revoked owners but retains pending new applicants',async()=>{
+  const f=fixture();try{
+    const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
+    f.sqlite.prepare("INSERT INTO users(id,login,role,is_personal_data_revoked) VALUES(?,'Revoked','USER',1)").run('b'.repeat(32));
+    const insert=f.sqlite.prepare('INSERT INTO registrations(id,login,status,user_id,created_at) VALUES(?,?,?,?,?)');
+    insert.run('live','Existing','approved',devId,4);
+    insert.run('deleted','Deleted','approved','c'.repeat(32),3);
+    insert.run('revoked','Revoked','approved','b'.repeat(32),2);
+    insert.run('pending','NewApplicant','pending',null,1);
+    const before=f.queries,result=await dev.call('/api/admin/registrations');
+    assert.equal(result.status,200);assert.deepEqual(result.value.registrations.map(row=>row.id),['live','pending']);
+    assert.equal(f.queries-before,2,'Existing auth and registration queries only');
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM registrations').get().n,4,'History not physically deleted');
   }finally{f.close();}
 });

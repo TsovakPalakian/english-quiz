@@ -115,7 +115,7 @@ export default {async fetch(request,env){
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
     const write=(method==='POST'&&['/api/lessons','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
-      ||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
+      ||(path==='/api/me/theme'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
     const read=method==='GET'&&(allowedRead.includes(path)||dictionary||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/song-file','/api/lesson-file'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/almond-blossom.jpg','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
@@ -146,6 +146,7 @@ export default {async fetch(request,env){
     if(inline){const entry=await inlineMedia(db,actor,inline[1]);return await inlineAssetResponse(env.ASSETS,request,entry);}
     const s=new StudyService(db),p=new PersonalService(db),a=new ActivityService(db);
     const value=write?await body(request):null,id=match=>decodeURIComponent(match[1]);
+    if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,lessonUpload[1],lessonUpload[2],value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
     if(path==='/api/me/state')return json(mediaPlaceholders(await legacyState(db,actor,{compact:true})));

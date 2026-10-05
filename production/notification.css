@@ -1,0 +1,12 @@
+/* Production: no reserved header, only actionable error notifications. */
+html[data-turso-compact-notices="true"]{scroll-padding-top:0}
+html[data-turso-compact-notices="true"] body{padding-top:0!important}
+html[data-turso-compact-notices="true"] #turso-main-banner{
+  inset:auto 16px 16px auto;max-width:400px;width:calc(100vw - 32px);
+  box-sizing:border-box;padding:12px;border:1px solid #e2b5b8;border-radius:12px;
+  display:flex;flex-direction:column-reverse;gap:8px;max-height:40vh;overflow:auto;
+  box-shadow:0 3px 16px #0002;
+}
+html[data-turso-compact-notices="true"] #turso-main-banner[hidden]{display:none}
+html[data-turso-compact-notices="true"] #turso-main-status{margin:0;min-height:0;overflow-wrap:anywhere}
+html[data-turso-compact-notices="true"] #turso-main-banner button[hidden]{display:none}

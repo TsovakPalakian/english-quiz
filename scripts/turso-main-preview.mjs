@@ -7,7 +7,10 @@ export function mainPreview(source,hooks){
     source=source.replace(anchor,anchor+'\n'+text);
   };
   insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
-  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      return window.TursoMain.unsupported(change && change.op);');
+  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      return window.TursoMain.unsupported(change && change.op);');
+  const logoutTheme='return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});';
+  if(source.split(logoutTheme).length!==2)throw new Error('Logout theme anchor changed.');
+  source=source.replace(logoutTheme,'return window.TursoMain.flushPersonal();');
   insert('    function canEditAdded(item) {','      return !!(item && item.stageId && authUser && accountReady && !viewSwitching && (!viewAccount || stageCanManageAdded(item)));');
   insert('    function addedEditHtml(item) {','      return stageAddedEditHtml(item);');
   insert('    function madeEditHtml(item) {','      return addedIndexOf(item)>=0 ? stageAddedEditHtml(item) : (canEditLessons()?catalogEditHtml(findCatalog(item.word)):"");');
@@ -36,6 +39,7 @@ export function mainPreview(source,hooks){
   insert('    function noteAnswer(item, ok) {','      stageNoteAnswer(item,ok); return;');
   insert('    function trackEvent(kind, area, result) {','      if(stageOwnReady())try{window.TursoMain.event(kind,area,result);}catch(error){window.TursoMain.notice(error.message,true);} return;');
   insert('    function statsIntro() {','      stageStatsIntro(); return;');
+  insert('    async function lmLookupWord() {','      return stageLookupLessonWord();');
   insert('    function lmEmbed(url) {','      return stageEmbedSource(url);');
   insert('    function lmUrlKind(url) {','      return stageExternalKind(url);');
   insert('    function videoHtml(url) {',"      return stageExternalPlayer(url,'Video');");

@@ -13,21 +13,30 @@ assert.match(config,/^CONTENT_WRITES = "false"$/m);assert.match(config,/^preview
 const host=config.match(/^CONTENT_ALLOWED_HOST = "([a-z0-9.-]+)"$/m)?.[1];
 assert.equal(host,'learn-english-turso-production.east-tarsal.workers.dev');
 mkdirSync(target,{recursive:true,mode:0o700});
-const presentation=text=>text.replaceAll('тестовой Turso','Turso').replaceAll('тестовую Turso','Turso')
+const english=JSON.parse(readFileSync(resolve(root,'production/ui-english.json'),'utf8'));
+const presentation=text=>Object.entries(english).sort(([a],[b])=>b.length-a.length).reduce((value,[from,to])=>value.replaceAll(from,to),text).replaceAll('тестовой Turso','Turso').replaceAll('тестовую Turso','Turso')
   .replaceAll('тестового сервера','сервера').replaceAll('тестовом сервере','сервере')
   .replaceAll('разрешённого тестового стенда','разрешённого сайта').replaceAll('разрешённом тестовом стенде','разрешённом сайте');
 for(const name of ['preview.css','almond-blossom.jpg','demonstratives.js','main-stage.css'])
   copyFileSync(resolve(accepted,name),resolve(target,name));
+writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
 const anchor="const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);";
 assert.equal(bridge.split(anchor).length,2);
 bridge=bridge.replace(anchor,`const mediaAllowed=()=>${JSON.stringify([host,'learn-english.east-tarsal.workers.dev'])}.includes(location.hostname);`);
 writeFileSync(resolve(target,'main-bridge.js'),presentation(bridge));
+assert.ok(!/[А-Яа-яЁё]/.test(presentation(bridge)),'Untranslated bridge UI text');
+assert.ok(!/[А-Яа-яЁё]/.test(presentation(readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))),'Untranslated hook UI text');
 writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))));
 const html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 const banner='TEST Turso — отдельный Worker. Рабочий сайт не переключён.';
 assert.equal(html.split(banner).length,2);
-for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),html.replace(banner,'Учебные данные сохраняются на сервере.'));
+const productionHtml=html.replace(banner,'')
+  .replace('<html','<html data-turso-compact-notices="true"')
+  .replace('id="turso-main-banner"','id="turso-main-banner" data-compact-notices="true" hidden')
+  .replace('>Проверить сервер</button>','>Reload server</button>')
+  .replace('>Повторить</button>','>Retry</button>');
+for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),productionHtml);
 for(const path of pdfAssetPaths()){
   const file=resolve(target,path.slice(1));mkdirSync(resolve(file,'..'),{recursive:true,mode:0o700});copyFileSync(pdfAssetFile(path).file,file);
 }

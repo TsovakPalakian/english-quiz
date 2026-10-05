@@ -3023,6 +3023,16 @@ async function readDirectory(env) {
   }
 }
 
+// The R2 directory may outlive accounts removed directly from D1. One
+// account-only SELECT per admin list, never an N+1 existence check.
+async function liveAccountDirectory(env) {
+  const directory = await readDirectory(env);
+  const rows = await env.DB.prepare(
+    "SELECT id, login, email, name, role, is_personal_data_revoked, hidden, active, created_at FROM users WHERE is_personal_data_revoked = 0 ORDER BY created_at DESC"
+  ).all();
+  return Object.assign({}, directory, { users: (rows.results || []).map(publicUser) });
+}
+
 async function writeDirectory(env, directory) {
   if (!env.MEDIA) return false;
   const data = directoryData(directory);
@@ -3374,11 +3384,13 @@ async function admin(env, request, method, path, body, ctx) {
   if (!user) return json({ error: "Sign in first." }, 401);
   if (!canReview(user)) return json({ error: "Teachers only." }, 403);
   if (method === "GET" && path === "/api/admin/registrations") {
-    const directory = await readDirectory(env);
-    return json({ registrations: forReviewer(user, directory.registrations, directory.users) });
+    const directory = await liveAccountDirectory(env);
+    const accountIds = new Set(directory.users.map((item) => item.id));
+    const registrations = directory.registrations.filter((item) => item && (!item.user_id || accountIds.has(item.user_id)));
+    return json({ registrations: forReviewer(user, registrations, directory.users) });
   }
   if (method === "GET" && path === "/api/admin/changes") {
-    const directory = await readDirectory(env);
+    const directory = await liveAccountDirectory(env);
     const accountIds = new Set(directory.users.filter((item) => item && !item.revoked).map((item) => item.id));
     const linkedChanges = directory.changes.filter((item) => item && accountIds.has(item.user_id));
     const changes = forReviewer(user, linkedChanges, directory.users).map((item) => {
@@ -3388,7 +3400,7 @@ async function admin(env, request, method, path, body, ctx) {
     return json({ changes: changes });
   }
   if (method === "GET" && path === "/api/admin/users") {
-    const directory = await readDirectory(env);
+    const directory = await liveAccountDirectory(env);
     const accounts = directory.users.filter((item) => item && !item.revoked);
     return json({ users: forReviewer(user, accounts, directory.users) });
   }
