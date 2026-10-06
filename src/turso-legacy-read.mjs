@@ -51,7 +51,7 @@ export async function publicCatalogCard(db,id){
   if(rows.length!==1)throw new StudyError(404,'Catalog card not found.');
   return {...legacyCard(rows[0]),stagePublicCatalog:true};
 }
-export async function legacyState(db,actor,{compact=false}={}){
+export async function legacyState(db,actor,{compact=false,summary=false}={}){
   const member=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
   if(member.length!==1)throw new StudyError(409,'This account has not been imported into test Turso. No profile is created automatically.');
   const profile=member[0].profile_id;
@@ -78,17 +78,28 @@ export async function legacyState(db,actor,{compact=false}={}){
     hiddenLessons:access.filter(a=>a.personal_hidden).map(a=>a.lesson_id),allowedLessons:access.filter(a=>a.allow_hidden).map(a=>a.lesson_id)};
   const theme=accountSettings.find(row=>row.key==='theme');
   if(theme)stats.theme=JSON.parse(theme.value_json); // Own theme overrides a legacy shared-profile setting.
-  return {stageThemeRevision:theme?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(libraryDto),
+  const songItem=row=>{const item=libraryDto(row);if(!summary)return item;const {lyrics,...rest}=item;return {...rest,stageLyricsDeferred:true};};
+  return {stageThemeRevision:theme?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(songItem),
     learned:progress.filter(p=>p.learned).map(p=>p.en.toLowerCase()),variants:Object.fromEntries(progress.map(p=>[p.en.toLowerCase(),JSON.parse(p.variants_json)])),stats,
     stageCollections:collections,stageProfile:profile,
     stageCardProgress:progress.map(row=>({id:row.id,revision:row.revision})),
     stageQuizProgress:mistakes.map(row=>({id:row.card_id,type:row.quiz_type,revision:row.revision}))};
 }
-export async function legacyTexts(db,actor){
-  const rows=await db.read(`SELECT l.* FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id
-    JOIN library_items l ON l.id=p.item_id WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL
-    AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
-  return {texts:rows.map(libraryDto)};
+export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={}){
+  if(!summary){
+    const rows=await db.read(`SELECT l.* FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id
+      JOIN library_items l ON l.id=p.item_id WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
+    return {texts:rows.map(row=>libraryDto(row))};
+  }
+  const size=pageLimit(limit),cursor=pageCursor(after);
+  const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.level') level,
+    substr(COALESCE(json_extract(l.content_json,'$.text'),''),1,140) preview,json_extract(l.content_json,'$.id') client_id
+    FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id JOIN library_items l ON l.id=p.item_id
+    WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) AND l.id>?
+    ORDER BY l.id LIMIT ?`,[actor.id,cursor,size+1]);
+  const more=rows.length>size,page=rows.slice(0,size);
+  return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
 }
 export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
   if(lessonId&&!/^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new StudyError(400,'Invalid lesson ID.');
@@ -150,4 +161,171 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
     material.ruleCount=(material.blocks||[]).filter(b=>b.type==='rule').length;
   }
   return {materials};
+}
+const WORD_KEYS=['words','extraWords','lines21','ask07','phrases09','adverbs14','talk16','likes23'];
+const SPEAK_LEVELS=['A1','A2','A2+','B1','B1+','B2','B2+','C1-C2'];
+const SMALL_SETTINGS=new Set(['theme','lyricSize','demonstratives','dayLinks','customThemes']);
+export function pageLimit(raw){
+  const limit=raw==null||raw===''?50:Number(raw);
+  if(!Number.isInteger(limit)||limit<1||limit>50)throw new StudyError(400,'Invalid page.');
+  return limit;
+}
+export function pageCursor(after){
+  const value=after||'';
+  if(value&&!/^[A-Za-z0-9_-]{1,100}$/.test(value))throw new StudyError(400,'Invalid cursor.');
+  return value;
+}
+function collectIds(node,out){
+  if(Array.isArray(node)){for(const item of node){if(item&&typeof item==='object'&&item.cardId)out.push(item.cardId);else collectIds(item,out);}}
+  else if(node&&typeof node==='object')for(const value of Object.values(node))collectIds(value,out);
+}
+async function profileOf(db,actor){
+  const member=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
+  if(member.length!==1)throw new StudyError(409,'This account has not been imported into test Turso. No profile is created automatically.');
+  return member[0].profile_id;
+}
+const parsedCatalogs=new Map();
+async function readCatalog(db,key){
+  const [doc]=await db.read("SELECT value_json,length(value_json) bytes FROM catalog_documents WHERE namespace='static' AND key=?",[key]);
+  if(!doc)return null;
+  const version=Number(doc.bytes)||0,cacheKey=key+':'+version,hit=parsedCatalogs.get(cacheKey);
+  if(hit)return hit;
+  const entry={version,parsed:JSON.parse(doc.value_json)};
+  parsedCatalogs.set(cacheKey,entry);
+  if(parsedCatalogs.size>8)parsedCatalogs.delete(parsedCatalogs.keys().next().value);
+  return entry;
+}
+function slicePage(ids,cursor,size){
+  const start=cursor?ids.indexOf(cursor)+1:0;
+  if(cursor&&start<=0)throw new StudyError(400,'Unknown cursor.');
+  const page=ids.slice(start,start+size);
+  return {page,next:start+size<ids.length?page.at(-1)||null:null};
+}
+export async function accountBootstrap(db,actor){
+  const profile=await profileOf(db,actor);
+  const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
+  const [counts,settings,access,links,activity,catalogs,lessonCount]=await db.readMany([
+    s(`SELECT
+      (SELECT COUNT(*) FROM profile_cards WHERE profile_id=?) cards,
+      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL) songs,
+      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL) texts,
+      (SELECT COUNT(*) FROM card_progress WHERE profile_id=?) progress,
+      (SELECT COUNT(*) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizzes`,
+      [profile,profile,profile,profile,...accessArgs(actor)]),
+    s('SELECT key,value_json,revision,length(value_json) bytes FROM account_settings WHERE account_id=? UNION ALL SELECT key,value_json,revision,length(value_json) bytes FROM profile_settings WHERE profile_id=? AND key NOT LIKE \'activity:%\' AND key!=\'tursoCardLinks\'',[actor.id,profile]),
+    s('SELECT lesson_id,allow_hidden,personal_hidden FROM lesson_access WHERE account_id=?',[actor.id]),
+    s("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]),
+    s("SELECT value_json FROM profile_settings WHERE profile_id=? AND key LIKE 'activity:%'",[profile]),
+    s("SELECT key,length(value_json) bytes FROM catalog_documents WHERE namespace='static' AND key IN ('LESSON_DATA','GRAMMAR','IRREGULAR','SPEAKOUT')"),
+    s(`SELECT COUNT(*) n FROM lessons l WHERE ${lessonAccess}`,[+review(actor),actor.id,actor.id])
+  ]);
+  const stats={};
+  for(const row of settings){
+    if(!SMALL_SETTINGS.has(row.key)||Number(row.bytes)>4000)continue;
+    stats[row.key]=JSON.parse(row.value_json);
+  }
+  stats.hiddenLessons=access.filter(row=>row.personal_hidden).map(row=>row.lesson_id);
+  stats.allowedLessons=access.filter(row=>row.allow_hidden).map(row=>row.lesson_id);
+  const theme=settings.find(row=>row.key==='theme');
+  const versions={};
+  for(const row of catalogs)versions[row.key]=Number(row.bytes)||0;
+  const actions=activity.map(row=>JSON.parse(row.value_json));
+  return {bootstrap:true,
+    stageThemeRevision:theme?.revision||0,stageAddedRevision:links[0]?.revision||0,stageProfile:profile,
+    stageActivity:{tracked:!!actions.length,seconds:actions.reduce((n,row)=>n+(row.seconds||0),0),examPass:actions.reduce((n,row)=>n+(row.examPass||0),0)},
+    counts:{cards:Number(counts[0]?.cards)||0,songs:Number(counts[0]?.songs)||0,texts:Number(counts[0]?.texts)||0,quizzes:Number(counts[0]?.quizzes)||0,progress:Number(counts[0]?.progress)||0,lessons:Number(lessonCount[0]?.n)||0},
+    versions:{grammar:versions.GRAMMAR||0,irregular:versions.IRREGULAR||0,speakout:versions.SPEAKOUT||0,lessonData:versions.LESSON_DATA||0},
+    stats};
+}
+function cardRow(row){
+  return {...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stagePublicCatalog:row.stage_public||false};
+}
+export async function accountCards(db,actor,{after='',limit=50}={}){
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+  const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred,p.place
+    FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=? AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...accessArgs(actor),cursor,size+1]);
+  const more=rows.length>size,page=rows.slice(0,size);
+  const links=await db.read("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]);
+  const revision=links[0]?.revision||0;
+  return {cards:page.map(row=>({...cardRow(row),stageLinksRevision:revision})),next:more?page.at(-1).id:null,stageAddedRevision:revision};
+}
+export async function accountQuizzes(db,actor,{after='',limit=50}={}){
+  await profileOf(db,actor);
+  const size=pageLimit(limit),cursor=pageCursor(after);
+  const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
+  const rows=await db.read(`SELECT z.id,z.type,z.revision,z.items_json,q.legacy_word_key word FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id
+    WHERE z.deleted_at IS NULL AND z.id>? AND ${visibleCollection} ORDER BY z.id LIMIT ?`,[cursor,...accessArgs(actor),size+1]);
+  const more=rows.length>size,page=rows.slice(0,size);
+  return {quizzes:page.map(row=>({id:row.id,type:row.type,word:row.word,items:JSON.parse(row.items_json),stageRevision:row.revision})),next:more?page.at(-1).id:null};
+}
+export async function accountProgress(db,actor,{after='',limit=50}={}){
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+  const rows=await db.read(`SELECT c.id,c.en,p.learned,p.variants_json,p.revision FROM card_progress p JOIN cards c ON c.id=p.card_id
+    WHERE p.profile_id=? AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...accessArgs(actor),cursor,size+1]);
+  const more=rows.length>size,page=rows.slice(0,size);
+  const mistakes=await db.read(`SELECT p.card_id,p.quiz_type,p.progress_json,p.revision FROM quiz_progress p JOIN cards c ON c.id=p.card_id
+    WHERE p.profile_id=? AND ${cardAccess} AND p.card_id>? ORDER BY p.card_id,p.quiz_type LIMIT ?`,[profile,...accessArgs(actor),cursor,size+1]);
+  const mistakePage=mistakes.slice(0,size);
+  const parsed=mistakePage.map(row=>{const saved=JSON.parse(row.progress_json)||{};return {...saved,en:saved.en||row.card_id,type:saved.type||row.quiz_type};}).filter(row=>row&&!row.cleared);
+  return {learned:page.filter(row=>row.learned).map(row=>row.en.toLowerCase()),
+    variants:Object.fromEntries(page.map(row=>[row.en.toLowerCase(),JSON.parse(row.variants_json)])),
+    stageCardProgress:page.map(row=>({id:row.id,revision:row.revision})),
+    mistakes:parsed,stageQuizProgress:mistakePage.map(row=>({id:row.card_id,type:row.quiz_type,revision:row.revision})),
+    next:more?page.at(-1).id:mistakes.length>size?mistakePage.at(-1).card_id:null};
+}
+export async function accountSongs(db,actor,{after='',limit=50}={}){
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+  const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.artist') artist,
+    json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.id') client_id
+    FROM profile_library_items p JOIN library_items l ON l.id=p.item_id
+    WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?) AND l.id>?
+    ORDER BY l.id LIMIT ?`,[profile,profile,cursor,size+1]);
+  const more=rows.length>size,page=rows.slice(0,size);
+  return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true})),next:more?page.at(-1).id:null};
+}
+export async function catalogSection(db,section,{after='',limit=50}={}){
+  const keys=section==='phrases'?['phrasalWords']:section==='idioms'?['idiomWords']:section==='words'?WORD_KEYS:null;
+  if(!keys)throw new StudyError(400,'Invalid library section.');
+  const size=pageLimit(limit),cursor=pageCursor(after);
+  const doc=await readCatalog(db,'LESSON_DATA');
+  const parsed=doc?.parsed||{};
+  const ids=[];for(const key of keys)collectIds(parsed[key],ids);
+  const {page,next}=slicePage([...new Set(ids)],cursor,size);
+  if(!page.length)return {section,version:doc?.version||0,cards:[],next:null};
+  const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred
+    FROM cards c WHERE c.scope='shared' AND c.deleted_at IS NULL AND c.id IN (${page.map(()=>'?').join(',')})`,page);
+  const byId=new Map(rows.map(row=>[row.id,row]));
+  return {section,version:doc?.version||0,cards:page.filter(id=>byId.has(id)).map(id=>{const row=byId.get(id);return {...legacyCard(row),stagePublicCatalog:true,...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{})};}),next};
+}
+export async function speakoutLevel(db,level){
+  if(!SPEAK_LEVELS.includes(level))throw new StudyError(400,'Invalid level.');
+  const doc=await readCatalog(db,'SPEAKOUT');
+  if(!doc)throw new StudyError(404,'Speak Out is not loaded.');
+  const book=doc.parsed;
+  const content=Array.isArray(book)?book.find(row=>row&&row.level===level):null;
+  if(!content)throw new StudyError(404,'Level not found.');
+  return {level,version:doc.version,content};
+}
+export async function staticSlice(db,key,{after='',limit=50}={}){
+  if(key!=='IRREGULAR')throw new StudyError(400,'Invalid catalog.');
+  const size=pageLimit(limit),cursor=pageCursor(after);
+  const doc=await readCatalog(db,'IRREGULAR');
+  const parsed=doc?.parsed||[];
+  const ids=[];collectIds(parsed,ids);
+  if(!ids.length&&Array.isArray(parsed)){
+    const indexes=parsed.map((_,index)=>String(index));
+    const {page,next}=slicePage(indexes,cursor,size);
+    return {version:doc?.version||0,cards:page.map(index=>parsed[Number(index)]),next};
+  }
+  const {page,next}=slicePage([...new Set(ids)],cursor,size);
+  if(!page.length)return {version:doc?.version||0,cards:[],next:null};
+  const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json FROM cards c WHERE c.scope='shared' AND c.deleted_at IS NULL AND c.id IN (${page.map(()=>'?').join(',')})`,page);
+  const byId=new Map(rows.map(row=>[row.id,row]));
+  return {version:doc?.version||0,cards:page.filter(id=>byId.has(id)).map(id=>legacyCard(byId.get(id))),next};
+}
+export async function staticDocument(db,key){
+  if(!['GRAMMAR','IRREGULAR'].includes(key))throw new StudyError(400,'Invalid catalog.');
+  const doc=await readCatalog(db,key);
+  if(!doc)throw new StudyError(404,'Catalog is not loaded.');
+  return {version:doc.version,document:doc.parsed};
 }

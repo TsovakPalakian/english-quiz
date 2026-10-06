@@ -46,6 +46,15 @@ export class PersonalService extends StudyService {
         result:{id:body.id,revision:expected+1,card}};
     });
   }
+  async libraryItem(actor,itemId){
+    if(!actor?.id)bad(401,'Sign in first.');
+    id(itemId);
+    const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+      JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.id=? AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)`,[actor.id,itemId]);
+    if(rows.length!==1)bad(404,'Not found.');
+    return {kind:rows[0].kind,...libraryDto(rows[0])};
+  }
   async library(actor){
     if(!actor?.id)bad(401,'Sign in first.');
     const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
@@ -55,9 +64,14 @@ export class PersonalService extends StudyService {
   }
   validateLibrary(kind,changes){
     if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
-    only(changes,kind==='text'?['title','text']:['title','artist','lyrics','videoUrl','musicUrl','archived']);
+    only(changes,kind==='text'?['title','text']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
     if(!Object.keys(changes).length)bad(400,'Send changed fields only.');
     for(const [key,value] of Object.entries(changes)){
+      if(key==='marks'){
+        const raw=JSON.stringify(value);
+        if(!value||typeof value!=='object'||Array.isArray(value)||raw.length>50000)bad(400,'Invalid marks.');
+        continue;
+      }
       if(key==='archived'){if(typeof value!=='boolean')bad(400,'Invalid archive flag.');continue;}
       text(value,['lyrics','text'].includes(key)?50_000:1000);
       if(key==='title'&&!value.trim())bad(400,'A title is required.');

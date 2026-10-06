@@ -153,8 +153,8 @@ test('Managed study reads reuse source authorization and read only the target Tu
   },studyDatabase:()=>({read:async(sql,args)=>{reads.push({sql,args});return [];}})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'};
   const request=method=>new Request('https://test.invalid/api/admin/users/'+targetId+'/texts',{method,headers:{Origin:'https://test.invalid'}});
-  assert.deepEqual(await(await worker.fetch(request('GET'),env)).json(),{texts:[]});
-  assert.equal(reads.length,1);assert.deepEqual(reads[0].args,[targetId]);
+  assert.deepEqual(await(await worker.fetch(request('GET'),env)).json(),{texts:[],next:null});
+  assert.equal(reads.length,1);assert.equal(reads[0].args[0],targetId);assert.ok(!reads[0].args.includes(id));
   allowed=false;assert.equal((await worker.fetch(request('GET'),env)).status,403);assert.equal(reads.length,1);
   actor=null;assert.equal((await worker.fetch(request('GET'),env)).status,401);assert.equal(reads.length,1);
 });
@@ -188,8 +188,8 @@ test('Managed state preserves teacher song restriction, pair boundary and reject
     studyWorker:{fetch:async()=>Response.json({error:'Not migrated'},{status:501})}});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'};
   const call=method=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+id+'/state',{method,headers:{Origin:'https://test.invalid'}}),env);
-  let value=await(await call('GET')).json();assert.deepEqual(value.added.map(c=>c.place),['mine']);
-  songs=true;value=await(await call('GET')).json();assert.deepEqual(value.added.map(c=>c.place),['music','mine']);
+  let value=await(await call('GET')).json();assert.equal(value.bootstrap,true);assert.equal(value.added,undefined);assert.equal(value.songs,undefined);assert.equal(value.counts.songs,0);
+  songs=true;value=await(await call('GET')).json();assert.equal(value.bootstrap,true);assert.equal(value.added,undefined);
   login='TsovakDev';assert.equal((await call('GET')).status,403);assert.equal(reads,2);
   assert.equal((await call('PUT')).status,501);assert.equal(reads,2);
 });

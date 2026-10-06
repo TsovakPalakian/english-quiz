@@ -12,7 +12,7 @@ import {configuredLocalMedia} from './turso-local-media.mjs';
 import {inlineMedia,mediaKey,mediaPlaceholders,mediaMime} from '../src/turso-media.mjs';
 import {createHash} from 'node:crypto';
 import {Readable} from 'node:stream';
-import {publicCatalogs,legacyState,legacyTexts,legacyLessons,legacyCard} from '../src/turso-legacy-read.mjs';
+import {publicCatalogs,legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from '../src/turso-legacy-read.mjs';
 import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAssetFile} from './turso-pdf-assets.mjs';
@@ -107,7 +107,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       const activityWrite=path==='/api/stats/event'&&req.method==='POST';
       const inlineRoute=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
       const fileRead=['/api/song-file','/api/lesson-file'].includes(path)&&['GET','HEAD'].includes(req.method);
-      const reads=['/api/me','/api/me/account','/api/me/state','/api/texts','/api/lessons','/api/cards','/api/library','/api/stats'];
+      const reads=['/api/me','/api/me/account','/api/me/state','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/texts','/api/lessons','/api/cards','/api/library','/api/stats'];
       const supported=(req.method==='GET' && (reads.includes(path) || dictionaryRoute || (cardRoute?.[1]==='cards' && !cardRoute[3])))
         || (cardRoute && (cardRoute[3]?cardRoute[1]==='cards' && req.method==='POST':['PATCH','DELETE'].includes(req.method)))
         || (progressRoute && req.method===(progressRoute[2]==='answers'?'POST':'PATCH'))
@@ -131,7 +131,12 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
           :await songMedia.upload(actor,mediaUpload[1],body,Buffer.concat(chunks)));return;
       }
       if(path==='/api/me/account'){json(200,{user:actor,change:null,locked:true,testReadonly:true});return;}
-      if(path==='/api/me/state'){json(200,mediaPlaceholders(await legacyState(db,actor,{compact:true})));return;}
+      if(path==='/api/me/state'){json(200,await accountBootstrap(db,actor));return;}
+      const slice={after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))};
+      if(path==='/api/me/cards'&&req.method==='GET'){json(200,await accountCards(db,actor,slice));return;}
+      if(path==='/api/me/quizzes'&&req.method==='GET'){json(200,await accountQuizzes(db,actor,slice));return;}
+      if(path==='/api/me/progress'&&req.method==='GET'){json(200,await accountProgress(db,actor,slice));return;}
+      if(path==='/api/me/songs'&&req.method==='GET'){json(200,await accountSongs(db,actor,slice));return;}
       if(dictionaryRoute){json(200,legacyCard(await service.readableCard(actor,dictionaryRoute[1])));return;}
       if(inlineRoute){const entry=await inlineMedia(db,actor,inlineRoute[1]),bytes=readFileSync(resolve(defaultSnapshot,entry.file));
         if(bytes.length!==entry.bytes||createHash('sha256').update(bytes).digest('hex')!==entry.sha256)throw new StudyError(503,'Media checksum mismatch.');send(entry.mime,bytes);return;}
@@ -161,7 +166,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         const body=await jsonBody(req);
         json(200,path==='/api/me/cards'?await service.linkCard(actor,body):await service.unlinkCard(actor,decodeURIComponent(ownCardRoute[1]),body));return;
       }
-      if(path==='/api/texts'){json(200,await legacyTexts(db,actor));return;}
+      if(path==='/api/texts'){json(200,await legacyTexts(db,actor,{summary:url.searchParams.get('summary')!=='0',...slice}));return;}
       if(lessonWrite){
         const body=await jsonBody(req),result=path==='/api/lessons'?await service.createLesson(actor,body)
           :await service[req.method==='DELETE'?'deleteLesson':'editLesson'](actor,decodeURIComponent(lessonRoute[1]),body);

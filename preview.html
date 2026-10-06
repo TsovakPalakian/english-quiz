@@ -40,6 +40,7 @@
       <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
       <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
       <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
+      <button type="button" data-jump="bugs" data-developer-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M8 8h8v8a4 4 0 0 1-8 0V8z"/><path d="M5 10H3M21 10h-2M5 15H3M21 15h-2M8 21l1.5-2M16 21l-1.5-2"/></svg>Bugs</button>
     </nav>
     <div class="side-foot">
       <button class="btn ghost" type="button" data-jump="account">Account</button>
@@ -1602,6 +1603,12 @@
       <div class="card"><div class="theme-seg" data-theme-seg></div></div>
     </section>
 
+    <section id="bugs">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Bugs</h1></div>
+      <p class="sub">One row for each failure. The same failure stays on that row and counts up. Open a row for the request, what happened, and the response.</p>
+      <div id="bugList"></div>
+    </section>
+
     <section id="account">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
       <div class="account-stage">
@@ -1628,6 +1635,7 @@
     <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
     <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
     <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
+    <button type="button" data-jump="bugs" data-developer-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M8 8h8v8a4 4 0 0 1-8 0V8z"/><path d="M5 10H3M21 10h-2M5 15H3M21 15h-2M8 21l1.5-2M16 21l-1.5-2"/></svg>Bugs</button>
   </nav>
   </div>
   <div id="clipFrame" class="clip-frame" hidden>

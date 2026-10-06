@@ -2,7 +2,7 @@
 import {StudyService,TursoStudyClient,StudyError} from './turso-study.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
-import {legacyState,legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard} from './turso-legacy-read.mjs';
+import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
 import {LessonMediaService} from './turso-lesson-media.mjs';
@@ -112,7 +112,7 @@ export default {async fetch(request,env){
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
-    const allowedRead=['/api/me/account','/api/me/state','/api/lessons','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file'];
+    const allowedRead=['/api/me/account','/api/me/state','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file'];
     const dictionary=path.match(/^\/api\/cards\/([A-Za-z0-9_-]{1,100})\/dictionary$/);
     const card=path.match(/^\/api\/(cards|quizzes)\/([^/]+)(\/quizzes)?$/),progress=path.match(/^\/api\/cards\/([^/]+)\/(progress|answers)$/),response=path.match(/^\/api\/lessons\/([^/]+)\/blocks\/([^/]+)\/response$/),lesson=path.match(/^\/api\/lessons\/([^/]+)$/),own=path.match(/^\/api\/me\/cards\/([^/]+)$/),library=path.match(/^\/api\/library\/([^/]+)$/);
     const songUpload=path.match(/^\/api\/library\/([A-Za-z0-9_-]{1,100})\/media$/),lessonUpload=path.match(/^\/api\/lessons\/([A-Za-z0-9_-]{1,100})\/blocks\/([A-Za-z0-9_-]{1,100})\/media$/);
@@ -120,7 +120,7 @@ export default {async fetch(request,env){
     const write=(method==='POST'&&['/api/lessons','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||dictionary||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||dictionary||library||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/song-file','/api/lesson-file'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([A-Za-z0-9_-]{1,100})$/);
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
@@ -130,7 +130,14 @@ export default {async fetch(request,env){
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){
-      if(catalogPage)return json(await publicCatalogPage(db,catalogPage[1],{after:url.searchParams.get('after')||''}));
+      if(catalogPage){
+        const params=url.searchParams;
+        if(params.get('slice')==='1')return json(await staticSlice(db,catalogPage[1],{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
+        if(params.get('document')==='1'&&!params.get('after'))return json(await staticDocument(db,catalogPage[1]));
+        if(catalogPage[1]==='SPEAKOUT'&&params.get('level'))return json(await speakoutLevel(db,params.get('level')));
+        if(catalogPage[1]==='LESSON_DATA'&&params.get('section'))return json(await catalogSection(db,params.get('section'),{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
+        const raw=params.get('limit');const limit=raw==null?60:Number(raw);return json(await publicCatalogPage(db,catalogPage[1],{after:params.get('after')||'',limit}));
+      }
       if(catalogCard)return json(await publicCatalogCard(db,catalogCard[1]));
       if(banks[path]){const data=await publicCatalogs(db,banks[path]);if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
@@ -156,10 +163,15 @@ export default {async fetch(request,env){
     if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,lessonUpload[1],lessonUpload[2],value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
-    if(path==='/api/me/state')return json(mediaPlaceholders(await legacyState(db,actor,{compact:true})));
+    if(path==='/api/me/state')return json(await accountBootstrap(db,actor));
     if(dictionary)return json(legacyCard(await s.readableCard(actor,dictionary[1])));
-    if(path==='/api/texts')return json(await legacyTexts(db,actor));
+    if(path==='/api/me/cards'&&method==='GET')return json(await accountCards(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
+    if(path==='/api/me/quizzes'&&method==='GET')return json(await accountQuizzes(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
+    if(path==='/api/me/progress'&&method==='GET')return json(await accountProgress(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
+    if(path==='/api/me/songs'&&method==='GET')return json(await accountSongs(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
+    if(path==='/api/texts')return json(await legacyTexts(db,actor,{summary:url.searchParams.get('summary')!=='0',after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
     if(path==='/api/library')return json(method==='POST'?await p.createLibrary(actor,value):{items:await p.library(actor)});
+    if(library&&method==='GET')return json({item:await p.libraryItem(actor,id(library))});
     if(library)return json(await p.editLibrary(actor,id(library),value,method==='DELETE'));
     if(path==='/api/stats/event')return json(await a.events(actor,value));
     if(path==='/api/stats')return json(await a.stats(actor,Object.fromEntries(url.searchParams)));

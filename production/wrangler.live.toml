@@ -39,6 +39,7 @@ CONTENT_ALLOWED_HOST = "learn-english.east-tarsal.workers.dev"
 CONTENT_MEDIA_BUCKET = "learn-english-production-media"
 ACCOUNT_MUTATIONS_ENABLED = "true"
 ACCOUNT_QUERY_LIMIT_ENABLED = "false"
+BUG_LOG = "true"
 EXPRESSION_ANALYZER_URL = "https://92-5-115-171.sslip.io"
 EXPRESSION_ANALYZER_TIMEOUT = "60000"
 # Session signing secret remains unchanged; all secrets are installed privately.

@@ -22,6 +22,14 @@ export function mainPreview(source,hooks){
         });
       }`,'      if(!tenseBankReady && (legacy || tenseBank[id]))stageLoadTenseView("tense",id);');
   insert('    function openMarker(en, quiet) {','      if(!tenseBankReady)stageLoadTenseView("marker",en);');
+  insert('    function show(id) {','      stageDemand(id);');
+  insert('    function paintAllWords() {','      if(stageWordsPending()){const box=document.getElementById("allWordGrid");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintVerbs() {','      if(!window.IRREGULAR.length){const box=document.getElementById("verbList");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintSpeak() {','      if(speakView==="levels" && stageSpeakIncomplete()){stagePaintSpeakLevels();return;}');
+  insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && !(window.SPEAKOUT&&window.SPEAKOUT[level]&&window.SPEAKOUT[level].level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
+  insert('    function paintTexts() {','      return stagePaintTexts();');
+  insert('    function showText(id) {','      const pendingText=loadTexts().find(row=>row.id===id);if(pendingText&&pendingText.stageTextDeferred)return stageOpenText(id);');
+  insert('    function renderUserSong(song) {','      if(song&&song.stageLyricsDeferred)return stageOpenSong(song);');
   replace('              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();','              imageUrl = stagePreviewImage(parsed.href,location.origin);');
   insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
   insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      return window.TursoMain.unsupported(change && change.op);');
@@ -47,6 +55,8 @@ export function mainPreview(source,hooks){
   insert('    function fillEmptyFromAccount(state) {','      applyViewState(state); return;');
   insert('    function applyAccountState(state) {','      applyViewState(state); return;');
   insert('    function applyViewState(state) {','      stageSetActivity(state.stageActivity);');
+  insert('    function applyViewState(state) {','      if(state&&state.bootstrap){stageApplyBootstrap(state);return;}');
+  insert('    function installCardQuizzes(serverMap) {','      if(serverMap==null)return loadCardQuizzes();');
   insert('    function applySharedStudy(state) {','      return false;');
   insert('    function editFieldsFor(host) {','      const stageCard=stageHostCard(host);\n      if(!stageCard || !stageCanEditTranslation(stageCard))return null;\n      return [{key:"ru",label:"Russian",value:stageCard.ru||""}];');
   insert('    function saveCardEdit(host) {','      stageSaveTranslation(host); return;');

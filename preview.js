@@ -30,10 +30,26 @@
       made: "add", allwords: "home", cardstat: "home",
       account: "account", profile: "account", admin: "account", themes: "account"
     };
+    (function holdPlace() {
+      let place = null;
+      try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
+      catch (e) { place = null; }
+      const id = place && place.id;
+      if (!id || id === "home" || !document.getElementById(id)) return;
+      sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const mark = dayScreens[id] || id;
+      chromeButtons.forEach((b) => {
+        const on = b.dataset.jump === mark;
+        b.classList.toggle("on", on);
+        if (on) b.setAttribute("aria-current", "page");
+        else b.removeAttribute("aria-current");
+      });
+    })();
     function show(id) {
       if (hideStudentSongs() && (id === "music" || id === "song" || id === "lyricadd" || id === "musicword")) id = "library";
       // Administration is teacher-only chrome; never open it while viewing another account.
       if (id === "admin" && viewAccount) id = "home";
+      if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "account" && authUser) id = "profile";
       if (id === "allwords") paintAllWords();
       if (id === "add") renderAddedList();
@@ -45,6 +61,7 @@
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
       if (id === "admin") paintAdmin();
+      if (id === "bugs") paintBugs();
       if (id === "stats") paintStats();
       if (id === "demonstratives" && window.paintDemonstratives) window.paintDemonstratives();
       if (id === "texts") paintTexts();
@@ -199,6 +216,10 @@
       if (place.id === "made" && madeItem) place.madeWord = madeItem.word;
       if (place.id === "daywords" || place.id === "rules") place.lessonPlace = openLessonPlace;
       if (place.id === "daywork") { place.workDay = openWork.day; place.workKind = openWork.kind; }
+      if (place.id === "material" && lmState) {
+        place.materialId = lmState.id || "";
+        place.materialTab = lmState.tab || "";
+      }
       place.dayQuizPlace = dayQuizPlace;
       place.dayReturn = dayReturn;
       place.studyScreen = studyScreen;
@@ -1585,6 +1606,14 @@
       if (lmHideBtn && window.lmHideLesson) { window.lmHideLesson(lmHideBtn.dataset.lmHide); return; }
       const lmOpenBtn = e.target.closest("[data-lm-open]");
       if (lmOpenBtn && window.lmOpenLesson) { window.lmOpenLesson(lmOpenBtn.dataset.lmOpen); return; }
+      const bugBtn = e.target.closest("[data-bug]");
+      if (bugBtn) {
+        const item = bugBtn.closest(".bug-item");
+        const detail = item && item.querySelector(".bug-detail");
+        if (detail) detail.hidden = !detail.hidden;
+        bugBtn.classList.toggle("active", !!(detail && !detail.hidden));
+        return;
+      }
       const jump = e.target.closest("[data-jump]");
       if (jump) {
         if (jump.dataset.jump === "tenses") openHub();
@@ -3202,7 +3231,7 @@
       if (index < 0 || index + 1 >= deck.length) return;
       setDayFlip(deck[index + 1], false);
     };
-    renderWord(words[0]);
+    if (words[0]) renderWord(words[0]);
     document.querySelectorAll("#daychoice .opt").forEach((btn) => {
       btn.onclick = () => {
         document.querySelectorAll("#daychoice .opt").forEach((o) => o.classList.remove("ok", "bad"));
@@ -5284,8 +5313,8 @@
       });
       return map;
     }
-    function cardForLyric(key) {
-      const map = cardIndex();
+    function cardForLyric(key, map) {
+      map = map || cardIndex();
       const raw = String(key || "").trim().toLowerCase();
       if (!raw) return null;
       if (map.has(raw)) return map.get(raw);
@@ -5305,6 +5334,25 @@
         if (map.has(stems[i])) return map.get(stems[i]);
       }
       return null;
+    }
+    function lyricCard(key) {
+      const map = cardIndex();
+      function put(en, kind) {
+        const id = String(en || "").trim().toLowerCase();
+        if (id && !map.has(id)) map.set(id, { kind: kind || "known", en: en });
+      }
+      [ask07, lines21, phrases09, adverbs14, talk16, likes23].forEach((list) => {
+        (list || []).forEach((item) => { if (item && cardVisible(item)) put(item.en, "lesson"); });
+      });
+      loadAdded().forEach((item) => put(item.word || item.en, "added"));
+      return cardForLyric(key, map);
+    }
+    function lyricShownMark(key, marks) {
+      const saved = marks && marks[key];
+      if (saved && saved.state !== "miss" && saved.state !== "error") return saved;
+      const known = lyricCard(key);
+      if (known) return { state: "have", word: known.en || key };
+      return saved || null;
     }
     function mediaDb() {
       return new Promise((resolve, reject) => {
@@ -5878,7 +5926,6 @@
     }
     function lyricHtml(text, marks) {
       const pieces = lyricPieces(text);
-      const known = cardIndex();
       let html = "";
       for (let i = 0; i < pieces.raw.length; i++) {
         const part = pieces.raw[i];
@@ -5886,12 +5933,11 @@
         if (part.phrase) {
           let label = "";
           for (let n = i; n <= part.phraseEnd; n++) label += pieces.raw[n].gap != null ? pieces.raw[n].gap : pieces.raw[n].word;
-          const mark = marks[part.phrase] || (known.has(part.phrase) ? { state: "have" } : null);
-          html += lyricMark(label, part.phrase, mark);
+          html += lyricMark(label, part.phrase, lyricShownMark(part.phrase, marks));
           i = part.phraseEnd;
           continue;
         }
-        html += lyricMark(part.word, part.key, marks[part.key]);
+        html += lyricMark(part.word, part.key, lyricShownMark(part.key, marks));
       }
       return html;
     }
@@ -9394,7 +9440,56 @@
     function paintSongGate() {
       const hide = hideStudentSongs();
       document.querySelectorAll('[data-jump="music"]').forEach((el) => { el.hidden = hide; });
+      paintDeveloperChrome();
     }
+    function paintDeveloperChrome() {
+      const allow = isDeveloper();
+      document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
+    }
+    function bugWhen(ms, zone) {
+      const time = Number(ms);
+      if (!time) return "";
+      const timeZone = zone || "UTC";
+      try {
+        const shown = new Intl.DateTimeFormat("en-GB", {
+          timeZone: timeZone, day: "2-digit", month: "short", year: "numeric",
+          hour: "2-digit", minute: "2-digit", second: "2-digit",
+          hourCycle: "h23", timeZoneName: "shortOffset"
+        }).format(new Date(time));
+        return timeZone === "UTC" ? shown : shown + " " + timeZone;
+      } catch (e) {
+        return new Date(time).toISOString() + " UTC";
+      }
+    }
+    function bugListHtml(rows) {
+      if (!rows.length) return '<p class="sub">No bugs yet.</p>';
+      const ordered = rows.slice().sort((a, b) => (Number(b.lastAt) || 0) - (Number(a.lastAt) || 0));
+      return ordered.map((row, index) => {
+        const times = row.hits > 1 ? row.hits + " times" : "once";
+        const who = (row.accounts || []).filter(Boolean).join(", ") || "Unknown account";
+        const zone = row.timeZone || "UTC";
+        const when = row.when || bugWhen(row.lastAt, zone);
+        const first = row.hits > 1 ? (row.firstWhen || bugWhen(row.firstAt, zone)) : "";
+        const detail = ["Time: " + when, first ? "First: " + first : "", "Account: " + who, "", "Request", JSON.stringify(row.request || {}, null, 2), "", "What happened", (row.status || "") + " " + (row.error || ""), "", "Response", JSON.stringify(row.response || {}, null, 2)].filter((line, i) => i !== 1 || line).join("\n");
+        const count = row.hits > 1 ? "<small>×" + row.hits + "</small>" : "";
+        const stamp = when ? '<small style="display:block;font-size:11px;font-weight:400">' + esc(when) + "</small>" : "";
+        return '<div class="bug-item"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + "</b>" + count + '</span><b>' + esc((row.method || "") + " " + (row.path || "")) + '</b><span class="label about">' + esc(row.error || "") + " · " + esc(times) + " · " + esc(who) + stamp + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
+      }).join("");
+    }
+    function paintBugs(preset) {
+      const box = document.getElementById("bugList");
+      if (!box) return;
+      if (Array.isArray(preset)) { box.innerHTML = bugListHtml(preset); return; }
+      if (!isDeveloper()) return;
+      box.innerHTML = '<p class="sub">Loading…</p>';
+      accountFetch("/api/bugs").then((data) => {
+        if ((document.querySelector("section.on") || {}).id !== "bugs") return;
+        box.innerHTML = bugListHtml((data && data.bugs) || []);
+      }).catch(() => {
+        if ((document.querySelector("section.on") || {}).id === "bugs") box.innerHTML = '<p class="sub">The bug list could not be loaded.</p>';
+      });
+    }
+    window.paintBugs = paintBugs;
     function applyViewState(state) {
       authSyncLock = true;
       const added = Array.isArray(state.added) ? state.added : [];
@@ -9477,7 +9572,7 @@
           refreshCatalog();
           paintViewBar();
           show("home");
-          return accountFetch("/api/admin/users/" + encodeURIComponent(user.id) + "/state").then((state) => {
+          return accountFetch("/api/admin/users/" + encodeURIComponent(user.id) + "/state?summary=1").then((state) => {
             if (openedGen !== viewGen || !viewAccount || viewAccount.id !== openedId) {
               viewSwitching = false;
               return;
@@ -9553,7 +9648,7 @@
           if (window.paintLmDays) window.paintLmDays();
           lmPullFromServer();
           // Reconcile shared quizzes after restore: keep teacher local-only keys, prefer server elsewhere.
-          return accountFetch("/api/me/state").then((state) => {
+          return accountFetch("/api/me/state?summary=1").then((state) => {
             installCardQuizzes(state && state.stats && state.stats.cardQuizzes);
             if (cardQuizCanEdit()) {
               const server = plainCardQuizMap(state && state.stats && state.stats.cardQuizzes);
@@ -9900,12 +9995,13 @@
       signedOutHello = false;
       authUser = user;
       accountReady = false;
+      paintDeveloperChrome();
       localStorage.setItem("enquiz-auth-on", "1");
       paintAccount();
       const on = document.querySelector("section.on");
       if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") paintHomeAccount();
-      return accountFetch("/api/me/state").then((state) => {
+      return accountFetch("/api/me/state?summary=1").then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
         startAccountPull();
@@ -9957,6 +10053,7 @@
       stashOwned = false;
       authUser = null;
       accountReady = false;
+      paintDeveloperChrome();
       syncQueue.length = 0;
       clearTimeout(syncTimer);
       stopAccountPull();
@@ -10156,12 +10253,14 @@
       }
       return null;
     }
+    let placeBoot = false;
     function resumePlace() {
       if (workFromLocation()) return;
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
       if (!place || !place.id || place.id === "home" || !document.getElementById(place.id)) return;
+      if (place.id === "bugs" && !placeBoot) return;
       if (place.dayQuizPlace) dayQuizPlace = place.dayQuizPlace;
       if (place.dayReturn) dayReturn = place.dayReturn;
       const quiz = { dayq: 1, daychoice: 1, dayflip: 1, dayjudge: 1, choice: 1, flip: 1, type: 1, gap: 1, build: 1, judge: 1, tap: 1, multi: 1, pairs: 1, exam: 1, errors: 1 };
@@ -10170,6 +10269,7 @@
         if (place.songId === "sample") { showSampleSong(); show("song"); return; }
         const song = loadSongs().find((item) => item.id === place.songId);
         if (song && !song.archived) { renderUserSong(song); show("song"); return; }
+        if (place.songId && !placeBoot) return;
         show("music");
         return;
       }
@@ -10185,6 +10285,7 @@
       if (place.id === "made" && place.madeWord) {
         const item = loadAdded().find((row) => String(row.word || "").toLowerCase() === String(place.madeWord).toLowerCase());
         if (item) { renderMade(item); show("made"); return; }
+        if (!placeBoot) return;
         show("add");
         return;
       }
@@ -10197,7 +10298,26 @@
         return;
       }
       if (place.id === "setup") { openGlobalStudy(); return; }
+      if (place.id === "material") {
+        lmEnsure();
+        const found = place.materialId && lmLibrary && lmLibrary.materials.find((row) => row.id === place.materialId);
+        if (found && lmLessonVisibleToViewer(found)) {
+          lmState = found;
+          lmLibrary.activeId = found.id;
+          if (place.materialTab) found.tab = place.materialTab;
+          found.mode = canEditLessons() && !found.published ? "edit" : "preview";
+          show("material");
+          return;
+        }
+        if (place.materialId && !placeBoot) return;
+        show("days");
+        return;
+      }
       restore(place);
+    }
+    function finishPlace() {
+      placeBoot = true;
+      resumePlace();
     }
     function cardIdentity(item) {
       const word = String(item && item.word || "").trim().toLowerCase();
@@ -10291,7 +10411,7 @@
     function pullAccountState() {
       if (!authUser || viewAccount || !accountReady || syncSending || syncQueue.length || accountPulling) return;
       accountPulling = true;
-      accountFetch("/api/me/state").then((state) => {
+      accountFetch("/api/me/state?summary=1").then((state) => {
         if (viewAccount) return;
         const shared = applySharedStudy(state);
         if (!shared && !takeNewCards(state)) return;
@@ -10423,27 +10543,28 @@
           try { localStorage.removeItem(CUSTOM_THEME_KEY); } catch (e) {}
           settleThemeAudience();
           paintHomeAccount();
-          resumePlace();
+          finishPlace();
           return;
         }
         signedOutHello = false;
         authUser = data.user;
+        paintDeveloperChrome();
         localStorage.setItem("enquiz-auth-on", "1");
         paintAccount();
-        accountFetch("/api/me/state").then((state) => {
+        accountFetch("/api/me/state?summary=1").then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
           startAccountPull();
-          lmPullFromServer();
+          const lessonsReady = lmPullFromServer();
           if (syncQueue.length) scheduleStateSave();
           if (pendingId && data.user && (data.user.role === "DEVELOPER" || (data.user.role === "ADMIN" && pendingRole === "USER"))) openStudentPages({ id: pendingId, login: pendingLogin, role: pendingRole, email: pendingEmail, name: pendingName });
-          else resumePlace();
+          else Promise.resolve(lessonsReady).then(() => finishPlace());
         }).catch(() => {
           accountReady = !!(loadAdded().length || loadSongs().length);
           if (syncQueue.length) scheduleStateSave();
-          resumePlace();
+          finishPlace();
         });
-      }).catch(() => { paintHomeAccount(); resumePlace(); }));
+      }).catch(() => { paintHomeAccount(); finishPlace(); }));
     }
     const TEXT_KEY = "enquiz-texts";
     let openTextId = "";

@@ -39,9 +39,22 @@
     return {changes,blocks,order};
   }
   try{pending=JSON.parse(localStorage.getItem(queueKey)||'null');}catch{localStorage.removeItem(queueKey);}
+  try{
+    const place=JSON.parse(sessionStorage.getItem('enquiz-place')||'null');
+    const id=place&&place.id;
+    const target=id&&id!=='home'&&document.getElementById(id);
+    if(target){
+      const parent={lesson:'days',lesson07:'days',lesson09:'days',lesson14:'days',lesson16:'days',lesson23:'days',material:'days',word:'days',rules:'days',daywords:'days',daywork:'days',daysetup:'days',dayq:'days',daychoice:'days',dayflip:'days',dayjudge:'days',days:'days',pdfview:'days',song:'library',music:'library',lyricadd:'library',musicword:'library',texts:'library',textedit:'library',textread:'library',tenses:'library',tense:'library',marker:'library',library:'library',verbs:'library',phrasal:'library',idioms:'library',articles:'library',speakout:'library',choice:'setup',flip:'setup',type:'setup',gap:'setup',build:'setup',judge:'setup',tap:'setup',multi:'setup',pairs:'setup',exam:'setup',errors:'setup',setup:'setup',made:'add',allwords:'home',cardstat:'home',account:'account',profile:'account',admin:'account',themes:'account'}[id]||id;
+      document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===id));
+      document.querySelectorAll('.side nav button, .tabbar button').forEach(b=>{
+        const on=b.dataset.jump===parent;
+        b.classList.toggle('on',on);
+        if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+      });
+    }
+  }catch{}
   // Avoid restored browser caches resurrecting removed/shared/private entities.
   for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-'))localStorage.removeItem(key);
-  sessionStorage.removeItem('enquiz-place');
   function notice(message,bad=false){
     const el=document.getElementById('turso-main-status');if(!el)return;
     const banner=document.getElementById('turso-main-banner');
@@ -62,8 +75,9 @@
     }
   }
   function registerState(data){
-    themeRevision=data.stageThemeRevision||0;
-    addedRevision=data.stageAddedRevision||0;
+    if(data.stageThemeRevision!=null)themeRevision=data.stageThemeRevision||0;
+    if(data.stageAddedRevision!=null)addedRevision=data.stageAddedRevision||0;
+    if(data.bootstrap){personalReady=true;return;}
     register(data.added||[]);
     collections.clear();quizzes.clear();
     for(const c of data.stageCollections||[])collections.set(c.legacy_word_key,c);
@@ -73,12 +87,38 @@
     for(const row of data.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);
     personalReady=true;
   }
+  function reportClientBug(entry){
+    const path=String(entry.path||'/').split('?')[0];
+    if(path.startsWith('/api/bugs'))return;
+    try{
+      let timeZone='UTC';
+      try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}
+      const payload=JSON.stringify({
+        method:String(entry.method||'GET').slice(0,16),path:path.slice(0,300),status:Number(entry.status)||0,
+        error:String(entry.error||'Client failure').slice(0,500),timeZone,
+        request:{method:entry.method||'GET',url:String(entry.path||'/'),body:String(entry.requestBody??'').slice(0,4000)},
+        response:{status:Number(entry.status)||0,body:String(entry.responseBody??'').slice(0,4000)}
+      });
+      Promise.resolve(fetch('/api/bugs',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:payload})).catch(()=>{});
+    }catch{}
+  }
   async function api(path,options={}){
+    const method=String(options.method||'GET').toUpperCase();
+    const requestBody=typeof options.body==='string'?options.body:options.body==null?'':'[binary]';
     let response;
-    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,headers:{'Content-Type':'application/json',...options.headers}});}
-    catch{throw Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0});}
-    const value=await response.json();
-    if(!response.ok)throw Object.assign(new Error(value.error||'Ошибка тестового сервера'),{status:response.status});
+    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,headers:{'Content-Type':'application/json','X-Client-Bug':'1',...options.headers}});}
+    catch{
+      const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true});
+      reportClientBug({method,path,status:0,error:error.message,requestBody});
+      throw error;
+    }
+    let value={},parsed=true;
+    try{value=await response.json();}catch{parsed=false;}
+    if(!response.ok||!parsed){
+      const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:true});
+      reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':''});
+      throw error;
+    }
     return value;
   }
   async function accountFetch(path,options={}){
@@ -88,14 +128,18 @@
       const value=await api(path,options);
       if(path==='/api/me' || path==='/api/login'){actorId=value.user?.id||'';backendCapabilities=value.user?value.migrationCapabilities||{}:{};}
       if((path==='/api/me'||path==='/api/login')&&value.user&&!pending&&!personalQueue.length)notice('Вход подтверждён. Подключено к тестовой Turso.');
-      if(path==='/api/me/state'){registerState(value);void drainPersonal();}
+      const bare=path.split('?')[0];
+      if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value);void drainPersonal();}
+      if(bare==='/api/me/cards'&&String(options.method||'GET').toUpperCase()==='GET')register(value.cards||[]);
+      if(bare==='/api/me/quizzes')for(const quiz of value.quizzes||[])quizzes.set(quiz.id,{...quiz,word:quiz.word});
+      if(bare==='/api/me/progress'){for(const row of value.stageCardProgress||[])cardProgress.set(row.id,row.revision);for(const row of value.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);}
       const managedState=path.match(/^\/api\/admin\/users\/([a-f0-9]{16,64})\/state$/);
       if(managedState)managedLinkRevisions.set(managedState[1],value.stageAddedRevision||0);
       if(/^\/api\/(?:lessons|admin\/users\/[^/]+\/lessons)(?:\?|$)/.test(path)){
         for(const lesson of value.materials||[])if(!lesson.stageLessonDeferred)lesson.stageLessonBaseline=lessonSnapshot(lesson);
         register(value.materials||[]);
       }
-      if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();location.reload();}
+      if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}location.reload();}
       return value;
     }catch(error){notice(error.message,true);throw error;}
   }
@@ -150,7 +194,7 @@
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
     notice('Сохранение в тестовую Turso…');
     try{await action();notice('Подтверждено тестовой Turso.');if(status)status.textContent='Сохранено на тестовом сервере.';}
-    catch(error){notice(error.message,true);if(status){status.textContent=error.message;status.classList.add('bad');}}
+    catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message});if(status){status.textContent=error.message;status.classList.add('bad');}}
     finally{busy=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
   }
   function savePersonal(){
@@ -206,7 +250,10 @@
       notice('Личные данные подтверждены тестовой Turso.');
     }catch(error){
       if(personalQueue[0])personalQueue[0].paused=true;
-      savePersonal();notice(error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message,true);
+      savePersonal();
+      const message=error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
+      notice(message,true);
+      if(!error.reported)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message});
     }finally{personalRunning=false;}
   }
   const bridge=window.TursoMain={
@@ -225,7 +272,7 @@
       const path=accountId?'/api/admin/users/'+accountId+'/cards/':'/api/cards/';
       return api(path+encodeURIComponent(item.stageId)+'/dictionary');
     },
-    unsupported:operation=>notice(`Операция «${operation||'изменение'}» ещё не перенесена и не записана на сервер. Доступны точечные карточки, уроки, тексты/песни, прогресс, личная статистика и медиа в изолированном хранилище.`,true),
+    unsupported:operation=>{const message=`Операция «${operation||'изменение'}» ещё не перенесена и не записана на сервер. Доступны точечные карточки, уроки, тексты/песни, прогресс, личная статистика и медиа в изолированном хранилище.`;notice(message,true);reportClientBug({method:'CLIENT',path:'/unsupported',status:0,error:message});},
     answer(card,type,correct){
       const c=identify(card);enqueuePersonal({kind:'answer',key:c.stageId+'|'+type,cardId:c.stageId,type,correct,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/answers',method:'POST'});
     },
@@ -430,6 +477,10 @@
       pending=null;localStorage.removeItem(queueKey);location.reload();
       });
     });
-    if(pending||personalQueue.length)notice('Есть неподтверждённая операция. Войдите в исходный аккаунт и проверьте сервер или повторите её.',true);
+    if(pending||personalQueue.length){
+      notice('Есть неподтверждённая операция. Войдите в исходный аккаунт и проверьте сервер или повторите её.',true);
+      const item=pending||personalQueue[0]||{};
+      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:personalQueue.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
+    }
   });
 })();

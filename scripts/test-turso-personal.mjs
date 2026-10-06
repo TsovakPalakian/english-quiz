@@ -161,6 +161,10 @@ test('Own text/song: point edit, saved IDs and revisions, replay/stale/foreign d
   await service.createLibrary(f.own,{mutationId:mutation(),id:'song',kind:'song',changes:{title:'Song',lyrics:'Words',artist:'Artist'}});
   f.sqlite.exec("UPDATE library_items SET media_key='u1/song' WHERE id='song'");
   await service.editLibrary(f.dev,'song',{mutationId:mutation(),expectedRevision:1,changes:{lyrics:'New words'}});
+  const marked=await service.editLibrary(f.own,'song',{mutationId:mutation(),expectedRevision:2,changes:{marks:{'give up':{state:'new'}}}});
+  assert.equal(marked.item.marks['give up'].state,'new');
+  const cleared=await service.editLibrary(f.own,'song',{mutationId:mutation(),expectedRevision:marked.revision,changes:{lyrics:'Again'}});
+  assert.deepEqual(cleared.item.marks,{});
   assert.equal(await mediaKey(f.db,f.own,'song','song'),'u1/song');await assert.rejects(mediaKey(f.db,f.other,'song','song'),e=>e.status===404);
   const result=await service.editLibrary(f.own,'text',{mutationId:mutation(),expectedRevision:2},true);assert.equal(result.revision,3);
   assert.ok(!(await service.library(f.own)).some(row=>row.stageId==='text'));assert.ok(f.sqlite.prepare("SELECT deleted_at FROM library_items WHERE id='text'").get().deleted_at);

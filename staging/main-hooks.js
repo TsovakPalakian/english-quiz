@@ -78,7 +78,8 @@ async function stageOpenLesson(material){
   const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
   const root=document.getElementById('material');if(root)root.inert=true;
   try{
-    if(!stageLessonLoads.has(key))stageLessonLoads.set(key,accountFetch(path+'?id='+encodeURIComponent(material.id)));
+    const cacheKey='lesson:'+actor+':'+target+':'+material.id+':'+material.stageRevision;
+    if(!stageLessonLoads.has(key))stageLessonLoads.set(key,window.ContentCache?.load?window.ContentCache.load(cacheKey,()=>accountFetch(path+'?id='+encodeURIComponent(material.id))):accountFetch(path+'?id='+encodeURIComponent(material.id)));
     const data=await stageLessonLoads.get(key);
     if(token!==stageLessonOpenToken||generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching||section!==document.querySelector('section.on')?.id)return;
     const full=data.materials?.find(row=>row.id===material.id);if(!full)throw new Error('Lesson not found.');
@@ -88,7 +89,7 @@ async function stageOpenLesson(material){
     lmLibrary.materials[index]={...full,blocks,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
     stageLoadedLessons.add(lmLibrary.materials[index]);
     lmOpenLesson(material.id);
-  }catch(error){if(token===stageLessonOpenToken&&generation===viewGen)window.TursoMain.notice(error.message,true);}
+  }catch(error){if(token===stageLessonOpenToken&&generation===viewGen){window.TursoMain.notice(error.message,true);const note=document.getElementById('lmNote');if(note)note.innerHTML=esc(error.message)+' <button class="btn" type="button" data-stage-retry="lesson" data-lesson-id="'+esc(material.id)+'">Retry</button>';}}
   finally{stageLessonLoads.delete(key);if(root&&token===stageLessonOpenToken)root.inert=false;}
 }
 function stageStatsIntro(){
@@ -225,11 +226,24 @@ function stageSaveWord(place,input,status,button,openCard){
   if(!authUser || !accountReady || viewSwitching || viewAccount&&!managed){window.TursoMain.notice('Дождитесь загрузки разрешённого профиля.',true);return Promise.resolve();}
   const accountId=viewAccount?.id||'',generation=typeof viewGen==='number'?viewGen:0;
   const word=input.value.trim();if(!word){status.textContent='Введите слово или выражение.';return Promise.resolve();}
+  const missing='В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.';
   return window.TursoMain.perform(async()=>{
-    const card=await window.TursoMain.findCard(word);
+    let card=null;
+    try{card=await window.TursoMain.findCard(word);}catch(error){if(error.message!==missing)throw error;}
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
-    if(loadAdded().some(row=>row.stageId===card.id&&(row.place||'mine')===place))throw new Error('Эта карточка уже добавлена на страницу.');
-    const result=managed?await window.TursoMain.linkManagedCard(accountId,card,place):await window.TursoMain.linkCard(card,place);
+    let result;
+    if(card){
+      if(loadAdded().some(row=>row.stageId===card.id&&(row.place||'mine')===place))throw new Error('Эта карточка уже добавлена на страницу.');
+      result=managed?await window.TursoMain.linkManagedCard(accountId,card,place):await window.TursoMain.linkCard(card,place);
+    }else{
+      const data=await accountFetch('/lookup?word='+encodeURIComponent(word));
+      const en=String(data&&data.word||word).trim(),ru=String(data&&data.ru||'').trim();
+      if(!data||!data.found||!en||!ru)throw new Error('No translation came back for this word.');
+      if(loadAdded().some(row=>(row.place||'mine')===place&&String(row.word||row.en||'').toLowerCase()===en.toLowerCase()))throw new Error('Эта карточка уже добавлена на страницу.');
+      const id='own_'+crypto.randomUUID();
+      result=managed?await window.TursoMain.newManagedCard(accountId,id,en,ru):await window.TursoMain.newCard(id,en,ru);
+      result={...result,card:{...result.card,word:en,ru,data}};
+    }
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
     const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);if(!managed)trackEvent('card',place,'add');
     input.value='';if(openCard)renderMade(result.card);
@@ -265,7 +279,9 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)stageRecord
 function stageOwnReady(){return !!(authUser&&accountReady&&!viewAccount&&!viewSwitching);}
 function stageInstallLibrary(item,kind){
   const list=kind==='text'?loadTexts():loadSongs(),at=list.findIndex(row=>row.id===item.id);
-  if(at<0)list.unshift(item);else list[at]=item;
+  if(at<0){list.unshift(item);const boot=window.ContentCache?.get('account:bootstrap');if(boot?.counts){boot.counts[kind==='text'?'texts':'songs']+=1;stagePaintCounts(boot.counts);}}
+  else list[at]=item;
+  if(item.stageId)window.ContentCache?.set(stageItemKey(kind,item.stageId),{item});
   if(kind==='text'){localStorage.setItem(TEXT_KEY,JSON.stringify(list));paintTextCount();}
   else{writeSongs(list);paintLyrics();}
 }
@@ -298,7 +314,92 @@ function stageStoreSong(existingId){
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
     stageInstallLibrary(result.item,'song');stageSongDraft=null;if(!existingId&&!managed)trackEvent('song','lyrics','add');
     renderUserSong(result.item);show('song');
+    if(typeof accountFetch==='function')await stageAnalyzeSong(result.item,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
+}
+async function stageKeepExpression(card){
+  const word=String(card.word||'').trim();
+  const place=['phrasal','idioms','mine','music'].includes(card.place)?card.place:'mine';
+  if(!word||cardIndex().has(word.toLowerCase()))return false;
+  const managed=stageManagedSongReady();
+  const accountId=viewAccount?.id||'';
+  try{
+    const found=await window.TursoMain.findCard(word);
+    if(loadAdded().some(row=>row.stageId===found.id&&(row.place||'mine')===place))return false;
+    const linked=managed?await window.TursoMain.linkManagedCard(accountId,found,place):await window.TursoMain.linkCard(found,place);
+    const list=loadAdded();list.unshift(linked.card);stageStampLinks(list,linked.revision);return true;
+  }catch{
+    const ru=String(card.ru||'').trim();
+    if(!ru)return false;
+    const id='expr_'+crypto.randomUUID();
+    const created=managed?await window.TursoMain.newManagedCard(accountId,id,word,ru):await window.TursoMain.newCard(id,word,ru);
+    const list=loadAdded();list.unshift(created.card);stageStampLinks(list,created.revision);return true;
+  }
+}
+async function stageMarkLyricWords(song,marks,write){
+  const keys=typeof lyricKeys==='function'?lyricKeys(song.lyrics||''):[];
+  const todo=[];
+  keys.forEach(key=>{
+    const known=typeof lyricCard==='function'?lyricCard(key):cardIndex().has(key)?cardIndex().get(key):null;
+    if(known){if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')marks[key]={state:'have',word:known.en||key};return;}
+    if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')todo.push(key);
+  });
+  let cursor=0,done=0;
+  async function worker(){
+    while(cursor<todo.length){
+      const key=todo[cursor++];
+      write('Checked '+(++done)+' of '+todo.length+' new words…',false);
+      try{
+        const data=typeof lookupLyricWord==='function'?await lookupLyricWord(key,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):''):null;
+        if(!data){marks[key]={state:'miss'};continue;}
+        const word=String(data.word||key).trim();
+        await stageKeepExpression({word,ru:data.ru||'',place:'music'});
+        marks[key]={state:'new',word};
+      }catch{marks[key]={state:'error'};}
+    }
+  }
+  if(todo.length){
+    write('Looking up '+todo.length+' new words…',false);
+    await Promise.all(Array.from({length:Math.min(3,todo.length)},worker));
+  }
+  return keys;
+}
+async function stageAnalyzeSong(song,status){
+  const write=(text,bad)=>{if(!status)return;status.textContent=text;status.classList.toggle('bad',!!bad);};
+  const finish=(text,bad)=>setTimeout(()=>{
+    const live=document.querySelector('#songUser [data-lyric-check]')||status;
+    if(!live)return;live.textContent=text;live.classList.toggle('bad',!!bad);
+  },0);
+  write('Reading the lyrics…',false);
+  const marks={...(song.marks||{})};
+  const keys=await stageMarkLyricWords(song,marks,write);
+  const storeMarks=async()=>{
+    if(!song.stageId||!Object.keys(marks).length)return;
+    const managed=stageManagedSongReady();
+    const saved=managed?await window.TursoMain.saveManagedLibrary(viewAccount.id,song,'song',{marks}):await window.TursoMain.saveLibrary(song,'song',{marks});
+    const next=saved&&saved.item?saved.item:{...song,marks};
+    stageInstallLibrary(next,'song');renderUserSong(next);
+  };
+  let analyzed;
+  try{analyzed=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:song.lyrics,contentType:'LYRICS'})});}
+  catch(error){await storeMarks();finish(error.message||'Analysis service temporarily unavailable.',true);return;}
+  const expressions=typeof uniqueExpressions==='function'?uniqueExpressions(analyzed.expressions||[]):(analyzed.expressions||[]);
+  let added=0;
+  for(let i=0;i<expressions.length;i++){
+    const expr=expressions[i];
+    write('Looking up phrase '+(i+1)+' of '+expressions.length+'…',false);
+    try{
+      const built=await accountFetch('/api/phrase-card',{method:'POST',body:JSON.stringify({exactText:expr.exactText,canonicalForm:expr.canonicalForm,type:expr.type,meaning:expr.meaning,context:expr.context,source:'song'})});
+      const card=built&&built.card;
+      if(card&&card.word&&await stageKeepExpression(card)){
+        added++;
+        marks[String(card.word).trim().toLowerCase()]={state:'new',word:card.word,deck:card.place||'mine'};
+      }
+    }catch{/* one missed phrase does not stop the rest */}
+  }
+  await storeMarks();
+  const red=keys.filter(key=>!marks[key]||marks[key].state==='miss'||marks[key].state==='error').length;
+  finish((red?red+(red===1?' word is red. ':' words are red. '):'Checked the words. ')+(added?'Added '+added+' expressions.':''),false);
 }
 function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
@@ -503,6 +604,7 @@ function stageSaveLesson(published){
     const draft=JSON.parse(JSON.stringify(current));
     if(published!==undefined){draft.published=published;draft.mode=published?'preview':'edit';}
     await window.TursoMain.saveLesson(draft);
+    window.ContentCache?.drop(':'+current.id+':');
     Object.assign(current,draft,stageLessonCounts(draft.blocks));lmState=current;lmKeepLesson();lmPersist();
     lmShow(current.published?'preview':'edit');lmNote('Сохранено в тестовую Turso.');
   },document.getElementById('lmNote'));
@@ -566,6 +668,7 @@ function stageDeleteLesson(id){
   if(!confirm('Delete this lesson?'))return;
   return window.TursoMain.perform(async()=>{
     await window.TursoMain.deleteLesson(current);
+    window.ContentCache?.drop(':'+id+':');
     lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id);
     if(lmState?.id===id)lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
@@ -618,6 +721,19 @@ function stageResponseEvent(event){
   try{window.TursoMain.response(lmState.id,block,stageResponseValue(block,checking),checking||event.type==='focusout');}
   catch(error){window.TursoMain.notice(error.message,true);}
 }
+document.addEventListener('click',event=>{
+  const more=event.target.closest&&event.target.closest('[data-stage-more]');
+  if(more){stageLibraryBatch(more.dataset.stageMore);return;}
+  const retry=event.target.closest&&event.target.closest('[data-stage-retry]');
+  if(!retry)return;
+  const kind=retry.dataset.stageRetry;
+  if(kind==='lesson'){const row=lmLibrary?.materials?.find(item=>item.id===retry.dataset.lessonId);if(row)stageOpenLesson(row);return;}
+  if(kind==='speak'){stageLoadSpeak('level',speakLevel,-1,-1);return;}
+  if(kind==='verbs'){show('verbs');return;}
+  if(kind==='texts'){stagePaintTexts();return;}
+  if(kind==='song'){const song=loadSongs().find(row=>row.id===retry.dataset.songId);if(song)stageOpenSong(song);return;}
+  stageLibraryBatch(kind);
+});
 for(const event of ['input','change','focusout','click'])document.addEventListener(event,stageResponseEvent,true);
 document.addEventListener('turso-personal-saved',event=>{
   const {job,result}=event.detail;
@@ -670,3 +786,308 @@ document.addEventListener('turso-personal-saved',event=>{
     }
   }
 });
+var stageSpeakLevels=[['A1','A1'],['A2','A2'],['A2+','A2+'],['B1','B1'],['B1+','B1+'],['B2','B2'],['B2+','B2+'],['C1-C2','C1-C2']];
+function stageLevels(){return stageSpeakLevels||[['A1','A1'],['A2','A2'],['A2+','A2+'],['B1','B1'],['B1+','B1+'],['B2','B2'],['B2+','B2+'],['C1-C2','C1-C2']];}
+function stageIds(node){
+  if(Array.isArray(node))return node.flatMap(item=>item&&item.cardId?[item.cardId]:stageIds(item));
+  if(node&&typeof node==='object')return Object.values(node).flatMap(stageIds);
+  return [];
+}
+function stageEnsureStatic(key){
+  const version=(window.ContentCache.get('account:bootstrap')||{}).versions?.[key==='GRAMMAR'?'grammar':'irregular']||0;
+  const cacheKey=(key==='GRAMMAR'?'grammar:':'irregular:')+version;
+  if(window.ContentCache?.has(cacheKey))return Promise.resolve(window.ContentCache.get(cacheKey));
+  if(key==='GRAMMAR')return window.ContentCache.load(cacheKey,()=>fetch('/api/catalogs/GRAMMAR?document=1',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Unable to load grammar.');return response.json();})).then(data=>{if(data.document)window.GRAMMAR=data.document;if((document.querySelector('section.on')||{}).id==='tenses'&&typeof paintHub==='function')paintHub();return data.document;});
+  return stageIrregularPage('');
+}
+function stageIrregularPage(after){
+  const version=(window.ContentCache.get('account:bootstrap')||{}).versions?.irregular||0;
+  return window.ContentCache.load('irregular:page:'+(after||'start'),()=>fetch('/api/catalogs/IRREGULAR?slice=1&limit=50'+(after?'&after='+encodeURIComponent(after):''),{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Unable to load irregular verbs.');return response.json();})).then(page=>{
+    for(const card of page.cards||[])if(!window.IRREGULAR.some(row=>row.stageId&&row.stageId===card.stageId))window.IRREGULAR.push(card);
+    if(!page.next)window.ContentCache.set('irregular:'+version,window.IRREGULAR.slice());
+    else stageFollow('irregular',page.next,after,stageIrregularPage);
+    if((document.querySelector('section.on')||{}).id==='verbs'&&typeof paintVerbs==='function')paintVerbs();
+    return page;
+  });
+}
+function stageItemKey(kind,stageId){
+  const who=(viewAccount&&viewAccount.id)||(authUser&&authUser.id)||'';
+  return (kind==='text'?'text:':'song:')+who+':'+stageId;
+}
+function stageItemPath(kind,stageId){
+  if(viewAccount&&viewAccount.id)return '/api/admin/users/'+encodeURIComponent(viewAccount.id)+'/'+(kind==='text'?'texts':'songs')+'/'+encodeURIComponent(stageId);
+  return '/api/library/'+encodeURIComponent(stageId);
+}
+function stageWordsPending(){
+  const keys=['words','extraWords','lines21','ask07','phrases09','adverbs14','talk16','likes23'];
+  if(keys.some(key=>(window.LESSON_DATA[key]||[]).length))return false;
+  return !window.ContentCache?.get('library:opened:allwords');
+}
+function stagePaintCounts(counts){
+  if(!counts)return;
+  const set=(id,value)=>{const node=document.getElementById(id);if(node&&value!=null)node.textContent=String(value);};
+  set('allWordCount',counts.words);set('phrasalCount',counts.phrases);set('idiomCount',counts.idioms);set('verbCount',counts.verbs);set('lyricCount',counts.songs);set('textCount',counts.texts);
+}
+function stageLibrarySummary(){
+  const cached=window.ContentCache?.get('account:bootstrap');
+  if(cached?.counts){stagePaintCounts(cached.counts);return Promise.resolve(cached.counts);}
+  return window.ContentCache.load('library:summary',()=>accountFetch('/api/me/state?summary=1')).then(state=>{window.ContentCache.set('account:bootstrap',state);stagePaintCounts(state.counts);return state.counts;});
+}
+function stageRepaint(section){
+  if(section==='allwords'&&typeof paintAllWords==='function')paintAllWords();
+  if(section==='phrasal')paintExampleGrid('phrasalGrid',phrasalWords,'phrasal');
+  if(section==='idioms')paintExampleGrid('idiomGrid',idiomWords,'idiom');
+  const host=document.getElementById(section==='allwords'?'allWordGrid':section==='phrasal'?'phrasalGrid':'idiomGrid');
+  return host;
+}
+var stageBatchJobs;
+function stageLibraryBatch(section){
+  if(!stageBatchJobs)stageBatchJobs=new Map();
+  if(stageBatchJobs.has(section))return stageBatchJobs.get(section);
+  const job=stageLibraryBatchRun(section).finally(()=>stageBatchJobs.delete(section));
+  stageBatchJobs.set(section,job);
+  return job;
+}
+async function stageLibraryBatchRun(section){
+  const hostId=section==='allwords'?'allWordGrid':section==='phrasal'?'phrasalGrid':'idiomGrid';
+  const box=document.getElementById(hostId);
+  const apiSection=section==='phrasal'?'phrases':section==='idioms'?'idioms':'words';
+  const bank=section==='phrasal'?'phrasalWords':section==='idioms'?'idiomWords':'words';
+  const after=window.ContentCache.get('library:after:'+section)||'';
+  try{
+    if(box&&!(window.LESSON_DATA[bank]||[]).length)box.innerHTML='<p class="hint">Loading…</p>';
+    const page=await window.ContentCache.load('cards:'+apiSection+':after:'+(after||'start'),()=>accountFetch('/api/catalogs/LESSON_DATA?section='+apiSection+'&limit=50'+(after?'&after='+encodeURIComponent(after):'')));
+    for(const card of page.cards||[])if(!(window.LESSON_DATA[bank]||[]).some(row=>row.stageId===card.stageId))window.LESSON_DATA[bank].push(card);
+    window.ContentCache.set('library:after:'+section,page.next||'');
+    window.ContentCache.set('library:opened:'+section,true);
+    if((document.querySelector('section.on')||{}).id===section)stageRepaint(section);
+    stageRefreshHome();
+    const host=document.getElementById(hostId);
+    if(host&&!(window.LESSON_DATA[bank]||[]).length)host.innerHTML='<p class="hint">No cards yet.</p>';
+    stageFollow('library:'+section,page.next,after,()=>stageLibraryBatch(section));
+    return page;
+  }catch(error){if(box)box.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="'+section+'">Retry</button></p>';throw error;}
+}
+function stageFollow(key,next,cursor,run){
+  if(!next||next===cursor)return;
+  const depth=window.ContentCache?.get(key+':depth')||0;
+  if(depth>=80)return;
+  window.ContentCache?.set(key+':depth',depth+1);
+  const job=()=>run(next);
+  const queue=window.PreloadQueue;
+  if(!queue)return job();
+  return queue.add({id:key+':'+next,priority:6,run:job});
+}
+function stageRefreshHome(){
+  if(typeof paintHomeStats==='function')paintHomeStats();
+  if(typeof paintHomeStudy==='function')paintHomeStudy();
+}
+function stageKick(id,run){
+  const queue=window.PreloadQueue;
+  if(!queue)return run();
+  return queue.add({id,priority:0,run});
+}
+function stageDemand(id){
+  try{
+    if(id==='library')stageLibrarySummary().catch(error=>window.TursoMain.notice(error.message,true));
+    if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.TursoMain.notice(error.message,true)));
+    if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.TursoMain.notice(error.message,true)));
+    if(['allwords','phrasal','idioms'].includes(id)){if(!window.ContentCache?.get('library:opened:'+id)||window.ContentCache.get('library:after:'+id))stageLibraryBatch(id);}
+    if(id==='music'||id==='song')stageKick('songs:list',()=>stageSongPage(''));
+    if(id==='add'||id==='made')stageKick('cards:personal',()=>stagePersonalPage('').then(()=>{if((document.querySelector('section.on')||{}).id===id&&typeof paintAdded==='function')paintAdded();}));
+    if(['setup','exam','errors','made','add','word'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
+    if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
+  }catch(error){window.TursoMain?.notice?.(error.message,true);}
+}
+function stagePaintSpeakLevels(){
+  const title=document.getElementById('speakoutTitle'),sub=document.getElementById('speakoutSub'),list=document.getElementById('speakoutList');
+  if(title)title.textContent='Speakout';
+  if(sub)sub.textContent='Eight levels. Open a level to load it.';
+  if(!list)return;
+  list.className='decks';
+  list.innerHTML=stageLevels().map((row,i)=>'<button class="file-card" type="button" data-speak-level="'+i+'"><b>'+esc(row[0])+'</b><span class="num">32</span><span class="label">8 units</span></button>').join('');
+}
+function stageSpeakIncomplete(){return stageLevels().some((_,index)=>!(window.SPEAKOUT&&window.SPEAKOUT[index]&&window.SPEAKOUT[index].level));}
+function stageLoadSpeak(view,level,unit,lesson,quiet){
+  const name=(stageLevels()[level]||[])[0];
+  const list=document.getElementById('speakoutList');
+  if(!name)return;
+  if(list&&view!=='levels')list.innerHTML='<p class="hint">Loading level…</p>';
+  const version=(window.ContentCache.get('account:bootstrap')||{}).versions?.speakout||0;
+  return window.ContentCache.load('speakout:'+name+':'+version,()=>fetch('/api/catalogs/SPEAKOUT?level='+encodeURIComponent(name),{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Unable to load this level.');return response.json();})).then(data=>{
+    if(!Array.isArray(window.SPEAKOUT))window.SPEAKOUT=[];
+    window.SPEAKOUT[level]=data.content;
+    openSpeak(view,level,unit,lesson,quiet);
+  }).catch(error=>{if(list)list.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="speak">Retry</button></p>';});
+}
+function stagePaintTexts(after){
+  const box=document.getElementById('textList');
+  const cursor=after||window.ContentCache.get('texts:after')||'';
+  if(box&&!loadTexts().length)box.innerHTML='<p class="hint">Loading…</p>';
+  const forId=viewAccount&&viewAccount.id||'',gen=viewGen,base=textsApiPath(forId);
+  const path=base+(base.includes('?')?'&':'?')+'summary=1&limit=50'+(cursor?'&after='+encodeURIComponent(cursor):'');
+  return window.ContentCache.load('texts:list:after:'+(cursor||'start'),()=>accountFetch(path)).then(data=>{
+    if(gen!==viewGen)return data;
+    const local=loadTexts();
+    for(const row of data.texts||[]){
+      const have=local.find(item=>item&&(item.id===row.id||item.stageId===row.stageId));
+      if(have&&!have.stageTextDeferred)continue;
+      if(have)Object.assign(have,row,{stageTextDeferred:true});
+      else local.push({...row,id:row.id||row.stageId,stageTextDeferred:true});
+    }
+    localStorage.setItem(TEXT_KEY,JSON.stringify(local));
+    window.ContentCache.set('texts:after',data.next||'');
+    renderTextList();paintTextCount();
+    stageFollow('texts',data.next,cursor,stagePaintTexts);
+    return data;
+  }).catch(error=>{if(box)box.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="texts">Retry</button></p>';throw error;});
+}
+function stageOpenText(id){
+  const item=loadTexts().find(row=>row.id===id);
+  const box=document.getElementById('textList');
+  if(!item||!item.stageId)return;
+  if(box)box.insertAdjacentHTML('afterbegin','<p class="hint" data-stage-text-status>Loading text…</p>');
+  return window.ContentCache.load(stageItemKey('text',item.stageId),()=>accountFetch(stageItemPath('text',item.stageId))).then(data=>{
+    const full=data.item||data;
+    const list=loadTexts().map(row=>row.id===id?{...row,...full,id,stageTextDeferred:false}:row);
+    localStorage.setItem(TEXT_KEY,JSON.stringify(list));
+    showText(id);
+  }).catch(error=>{window.TursoMain.notice(error.message,true);if(box)box.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="texts">Retry</button></p>';});
+}
+function stageOpenSong(song){
+  const user=document.getElementById('songUser');
+  if(user)user.innerHTML='<p class="hint">Loading lyrics…</p>';
+  show('song');
+  const key=song.stageId||song.id;
+  return window.ContentCache.load(stageItemKey('song',key),()=>accountFetch(stageItemPath('song',key))).then(data=>{
+    const full=data.item||data;
+    const list=loadSongs().map(row=>(row.stageId===key||row.id===song.id)?{...row,...full,stageLyricsDeferred:false}:row);
+    writeSongs(list);
+    renderUserSong(list.find(row=>row.stageId===key||row.id===song.id)||{...song,...full,stageLyricsDeferred:false});
+  }).catch(error=>{window.TursoMain.notice(error.message,true);if(user)user.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="song" data-song-id="'+esc(song.id||'')+'">Retry</button></p>';});
+}
+function stageAccountBase(){return viewAccount&&viewAccount.id?'/api/admin/users/'+encodeURIComponent(viewAccount.id):'/api/me';}
+function stageApplyBootstrap(state){
+  window.ContentCache?.set('account:bootstrap',state);
+  stageSetActivity(state.stageActivity);
+  if(state.stats){
+    if(typeof state.stats.theme==='string'&&typeof applyTheme==='function')applyTheme(state.stats.theme,{sync:false});
+    if(state.stats.lyricSize)localStorage.setItem('enquiz-lyric-size',String(state.stats.lyricSize));
+    if(typeof installHiddenLessons==='function')installHiddenLessons(state.stats.hiddenLessons);
+    if(typeof installAllowedLessons==='function')installAllowedLessons(state.stats.allowedLessons);
+    if(state.stats.dayLinks)localStorage.setItem(LINK_KEY,JSON.stringify(state.stats.dayLinks));
+    if(Array.isArray(state.stats.customThemes)&&typeof installCustomThemes==='function')installCustomThemes(state.stats.customThemes);
+    if(state.stats.demonstratives)localStorage.setItem('enquiz-demonstratives',JSON.stringify(state.stats.demonstratives));
+  }
+  stagePaintCounts(state.counts);
+  if(typeof paintHomeAccount==='function')paintHomeAccount();
+  stageStartPreload();
+}
+let stagePreloadOn=false;
+function stageStartPreload(){
+  if(stagePreloadOn)return;
+  stagePreloadOn=true;
+  const here=(document.querySelector('section.on')||{}).id||'home';
+  const later=typeof setTimeout==='function'?setTimeout:(fn)=>fn();
+  later(()=>stageDemand(here),0);
+  later(()=>{
+    const add=(id,priority,run)=>{const queue=window.PreloadQueue;if(queue)queue.add({id,priority,run});else run();};
+    add('progress',3,()=>stageProgressPage(''));
+    add('songs:list',4,()=>stageSongPage(''));
+    add('cards:personal',4,()=>stagePersonalPage(''));
+    add('quizzes',5,()=>stageQuizPage(''));
+    add('texts:list',5,()=>stagePaintTexts(''));
+    add('lesson:summary',5,()=>stageQueueLessons());
+    add('library:allwords',6,()=>stageLibraryBatch('allwords'));
+    add('library:phrasal',6,()=>stageLibraryBatch('phrasal'));
+    add('library:idioms',6,()=>stageLibraryBatch('idioms'));
+  },400);
+}
+function stageQueueLibrary(section,depth){
+  return stageLibraryBatch(section).then(page=>{if(page&&page.next&&depth<8)window.PreloadQueue.add({id:'library:'+section+':'+page.next,priority:6,run:()=>stageQueueLibrary(section,depth+1)});return page;});
+}
+function stageFetchLesson(material){
+  if(!material?.id||!authUser)return Promise.resolve();
+  const target=viewAccount?.id||'',actor=authUser.id,path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
+  const cacheKey='lesson:'+actor+':'+target+':'+material.id+':'+material.stageRevision;
+  return window.ContentCache.load(cacheKey,()=>accountFetch(path+'?id='+encodeURIComponent(material.id))).then(data=>{
+    const full=(data.materials||[]).find(row=>row.id===material.id);
+    if(!full||!lmLibrary)return data;
+    const index=lmLibrary.materials.findIndex(row=>row.id===material.id);
+    if(index>=0){lmLibrary.materials[index]={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};stageLoadedLessons.add(lmLibrary.materials[index]);}
+    return data;
+  });
+}
+function stageQueueLessons(){
+  return Promise.resolve(stagePullLessons()).then(()=>{
+    window.ContentCache?.set('lesson:summary',lmLibrary?.materials||[]);
+    if((document.querySelector('section.on')||{}).id==='days'&&typeof paintLmDays==='function')paintLmDays();
+  });
+}
+function stagePersonalPage(after){
+  const cursor=after||'';
+  return window.ContentCache.load('cards:personal:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/cards?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    const list=loadAdded();
+    for(const card of page.cards||[])if(!list.some(row=>row.stageId===card.stageId&&(row.place||'mine')===(card.place||'mine')))list.push(card);
+    rememberAdded(list);
+    const on=(document.querySelector('section.on')||{}).id;
+    if((on==='add'||on==='made')&&typeof paintAdded==='function')paintAdded();
+    stageRefreshHome();
+    stageFollow('cards',page.next,cursor,stagePersonalPage);
+    return page;
+  });
+}
+function stageQuizPage(after){
+  const cursor=after||'';
+  return window.ContentCache.load('quizzes:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/quizzes?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    const map=typeof loadCardQuizzes==='function'?loadCardQuizzes():{};
+    for(const quiz of page.quizzes||[]){const key=String(quiz.word||'').toLowerCase();map[key]=map[key]||[];if(!map[key].some(row=>row.id===quiz.id))map[key].push(quiz);}
+    if(typeof installCardQuizzes==='function')installCardQuizzes(map);
+    stageFollow('quizzes',page.next,cursor,stageQuizPage);
+    return page;
+  });
+}
+function stageProgressPage(after){
+  const cursor=after||'';
+  return window.ContentCache.load('progress:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/progress?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    const learned=JSON.parse(localStorage.getItem(LEARNED_KEY)||'[]');
+    for(const word of page.learned||[])if(!learned.includes(word))learned.push(word);
+    localStorage.setItem(LEARNED_KEY,JSON.stringify(learned));
+    const variants=JSON.parse(localStorage.getItem(VARIANT_KEY)||'{}');
+    Object.assign(variants,page.variants||{});
+    localStorage.setItem(VARIANT_KEY,JSON.stringify(variants));
+    const mistakes=typeof loadMistakeMap==='function'?loadMistakeMap():{};
+    for(const row of page.mistakes||[])if(row&&row.en&&row.type&&row.misses>0)mistakes[String(row.en).toLowerCase()+'|'+row.type]=row;
+    localStorage.setItem(MISTAKE_KEY,JSON.stringify(mistakes));
+    stageRefreshHome();
+    stageFollow('progress',page.next,cursor,stageProgressPage);
+    return page;
+  });
+}
+function stageSongPage(after){
+  const cursor=after||'';
+  return window.ContentCache.load('songs:list:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/songs?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    const list=loadSongs();
+    for(const song of page.songs||[]){
+      const have=list.find(row=>row&&(row.stageId===song.stageId||row.id===song.id));
+      if(have&&!have.stageLyricsDeferred)continue;
+      if(have)Object.assign(have,song,{lyrics:undefined,stageLyricsDeferred:true});
+      else list.push({...song,stageLyricsDeferred:true});
+    }
+    writeSongs(list);
+    if(typeof paintLyrics==='function')paintLyrics();
+    stageFollow('songs',page.next,cursor,stageSongPage);
+    return page;
+  });
+}
+function stageFetchSpeak(index){
+  const name=(stageLevels()[index]||[])[0];
+  if(!name)return Promise.resolve();
+  const version=(window.ContentCache.get('account:bootstrap')||{}).versions?.speakout||0;
+  return window.ContentCache.load('speakout:'+name+':'+version,()=>fetch('/api/catalogs/SPEAKOUT?level='+encodeURIComponent(name),{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Unable to load this level.');return response.json();})).then(data=>{
+    if(!Array.isArray(window.SPEAKOUT))window.SPEAKOUT=[];
+    window.SPEAKOUT[index]=data.content;
+    if(index+1<stageLevels().length)window.PreloadQueue.add({id:'speakout:'+stageLevels()[index+1][0],priority:6,run:()=>stageFetchSpeak(index+1)});
+    return data;
+  });
+}

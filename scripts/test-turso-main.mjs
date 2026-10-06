@@ -9,7 +9,7 @@ import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {createMainServer} from './run-turso-main.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
-import {legacyState,legacyLessons,publicCatalogs,publicCatalogPage,publicCatalogCard} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
 
 function fixture(){
@@ -74,16 +74,16 @@ test('Lesson summaries omit all blocks; one-lesson loading preserves access and 
     assert.equal((await legacyLessons(f.db,{id:'student2',role:'USER'},{lessonId:'lesson'})).materials[0].blocks[0].response,undefined);
   }finally{f.sqlite.close();}
 });
-test('Catalog loader uses paged endpoints, registers before starting UI and coalesces deferred tense loads',async()=>{
-  const calls=[],loaded=[],window={TursoMain:{register:rows=>loaded.push(rows)}};
+test('Catalog loader starts the shell before catalogs and shares one in-flight load',async()=>{
+  const calls=[],window={};
   const scope={window,Map,Promise,AbortSignal,encodeURIComponent,
-    fetch:async path=>{calls.push(path);const key=path.split('/').at(-1);return {ok:true,json:async()=>({documents:{[key]:[{cardId:key}]},cards:[{stageId:key,en:key}],next:null})};},
-    document:{getElementById:()=>null,createElement:()=>({}),body:{append:script=>{assert.equal(loaded.length,1);assert.equal(script.src,'/preview.js');script.onload();}}}};
+    fetch:async path=>{calls.push(path);const key=path.split('?')[0].split('/').at(-1);return {ok:true,json:async()=>({documents:{[key]:[{cardId:key}]},cards:[{stageId:key,en:key}],next:null})};},
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append:script=>{assert.equal(calls.length,0);assert.equal(script.src,'/preview.js');}}}};
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   await window.TursoCatalogReady;
-  assert.equal(window.LESSON_DATA[0].stageId,'LESSON_DATA');assert.equal(calls.length,4);
+  assert.ok(Array.isArray(window.LESSON_DATA.words));assert.equal(calls.length,0);
   const [a,b]=await Promise.all([window.TursoLoadCatalog('TENSE_BANK'),window.TursoLoadCatalog('TENSE_BANK')]);
-  assert.equal(a,b);assert.equal(calls.length,5);assert.ok(calls.every(path=>path.startsWith('/api/catalogs/')));
+  assert.equal(a,b);assert.equal(calls.length,1);assert.equal(window.ContentCache.get('catalog:TENSE_BANK'),a);
 });
 test('Tense bank does not load at startup, coalesces first use, and ignores a closed view',async()=>{
   const generated=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
@@ -432,6 +432,7 @@ test('Theme queue coalesces clicks, retries the same operation and drains before
     localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
     document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
     fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
       if(path==='/api/me/state')return {ok:true,json:async()=>({stageThemeRevision:3})};
       if(path==='/api/me/theme'){
@@ -496,6 +497,7 @@ test('Personal card bridge carries only ID/place/versions and retains the exact 
   const card={id:'shared',en:'competitive',ru:'before',revision:1};
   const context={window,crypto,console,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'student'}})};
       if(path==='/api/me/state')return {ok:true,json:async()=>({stageAddedRevision:4,added:[],stats:{}})};
       if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[card]};
@@ -531,6 +533,23 @@ test('Personal card hooks: USER removal only, acknowledgement before local updat
   fail=false;await scope.stageDeleteDefinition(host);assert.equal(removed.stageId,'shared');assert.equal(list.length,1);assert.equal(list[0].place,'phrasal');assert.equal(list[0].stageLinksRevision,2);
   scope.viewAccount={id:'other'};input.value='blocked';await scope.stageSaveWord('mine',input,status,{},false);assert.equal(notices.length,1);assert.equal(list.length,1);
 });
+test('A word with no saved card is looked up and stored as a new personal card',async()=>{
+  let list=[],rendered=null;const calls=[];
+  const missing='В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.';
+  const scope={crypto,authUser:{id:'student',role:'USER'},accountReady:true,viewAccount:null,viewSwitching:false,
+    loadAdded:()=>list,rememberAdded:rows=>{list=rows;},paintAdded(){},paintAllWords(){},paintHomeStats(){},trackEvent(){},renderMade:card=>{rendered=card;},
+    accountFetch:async path=>{calls.push(path);return {found:true,word:'vulnerable',ru:'уязвимый',usages:[{en:'a'}]};},
+    document:{addEventListener(){}},window:{TursoMain:{notice(){},perform:async action=>action(),
+      findCard:async()=>{throw new Error(missing);},
+      newCard:async(id,en,ru)=>({revision:3,card:{stageId:id,word:en,ru,place:'mine',stageLinksRevision:3}})}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  const input={value:'vulnerable'},status={};
+  await scope.stageSaveWord('mine',input,status,{},true);
+  assert.equal(calls[0],'/lookup?word=vulnerable');assert.equal(list.length,1);assert.equal(list[0].ru,'уязвимый');
+  assert.equal(list[0].data.usages[0].en,'a');assert.equal(input.value,'');assert.equal(rendered.word,'vulnerable');
+  input.value='other';scope.window.TursoMain.findCard=async()=>{throw new Error('Several cards');};
+  await assert.rejects(scope.stageSaveWord('mine',input,status,{},false));assert.equal(list.length,1);assert.equal(input.value,'other');
+});
 test('Empty own My words exposes the first-add form without altering a foreign or non-empty group',()=>{
   let list=[],painted=0;
   const scope={document:{addEventListener(){}},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,addGroup:'',
@@ -565,11 +584,13 @@ test('Main HTTP personal routes: real USER auth, one users check per request, ow
     assert.equal(own.materials[0].blocks.find(b=>b.id==='task').response,'private HTTP answer');
     assert.equal(own.materials[0].blocks.find(b=>b.id==='task').stageResponseRevision,1);
     const state=await (await call('/api/me/state')).json();
-    assert.equal(state.stageQuizProgress[0].revision,1);assert.deepEqual(state.learned,['competitive']);
+    assert.equal(state.bootstrap,true);assert.equal(state.added,undefined);assert.equal(state.songs,undefined);
+    const progress=await (await call('/api/me/progress')).json();
+    assert.equal(progress.stageQuizProgress[0].revision,1);assert.deepEqual(progress.learned,['competitive']);
     await call('/api/login','POST',{login:'student2',password:f.password});
     const other=await (await call('/api/lessons')).json();
     assert.equal(other.materials[0].blocks.find(b=>b.id==='task').response,undefined);
-    assert.deepEqual((await (await call('/api/me/state')).json()).stats.mistakes,[]);
+    assert.deepEqual((await (await call('/api/me/progress')).json()).mistakes,[]);
   }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
 });
 test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential revisions and durable uncertain retry',async()=>{
@@ -582,6 +603,7 @@ test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential 
       document:{addEventListener:(type,fn)=>listeners.set(type,fn),dispatchEvent:event=>events.push(event),
         getElementById:id=>({addEventListener:(_type,fn)=>buttons.set(id,fn),classList:{toggle(){}},textContent:''}),querySelectorAll:()=>[]},
       fetch:async(path,options)=>{
+        if(path==='/api/bugs')return {ok:true,json:async()=>({})};
         if(path==='/api/me')return {ok:true,json:async()=>({user:{id:active}})};
         if(path==='/api/me/state')return {ok:true,json:async()=>state};
         const body=JSON.parse(options.body);sent.push({path,body});
@@ -675,6 +697,7 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   ]};
   const context={window,crypto,console,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
       const body=JSON.parse(options.body);sent.push({path,body});
@@ -887,6 +910,32 @@ test('R2 developer managed song save waits for acknowledgement, excludes teacher
   context.authUser.role='ADMIN';context.stageStoreSong();assert.equal(calls.length,1);
   context.authUser.role='DEVELOPER';const late=context.stageStoreSong();context.viewGen++;pending.shift()({item:{id:'late'}});await late;assert.equal(saved.length,1);
 });
+test('Adding a song asks the lyric analyzer and stores a new expression card',async()=>{
+  const calls=[],added=[];
+  const status={textContent:'',classList:{toggle(){}}};
+  const song={id:'song',stageId:'song',stageRevision:1,lyrics:'I give up',marks:{}};
+  const context={crypto,authUser:{role:'USER'},accountReady:true,viewAccount:null,viewGen:1,viewSwitching:false,
+    cardIndex:()=>new Map([['i',{kind:'added'}]]),loadAdded:()=>added,stageStampLinks(){},stageInstallLibrary(){},renderUserSong(){},
+    lyricKeys:()=>['i','give','up'],lookupLyricWord:async word=>word==='give'?{word:'give',ru:'давать'}:null,
+    uniqueExpressions:list=>list,setTimeout(){},accountFetch:async(path,options)=>{calls.push([path,JSON.parse(options.body)]);
+      return path==='/api/analyze'?{expressions:[{exactText:'give up',canonicalForm:'give up',type:'PHRASAL_VERB',meaning:'stop',context:'I give up'}]}:{card:{word:'give up',ru:'сдаться',place:'phrasal'}};},
+    document:{addEventListener(){}},window:{TursoMain:{
+      findCard:async()=>{throw Error('missing');},
+      newCard:async(id,en,ru)=>({revision:1,card:{stageId:id,word:en,ru,place:'mine'}}),
+      saveLibrary:async(item,kind,changes)=>({item:{...item,...changes,stageRevision:2},changes})
+    }}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  context.stageInstallLibrary=()=>{};
+  context.stageStampLinks=()=>{};
+  context.renderUserSong=()=>{};
+  let stored;
+  context.window.TursoMain.saveLibrary=async(item,kind,changes)=>{stored=changes;return {item:{...item,...changes,stageRevision:2}};};
+  await context.stageAnalyzeSong(song,status);
+  assert.equal(calls[0][0],'/api/analyze');assert.equal(calls[0][1].contentType,'LYRICS');assert.equal(calls[0][1].text,'I give up');
+  assert.equal(calls[1][0],'/api/phrase-card');assert.equal(calls[1][1].source,'song');
+  assert.equal(stored.marks.i.state,'have');assert.equal(stored.marks.give.state,'new');assert.equal(stored.marks.up.state,'miss');
+  assert.equal(added.length,2);
+});
 test('Managed lesson visibility updates local flags only after acknowledgement and keeps the selected target',async()=>{
   const pending=[],calls=[];let hidden=[],allowed=[],paints=0;
   const context={viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,accountReady:true,
@@ -915,4 +964,47 @@ test('Test banner reserves its actual wrapped height so editor buttons are not c
   listeners.get('DOMContentLoaded')();assert.deepEqual(offsets.at(-1),['--turso-banner-offset','162px']);
   height=190;resize();assert.deepEqual(offsets.at(-1),['--turso-banner-offset','202px']);
   assert.match(readFileSync(new URL('../staging/main-stage.css',import.meta.url),'utf8'),/scroll-padding-top:var\(--turso-banner-offset/);
+});
+test('Bootstrap omits large collections and slices stay on their own pages',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec(`INSERT INTO library_items(id,kind,scope,owner_profile_id,content_json) VALUES
+      ('song1','song','profile','p1','{"title":"Gold","artist":"A","lyrics":"${'la '.repeat(500)}"}'),
+      ('text1','text','profile','p1','{"title":"Note","text":"${'word '.repeat(500)}"}');
+      INSERT INTO profile_library_items(profile_id,item_id) VALUES('p1','song1'),('p1','text1');
+      INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT','[{"level":"A1","units":[1]},{"level":"A2","units":[2]}]');`);
+    const actor={id:'student',role:'USER'};
+    const boot=await accountBootstrap(f.db,actor);
+    assert.equal(boot.bootstrap,true);
+    for(const key of ['added','songs','learned','variants'])assert.equal(boot[key],undefined);
+    assert.equal(boot.stats.cardQuizzes,undefined);assert.equal(boot.stats.mistakes,undefined);
+    assert.equal(boot.counts.songs,1);assert.equal(boot.counts.texts,1);assert.equal(boot.counts.cards,1);
+    assert.ok(boot.versions.grammar>=2);
+    const songs=await accountSongs(f.db,actor,{limit:50});
+    assert.equal(songs.songs.length,1);assert.equal(songs.songs[0].title,'Gold');assert.equal(songs.songs[0].lyrics,undefined);assert.equal(songs.songs[0].stageLyricsDeferred,true);
+    const texts=await legacyTexts(f.db,actor,{summary:true,limit:50});
+    assert.equal(texts.texts[0].title,'Note');assert.equal(texts.texts[0].text,undefined);assert.ok(texts.texts[0].preview.length<=140);
+    const words=await catalogSection(f.db,'words',{limit:50});
+    assert.equal(words.cards.length,1);assert.equal(words.documents,undefined);assert.equal(words.cards[0].stageId,'shared');
+    const level=await speakoutLevel(f.db,'A1');
+    assert.equal(level.level,'A1');assert.deepEqual(level.content.units,[1]);assert.equal(level.content.level,'A1');
+    await assert.rejects(speakoutLevel(f.db,'Z9'),error=>error.status===400);
+    const cards=await accountCards(f.db,actor,{limit:50});
+    assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,'private');
+  }finally{f.sqlite.close();}
+});
+test('Background queue runs two requests at a time and shares an in-flight id',async()=>{
+  const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,
+    fetch:async()=>({ok:true,json:async()=>({documents:{},cards:[],next:null})}),
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append(){}}}};
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
+  let running=0,peak=0;const seen=[];
+  const work=id=>new Promise(resolve=>{running++;peak=Math.max(peak,running);seen.push(id);setTimeout(()=>{running--;resolve(id);},20);});
+  const first=window.PreloadQueue.add({id:'same',priority:0,run:()=>work('a')});
+  const second=window.PreloadQueue.add({id:'same',priority:0,run:()=>work('b')});
+  window.PreloadQueue.add({id:'c',priority:3,run:()=>work('c')});
+  window.PreloadQueue.add({id:'d',priority:3,run:()=>work('d')});
+  window.PreloadQueue.add({id:'e',priority:3,run:()=>work('e')});
+  assert.equal(first,second);
+  await new Promise(resolve=>setTimeout(resolve,200));
+  assert.ok(peak<=2);assert.equal(seen.filter(id=>id==='a').length,1);
 });
