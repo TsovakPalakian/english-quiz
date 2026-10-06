@@ -45,6 +45,13 @@ export async function publicCatalogPage(db,key,{after='',limit=60}={}){
     cards:rows.map(row=>({...legacyCard(row),stagePublicCatalog:true,...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{})})),
     next:more?rows.at(-1).id:null};
 }
+export async function publicCatalogCards(db,raw){
+  const ids=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+  if(!ids.length||ids.length>8||ids.some(item=>!/^[A-Za-z0-9_-]{1,100}$/.test(item)))throw new StudyError(400,'Invalid card ids.');
+  const rows=await db.read(`SELECT c.* FROM cards c WHERE c.scope='shared' AND c.deleted_at IS NULL AND c.id IN (${ids.map(()=>'?').join(',')})
+    AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[...ids,...banks]);
+  return rows.map(row=>({...legacyCard(row),stagePublicCatalog:true,stageDataDeferred:false}));
+}
 export async function publicCatalogCard(db,id){
   if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))throw new StudyError(400,'Invalid card ID.');
   const rows=await db.read(`SELECT c.* FROM cards c WHERE c.id=? AND c.scope='shared' AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[id,...banks]);

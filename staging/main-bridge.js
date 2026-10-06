@@ -348,9 +348,9 @@
       return rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===word.trim().toLowerCase());
     },
     lookupLessonCard:word=>write('/api/cards/lookup','POST',{word}),
-    async newManagedCard(accountId,id,en,ru){
+    async newManagedCard(accountId,id,en,ru,place){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
-      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{id,expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru}});
+      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{id,expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru,...(place?{place}:{})}});
       managedLinkRevisions.set(accountId,result.revision);return result;
     },
     async unlinkManagedCard(accountId,card){
@@ -368,8 +368,8 @@
       const result=await write('/api/me/cards','POST',{cardId:card.id,place,expectedRevision:addedRevision,expectedCardRevision:card.revision});
       addedRevision=result.revision;register(result.card);return result;
     },
-    async newCard(id,en,ru){
-      const result=await write('/api/me/cards/new','POST',{id,expectedRevision:addedRevision,card:{en,ru}});
+    async newCard(id,en,ru,place){
+      const result=await write('/api/me/cards/new','POST',{id,expectedRevision:addedRevision,card:{en,ru,...(place?{place}:{})}});
       addedRevision=result.revision;register(result.card);return result;
     },
     async saveManagedText(accountId,item,changes){

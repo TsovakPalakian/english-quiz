@@ -101,10 +101,18 @@
     <section id="library">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Library</h1></div>
       <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
+      <div class="here-add" data-place="classify" style="margin-bottom:12px">
+        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+        <div data-add-form hidden>
+          <input type="text" placeholder="a word or a phrase" autocomplete="off" data-add-input />
+          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+          <p class="hint" data-add-status></p>
+        </div>
+      </div>
       <h2 class="lib-h">Words</h2>
       <div class="decks">
         <button class="file-card" type="button" data-jump="allwords"><span class="num" id="allWordCount">0</span><b>All words</b><span class="label">every card, no duplicates</span></button>
-        <button class="file-card" type="button" data-jump="add"><span class="num">+</span><b>My words</b><span class="label">one field · both directions</span></button>
+        <button class="file-card" type="button" data-jump="add"><span class="num" id="myWordCount">0</span><b>My words</b><span class="label">one field · both directions</span></button>
         <button class="file-card" type="button" data-jump="phrasal"><span class="num" id="phrasalCount">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
         <button class="file-card" type="button" data-jump="idioms"><span class="num" id="idiomCount">3</span><b>Idioms</b><span class="label">cards</span></button>
       </div>
@@ -1442,9 +1450,9 @@
     </section>
 
     <section id="add">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Add a word</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>My words</h1></div>
       <div class="card grow">
-        <p class="sub" style="margin-top:0">Words already added, grouped by the page they belong to.</p>
+        <p class="sub" style="margin-top:0">Words you added yourself.</p>
         <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-add-study>Study</button></div>
         <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
         <div class="here-add" id="groupAdd" data-place="mine" hidden style="margin-bottom:12px">

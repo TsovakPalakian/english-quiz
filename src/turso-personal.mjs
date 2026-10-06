@@ -1,6 +1,8 @@
 // Point mutations for own content; used only by isolated Turso staging.
 import {StudyService,StudyError,statement as s,cardAccess,accessArgs} from './turso-study.mjs';
 const bad=(status,message)=>{throw new StudyError(status,message);};
+const cardPlaces=['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+function ownPlace(card){if(card.place==null||card.place==='')return 'mine';if(!cardPlaces.includes(card.place))bad(400,'Invalid personal card destination.');return card.place;}
 const only=(value,keys)=>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))bad(400,'Invalid fields.');};
 const id=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))bad(400,'Invalid ID.');return value;};
 const rev=value=>{if(!Number.isSafeInteger(value)||value<0)bad(400,'Invalid expectedRevision.');return value;};
@@ -17,7 +19,7 @@ export class PersonalService extends StudyService {
   }
   async createManagedCard(actor,accountId,body){
     id(accountId);only(body,['mutationId','id','expectedRevision','card']);id(body.id);const expected=rev(body.expectedRevision);
-    only(body.card,['en','ru']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim();
+    only(body.card,['en','ru','place']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim(),place=ownPlace(body.card);
     if(!en||!ru)bad(400,'English and translation are required.');
     return this.mutate(actor,body,['create-managed-card',accountId,body.id],async()=>{
       const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
@@ -25,26 +27,35 @@ export class PersonalService extends StudyService {
       const profile=members[0].profile_id,target={id:accountId,role:'USER'};
       const duplicates=await this.db.read(`SELECT c.id FROM cards c WHERE ${cardAccess} AND lower(c.en)=lower(?) AND c.ru=? LIMIT 1`,[...accessArgs(target),en,ru]);
       if(duplicates.length)bad(409,'The same definition exists. Add it by ID instead.');
-      const card={word:en,en,ru,place:'mine',stageId:body.id,stageRevision:1,stageScope:'profile',stageLinksRevision:expected+1};
+      const card={word:en,en,ru,place,stageId:body.id,stageRevision:1,stageScope:'profile',stageLinksRevision:expected+1};
       return {statements:[...this.linkRevisionCommands(profile,expected),
         s("INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES(?,'profile',?,?,?,?)",[body.id,profile,en,en.toLowerCase(),ru]),this.guard(),
-        s("INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,'mine',(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place='mine'))",[profile,body.id,profile]),this.guard()],
+        s("INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?))",[profile,body.id,place,profile,place]),this.guard()],
         result:{id:body.id,revision:expected+1,card}};
     });
   }
   async createOwnCard(actor,body){
     only(body,['mutationId','id','expectedRevision','card']);id(body.id);const expected=rev(body.expectedRevision);
-    only(body.card,['en','ru']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim();
+    only(body.card,['en','ru','place']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim(),place=ownPlace(body.card);
     if(!en||!ru)bad(400,'English and translation are required.');
     return this.personal(actor,body,['create-own-card',body.id],async profile=>{
       const duplicates=await this.db.read(`SELECT c.id FROM cards c WHERE ${cardAccess} AND lower(c.en)=lower(?) AND c.ru=? LIMIT 1`,[...accessArgs(actor),en,ru]);
       if(duplicates.length)bad(409,'The same definition exists. Add it by its existing ID instead.');
-      const card={word:en,en,ru,place:'mine',stageId:body.id,stageRevision:1,stageScope:'profile',stageLinksRevision:expected+1};
+      const card={word:en,en,ru,place,stageId:body.id,stageRevision:1,stageScope:'profile',stageLinksRevision:expected+1};
       return {statements:[...this.linkRevisionCommands(profile,expected),
         s("INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES(?,'profile',?,?,?,?)",[body.id,profile,en,en.toLowerCase(),ru]),this.guard(),
-        s("INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,'mine',(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place='mine'))",[profile,body.id,profile]),this.guard()],
+        s("INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?))",[profile,body.id,place,profile,place]),this.guard()],
         result:{id:body.id,revision:expected+1,card}};
     });
+  }
+  async libraryItems(actor,raw){
+    if(!actor?.id)bad(401,'Sign in first.');
+    const ids=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+    if(!ids.length||ids.length>8||ids.some(item=>!/^[A-Za-z0-9_-]{1,100}$/.test(item)))bad(400,'Invalid library ids.');
+    const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+      JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) AND l.id IN (${ids.map(()=>'?').join(',')})`,[actor.id,...ids]);
+    return rows.map(row=>({kind:row.kind,...libraryDto(row)}));
   }
   async libraryItem(actor,itemId){
     if(!actor?.id)bad(401,'Sign in first.');

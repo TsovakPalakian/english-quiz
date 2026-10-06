@@ -9,7 +9,8 @@ import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {createMainServer} from './run-turso-main.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
-import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
+import {PersonalService} from '../src/turso-personal.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
 
 function fixture(){
@@ -389,7 +390,7 @@ test('R4 dictionary hydration preserves profile/place and ignores responses afte
   const first=scope.stageHydrateMade(item);pending.shift()(full);await first;assert.equal(painted.length,1);assert.equal(rows[0].stageDataDeferred,false);assert.equal(rows[0].place,'mine');
   const switched=scope.stageHydrateMade(item);scope.viewGen++;pending.shift()(full);await switched;assert.equal(painted.length,1);
   const closed=scope.stageHydrateMade(item);section='days';pending.shift()(full);await closed;assert.equal(painted.length,1);
-  section='made';const stale=scope.stageHydrateMade(item);pending.shift()({...full,stageRevision:2});await stale;assert.equal(painted.length,1);assert.match(box.textContent,/Dictionary changed/);
+  section='made';const stale=scope.stageHydrateMade(item);pending.shift()({...full,stageRevision:2});await stale;assert.equal(painted.length,2);assert.equal(painted[1].stageRevision,2);assert.equal(painted[1].word,'Word');
 });
 test('R5 attachment removal updates editor only after server success and ignores a switched lesson',async()=>{
   const pending=[],notes=[],material={id:'lesson'},block={id:'image',fileId:'saved'};
@@ -990,6 +991,12 @@ test('Bootstrap omits large collections and slices stay on their own pages',asyn
     await assert.rejects(speakoutLevel(f.db,'Z9'),error=>error.status===400);
     const cards=await accountCards(f.db,actor,{limit:50});
     assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,'private');
+    const items=await new PersonalService(f.db).libraryItems(actor,'song1,text1');
+    assert.equal(items.length,2);assert.match(items.find(row=>row.stageId==='song1').lyrics,/la /);assert.equal(items.find(row=>row.kind==='text').text.includes('word '),true);
+    await assert.rejects(()=>new PersonalService(f.db).libraryItems(actor,'song1,nope,bad id'),error=>error.status===400);
+    const full=await publicCatalogCards(f.db,'shared');
+    assert.equal(full[0].stageId,'shared');assert.equal(full[0].stageDataDeferred,false);
+    await assert.rejects(()=>publicCatalogCards(f.db,''),error=>error.status===400);
   }finally{f.sqlite.close();}
 });
 test('Background queue runs two requests at a time and shares an in-flight id',async()=>{
@@ -1007,4 +1014,94 @@ test('Background queue runs two requests at a time and shares an in-flight id',a
   assert.equal(first,second);
   await new Promise(resolve=>setTimeout(resolve,200));
   assert.ok(peak<=2);assert.equal(seen.filter(id=>id==='a').length,1);
+});
+test('Session cache restores catalogs on refresh and All words omits lyrics and texts',()=>{
+  const session=new Map([['enquiz-session-cache',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
+  const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
+    fetch:async()=>{throw new Error('network');},
+    sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v),removeItem:k=>session.delete(k)},
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append(){}}}};
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
+  assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
+  window.ContentCache.set('songs:list:after:start',{songs:[{id:'s1'}],next:null});
+  assert.ok(JSON.parse(session.get('enquiz-session-cache'))['songs:list:after:start']);
+  const data={words:[],extraWords:[],lines21:[],ask07:[],phrases09:[],adverbs14:[],talk16:[],likes23:[],phrasalWords:[],idiomWords:[]};
+  Object.assign(window,{LESSON_DATA:data,IRREGULAR:[],loadAdded:()=>[{word:'mine',place:'mine'},{word:'lyric',place:'music'},{word:'from text',place:'mine',fromText:true}],
+    loadSongs:()=>[{id:'s1'}],loadTexts:()=>[],writeSongs(){},rememberAdded(){},paintDeckCounts(){},paintHomeStats(){}});
+  const hooks={window,LESSON_DATA:data,IRREGULAR:window.IRREGULAR,loadAdded:window.loadAdded,loadSongs:window.loadSongs,loadTexts:window.loadTexts,writeSongs:window.writeSongs,rememberAdded:window.rememberAdded,paintDeckCounts:window.paintDeckCounts,paintHomeStats:window.paintHomeStats,
+    document:{addEventListener(){},getElementById:()=>({textContent:''}),querySelector:()=>null}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  hooks.stageRestoreSession();
+  assert.equal(data.words[0].en,'day');
+});
+test('Block cache shows saved lyrics and requests only a missing song',async()=>{
+  const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
+    fetch:async()=>{throw new Error('catalog');},
+    sessionStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append(){}}}};
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
+  window.ContentCache.set('block:student:song1:lyrics',{revision:2,data:{lyrics:'la',marks:{}}});
+  window.ContentCache.set('block:student:song1:urls',{revision:2,data:{videoUrl:'https://example.com/a',musicUrl:''}});
+  const songs=[{id:'a',stageId:'song1',stageRevision:2,title:'Gold',stageLyricsDeferred:true},{id:'b',stageId:'song2',stageRevision:1,title:'Silver',stageLyricsDeferred:true}];
+  const calls=[];
+  const hooks={window,authUser:{id:'student'},viewAccount:null,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadSongs:()=>songs,loadTexts:()=>[],writeSongs(){},
+    accountFetch:async path=>{calls.push(path);return {items:[{kind:'song',id:'b',stageId:'song2',stageRevision:1,title:'Silver',artist:'',lyrics:'no',videoUrl:'',musicUrl:'',marks:{}}]};},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  hooks.stageRestoreSession();
+  assert.equal(songs[0].lyrics,'la');assert.equal(songs[0].videoUrl,'https://example.com/a');assert.equal(songs[0].stageLyricsDeferred,false);
+  await hooks.stageHydrateStep();
+  assert.equal(calls.length,1);assert.match(calls[0],/\/api\/library\?ids=song2$/);
+  assert.equal(songs[1].lyrics,'no');assert.equal(songs[1].stageLyricsDeferred,false);
+  await hooks.stageHydrateStep();
+  assert.equal(calls.length,1);
+  assert.equal(window.ContentCache.get('block:student:song2:lyrics').data.lyrics,'no');
+  assert.equal(window.ContentCache.get('block:student:song1:lyrics').data.lyrics,'la');
+});
+test('A saved card opens from the cache when the session is not ready',async()=>{
+  const painted=[],shown=[];
+  const scope={authUser:null,accountReady:false,viewAccount:null,viewSwitching:false,viewGen:1,
+    show:id=>shown.push(id),renderMade:value=>painted.push(value),loadAdded:()=>[],
+    document:{addEventListener(){},getElementById:()=>({}),querySelector:()=>({id:'made'})},
+    window:{TursoMain:{register(){},notice(){},dictionary(){throw new Error('should not fetch');}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await scope.stageHydrateMade({word:'',en:'mine',stageId:'m1',stageRevision:1,stageDataDeferred:true,place:'mine'});
+  assert.deepEqual(shown,['made']);assert.equal(painted[0].word,'mine');assert.equal(painted[0].stageDataDeferred,false);
+});
+test('Refresh aligns My words with cache and refetches only a stale block',()=>{
+  const session=new Map();
+  const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
+    fetch:async()=>{throw new Error('network');},
+    sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v),removeItem:k=>session.delete(k)},
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append(){}}}};
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
+  window.ContentCache.set('account:bootstrap',{stageAddedRevision:1,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
+  window.ContentCache.set('cards:personal:after:start',{cards:[{stageId:'m1',word:'fresh',place:'mine',stageRevision:2}],next:null});
+  window.ContentCache.set('cards:words:after:start',{cards:[{stageId:'w1',en:'day'}],next:null});
+  window.ContentCache.set('block::m1:dictionary',{revision:2,data:null});
+  let saved=null;
+  const hooks={window,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadAdded:()=>[{stageId:'m1',word:'stale',place:'mine',stageRevision:1},{word:'unsaved',place:'mine'}],
+    rememberAdded:list=>{saved=list;},loadSongs:()=>[],loadTexts:()=>[],setTimeout(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  hooks.stageRestoreSession();
+  assert.equal(saved.find(row=>row.stageId==='m1').word,'fresh');
+  assert.ok(saved.some(row=>row.word==='unsaved'));
+  hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
+  assert.equal(window.ContentCache.get('cards:personal:after:start'),undefined);
+  assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
+  hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
+  assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
+});
+test('Library phrase sorting and song back keep the list in history',()=>{
+  const stack=[],shown=[];
+  const hooks={document:{addEventListener(){},querySelector:()=>({id:'music'}),getElementById:()=>null},
+    visit(id){stack.push('music');shown.push(id);},show(id){shown.push('show:'+id);},
+    idiomWords:[{en:'break the ice'}],phrasalWords:[]};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  assert.equal(hooks.stagePhrasePlace('give up',[]),'phrasal');
+  assert.equal(hooks.stagePhrasePlace('break the ice',[{exactText:'break the ice',type:'IDIOM'}]),'idioms');
+  assert.equal(hooks.stagePhrasePlace('garden',[]),'mine');
+  hooks.stageEnter('song');
+  assert.deepEqual(stack,['music']);assert.deepEqual(shown,['song']);
 });

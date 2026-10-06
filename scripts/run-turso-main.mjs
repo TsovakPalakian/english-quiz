@@ -159,6 +159,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       }
       if(newCardWrite){json(200,await personal.createOwnCard(actor,await jsonBody(req)));return;}
       if(libraryWrite){const body=await jsonBody(req);json(200,path==='/api/library'?await personal.createLibrary(actor,body):await personal.editLibrary(actor,decodeURIComponent(libraryRoute[1]),body,req.method==='DELETE'));return;}
+      if(path==='/api/library'&&url.searchParams.has('ids')){json(200,{items:await personal.libraryItems(actor,url.searchParams.get('ids'))});return;}
       if(path==='/api/library'){json(200,{items:await personal.library(actor)});return;}
       if(activityWrite){json(200,await activity.events(actor,await jsonBody(req)));return;}
       if(path==='/api/stats'){json(200,await activity.stats(actor,{from:url.searchParams.get('from'),to:url.searchParams.get('to'),user:url.searchParams.get('user')||'',role:url.searchParams.get('role')||''}));return;}

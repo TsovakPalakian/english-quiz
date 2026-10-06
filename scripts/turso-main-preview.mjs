@@ -75,7 +75,7 @@ export function mainPreview(source,hooks){
   insert('    function attachSpotify(iframe) {','      return; // Native iframe controls; no third-party script in the app.');
   insert('    function lmFileUrl(id) {',"      const stageBase='/api/lesson-file?id='+encodeURIComponent(id);return viewAccount?stageBase+'&for='+encodeURIComponent(viewAccount.id):stageBase;");
   insert('    function paintStats() {','      return stagePaintStats();');
-  insert('    function renderMade(item) {','      if(item?.stageDataDeferred)return stageHydrateMade(item);');
+  insert('    function renderMade(item) {','      if(item)item.word=item.word||item.en||"";if(item?.stageDataDeferred)return stageHydrateMade(item);');
   insert('    function renderMade(item) {','      stageMadeAttempts.clear();');
   insert('        const dir = choice.dataset.choiceDir;',"        stageMadeAnswer('Choice',dir,choice.dataset.madeChoice==='ok',choice.textContent);");
   insert('        const needed = dir === "ru" ? view.dataset.ru : view.dataset.word;',"        stageMadeAnswer('Type',dir,ok,typed);");
@@ -102,6 +102,7 @@ export function mainPreview(source,hooks){
   insert('    async function saveSongMeta() {','      return stageSaveSongMeta();');
   insert('    function paintSongMedia(song, box) {','      stageMountSongAudio(song,box); if(stagePaintLocalAudio(song,box))return;');
   insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.TursoMain.unsupported("Добавление личных карточек");');
-  insert('    async function saveWord(place, input, status, button, openCard) {','      return stageSaveWord(place,input,status,button,openCard);');
+  insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
+  insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
   return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+source+'\n'+hooks;
 }

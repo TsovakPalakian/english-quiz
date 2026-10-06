@@ -3482,7 +3482,7 @@
         rows.push(row);
       }
       ask07.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "7 Sep", "ask", w.en); });
-      words.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "21 Sep", "word", w.en); });
+      words.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "Lessons", "word", w.en); });
       lines21.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "21 Sep", "line", w.en); });
       phrases09.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "9 Sep", "phrase", w.en); });
       adverbs14.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "14 Sep", "adverb", w.en); });
@@ -3496,8 +3496,10 @@
       if (!hideStudentSongs()) Object.keys(songCards).forEach((key) => { if (cardVisible(songCards[key])) add(songCards[key].en, songCards[key].ru, "Song lyrics", "song", key); });
       add("give up", "сдаваться, бросать", "deck", "deck", "give up");
       loadAdded().forEach((item) => {
-        if (hideStudentSongs() && (item.place || "mine") === "music") return;
-        add(item.word, item.ru, PLACE_LABEL[item.place] || "My words", "added", item.word);
+        const place = item.place || "mine";
+        if (hideStudentSongs() && place === "music") return;
+        const where = item.fromText && place === "mine" ? "Text" : (PLACE_LABEL[place] || "My words");
+        add(item.word, item.ru, where, "added", item.word);
       });
       rows.sort((a, b) => a.en.localeCompare(b.en));
       return rows;
@@ -3514,14 +3516,14 @@
       return where[0] || "Cards";
     }
     function isLessonSource(name) {
-      return name === "7 Sep" || name === "9 Sep" || name === "14 Sep" || name === "16 Sep" || name === "21 Sep" || name === "23 Sep";
+      return name === "Lessons" || name === "7 Sep" || name === "9 Sep" || name === "14 Sep" || name === "16 Sep" || name === "21 Sep" || name === "23 Sep";
     }
     function sourceRank(name) {
       if (name === "7 Sep") return 0;
       if (name === "9 Sep") return 1;
       if (name === "14 Sep") return 2;
       if (name === "16 Sep") return 3;
-      if (name === "21 Sep") return 4;
+      if (name === "Lessons") return 4;
       if (name === "23 Sep") return 5;
       if (name === "Additional words") return 5.5;
       if (name === "Grammar") return 6;
@@ -3529,6 +3531,7 @@
       if (name === "My words") return 8;
       if (name === "Phrasal verbs") return 8.2;
       if (name === "Idioms") return 8.4;
+      if (name === "Irregular verbs") return 8.6;
       return 9;
     }
     function lessonOrder(row) {
@@ -3697,15 +3700,30 @@
       return collectCards().filter((row) => row.kind !== "deck").sort(byLesson);
     }
     function studyCards() {
-      const base = collectCards().filter((row) => row.kind !== "added" && row.kind !== "deck");
-      const added = loadAdded().filter((item) => String(item.word || "").trim()).map((item) => ({
-        en: item.word,
-        ru: item.ru || "",
-        where: [PLACE_LABEL[item.place] || "My words"],
-        kind: "added",
-        key: item.word
-      }));
-      return base.concat(added);
+      const rows = [];
+      const seen = {};
+      function add(en, ru, where, kind, key) {
+        const id = String(en || "").trim().toLowerCase();
+        if (!id || seen[id]) return;
+        seen[id] = 1;
+        rows.push({ en: en, ru: ru || "", where: [where], kind: kind, key: key || en });
+      }
+      ask07.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "7 Sep", "ask", w.en); });
+      words.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "Lessons", "word", w.en); });
+      lines21.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru, "21 Sep", "line", w.en); });
+      phrases09.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "9 Sep", "phrase", w.en); });
+      adverbs14.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "14 Sep", "adverb", w.en); });
+      talk16.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "16 Sep", "talk", w.en); });
+      likes23.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "23 Sep", "like", w.en); });
+      phrasalWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Phrasal verbs", "phrasal", w.en); });
+      idiomWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Idioms", "idiom", w.en); });
+      const homePlace = { mine: "My words", phrasal: "Phrasal verbs", idioms: "Idioms", "lesson-07": "7 Sep", "lesson-09": "9 Sep", "lesson-14": "14 Sep", "lesson-16": "16 Sep", "lesson-21": "21 Sep", "lesson-23": "23 Sep" };
+      loadAdded().forEach((item) => {
+        const place = item.place || "mine";
+        if (item.fromText || !homePlace[place]) return;
+        add(item.word, item.ru, homePlace[place], "added", item.word);
+      });
+      return rows;
     }
     function paintAllWords() {
       const rows = allRows();
@@ -3775,71 +3793,27 @@
     function addedPlaceName(item) {
       return PLACE_LABEL[item.place] || "My words";
     }
+    function ownMine(item) {
+      return !!item && (item.place || "mine") === "mine" && !item.fromText;
+    }
     function renderAddedList() {
       const list = loadAdded();
       const box = document.getElementById("addedList");
       const title = document.querySelector("#add h1");
       const groupAdd = document.getElementById("groupAdd");
-      const addPlaces = { "My words": "mine", "Phrasal verbs": "phrasal", "Idioms": "idioms" };
-      const addPlace = addPlaces[addGroup] || "";
       if (groupAdd) {
-        groupAdd.hidden = !addPlace;
-        if (addPlace) {
-          groupAdd.dataset.place = addPlace;
-          const addInput = groupAdd.querySelector("[data-add-input]");
-          const addHint = { mine: "a word or a phrase", phrasal: "give up or сдаваться", idioms: "break the ice or начать разговор" };
-          if (addInput) addInput.placeholder = addHint[addPlace];
-        }
+        groupAdd.hidden = false;
+        groupAdd.dataset.place = "mine";
+        const addInput = groupAdd.querySelector("[data-add-input]");
+        if (addInput) addInput.placeholder = "a word or a phrase";
       }
       if (!box) return;
-      if (!list.length) {
-        box.innerHTML = "";
-        if (title) title.textContent = "Add a word";
-        applyCardSearch(box.closest("section"));
-        return;
-      }
-      if (!addGroup) {
-        const map = {};
-        const names = [];
-        list.forEach((item) => {
-          const name = addedPlaceName(item);
-          if (!map[name]) { map[name] = 0; names.push(name); }
-          map[name] += 1;
-        });
-        names.sort((a, b) => sourceRank(a) - sourceRank(b) || a.localeCompare(b));
-        if (title) title.textContent = "Add a word";
-        box.innerHTML = names.map((name, index) => {
-          const n = map[name];
-          return '<button class="day active" type="button" data-add-group="' + esc(name) + '"><span class="date">' + (index + 1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
-        }).join("");
-        applyCardSearch(box.closest("section"));
-        return;
-      }
       const shown = [];
       list.forEach((item, index) => {
-        if (addedPlaceName(item) === addGroup) shown.push({ item: item, index: index });
+        if (ownMine(item)) shown.push({ item: item, index: index });
       });
-      if (addGroup === "Song lyrics" && !addSong) {
-        const grouped = songSlices(shown, (row, keys) => addedInKeys(row.item, keys));
-        if (title) title.textContent = "Song lyrics · " + shown.length;
-        box.innerHTML = songGroupHtml(grouped.slices, grouped.left, "data-add-song");
-        applyCardSearch(box.closest("section"));
-        return;
-      }
-      let words = shown;
-      let label = addGroup;
-      if (addGroup === "Song lyrics" && addSong) {
-        const song = findSong(addSong);
-        if (addSong === "other") {
-          words = songSlices(shown, (row, keys) => addedInKeys(row.item, keys)).left;
-          label = "Other words";
-        } else if (song) {
-          words = shown.filter((row) => addedInKeys(row.item, song.keys));
-          label = song.number + " " + song.title;
-        }
-      }
-      if (title) title.textContent = label + " · " + words.length;
-      box.innerHTML = words.map(({ item, index }) => addedRow(item, index)).join("");
+      if (title) title.textContent = shown.length ? "My words · " + shown.length : "My words";
+      box.innerHTML = shown.map(({ item, index }) => addedRow(item, index)).join("");
       applyCardSearch(box.closest("section"));
     }
     function openAddGroup(name) {
@@ -4714,6 +4688,17 @@
         } else if (kind === "song") {
           renderSong(key);
           visit("musicword");
+        } else if (kind === "phrasal" || kind === "idiom") {
+          const bank = kind === "phrasal" ? phrasalWords : idiomWords;
+          const word = bank.find((item) => String(item.en).toLowerCase() === key.toLowerCase());
+          if (word) { renderWord(word); visit("word"); return; }
+          const item = loadAdded().find((row) => String(row.word).toLowerCase() === key.toLowerCase());
+          if (item) {
+            if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
+            else openUsages(item.word, item.ru);
+          }
+        } else if (kind === "verb") {
+          openVerbCard(key);
         } else if (kind === "added") {
           const item = loadAdded().find((row) => String(row.word).toLowerCase() === key.toLowerCase());
           if (item) {
@@ -6102,6 +6087,8 @@
       const list = visibleSongs();
       const count = document.getElementById("lyricCount");
       if (count) count.textContent = String(list.length);
+      const title = document.querySelector("#music h1");
+      if (title) title.textContent = "Song lyrics · " + list.length;
       const box = document.getElementById("lyricList");
       if (!box) return;
       let html = "";
@@ -6997,10 +6984,10 @@
     }
     function addSearchRows() {
       const list = [];
-      loadAdded().forEach((item, index) => list.push({ item: item, index: index }));
-      if (!addGroup) return list;
-      const shown = list.filter((row) => addedPlaceName(row.item) === addGroup);
-      return addGroup === "Song lyrics" ? rowsForSong(shown, addSong, (row, keys) => addedInKeys(row.item, keys)) : shown;
+      loadAdded().forEach((item, index) => {
+        if (ownMine(item)) list.push({ item: item, index: index });
+      });
+      return list;
     }
     function statRows() {
       const rows = (homeBuckets(studyCards())[statKind] || []).slice().sort(byLesson);
@@ -7638,7 +7625,7 @@
     function deckStudyCards(place) {
       const bank = place === "idioms" ? idiomWords : phrasalWords;
       const base = bank.filter(cardVisible).map((w) => ({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk || "", us: w.us || "", ex: w.ex || "", gloss: w.gloss || "" }));
-      const extra = loadAdded().filter((item) => item.place === place).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
+      const extra = loadAdded().filter((item) => item.place === place && !item.fromText).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
       return base.concat(extra);
     }
     function paintDeckCounts() {
@@ -7648,8 +7635,15 @@
       const idiomCount = document.getElementById("idiomCount");
       const phrasalSub = document.getElementById("phrasalSub");
       const idiomSub = document.getElementById("idiomSub");
+      const mineN = loadAdded().filter((item) => (item.place || "mine") === "mine" && !item.fromText).length;
+      const mineCount = document.getElementById("myWordCount");
       if (phrasalCount) phrasalCount.textContent = String(phrasalN);
       if (idiomCount) idiomCount.textContent = String(idiomN);
+      if (mineCount) mineCount.textContent = String(mineN);
+      const phrasalTitle = document.querySelector("#phrasal h1");
+      const idiomTitle = document.querySelector("#idioms h1");
+      if (phrasalTitle) phrasalTitle.textContent = "Phrasal verbs · " + phrasalN;
+      if (idiomTitle) idiomTitle.textContent = "Idioms · " + idiomN;
       if (phrasalSub) phrasalSub.textContent = phrasalN + (phrasalN === 1 ? " card" : " cards") + ". Study uses them.";
       if (idiomSub) idiomSub.textContent = idiomN + (idiomN === 1 ? " card" : " cards") + ". Study uses them.";
     }
@@ -8037,17 +8031,8 @@
       openListedStudy(shown.map(rowToCard), title, "allwords");
     }
     function openAddStudy() {
-      let rows = loadAdded().map((item, index) => ({ item: item, index: index }));
-      let title = "Add a word";
-      if (addGroup) {
-        rows = rows.filter((row) => addedPlaceName(row.item) === addGroup);
-        title = addGroup;
-      }
-      if (addGroup === "Song lyrics") {
-        rows = rowsForSong(rows, addSong, (row, keys) => addedInKeys(row.item, keys));
-        title = songStudyTitle(title, addSong);
-      }
-      openListedStudy(rows.map((row) => rowToCard({ en: row.item.word, ru: row.item.ru, key: row.item.word })), title, "add");
+      const rows = loadAdded().map((item, index) => ({ item: item, index: index })).filter((row) => ownMine(row.item));
+      openListedStudy(rows.map((row) => rowToCard({ en: row.item.word, ru: row.item.ru, key: row.item.word })), "My words", "add");
     }
     function openClassesStudy() {
       const places = ["lesson-07", "lesson-09", "lesson-14", "lesson-16", "lesson-21", "lesson-23"];
@@ -10592,7 +10577,10 @@
     }
     function paintTextCount() {
       const node = document.getElementById("textCount");
-      if (node) node.textContent = String(loadTexts().length);
+      const n = loadTexts().length;
+      if (node) node.textContent = String(n);
+      const title = document.querySelector("#texts h1");
+      if (title) title.textContent = "Text · " + n;
     }
     function mergeTextLists(local, remote) {
       const map = new Map();
@@ -10709,7 +10697,7 @@
       const count = item.analysis && item.analysis.expressions ? item.analysis.expressions.length : 0;
       document.getElementById("textReadStatus").textContent = item.analysis ? count + " expressions. The whole text was checked." : "";
       paintExpressions(item);
-      show("textread");
+      visit("textread");
       fitTextBody();
     }
     function keepTextBreaks(text) {

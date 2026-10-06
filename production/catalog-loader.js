@@ -7,15 +7,34 @@
   window.SPEAKOUT=window.SPEAKOUT||[];
   window.VERB_IPA=window.VERB_IPA||{};
   window.VERB_IPA_CASE=window.VERB_IPA_CASE||{};
-  function remember(key,value){memory.set(key,{value,at:Date.now()});return value;}
+  const STORE='enquiz-session-cache';
+  const KEEP=/^(account:bootstrap|library:|cards:|irregular:|progress:|songs:list:|texts:list:|quizzes:after:|lesson:summary|block:)/;
+  function restore(){
+    try{
+      const saved=JSON.parse(sessionStorage.getItem(STORE)||'null');
+      if(!saved||typeof saved!=='object')return;
+      for(const [key,value] of Object.entries(saved))if(KEEP.test(key))memory.set(key,{value,at:Date.now()});
+    }catch(e){try{sessionStorage.removeItem(STORE);}catch(err){}}
+  }
+  restore();
+  function persist(){
+    const dump={};
+    for(const [key,row] of memory)if(KEEP.test(key))dump[key]=row.value;
+    try{sessionStorage.setItem(STORE,JSON.stringify(dump));}
+    catch(e){for(const key of Object.keys(dump))if(key.endsWith(':dictionary'))delete dump[key];try{sessionStorage.setItem(STORE,JSON.stringify(dump));}catch(err){}}
+  }
+  let held=false;
+  function remember(key,value){memory.set(key,{value,at:Date.now()});if(KEEP.test(key))persist();return value;}
   window.ContentCache={
     get(key){return memory.has(key)?memory.get(key).value:undefined;},
     at(key){return memory.get(key)?.at||0;},
     has(key){return memory.has(key);},
     set:remember,
-    drop(part){for(const key of [...memory.keys()])if(String(key).includes(part))memory.delete(key);},
-    invalidate(prefix){for(const key of [...memory.keys()])if(String(key).startsWith(prefix))memory.delete(key);},
-    clear(){memory.clear();},
+    hold(key,value){memory.set(key,{value,at:Date.now()});held=true;return value;},
+    flush(){if(!held)return;held=false;persist();},
+    drop(part){for(const key of [...memory.keys()])if(String(key).includes(part))memory.delete(key);persist();},
+    invalidate(prefix){for(const key of [...memory.keys()])if(String(key).startsWith(prefix))memory.delete(key);persist();},
+    clear(){memory.clear();try{sessionStorage.removeItem(STORE);}catch(e){}},
     load(key,fetcher){
       if(memory.has(key))return Promise.resolve(memory.get(key).value);
       if(loads.has(key))return loads.get(key);

@@ -149,6 +149,16 @@ test('Own new card: ID/replay, link CAS, private isolation, no duplicate definit
   await assert.rejects(service.createOwnCard(f.own,{...body,mutationId:mutation(),id:'new2',card:{en:'Other',ru:'другое'}}),e=>e.status===409);
   assert.equal(f.sqlite.prepare('SELECT count(*) n FROM cards').get().n,1);f.sqlite.close();
 });
+test('A new personal card keeps an idiom or phrasal destination',async()=>{
+  const f=fixture(),service=new PersonalService(f.db);
+  const idiom=await service.createOwnCard(f.own,{mutationId:mutation(),id:'idiom',expectedRevision:0,card:{en:'break the ice',ru:'начать',place:'idioms'}});
+  assert.equal(idiom.card.place,'idioms');
+  assert.equal(f.sqlite.prepare("SELECT place FROM profile_cards WHERE card_id='idiom'").get().place,'idioms');
+  const verb=await service.createOwnCard(f.own,{mutationId:mutation(),id:'verb',expectedRevision:1,card:{en:'give up',ru:'сдаваться',place:'phrasal'}});
+  assert.equal(verb.card.place,'phrasal');
+  await assert.rejects(service.createOwnCard(f.own,{mutationId:mutation(),id:'bad',expectedRevision:2,card:{en:'nope',ru:'нет',place:'library'}}),error=>error.status===400);
+  f.sqlite.close();
+});
 test('Own text/song: point edit, saved IDs and revisions, replay/stale/foreign denial, metadata/media preserved and soft delete',async()=>{
   const f=fixture(),service=new PersonalService(f.db);
   const body={mutationId:mutation(),id:'text',kind:'text',changes:{title:'Title',text:"Body ' ; DROP TABLE cards; — юникод"}};
