@@ -120,6 +120,48 @@ test('Lazy lesson open coalesces clicks, guards navigation/profile changes, and 
   section='days';const switched=scope.stageOpenLesson(scope.lmLibrary.materials[0]);scope.viewGen++;scope.authUser={id:'student2'};
   pending.shift().resolve({materials:[disk]});await switched;assert.equal(opened.length,1);
 });
+test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
+  const sent=[],material={id:'lesson',title:'Day',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:['old'],stageLessonDeferred:true,blocks:[]};
+  const savedBlocks=[{id:'old',type:'text',tab:'',html:'Hi',stageBlockRevision:2}];
+  const window={ContentCache:{get(key){return String(key).endsWith(':lesson:blocks')?{revision:4,data:{blocks:savedBlocks}}:undefined;},set(){},hold(){},flush(){},drop(){}}};
+  const scope={window,crypto,URL,location:{hostname:'127.0.0.1',reload(){}},sessionStorage:{getItem:()=>null,removeItem(){}},
+    localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>({id:'days'}),querySelectorAll:()=>[]},
+    fetch:async(path,options)=>{
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      sent.push(JSON.parse(options.body));
+      return {ok:true,json:async()=>({revision:5,blocks:[{id:'old',revision:2},{id:'link1',revision:1}]})};
+    },
+    authUser:{id:'teacher'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,canEditLessons:()=>true,
+    lmLibrary:{materials:[material]},lmLessonVisibleToViewer:()=>true,lmOpenLesson(){},lmKeepLesson(){},lmPersist(){},lmShow(){},lmNote(){},lmSaveTimer:0,clearTimeout(){}};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');
+  await scope.stageOpenLesson(material);
+  const opened=scope.lmLibrary.materials[0];
+  assert.equal(opened.stageLessonBaseline.blocks[0].id,'old');
+  opened.blocks.push({id:'link1',type:'link',tab:'overview',title:'Site',url:'https://example.com/lesson',description:''});
+  scope.lmState=opened;
+  await scope.stageSaveLesson(false);
+  assert.equal(sent.length,1);assert.equal(sent[0].upserts[0].id,'link1');assert.equal(sent[0].upserts[0].content.url,'https://example.com/lesson');
+  assert.equal(opened.stageLessonBaseline.blocks.some(block=>block.id==='link1'),true);
+});
+test('Dropping a Lesson PDF saves the new block before the file upload',async()=>{
+  const calls=[],block={id:'pdf',type:'pdf',tab:'pdf',title:''};
+  const lesson={id:'lesson',title:'Day',stageRevision:4,stageLessonBaseline:{blocks:[]},blocks:[block]};
+  const scope={canEditLessons:()=>true,viewAccount:null,viewSwitching:false,viewGen:1,lmState:lesson,lmFiles:{},
+    lmBlock:id=>lesson.blocks.find(row=>row.id===id),lmKeepLesson(){},lmPersist(){},lmRenderEditor(){},lmNote(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>({id:'material'})},
+    window:{TursoMain:{
+      lessonSnapshot(row){return {blocks:(row.blocks||[]).map(item=>({id:item.id,expectedRevision:item.stageBlockRevision||0}))};},
+      lessonDirty:()=>true,
+      perform:action=>action(),
+      async saveLesson(draft){calls.push('save');for(const item of draft.blocks)if(!item.stageBlockRevision)item.stageBlockRevision=1;draft.stageLessonBaseline={blocks:draft.blocks.map(item=>({id:item.id,expectedRevision:item.stageBlockRevision||0}))};},
+      async uploadLessonFile(material,item,file){if(!item.stageBlockRevision)throw new Error('Save the lesson and block using Save draft first.');calls.push(file.name);item.fileId='sf_test';item.name=file.name;}
+    }}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await scope.stageUploadLessonFile('pdf',{name:'lesson.pdf',type:'application/pdf',size:12});
+  assert.deepEqual(calls,['save','lesson.pdf']);assert.equal(lesson.blocks[0].fileId,'sf_test');
+});
 test('Staging word rendering preserves the displayed identity across catalog refresh',()=>{
   const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
   const start=source.indexOf('    function renderWord(w) {'),end=source.indexOf('    function setDayFlip(w, open) {',start);

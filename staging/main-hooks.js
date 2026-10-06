@@ -102,7 +102,7 @@ async function stageOpenLesson(material){
   const savedLesson=stageReadBlock(material.id,'blocks');
   if(savedLesson&&savedLesson.revision===(material.stageRevision||0)){
     const at=lmLibrary.materials.findIndex(row=>row===material);
-    if(at>=0){lmLibrary.materials[at]={...material,blocks:savedLesson.data?.blocks||[],stageLessonDeferred:false,stageLessonOwner:actor+':'+target};stageLoadedLessons.add(lmLibrary.materials[at]);lmOpenLesson(material.id);return;}
+    if(at>=0){const opened={...material,blocks:savedLesson.data?.blocks||[],stageLessonDeferred:false,stageLessonOwner:actor+':'+target};stageStampLesson(opened);lmLibrary.materials[at]=opened;stageLoadedLessons.add(opened);lmOpenLesson(material.id);return;}
   }
   const root=document.getElementById('material');if(root)root.inert=true;
   try{
@@ -114,8 +114,10 @@ async function stageOpenLesson(material){
     const index=lmLibrary.materials.findIndex(row=>row===material);if(index<0)return;
     const extras=(material.blocks||[]).filter(b=>b&&b.id&&!(full.blocks||[]).some(row=>row.id===b.id));
     const blocks=extras.length?[...(full.blocks||[]),...extras]:full.blocks;
-    lmLibrary.materials[index]={...full,blocks,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
-    stageLoadedLessons.add(lmLibrary.materials[index]);
+    const opened={...full,blocks,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
+    stageStampLesson(opened);
+    lmLibrary.materials[index]=opened;
+    stageLoadedLessons.add(opened);
     stageWriteBlock(material.id,'blocks',full.stageRevision||material.stageRevision||0,{blocks});stageFlushBlocks();
     lmOpenLesson(material.id);
   }catch(error){if(token===stageLessonOpenToken&&generation===viewGen){window.TursoMain.notice(error.message,true);const note=document.getElementById('lmNote');if(note)note.innerHTML=esc(error.message)+' <button class="btn" type="button" data-stage-retry="lesson" data-lesson-id="'+esc(material.id)+'">Retry</button>';}}
@@ -622,6 +624,11 @@ function stageLessonCounts(blocks){
   }
   return {wordCount:words,phraseCount:phrases,ruleCount:rules};
 }
+function stageStampLesson(material){
+  if(!material||material.stageLessonBaseline||!material.stageRevision||typeof window.TursoMain?.lessonSnapshot!=='function')return;
+  const saved=(material.blocks||[]).filter(block=>block&&block.stageBlockRevision);
+  material.stageLessonBaseline=window.TursoMain.lessonSnapshot({...material,blocks:saved});
+}
 function stageSaveLesson(published){
   if(!canEditLessons()||viewAccount||viewSwitching||!lmState){
     window.TursoMain.notice('Урок не отправлен: дождитесь загрузки собственного профиля учителя и откройте редактор.',true);return Promise.resolve();
@@ -633,6 +640,7 @@ function stageSaveLesson(published){
   const current=lmState;
   return window.TursoMain.perform(async()=>{
     const draft=JSON.parse(JSON.stringify(current));
+    stageStampLesson(draft);
     if(published!==undefined){draft.published=published;draft.mode=published?'preview':'edit';}
     await window.TursoMain.saveLesson(draft);
     window.ContentCache?.drop(':'+current.id+':');
@@ -676,7 +684,17 @@ function stageUploadLessonFile(id,file){
   const block=lmBlock(id);if(!block)return;
   const current=lmState,generation=viewGen;
   return window.TursoMain.perform(async()=>{
-    await window.TursoMain.uploadLessonFile(current,block,file);
+    stageStampLesson(current);
+    const dirty=typeof window.TursoMain.lessonDirty==='function'?window.TursoMain.lessonDirty(current):!current.stageLessonBaseline;
+    if(!current.stageRevision||!block.stageBlockRevision||dirty){
+      const draft=JSON.parse(JSON.stringify(current));
+      stageStampLesson(draft);
+      await window.TursoMain.saveLesson(draft);
+      if(lmState!==current||viewGen!==generation||viewAccount)return;
+      Object.assign(current,draft);
+    }
+    const saved=(current.blocks||[]).find(row=>row.id===id)||block;
+    await window.TursoMain.uploadLessonFile(current,saved,file);
     if(lmState!==current||viewGen!==generation||viewAccount)return;
     if(lmFiles[id]){URL.revokeObjectURL(lmFiles[id]);delete lmFiles[id];}
     lmKeepLesson();lmPersist();lmRenderEditor();lmNote('Файл сохранён в изолированном тестовом хранилище; ссылка — в тестовой Turso.');
@@ -1119,7 +1137,7 @@ function stageLessonGap(material){
   if(!material?.id||stageBlockMiss.has(material.id+':blocks'))return false;
   const rev=material.stageRevision||0,saved=stageReadBlock(material.id,'blocks');
   if(saved&&saved.revision>=rev){
-    if(material.stageLessonDeferred||saved.revision>rev){material.blocks=saved.data?.blocks||[];material.stageLessonDeferred=false;if(saved.revision>rev)material.stageRevision=saved.revision;stageLoadedLessons.add(material);}
+    if(material.stageLessonDeferred||saved.revision>rev){material.blocks=saved.data?.blocks||[];material.stageLessonDeferred=false;if(saved.revision>rev)material.stageRevision=saved.revision;stageStampLesson(material);stageLoadedLessons.add(material);}
     return false;
   }
   if(!material.stageLessonDeferred&&Array.isArray(material.blocks)){stageWriteBlock(material.id,'blocks',rev,{blocks:material.blocks});return false;}
@@ -1382,7 +1400,7 @@ function stageFetchLesson(material){
   const saved=stageReadBlock(material.id,'blocks');
   if(saved&&saved.revision===(material.stageRevision||0)){
     const index=lmLibrary?.materials?.findIndex(row=>row.id===material.id)??-1;
-    if(index>=0){lmLibrary.materials[index]={...lmLibrary.materials[index],blocks:saved.data?.blocks||[],stageLessonDeferred:false};stageLoadedLessons.add(lmLibrary.materials[index]);}
+    if(index>=0){const opened={...lmLibrary.materials[index],blocks:saved.data?.blocks||[],stageLessonDeferred:false};stageStampLesson(opened);lmLibrary.materials[index]=opened;stageLoadedLessons.add(opened);}
     return Promise.resolve();
   }
   const target=viewAccount?.id||'',actor=authUser.id,path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
@@ -1391,7 +1409,7 @@ function stageFetchLesson(material){
     const full=(data.materials||[]).find(row=>row.id===material.id);
     if(!full||!lmLibrary)return data;
     const index=lmLibrary.materials.findIndex(row=>row.id===material.id);
-    if(index>=0){lmLibrary.materials[index]={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};stageLoadedLessons.add(lmLibrary.materials[index]);stageWriteBlock(material.id,'blocks',full.stageRevision||material.stageRevision||0,{blocks:full.blocks||[]});stageFlushBlocks();}
+    if(index>=0){const opened={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};stageStampLesson(opened);lmLibrary.materials[index]=opened;stageLoadedLessons.add(opened);stageWriteBlock(material.id,'blocks',full.stageRevision||material.stageRevision||0,{blocks:full.blocks||[]});stageFlushBlocks();}
     return data;
   });
 }

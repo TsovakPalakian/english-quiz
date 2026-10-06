@@ -38,6 +38,10 @@
     const order=[...visible,...(material.stageBlockOrder||[]).filter(id=>!visible.includes(id)&&!removed.has(id))];
     return {changes,blocks,order};
   }
+  function lessonDirty(material){
+    if(!material?.stageLessonBaseline)return true;
+    return canonical(lessonSnapshot(material))!==canonical(material.stageLessonBaseline);
+  }
   try{pending=JSON.parse(localStorage.getItem(queueKey)||'null');}catch{localStorage.removeItem(queueKey);}
   try{
     const place=JSON.parse(sessionStorage.getItem('enquiz-place')||'null');
@@ -257,7 +261,7 @@
     }finally{personalRunning=false;}
   }
   const bridge=window.TursoMain={
-    fetch:accountFetch,register,notice,perform,mediaAllowed,
+    fetch:accountFetch,register,notice,perform,mediaAllowed,lessonSnapshot,lessonDirty,
     capabilities:()=>({...backendCapabilities}),
     catalogDictionary(card){
       const key=card.stageId+':'+card.stageRevision;
