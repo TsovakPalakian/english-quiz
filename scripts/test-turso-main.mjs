@@ -1135,6 +1135,16 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
 });
+test('Irregular verbs join the background queue and grammar does not',()=>{
+  const queued=[];
+  const scope={authUser:{id:'student'},setTimeout:fn=>fn(),
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{PreloadQueue:{add(task){queued.push(task.id);}},ContentCache:{has:()=>false,get:()=>null}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stageStartPreload();
+  assert.ok(queued.includes('irregular:page'));
+  assert.equal(queued.some(id=>String(id).startsWith('grammar')||String(id).startsWith('speakout')),false);
+});
 test('Library phrase sorting and song back keep the list in history',()=>{
   const stack=[],shown=[];
   const hooks={document:{addEventListener(){},querySelector:()=>({id:'music'}),getElementById:()=>null},

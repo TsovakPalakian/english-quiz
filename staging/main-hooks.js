@@ -1389,6 +1389,7 @@ function stageStartPreload(){
     add('library:allwords',6,()=>stageLibraryBatch('allwords'));
     add('library:phrasal',6,()=>stageLibraryBatch('phrasal'));
     add('library:idioms',6,()=>stageLibraryBatch('idioms'));
+    add('irregular:page',6,()=>stageIrregularPage(''));
     stageScheduleHydration();
   },400);
 }
