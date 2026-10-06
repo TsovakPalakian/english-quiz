@@ -9041,7 +9041,7 @@
       if (alt) alt.hidden = true;
       if (!begun) {
         btn.textContent = "Start studying";
-        btn.dataset.jump = "lesson23";
+        btn.dataset.jump = "days";
         return;
       }
       btn.textContent = "Continue studying";
@@ -9050,7 +9050,7 @@
         return row && !classFinished(row.place);
       });
       const next = CLASS_PAGES.find((row) => !classFinished(row.place));
-      btn.dataset.jump = recent || (next ? next.id : "lesson23");
+      btn.dataset.jump = recent || (next ? next.id : "days");
     }
     let signedOutHello = false;
     function paintHomeHello() {

@@ -57,7 +57,7 @@
     <section id="home" class="on">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home" id="homeBack" hidden>Back</button></div>
       <h1 class="hello">Welcome back</h1>
-      <p class="sub">Next class: 23 September, Holidays</p>
+      <p class="sub">Classes are in date order.</p>
       <div id="homeWho" class="card" hidden></div>
       <div id="homeDemo">
       <div class="hero">
@@ -70,7 +70,7 @@
         </button>
         <div>
           <p class="hero-copy"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
-          <span class="home-study"><button class="btn" type="button" id="homeStudy" data-jump="lesson23">Start studying</button><button class="btn" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
+          <span class="home-study"><button class="btn" type="button" id="homeStudy" data-jump="days">Start studying</button><button class="btn" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
         </div>
       </div>
       <div class="overview">
@@ -79,11 +79,6 @@
         <button class="stat-tile" type="button" data-stat="weak"><b class="bad">0</b><span>Weak cards</span></button>
         <button class="stat-tile" type="button" data-stat="learning"><b id="homeLearningCount">0</b><span>Still learning</span></button>
       </div>
-      <h2 class="upcoming">Next class</h2>
-      <button class="day" type="button" data-jump="lesson23">
-        <span class="date"><b>23</b><small>Sep</small></span>
-        <span class="day-copy"><b>Holidays</b><span class="label about">preferences · Past Simple · a holiday in Scotland</span></span>
-      </button>
       </div>
     </section>
 
@@ -487,40 +482,10 @@
 
     <section id="days">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Classes</h1></div>
-      <p class="sub">In date order, from 7 Sep 2026. Each date has its own page. The quiz and mistakes stay inside that day.</p>
+      <p class="sub">In date order. Each date has its own page.</p>
       <div>
         <button class="btn primary" type="button" id="lmNew">+ New lesson</button>
         <div id="lmDayList"></div>
-        <button class="day active" type="button" data-jump="lesson23">
-          <span class="date"><b>23</b><small>Sep</small></span>
-          <b>Holidays</b>
-          <span class="label about">preferences · Past Simple · a holiday in Scotland · homework</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson">
-          <span class="date"><b>21</b><small>Sep</small></span>
-          <b>Weather, small talk, likes and dislikes</b>
-          <span class="label about">weather vocabulary · small talk · likes and dislikes · 4 rules</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson16">
-          <span class="date"><b>16</b><small>Sep</small></span>
-          <b>Small talk</b>
-          <span class="label about">happy to chat benches · phrases · homework</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson14">
-          <span class="date"><b>14</b><small>Sep</small></span>
-          <b>Adverbs of frequency</b>
-          <span class="label about">15 cards · word order · Wordwall</span>
-        </button>
-        <button class="day" type="button" data-jump="lesson09">
-          <span class="date"><b>09</b><small>Sep</small></span>
-          <b>Collocations and Present Simple</b>
-          <span class="label about">14 collocations · Present Simple · homework</span>
-        </button>
-        <button class="day" type="button" id="firstDay" data-jump="lesson07">
-          <span class="date"><b>07</b><small>Sep</small></span>
-          <b>Get to know each other</b>
-          <span class="label about">article · problems and solutions · podcast homework</span>
-        </button>
       </div>
     </section>
 
