@@ -52,6 +52,8 @@
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "account" && authUser) id = "profile";
       if (id === "allwords") paintAllWords();
+      if (id === "phrasal") paintExampleGrid("phrasalGrid", phrasalWords, "phrasal");
+      if (id === "idioms") paintExampleGrid("idiomGrid", idiomWords, "idiom");
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
@@ -9448,7 +9450,11 @@
     }
     function bugListHtml(rows) {
       if (!rows.length) return '<p class="sub">No bugs yet.</p>';
-      const ordered = rows.slice().sort((a, b) => (Number(b.lastAt) || 0) - (Number(a.lastAt) || 0));
+      const ordered = rows.slice().sort((a, b) => {
+        const fixed = Number(!!a.resolved) - Number(!!b.resolved);
+        if (fixed) return fixed;
+        return (Number(b.lastAt) || 0) - (Number(a.lastAt) || 0);
+      });
       return ordered.map((row, index) => {
         const times = row.hits > 1 ? row.hits + " times" : "once";
         const who = (row.accounts || []).filter(Boolean).join(", ") || "Unknown account";
@@ -9458,7 +9464,7 @@
         const detail = ["Time: " + when, first ? "First: " + first : "", "Account: " + who, "", "Request", JSON.stringify(row.request || {}, null, 2), "", "What happened", (row.status || "") + " " + (row.error || ""), "", "Response", JSON.stringify(row.response || {}, null, 2)].filter((line, i) => i !== 1 || line).join("\n");
         const count = row.hits > 1 ? "<small>×" + row.hits + "</small>" : "";
         const stamp = when ? '<small style="display:block;font-size:11px;font-weight:400">' + esc(when) + "</small>" : "";
-        return '<div class="bug-item"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + "</b>" + count + '</span><b>' + esc((row.method || "") + " " + (row.path || "")) + '</b><span class="label about">' + esc(row.error || "") + " · " + esc(times) + " · " + esc(who) + stamp + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + "</b>" + count + '</span><b>' + esc((row.method || "") + " " + (row.path || "")) + '</b><span class="label about">' + esc(row.error || "") + " · " + esc(times) + " · " + esc(who) + stamp + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
       }).join("");
     }
     function paintBugs(preset) {
@@ -10793,7 +10799,8 @@
       if (expr.type === "IDIOM") return "idioms";
       return "mine";
     }
-    function expressionDeckName(place) {
+    function expressionDeckName(place, fromText) {
+      if (fromText && (!place || place === "mine")) return "Text";
       return PLACE_LABEL[place] || "My words";
     }
     function findExpressionCard(expr) {
@@ -10808,14 +10815,15 @@
     }
     function expressionCardButton(expr, index) {
       const place = expressionPlace(expr);
-      const deck = expressionDeckName(place);
-      if (expressionSaved(expr)) return "<button class=\"btn ok\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
+      const saved = findExpressionCard(expr);
+      const deck = expressionDeckName(place, !!(saved && saved.fromText));
+      if (saved) return "<button class=\"btn ok\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
       return "<button class=\"btn primary\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
     }
-    function markExpressionButton(button, place) {
+    function markExpressionButton(button, place, fromText) {
       if (!button) return;
       const index = button.getAttribute("data-text-card") || button.getAttribute("data-text-open-card");
-      button.textContent = "In " + expressionDeckName(place);
+      button.textContent = "In " + expressionDeckName(place, fromText);
       button.disabled = false;
       button.classList.remove("primary");
       button.classList.add("ok");
@@ -10846,30 +10854,33 @@
     }
     function storeExpressionCard(expr, button, item) {
       const place = item.place || expressionPlace(expr);
-      const deck = expressionDeckName(place);
+      const fromText = !!(item && item.fromText);
+      const deck = expressionDeckName(place, fromText);
       const list = loadAdded();
       const status = document.getElementById("textReadStatus");
       if (expressionSaved(expr)) {
         if (status) status.textContent = "Already in " + deck + ".";
-        markExpressionButton(button, place);
+        markExpressionButton(button, place, fromText);
         return;
       }
       list.unshift(item);
       saveAdded(list, null);
       syncChange({ op: "put-text-card", card: item });
       if (status) status.textContent = "Added to " + deck + ".";
-      markExpressionButton(button, place);
+      markExpressionButton(button, place, fromText);
       paintAdded();
     }
     function addExpressionCard(expr, button) {
       const place = expressionPlace(expr);
-      const deck = expressionDeckName(place);
+      const saved = findExpressionCard(expr);
+      const fromText = !!(saved && saved.fromText);
+      const deck = expressionDeckName(saved ? saved.place || place : place, fromText);
       const word = expressionHead(expr.canonicalForm) || expr.exactText || "";
       const status = document.getElementById("textReadStatus");
       if (!word) return;
-      if (expressionSaved(expr)) {
+      if (saved) {
         if (status) status.textContent = "Already in " + deck + ".";
-        markExpressionButton(button, place);
+        markExpressionButton(button, saved.place || place, fromText);
         return;
       }
       if (button) {
@@ -11171,7 +11182,7 @@
       const materials = lmLibrary.materials.filter((row) => row && row.id && !lmIsDemoId(row.id));
       return accountFetch("/api/lessons", {
         method: "PUT",
-        body: JSON.stringify({ materials: materials, clear: materials.length === 0 })
+        body: JSON.stringify({ materials: materials })
       }).catch(() => {});
     }
     function lmMergeRemote(localList, remoteList) {
@@ -11197,15 +11208,21 @@
     function lmApplyRemote(materials, opts) {
       lmEnsure();
       const next = (materials || []).filter((row) => row && row.id && !lmIsDemoId(row.id));
-      lmLibrary.materials = next;
-      if (!lmLibrary.materials.some((row) => row.id === lmLibrary.activeId)) {
-        lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
-      }
-      if (lmState && !lmLibrary.materials.some((row) => row.id === lmState.id)) {
-        lmState = lmLibrary.materials[0] || null;
-      } else if (lmState) {
-        lmState = lmLibrary.materials.find((row) => row.id === lmState.id) || lmState;
-      }
+      const byId = new Map();
+      lmLibrary.materials.forEach((row) => {
+        if (row && row.id && !lmIsDemoId(row.id)) byId.set(row.id, row);
+      });
+      next.forEach((row) => {
+        if (!byId.has(row.id)) byId.set(row.id, row);
+        else if (!lmState || lmState.id !== row.id) byId.set(row.id, row);
+      });
+      if (lmState && lmState.id && !lmIsDemoId(lmState.id) && !byId.has(lmState.id)) byId.set(lmState.id, lmState);
+      const openId = lmState && lmState.id;
+      lmLibrary.materials = Array.from(byId.values());
+      if (openId && byId.has(openId)) {
+        lmState = byId.get(openId);
+        lmLibrary.activeId = openId;
+      } else if (!byId.has(lmLibrary.activeId)) lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
       try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
       paintLmDays();
       if (opts && opts.push) lmSchedulePush();
@@ -11241,7 +11258,20 @@
       clearTimeout(lmSaveTimer);
       lmSaveTimer = setTimeout(lmPersist, 400);
     }
-    function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+    function lmUniqueId() {
+      const used = {};
+      if (lmLibrary && Array.isArray(lmLibrary.materials)) {
+        lmLibrary.materials.forEach((row) => { if (row && row.id) used[row.id] = 1; });
+      }
+      let id = lmId();
+      let n = 2;
+      while (used[id]) {
+        id = lmId() + "-" + n;
+        n += 1;
+      }
+      return id;
+    }
     function lmBlock(id) { return (lmState.blocks || []).find((row) => row.id === id); }
     function lmPlain(html) {
       const parsed = new DOMParser().parseFromString("<div>" + (html || "") + "</div>", "text/html");
@@ -11728,9 +11758,24 @@
       const rows = (block.items || []).map((card, index) => '<div class="lm-card-row"><div class="lm-card-fields"><label>Front<input type="text" data-card-field="front" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.front || "") + '" /></label><label>Back<input type="text" data-card-field="back" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.back || "") + '" /></label><label>Example<input type="text" data-card-field="example" data-block="' + block.id + '" data-card="' + index + '" value="' + esc(card.example || "") + '" /></label></div><div class="lm-card-actions"><button class="lm-icon" type="button" data-card-up="' + block.id + ":" + index + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-card-down="' + block.id + ":" + index + '" aria-label="Move down">↓</button><button class="lm-icon danger" type="button" data-card-del="' + block.id + ":" + index + '" aria-label="Delete">×</button></div></div>').join("");
       return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-card-add="' + block.id + '">+ Add card</button>';
     }
+    function lmEditorLesson() {
+      const root = document.getElementById("material");
+      const id = root && root.dataset.lmBound;
+      if (!id) return lmState;
+      if (lmState && lmState.id === id) return lmState;
+      lmEnsure();
+      const found = lmLibrary.materials.find((row) => row.id === id);
+      if (found) return found;
+      return null;
+    }
+    function lmBindEditor() {
+      const root = document.getElementById("material");
+      if (root && lmState && lmState.id) root.dataset.lmBound = lmState.id;
+    }
     function lmRenderEditor() {
       const box = document.getElementById("lmBlocks");
       if (!box || !lmState) return;
+      lmBindEditor();
       document.getElementById("lmTitle").value = lmState.title || "";
       document.getElementById("lmDescription").value = lmState.description || "";
       document.getElementById("lmDate").value = lmState.date || "";
@@ -12137,6 +12182,7 @@
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
       lmPaintChrome();
+      lmBindEditor();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
       const top = document.getElementById("material");
@@ -12372,9 +12418,11 @@
       if (!canEditLessons()) return;
       lmEnsure();
       const fresh = lmBlankMaterial();
+      fresh.id = lmUniqueId();
       fresh.date = lmToday();
       lmState = fresh;
       fresh.mode = "edit";
+      lmKeepLesson();
       visit("material");
     }
     function paintMaterial() {
@@ -12401,6 +12449,9 @@
         if (event.target.closest("[data-cmd], [data-font]")) event.preventDefault();
       });
       lmRoot.addEventListener("input", (event) => {
+        const lesson = lmEditorLesson();
+        if (!lesson) return;
+        if (lmState !== lesson) lmState = lesson;
         const meta = event.target.closest("[data-meta]");
         if (meta && lmState) { lmState[meta.dataset.meta] = meta.value; lmSchedule(); return; }
         const field = event.target.closest("[data-field]");

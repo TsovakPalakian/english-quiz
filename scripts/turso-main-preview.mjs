@@ -32,7 +32,7 @@ export function mainPreview(source,hooks){
   insert('    function renderUserSong(song) {','      if(song&&song.stageLyricsDeferred)return stageOpenSong(song);');
   replace('              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();','              imageUrl = stagePreviewImage(parsed.href,location.origin);');
   insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
-  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      return window.TursoMain.unsupported(change && change.op);');
+  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="cardQuizzes")return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      if(stageKeepSetting(change))return;\n      return window.TursoMain.unsupported(change && change.op);');
   const logoutTheme='return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});';
   if(source.split(logoutTheme).length!==2)throw new Error('Logout theme anchor changed.');
   source=source.replace(logoutTheme,'return window.TursoMain.flushPersonal();');

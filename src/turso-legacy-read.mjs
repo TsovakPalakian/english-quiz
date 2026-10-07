@@ -217,30 +217,36 @@ export async function accountBootstrap(db,actor){
       (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL) songs,
       (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL) texts,
       (SELECT COUNT(*) FROM card_progress WHERE profile_id=?) progress,
-      (SELECT COUNT(*) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizzes`,
-      [profile,profile,profile,profile,...accessArgs(actor)]),
-    s('SELECT key,value_json,revision,length(value_json) bytes FROM account_settings WHERE account_id=? UNION ALL SELECT key,value_json,revision,length(value_json) bytes FROM profile_settings WHERE profile_id=? AND key NOT LIKE \'activity:%\' AND key!=\'tursoCardLinks\'',[actor.id,profile]),
+      (SELECT COUNT(*) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizzes,
+      (SELECT COALESCE(SUM(l.revision),0) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL) songRevision,
+      (SELECT COALESCE(SUM(l.revision),0) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL) textRevision,
+      (SELECT COALESCE(SUM(revision),0) FROM card_progress WHERE profile_id=?) progressRevision,
+      (SELECT COALESCE(SUM(z.revision),0) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizRevision`,
+      [profile,profile,profile,profile,...accessArgs(actor),profile,profile,profile,...accessArgs(actor)]),
+    s('SELECT key,value_json,revision,length(value_json) bytes,\'account\' origin FROM account_settings WHERE account_id=? UNION ALL SELECT key,value_json,revision,length(value_json) bytes,\'profile\' origin FROM profile_settings WHERE profile_id=? AND key NOT LIKE \'activity:%\' AND key!=\'tursoCardLinks\'',[actor.id,profile]),
     s('SELECT lesson_id,allow_hidden,personal_hidden FROM lesson_access WHERE account_id=?',[actor.id]),
     s("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]),
     s("SELECT value_json FROM profile_settings WHERE profile_id=? AND key LIKE 'activity:%'",[profile]),
     s("SELECT key,length(value_json) bytes FROM catalog_documents WHERE namespace='static' AND key IN ('LESSON_DATA','GRAMMAR','IRREGULAR','SPEAKOUT')"),
-    s(`SELECT COUNT(*) n FROM lessons l WHERE ${lessonAccess}`,[+review(actor),actor.id,actor.id])
+    s(`SELECT COUNT(*) n, COALESCE(SUM(l.revision),0) rev FROM lessons l WHERE ${lessonAccess}`,[+review(actor),actor.id,actor.id])
   ]);
   const stats={};
   for(const row of settings){
     if(!SMALL_SETTINGS.has(row.key)||Number(row.bytes)>4000)continue;
+    if(row.origin==='profile'&&Object.hasOwn(stats,row.key))continue;
     stats[row.key]=JSON.parse(row.value_json);
   }
   stats.hiddenLessons=access.filter(row=>row.personal_hidden).map(row=>row.lesson_id);
   stats.allowedLessons=access.filter(row=>row.allow_hidden).map(row=>row.lesson_id);
-  const theme=settings.find(row=>row.key==='theme');
+  const theme=settings.find(row=>row.key==='theme'&&row.origin==='account');
   const versions={};
   for(const row of catalogs)versions[row.key]=Number(row.bytes)||0;
   const actions=activity.map(row=>JSON.parse(row.value_json));
   return {bootstrap:true,
     stageThemeRevision:theme?.revision||0,stageAddedRevision:links[0]?.revision||0,stageProfile:profile,
     stageActivity:{tracked:!!actions.length,seconds:actions.reduce((n,row)=>n+(row.seconds||0),0),examPass:actions.reduce((n,row)=>n+(row.examPass||0),0)},
-    counts:{cards:Number(counts[0]?.cards)||0,songs:Number(counts[0]?.songs)||0,texts:Number(counts[0]?.texts)||0,quizzes:Number(counts[0]?.quizzes)||0,progress:Number(counts[0]?.progress)||0,lessons:Number(lessonCount[0]?.n)||0},
+    counts:{cards:Number(counts[0]?.cards)||0,songs:Number(counts[0]?.songs)||0,texts:Number(counts[0]?.texts)||0,quizzes:Number(counts[0]?.quizzes)||0,progress:Number(counts[0]?.progress)||0,lessons:Number(lessonCount[0]?.n)||0,
+      songRevision:Number(counts[0]?.songRevision)||0,textRevision:Number(counts[0]?.textRevision)||0,progressRevision:Number(counts[0]?.progressRevision)||0,quizRevision:Number(counts[0]?.quizRevision)||0,lessonRevision:Number(lessonCount[0]?.rev)||0},
     versions:{grammar:versions.GRAMMAR||0,irregular:versions.IRREGULAR||0,speakout:versions.SPEAKOUT||0,lessonData:versions.LESSON_DATA||0},
     stats};
 }
@@ -283,12 +289,12 @@ export async function accountProgress(db,actor,{after='',limit=50}={}){
 export async function accountSongs(db,actor,{after='',limit=50}={}){
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
   const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.artist') artist,
-    json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.id') client_id
+    json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id
     FROM profile_library_items p JOIN library_items l ON l.id=p.item_id
     WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?) AND l.id>?
     ORDER BY l.id LIMIT ?`,[profile,profile,cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
-  return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true})),next:more?page.at(-1).id:null};
+  return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true})),next:more?page.at(-1).id:null};
 }
 export async function catalogSection(db,section,{after='',limit=50}={}){
   const keys=section==='phrases'?['phrasalWords']:section==='idioms'?['idiomWords']:section==='words'?WORD_KEYS:null;

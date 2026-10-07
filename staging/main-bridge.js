@@ -8,9 +8,9 @@
   const managedLinkRevisions=new Map();
   const catalogDetails=new Map();
   const personalKey='turso-main-personal-pending',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
-  let personalQueue=[],personalRunning=false,personalReady=false,personalTimer;
+  let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
-  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,backendCapabilities={};
+  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,themeRecovering=false,backendCapabilities={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
@@ -78,8 +78,15 @@
       else Object.values(value).forEach(register);
     }
   }
+  function discardStaleTheme(){
+    if(themeRecovering)return;
+    const next=personalQueue.filter(row=>!(row.kind==='theme'&&row.body&&row.body.expectedRevision!==themeRevision));
+    if(next.length===personalQueue.length)return;
+    personalQueue=next;savePersonal();
+  }
   function registerState(data){
     if(data.stageThemeRevision!=null)themeRevision=data.stageThemeRevision||0;
+    discardStaleTheme();
     if(data.stageAddedRevision!=null)addedRevision=data.stageAddedRevision||0;
     if(data.bootstrap){personalReady=true;return;}
     register(data.added||[]);
@@ -108,9 +115,11 @@
   }
   async function api(path,options={}){
     const method=String(options.method||'GET').toUpperCase();
+    const quietBug=options.quietBug===true;
+    const {quietBug:_quiet,keepalive:keepAlive,...fetchOptions}=options;
     const requestBody=typeof options.body==='string'?options.body:options.body==null?'':'[binary]';
     let response;
-    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',...options,headers:{'Content-Type':'application/json','X-Client-Bug':'1',...options.headers}});}
+    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:{'Content-Type':'application/json','X-Client-Bug':'1',...options.headers}});}
     catch{
       const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true});
       reportClientBug({method,path,status:0,error:error.message,requestBody});
@@ -119,8 +128,8 @@
     let value={},parsed=true;
     try{value=await response.json();}catch{parsed=false;}
     if(!response.ok||!parsed){
-      const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:true});
-      reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':''});
+      const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:!quietBug});
+      if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':''});
       throw error;
     }
     return value;
@@ -190,7 +199,13 @@
       pending=null;localStorage.removeItem(queueKey);return result;
     }catch(error){if(error.status>=400&&error.status<500){pending=null;localStorage.removeItem(queueKey);}throw error;}
   }
-  const mediaMime=type=>({'audio/x-wav':'audio/wav','audio/wave':'audio/wav','audio/mp3':'audio/mpeg'}[type]||type);
+  const mediaMime=(type,name='')=>{
+    const known={'audio/x-wav':'audio/wav','audio/wave':'audio/wav','audio/mp3':'audio/mpeg'};
+    if(known[type])return known[type];
+    if(type)return type;
+    const ext=String(name||'').toLowerCase().split('.').pop();
+    return {pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg'}[ext]||'';
+  };
   async function perform(action,status){
     if(busy){notice('Дождитесь ответа на текущую запись.',true);return;}busy=true;
     const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#stageNewCard button,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
@@ -214,8 +229,20 @@
         if(!delay)void drainPersonal();return;
       }
     }
-    const queued=['response','activity','theme'].includes(job.kind) && personalQueue.find(row=>row.kind===job.kind&&row.key===job.key&&!row.body&&(row.events?.length||0)<100);
-    if(queued){if(job.kind==='activity')queued.events.push(...job.events);else if(job.kind==='theme')queued.theme=job.theme;else queued.response=job.response;} // Preserve the first editor baseline.
+    if(job.kind==='theme'){
+      const existing=personalQueue.find(row=>row.kind==='theme'&&row.key===job.key);
+      if(existing){existing.theme=job.theme;existing.paused=false;delete existing.body;}
+      else{
+        if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
+        personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
+      }
+      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Turso.');
+      clearTimeout(personalTimer);
+      if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
+      return;
+    }
+    const queued=['response','activity'].includes(job.kind) && personalQueue.find(row=>row.kind===job.kind&&row.key===job.key&&!row.body&&(row.events?.length||0)<100);
+    if(queued){if(job.kind==='activity')queued.events.push(...job.events);else queued.response=job.response;} // Preserve the first editor baseline.
     else{
       if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
       personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
@@ -232,7 +259,7 @@
       while(personalQueue.length){
         const job=personalQueue[0];
         if(job.actorId!==actorId)throw new Error('Несохранённая операция принадлежит другому аккаунту.');
-        if(!job.body){
+        if(job.kind==='theme'||!job.body){
           job.body=job.kind==='theme'?{mutationId:job.mutationId,expectedRevision:themeRevision,theme:job.theme}
             :job.kind==='answer'?{mutationId:job.mutationId,expectedRevision:quizProgress.get(job.key)||0,quizType:job.type,correct:job.correct}
             :job.kind==='progress'?{mutationId:job.mutationId,expectedRevision:cardProgress.get(job.cardId)||0,changes:job.changes}
@@ -241,7 +268,19 @@
         }
         job.paused=false;savePersonal();
         notice('Сохранение личных данных в тестовую Turso…');
-        const result=await api(job.path,{method:job.method,body:JSON.stringify(job.body)});
+        let result;
+        try{result=await api(job.path,{method:job.method,body:JSON.stringify(job.body),keepalive:unloading,quietBug:job.kind==='theme'});}
+        catch(error){
+          if(!(job.kind==='theme'&&error.status===409&&!job.themeRetried))throw error;
+          job.themeRetried=true;themeRecovering=true;
+          try{
+            const state=await accountFetch('/api/me/state?summary=1');
+            if(state?.stats?.theme===job.theme){personalQueue.shift();savePersonal();continue;}
+            job.mutationId=(crypto.randomUUID&&crypto.randomUUID())||job.mutationId;
+            delete job.body;
+          }finally{themeRecovering=false;}
+          continue;
+        }
         if(job.kind==='theme')themeRevision=result.revision;
         if(job.kind==='answer')quizProgress.set(job.key,result.revision);
         if(job.kind==='progress')cardProgress.set(job.cardId,result.revision);
@@ -298,11 +337,16 @@
         block.stageId=candidates[0].id;block.stageRevision=candidates[0].revision;block.stageScope='shared';
       }
       if(material.stageLessonDeferred)throw new Error('Open the lesson before saving changes.');
-      const snapshot=lessonSnapshot(material),baseline=material.stageLessonBaseline;
-      let result;const changedIds=new Set();
+      const snapshot=lessonSnapshot(material);
+      let baseline=material.stageLessonBaseline,result;const changedIds=new Set();
       if(!material.stageRevision){
         result=await write('/api/lessons','POST',{id:material.id,changes:snapshot.changes,blocks:snapshot.blocks});
       }else{
+        if(!baseline){
+          const data=await api('/api/lessons?id='+encodeURIComponent(material.id||''));
+          const full=(data.materials||[]).find(row=>row.id===material.id);
+          if(full)baseline=material.stageLessonBaseline=lessonSnapshot(full);
+        }
         if(!baseline)throw new Error('Нет исходной версии урока. Перечитайте сервер перед редактированием.');
         const changes=Object.fromEntries(Object.entries(snapshot.changes).filter(([key,value])=>value!==baseline.changes[key]));
         const previous=new Map(baseline.blocks.map(b=>[b.id,b])),next=new Set(snapshot.blocks.map(b=>b.id));
@@ -311,7 +355,13 @@
         const deletes=baseline.blocks.filter(b=>!next.has(b.id)).map(b=>({id:b.id,expectedRevision:b.expectedRevision}));
         const added=upserts.some(b=>!previous.has(b.id));
         const order=!added&&!deletes.length&&canonical(snapshot.order)!==canonical(baseline.order)?snapshot.order:undefined;
-        if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!order)return {id:material.id,revision:material.stageRevision,blocks:(material.blocks||[]).map(b=>({id:b.id,revision:b.stageBlockRevision||0})),unchanged:true};
+        if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!order){
+          for(const block of material.blocks||[])if(!block.stageBlockRevision){
+            const known=(baseline?.blocks||[]).find(row=>row.id===block.id);
+            if(known?.expectedRevision)block.stageBlockRevision=known.expectedRevision;
+          }
+          return {id:material.id,revision:material.stageRevision,blocks:(material.blocks||[]).map(b=>({id:b.id,revision:b.stageBlockRevision||0})),unchanged:true};
+        }
         result=await write('/api/lessons/'+encodeURIComponent(material.id),'PATCH',{expectedRevision:material.stageRevision,changes,upserts,deletes,...(order?{order}:{})});
       }
       material.stageRevision=result.revision;
@@ -322,7 +372,7 @@
           delete b.response;delete b.score;
           for(const item of b.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','marked','correct'])delete item[key];
         }
-        b.stageBlockRevision=revisions.get(b.id);b.stageDefinition=clone({type:snapshot.blocks[i].type,tab:snapshot.blocks[i].tab,cardId:snapshot.blocks[i].cardId,content:snapshot.blocks[i].content});
+        if(revisions.has(b.id))b.stageBlockRevision=revisions.get(b.id);b.stageDefinition=clone({type:snapshot.blocks[i].type,tab:snapshot.blocks[i].tab,cardId:snapshot.blocks[i].cardId,content:snapshot.blocks[i].content});
       }
       material.stageLessonBaseline=lessonSnapshot(material);return result;
     },
@@ -401,7 +451,7 @@
     },
     async uploadSongAudio(item,file){
       if(!actorId||!mediaAllowed()||item.stageScope!=='profile'||!item.stageId)throw new Error('Аудио доступно только для собственной сохранённой песни на разрешённом тестовом стенде.');
-      const mime=mediaMime(file.type);
+      const mime=mediaMime(file.type,file.name);
       if(!['audio/wav','audio/ogg','audio/mpeg'].includes(mime))throw new Error('Выберите MP3, WAV или OGG.');
       return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio');
     },
@@ -410,9 +460,13 @@
       return write('/api/admin/users/'+accountId+'/lessons/'+lessonId+'/access','PATCH',{expected,changes});
     },
     async uploadLessonFile(material,block,file){
+      if(!block.stageBlockRevision){
+        const known=(material.stageLessonBaseline?.blocks||[]).find(row=>row.id===block.id);
+        if(known?.expectedRevision)block.stageBlockRevision=known.expectedRevision;
+      }
       if(!material.stageRevision||!block.stageBlockRevision||!material.stageLessonBaseline)throw new Error('Сначала сохраните урок и блок кнопкой Save Draft.');
       if(canonical(lessonSnapshot(material))!==canonical(material.stageLessonBaseline))throw new Error('Сначала сохраните текущие правки урока. Загрузка файла не должна перезаписать черновик.');
-      const mime=mediaMime(file.type);
+      const mime=mediaMime(file.type,file.name);
       if(!['audio/wav','audio/ogg','audio/mpeg','application/pdf','image/png','image/jpeg','image/gif','image/webp'].includes(mime))throw new Error('Поддерживаются PDF, изображения PNG/JPEG/GIF/WEBP и MP3/WAV/OGG, до 10 MiB.');
       const result=await binaryWrite('/api/lessons/'+encodeURIComponent(material.id)+'/blocks/'+encodeURIComponent(block.id)+'/media',
         {expectedRevision:material.stageRevision,expectedBlockRevision:block.stageBlockRevision,mime},file);
@@ -481,10 +535,15 @@
       pending=null;localStorage.removeItem(queueKey);location.reload();
       });
     });
-    if(pending||personalQueue.length){
+    const sentPersonal=personalQueue.filter(row=>row.body&&row.kind!=='activity'&&row.kind!=='theme');
+    if(pending||sentPersonal.length){
       notice('Есть неподтверждённая операция. Войдите в исходный аккаунт и проверьте сервер или повторите её.',true);
-      const item=pending||personalQueue[0]||{};
-      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:personalQueue.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
+      const item=pending||sentPersonal[0];
+      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:sentPersonal.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
+    }else if(personalQueue.length&&personalQueue.every(row=>row.kind==='activity')){
+      for(const row of personalQueue)row.paused=false;
+      savePersonal();
     }
   });
+  if(typeof window.addEventListener==='function')window.addEventListener('pagehide',()=>{unloading=true;clearTimeout(personalTimer);void drainPersonal(true);});
 })();

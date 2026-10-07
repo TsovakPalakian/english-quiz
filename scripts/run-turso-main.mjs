@@ -70,7 +70,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         if(path==='/preview.js'){send('text/javascript; charset=utf-8',mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')));return;}
         const pdfAsset=pdfAssetFile(path);
         if(pdfAsset){send(pdfAsset.mime,readFileSync(pdfAsset.file));return;}
-        const assets={'/preview.css':['preview.css','text/css'],'/almond-blossom.jpg':['almond-blossom.jpg','image/jpeg'],
+        const assets={'/preview.css':['preview.css','text/css'],'/favicon.svg':['rollback/turso-worker-assets/favicon.svg','image/svg+xml'],'/favicon.png':['rollback/turso-worker-assets/favicon.png','image/png'],'/favicon.ico':['rollback/turso-worker-assets/favicon.ico','image/x-icon'],'/almond-blossom.jpg':['almond-blossom.jpg','image/jpeg'],
           '/main-bridge.js':['staging/main-bridge.js','text/javascript'],'/main-stage.css':['staging/main-stage.css','text/css']};
         if(assets[path]){const [file,type]=assets[path];send(type,readFileSync(resolve(root,file)));return;}
         if(path==='/demonstratives.js'){send('text/javascript; charset=utf-8',readFileSync(resolve(defaultSnapshot,'local-catalogs/demonstratives.js')));return;}

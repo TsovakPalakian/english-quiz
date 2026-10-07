@@ -123,7 +123,7 @@ export default {async fetch(request,env){
     const read=method==='GET'&&(allowedRead.includes(path)||dictionary||library||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/song-file','/api/lesson-file'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([A-Za-z0-9_-]{1,100})$/),catalogCards=path==='/api/catalogs/cards';
-    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
+    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
     const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     if(!read&&!write&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
     const db=studyClient(env);

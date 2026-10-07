@@ -1377,11 +1377,6 @@ async function saveLessons(env, request, body) {
   if (!canReview(user)) return json({ error: "You cannot do that." }, 403);
   if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
   if (!body || !Array.isArray(body.materials)) return json({ error: "The request was not valid." }, 400);
-  // Empty replace needs an explicit clear flag so a buggy client cannot wipe the catalog.
-  if (!body.materials.length && body.clear !== true) {
-    const current = await readSharedLessons(env);
-    if (current.length) return json({ error: "Lesson list cannot be emptied this way." }, 400);
-  }
   try {
     if (JSON.stringify(body.materials).length > 4000000) {
       return json({ error: "That lesson catalog is too large." }, 413);
@@ -1391,10 +1386,15 @@ async function saveLessons(env, request, body) {
   }
   for (let attempt = 0; attempt < 8; attempt++) {
     const meta = await readSharedLessonsMeta(env);
-    if (!body.materials.length && body.clear !== true && meta.list.length) {
-      return json({ error: "Lesson list cannot be emptied this way." }, 400);
-    }
-    const materials = await writeSharedLessons(env, body.materials, meta.etag || "");
+    const byId = new Map();
+    meta.list.forEach((row) => { if (row && row.id) byId.set(row.id, row); });
+    body.materials.forEach((row) => {
+      const clean = cleanLessonMaterial(row);
+      if (!clean) return;
+      if (!byId.has(clean.id)) byId.set(clean.id, clean);
+      else byId.set(clean.id, Object.assign({}, byId.get(clean.id), clean, { id: clean.id }));
+    });
+    const materials = await writeSharedLessons(env, Array.from(byId.values()), meta.etag || "");
     if (materials) return json({ ok: true, materials: materials });
   }
   return json({ error: "The change could not be saved. Try again." }, 409);

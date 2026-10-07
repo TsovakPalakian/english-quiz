@@ -59,6 +59,7 @@ async function ensure(db){
   if(ready)return;
   await db.atomic([statement(CREATE)]);
   try{await db.atomic([statement("ALTER TABLE bug_reports ADD COLUMN time_zone TEXT NOT NULL DEFAULT ''")]);}catch{/* column already exists */}
+  try{await db.atomic([statement('ALTER TABLE bug_reports ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0')]);}catch{/* column already exists */}
   ready=true;
 }
 export async function saveBug(db,event){
@@ -92,13 +93,14 @@ export async function saveBug(db,event){
 }
 export async function listBugs(db){
   await ensure(db);
-  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone
-    FROM bug_reports ORDER BY last_at DESC LIMIT 100`);
+  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
+    FROM bug_reports ORDER BY resolved, last_at DESC LIMIT 100`);
   return rows.map(row=>({
     id:row.signature,method:row.method,path:row.path,status:Number(row.status),error:row.error,hits:Number(row.hits),
     accounts:JSON.parse(row.accounts_json||'[]'),request:JSON.parse(row.request_json||'{}'),response:JSON.parse(row.response_json||'{}'),
     firstAt:Number(row.first_at),lastAt:Number(row.last_at),timeZone:zoneName(row.time_zone),
-    when:formatBugTime(row.last_at,row.time_zone),firstWhen:formatBugTime(row.first_at,row.time_zone)
+    when:formatBugTime(row.last_at,row.time_zone),firstWhen:formatBugTime(row.first_at,row.time_zone),
+    resolved:Number(row.resolved)===1
   }));
 }
 export async function recordHttpBug(db,actor,request,response){

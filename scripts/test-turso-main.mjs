@@ -144,6 +144,9 @@ test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
   await scope.stageSaveLesson(false);
   assert.equal(sent.length,1);assert.equal(sent[0].upserts[0].id,'link1');assert.equal(sent[0].upserts[0].content.url,'https://example.com/lesson');
   assert.equal(opened.stageLessonBaseline.blocks.some(block=>block.id==='link1'),true);
+  opened.blocks.find(block=>block.id==='old').html='Edited';
+  await scope.stageSaveLesson(false);
+  assert.equal(sent.length,2);assert.equal(sent[1].upserts.find(block=>block.id==='old').content.html,'Edited');
 });
 test('Dropping a Lesson PDF saves the new block before the file upload',async()=>{
   const calls=[],block={id:'pdf',type:'pdf',tab:'pdf',title:''};
@@ -392,10 +395,10 @@ test('R3 confirmed lesson response counters use server score/marks only, never a
     document:{addEventListener:(key,fn)=>listeners[key]=fn}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   const saved=detail=>listeners['turso-personal-saved']({detail});
-  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,score:'1 / 2',items:[{},{}]}}});assert.deepEqual(events,[['answer','Lesson quiz','ok'],['answer','Lesson quiz','miss']]);
-  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,items:[{marked:true,correct:true}]}}});assert.equal(events.length,3);
-  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:false,items:[{}]}}});assert.equal(events.length,3);
-  scope.viewAccount={id:'other'};saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,score:'1 / 1',items:[{}]}}});assert.equal(events.length,3);
+  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,score:'1 / 2',items:[{},{}]}}});assert.deepEqual(events,[]);
+  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,items:[{marked:true,correct:true}]}}});assert.deepEqual(events,[['answer','Lesson exercise','ok']]);
+  saved({job:{kind:'response',actorId:'student'},result:{response:{checked:false,items:[{}]}}});assert.equal(events.length,1);
+  scope.viewAccount={id:'other'};saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,score:'1 / 1',items:[{}]}}});assert.equal(events.length,1);
 });
 test('R3 statistics select the managed endpoint and ignore late profile responses',async()=>{
   const pending=[],paths=[],elements={statsBody:{},statsRole:{},statsUser:{},statsSub:{},statsFrom:{value:'2026-10-01'},statsTo:{value:'2026-10-05'},statsCompare:{checked:false}};
@@ -493,6 +496,66 @@ test('Theme queue coalesces clicks, retries the same operation and drains before
   assert.equal(sent.length,2);assert.deepEqual(sent[0],sent[1]);assert.equal(saved.has('turso-main-personal-pending'),false);
   const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
   assert.ok(!source.includes('return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme })'));
+  assert.ok(source.includes('change.key==="cardQuizzes")return;'));
+});
+test('A paused theme write retries with the account revision',async()=>{
+  const window={},saved=new Map([['turso-main-personal-pending',JSON.stringify([{kind:'theme',key:'theme',theme:'mint',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:7,theme:'mint'}}])]]),sent=[];
+  const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+      if(path==='/api/me/state')return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:0})};
+      const body=JSON.parse(options.body);sent.push(body);
+      return {ok:true,json:async()=>({theme:body.theme,revision:1})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
+  window.TursoMain.theme('dark');
+  await window.TursoMain.flushPersonal();
+  assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,0);
+  assert.equal(saved.has('turso-main-personal-pending'),false);
+});
+test('A stale theme write is dropped instead of replaying an old revision',async()=>{
+  const window={},saved=new Map([['turso-main-personal-pending',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[];
+  const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+    fetch:async path=>{
+      sent.push(path);
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+      return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:58,stats:{theme:'almond'}})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
+  assert.deepEqual(sent,['/api/me','/api/me/state']);
+  assert.equal(saved.has('turso-main-personal-pending'),false);
+});
+test('A theme conflict reloads the revision and saves once',async()=>{
+  const window={},saved=new Map(),sent=[];let conflict=true;
+  const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+      if(String(path).startsWith('/api/me/state'))return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:conflict?1:2,stats:{theme:conflict?'mint':'almond'}})};
+      const body=JSON.parse(options.body);sent.push(body);
+      if(conflict){conflict=false;return {ok:false,status:409,json:async()=>({error:'The record changed. Reload it before editing.'})};}
+      return {ok:true,json:async()=>({theme:body.theme,revision:body.expectedRevision+1})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
+  window.TursoMain.theme('champagne');
+  await window.TursoMain.flushPersonal();
+  assert.equal(sent.length,2);
+  assert.equal(sent[0].expectedRevision,1);assert.equal(sent[1].expectedRevision,2);assert.equal(sent[1].theme,'champagne');
+  assert.notEqual(sent[0].mutationId,sent[1].mutationId);
+  assert.equal(saved.has('turso-main-personal-pending'),false);
 });
 test('Static catalog IDs initialize before edits; broken login never falls back to GET',()=>{
   const listeners=new Map(),card={stageId:'card_static',stageRevision:1,en:'gardening',ru:'садоводство'},window={LESSON_DATA:{words:[card]}};
@@ -768,6 +831,43 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   assert.deepEqual(sent.at(-1).body.changes,{hiddenFromStudents:true});assert.deepEqual(sent.at(-1).body.upserts,[]);
   assert.equal(lesson.description,'Unsaved text');assert.equal(lesson.stageLessonBaseline.changes.description,'');
 });
+test('An existing lesson without a baseline loads the server copy and then saves the edit',async()=>{
+  const sent=[],window={},remote={id:'lesson',title:'Original',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,blocks:[{id:'old',type:'text',html:'Hi',stageBlockRevision:2}]};
+  const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      if(path==='/api/lessons?id=lesson')return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
+      const body=JSON.parse(options.body);sent.push(body);
+      return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:'old',revision:2},{id:'link1',revision:1}]})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');
+  const lesson={...structuredClone(remote),title:'Edited',blocks:[...remote.blocks,{id:'link1',type:'link',title:'Site',url:'https://example.com/lesson'}]};
+  await window.TursoMain.saveLesson(lesson);
+  assert.equal(sent.length,1);assert.equal(sent[0].expectedRevision,4);assert.deepEqual(sent[0].changes,{title:'Edited'});
+  assert.equal(sent[0].upserts.length,1);assert.equal(sent[0].upserts[0].id,'link1');
+  assert.equal(lesson.stageLessonBaseline.blocks.some(block=>block.id==='old'),true);
+});
+test('A file upload keeps the server block revision when the editor lost it',async()=>{
+  const sent=[],window={},material={id:'lesson',title:'Media',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:['pdf'],blocks:[{id:'pdf',type:'pdf',tab:'',title:'',stageBlockRevision:3}]};
+  const scope={window,crypto,URLSearchParams,location:{hostname:'127.0.0.1',reload(){}},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      if(path==='/api/lessons')return {ok:true,json:async()=>({materials:[material]})};
+      const query=new URL(path,'https://lesson.test').searchParams;
+      sent.push(Object.fromEntries(query));
+      return {ok:true,json:async()=>({revision:5,block:{revision:4,content:{title:'',fileId:'sf',name:'lesson.pdf',hasFile:true}}})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/lessons');
+  delete material.blocks[0].stageBlockRevision;
+  const file={type:'application/pdf',name:'lesson.pdf',size:4,arrayBuffer:async()=>new Uint8Array([1,2,3,4]).buffer};
+  await window.TursoMain.uploadLessonFile(material,material.blocks[0],file);
+  assert.equal(sent.length,1);assert.equal(sent[0].expectedBlockRevision,'3');assert.equal(material.blocks[0].fileId,'sf');
+});
 test('Lesson word insertion sends one linked block, not dictionary or unchanged lesson content',async()=>{
   const sent=[],window={},remote={id:'lesson',title:'Saved',published:false,stageRevision:1,blocks:[{id:'text',type:'text',html:'Neighbour'.repeat(1000),stageBlockRevision:1}]};
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
@@ -1014,13 +1114,19 @@ test('Bootstrap omits large collections and slices stay on their own pages',asyn
       ('song1','song','profile','p1','{"title":"Gold","artist":"A","lyrics":"${'la '.repeat(500)}"}'),
       ('text1','text','profile','p1','{"title":"Note","text":"${'word '.repeat(500)}"}');
       INSERT INTO profile_library_items(profile_id,item_id) VALUES('p1','song1'),('p1','text1');
-      INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT','[{"level":"A1","units":[1]},{"level":"A2","units":[2]}]');`);
+      INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT','[{"level":"A1","units":[1]},{"level":"A2","units":[2]}]');
+      INSERT INTO profile_settings(profile_id,key,value_json) VALUES('p1','theme','"almond"'),('p2','theme','"almond"');
+      INSERT INTO account_settings(account_id,key,value_json) VALUES('student','theme','"mint"');`);
     const actor={id:'student',role:'USER'};
     const boot=await accountBootstrap(f.db,actor);
+    assert.equal(boot.stageThemeRevision,1);assert.equal(boot.stats.theme,'mint');
+    const legacyOnly=await accountBootstrap(f.db,{id:'student2',role:'USER'});
+    assert.equal(legacyOnly.stageThemeRevision,0);assert.equal(legacyOnly.stats.theme,'almond');
     assert.equal(boot.bootstrap,true);
     for(const key of ['added','songs','learned','variants'])assert.equal(boot[key],undefined);
     assert.equal(boot.stats.cardQuizzes,undefined);assert.equal(boot.stats.mistakes,undefined);
     assert.equal(boot.counts.songs,1);assert.equal(boot.counts.texts,1);assert.equal(boot.counts.cards,1);
+    assert.ok(boot.counts.songRevision>=1);assert.equal(typeof boot.counts.lessonRevision,'number');
     assert.ok(boot.versions.grammar>=2);
     const songs=await accountSongs(f.db,actor,{limit:50});
     assert.equal(songs.songs.length,1);assert.equal(songs.songs[0].title,'Gold');assert.equal(songs.songs[0].lyrics,undefined);assert.equal(songs.songs[0].stageLyricsDeferred,true);
@@ -1156,4 +1262,103 @@ test('Library phrase sorting and song back keep the list in history',()=>{
   assert.equal(hooks.stagePhrasePlace('garden',[]),'mine');
   hooks.stageEnter('song');
   assert.deepEqual(stack,['music']);assert.deepEqual(shown,['song']);
+});
+test('A finished list paints zero and drops rows the server no longer returns',async()=>{
+  const songs=[{id:'keep',stageId:'s1',title:'Old',lyrics:'line',stageLyricsDeferred:false},{id:'gone',stageId:'s2',title:'Gone'}];
+  const counts={lyricCount:{textContent:'4'}};
+  const scope={viewAccount:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
+    stageApplyLibraryBlocks(){},stageFlushBlocks(){},stageScheduleHydration(){},stageFollow(){},paintLyrics(){},
+    document:{addEventListener(){},getElementById:id=>counts[id]||null,querySelector:()=>null},
+    window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){}}},
+    accountFetch:async()=>({songs:[{id:'keep',stageId:'s1',title:'New',artist:'A',archived:false,stageRevision:2}],next:null}),
+    stageAccountBase:()=>'/api/me'};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await scope.stageSongPage('');
+  assert.equal(songs.length,1);assert.equal(songs[0].title,'New');assert.equal(songs[0].lyrics,'line');
+  assert.equal(counts.lyricCount.textContent,'1');
+  songs.splice(0,songs.length);
+  scope.stagePaintCounts({songs:4});
+  assert.equal(counts.lyricCount.textContent,'0');
+});
+test('A list response that arrives after a local delete does not restore the row',async()=>{
+  let release;
+  const songs=[{id:'keep',stageId:'s1',title:'Keep'},{id:'gone',stageId:'s2',title:'Gone',archived:false}];
+  const pending=new Promise(resolve=>{release=resolve;});
+  let followed=0;
+  const scope={viewAccount:null,authUser:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
+    stageFollow(){followed++;},paintLyrics(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){},drop(){}}},
+    accountFetch:()=>pending,stageAccountBase:()=>'/api/me'};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  const job=scope.stageSongPage('');
+  scope.stageInstallLibrary({id:'gone',stageId:'s2',title:'Gone',archived:true},'song');
+  release({songs:[{id:'keep',stageId:'s1',title:'Keep',archived:false},{id:'gone',stageId:'s2',title:'Gone',archived:false}],next:null});
+  await job;
+  assert.equal(songs.find(row=>row.stageId==='s2').archived,true);
+  assert.equal(followed,0);
+});
+test('Progress reload replaces learned words instead of putting cleared ones back',async()=>{
+  const stored={learned:'["stale"]',variants:'{}',mistakes:'{}'};
+  const scope={viewAccount:null,LEARNED_KEY:'learned',VARIANT_KEY:'variants',MISTAKE_KEY:'mistakes',loadMistakeMap:()=>({}),stageRefreshHome(){},stageFollow(){},stageAccountBase:()=>'/api/me',
+    localStorage:{getItem:key=>stored[key]||null,setItem:(key,value)=>{stored[key]=value;}},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{ContentCache:{load:(key,fetcher)=>fetcher(),invalidate(){}}},
+    accountFetch:async()=>({learned:['kept'],variants:{},mistakes:[],next:null})};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await scope.stageProgressPage('');
+  assert.deepEqual(JSON.parse(stored.learned),['kept']);
+});
+test('A new lyric word keeps its song place',async()=>{
+  const created=[];
+  const scope={cardIndex:()=>new Map(),viewAccount:null,authUser:null,accountReady:false,viewSwitching:false,
+    rememberAdded(){},paintAdded(){},paintAllWords(){},paintHomeStats(){},loadAdded:()=>[],
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    crypto,
+    window:{TursoMain:{findCard:async()=>{throw new Error('missing');},newCard:(id,en,ru,place)=>{created.push(place);return {card:{id,word:en,ru,place},revision:1};}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  assert.equal(await scope.stageKeepExpression({word:'harbour',ru:'гавань',place:'music'}),true);
+  assert.deepEqual(created,['music']);
+});
+test('Lyric size is kept without an unsupported-operation error',()=>{
+  const saved=new Map(),notices=[];
+  const scope={localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value)},lyricSize:20,applyLyricSize(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{TursoMain:{notice(message){notices.push(message);},unsupported(op){notices.push(op);}}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  assert.equal(scope.stageKeepSetting({op:'put-setting',key:'lyricSize',value:28}),true);
+  scope.stageApplyPrefs();
+  assert.equal(saved.get('enquiz-lyric-size'),'28');assert.equal(scope.lyricSize,28);assert.deepEqual(notices,[]);
+});
+test('Speak Out level buttons use the loaded level instead of a fixed 32',()=>{
+  const list={};
+  const scope={esc:value=>String(value??''),document:{addEventListener(){},getElementById:id=>id==='speakoutList'?list:null,querySelector:()=>null},
+    window:{SPEAKOUT:[{level:'A1',units:[{lessons:[{},{}]}]}]}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stagePaintSpeakLevels();
+  assert.equal(list.innerHTML.includes('>32<'),false);
+  assert.match(list.innerHTML,/data-speak-level="0"[\s\S]*>2</);
+  assert.match(list.innerHTML,/1 unit/);
+  assert.match(list.innerHTML,/>Open</);
+});
+test('A PDF with an empty browser type is accepted from its name',async()=>{
+  const headers=[];
+  const lesson={id:'lesson',stageRevision:2,blocks:[{id:'pdf',stageBlockRevision:1,type:'pdf'}]};
+  lesson.stageLessonBaseline={changes:{},blocks:[],order:[]};
+  const scope={window:{},crypto,URLSearchParams,CustomEvent:class{},location:{hostname:'127.0.0.1',reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null,querySelectorAll:()=>[]},
+    fetch:async(path,options)=>{
+      if(path==='/api/bugs')return {ok:true,json:async()=>({})};
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
+      headers.push(options.headers['Content-Type']);
+      return {ok:true,json:async()=>({revision:3,block:{revision:2,content:{}}})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await scope.window.TursoMain.fetch('/api/me');
+  const file={name:'lesson.pdf',type:'',size:4,arrayBuffer:async()=>new Uint8Array([1,2,3,4]).buffer};
+  lesson.stageLessonBaseline=scope.window.TursoMain.lessonSnapshot(lesson);
+  await scope.window.TursoMain.uploadLessonFile(lesson,lesson.blocks[0],file);
+  assert.deepEqual(headers,['application/pdf']);
 });
