@@ -104,10 +104,14 @@
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}
+      const section=document.querySelector('section.on');
       const payload=JSON.stringify({
         method:String(entry.method||'GET').slice(0,16),path:path.slice(0,300),status:Number(entry.status)||0,
         error:String(entry.error||'Client failure').slice(0,500),timeZone,
-        request:{method:entry.method||'GET',url:String(entry.path||'/'),body:String(entry.requestBody??'').slice(0,4000)},
+        request:{method:entry.method||'GET',url:String(entry.path||'/'),body:String(entry.requestBody??'').slice(0,4000),context:{
+          screen:section&&section.id||'',href:String(location.href||'').slice(0,500),language:navigator.language||'',
+          userAgent:String(navigator.userAgent||'').slice(0,300),viewport:innerWidth+'x'+innerHeight,online:navigator.onLine,stack:String(entry.stack||'').slice(0,1500)
+        }},
         response:{status:Number(entry.status)||0,body:String(entry.responseBody??'').slice(0,4000)}
       });
       Promise.resolve(fetch('/api/bugs',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:payload})).catch(()=>{});
@@ -122,14 +126,14 @@
     try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:{'Content-Type':'application/json','X-Client-Bug':'1',...options.headers}});}
     catch{
       const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true});
-      reportClientBug({method,path,status:0,error:error.message,requestBody});
+      reportClientBug({method,path,status:0,error:error.message,requestBody,stack:error.stack});
       throw error;
     }
     let value={},parsed=true;
     try{value=await response.json();}catch{parsed=false;}
     if(!response.ok||!parsed){
       const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:!quietBug});
-      if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':''});
+      if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':'',stack:error.stack});
       throw error;
     }
     return value;
@@ -162,6 +166,27 @@
     const found=[...cards.values()].filter(c=>String(c.en||'').toLowerCase()===en && String(c.ru||'')===ru);
     if(found.length!==1)throw new Error('Карточку нельзя однозначно связать с ID. Перезагрузите стенд; запись не отправлена.');
     return found[0];
+  }
+  function catalogStageId(card){
+    const en=String(card?.en||card?.word||card?.base||'').toLowerCase(),ru=String(card?.ru||'');
+    if(!en)return '';
+    const lists=[];
+    const data=window.LESSON_DATA;
+    if(data&&typeof data==='object')for(const value of Object.values(data))if(Array.isArray(value))lists.push(value);
+    if(Array.isArray(window.IRREGULAR))lists.push(window.IRREGULAR);
+    const ids=[];
+    for(const list of lists)for(const row of list){
+      if(!row||typeof row!=='object'||!/^[A-Za-z0-9_-]{1,100}$/.test(String(row.stageId||'')))continue;
+      if(String(row.en||row.word||row.base||'').toLowerCase()!==en||String(row.ru||'')!==ru)continue;
+      if(!ids.includes(row.stageId))ids.push(row.stageId);
+    }
+    return ids.length===1?ids[0]:'';
+  }
+  function studyCard(card){
+    if(card && /^[A-Za-z0-9_-]{1,100}$/.test(String(card.stageId||'')))return {stageId:card.stageId};
+    const id=catalogStageId(card);
+    if(id)return {stageId:id};
+    return identify(card);
   }
   async function write(path,method,body){
     if(!actorId)throw new Error('Сначала войдите в существующий аккаунт.');
@@ -213,7 +238,7 @@
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
     notice('Сохранение в тестовую Turso…');
     try{await action();notice('Подтверждено тестовой Turso.');if(status)status.textContent='Сохранено на тестовом сервере.';}
-    catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message});if(status){status.textContent=error.message;status.classList.add('bad');}}
+    catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message,stack:error.stack});if(status){status.textContent=error.message;status.classList.add('bad');}}
     finally{busy=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
   }
   function savePersonal(){
@@ -296,7 +321,7 @@
       savePersonal();
       const message=error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
       notice(message,true);
-      if(!error.reported)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message});
+      if(!error.reported)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
     }finally{personalRunning=false;}
   }
   const bridge=window.TursoMain={
@@ -315,12 +340,12 @@
       const path=accountId?'/api/admin/users/'+accountId+'/cards/':'/api/cards/';
       return api(path+encodeURIComponent(item.stageId)+'/dictionary');
     },
-    unsupported:operation=>{const message=`Операция «${operation||'изменение'}» ещё не перенесена и не записана на сервер. Доступны точечные карточки, уроки, тексты/песни, прогресс, личная статистика и медиа в изолированном хранилище.`;notice(message,true);reportClientBug({method:'CLIENT',path:'/unsupported',status:0,error:message});},
+    unsupported:operation=>{const message=`Операция «${operation||'изменение'}» ещё не перенесена и не записана на сервер. Доступны точечные карточки, уроки, тексты/песни, прогресс, личная статистика и медиа в изолированном хранилище.`;notice(message,true);reportClientBug({method:'CLIENT',path:'/unsupported',status:0,error:message,stack:new Error(message).stack});},
     answer(card,type,correct){
-      const c=identify(card);enqueuePersonal({kind:'answer',key:c.stageId+'|'+type,cardId:c.stageId,type,correct,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/answers',method:'POST'});
+      const c=studyCard(card);enqueuePersonal({kind:'answer',key:c.stageId+'|'+type,cardId:c.stageId,type,correct,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/answers',method:'POST'});
     },
     progress(card,changes){
-      const c=identify(card);enqueuePersonal({kind:'progress',key:c.stageId+'|progress',cardId:c.stageId,changes,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/progress',method:'PATCH'});
+      const c=studyCard(card);enqueuePersonal({kind:'progress',key:c.stageId+'|progress',cardId:c.stageId,changes,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/progress',method:'PATCH'});
     },
     event(kind,area,result,seconds){enqueuePersonal({kind:'activity',key:'activity',events:[{kind,area:area||'',result:result||'',...(seconds?{seconds}:{})}],path:'/api/stats/event',method:'POST'},5000);},
     response(lessonId,block,response,immediate=false){
@@ -539,7 +564,7 @@
     if(pending||sentPersonal.length){
       notice('Есть неподтверждённая операция. Войдите в исходный аккаунт и проверьте сервер или повторите её.',true);
       const item=pending||sentPersonal[0];
-      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:sentPersonal.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
+      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',stack:new Error('Unconfirmed operation').stack,requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:sentPersonal.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
     }else if(personalQueue.length&&personalQueue.every(row=>row.kind==='activity')){
       for(const row of personalQueue)row.paused=false;
       savePersonal();

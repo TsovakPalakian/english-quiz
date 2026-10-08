@@ -12,12 +12,12 @@ from app.pipeline import analyze
 
 app = FastAPI(title="Expression Analyzer", version="1")
 
-# Wire budget above Pydantic max_length (100k) to cover JSON wrappers.
-MAX_ANALYZE_BYTES = 120_000
+# Wire budget above Pydantic max_length (2_000_000) to cover JSON wrappers.
+MAX_ANALYZE_BYTES = 8_000_000
 
 
 class AnalyzeRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=100000)
+    text: str = Field(min_length=1, max_length=2000000)
     contentType: str = "TEXT"
 
 

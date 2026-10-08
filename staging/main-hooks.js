@@ -332,6 +332,34 @@ function stageInstallLibrary(item,kind){
   else{writeSongs(list);paintLyrics();}
   stagePaintCounts();
 }
+async function stageRunTextAnalysis(item,status){
+  if(!item?.text)return;
+  const generation=viewGen;
+  let result;
+  try{result=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:item.text,contentType:'TEXT'})});}
+  catch(error){if(status)status.textContent=error.message||'Analysis service temporarily unavailable.';return;}
+  if(generation!==viewGen)return;
+  const analysis={expressions:(typeof uniqueExpressions==='function'?uniqueExpressions(result.expressions||[]):(result.expressions||[])),stats:result.stats||null,at:new Date().toISOString()};
+  const list=loadTexts();
+  const saved=list.find(row=>row.id===item.id);
+  if(!saved)return;
+  try{
+    if(saved.stageId&&saved.stageScope==='profile'){
+      const managed=!!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
+      if(managed||stageOwnReady()){
+        const stored=managed?await window.TursoMain.saveManagedText(viewAccount.id,saved,{analysis}):await window.TursoMain.saveLibrary(saved,'text',{analysis});
+        if(generation!==viewGen)return;
+        if(stored?.item)Object.assign(saved,stored.item);
+        if(stored?.revision)saved.stageRevision=stored.revision;
+      }
+    }
+    saved.analysis=analysis;
+    localStorage.setItem(TEXT_KEY,JSON.stringify(list));
+    paintTextCount();
+    if(status)status.textContent=(result.expressions||[]).length+' expressions.';
+    showText(saved.id);
+  }catch(error){if(status)status.textContent=error.message||'Analysis service temporarily unavailable.';}
+}
 function stageStoreText(analyze){
   const managed=!!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
   if(!stageOwnReady()&&!managed){window.TursoMain.notice('Дождитесь загрузки профиля.',true);return;}
@@ -343,7 +371,7 @@ function stageStoreText(analyze){
     const result=managed?await window.TursoMain.saveManagedText(accountId,item,{title,text}):await window.TursoMain.saveLibrary(item,'text',{title,text});
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
     stageInstallLibrary(result.item,'text');openTextId=result.item.id;stageTextDraft=null;showText(openTextId);
-    if(analyze)document.getElementById('textReadStatus').textContent='Текст сохранён. Внешний анализатор в тестовом контуре пока отключён.';
+    if(analyze)await stageRunTextAnalysis(result.item,document.getElementById('textReadStatus'));
   },document.getElementById('textStatus'));
 }
 function stageStoreSong(existingId){
@@ -997,9 +1025,18 @@ function stageFollow(key,next,cursor,run){
   if(!queue)return job();
   return queue.add({id:key+':'+next,priority:6,run:job});
 }
+function stageWeakPending(){
+  if(typeof authUser==='undefined'||!authUser)return false;
+  if(!window.ContentCache?.has('progress:after:start'))return true;
+  if(!(window.LESSON_DATA?.words||[]).length&&!window.ContentCache?.get('library:opened:allwords'))return true;
+  if(window.ContentCache?.get('library:after:allwords'))return true;
+  if(!stageSettled.mine&&!window.ContentCache?.has('cards:personal:after:start'))return true;
+  return false;
+}
 function stageRefreshHome(){
   if(typeof paintHomeStats==='function')paintHomeStats();
   if(typeof paintHomeStudy==='function')paintHomeStudy();
+  if(document.getElementById('cardstat')?.classList.contains('on')&&typeof paintStat==='function')paintStat();
 }
 function stageKick(id,run){
   const queue=window.PreloadQueue;
@@ -1014,7 +1051,8 @@ function stageDemand(id){
     if(['allwords','phrasal','idioms'].includes(id))stageLibrarySection(id);
     if(id==='music'||id==='song')stageKick('songs:list',()=>stageSongPage(''));
     if(id==='add'||id==='made')stageKick('cards:personal',()=>stagePersonalPage('').then(()=>{if((document.querySelector('section.on')||{}).id===id&&typeof paintAdded==='function')paintAdded();}));
-    if(['setup','exam','errors','made','add','word'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
+    if(['setup','exam','errors','made','add','word','cardstat'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
+    if(id==='cardstat'){stageKick('cards:personal',()=>stagePersonalPage(''));for(const section of ['allwords','phrasal','idioms'])stageLibrarySection(section);}
     if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
   }catch(error){window.TursoMain?.notice?.(error.message,true);}
 }

@@ -132,6 +132,10 @@ test('Managed text edits retain actor receipts, target ownership, CAS and unrela
   assert.deepEqual(await service.editManagedText(f.dev,'u2','target-text',body),first);
   assert.equal((await service.library(f.other))[0].text,'Changed');assert.equal((await service.library(f.own))[0].text,'Untouched');
   assert.equal(first.item.title,'Student');assert.equal(first.item.analysis,null);
+  const analyzed=await service.editManagedText(f.dev,'u2','target-text',{mutationId:mutation(),expectedRevision:first.revision,changes:{analysis:{expressions:[{type:'IDIOM'}],stats:null}}});
+  assert.equal(analyzed.item.analysis.expressions[0].type,'IDIOM');
+  const cleared=await service.editManagedText(f.dev,'u2','target-text',{mutationId:mutation(),expectedRevision:analyzed.revision,changes:{text:'Again'}});
+  assert.equal(cleared.item.analysis,null);
   assert.equal(f.sqlite.prepare('SELECT account_id FROM operation_receipts WHERE mutation_id=?').get(body.mutationId).account_id,'dev');
   await assert.rejects(service.editManagedText(f.dev,'u2','target-text',{...body,mutationId:mutation()}),e=>e.status===409);
   await assert.rejects(service.editManagedText(f.dev,'u1','target-text',{...body,mutationId:mutation()}),e=>e.status===404);

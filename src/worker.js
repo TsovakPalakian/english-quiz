@@ -1657,7 +1657,7 @@ async function analyzeExpressions(env, request, body) {
   if (!user) return json({ error: "Sign in first." }, 401);
   const text = String((body && body.text) || "").trim();
   if (!text) return json({ error: "Write a text first." }, 400);
-  if (text.length > 100000) return json({ error: "That text is too long. Limit is 100000 characters." }, 413);
+  if (text.length > 2000000) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
   const base = String(env.EXPRESSION_ANALYZER_URL || "").replace(/\/$/, "");
   if (!base) return json({ error: "Analysis service temporarily unavailable." }, 503);
   const timeout = analyzerTimeoutMs(env.EXPRESSION_ANALYZER_TIMEOUT);

@@ -1480,6 +1480,8 @@ a.btn { text-decoration: none; }
 .day.active { border-color: var(--acc); background: var(--acc-s); }
 .day-row { display: flex; align-items: stretch; gap: 8px; margin-bottom: 10px; }
 .bug-detail { margin: -4px 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.45; max-height: 420px; overflow: auto; }
+.bug-item .day { align-items: start; }
+.bug-item .day > b, .bug-item .day .about { overflow-wrap: anywhere; white-space: normal; }
 .bug-item .day.active { border-color: var(--acc); background: var(--acc-s); }
 .bug-item.is-fixed .day {
   background: color-mix(in srgb, var(--mute) 18%, var(--card));

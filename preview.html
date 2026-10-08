@@ -319,10 +319,10 @@
         </div>
         <div class="row" style="margin-top:16px">
           <button class="btn primary" type="button" id="studyStart">Start</button>
-          <button class="btn" type="button" id="studyExam">Exam</button>
+          <button class="btn chip-mem" type="button" id="studyExam">Exam <input class="chip-n" type="number" min="1" max="100" value="80" data-exam-pass aria-label="Percent to pass"></button>
           <button class="btn" type="button" id="studyMistakes">Mistakes</button>
         </div>
-        <p class="hint">On the exam, 2 mistakes or 20 minutes means fail. Four correct answers in a row remove the card from that type's mistakes. Flip is not part of the exam.</p>
+        <p class="hint">On the exam, the percent next to Exam is the pass mark. 20 minutes still means fail. Four correct answers in a row remove the card from that type's mistakes. Flip is not part of the exam.</p>
       </div>
     </section>
 
@@ -695,7 +695,7 @@
         </div>
         <div class="row" style="margin-top:16px">
           <button class="btn primary" type="button" id="dayStart">Start</button>
-          <button class="btn" type="button" id="dayExam">Exam</button>
+          <button class="btn chip-mem" type="button" id="dayExam">Exam <input class="chip-n" type="number" min="1" max="100" value="80" data-exam-pass aria-label="Percent to pass"></button>
           <button class="btn" type="button" id="dayMistakes">Mistakes</button>
         </div>
         <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
@@ -705,7 +705,7 @@
     <section id="dayq">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
       <div class="tags"><span id="dayqType">Quiz</span></div>
-      <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqTimer" hidden></span></div>
+      <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqMistakes" hidden></span><span class="timer" id="dayqTimer" hidden></span></div>
       <div class="card grow" id="dayqView"></div>
     </section>
 

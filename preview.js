@@ -1138,6 +1138,7 @@
     }
     function settleThemeAudience() {
       paintThemeSegs();
+      if (typeof syncExamPassInputs === "function") syncExamPassInputs();
     }
     function themeLabel(name) {
       const custom = loadCustomThemes().find((row) => row.id === name);
@@ -1221,7 +1222,7 @@
       const rest = visibleThemes().map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>").join("");
       document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
       const themeOpen = document.getElementById("customThemeOpen");
-      if (themeOpen) themeOpen.hidden = !canEditLessons();
+      if (themeOpen) themeOpen.hidden = false;
       const shown = document.documentElement.getAttribute("data-theme");
       const name = shown === "user" ? currentTheme() : (shown || "auto");
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
@@ -1409,7 +1410,6 @@
       };
       paintVeil();
       if (customThemeOpen) customThemeOpen.addEventListener("click", () => {
-        if (!canEditLessons()) return;
         if (!customThemeForm.hidden && editingThemeId) {
           endThemeEdit();
           setThemeFormOpen(true);
@@ -3589,8 +3589,23 @@
       const learning = rows.filter((row) => !learnedIds.has(String(row.en).toLowerCase()));
       return { learned: learned.sort(byLesson), weak: [], learning: learning.sort(byLesson) };
     }
+    function mistakeRowsFor(en) {
+      const id = String(en || "").trim().toLowerCase();
+      if (!id) return [];
+      return Object.values(loadMistakeMap()).filter((row) => row && !row.cleared && Number(row.misses) > 0 && String(row.en || "").trim().toLowerCase() === id);
+    }
+    function mistakeBits(rows) {
+      const counts = {};
+      rows.forEach((row) => mistakeRowsFor(row.en).forEach((miss) => {
+        const type = String(miss.type || "Quiz");
+        counts[type] = (counts[type] || 0) + Number(miss.misses);
+      }));
+      return Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b)).map((type) => type + " · " + counts[type]);
+    }
     function statRow(row) {
-      return '<button class="path" type="button" data-all-kind="' + row.kind + '" data-all-key="' + esc(row.key) + '"><span><b>' + esc(row.en) + '</b>' + ipaHtml(rowToCard(row)) + '<br><span class="label">' + esc(row.ru) + '</span></span><span class="to">' + esc(row.where.join(" · ")) + "</span></button>";
+      const bits = statKind === "weak" ? mistakeBits([row]) : [];
+      const side = bits.length ? bits.join(", ") : row.where.join(" · ");
+      return '<button class="path" type="button" data-all-kind="' + row.kind + '" data-all-key="' + esc(row.key) + '"><span><b>' + esc(row.en) + '</b>' + ipaHtml(rowToCard(row)) + '<br><span class="label">' + esc(row.ru) + '</span></span><span class="to">' + esc(side) + "</span></button>";
     }
     function keysOfMarks(marks) {
       const set = new Set();
@@ -3649,7 +3664,9 @@
         title.textContent = (titles[statKind] || "Cards") + " · " + rows.length;
         box.innerHTML = names.map((name, index) => {
           const count = map[name].length;
-          return '<button class="day active" type="button" data-stat-group="' + esc(name) + '"><span class="date">' + (index + 1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + count + (count === 1 ? " word" : " words") + "</span></button>";
+          const bits = statKind === "weak" ? mistakeBits(map[name]) : [];
+          const about = count + (count === 1 ? " word" : " words") + (bits.length ? " · " + bits.join(", ") : "");
+          return '<button class="day active" type="button" data-stat-group="' + esc(name) + '"><span class="date">' + (index + 1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + esc(about) + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -4160,7 +4177,7 @@
     function verbStudyCards(v) {
       return verbFormModels(v).map((model) => {
         const pair = ipaPair(verbSay(v, model.slot, verbPrimary(model.form)));
-        return {
+        return withStage({
           qid: v.base + "|" + model.slot,
           en: model.form,
           ru: model.ruQuiz,
@@ -4173,7 +4190,7 @@
           accept: model.accept,
           speak: model.speak,
           base: v.base
-        };
+        }, v);
       });
     }
     const VERB_LEVELS = [
@@ -6904,6 +6921,7 @@
     let examMode = false;
     let examClosed = false;
     let examMistakes = 0;
+    let examCorrect = 0;
     let examLog = [];
     let examStarted = 0;
     let examClock = 0;
@@ -7008,13 +7026,17 @@
       });
       return cards;
     }
+    function withStage(card, source) {
+      if (source && source.stageId) card.stageId = source.stageId;
+      return card;
+    }
     function rowToCard(row) {
       const key = String(row.en || "").toLowerCase();
       const lesson = extraWords.find((item) => String(item.en).toLowerCase() === key) || words.find((item) => String(item.en).toLowerCase() === key) || phrases09.find((item) => String(item.en).toLowerCase() === key) || adverbs14.find((item) => String(item.en).toLowerCase() === key) || talk16.find((item) => String(item.en).toLowerCase() === key) || likes23.find((item) => String(item.en).toLowerCase() === key) || ask07.find((item) => String(item.en).toLowerCase() === key) || lines21.find((item) => String(item.en).toLowerCase() === key);
-      if (lesson) return { en: lesson.en, ru: lesson.ru, pos: lesson.pos || "", uk: lesson.uk || "", us: lesson.us || "", ex: lesson.ex || "", gloss: lesson.gloss || "" };
+      if (lesson) return withStage({ en: lesson.en, ru: lesson.ru, pos: lesson.pos || "", uk: lesson.uk || "", us: lesson.us || "", ex: lesson.ex || "", gloss: lesson.gloss || "" }, lesson);
       const song = songCards[row.key] || songCards[key];
-      if (song) return { en: song.en, ru: song.ru, pos: song.pos || "", uk: song.uk || "", us: song.us || "", ex: song.ex || "", gloss: song.gloss || "" };
-      if (key === "give up") return { en: "give up", ru: "сдаваться, бросать", pos: "phrasal verb", uk: "/ɡɪv ˈʌp/", us: "", ex: "I won't give up.", gloss: "to stop doing or having something." };
+      if (song) return withStage({ en: song.en, ru: song.ru, pos: song.pos || "", uk: song.uk || "", us: song.us || "", ex: song.ex || "", gloss: song.gloss || "" }, song);
+      if (key === "give up") return withStage({ en: "give up", ru: "сдаваться, бросать", pos: "phrasal verb", uk: "/ɡɪv ˈʌp/", us: "", ex: "I won't give up.", gloss: "to stop doing or having something." }, phrasalWords.find((item) => String(item.en || "").toLowerCase() === "give up"));
       const item = loadAdded().find((saved) => String(saved.word).toLowerCase() === key);
       if (item) {
         const cam = item.data && item.data.cambridge ? item.data.cambridge : {};
@@ -7022,14 +7044,14 @@
         const re = new RegExp("\\b" + word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
         const usage = item.data && item.data.usages ? item.data.usages.find((line) => re.test(line.en || "")) : null;
         const wh = item.data && item.data.wooordhunt ? item.data.wooordhunt : {};
-        return {
+        return withStage({
           en: word, ru: item.ru || "", pos: cam.pos || "",
           uk: cam.uk || wh.uk || (item.data && item.data.uk) || "",
           us: cam.us || wh.us || (item.data && item.data.us) || "",
           ex: usage ? usage.en : "", gloss: cam.definition || expressionNote(item) || ""
-        };
+        }, item);
       }
-      return { en: row.en, ru: row.ru || "", pos: "", uk: "", us: "", ex: "", gloss: "" };
+      return withStage({ en: row.en, ru: row.ru || "", pos: "", uk: "", us: "", ex: "", gloss: "" }, row);
     }
     function lessonBank(place) {
       if (place === "lesson-07") return ask07;
@@ -7049,19 +7071,19 @@
       return { id: "lesson", label: "21 Sep" };
     }
     function lessonPool(place) {
-      const base = lessonBank(place).filter(cardVisible).map((w) => ({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk, us: w.us, ex: w.ex, gloss: w.gloss }));
+      const base = lessonBank(place).filter(cardVisible).map((w) => withStage({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk, us: w.us, ex: w.ex, gloss: w.gloss }, w));
       const extra = loadAdded().filter((item) => (item.place || "mine") === place).map((item) => {
         const cam = item.data && item.data.cambridge ? item.data.cambridge : {};
         const word = String(item.word || "");
         const re = new RegExp("\\b" + word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
         const usage = item.data && item.data.usages ? item.data.usages.find((row) => re.test(row.en || "")) : null;
         const wh = item.data && item.data.wooordhunt ? item.data.wooordhunt : {};
-        return {
+        return withStage({
           en: word, ru: item.ru, pos: cam.pos || "",
           uk: cam.uk || wh.uk || (item.data && item.data.uk) || "",
           us: cam.us || wh.us || (item.data && item.data.us) || "",
           ex: usage ? usage.en : "", gloss: cam.definition || ""
-        };
+        }, item);
       });
       return base.concat(extra);
     }
@@ -7471,6 +7493,7 @@
     }
     function buildDayQueue(cards, types, mix) {
       const queue = [];
+      if (mix) cards = shuffle(cards);
       cards.forEach((card) => {
         let use = typesFor(card, types);
         if (mix && use.length) use = [use[Math.floor(Math.random() * use.length)]];
@@ -7626,7 +7649,7 @@
     }
     function deckStudyCards(place) {
       const bank = place === "idioms" ? idiomWords : phrasalWords;
-      const base = bank.filter(cardVisible).map((w) => ({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk || "", us: w.us || "", ex: w.ex || "", gloss: w.gloss || "" }));
+      const base = bank.filter(cardVisible).map((w) => withStage({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk || "", us: w.us || "", ex: w.ex || "", gloss: w.gloss || "" }, w));
       const extra = loadAdded().filter((item) => item.place === place && !item.fromText).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
       return base.concat(extra);
     }
@@ -7745,6 +7768,45 @@
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= EXAM_MS;
     }
+    function examPassPercent() {
+      const inp = document.querySelector("[data-exam-pass]");
+      let n = Math.floor(Number(inp && inp.value));
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > 100) n = 100;
+      return n;
+    }
+    function syncExamPassInputs() {
+      let n = 80;
+      try {
+        const saved = localStorage.getItem("enquiz-exam-pass");
+        if (saved != null && saved !== "") n = Math.floor(Number(saved));
+      } catch (e) {}
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > 100) n = 100;
+      const edit = canEditLessons();
+      document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
+        if (document.activeElement !== inp) inp.value = String(n);
+        inp.readOnly = !edit;
+      });
+    }
+    function examPassed() {
+      const total = dayQueue.length;
+      if (!total) return false;
+      return Math.round(examCorrect / total * 100) >= examPassPercent();
+    }
+    function examMistakesAllowed() {
+      const total = dayQueue.length;
+      const need = Math.ceil(total * examPassPercent() / 100);
+      return Math.max(0, total - need);
+    }
+    function paintExamMistakesLeft() {
+      const slot = document.getElementById("dayqMistakes");
+      if (!slot) return;
+      if (!examMode) { slot.hidden = true; return; }
+      const left = Math.max(0, examMistakesAllowed() - examMistakes);
+      slot.hidden = false;
+      slot.textContent = left + (left === 1 ? " mistake left" : " mistakes left");
+    }
     function loadMistakeMap() {
       try {
         const data = JSON.parse(localStorage.getItem(MISTAKE_KEY) || "{}");
@@ -7817,11 +7879,11 @@
         mistakeGroups.map((group, index) => {
           const card = group.card;
           const chips = group.rows.map((row) => '<span class="btn chip quiz-miss">' + esc(row.type) + " · " + row.misses + "</span>").join("");
-          return '<article class="miss-card"><p class="entry">' + esc(card.en) + "</p>" + ipaHtml(card) +
+          return '<article class="miss-card"><p class="entry">' + esc(card.en) + "</p>" +
+            '<p class="label">Missed on</p><div class="row">' + chips + "</div>" + ipaHtml(card) +
             (card.ru ? "<p><b>" + esc(card.ru) + "</b></p>" : "") +
             (meaningOf(card) ? '<p class="src">' + esc(meaningOf(card)) + "</p>" : "") +
             (card.ex ? '<p class="src">' + esc(card.ex) + "</p>" : "") +
-            '<p class="label">Missed on</p><div class="row">' + chips + "</div>" +
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-miss-open="' + index + '">Open card</button>' +
             '<button class="btn primary" type="button" data-miss-retry="' + index + '">Repeat</button></div></article>';
         }).join("") +
@@ -7931,13 +7993,14 @@
       examMode = false;
       const timer = document.getElementById("dayqTimer");
       if (timer) timer.hidden = true;
+      paintExamMistakesLeft();
       document.getElementById("examTitle").textContent = "Exam · " + studyTitle;
       document.getElementById("examBack").dataset.fallback = studyScreen;
       const used = Math.max(0, Math.round((Date.now() - examStarted) / 1000));
       const clock = Math.floor(used / 60) + ":" + String(used % 60).padStart(2, "0");
       let html = '<p class="q">' + (passed ? "Passed" : "Not passed") + "</p>";
       html += '<p class="score">' + examMistakes + (examMistakes === 1 ? " mistake" : " mistakes") + "</p>";
-      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Limit: 2 mistakes or 20 minutes.</p>";
+      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Pass mark: " + examPassPercent() + "% correct. 20 minutes still means fail.</p>";
       if (!passed && reason === "time") html += '<p class="hint bad">Time is up.</p>';
       html += examLog.map((row) => '<div class="miss"><div><b>' + esc(row.en) + '</b><span class="label">' + esc(row.type) + '</span></div><span>mistake</span></div>').join("");
       html += '<div class="row" style="margin-top:14px"><button class="btn primary" type="button" id="examMistakes">Mistakes</button><button class="btn" type="button" id="examBackBtn">Back</button></div>';
@@ -7995,6 +8058,7 @@
       examMode = !!exam;
       examClosed = false;
       examMistakes = 0;
+      examCorrect = 0;
       examLog = [];
       examStarted = Date.now();
       dayQueue = queue;
@@ -8149,16 +8213,18 @@
       clearDayTimer();
       const item = dayQueue[dayAt];
       if (item) noteAnswer(item, ok);
+      if (examMode && item && item.type !== "Flip" && ok) examCorrect += 1;
       if (examMode && item && item.type !== "Flip" && !ok) {
         examMistakes += 1;
         examLog.push({ en: (item.card && item.card.en) || item.pos || item.type, type: item.type });
+        paintExamMistakesLeft();
       }
       if (ok) {
         fb.innerHTML = '<div class="feedback ok">Correct</div>';
         dayTimer = setTimeout(() => {
           if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
           if (dayAt + 1 >= dayQueue.length) {
-            if (examMode) showExamResult(examMistakes < 2, "");
+            if (examMode) showExamResult(examPassed(), "");
             else dayBack();
             return;
           }
@@ -8168,9 +8234,9 @@
         return;
       }
       if (item && item.type === "Listen") revealListenCard(item);
-      if (examMode && (examMistakes >= 2 || examTimeUp())) {
+      if (examMode && examTimeUp()) {
         fb.innerHTML = '<div class="feedback bad">Incorrect. Right answer: ' + esc(right) + "</div>";
-        dayTimer = setTimeout(() => showExamResult(false, examMistakes >= 2 ? "mistakes" : "time"), 700);
+        dayTimer = setTimeout(() => showExamResult(false, "time"), 700);
         return;
       }
       fb.innerHTML = '<div class="feedback bad">Incorrect. Right answer: ' + esc(right) + "</div>" + dayNextButton("Next");
@@ -8264,8 +8330,9 @@
       if (window.speechSynthesis) window.speechSynthesis.cancel();
       if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
       const item = dayQueue[dayAt];
-      if (!item) { if (examMode) showExamResult(examMistakes < 2, ""); else dayBack(); return; }
+      if (!item) { if (examMode) showExamResult(examPassed(), ""); else dayBack(); return; }
       document.getElementById("dayqTitle").textContent = (dayAt + 1) + " / " + dayQueue.length;
+      paintExamMistakesLeft();
       const dayqType = document.getElementById("dayqType");
       if (dayqType) dayqType.textContent = item.type;
       document.getElementById("dayqBar").style.width = Math.round(((dayAt + 1) / dayQueue.length) * 100) + "%";
@@ -8444,6 +8511,18 @@
       document.querySelectorAll("#dayMix .chip").forEach((b) => b.classList.toggle("on", b === btn));
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
+      inp.addEventListener("click", (e) => e.stopPropagation());
+      inp.addEventListener("input", () => {
+        if (!canEditLessons()) { syncExamPassInputs(); return; }
+        let n = Math.floor(Number(inp.value));
+        if (!Number.isFinite(n) || n < 1) n = 1;
+        if (n > 100) n = 100;
+        try { localStorage.setItem("enquiz-exam-pass", String(n)); } catch (e) {}
+        syncExamPassInputs();
+      });
+    });
+    syncExamPassInputs();
     document.getElementById("dayExam").onclick = () => beginQuiz(true);
     document.getElementById("dayMistakes").onclick = () => openMistakes(quizPool());
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
@@ -8472,7 +8551,7 @@
         clearDayTimer();
         if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
         if (dayAt + 1 >= dayQueue.length) {
-          if (examMode) showExamResult(examMistakes < 2, "");
+          if (examMode) showExamResult(examPassed(), "");
           else dayBack();
           return;
         }
@@ -9453,18 +9532,39 @@
       const ordered = rows.slice().sort((a, b) => {
         const fixed = Number(!!a.resolved) - Number(!!b.resolved);
         if (fixed) return fixed;
-        return (Number(b.lastAt) || 0) - (Number(a.lastAt) || 0);
+        const date = (Number(b.lastAt) || 0) - (Number(a.lastAt) || 0);
+        if (date) return date;
+        return (Number(b.hits) || 0) - (Number(a.hits) || 0);
       });
       return ordered.map((row, index) => {
-        const times = row.hits > 1 ? row.hits + " times" : "once";
+        const hits = Math.max(1, Number(row.hits) || 1);
         const who = (row.accounts || []).filter(Boolean).join(", ") || "Unknown account";
         const zone = row.timeZone || "UTC";
         const when = row.when || bugWhen(row.lastAt, zone);
-        const first = row.hits > 1 ? (row.firstWhen || bugWhen(row.firstAt, zone)) : "";
-        const detail = ["Time: " + when, first ? "First: " + first : "", "Account: " + who, "", "Request", JSON.stringify(row.request || {}, null, 2), "", "What happened", (row.status || "") + " " + (row.error || ""), "", "Response", JSON.stringify(row.response || {}, null, 2)].filter((line, i) => i !== 1 || line).join("\n");
-        const count = row.hits > 1 ? "<small>×" + row.hits + "</small>" : "";
+        const first = row.firstWhen || bugWhen(row.firstAt, zone);
+        const place = (() => {
+          const raw = row.request && row.request.url ? String(row.request.url) : (row.path || "");
+          const [path, query] = raw.split("#")[0].split("?");
+          return ((row.method || "") + " " + path + (query ? "?" + query : "")).trim();
+        })();
+        const happened = ((row.status || row.status === 0 ? String(row.status) + " " : "") + (row.error || "")).trim();
+        const ctx = row.request && row.request.context && typeof row.request.context === "object" ? row.request.context : {};
+        const headers = row.request && row.request.headers && typeof row.request.headers === "object" ? row.request.headers : {};
+        const history = Array.isArray(row.request && row.request.history) ? row.request.history : [];
+        const earlier = history.map((item) => [bugWhen(item && item.at, zone), item && item.url, item && item.body].filter(Boolean).join(" ")).join("\n");
+        const detail = [
+          "Where: " + place, "What happened: " + happened, "Account: " + who, ctx.role ? "Role: " + ctx.role : "",
+          "Count: " + hits, "Last: " + when, "First: " + first, ctx.screen ? "Screen: " + ctx.screen : "",
+          ctx.href ? "Page: " + ctx.href : "", (ctx.userAgent || headers["user-agent"]) ? "Browser: " + (ctx.userAgent || headers["user-agent"]) : "",
+          ctx.language ? "Language: " + ctx.language : "", ctx.viewport ? "Viewport: " + ctx.viewport : "",
+          typeof ctx.online === "boolean" ? "Online: " + (ctx.online ? "yes" : "no") : "",
+          ctx.stack ? "Stack:\n" + ctx.stack : "", earlier ? "Earlier:\n" + earlier : "",
+          "", "Request", JSON.stringify(row.request || {}, null, 2), "", "Response", JSON.stringify(row.response || {}, null, 2)
+        ].filter(Boolean).join("\n");
         const stamp = when ? '<small style="display:block;font-size:11px;font-weight:400">' + esc(when) + "</small>" : "";
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + "</b>" + count + '</span><b>' + esc((row.method || "") + " " + (row.path || "")) + '</b><span class="label about">' + esc(row.error || "") + " · " + esc(times) + " · " + esc(who) + stamp + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
+        const caption = esc(happened) + " · " + esc(who) + stamp;
+        const route = ((row.method || "") + " " + (row.path || "")).trim();
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
       }).join("");
     }
     function paintBugs(preset) {

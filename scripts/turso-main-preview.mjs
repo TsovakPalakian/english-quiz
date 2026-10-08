@@ -24,6 +24,7 @@ export function mainPreview(source,hooks){
   insert('    function openMarker(en, quiet) {','      if(!tenseBankReady)stageLoadTenseView("marker",en);');
   insert('    function show(id) {','      stageDemand(id);');
   insert('    function paintAllWords() {','      if(stageWordsPending()){const box=document.getElementById("allWordGrid");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintStat() {','      if(statKind==="weak"&&typeof stageWeakPending==="function"&&stageWeakPending()){const title=document.getElementById("cardStatTitle");const box=document.getElementById("cardStatList");if(title)title.textContent="Weak cards";if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintVerbs() {','      if(!window.IRREGULAR.length){const box=document.getElementById("verbList");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintSpeak() {','      if(speakView==="levels" && stageSpeakIncomplete()){stagePaintSpeakLevels();return;}');
   insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && !(window.SPEAKOUT&&window.SPEAKOUT[level]&&window.SPEAKOUT[level].level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
@@ -96,6 +97,7 @@ export function mainPreview(source,hooks){
   insert('    async function lmResolveFile(id) {','      const stageBlock=lmBlock(id); if(stageBlock && stageBlock.fileId)return lmFileUrl(stageBlock.fileId);');
   insert('    async function openPdf(href, title) {','      return stageOpenPdf(href,title);');
   insert('    function writeTexts(list) {','      return window.TursoMain.unsupported("Редактирование текстов");');
+  insert('    function runTextAnalysis(item, status) {','      return stageRunTextAnalysis(item, status);');
   insert('    function storeText(analyze) {','      return stageStoreText(analyze);');
   insert('    function showText(id) {','      stageMountTextArchive(id);');
   insert('    async function readLyrics(existingId) {','      return stageStoreSong(existingId);');

@@ -75,16 +75,17 @@ export class PersonalService extends StudyService {
   }
   validateLibrary(kind,changes){
     if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
-    only(changes,kind==='text'?['title','text']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
+    only(changes,kind==='text'?['title','text','analysis']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
     if(!Object.keys(changes).length)bad(400,'Send changed fields only.');
     for(const [key,value] of Object.entries(changes)){
-      if(key==='marks'){
+      if(key==='marks'||key==='analysis'){
         const raw=JSON.stringify(value);
-        if(!value||typeof value!=='object'||Array.isArray(value)||raw.length>50000)bad(400,'Invalid marks.');
+        if(!value||typeof value!=='object'||Array.isArray(value)||raw.length>(key==='analysis'?2_000_000:50000))bad(400,key==='analysis'?'Invalid analysis.':'Invalid marks.');
+        if(key==='analysis'&&value.expressions!==undefined&&!Array.isArray(value.expressions))bad(400,'Invalid analysis.');
         continue;
       }
       if(key==='archived'){if(typeof value!=='boolean')bad(400,'Invalid archive flag.');continue;}
-      text(value,['lyrics','text'].includes(key)?50_000:1000);
+      text(value,key==='text'?2_000_000:key==='lyrics'?50_000:1000);
       if(key==='title'&&!value.trim())bad(400,'A title is required.');
       if(['musicUrl','videoUrl'].includes(key)&&value){let url;try{url=new URL(value);}catch{bad(400,'Invalid media URL.');}
         if(url.protocol!=='https:'||url.username||url.password)bad(400,'Only HTTPS media links are allowed.');}

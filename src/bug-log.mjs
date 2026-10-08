@@ -55,6 +55,28 @@ export function zoneName(value){
   const zone=String(value||'UTC');
   return /^[A-Za-z0-9_+\-/]{1,80}$/.test(zone)?zone:'UTC';
 }
+function bugRequest(event,previous,now){
+  const request=Object.assign({},event.request||{});
+  delete request.history;
+  const context=request.context&&typeof request.context==='object'&&!Array.isArray(request.context)?Object.assign({},request.context):{};
+  for(const key of ['screen','href','language','userAgent','viewport','stack','role']){
+    if(context[key]==null||context[key]==='')delete context[key];
+    else context[key]=clipText(context[key]).slice(0,key==='stack'?1500:500);
+  }
+  if(typeof context.online!=='boolean')delete context.online;
+  if(event.account?.role)context.role=String(event.account.role).slice(0,40);
+  if(Object.keys(context).length)request.context=context;
+  else delete request.context;
+  if(!previous)return request;
+  let history=[];
+  try{
+    const prev=JSON.parse(previous.request_json||'{}');
+    history=Array.isArray(prev.history)?prev.history.slice(-7):[];
+    history.push({at:Number(previous.last_at)||now,url:String(prev.url||'').slice(0,300),body:String(prev.body||'').slice(0,180)});
+  }catch{history=[];}
+  request.history=history;
+  return request;
+}
 async function ensure(db){
   if(ready)return;
   await db.atomic([statement(CREATE)]);
@@ -72,8 +94,9 @@ export async function saveBug(db,event){
   const login=String(event.account?.login||event.account?.id||'');
   const now=Date.now();
   const timeZone=zoneName(event.timeZone);
-  const existing=await db.read('SELECT hits, accounts_json, first_at FROM bug_reports WHERE signature = ?',[signature]);
-  const requestJson=JSON.stringify(event.request||{});
+  const existing=await db.read('SELECT hits, accounts_json, first_at, last_at, request_json FROM bug_reports WHERE signature = ?',[signature]);
+  const request=bugRequest(event,existing[0],now);
+  const requestJson=JSON.stringify(request);
   const responseJson=JSON.stringify(event.response||{});
   if(existing.length){
     let accounts=[];
@@ -94,7 +117,7 @@ export async function saveBug(db,event){
 export async function listBugs(db){
   await ensure(db);
   const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
-    FROM bug_reports ORDER BY resolved, last_at DESC LIMIT 100`);
+    FROM bug_reports ORDER BY resolved, last_at DESC, hits DESC LIMIT 100`);
   return rows.map(row=>({
     id:row.signature,method:row.method,path:row.path,status:Number(row.status),error:row.error,hits:Number(row.hits),
     accounts:JSON.parse(row.accounts_json||'[]'),request:JSON.parse(row.request_json||'{}'),response:JSON.parse(row.response_json||'{}'),

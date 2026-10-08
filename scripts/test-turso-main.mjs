@@ -703,7 +703,7 @@ test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential 
   const memory=new Map(),sent=[],events=[],timers=new Map(),listeners=new Map(),buttons=new Map();let drop=false,active='student';
   const state={added:[{stageId:'card',stageRevision:1,stageScope:'shared',en:'fixture',ru:'fixture'}],stats:{cardQuizzes:{}},stageQuizProgress:[]};
   function boot(){
-    const window={},context={window,crypto,console,location:{reload(){}},CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},
+    const window={LESSON_DATA:{words:[{stageId:'catalog-word',en:'orphan',ru:'сирота'}]}},context={window,crypto,console,location:{reload(){}},CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},
       setTimeout:fn=>{const key=crypto.randomUUID();timers.set(key,fn);return key;},clearTimeout:key=>timers.delete(key),
       sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},
       document:{addEventListener:(type,fn)=>listeners.set(type,fn),dispatchEvent:event=>events.push(event),
@@ -728,14 +728,19 @@ test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential 
   assert.equal(sent[0].body.response,'answer');assert.equal(sent[0].body.expectedRevision,0);
   bridge.answer(state.added[0],'Type',false);bridge.answer(state.added[0],'Type',true);await settle();
   assert.equal(sent[1].body.expectedRevision,0);assert.equal(sent[2].body.expectedRevision,1);
+  bridge.answer({stageId:'catalog-card',en:'other',ru:'x'},'Choice',true);await settle();
+  assert.equal(sent.at(-1).path,'/api/cards/catalog-card/answers');
+  bridge.answer({en:'orphan',ru:'сирота'},'Type',true);await settle();
+  assert.equal(sent.at(-1).path,'/api/cards/catalog-word/answers');
+  assert.throws(()=>bridge.answer({en:'missing',ru:''},'Type',true));
   drop=true;bridge.response('lesson',{...block,stageResponseRevision:1},'uncertain',true);await settle();
-  const original=sent[3];assert.ok(JSON.parse(memory.get('turso-main-personal-pending'))[0].paused);
+  const original=sent[5];assert.ok(JSON.parse(memory.get('turso-main-personal-pending'))[0].paused);
   active='student2';bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');
-  buttons.get('turso-main-retry')();await settle();assert.equal(sent.length,4,'Pending writes must never retarget another account');
+  buttons.get('turso-main-retry')();await settle();assert.equal(sent.length,6,'Pending writes must never retarget another account');
   active='student';
-  bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');await settle();assert.equal(sent.length,4);
+  bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');await settle();assert.equal(sent.length,6);
   buttons.get('turso-main-retry')();await settle();
-  assert.deepEqual(sent[4],original);assert.equal(memory.has('turso-main-personal-pending'),false);
+  assert.deepEqual(sent[6],original);assert.equal(memory.has('turso-main-personal-pending'),false);
   assert.ok(events.some(event=>event.type==='turso-personal-saved'));
 });
 test('Personal exercise marks restored only from own response; stale shared answers never leak',async()=>{

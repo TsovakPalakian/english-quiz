@@ -42,6 +42,9 @@ test('repeated HTTP failures collapse to one row and keep the latest exchange',a
   assert.equal(bugs[0].response.headers['set-cookie'],'[hidden]');
   assert.match(bugs[0].request.body,/"order"/);
   assert.equal(bugs[0].error,'Order must contain exactly the remaining blocks.');
+  assert.equal(bugs[0].request.context.role,'USER');
+  assert.equal(bugs[0].request.history.length,1);
+  assert.match(bugs[0].request.history[0].url,/lesson_2026_09_14/);
   assert.equal(bugs[0].timeZone,'UTC');
   assert.ok(bugs[0].lastAt>0);
   assert.match(bugs[0].when,/UTC|GMT/);
