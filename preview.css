@@ -1637,6 +1637,7 @@ a.btn { text-decoration: none; }
 .lyric-text button.lyric-miss { color: var(--bad); font-weight: 800; text-decoration: underline; cursor: pointer; }
 .lyric-text button.lyric-return { background: var(--acc-s); border-radius: 6px; }
 .timer { display: inline-flex; align-items: center; min-height: 40px; font-variant-numeric: tabular-nums; font-weight: 800; font-size: 16px; color: var(--ink); }
+#dayqMistakes b { color: var(--bad); }
 .progress { height: 8px; background: var(--line); border-radius: 99px; margin-bottom: 10px; overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--acc); }
 .drill-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }

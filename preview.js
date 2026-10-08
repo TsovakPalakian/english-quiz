@@ -7768,10 +7768,16 @@
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= EXAM_MS;
     }
-    function examPassPercent() {
-      const inp = document.querySelector("[data-exam-pass]");
+    let examPassMark = 80;
+    function examPassPercent(sectionId) {
+      const id = sectionId || ((document.querySelector("section.on") || {}).id);
+      const box = id === "daysetup" ? "daysetup" : "setup";
+      const inp = document.querySelector("#" + box + " [data-exam-pass]") || document.querySelector("[data-exam-pass]");
       let n = Math.floor(Number(inp && inp.value));
-      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (!Number.isFinite(n) || n < 1 || n > 100) {
+        try { n = Math.floor(Number(localStorage.getItem("enquiz-exam-pass"))); } catch (e) { n = 80; }
+      }
+      if (!Number.isFinite(n) || n < 1) n = 80;
       if (n > 100) n = 100;
       return n;
     }
@@ -7792,11 +7798,11 @@
     function examPassed() {
       const total = dayQueue.length;
       if (!total) return false;
-      return Math.round(examCorrect / total * 100) >= examPassPercent();
+      return Math.round(examCorrect / total * 100) >= examPassMark;
     }
     function examMistakesAllowed() {
       const total = dayQueue.length;
-      const need = Math.ceil(total * examPassPercent() / 100);
+      const need = Math.ceil(total * examPassMark / 100);
       return Math.max(0, total - need);
     }
     function paintExamMistakesLeft() {
@@ -7805,7 +7811,7 @@
       if (!examMode) { slot.hidden = true; return; }
       const left = Math.max(0, examMistakesAllowed() - examMistakes);
       slot.hidden = false;
-      slot.textContent = left + (left === 1 ? " mistake left" : " mistakes left");
+      slot.innerHTML = '<b>' + left + '</b> ' + (left === 1 ? "mistake left" : "mistakes left");
     }
     function loadMistakeMap() {
       try {
@@ -8000,7 +8006,7 @@
       const clock = Math.floor(used / 60) + ":" + String(used % 60).padStart(2, "0");
       let html = '<p class="q">' + (passed ? "Passed" : "Not passed") + "</p>";
       html += '<p class="score">' + examMistakes + (examMistakes === 1 ? " mistake" : " mistakes") + "</p>";
-      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Pass mark: " + examPassPercent() + "% correct. 20 minutes still means fail.</p>";
+      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Pass mark: " + examPassMark + "% correct. 20 minutes still means fail.</p>";
       if (!passed && reason === "time") html += '<p class="hint bad">Time is up.</p>';
       html += examLog.map((row) => '<div class="miss"><div><b>' + esc(row.en) + '</b><span class="label">' + esc(row.type) + '</span></div><span>mistake</span></div>').join("");
       html += '<div class="row" style="margin-top:14px"><button class="btn primary" type="button" id="examMistakes">Mistakes</button><button class="btn" type="button" id="examBackBtn">Back</button></div>';
@@ -8036,6 +8042,7 @@
         studyTitle = "Study";
         dayReturn = "home";
       } else studyScreen = "daysetup";
+      if (exam) examPassMark = examPassPercent(here);
       const cards = quizPool();
       const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
       const types = chosenTypes(exam);
@@ -8511,22 +8518,28 @@
       document.querySelectorAll("#dayMix .chip").forEach((b) => b.classList.toggle("on", b === btn));
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    function keepExamPercent(e) {
+      if (e.target.closest("[data-exam-pass]")) e.stopPropagation();
+    }
     document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
+      inp.addEventListener("pointerdown", (e) => e.stopPropagation());
+      inp.addEventListener("mousedown", (e) => e.stopPropagation());
       inp.addEventListener("click", (e) => e.stopPropagation());
       inp.addEventListener("input", () => {
         if (!canEditLessons()) { syncExamPassInputs(); return; }
-        let n = Math.floor(Number(inp.value));
-        if (!Number.isFinite(n) || n < 1) n = 1;
-        if (n > 100) n = 100;
+        const n = Math.floor(Number(inp.value));
+        if (!Number.isFinite(n) || n < 1 || n > 100) return;
         try { localStorage.setItem("enquiz-exam-pass", String(n)); } catch (e) {}
-        syncExamPassInputs();
+        document.querySelectorAll("[data-exam-pass]").forEach((other) => { if (other !== inp) other.value = String(n); });
       });
     });
     syncExamPassInputs();
-    document.getElementById("dayExam").onclick = () => beginQuiz(true);
+    document.getElementById("dayExam").addEventListener("pointerdown", keepExamPercent);
+    document.getElementById("dayExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("dayMistakes").onclick = () => openMistakes(quizPool());
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
-    document.getElementById("studyExam").onclick = () => beginQuiz(true);
+    document.getElementById("studyExam").addEventListener("pointerdown", keepExamPercent);
+    document.getElementById("studyExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("studyMistakes").onclick = () => openMistakes(allStudyCards());
     document.getElementById("dayq").addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
