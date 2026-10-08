@@ -15,7 +15,7 @@ export function localMediaStore(directory){
     const {file,journal}=paths(key);
     let metadata,bytes;
     try{
-      for(const path of [file,journal]){const info=lstatSync(path);if(!info.isFile()||info.isSymbolicLink()||(info.mode&0o077)!==0||info.size>(path===file?10*1024*1024:4096))throw new Error();}
+      for(const path of [file,journal]){const info=lstatSync(path);if(!info.isFile()||info.isSymbolicLink()||(info.mode&0o077)!==0||info.size>(path===file?25*1024*1024:4096))throw new Error();}
       metadata=JSON.parse(readFileSync(journal,'utf8'));bytes=readFileSync(file);
     }catch{throw new StudyError(503,'Local audio missing or unsafe. No production fallback.');}
     if(metadata.key!==key||!allowedMime.includes(metadata.mime)||metadata.sha256!==key.slice(-64)||bytes.length!==metadata.bytes||digest(bytes)!==metadata.sha256)throw new StudyError(503,'Local media checksum mismatch.');

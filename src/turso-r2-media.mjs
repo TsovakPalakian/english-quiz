@@ -3,7 +3,7 @@ import {StudyError} from './turso-study.mjs';
 import {mediaRange} from './turso-media.mjs';
 export const TEST_MEDIA_BUCKET='learn-english-turso-test-media';
 export const PRODUCTION_MEDIA_BUCKET='learn-english-production-media';
-const limit=10*1024*1024;
+const limit=25*1024*1024;
 const pattern=/^(?:stage-local\/(songs|lessons)\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}|migration-inline)\/([a-f0-9]{64})$/;
 const mimes=new Set(['audio/wav','audio/mpeg','audio/ogg','application/pdf','image/png','image/jpeg','image/gif','image/webp']);
 const fail=(status,message)=>{throw new StudyError(status,message);};
@@ -11,11 +11,11 @@ const hex=bytes=>Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'
 const hash=async bytes=>hex(await crypto.subtle.digest('SHA-256',bytes));
 export async function boundedMediaBytes(request){
   const declared=request.headers.get('content-length');
-  if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>limit))fail(413,'File exceeds 10 MiB.');
+  if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>limit))fail(413,'File exceeds 25 MiB.');
   if(!request.body)fail(400,'File required.');
   const reader=request.body.getReader(),chunks=[];let size=0;
   try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;
-    if(size>limit){await reader.cancel();fail(413,'File exceeds 10 MiB.');}chunks.push(value);}
+    if(size>limit){await reader.cancel();fail(413,'File exceeds 25 MiB.');}chunks.push(value);}
   }finally{reader.releaseLock();}
   if(!size)fail(400,'File required.');
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}return bytes;

@@ -68,7 +68,7 @@ export function verifyLocalMediaBackup(path,data){
   let totalBytes=0;
   for(const entry of manifest.objects){
     const stem=hash(entry.key);assert.equal(entry.file,stem+'.bin');assert.equal(entry.journal,stem+'.json');
-    const bytes=privateFile(resolve(target,entry.file),10*1024*1024),raw=privateFile(resolve(target,entry.journal),4096),metadata=JSON.parse(raw);
+    const bytes=privateFile(resolve(target,entry.file),25*1024*1024),raw=privateFile(resolve(target,entry.journal),4096),metadata=JSON.parse(raw);
     assert.equal(hash(bytes),entry.sha256);assert.equal(hash(raw),entry.journalSha256);assert.equal(bytes.length,entry.bytes);
     assert.equal(metadata.key,entry.key);assert.equal(metadata.sha256,entry.key.slice(-64));assert.equal(hash(bytes),metadata.sha256);assert.equal(metadata.bytes,bytes.length);
     assert.ok(mimeTypes.includes(metadata.mime));totalBytes+=bytes.length;assert.ok(totalBytes<=MAX_BYTES);
@@ -82,7 +82,7 @@ export async function restoreLocalMediaBackup(path,data){
   const destination=mkdtempSync('/private/tmp/english-quiz-stage-media-'),store=localMediaStore(destination);
   const manifest=JSON.parse(privateFile(resolve(dir,'local-media.json'),2*1024*1024));
   for(const entry of manifest.objects){
-    const bytes=privateFile(resolve(dir,'local-media',entry.file),10*1024*1024),raw=privateFile(resolve(dir,'local-media',entry.journal),4096),metadata=JSON.parse(raw);
+    const bytes=privateFile(resolve(dir,'local-media',entry.file),25*1024*1024),raw=privateFile(resolve(dir,'local-media',entry.journal),4096),metadata=JSON.parse(raw);
     // Recheck bytes after verification: a changed backup must not be restored.
     assert.equal(hash(bytes),entry.sha256);assert.equal(hash(raw),entry.journalSha256);
     await store.putImmutable(entry.key,bytes,metadata);assert.equal(hash(store.readVerified(entry.key).bytes),entry.sha256);
@@ -94,7 +94,7 @@ export function localMediaArchiveStore(path,data){
   const manifest=JSON.parse(privateFile(resolve(dir,'local-media.json'),2*1024*1024));
   return {kind:'isolated-local-stage',readVerified(key){
     const entry=manifest.objects.find(e=>e.key===key);assert.ok(entry,'Local media absent from archive.');
-    const bytes=privateFile(resolve(dir,'local-media',entry.file),10*1024*1024),raw=privateFile(resolve(dir,'local-media',entry.journal),4096);
+    const bytes=privateFile(resolve(dir,'local-media',entry.file),25*1024*1024),raw=privateFile(resolve(dir,'local-media',entry.journal),4096);
     assert.equal(hash(bytes),entry.sha256);assert.equal(hash(raw),entry.journalSha256);
     return {bytes,metadata:JSON.parse(raw)};
   }};

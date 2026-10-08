@@ -103,9 +103,11 @@ export async function saveBug(db,event){
     try{accounts=JSON.parse(existing[0].accounts_json)||[];}catch{accounts=[];}
     if(login&&!accounts.includes(login))accounts=accounts.concat(login).slice(-8);
     const hits=Number(existing[0].hits)+1;
-    await db.atomic([statement(
-      'UPDATE bug_reports SET hits=?, accounts_json=?, request_json=?, response_json=?, error=?, last_at=?, time_zone=? WHERE signature=?',
-      [hits,JSON.stringify(accounts),requestJson,responseJson,error,now,timeZone,signature])]);
+    await db.atomic([
+      statement('UPDATE bug_reports SET hits=?, accounts_json=?, request_json=?, response_json=?, error=?, last_at=?, time_zone=? WHERE signature=?',
+        [hits,JSON.stringify(accounts),requestJson,responseJson,error,now,timeZone,signature]),
+      statement('UPDATE bug_reports SET resolved=0 WHERE signature=?',[signature])
+    ]);
     return {signature,hits};
   }
   await db.atomic([statement(
@@ -114,17 +116,42 @@ export async function saveBug(db,event){
     [signature,method,routeKey(path),status,error,1,JSON.stringify(login?[login]:[]),requestJson,responseJson,now,now,timeZone])]);
   return {signature,hits:1};
 }
-export async function listBugs(db){
+export async function resolveBug(db,signature){
   await ensure(db);
-  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
-    FROM bug_reports ORDER BY resolved, last_at DESC, hits DESC LIMIT 100`);
-  return rows.map(row=>({
+  if(!/^[a-f0-9]{32}$/.test(String(signature||'')))return false;
+  const existing=await db.read('SELECT signature FROM bug_reports WHERE signature=?',[signature]);
+  if(!existing.length)return false;
+  await db.atomic([statement('UPDATE bug_reports SET resolved=1 WHERE signature=?',[signature])]);
+  return true;
+}
+function bugView(row){
+  return {
     id:row.signature,method:row.method,path:row.path,status:Number(row.status),error:row.error,hits:Number(row.hits),
     accounts:JSON.parse(row.accounts_json||'[]'),request:JSON.parse(row.request_json||'{}'),response:JSON.parse(row.response_json||'{}'),
     firstAt:Number(row.first_at),lastAt:Number(row.last_at),timeZone:zoneName(row.time_zone),
     when:formatBugTime(row.last_at,row.time_zone),firstWhen:formatBugTime(row.first_at,row.time_zone),
     resolved:Number(row.resolved)===1
-  }));
+  };
+}
+export async function listBugs(db){
+  await ensure(db);
+  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
+    FROM bug_reports ORDER BY resolved, last_at DESC, hits DESC LIMIT 100`);
+  return rows.map(bugView);
+}
+export async function listBugHeads(db){
+  await ensure(db);
+  const rows=await db.read(`SELECT signature,hits,last_at,resolved FROM bug_reports ORDER BY last_at DESC LIMIT 100`);
+  return rows.map(row=>({id:row.signature,hits:Number(row.hits),lastAt:Number(row.last_at),resolved:Number(row.resolved)===1}));
+}
+export async function listBugsByIds(db,ids){
+  await ensure(db);
+  const wanted=[...new Set(ids)];
+  if(!wanted.length)return [];
+  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
+    FROM bug_reports WHERE signature IN (${wanted.map(()=>'?').join(',')})`,wanted);
+  const byId=new Map(rows.map(row=>[row.signature,bugView(row)]));
+  return wanted.map(id=>byId.get(id)).filter(Boolean);
 }
 export async function recordHttpBug(db,actor,request,response){
   if(!db||!response)return;

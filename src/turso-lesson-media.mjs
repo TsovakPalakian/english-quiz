@@ -5,7 +5,7 @@ const fail=(status,message)=>{throw new StudyError(status,message);};
 const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(value);
 const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
 export async function lessonMediaMetadata(bytes,mime,name){
-  if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>AUDIO_LIMIT)fail(413,'File must be between 1 byte and 10 MiB.');
+  if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>AUDIO_LIMIT)fail(413,'File must be between 1 byte and 25 MiB.');
   if(typeof name!=='string'||!name.trim()||name.length>200||/[\x00-\x1f\x7f/\\]/.test(name))fail(400,'Invalid filename.');
   if(['audio/wav','audio/mpeg','audio/ogg'].includes(mime))return audioMetadata(bytes,mime,name);
   const ascii=(offset,size)=>String.fromCharCode(...bytes.slice(offset,offset+size));

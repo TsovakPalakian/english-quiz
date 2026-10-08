@@ -1,10 +1,10 @@
 // Local staging only: binary data never goes into Turso or production R2.
 import {PersonalService,libraryDto} from './turso-personal.mjs';
 import {StudyError,statement as s} from './turso-study.mjs';
-export const AUDIO_LIMIT=10*1024*1024;
+export const AUDIO_LIMIT=25*1024*1024;
 const fail=(status,message)=>{throw new StudyError(status,message);};
 export async function audioMetadata(bytes,mime,name){
-  if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>AUDIO_LIMIT)fail(413,'Audio must be between 1 byte and 10 MiB.');
+  if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>AUDIO_LIMIT)fail(413,'Audio must be between 1 byte and 25 MiB.');
   if(typeof name!=='string'||!name.trim()||name.length>200||/[\x00-\x1f\x7f/\\]/.test(name))fail(400,'Invalid audio filename.');
   const ascii=(offset,size)=>String.fromCharCode(...bytes.slice(offset,offset+size));
   const valid=mime==='audio/wav'&&bytes.length>=44&&ascii(0,4)==='RIFF'&&ascii(8,4)==='WAVE'

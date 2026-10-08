@@ -182,6 +182,14 @@ export class StudyService {
     if (!rows.length) fail(404,'Card not found.');
     return rows[0];
   }
+  async readableCards(actor,raw) {
+    signedIn(actor);
+    const ids=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+    if(!ids.length||ids.length>50||ids.some(item=>!/^[A-Za-z0-9_-]{1,100}$/.test(item)))fail(400,'Invalid card ids.');
+    const rows=await this.db.read(`SELECT c.* FROM cards c WHERE c.id IN (${ids.map(()=>'?').join(',')}) AND ${cardAccess}`,[...ids,...accessArgs(actor)]);
+    const byId=new Map(rows.map(row=>[row.id,row]));
+    return ids.filter(id=>byId.has(id)).map(id=>byId.get(id));
+  }
   async card(actor,id) {
     const record=await this.readableCard(actor,id);
     const collections=await this.db.read(`SELECT q.id,q.revision FROM quiz_collections q JOIN card_quiz_collections c ON c.collection_id=q.id WHERE c.card_id=? ORDER BY q.id`,[id]);

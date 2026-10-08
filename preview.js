@@ -52,8 +52,7 @@
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "account" && authUser) id = "profile";
       if (id === "allwords") paintAllWords();
-      if (id === "phrasal") paintExampleGrid("phrasalGrid", phrasalWords, "phrasal");
-      if (id === "idioms") paintExampleGrid("idiomGrid", idiomWords, "idiom");
+      if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
@@ -81,6 +80,8 @@
       syncHomeBack();
       hideSelpop();
       rememberPlace();
+      const shown = document.getElementById(id);
+      if (shown) applyCardSearch(shown);
     }
     function revealLyricReturn() {
       const spot = document.querySelector("#songUser [data-lyric-return]");
@@ -1208,7 +1209,11 @@
         btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
       });
       const sideTheme = document.getElementById("themeCycle");
-      if (sideTheme) sideTheme.innerHTML = '<span class="theme-side">Theme · ' + themeNameHtml(themeLabel(name || "auto")) + "</span>";
+      if (sideTheme) {
+        const parts = themeNameParts(themeLabel(name || "auto"));
+        sideTheme.innerHTML = '<span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">' + esc(parts[0] || "") + '</span><span class="theme-sub">' + esc(parts[1] || "") + "</span></span>";
+      }
+      paintQuizContrast();
     }
     function paintThemeSegs() {
       const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
@@ -1608,6 +1613,28 @@
       if (lmHideBtn && window.lmHideLesson) { window.lmHideLesson(lmHideBtn.dataset.lmHide); return; }
       const lmOpenBtn = e.target.closest("[data-lm-open]");
       if (lmOpenBtn && window.lmOpenLesson) { window.lmOpenLesson(lmOpenBtn.dataset.lmOpen); return; }
+      const bugTabBtn = e.target.closest("[data-bug-tab]");
+      if (bugTabBtn) {
+        bugTab = bugTabBtn.dataset.bugTab === "done" ? "done" : "open";
+        document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
+        if (bugCache) paintBugs(bugCache);
+        else paintBugs();
+        return;
+      }
+      const bugResolve = e.target.closest("[data-bug-resolve]");
+      if (bugResolve) {
+        accountFetch("/api/bugs/resolve", { method: "POST", body: JSON.stringify({ id: bugResolve.dataset.bugResolve }) }).then(() => {
+          if (bugCache) {
+            const row = bugCache.find((item) => item.id === bugResolve.dataset.bugResolve);
+            if (row) row.resolved = true;
+            paintBugs(bugCache);
+          } else paintBugs();
+        }).catch((err) => {
+          const box = document.getElementById("bugList");
+          if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
+        });
+        return;
+      }
       const bugBtn = e.target.closest("[data-bug]");
       if (bugBtn) {
         const item = bugBtn.closest(".bug-item");
@@ -1673,17 +1700,21 @@
       if (e.target.closest("[data-memory-size]")) {
         const chip = e.target.closest(".chip");
         if (chip) chip.classList.add("on");
+        if ((document.querySelector("section.on") || {}).id === "daysetup") refreshDaySetupTime();
         return;
       }
       const btn = e.target.closest(".chip");
       if (btn) btn.classList.toggle("on");
+      if ((document.querySelector("section.on") || {}).id === "daysetup") refreshDaySetupTime();
     }
     document.getElementById("modes").addEventListener("click", toggleTypeChip);
     document.getElementById("modesMore").addEventListener("click", toggleTypeChip);
     document.querySelectorAll("[data-mix]").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (e) => {
+        if (e.target.closest("input")) return;
         document.querySelectorAll("[data-mix]").forEach((b) => b.classList.remove("on"));
         btn.classList.add("on");
+        if ((document.querySelector("section.on") || {}).id === "setup") return;
       });
     });
 
@@ -2120,6 +2151,16 @@
     const phrasalWords = window.LESSON_DATA.phrasalWords;
     const idiomWords = window.LESSON_DATA.idiomWords;
 
+    function paintDeckGrids(place) {
+      if (place === "phrasal") {
+        paintExampleGrid("phrasalGrid", phrasalWords, "phrasal");
+        paintPlace("phrasal", "phrasalAdded");
+      }
+      if (place === "idioms") {
+        paintExampleGrid("idiomGrid", idiomWords, "idiom");
+        paintPlace("idioms", "idiomAdded");
+      }
+    }
     function paintExampleGrid(id, list, attr) {
       const box = document.getElementById(id);
       if (!box) return;
@@ -3431,6 +3472,27 @@
         document.getElementById("addedList").innerHTML = rows.length ? rows.map(({ item, index }) => addedRow(item, index)).join("") : '<p class="hint">No cards</p>';
         return true;
       }
+      if (section.id === "phrasal" || section.id === "idioms") {
+        paintDeckGrids(section.id);
+        let shown = 0;
+        section.querySelectorAll(".wcard").forEach((el) => {
+          const hide = el.textContent.toLowerCase().indexOf(q) < 0;
+          el.hidden = hide;
+          if (!hide) shown += 1;
+        });
+        let empty = section.querySelector("[data-deck-empty]");
+        if (!shown) {
+          if (!empty) {
+            empty = document.createElement("p");
+            empty.className = "hint";
+            empty.dataset.deckEmpty = "";
+            section.appendChild(empty);
+          }
+          empty.textContent = "No cards";
+          empty.hidden = false;
+        } else if (empty) empty.hidden = true;
+        return true;
+      }
       if (section.id === "verbs" && !verbKey) {
         const pool = (window.IRREGULAR || []).filter((v) => cardVisible(v) && (!verbGroup || v.level === verbGroup));
         const rows = pool.filter((v) => searchHit(v.base, q) || searchHit(v.past, q) || searchHit(v.pp, q) || searchHit(verbMeaning(v), q));
@@ -3460,6 +3522,8 @@
       const input = section.querySelector("[data-card-search]");
       if (!input) return;
       const q = input.value.trim().toLowerCase();
+      const empty = section.querySelector("[data-deck-empty]");
+      if (empty && !q) empty.hidden = true;
       if (q && fillCardSearch(section, q)) return;
       section.querySelectorAll(".wcard, .path, .day, .g-topic, .g-area, .tense, #verbList > .card").forEach((el) => {
         if (el.contains(input)) return;
@@ -5536,7 +5600,7 @@
       let player = "";
       const youtube = youtubeId(link);
       const vimeo = vimeoId(link);
-      if (youtube) player = '<iframe class="player tall" id="yt' + embedSerial() + '" src="https://www.youtube.com/embed/' + esc(youtube) + '?enablejsapi=1" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+      if (youtube) player = '<iframe class="player tall" id="yt' + embedSerial() + '" src="https://www.youtube.com/embed/' + esc(youtube) + '?enablejsapi=1&origin=' + encodeURIComponent(location.origin) + '" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
       else if (vimeo) player = '<iframe class="player tall" src="https://player.vimeo.com/video/' + esc(vimeo) + '" title="Video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>';
       else if (isDirectVideo(link)) player = '<video class="player" controls src="' + esc(link) + '"></video>';
       else player = openLink("Open the video", link);
@@ -5587,10 +5651,31 @@
       const spacer = box.previousElementSibling;
       if (spacer && spacer.classList.contains("song-player-spacer")) spacer.remove();
     }
+    function stopSongPlayer(box) {
+      if (!box) return;
+      box.querySelectorAll("audio, video").forEach((node) => { try { node.pause(); } catch (err) {} });
+      box.querySelectorAll("iframe.player").forEach((iframe) => {
+        const win = iframe.contentWindow;
+        const kind = iframe.dataset.embed;
+        const control = iframe.__spotifyController;
+        if (kind === "spotify") {
+          if (control && typeof control.pause === "function") { try { control.pause(); } catch (err) {} }
+          else if (win) win.postMessage({ command: "pause" }, "*");
+          return;
+        }
+        if (!win) return;
+        if (kind === "youtube") win.postMessage(JSON.stringify({ event: "command", func: "pauseVideo", args: [] }), "*");
+        else if (kind === "vimeo") win.postMessage(JSON.stringify({ method: "pause" }), "*");
+        else if (kind === "soundcloud") win.postMessage(JSON.stringify({ method: "pause" }), "*");
+      });
+    }
     function setSongPlayer(box, playing) {
       if (!box) return;
       if (playing) {
-        document.querySelectorAll(".song-player.is-playing").forEach((el) => { if (el !== box) releaseSongPlayer(el); });
+        if (!box.classList.contains("is-playing")) {
+          document.querySelectorAll("#songUser .song-player").forEach((el) => { if (el !== box) stopSongPlayer(el); });
+          document.querySelectorAll(".song-player.is-playing").forEach((el) => { if (el !== box) releaseSongPlayer(el); });
+        }
         box.classList.add("is-playing");
         placePlayingPlayer();
         return;
@@ -5618,22 +5703,18 @@
     function stickSpotify() {
       hoistSpotify();
       document.querySelectorAll("#songUser > .song-player[data-song-player='music']").forEach((box) => {
-        if (!box.classList.contains("is-playing")) {
-          box.style.position = "";
-          box.style.top = "";
-          box.style.zIndex = "";
-          return;
-        }
-        box.style.position = "sticky";
-        box.style.top = playerStickTop() + "px";
-        box.style.zIndex = "5";
-        settleSongEmbeds(box);
+        if (box.classList.contains("is-playing")) return;
+        box.style.position = "";
+        box.style.top = "";
+        box.style.left = "";
+        box.style.width = "";
+        box.style.zIndex = "";
       });
     }
     function placePlayingPlayer() {
       stickSpotify();
-      const box = document.querySelector(".song-player.is-playing");
-      if (!box || box.getAttribute("data-song-player") === "music") return;
+      const box = document.querySelector("#songUser .song-player.is-playing");
+      if (!box) return;
       if (!box.previousElementSibling || !box.previousElementSibling.classList.contains("song-player-spacer")) {
         const spacer = document.createElement("div");
         spacer.className = "song-player-spacer";
@@ -5701,6 +5782,8 @@
           const live = (controller && controller.iframeElement) || iframe;
           if (live.classList) live.classList.add("player");
           live.dataset.embed = "spotify";
+          live.__spotifyController = controller;
+          iframe.__spotifyController = controller;
           const box = live.closest(".song-player");
           settleSongEmbeds(box || document);
           const apply = (data) => {
@@ -5715,7 +5798,7 @@
     function watchSongPlayers(root) {
       (root || document).querySelectorAll("iframe.player").forEach((iframe) => {
         const src = iframe.getAttribute("src") || "";
-        if (/youtube\.com/.test(src)) iframe.dataset.embed = "youtube";
+        if (/youtube(?:-nocookie)?\.com/.test(src)) iframe.dataset.embed = "youtube";
         else if (/vimeo\.com/.test(src)) iframe.dataset.embed = "vimeo";
         else if (/spotify\.com/.test(src)) iframe.dataset.embed = "spotify";
         else if (/soundcloud\.com/.test(src)) iframe.dataset.embed = "soundcloud";
@@ -5759,6 +5842,7 @@
         if (data.method === "pause" || data.method === "finish") setSongPlayer(box, false);
       } else if (kind === "spotify") {
         const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
+        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "*");
         if (data.type === "playback_started") setSongPlayer(box, true);
         else if (data.type === "playback_update") {
           if (payload.isPaused == null && payload.isBuffering == null) return;
@@ -5771,7 +5855,7 @@
     document.addEventListener("ended", (event) => { const box = songPlayerFromMedia(event); if (box) setSongPlayer(box, false); }, true);
     window.addEventListener("message", onEmbedMessage);
     window.addEventListener("scroll", () => { settleSongEmbeds(); placePlayingPlayer(); }, true);
-    window.addEventListener("resize", () => stickSpotify());
+    window.addEventListener("resize", () => placePlayingPlayer());
     function mediaOf(song) {
       let video = (song && song.videoUrl) || "";
       let music = (song && song.musicUrl) || "";
@@ -5793,6 +5877,7 @@
     let pendingLyricId = "";
     function uploadSongFile(id, blob, type, onProgress, holder) {
       if (!authUser || accountApi() || !id || !blob) return Promise.resolve(false);
+      if (window.TursoMain && typeof window.TursoMain.uploadSongAudio === "function") return Promise.resolve(false);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         if (holder) holder.xhr = xhr;
@@ -5833,14 +5918,26 @@
       if (!authUser || accountApi() || !id) return Promise.resolve();
       return fetch(songFilePath(id), { method: "DELETE", credentials: "include" }).catch(() => {});
     }
+    function mountSongFile(box, fileHtml) {
+      if (!box) return;
+      const musicNode = box.querySelector(".song-player[data-song-player='music']");
+      hoistSpotify(box);
+      if (!fileHtml) return;
+      const holder = document.createElement("div");
+      holder.innerHTML = fileHtml;
+      const node = holder.firstElementChild;
+      if (!node) return;
+      if (musicNode && musicNode.isConnected) musicNode.after(node);
+      else box.append(node);
+    }
     let mediaPaint = 0;
     function paintSongMedia(song, box) {
       const token = ++mediaPaint;
       const slots = mediaOf(song);
       const draw = (fileHtml) => {
         if (token !== mediaPaint || !box) return;
-        box.innerHTML = videoHtml(slots.video) + (fileHtml || "") + musicHtml(slots.music);
-        hoistSpotify(box);
+        box.innerHTML = videoHtml(slots.video) + musicHtml(slots.music);
+        mountSongFile(box, fileHtml || "");
         watchSongPlayers(document.getElementById("songUser") || box);
       };
       if (!song || !song.fileName) { draw(""); return; }
@@ -6892,13 +6989,14 @@
     document.addEventListener("input", (e) => {
       if (!e.target.matches("[data-card-search]")) return;
       const section = e.target.closest("section");
-      if (!e.target.value.trim()) {
+        if (!e.target.value.trim()) {
         if (section.id === "allwords") paintAllWords();
         else if (section.id === "cardstat") paintStat();
         else if (section.id === "add") renderAddedList();
         else if (section.id === "verbs") paintVerbs();
         else if (section.id === "music") paintLyrics();
-        else applyCardSearch(section);
+        else if (section.id === "phrasal" || section.id === "idioms") paintDeckGrids(section.id);
+        applyCardSearch(section);
         return;
       }
       applyCardSearch(section);
@@ -6929,6 +7027,9 @@
     let studyScreen = "setup";
     const MISTAKE_KEY = "enquiz-mistakes";
     const EXAM_MS = 20 * 60 * 1000;
+    let sessionMs = EXAM_MS;
+    let dayCardTotal = 0;
+    let daySetupLabel = "";
     let dayPoolStrict = false;
     function quizPool() {
       const base = dayPoolOverride || lessonPool(dayQuizPlace);
@@ -7671,6 +7772,9 @@
       if (idiomTitle) idiomTitle.textContent = "Idioms · " + idiomN;
       if (phrasalSub) phrasalSub.textContent = phrasalN + (phrasalN === 1 ? " card" : " cards") + ". Study uses them.";
       if (idiomSub) idiomSub.textContent = idiomN + (idiomN === 1 ? " card" : " cards") + ". Study uses them.";
+      paintPlace("phrasal", "phrasalAdded");
+      paintPlace("idioms", "idiomAdded");
+      applyCardSearches();
     }
     function lessonIdFromSection(id) {
       if (id === "lesson") return "lesson-21";
@@ -7725,6 +7829,7 @@
         note.classList.toggle("bad", !n);
         note.textContent = n + (n === 1 ? " card." : " cards.");
       }
+      resetPoolInputs("setup", n);
       syncMemorySizeInputs(n);
       visit("setup");
     }
@@ -7766,33 +7871,138 @@
       return !!(btn && btn.dataset.mix === "mix");
     }
     function examTimeUp() {
-      return examMode && Date.now() - examStarted >= EXAM_MS;
+      return examMode && Date.now() - examStarted >= sessionMs;
+    }
+    function poolFloor(total) {
+      if (total >= 20) return 20;
+      return Math.max(1, total || 1);
+    }
+    function clampPoolNumber(raw, total) {
+      const floor = poolFloor(total);
+      const cap = Math.max(floor, total || floor);
+      let n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^\d]/g, "")));
+      if (!Number.isFinite(n) || n < floor) n = floor;
+      if (n > cap) n = cap;
+      return n;
+    }
+    function clampRoundNumber(raw, total) {
+      const cap = Math.max(1, total || 1);
+      let n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^\d]/g, "")));
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > cap) n = cap;
+      return n;
+    }
+    function mixRoot(sectionId) {
+      return sectionId === "daysetup" ? "#dayMix" : "#setup";
+    }
+    function limitStudyCards(cards, sectionId, preview) {
+      const list = Array.isArray(cards) ? cards.slice() : [];
+      const total = list.length;
+      if (!total) return list;
+      const root = document.querySelector(mixRoot(sectionId));
+      const on = root && root.querySelector("[data-day-mix].on, [data-mix].on");
+      const mode = on && (on.dataset.dayMix || on.dataset.mix);
+      if (mode === "mix") {
+        const n = clampPoolNumber(on.querySelector("[data-mix-count]") && on.querySelector("[data-mix-count]").value, total);
+        return (preview ? list : shuffle(list)).slice(0, n);
+      }
+      const from = clampRoundNumber(on && on.querySelector("[data-round-from]") && on.querySelector("[data-round-from]").value, total);
+      const to = clampRoundNumber(on && on.querySelector("[data-round-to]") && on.querySelector("[data-round-to]").value, total);
+      const lo = Math.min(from, to);
+      const hi = Math.max(from, to);
+      return list.slice(lo - 1, hi);
+    }
+    function resetPoolInputs(sectionId, total) {
+      const root = document.querySelector(mixRoot(sectionId));
+      if (!root || !total) return;
+      const floor = poolFloor(total);
+      const mix = root.querySelector("[data-mix-count]");
+      const from = root.querySelector("[data-round-from]");
+      const to = root.querySelector("[data-round-to]");
+      if (mix) mix.value = String(floor);
+      if (from) from.value = "1";
+      if (to) to.value = String(total);
+    }
+    function studyExerciseCount(cards, types) {
+      return buildDayQueue(cards || [], types || [], false).length;
+    }
+    function studyBudgetMs(cards, types) {
+      return studyExerciseCount(cards, types) * 30 * 1000;
+    }
+    function paintExerciseCount(n, ms) {
+      const slot = document.getElementById("dayExerciseCount");
+      if (!slot) return;
+      if (n == null) { slot.textContent = ""; return; }
+      const mins = Math.max(0, Math.round((ms || 0) / 60000));
+      slot.textContent = n + (n === 1 ? " exercise" : " exercises") + " · " + mins + " min";
+    }
+    function formatBudget(ms) {
+      const total = Math.max(0, Math.round(ms / 1000));
+      const mins = Math.floor(total / 60);
+      const secs = total % 60;
+      if (!secs) return mins + (mins === 1 ? " minute" : " minutes");
+      return mins + ":" + String(secs).padStart(2, "0");
+    }
+    function refreshDaySetupTime() {
+      const note = document.getElementById("daySetupNote");
+      if (!note || !dayCardTotal) return;
+      const word = dayCardTotal === 1 ? " card" : " cards";
+      note.textContent = daySetupLabel + " · " + dayCardTotal + word + ". Pick the types, then start.";
+      const cards = limitStudyCards(quizPool(), "daysetup", true);
+      const exercises = studyExerciseCount(cards, chosenTypes(false));
+      paintExerciseCount(exercises, exercises * 30 * 1000);
+    }
+    function paintDaySetupNote(label, cards, emptyLine) {
+      const note = document.getElementById("daySetupNote");
+      dayCardTotal = cards.length;
+      daySetupLabel = label;
+      const empty = !cards.length;
+      if (note) note.classList.toggle("bad", empty);
+      if (empty) {
+        if (note) note.textContent = emptyLine || (label + " · no cards yet.");
+        paintExerciseCount(null);
+        return;
+      }
+      resetPoolInputs("daysetup", cards.length);
+      refreshDaySetupTime();
+    }
+    function setQuizNote(note, text, bad) {
+      if (!note) return;
+      note.classList.toggle("bad", !!bad);
+      note.textContent = text;
     }
     let examPassMark = 80;
+    function examPassPlace(sectionId) {
+      return sectionId === "daysetup" ? "daysetup" : "setup";
+    }
+    function examPassKey(place) {
+      return "enquiz-exam-pass-" + place;
+    }
     function examPassPercent(sectionId) {
       const id = sectionId || ((document.querySelector("section.on") || {}).id);
-      const box = id === "daysetup" ? "daysetup" : "setup";
-      const inp = document.querySelector("#" + box + " [data-exam-pass]") || document.querySelector("[data-exam-pass]");
-      let n = Math.floor(Number(inp && inp.value));
+      const box = examPassPlace(id);
+      const inp = document.querySelector("#" + box + " [data-exam-pass]");
+      let n = Math.floor(Number(String(inp && inp.value).replace(/[^\d]/g, "")));
       if (!Number.isFinite(n) || n < 1 || n > 100) {
-        try { n = Math.floor(Number(localStorage.getItem("enquiz-exam-pass"))); } catch (e) { n = 80; }
+        try { n = Math.floor(Number(localStorage.getItem(examPassKey(box)))); } catch (e) { n = 80; }
       }
       if (!Number.isFinite(n) || n < 1) n = 80;
       if (n > 100) n = 100;
       return n;
     }
     function syncExamPassInputs() {
-      let n = 80;
-      try {
-        const saved = localStorage.getItem("enquiz-exam-pass");
-        if (saved != null && saved !== "") n = Math.floor(Number(saved));
-      } catch (e) {}
-      if (!Number.isFinite(n) || n < 1) n = 1;
-      if (n > 100) n = 100;
-      const edit = canEditLessons();
+      const locked = !!(authUser && !canEditLessons());
       document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
+        const place = examPassPlace((inp.closest("section") || {}).id);
+        let n = 80;
+        try {
+          const saved = localStorage.getItem(examPassKey(place));
+          if (saved != null && saved !== "") n = Math.floor(Number(saved));
+        } catch (e) {}
+        if (!Number.isFinite(n) || n < 1) n = 80;
+        if (n > 100) n = 100;
         if (document.activeElement !== inp) inp.value = String(n);
-        inp.readOnly = !edit;
+        inp.readOnly = locked;
       });
     }
     function examPassed() {
@@ -7998,7 +8208,7 @@
       clearDayTimer();
       examMode = false;
       const timer = document.getElementById("dayqTimer");
-      if (timer) timer.hidden = true;
+      if (timer) { timer.hidden = true; timer.classList.remove("timer-low"); }
       paintExamMistakesLeft();
       document.getElementById("examTitle").textContent = "Exam · " + studyTitle;
       document.getElementById("examBack").dataset.fallback = studyScreen;
@@ -8006,7 +8216,7 @@
       const clock = Math.floor(used / 60) + ":" + String(used % 60).padStart(2, "0");
       let html = '<p class="q">' + (passed ? "Passed" : "Not passed") + "</p>";
       html += '<p class="score">' + examMistakes + (examMistakes === 1 ? " mistake" : " mistakes") + "</p>";
-      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Pass mark: " + examPassMark + "% correct. 20 minutes still means fail.</p>";
+      html += '<p class="prompt">' + esc(studyTitle) + " · " + dayQueue.length + " questions · " + clock + ". Pass mark: " + examPassMark + "% correct. " + formatBudget(sessionMs) + " still means fail.</p>";
       if (!passed && reason === "time") html += '<p class="hint bad">Time is up.</p>';
       html += examLog.map((row) => '<div class="miss"><div><b>' + esc(row.en) + '</b><span class="label">' + esc(row.type) + '</span></div><span>mistake</span></div>').join("");
       html += '<div class="row" style="margin-top:14px"><button class="btn primary" type="button" id="examMistakes">Mistakes</button><button class="btn" type="button" id="examBackBtn">Back</button></div>';
@@ -8016,17 +8226,58 @@
       trackEvent("exam", reason || "score", passed ? "pass" : "fail");
       show("exam");
     }
+    function paintQuizContrast() {
+      const root = document.documentElement;
+      const body = getComputedStyle(document.body);
+      const solid = String(body.backgroundColor || "").match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      const fallback = solid ? [Number(solid[1]), Number(solid[2]), Number(solid[3])] : [244, 246, 251];
+      const apply = (rgb) => {
+        const light = relLum(rgb[0], rgb[1], rgb[2]) > 0.45;
+        root.style.setProperty("--quiz-clock", light ? "#0B7A43" : "#8BEA78");
+        root.style.setProperty("--quiz-miss", light ? "#D21F2A" : "#FF9A94");
+        root.style.setProperty("--quiz-mute", light ? "#6E7680" : "#C5C9D1");
+        root.style.setProperty("--quiz-halo", light ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.72)");
+      };
+      const image = String(body.backgroundImage || "").match(/url\((.+)\)/);
+      if (!image) { apply(fallback); return; }
+      const src = image[1].replace(/^["']|["']$/g, "");
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = 24;
+          canvas.height = 16;
+          const ctx = canvas.getContext("2d", { willReadFrequently: true });
+          const sx = img.width * 0.35;
+          const sy = img.height * 0.08;
+          ctx.drawImage(img, sx, sy, img.width * 0.3, img.height * 0.14, 0, 0, 24, 16);
+          const wash = getComputedStyle(root).getPropertyValue("--photo-wash").trim();
+          if (wash) { ctx.fillStyle = wash; ctx.fillRect(0, 0, 24, 16); }
+          const data = ctx.getImageData(0, 0, 24, 16).data;
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let i = 0; i < data.length; i += 16) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1; }
+          apply(n ? [r / n, g / n, b / n] : fallback);
+        } catch (e) { apply(fallback); }
+      };
+      img.onerror = () => apply(fallback);
+      img.src = src;
+    }
+    function paintSessionClock() {
+      const timer = document.getElementById("dayqTimer");
+      if (!timer) return 0;
+      const left = Math.max(0, sessionMs - (Date.now() - examStarted));
+      timer.hidden = false;
+      timer.classList.toggle("timer-low", left <= 5 * 60 * 1000);
+      timer.textContent = String(Math.floor(left / 60000)).padStart(2, "0") + ":" + String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
+      return left;
+    }
     function armExamClock() {
       clearInterval(examClock);
+      paintSessionClock();
       examClock = setInterval(() => {
-        if (!examMode) { clearInterval(examClock); return; }
-        const timer = document.getElementById("dayqTimer");
-        if (timer) {
-          const left = Math.max(0, EXAM_MS - (Date.now() - examStarted));
-          timer.hidden = false;
-          timer.textContent = String(Math.floor(left / 60000)).padStart(2, "0") + ":" + String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-        }
-        if (examTimeUp()) showExamResult(false, "time");
+        const left = paintSessionClock();
+        if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
+        if (!left) clearInterval(examClock);
       }, 1000);
     }
     function beginQuiz(exam) {
@@ -8043,23 +8294,25 @@
         dayReturn = "home";
       } else studyScreen = "daysetup";
       if (exam) examPassMark = examPassPercent(here);
-      const cards = quizPool();
+      let cards = quizPool();
+      if (here === "daysetup" || here === "setup") cards = limitStudyCards(cards, here);
       const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
       const types = chosenTypes(exam);
       if (!cards.length) {
-        if (note) { note.textContent = "No cards on this page yet."; note.classList.add("bad"); }
+        setQuizNote(note, "No cards on this page yet.", true);
         return;
       }
       if (!types.length) {
-        if (note) { note.textContent = "Pick at least one answer type."; note.classList.add("bad"); }
+        setQuizNote(note, "Pick at least one answer type.", true);
         return;
       }
-      const queue = buildDayQueue(cards, types, studyMix());
+      const queue = buildDayQueue(cards, types, false);
       if (!queue.length) {
-        if (note) { note.textContent = "None of these types fit the cards on this page."; note.classList.add("bad"); }
+        setQuizNote(note, "None of these types fit the cards on this page.", true);
         return;
       }
       if (note) note.classList.remove("bad");
+      if (here === "daysetup") refreshDaySetupTime();
       clearDayTimer();
       clearInterval(examClock);
       examMode = !!exam;
@@ -8067,13 +8320,14 @@
       examMistakes = 0;
       examCorrect = 0;
       examLog = [];
+      sessionMs = here === "daysetup" ? studyBudgetMs(cards, chosenTypes(false)) : EXAM_MS;
       examStarted = Date.now();
       dayQueue = queue;
       dayAt = 0;
       pushHistory();
       show("dayq");
       renderDay();
-      if (examMode) armExamClock();
+      if (here === "daysetup" || examMode) armExamClock();
     }
     function openListedStudy(cards, title, backTo, opts) {
       studyTitle = title;
@@ -8084,10 +8338,7 @@
       document.getElementById("daySetupTitle").textContent = title;
       document.getElementById("daySetupBack").dataset.fallback = backTo;
       document.getElementById("dayqBack").dataset.fallback = backTo;
-      const note = document.getElementById("daySetupNote");
-      const count = cards.length === 1 ? "1 card" : cards.length + " cards";
-      note.textContent = cards.length ? title + " · " + count + ". Pick the types, then start." : "No cards on this page yet.";
-      note.classList.toggle("bad", !cards.length);
+      paintDaySetupNote(title, cards, "No cards on this page yet.");
       syncMemorySizeInputs(cards.length);
       visit("daysetup");
     }
@@ -8178,11 +8429,7 @@
       document.getElementById("daySetupTitle").textContent = "This day's quiz";
       document.getElementById("daySetupBack").dataset.fallback = home.id;
       document.getElementById("dayqBack").dataset.fallback = home.id;
-      const n = lessonPool(place).length;
-      const label = home.label;
-      const note = document.getElementById("daySetupNote");
-      note.textContent = n ? label + " · " + n + " cards. Pick the types, then start." : label + " · no cards yet.";
-      note.classList.toggle("bad", !n);
+      paintDaySetupNote(home.label, lessonPool(place));
       visit("daysetup");
     }
     function dayNextButton(label) {
@@ -8513,32 +8760,55 @@
     document.getElementById("dayModes").addEventListener("click", toggleTypeChip);
     document.getElementById("dayModesMore").addEventListener("click", toggleTypeChip);
     document.getElementById("dayMix").addEventListener("click", (e) => {
+      if (e.target.closest("input")) return;
       const btn = e.target.closest("[data-day-mix]");
       if (!btn) return;
       document.querySelectorAll("#dayMix .chip").forEach((b) => b.classList.toggle("on", b === btn));
+      refreshDaySetupTime();
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
-    function keepExamPercent(e) {
-      if (e.target.closest("[data-exam-pass]")) e.stopPropagation();
-    }
     document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
-      inp.addEventListener("pointerdown", (e) => e.stopPropagation());
-      inp.addEventListener("mousedown", (e) => e.stopPropagation());
+      inp.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        if (!inp.readOnly) inp.focus();
+      });
       inp.addEventListener("click", (e) => e.stopPropagation());
       inp.addEventListener("input", () => {
-        if (!canEditLessons()) { syncExamPassInputs(); return; }
-        const n = Math.floor(Number(inp.value));
+        if (inp.readOnly) { syncExamPassInputs(); return; }
+        const n = Math.floor(Number(String(inp.value).replace(/[^\d]/g, "")));
         if (!Number.isFinite(n) || n < 1 || n > 100) return;
-        try { localStorage.setItem("enquiz-exam-pass", String(n)); } catch (e) {}
-        document.querySelectorAll("[data-exam-pass]").forEach((other) => { if (other !== inp) other.value = String(n); });
+        try { localStorage.setItem(examPassKey(examPassPlace((inp.closest("section") || {}).id)), String(n)); } catch (e) {}
+      });
+    });
+    function keepPoolInput(e) {
+      const inp = e.target.closest("input");
+      if (!inp) return;
+      e.stopPropagation();
+      const chip = inp.closest("[data-mix], [data-day-mix]");
+      if (!chip) return;
+      const box = chip.parentElement;
+      if (box) box.querySelectorAll(":scope > .chip").forEach((b) => b.classList.toggle("on", b === chip));
+      if ((document.querySelector("section.on") || {}).id === "daysetup") refreshDaySetupTime();
+    }
+    document.querySelectorAll("[data-mix-count], [data-round-from], [data-round-to]").forEach((inp) => {
+      inp.addEventListener("pointerdown", keepPoolInput);
+      inp.addEventListener("mousedown", keepPoolInput);
+      inp.addEventListener("click", keepPoolInput);
+      inp.addEventListener("input", () => {
+        if ((document.querySelector("section.on") || {}).id === "daysetup") refreshDaySetupTime();
+      });
+      inp.addEventListener("change", () => {
+        const here = (document.querySelector("section.on") || {}).id;
+        const total = here === "daysetup" ? dayCardTotal : quizPool().length;
+        const round = inp.hasAttribute("data-round-from") || inp.hasAttribute("data-round-to");
+        inp.value = String(round ? clampRoundNumber(inp.value, total) : clampPoolNumber(inp.value, total));
+        if (here === "daysetup") refreshDaySetupTime();
       });
     });
     syncExamPassInputs();
-    document.getElementById("dayExam").addEventListener("pointerdown", keepExamPercent);
     document.getElementById("dayExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("dayMistakes").onclick = () => openMistakes(quizPool());
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
-    document.getElementById("studyExam").addEventListener("pointerdown", keepExamPercent);
     document.getElementById("studyExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("studyMistakes").onclick = () => openMistakes(allStudyCards());
     document.getElementById("dayq").addEventListener("keydown", (e) => {
@@ -9540,7 +9810,7 @@
         return new Date(time).toISOString() + " UTC";
       }
     }
-    function bugListHtml(rows) {
+    function bugListHtml(rows, canResolve) {
       if (!rows.length) return '<p class="sub">No bugs yet.</p>';
       const ordered = rows.slice().sort((a, b) => {
         const fixed = Number(!!a.resolved) - Number(!!b.resolved);
@@ -9577,20 +9847,52 @@
         const stamp = when ? '<small style="display:block;font-size:11px;font-weight:400">' + esc(when) + "</small>" : "";
         const caption = esc(happened) + " · " + esc(who) + stamp;
         const route = ((row.method || "") + " " + (row.path || "")).trim();
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
+        const resolve = canResolve ? '<button class="btn" type="button" data-bug-resolve="' + esc(row.id) + '">Resolved</button>' : "";
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button>' + resolve + '</div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
       }).join("");
     }
+    let bugTab = "open";
+    let bugCache = null;
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
-      if (Array.isArray(preset)) { box.innerHTML = bugListHtml(preset); return; }
+      const draw = (rows) => {
+        const shown = rows.filter((row) => bugTab === "done" ? row.resolved : !row.resolved);
+        box.innerHTML = bugListHtml(shown, bugTab !== "done");
+      };
+      const onBugs = () => (document.querySelector("section.on") || {}).id === "bugs";
+      if (Array.isArray(preset)) { draw(preset); return; }
       if (!isDeveloper()) return;
+      if (bugCache) {
+        draw(bugCache);
+        accountFetch("/api/bugs?heads=1").then((data) => {
+          if (!onBugs()) return;
+          const heads = (data && data.heads) || [];
+          const known = new Map(bugCache.map((row) => [row.id, row]));
+          const need = [];
+          heads.forEach((head) => {
+            const row = known.get(head.id);
+            if (!row || row.hits !== head.hits || !!row.resolved !== !!head.resolved) need.push(head.id);
+          });
+          const live = new Set(heads.map((head) => head.id));
+          bugCache = bugCache.filter((row) => live.has(row.id));
+          if (!need.length) { draw(bugCache); return; }
+          return accountFetch("/api/bugs?ids=" + need.map((id) => encodeURIComponent(id)).join(",")).then((full) => {
+            const map = new Map(bugCache.map((row) => [row.id, row]));
+            ((full && full.bugs) || []).forEach((row) => map.set(row.id, row));
+            bugCache = heads.map((head) => map.get(head.id)).filter(Boolean);
+            if (onBugs()) draw(bugCache);
+          });
+        }).catch(() => {});
+        return;
+      }
       box.innerHTML = '<p class="sub">Loading…</p>';
       accountFetch("/api/bugs").then((data) => {
-        if ((document.querySelector("section.on") || {}).id !== "bugs") return;
-        box.innerHTML = bugListHtml((data && data.bugs) || []);
+        if (!onBugs()) return;
+        bugCache = (data && data.bugs) || [];
+        draw(bugCache);
       }).catch(() => {
-        if ((document.querySelector("section.on") || {}).id === "bugs") box.innerHTML = '<p class="sub">The bug list could not be loaded.</p>';
+        if (onBugs()) box.innerHTML = '<p class="sub">The bug list could not be loaded.</p>';
       });
     }
     window.paintBugs = paintBugs;
@@ -12109,13 +12411,8 @@
       document.getElementById("daySetupTitle").textContent = "This day's quiz";
       document.getElementById("daySetupBack").dataset.fallback = "material";
       document.getElementById("dayqBack").dataset.fallback = "material";
-      const note = document.getElementById("daySetupNote");
       const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
-      const count = cards.length === 1 ? "1 card" : cards.length + " cards";
-      note.textContent = cards.length
-        ? label + " · " + count + ". Pick the types, then start."
-        : label + " · no cards yet. Add words or phrases first.";
-      note.classList.toggle("bad", !cards.length);
+      paintDaySetupNote(label, cards, label + " · no cards yet. Add words or phrases first.");
       visit("daysetup");
     }
     function lmPaintChrome() {

@@ -420,6 +420,10 @@ test('R4 compact bootstrap retains quiz inputs and full dictionary rows, scoped 
     assert.ok(JSON.stringify(compact).length<JSON.stringify(full).length/2);
     assert.equal(f.sqlite.prepare("SELECT extra_json FROM cards WHERE id='private'").get().extra_json,extra);
     const row=await new StudyService(f.db).readableCard(actor,'private');assert.deepEqual(JSON.parse(row.extra_json).data,data);
+    const batch=await new StudyService(f.db).readableCards(actor,'private,missing');assert.deepEqual(batch.map(item=>item.id),['private']);
+    assert.deepEqual(await new StudyService(f.db).readableCards({id:'student2',role:'USER'},'private'),[]);
+    await assert.rejects(new StudyService(f.db).readableCards(actor,''),e=>e.status===400);
+    await assert.rejects(new StudyService(f.db).readableCards(actor,Array.from({length:51},(_,i)=>'id'+i).join(',')),e=>e.status===400);
     await assert.rejects(new StudyService(f.db).readableCard({id:'student2',role:'USER'},'private'),e=>e.status===404);
     const all=await publicCatalogs(f.db),scoped=await publicCatalogs(f.db,['LESSON_DATA']);assert.deepEqual(scoped.LESSON_DATA,all.LESSON_DATA);assert.deepEqual(Object.keys(scoped),['LESSON_DATA']);
     await assert.rejects(publicCatalogs(f.db,['private']),e=>e.status===400);
@@ -1134,7 +1138,7 @@ test('Bootstrap omits large collections and slices stay on their own pages',asyn
     assert.ok(boot.counts.songRevision>=1);assert.equal(typeof boot.counts.lessonRevision,'number');
     assert.ok(boot.versions.grammar>=2);
     const songs=await accountSongs(f.db,actor,{limit:50});
-    assert.equal(songs.songs.length,1);assert.equal(songs.songs[0].title,'Gold');assert.equal(songs.songs[0].lyrics,undefined);assert.equal(songs.songs[0].stageLyricsDeferred,true);
+    assert.equal(songs.songs.length,1);assert.equal(songs.songs[0].title,'Gold');assert.equal(songs.songs[0].lyrics,undefined);assert.equal(songs.songs[0].stageLyricsDeferred,true);assert.equal(songs.songs[0].fileName,'');assert.equal(songs.songs[0].stageLocalMedia,false);
     const texts=await legacyTexts(f.db,actor,{summary:true,limit:50});
     assert.equal(texts.texts[0].title,'Note');assert.equal(texts.texts[0].text,undefined);assert.ok(texts.texts[0].preview.length<=140);
     const words=await catalogSection(f.db,'words',{limit:50});

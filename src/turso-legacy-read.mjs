@@ -288,13 +288,14 @@ export async function accountProgress(db,actor,{after='',limit=50}={}){
 }
 export async function accountSongs(db,actor,{after='',limit=50}={}){
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
-  const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.artist') artist,
-    json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id
+  const rows=await db.read(`SELECT l.id,l.scope,l.revision,l.media_key,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.artist') artist,
+    json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id,
+    json_extract(l.content_json,'$.fileName') file_name,json_extract(l.content_json,'$.fileType') file_type
     FROM profile_library_items p JOIN library_items l ON l.id=p.item_id
     WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?) AND l.id>?
     ORDER BY l.id LIMIT ?`,[profile,profile,cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
-  return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true})),next:more?page.at(-1).id:null};
+  return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true,fileName:row.file_name||'',fileType:row.file_type||'',stageLocalMedia:String(row.media_key||'').startsWith('stage-local/')})),next:more?page.at(-1).id:null};
 }
 export async function catalogSection(db,section,{after='',limit=50}={}){
   const keys=section==='phrases'?['phrasalWords']:section==='idioms'?['idiomWords']:section==='words'?WORD_KEYS:null;

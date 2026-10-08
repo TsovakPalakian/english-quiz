@@ -129,8 +129,14 @@
       reportClientBug({method,path,status:0,error:error.message,requestBody,stack:error.stack});
       throw error;
     }
-    let value={},parsed=true;
-    try{value=await response.json();}catch{parsed=false;}
+    let value={},parsed=true,raw='';
+    if(typeof response.text==='function'){
+      raw=await response.text();
+      parsed=!raw;
+      if(raw){try{value=JSON.parse(raw);parsed=true;}catch{parsed=false;}}
+    }else{
+      try{value=await response.json();}catch{parsed=false;}
+    }
     if(!response.ok||!parsed){
       const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:!quietBug});
       if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':'',stack:error.stack});
@@ -203,10 +209,29 @@
       throw error;
     }
   }
-  async function binaryWrite(path,body,file,kind='media'){
+  function sendBinary(path,mime,bytes,onProgress){
+    if(typeof onProgress!=='function')return api(path,{method:'POST',headers:{'Content-Type':mime},body:bytes});
+    return new Promise((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST',path);
+      xhr.withCredentials=true;
+      xhr.setRequestHeader('Content-Type',mime);
+      xhr.setRequestHeader('X-Client-Bug','1');
+      xhr.upload.onprogress=event=>{if(event.lengthComputable&&event.total)onProgress(event.loaded/event.total);};
+      xhr.onload=()=>{
+        let value={},parsed=true;
+        try{value=JSON.parse(xhr.responseText||'{}');}catch{parsed=false;}
+        if(xhr.status<200||xhr.status>=300||!parsed){reject(Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:xhr.status}));return;}
+        resolve(value);
+      };
+      xhr.onerror=()=>reject(Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true}));
+      xhr.send(bytes);
+    });
+  }
+  async function binaryWrite(path,body,file,kind='media',onProgress){
     if(!actorId||!mediaAllowed())throw new Error('Файлы доступны только вошедшему пользователю разрешённого тестового стенда.');
     if(personalQueue.length)throw new Error('Дождитесь сохранения личной очереди.');
-    if(!file.size||file.size>10*1024*1024)throw new Error('Размер файла должен быть от 1 байта до 10 MiB.');
+    if(!file.size||file.size>25*1024*1024)throw new Error('Размер файла должен быть от 1 байта до 25 MiB.');
     const bytes=await file.arrayBuffer(),sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
     body={...body,name:file.name,sha256,size:file.size};
     // On reload the server may already expose a later revision. Recover the
@@ -220,7 +245,7 @@
     if(!pending){pending={actorId,path,method:'POST',kind,intent,body:{...body,mutationId:crypto.randomUUID()}};localStorage.setItem(queueKey,JSON.stringify(pending));}
     const params=new URLSearchParams(Object.fromEntries(Object.entries(pending.body).filter(([key])=>!['mime','sha256','size'].includes(key)).map(([key,value])=>[key,String(value)])));
     try{
-      const result=await api(path+'?'+params,{method:'POST',headers:{'Content-Type':pending.body.mime},body:bytes});
+      const result=await sendBinary(path+'?'+params,pending.body.mime,bytes,onProgress);
       pending=null;localStorage.removeItem(queueKey);return result;
     }catch(error){if(error.status>=400&&error.status<500){pending=null;localStorage.removeItem(queueKey);}throw error;}
   }
@@ -474,11 +499,11 @@
       }
       return write('/api/library','POST',{id:item.id,kind,changes});
     },
-    async uploadSongAudio(item,file){
+    async uploadSongAudio(item,file,onProgress){
       if(!actorId||!mediaAllowed()||item.stageScope!=='profile'||!item.stageId)throw new Error('Аудио доступно только для собственной сохранённой песни на разрешённом тестовом стенде.');
       const mime=mediaMime(file.type,file.name);
       if(!['audio/wav','audio/ogg','audio/mpeg'].includes(mime))throw new Error('Выберите MP3, WAV или OGG.');
-      return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio');
+      return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio',onProgress);
     },
     async setManagedLessonAccess(accountId,lessonId,expected,changes){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||! /^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new Error('Нет серверного ID аккаунта или урока.');
@@ -492,7 +517,7 @@
       if(!material.stageRevision||!block.stageBlockRevision||!material.stageLessonBaseline)throw new Error('Сначала сохраните урок и блок кнопкой Save Draft.');
       if(canonical(lessonSnapshot(material))!==canonical(material.stageLessonBaseline))throw new Error('Сначала сохраните текущие правки урока. Загрузка файла не должна перезаписать черновик.');
       const mime=mediaMime(file.type,file.name);
-      if(!['audio/wav','audio/ogg','audio/mpeg','application/pdf','image/png','image/jpeg','image/gif','image/webp'].includes(mime))throw new Error('Поддерживаются PDF, изображения PNG/JPEG/GIF/WEBP и MP3/WAV/OGG, до 10 MiB.');
+      if(!['audio/wav','audio/ogg','audio/mpeg','application/pdf','image/png','image/jpeg','image/gif','image/webp'].includes(mime))throw new Error('Поддерживаются PDF, изображения PNG/JPEG/GIF/WEBP и MP3/WAV/OGG, до 25 MiB.');
       const result=await binaryWrite('/api/lessons/'+encodeURIComponent(material.id)+'/blocks/'+encodeURIComponent(block.id)+'/media',
         {expectedRevision:material.stageRevision,expectedBlockRevision:block.stageBlockRevision,mime},file);
       const preservedCollapsed=block.collapsed;

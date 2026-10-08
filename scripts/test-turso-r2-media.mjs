@@ -53,8 +53,8 @@ test('Remote media HEAD/Range/inline expectations, integrity and private headers
 test('Binary input is bounded before storage, including missing or dishonest lengths',async()=>{
   const make=(bytes,headers={})=>new Request('https://test.invalid/',{method:'POST',body:bytes,headers,duplex:'half'});
   assert.deepEqual(Buffer.from(await boundedMediaBytes(make(file))),file);
-  await assert.rejects(boundedMediaBytes(make(file,{'content-length':'10485761'})),e=>e.status===413);
-  await assert.rejects(boundedMediaBytes(make(new Uint8Array(10*1024*1024+1),{'content-length':'1'})),e=>e.status===413);
+  await assert.rejects(boundedMediaBytes(make(file,{'content-length':'26214401'})),e=>e.status===413);
+  await assert.rejects(boundedMediaBytes(make(new Uint8Array(25*1024*1024+1),{'content-length':'1'})),e=>e.status===413);
   await assert.rejects(boundedMediaBytes(make(new Uint8Array())),e=>e.status===400);
 });
 test('Existing song/lesson services use remote store with CAS, replay, roles and profile isolation',async()=>{

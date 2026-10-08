@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {saveBug,listBugs,recordHttpBug,headerMap,resetBugStoreForTests} from '../src/bug-log.mjs';
+import {saveBug,listBugs,recordHttpBug,resolveBug,headerMap,resetBugStoreForTests} from '../src/bug-log.mjs';
 import {integratedWorker} from '../src/turso-integrated-worker.mjs';
 const plain=value=>value&&typeof value==='object'&&'type' in value?value.value:value;
 function memory(){
@@ -8,6 +8,7 @@ function memory(){
   return {
     rows,
     async read(sql,args=[]){
+      if(sql.includes('signature IN'))return rows.filter(row=>args.includes(row.signature));
       if(sql.includes('WHERE signature')){
         const found=rows.find(row=>row.signature===args[0]);
         return found?[found]:[];
@@ -19,6 +20,8 @@ function memory(){
         const args=(command.args||[]).map(plain);
         if(command.sql.startsWith('CREATE'))continue;
         if(command.sql.startsWith('INSERT'))rows.push({signature:args[0],method:args[1],path:args[2],status:Number(args[3]),error:args[4],hits:Number(args[5]),accounts_json:args[6],request_json:args[7],response_json:args[8],first_at:Number(args[9]),last_at:Number(args[10]),time_zone:args[11]||''});
+        if(command.sql.includes('resolved=0')){const row=rows.find(item=>item.signature===args[0]);if(row)row.resolved=0;continue;}
+        if(command.sql.includes('resolved=1')){const row=rows.find(item=>item.signature===args[0]);if(row)row.resolved=1;continue;}
         if(command.sql.startsWith('UPDATE')){
           const row=rows.find(item=>item.signature===args[7]);
           Object.assign(row,{hits:Number(args[0]),accounts_json:args[1],request_json:args[2],response_json:args[3],error:args[4],last_at:Number(args[5]),time_zone:args[6]});
@@ -110,4 +113,14 @@ test('the browser can file an unconfirmed operation without opening the journal'
   assert.match(body.bugs[0].error,/Unconfirmed operation/);
   assert.equal(body.bugs[0].timeZone,'Asia/Yerevan');
   assert.ok(body.bugs[0].lastAt>0);
+  const heads=await(await worker.fetch(new Request('https://test.invalid/api/bugs?heads=1'),env)).json();
+  assert.equal(heads.heads.length,1);assert.equal(heads.heads[0].id,body.bugs[0].id);assert.equal(heads.heads[0].request,undefined);
+  const one=await(await worker.fetch(new Request('https://test.invalid/api/bugs?ids='+body.bugs[0].id),env)).json();
+  assert.equal(one.bugs.length,1);assert.equal(one.bugs[0].error,body.bugs[0].error);
+  assert.equal((await worker.fetch(new Request('https://test.invalid/api/bugs?ids=zz'),env)).status,400);
+  assert.equal(await resolveBug(db,body.bugs[0].id),true);
+  assert.equal((await listBugs(db))[0].resolved,true);
+  await saveBug(db,{method:'POST',path:'/api/lessons/lesson_1',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',account:{login:'Tsovak'},request:{},response:{}});
+  assert.equal((await listBugs(db))[0].resolved,false);
+  assert.equal((await listBugs(db))[0].hits,2);
 });

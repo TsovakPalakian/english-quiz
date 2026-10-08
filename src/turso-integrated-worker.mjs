@@ -10,7 +10,7 @@ import {mediaPlaceholders,mediaKey,storedMediaResponse} from './turso-media.mjs'
 import {stageR2Media} from './turso-r2-media.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
-import {listBugs,recordHttpBug,saveBug} from './bug-log.mjs';
+import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const identity='[a-f0-9]{16,64}';
@@ -101,10 +101,28 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         });
         return new Response(null,{status:204});
       }
+      if(path==='/api/bugs/resolve'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
+        const raw=await request.text();if(raw.length>200)throw new StudyError(413,'Bug request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!await resolveBug(studyDatabase(env),body.id))throw new StudyError(404,'Bug not found.');
+        return new Response(null,{status:204});
+      }
       if(path==='/api/bugs'&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
-        return json({bugs:await listBugs(studyDatabase(env))});
+        const db=studyDatabase(env);
+        if(url.searchParams.get('heads')==='1'){
+          if(url.searchParams.has('ids'))throw new StudyError(400,'Invalid bug ids.');
+          return json({heads:await listBugHeads(db)});
+        }
+        if(url.searchParams.has('ids')){
+          const ids=[...new Set((url.searchParams.get('ids')||'').split(',').map(id=>id.trim()).filter(Boolean))];
+          if(!ids.length||ids.length>20||ids.some(id=>!/^[a-f0-9]{32}$/.test(id)))throw new StudyError(400,'Invalid bug ids.');
+          return json({bugs:await listBugsByIds(db,ids)});
+        }
+        return json({bugs:await listBugs(db)});
       }
       if(path==='/api/cards/lookup'&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
@@ -197,6 +215,20 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const target={id:found.row.id,role:found.row.role},key=await mediaKey(studyDatabase(env),target,path==='/api/song-file'?'song':'lesson',params.get('id')||'');
         return key.startsWith('stage-local/')?await stageR2Media(env).response(key,method,request.headers.get('range')||''):await storedMediaResponse(env.MEDIA,key,request);
       }
+      const managedDictionaries=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/dictionary$'));
+      if(managedDictionaries&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const found=await authorizeManaged(accountEnv,actor,managedDictionaries[1]);if(found.error)return found.error;
+        if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
+        const db=studyDatabase(env),target={id:found.row.id,role:found.row.role};
+        let rows=await new StudyService(db).readableCards(target,url.searchParams.get('ids')||'');
+        if(!found.songs&&rows.length){
+          const visible=await db.read(`SELECT p.card_id FROM profile_cards p JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND p.place<>'music' AND p.card_id IN (${rows.map(()=>'?').join(',')})`,[target.id,...rows.map(row=>row.id)]);
+          const allowed=new Set(visible.map(row=>row.card_id));
+          rows=rows.filter(row=>allowed.has(row.id));
+        }
+        return json({cards:rows.map(legacyCard)});
+      }
       const managedDictionary=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/([A-Za-z0-9_-]{1,100})/dictionary$'));
       if(managedDictionary&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -276,7 +308,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
   }};
 }
 function bugWatch(request){
-  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&path!=='/api/bugs'&&!path.endsWith('/media');}
+  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.endsWith('/media');}
   catch{return false;}
 }
 export default integratedWorker();

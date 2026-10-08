@@ -24,7 +24,11 @@ function stageExternalKind(value){
 function stageExternalPlayer(value,label){
   const media=stageExternalKind(value);if(!media.href)return '';
   if(!media.src||media.kind!=='video-embed')return openLink('Open '+label.toLowerCase(),media.href);
-  return '<iframe class="player tall" src="'+esc(media.src)+'" title="'+esc(label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+  let src=media.src;
+  const youtube=/youtube(?:-nocookie)?\.com/i.test(src);
+  if(youtube)src+=(src.includes('?')?'&':'?')+'origin='+encodeURIComponent(location.origin);
+  const frame='<iframe class="player tall"'+(youtube?' id="'+esc('yt'+embedSerial())+'"':'')+' src="'+esc(src)+'" title="'+esc(label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+  return songPlayerHtml(label==='Music'?'music':'video','<p class="label">'+esc(label)+'</p>'+frame);
 }
 let stageDictionaryToken=0;
 function stageShowCard(id){
@@ -324,7 +328,15 @@ function stageInstallLibrary(item,kind){
   stageListEpoch[kind==='text'?'texts':'songs']++;
   const list=kind==='text'?loadTexts():loadSongs(),at=list.findIndex(row=>row.id===item.id);
   if(at<0){list.unshift(item);const boot=window.ContentCache?.get('account:bootstrap');if(boot?.counts){boot.counts[kind==='text'?'texts':'songs']+=1;stagePaintCounts(boot.counts);}}
-  else list[at]=item;
+  else {
+    if(kind==='song'){
+      const prev=list[at];
+      if(!item.fileName&&prev.fileName)item.fileName=prev.fileName;
+      if(!item.fileType&&prev.fileType)item.fileType=prev.fileType;
+      if(!item.stageLocalMedia&&prev.stageLocalMedia)item.stageLocalMedia=true;
+    }
+    list[at]=item;
+  }
   if(item.stageId){window.ContentCache?.set(stageItemKey(kind,item.stageId),{item});stageStoreLibraryBlocks(item,kind);stageFlushBlocks();}
   stageSettled[kind==='text'?'texts':'songs']=true;
   window.ContentCache?.drop(kind==='text'?'texts:list':'songs:list');
@@ -383,13 +395,20 @@ function stageStoreSong(existingId){
   const changes=existingId?{lyrics:document.querySelector('#songUser [data-lyric-draft]').value}
     :{title:document.getElementById('lyricTitle').value.trim(),artist:document.getElementById('lyricArtist').value.trim(),lyrics:document.getElementById('lyricText').value,
       videoUrl:document.getElementById('lyricVideo').value.trim(),musicUrl:document.getElementById('lyricMusic').value.trim()};
-  if(pendingLyricFile||pendingEditFile){window.TursoMain.unsupported('Файл песни: сначала сохраните метаданные');return;}
+  const file=!managed&&(existingId?pendingEditFile:pendingLyricFile);
   return window.TursoMain.perform(async()=>{
     const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,'song',changes):await window.TursoMain.saveLibrary(item,'song',changes);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-    stageInstallLibrary(result.item,'song');stageSongDraft=null;if(!existingId&&!managed)trackEvent('song','lyrics','add');
-    renderUserSong(result.item);show('song');
-    if(typeof accountFetch==='function')await stageAnalyzeSong(result.item,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
+    let saved=result.item;
+    if(file){
+      const uploaded=await stageUploadSongFile(saved,file,existingId);
+      saved=uploaded.item||saved;
+      if(existingId){pendingEditFile=null;editFileSent=true;}
+      else{pendingLyricFile=null;lyricFileSent=true;}
+    }
+    stageInstallLibrary(saved,'song');stageSongDraft=null;if(!existingId&&!managed)trackEvent('song','lyrics','add');
+    renderUserSong(saved);show('song');
+    if(typeof accountFetch==='function')await stageAnalyzeSong(saved,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
 }
 async function stageKeepExpression(card){
@@ -411,13 +430,23 @@ async function stageKeepExpression(card){
     const list=loadAdded();list.unshift(created.card);stageStampLinks(list,created.revision);return true;
   }
 }
+function stageLyricRu(data){
+  const cam=data&&data.cambridge||{},wh=data&&data.wooordhunt||{};
+  return String((data&&data.ru)||cam.definition||wh.gloss||wh.verbGloss||(data&&data.englishClub&&data.englishClub.meaning)||(data&&data.englishAtHome&&data.englishAtHome.meaning)||'').trim();
+}
 async function stageMarkLyricWords(song,marks,write){
-  const keys=typeof lyricKeys==='function'?lyricKeys(song.lyrics||''):[];
+  const seen=new Set(),keys=[];
+  (typeof lyricTokens==='function'?lyricTokens(song.lyrics||''):[]).forEach(key=>{
+    if(!key||seen.has(key))return;
+    seen.add(key);keys.push(key);
+  });
   const todo=[];
   keys.forEach(key=>{
-    const known=typeof lyricCard==='function'?lyricCard(key):cardIndex().has(key)?cardIndex().get(key):null;
-    if(known){if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')marks[key]={state:'have',word:known.en||key};return;}
-    if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')todo.push(key);
+    if(typeof cardIndex==='function'&&cardIndex().has(key)){
+      if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')marks[key]={state:'have',word:key};
+      return;
+    }
+    todo.push(key);
   });
   let cursor=0,done=0;
   async function worker(){
@@ -425,11 +454,13 @@ async function stageMarkLyricWords(song,marks,write){
       const key=todo[cursor++];
       write('Checked '+(++done)+' of '+todo.length+' new words…',false);
       try{
-        const data=typeof lookupLyricWord==='function'?await lookupLyricWord(key,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):''):null;
-        if(!data){marks[key]={state:'miss'};continue;}
-        const word=String(data.word||key).trim();
-        await stageKeepExpression({word,ru:data.ru||'',place:'music'});
-        marks[key]={state:'new',word};
+        const data=typeof lookupLyricWord==='function'?await lookupLyricWord(key,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):'',25000):null;
+        const ru=stageLyricRu(data);
+        if(!data||!ru){marks[key]={state:'miss'};continue;}
+        const added=await stageKeepExpression({word:key,ru,place:'music'});
+        if(added)marks[key]={state:'new',word:key};
+        else if(typeof cardIndex==='function'&&cardIndex().has(key))marks[key]={state:'have',word:key};
+        else marks[key]={state:'miss'};
       }catch{marks[key]={state:'error'};}
     }
   }
@@ -480,19 +511,38 @@ function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
   const accountId=viewAccount?.id||'',generation=viewGen;
   const item=loadSongs().find(row=>row.id===document.getElementById('songUser').dataset.songId);if(!item)return;
-  if(pendingEditFile||editFileRemoved){window.TursoMain.unsupported('Изменение файла песни');return;}
+  if(editFileRemoved){window.TursoMain.unsupported('Изменение файла песни');return;}
+  const file=!managed&&pendingEditFile&&!editFileSent?pendingEditFile:null;
   const read=key=>document.querySelector('#songUser [data-lyric-'+key+']').value.trim();
   return window.TursoMain.perform(async()=>{
     const changes={title:read('title'),artist:read('artist'),videoUrl:read('video'),musicUrl:read('music')};
     const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,'song',changes):await window.TursoMain.saveLibrary(item,'song',changes);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-    stageInstallLibrary(result.item,'song');renderUserSong(result.item);
+    let saved=result.item;
+    if(file){
+      const uploaded=await stageUploadSongFile(saved,file,true);
+      saved=uploaded.item||saved;
+      pendingEditFile=null;editFileSent=true;
+    }
+    stageInstallLibrary(saved,'song');renderUserSong(saved);
   },document.querySelector('#songUser [data-lyric-meta-status]'));
 }
+function stageUploadSongFile(saved,file,editing){
+  const paint=editing&&typeof paintEditRing==='function'?paintEditRing:!editing&&typeof paintLyricRing==='function'?paintLyricRing:()=>{};
+  paint(0,'Uploading…');
+  return window.TursoMain.uploadSongAudio(saved,file,ratio=>paint(ratio,'Uploading…')).then(uploaded=>{paint(1,'Saved.');return uploaded;},error=>{paint(null);throw error;});
+}
 function stagePaintLocalAudio(song,box){
-  if(!song?.stageLocalMedia||!box)return false;
-  // Never prefer an IndexedDB blob over the acknowledged server version.
-  box.innerHTML=filePlayerHtml(songFilePath(song.stageId),song.fileType,song.fileName);return true;
+  if(!box||!(song&&(song.fileName||song.stageLocalMedia)))return false;
+  const slots=typeof mediaOf==='function'?mediaOf(song):{};
+  const video=typeof videoHtml==='function'?videoHtml(slots.video):'';
+  const music=typeof musicHtml==='function'?musicHtml(slots.music):'';
+  const file=filePlayerHtml(songFilePath(song.stageId||song.id),song.fileType,song.fileName);
+  box.innerHTML=video+music;
+  if(typeof mountSongFile==='function')mountSongFile(box,file);
+  else box.insertAdjacentHTML('beforeend',file);
+  if(typeof watchSongPlayers==='function')watchSongPlayers(document.getElementById('songUser')||box);
+  return true;
 }
 function stageManagedSongReady(){return !!(viewAccount&&authUser?.role==='DEVELOPER'&&accountReady&&!viewSwitching);}
 function stageMountTextArchive(id){
@@ -512,21 +562,7 @@ function stageArchiveText(id){
     localStorage.setItem(TEXT_KEY,JSON.stringify(loadTexts().filter(row=>row.id!==id)));paintTextCount();renderTextList();show('texts');
   });
 }
-function stageMountSongAudio(song,box){
-  if(!box||!stageOwnReady()||song?.stageScope!=='profile'||!song.stageId||!window.TursoMain.mediaAllowed())return;
-  box.parentNode.querySelector('[data-stage-audio-form]')?.remove();
-  const form=document.createElement('form');form.dataset.stageAudioForm='';
-  form.innerHTML='<details><summary>Аудиофайл (тест)</summary><p class="hint">MP3, WAV или OGG, до 10 MiB. Старый файл не удаляется. Не доступно на рабочем сайте.</p><input type="file" name="audio" accept="audio/mpeg,audio/wav,audio/ogg" required><button class="btn" type="submit">Сохранить / заменить аудио</button><p role="status"></p></details>';
-  box.insertAdjacentElement('afterend',form);
-  form.addEventListener('submit',event=>{
-    event.preventDefault();if(!stageOwnReady())return;
-    const file=form.elements.audio.files[0];if(!file)return;
-    void window.TursoMain.perform(async()=>{
-      const result=await window.TursoMain.uploadSongAudio(song,file);
-      stageInstallLibrary(result.item,'song');renderUserSong(result.item);
-    },form.querySelector('[role="status"]'));
-  });
-}
+function stageMountSongAudio(){}
 document.addEventListener('click',event=>{
   const archive=event.target.closest('[data-lyric-archive]');if(!archive)return;
   event.preventDefault();event.stopPropagation();const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
@@ -979,8 +1015,7 @@ function stageLibrarySummary(){
 }
 function stageRepaint(section){
   if(section==='allwords'&&typeof paintAllWords==='function')paintAllWords();
-  if(section==='phrasal')paintExampleGrid('phrasalGrid',phrasalWords,'phrasal');
-  if(section==='idioms')paintExampleGrid('idiomGrid',idiomWords,'idiom');
+  if(section==='phrasal'||section==='idioms')paintDeckGrids(section);
   const host=document.getElementById(section==='allwords'?'allWordGrid':section==='phrasal'?'phrasalGrid':'idiomGrid');
   return host;
 }
@@ -1006,6 +1041,7 @@ async function stageLibraryBatchRun(section){
     window.ContentCache.set('library:opened:'+section,true);
     if(!page.next)stageSettled[section==='phrasal'?'phrases':section==='idioms'?'idioms':'words']=true;
     if((document.querySelector('section.on')||{}).id===section)stageRepaint(section);
+    if(typeof paintDeckCounts==='function')paintDeckCounts();
     stagePaintCounts();
     stageRefreshHome();
     const host=document.getElementById(hostId);
@@ -1049,10 +1085,11 @@ function stageDemand(id){
     if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.TursoMain.notice(error.message,true)));
     if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.TursoMain.notice(error.message,true)));
     if(['allwords','phrasal','idioms'].includes(id))stageLibrarySection(id);
+    if(id==='phrasal'||id==='idioms')stageKick('cards:personal',()=>stagePersonalPage(''));
     if(id==='music'||id==='song')stageKick('songs:list',()=>stageSongPage(''));
     if(id==='add'||id==='made')stageKick('cards:personal',()=>stagePersonalPage('').then(()=>{if((document.querySelector('section.on')||{}).id===id&&typeof paintAdded==='function')paintAdded();}));
     if(['setup','exam','errors','made','add','word','cardstat'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
-    if(id==='cardstat'){stageKick('cards:personal',()=>stagePersonalPage(''));for(const section of ['allwords','phrasal','idioms'])stageLibrarySection(section);}
+    if(id==='home'){stageKick('progress',()=>stageProgressPage(''));stageKick('cards:personal',()=>stagePersonalPage(''));for(const section of ['allwords','phrasal','idioms'])stageLibrarySection(section);}
     if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
   }catch(error){window.TursoMain?.notice?.(error.message,true);}
 }
@@ -1174,9 +1211,10 @@ function stageOpenSong(song){
   const user=document.getElementById('songUser');
   const key=song.stageId||song.id;
   if(!song.stageLyricsDeferred&&typeof song.lyrics==='string'){stageStoreLibraryBlocks(song,'song');stageFlushBlocks();stageEnter('song');renderUserSong(song);return Promise.resolve();}
-  const lyrics=stageReadBlock(key,'lyrics'),urls=stageReadBlock(key,'urls');
+  const lyrics=stageReadBlock(key,'lyrics'),urls=stageReadBlock(key,'urls'),file=stageReadBlock(key,'file');
   if(lyrics&&urls&&lyrics.revision===(song.stageRevision||0)&&urls.revision===(song.stageRevision||0)){
-    const list=loadSongs().map(row=>(row.stageId===key||row.id===song.id)?{...row,...urls.data,...lyrics.data,stageLyricsDeferred:false}:row);
+    const fileData=file&&file.data&&file.revision===(song.stageRevision||0)?file.data:{};
+    const list=loadSongs().map(row=>(row.stageId===key||row.id===song.id)?{...row,...fileData,...urls.data,...lyrics.data,stageLyricsDeferred:false}:row);
     writeSongs(list);stageEnter('song');renderUserSong(list.find(row=>row.stageId===key||row.id===song.id)||song);return Promise.resolve();
   }
   if(user)user.innerHTML='<p class="hint">Loading lyrics…</p>';
@@ -1206,6 +1244,7 @@ const stageBlockMiss=new Set();
 function stageLocalLibraryBlock(item,kind,block){
   if(kind==='song'){
     if(block==='meta')return {id:item.id,title:item.title||'',artist:item.artist||'',level:item.level||'',archived:!!item.archived,stageScope:item.stageScope||''};
+    if(block==='file')return item.fileName||item.stageLocalMedia?{fileName:item.fileName||'',fileType:item.fileType||'',stageLocalMedia:!!item.stageLocalMedia}:null;
     if(item.stageLyricsDeferred)return null;
     if(block==='urls')return {videoUrl:item.videoUrl||'',musicUrl:item.musicUrl||''};
     if(block==='lyrics'&&typeof item.lyrics==='string')return {lyrics:item.lyrics,marks:item.marks||{}};
@@ -1220,7 +1259,7 @@ function stageLocalLibraryBlock(item,kind,block){
 function stageStoreLibraryBlocks(item,kind){
   const id=item&&item.stageId;if(!id)return;
   const rev=item.stageRevision||0;
-  for(const block of kind==='song'?['meta','urls','lyrics']:['meta','body']){
+  for(const block of kind==='song'?['meta','file','urls','lyrics']:['meta','body']){
     const data=stageLocalLibraryBlock(item,kind,block);
     if(data)stageWriteBlock(id,block,rev,data);
   }
@@ -1228,7 +1267,7 @@ function stageStoreLibraryBlocks(item,kind){
 function stageApplyLibraryBlocks(item,kind){
   const id=item&&item.stageId;if(!id)return false;
   const rev=item.stageRevision||0;let changed=false;
-  for(const block of kind==='song'?['urls','lyrics']:['body']){
+  for(const block of kind==='song'?['file','urls','lyrics']:['body']){
     if(stageLocalLibraryBlock(item,kind,block))continue;
     const saved=stageReadBlock(id,block);
     if(!saved||saved.revision<rev||!saved.data)continue;
@@ -1332,13 +1371,16 @@ function stageRepaintHydrated(){
     if(box&&box.textContent==='Loading saved dictionary…')renderMade(current);
   }
 }
-let stageHydrateQueued=false;
+let stageHydrateQueued=false,stageHydrateSerial=0;
 function stageScheduleHydration(){
   if(stageHydrateQueued||typeof authUser==='undefined'||!authUser)return;
   stageHydrateQueued=true;
-  const run=()=>stageHydrateStep().finally(()=>{stageHydrateQueued=false;});
+  const run=()=>stageHydrateStep().then(more=>{
+    stageHydrateQueued=false;
+    if(more)stageScheduleHydration();
+  },()=>{stageHydrateQueued=false;});
   const queue=window.PreloadQueue;
-  if(queue)queue.add({id:'blocks:hydrate',priority:7,run});
+  if(queue)queue.add({id:'blocks:hydrate:'+(++stageHydrateSerial),priority:7,run});
   else run();
 }
 async function stageHydrateStep(){
@@ -1357,19 +1399,17 @@ async function stageHydrateStep(){
         for(const row of batch){const item=found.get(row.id);if(item)stageMergeLibraryItem(row.kind,item);else stageBlockMiss.add(row.id+':'+row.kind);}
       }
       stageFlushBlocks();stageRepaintHydrated();
-      if(stageMissingLibrary().length||stageMissingLessons().length||stageMissingDictionary().length)stageScheduleHydration();
-      return;
+      return !!(stageMissingLibrary().length||stageMissingLessons().length||stageMissingDictionary().length);
     }
     const lesson=stageMissingLessons()[0];
     if(lesson){
       await stageFetchLesson(lesson);
       if(stageLessonGap(lesson))stageBlockMiss.add(lesson.id+':blocks');
       stageFlushBlocks();stageRepaintHydrated();
-      if(stageMissingLessons().length||stageMissingDictionary().length)stageScheduleHydration();
-      return;
+      return !!(stageMissingLessons().length||stageMissingDictionary().length);
     }
     const cards=stageMissingDictionary();
-    if(!cards.length){stageFlushBlocks();return;}
+    if(!cards.length){stageFlushBlocks();return false;}
     const pub=cards.filter(card=>card.stagePublicCatalog).slice(0,8);
     if(pub.length){
       const response=await fetch('/api/catalogs/cards?ids='+pub.map(card=>encodeURIComponent(card.stageId)).join(','),{cache:'no-store'});
@@ -1377,13 +1417,14 @@ async function stageHydrateStep(){
       const data=await response.json(),found=new Map((data.cards||[]).map(card=>[card.stageId,card]));
       for(const card of pub){const full=found.get(card.stageId);if(full)stageMergeDictionary(full);else stageBlockMiss.add(card.stageId+':dictionary');}
     }else{
-      const card=cards[0];
-      try{stageMergeDictionary(await accountFetch('/api/cards/'+encodeURIComponent(card.stageId)+'/dictionary'));}
-      catch(error){stageBlockMiss.add(card.stageId+':dictionary');}
+      const own=cards.slice(0,50);
+      const data=await accountFetch(stageAccountBase()+'/cards/dictionary?ids='+own.map(card=>encodeURIComponent(card.stageId)).join(','));
+      const found=new Map((data.cards||[]).map(card=>[card.stageId,card]));
+      for(const card of own){const full=found.get(card.stageId);if(full)stageMergeDictionary(full);else stageBlockMiss.add(card.stageId+':dictionary');}
     }
     stageFlushBlocks();stageRepaintHydrated();
-    if(stageMissingDictionary().length)stageScheduleHydration();
-  }catch(error){window.TursoMain?.notice?.(error.message,true);}
+    return !!stageMissingDictionary().length;
+  }catch(error){window.TursoMain?.notice?.(error.message,true);return false;}
 }
 function stageCachedPages(prefix){
   const cache=window.ContentCache;if(!cache||typeof cache.get!=='function')return [];
@@ -1578,7 +1619,7 @@ function stagePersonalPage(after){
     if(!page.next&&seen.started)stageSettled.mine=true;
     rememberAdded(next);
     const on=(document.querySelector('section.on')||{}).id;
-    if((on==='add'||on==='made')&&typeof paintAdded==='function')paintAdded();
+    if((on==='add'||on==='made'||on==='phrasal'||on==='idioms')&&typeof paintAdded==='function')paintAdded();
     if(typeof paintDeckCounts==='function')paintDeckCounts();
     stagePaintCounts();
     stageRefreshHome();

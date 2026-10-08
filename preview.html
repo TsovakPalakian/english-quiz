@@ -46,7 +46,7 @@
     <div class="side-foot">
       <button class="btn ghost" type="button" data-jump="account">Account</button>
       <button class="btn ghost" type="button" data-jump="guide">How to use</button>
-      <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side">Theme · Almond blossom<span class="theme-sub">Van Gogh</span></span></button>
+      <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">Almond blossom</span><span class="theme-sub">Van Gogh</span></span></button>
     </div>
   </aside>
   <div class="phone"><div class="wrap">
@@ -172,15 +172,18 @@
     <section id="phrasal">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
       <p class="sub" id="phrasalSub">Cards on this page. Study uses them.</p>
-      <div class="here-add" data-place="phrasal" style="margin-bottom:12px">
-        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
-        <div data-add-form hidden>
-          <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
-          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
-          <p class="hint" data-add-status></p>
+      <div class="study-bar">
+        <button class="btn primary" type="button" data-deck-study="phrasal">Study</button>
+        <div class="here-add" data-place="phrasal">
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
         </div>
       </div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-deck-study="phrasal">Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
       <div class="words" id="phrasalGrid"></div>
       <div class="words" id="phrasalAdded"></div>
     </section>
@@ -188,15 +191,18 @@
     <section id="idioms">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Idioms</h1></div>
       <p class="sub" id="idiomSub">Cards on this page. Study uses them.</p>
-      <div class="here-add" data-place="idioms" style="margin-bottom:12px">
-        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
-        <div data-add-form hidden>
-          <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input />
-          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
-          <p class="hint" data-add-status></p>
+      <div class="study-bar">
+        <button class="btn primary" type="button" data-deck-study="idioms">Study</button>
+        <div class="here-add" data-place="idioms">
+          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+          <div data-add-form hidden>
+            <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input />
+            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <p class="hint" data-add-status></p>
+          </div>
         </div>
       </div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-deck-study="idioms">Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
       <div class="words" id="idiomGrid"></div>
       <div class="words" id="idiomAdded"></div>
     </section>
@@ -314,12 +320,12 @@
         </div>
         <p class="label" style="margin:14px 0 6px">How to combine</p>
         <div class="row">
-          <button class="btn chip on" type="button" data-mix="round">Round · every type on each card</button>
-          <button class="btn chip" type="button" data-mix="mix">Mix · one random type</button>
+          <button class="btn chip chip-mem on" type="button" data-mix="round"><span class="mix-label">Range</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="1" data-round-from aria-label="From">-<input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-round-to aria-label="To"></span></button>
+          <button class="btn chip chip-mem" type="button" data-mix="mix"><span class="mix-label">Random</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-mix-count aria-label="Cards"></span></button>
         </div>
         <div class="row" style="margin-top:16px">
-          <button class="btn primary" type="button" id="studyStart">Start</button>
-          <button class="btn chip-mem" type="button" id="studyExam">Exam <input class="chip-n" type="number" min="1" max="100" value="80" data-exam-pass aria-label="Percent to pass"></button>
+          <button class="btn primary" type="button" id="studyStart">Study</button>
+          <button class="btn chip-mem" type="button" id="studyExam">Exam <input class="chip-n" type="text" inputmode="numeric" maxlength="3" value="80" data-exam-pass aria-label="Percent to pass"></button>
           <button class="btn" type="button" id="studyMistakes">Mistakes</button>
         </div>
         <p class="hint">On the exam, the percent next to Exam is the pass mark. 20 minutes still means fail. Four correct answers in a row remove the card from that type's mistakes. Flip is not part of the exam.</p>
@@ -666,6 +672,7 @@
       <div class="card">
         <p class="hint" id="daySetupNote" style="margin-top:0"></p>
         <p class="label">Answer types, pick more than one</p>
+        <p class="hint" id="dayExerciseCount" style="margin-top:0"></p>
         <div class="row" id="dayModes">
           <button class="btn chip on" type="button">Flip</button>
           <button class="btn chip" type="button" data-types-more="dayModesMore">...</button>
@@ -690,12 +697,12 @@
         </div>
         <p class="label" style="margin:14px 0 6px">How to combine</p>
         <div class="row" id="dayMix">
-          <button class="btn chip on" type="button" data-day-mix="round">Round · every type on each card</button>
-          <button class="btn chip" type="button" data-day-mix="mix">Mix · one random type</button>
+          <button class="btn chip chip-mem on" type="button" data-day-mix="round"><span class="mix-label">Range</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="1" data-round-from aria-label="From">-<input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-round-to aria-label="To"></span></button>
+          <button class="btn chip chip-mem" type="button" data-day-mix="mix"><span class="mix-label">Random</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-mix-count aria-label="Cards"></span></button>
         </div>
         <div class="row" style="margin-top:16px">
-          <button class="btn primary" type="button" id="dayStart">Start</button>
-          <button class="btn chip-mem" type="button" id="dayExam">Exam <input class="chip-n" type="number" min="1" max="100" value="80" data-exam-pass aria-label="Percent to pass"></button>
+          <button class="btn primary" type="button" id="dayStart">Study</button>
+          <button class="btn chip-mem" type="button" id="dayExam">Exam <input class="chip-n" type="text" inputmode="numeric" maxlength="3" value="80" data-exam-pass aria-label="Percent to pass"></button>
           <button class="btn" type="button" id="dayMistakes">Mistakes</button>
         </div>
         <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
@@ -705,7 +712,8 @@
     <section id="dayq">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
       <div class="tags"><span id="dayqType">Quiz</span></div>
-      <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqMistakes" hidden></span><span class="timer" id="dayqTimer" hidden></span></div>
+      <div class="dayq-clock"><span class="timer" id="dayqTimer" hidden></span></div>
+      <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqMistakes" hidden></span></div>
       <div class="card grow" id="dayqView"></div>
     </section>
 
@@ -1454,16 +1462,18 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>My words</h1></div>
       <div class="card grow">
         <p class="sub" style="margin-top:0">Words you added yourself.</p>
-        <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-add-study>Study</button></div>
-        <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
-        <div class="here-add" id="groupAdd" data-place="mine" hidden style="margin-bottom:12px">
-          <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
-          <div data-add-form hidden>
-            <input type="text" placeholder="a word or a phrase" autocomplete="off" data-add-input />
-            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
-            <p class="hint" data-add-status></p>
+        <div class="study-bar">
+          <button class="btn primary" type="button" data-add-study>Study</button>
+          <div class="here-add" id="groupAdd" data-place="mine" hidden>
+            <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+            <div data-add-form hidden>
+              <input type="text" placeholder="a word or a phrase" autocomplete="off" data-add-input />
+              <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+              <p class="hint" data-add-status></p>
+            </div>
           </div>
         </div>
+        <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
         <div id="addedList"></div>
       </div>
     </section>
@@ -1615,6 +1625,10 @@
     <section id="bugs">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Bugs</h1></div>
       <p class="sub">One row for each failure. The same failure stays on that row and counts up. Open a row for the request, what happened, and the response.</p>
+      <div class="steps" id="bugTabs">
+        <button class="step on" type="button" data-bug-tab="open">Active</button>
+        <button class="step" type="button" data-bug-tab="done">Resolved</button>
+      </div>
       <div id="bugList"></div>
     </section>
 

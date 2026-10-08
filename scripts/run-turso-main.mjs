@@ -124,8 +124,8 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         if([...url.searchParams.keys()].some(key=>!fields.includes(key))||[...url.searchParams.keys()].some(key=>url.searchParams.getAll(key).length!==1))throw new StudyError(400,'Invalid file fields.');
         const mime=req.headers['content-type'];
         if(!['audio/wav','audio/ogg','audio/mpeg',...(lessonUpload?['application/pdf','image/png','image/jpeg','image/gif','image/webp']:[])].includes(mime))throw new StudyError(415,'Unsupported media type.');
-        if(Number(req.headers['content-length'])>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 10 MiB.');
-        const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 10 MiB.');chunks.push(chunk);}
+        if(Number(req.headers['content-length'])>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 25 MiB.');
+        const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 25 MiB.');chunks.push(chunk);}
         const body={mutationId:url.searchParams.get('mutationId'),expectedRevision:Number(url.searchParams.get('expectedRevision')),name:url.searchParams.get('name'),mime};
         json(200,lessonUpload?await lessonMedia.upload(actor,lessonUpload[1],lessonUpload[2],{...body,expectedBlockRevision:Number(url.searchParams.get('expectedBlockRevision'))},Buffer.concat(chunks))
           :await songMedia.upload(actor,mediaUpload[1],body,Buffer.concat(chunks)));return;
