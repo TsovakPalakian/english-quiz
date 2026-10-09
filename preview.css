@@ -2344,7 +2344,31 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm label { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; font-size: 13px; font-weight: 800; color: var(--lm-ink); }
 .lm-three, .lm-four { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .lm-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-#lmNew, #examBlockNew { margin: 0 0 12px; }
+#lmNew, #examBlockNew, #examNew { margin: 0 0 12px; }
+.exam-cal {
+  position: fixed; z-index: 40; width: max-content; margin: 0; padding: 12px;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--ink);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--ink) 16%, transparent);
+}
+.exam-cal-nav { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+.exam-cal-nav strong { flex: 1; text-align: center; font-size: 14px; font-weight: 800; }
+.exam-cal-nav button, .exam-cal-day {
+  border: 0; background: transparent; color: var(--ink); font: inherit; font-weight: 700;
+}
+.exam-cal-nav button {
+  width: 32px; height: 32px; border-radius: 10px; cursor: pointer;
+}
+.exam-cal-nav button:hover, .exam-cal-day:hover { background: var(--acc-s); }
+.exam-cal-nav button:focus-visible, .exam-cal-day:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+.exam-cal-nav button:active, .exam-cal-day:active { background: var(--acc); color: var(--on-acc); }
+.exam-cal-week, .exam-cal-grid { display: grid; grid-template-columns: repeat(7, 36px); }
+.exam-cal-week { margin-bottom: 4px; color: var(--mute); font-size: 11px; font-weight: 800; text-align: center; }
+.exam-cal-day {
+  width: 36px; height: 36px; border-radius: 10px; cursor: pointer;
+}
+.exam-cal-day.is-today { box-shadow: inset 0 0 0 1px var(--line); }
+.exam-cal-day.is-on, .exam-cal-day.is-on:hover { background: var(--acc); color: var(--on-acc); }
+.exam-cal-pad { width: 36px; height: 36px; }
 #examDate { margin: 0 0 12px; }
 .day-row .exam-date { margin: 0; align-self: center; }
 .lm-read-date { margin: 0 0 8px; color: var(--lm); font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }

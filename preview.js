@@ -1281,7 +1281,7 @@
         clearCustomPaint(root);
         root.setAttribute("data-theme", chosen);
       }
-      if (!viewAccount) root.dataset.paintedTheme = chosen === "auto" ? "auto" : chosen;
+      if (!viewAccount && opts.persist !== false) root.dataset.paintedTheme = chosen === "auto" ? "auto" : chosen;
       }
       if (opts.persist !== false && !viewAccount && themeCanShow(name)) {
         try { localStorage.setItem(THEME_KEY, chosen); } catch (e) {}
@@ -10672,7 +10672,8 @@
         paintLyrics();
         refreshCatalog();
         if (window.paintDemonstratives) window.paintDemonstratives();
-        applyTheme(DEFAULT_THEME, { sync: false });
+        document.documentElement.removeAttribute("data-painted-theme");
+        applyTheme(DEFAULT_THEME, { sync: false, persist: false });
         settleThemeAudience();
         paintHomeAccount();
         paintAccount();
@@ -11135,6 +11136,23 @@
       paintHomeStats();
       paintHomeAccount();
     }
+    function applyAccountThemes(pack) {
+      if (!pack || viewAccount) return;
+      if (Array.isArray(pack.themes)) installCustomThemes(pack.themes);
+      if (typeof paintThemeSegs === "function") paintThemeSegs();
+      const saved = typeof pack.theme === "string" ? pack.theme : "";
+      const painted = document.documentElement.dataset.paintedTheme || "";
+      if (saved && painted === saved) {
+        const row = saved.indexOf("user-") === 0 ? loadCustomThemes().find((item) => item && item.id === saved) : null;
+        if (row) cacheThemePicture(row);
+        return;
+      }
+      if (saved) applyTheme(saved, { sync: false });
+    }
+    function loadAccountThemes() {
+      if (viewAccount) return Promise.resolve(null);
+      return accountFetch("/api/me/themes").then((pack) => pack).catch(() => null);
+    }
     function initAccount() {
       const pendingId = localStorage.getItem("enquiz-view-id");
       const pendingLogin = localStorage.getItem("enquiz-view-login") || "";
@@ -11145,7 +11163,9 @@
         forgetViewFlags();
         addedCache = null;
       }) : Promise.resolve();
-      ready.then(() => accountFetch("/api/me").then((data) => {
+      ready.then(() => {
+      const themesFlight = loadAccountThemes();
+      return accountFetch("/api/me").then((data) => {
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
           if (personal) { leaveAccount(); return; }
@@ -11160,6 +11180,8 @@
         paintDeveloperChrome();
         localStorage.setItem("enquiz-auth-on", "1");
         paintAccount();
+        examPull();
+        themesFlight.then((pack) => applyAccountThemes(pack));
         accountFetch("/api/me/state?summary=1").then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
@@ -11173,7 +11195,8 @@
           if (syncQueue.length) scheduleStateSave();
           finishPlace();
         });
-      }).catch(() => { paintHomeAccount(); finishPlace(); }));
+      }).catch(() => { paintHomeAccount(); finishPlace(); });
+      });
     }
     const TEXT_KEY = "enquiz-texts";
     let openTextId = "";
@@ -14017,22 +14040,89 @@
       else examHide(kind, id);
       return true;
     }
+    let examCalPick = null;
+    let examCalAnchor = null;
+    let examCalView = null;
+    function examCloseCalendar() {
+      const pop = document.getElementById("examCal");
+      if (pop) pop.hidden = true;
+      examCalPick = null;
+      examCalAnchor = null;
+    }
+    function examCalShift(step) {
+      examCalView.m += step;
+      if (examCalView.m < 1) { examCalView.m = 12; examCalView.y -= 1; }
+      if (examCalView.m > 12) { examCalView.m = 1; examCalView.y += 1; }
+    }
+    function examRenderCalendar() {
+      let pop = document.getElementById("examCal");
+      if (!pop) {
+        pop = document.createElement("div");
+        pop.id = "examCal";
+        pop.className = "exam-cal";
+        pop.setAttribute("role", "dialog");
+        pop.setAttribute("aria-label", "Choose a date");
+        document.body.appendChild(pop);
+        pop.addEventListener("pointerdown", (event) => event.stopPropagation());
+        pop.addEventListener("click", (event) => {
+          const btn = event.target.closest("[data-cal]");
+          if (!btn || !examCalView) return;
+          const act = btn.getAttribute("data-cal");
+          if (act === "prev") examCalShift(-1);
+          else if (act === "next") examCalShift(1);
+          else if (act === "prev-year") examCalView.y -= 1;
+          else if (act === "next-year") examCalView.y += 1;
+          else if (act === "day") {
+            const date = btn.getAttribute("data-date");
+            const pick = examCalPick;
+            examCloseCalendar();
+            if (pick && date) pick(date);
+            return;
+          }
+          examRenderCalendar();
+        });
+      }
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const y = examCalView.y;
+      const m = examCalView.m;
+      const first = new Date(y, m - 1, 1);
+      const lead = (first.getDay() + 6) % 7;
+      const count = new Date(y, m, 0).getDate();
+      const today = lmToday();
+      let cells = "";
+      for (let i = 0; i < lead; i++) cells += '<span class="exam-cal-pad"></span>';
+      for (let day = 1; day <= count; day++) {
+        const iso = y + "-" + String(m).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+        const on = iso === examCalView.selected ? " is-on" : "";
+        const now = iso === today ? " is-today" : "";
+        cells += '<button class="exam-cal-day' + on + now + '" type="button" data-cal="day" data-date="' + iso + '">' + day + "</button>";
+      }
+      pop.innerHTML = '<div class="exam-cal-nav"><button type="button" data-cal="prev-year" aria-label="Previous year">«</button><button type="button" data-cal="prev" aria-label="Previous month">‹</button><strong>' + months[m - 1] + " " + y + '</strong><button type="button" data-cal="next" aria-label="Next month">›</button><button type="button" data-cal="next-year" aria-label="Next year">»</button></div><div class="exam-cal-week"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div><div class="exam-cal-grid">' + cells + "</div>";
+      pop.hidden = false;
+      const rect = examCalAnchor.getBoundingClientRect();
+      const width = pop.offsetWidth;
+      const height = pop.offsetHeight;
+      let left = rect.left;
+      let top = rect.bottom + 8;
+      if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+      if (top + height > window.innerHeight - 8) top = Math.max(8, rect.top - height - 8);
+      pop.style.left = Math.max(8, left) + "px";
+      pop.style.top = Math.max(8, top) + "px";
+    }
+    function examOpenCalendar(anchor, value, onPick) {
+      if (!anchor) return;
+      const picked = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+      const base = picked || lmToday();
+      const parts = base.split("-").map(Number);
+      examCalPick = onPick;
+      examCalAnchor = anchor;
+      examCalView = { y: parts[0], m: parts[1], selected: picked };
+      examRenderCalendar();
+    }
     function examEditDate(id, button) {
       const exam = examFind(id);
       if (!exam || !button) return;
-      const row = button.closest(".day-row");
-      if (!row) return;
-      let input = row.querySelector("input[type=date]");
-      if (!input) {
-        input = document.createElement("input");
-        input.type = "date";
-        input.className = "exam-date";
-        button.parentElement.before(input);
-      }
-      input.value = exam.date || lmToday();
-      input.onchange = () => examSetDate(id, input.value);
-      input.focus();
-      try { if (input.showPicker) input.showPicker(); } catch (e) {}
+      examOpenCalendar(button, exam.date || "", (date) => examSetDate(id, date));
     }
     function examSetDate(id, date) {
       if (!canEditLessons() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
@@ -14047,12 +14137,12 @@
     }
     function examAdd() {
       if (!canEditLessons()) return;
-      const input = document.getElementById("examDate");
-      if (!input) return;
-      input.hidden = false;
-      input.value = "";
-      input.focus();
-      try { if (input.showPicker) input.showPicker(); } catch (e) {}
+      examOpenCalendar(document.getElementById("examNew"), "", (date) => {
+        const exams = examLoad();
+        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: date, created: Date.now(), blocks: [] });
+        examSave(exams);
+        examPaintList();
+      });
     }
     function examAddBlock() {
       if (!canEditLessons()) return;
@@ -14100,15 +14190,13 @@
       const blocks = document.getElementById("examBlocks");
       const save = document.getElementById("examSave");
       if (newer) newer.addEventListener("click", examAdd);
-      const dateInput = document.getElementById("examDate");
-      if (dateInput) dateInput.addEventListener("change", () => {
-        if (!canEditLessons() || !/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) return;
-        const exams = examLoad();
-        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: dateInput.value, created: Date.now(), blocks: [] });
-        examSave(exams);
-        dateInput.hidden = true;
-        dateInput.value = "";
-        examPaintList();
+      document.addEventListener("pointerdown", (event) => {
+        const pop = document.getElementById("examCal");
+        if (!pop || pop.hidden || pop.contains(event.target)) return;
+        examCloseCalendar();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") examCloseCalendar();
       });
       if (blockNew) blockNew.addEventListener("click", examAddBlock);
       if (list) list.addEventListener("click", (event) => {

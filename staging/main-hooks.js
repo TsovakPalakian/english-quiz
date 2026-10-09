@@ -1558,11 +1558,6 @@ function stageApplyPrefs(){
     if(typeof lyricSize!=='undefined')lyricSize=Number(prefs.lyricSize)||lyricSize;
     if(typeof applyLyricSize==='function')applyLyricSize(document);
   }
-  if(Array.isArray(prefs.customThemes)&&typeof installCustomThemes==='function'){
-    const login=typeof authUser!=='undefined'&&authUser&&authUser.login?authUser.login:'';
-    const own=prefs.customThemes.filter(row=>{const owner=row&&row.owner?String(row.owner):'';return login?!owner||owner===login:!owner;});
-    if(own.length){installCustomThemes(own);if(typeof paintThemeSegs==='function')paintThemeSegs();}
-  }
   if(prefs.dayLinks){try{localStorage.setItem('enquiz-day-links',JSON.stringify(prefs.dayLinks));}catch(e){}}
   if(prefs.demonstratives){try{localStorage.setItem('enquiz-demonstratives',JSON.stringify(prefs.demonstratives));}catch(e){}if(typeof window.paintDemonstratives==='function'&&document.getElementById('demonstratives')?.classList.contains('on'))window.paintDemonstratives();}
 }
@@ -1578,12 +1573,6 @@ function stageApplyBootstrap(state){
     if(state.stats.demonstratives)localStorage.setItem('enquiz-demonstratives',JSON.stringify(state.stats.demonstratives));
   }
   stageApplyPrefs();
-  if(state.stats&&Array.isArray(state.stats.customThemes)&&typeof installCustomThemes==='function')installCustomThemes(state.stats.customThemes);
-  const paintedRoot=typeof document!=='undefined'?document.documentElement:null;
-  const painted=paintedRoot&&paintedRoot.dataset?paintedRoot.dataset.paintedTheme:'';
-  const holdPaint=!!painted&&!(typeof viewAccount!=='undefined'&&viewAccount);
-  if(!holdPaint&&state.stats&&typeof state.stats.theme==='string'&&typeof applyTheme==='function')applyTheme(state.stats.theme,{sync:false});
-  else if(holdPaint&&typeof cacheThemePicture==='function'&&typeof loadCustomThemes==='function'){const row=loadCustomThemes().find(item=>item&&item.id===painted);if(row)cacheThemePicture(row);}
   stagePaintCounts(state.counts);
   if(typeof paintHomeAccount==='function')paintHomeAccount();
   stageStartPreload();

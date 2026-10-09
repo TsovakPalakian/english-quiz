@@ -210,6 +210,17 @@ function slicePage(ids,cursor,size){
   const page=ids.slice(start,start+size);
   return {page,next:start+size<ids.length?page.at(-1)||null:null};
 }
+export async function accountThemes(db,actor){
+  const rows=await db.read("SELECT key,value_json,length(value_json) bytes FROM account_settings WHERE account_id=? AND key IN ('theme','customThemes')",[actor.id]);
+  let theme='',themes=[];
+  for(const row of rows){
+    let value;
+    try{value=JSON.parse(row.value_json);}catch{continue;}
+    if(row.key==='theme'&&typeof value==='string')theme=value;
+    if(row.key==='customThemes'&&Array.isArray(value)&&Number(row.bytes)<=60000)themes=value;
+  }
+  return {theme,themes};
+}
 export async function accountBootstrap(db,actor){
   const profile=await profileOf(db,actor);
   const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
@@ -234,6 +245,10 @@ export async function accountBootstrap(db,actor){
   ]);
   const stats={};
   for(const row of settings){
+    if(row.key==='customThemes'&&row.origin==='account'){
+      if(Number(row.bytes)<=60000)stats.customThemes=JSON.parse(row.value_json);
+      continue;
+    }
     if(!SMALL_SETTINGS.has(row.key)||Number(row.bytes)>4000)continue;
     if(row.origin==='profile'&&Object.hasOwn(stats,row.key))continue;
     stats[row.key]=JSON.parse(row.value_json);

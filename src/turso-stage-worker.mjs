@@ -3,7 +3,7 @@ import {StudyService,TursoStudyClient,StudyError} from './turso-study.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ExamService} from './turso-exams.mjs';
-import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
+import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
 import {ThemeMediaService} from './turso-theme-media.mjs';
@@ -114,7 +114,7 @@ export default {async fetch(request,env){
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
-    const allowedRead=['/api/me/account','/api/me/state','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
+    const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
     const dictionary=path.match(/^\/api\/cards\/([A-Za-z0-9_-]{1,100})\/dictionary$/);
     const card=path.match(/^\/api\/(cards|quizzes)\/([^/]+)(\/quizzes)?$/),progress=path.match(/^\/api\/cards\/([^/]+)\/(progress|answers)$/),response=path.match(/^\/api\/lessons\/([^/]+)\/blocks\/([^/]+)\/response$/),lesson=path.match(/^\/api\/lessons\/([^/]+)$/),own=path.match(/^\/api\/me\/cards\/([^/]+)$/),library=path.match(/^\/api\/library\/([^/]+)$/);
     const songUpload=path.match(/^\/api\/library\/([A-Za-z0-9_-]{1,100})\/media$/),lessonUpload=path.match(/^\/api\/lessons\/([A-Za-z0-9_-]{1,100})\/blocks\/([A-Za-z0-9_-]{1,100})\/media$/);
@@ -171,6 +171,7 @@ export default {async fetch(request,env){
     if(path==='/api/me/custom-themes')return json(await p.saveCustomThemes(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,lessonUpload[1],lessonUpload[2],value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
+    if(path==='/api/me/themes'&&method==='GET')return json(await accountThemes(db,actor));
     if(path==='/api/me/state')return json(await accountBootstrap(db,actor));
     if(path==='/api/me/cards/dictionary'&&method==='GET')return json({cards:(await s.readableCards(actor,url.searchParams.get('ids')||'')).map(legacyCard)});
     if(dictionary)return json(legacyCard(await s.readableCard(actor,dictionary[1])));
