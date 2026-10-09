@@ -1985,17 +1985,14 @@ function reservedPairLogin(login, currentLogin) {
   return "That login is reserved.";
 }
 
-function themesForLogin(login, ownState, twinState) {
-  const pair = login === "TsovakDev" || login === "Tsovak";
-  const rows = cleanCustomThemes(ownState && ownState.stats && ownState.stats.customThemes).concat(
-    pair ? cleanCustomThemes(twinState && twinState.stats && twinState.stats.customThemes) : []
-  );
+function themesForLogin(login, ownState) {
+  const rows = cleanCustomThemes(ownState && ownState.stats && ownState.stats.customThemes);
   const seen = {};
   const out = [];
   rows.forEach((row) => {
     if (!row || seen[row.id]) return;
     const owner = row.owner || "";
-    if (owner && owner !== login && owner !== studyTwinLogin(login)) return;
+    if (owner && owner !== login) return;
     seen[row.id] = 1;
     out.push(row);
   });
@@ -2004,12 +2001,7 @@ function themesForLogin(login, ownState, twinState) {
 
 async function withVisibleThemes(env, login, state) {
   const shown = state || emptyState();
-  let twinState = null;
-  if (studyTwinLogin(login)) {
-    const pair = await studyPair(env, login);
-    if (pair) twinState = await readAccountFile(env, pair.twin.id);
-  }
-  shown.stats = Object.assign({}, shown.stats, { customThemes: themesForLogin(login, shown, twinState) });
+  shown.stats = Object.assign({}, shown.stats, { customThemes: themesForLogin(login, shown) });
   return shown;
 }
 
@@ -2158,14 +2150,7 @@ async function readPairSettings(env) {
 function mergePairSettings(devStats, otherStats) {
   const dev = plainObject(devStats);
   const other = plainObject(otherStats);
-  const seen = {};
-  const customThemes = [];
-  cleanCustomThemes(other.customThemes).concat(cleanCustomThemes(dev.customThemes)).forEach((row) => {
-    if (!row || seen[row.id]) return;
-    seen[row.id] = 1;
-    customThemes.push(row);
-  });
-  const settings = { customThemes: customThemes };
+  const settings = {};
   const theme = cleanThemeName(dev.theme) || cleanThemeName(other.theme);
   if (theme) settings.theme = theme;
   if (dev.lyricSize != null) settings.lyricSize = dev.lyricSize;
@@ -2183,7 +2168,6 @@ function applyPairSettings(state, settings) {
   const stats = Object.assign({}, plainObject(state && state.stats));
   const saved = settings || {};
   if (saved.theme) stats.theme = saved.theme;
-  if (Array.isArray(saved.customThemes)) stats.customThemes = saved.customThemes;
   if (saved.lyricSize != null) stats.lyricSize = saved.lyricSize;
   if (saved.demonstratives != null) stats.demonstratives = saved.demonstratives;
   if (saved.dayLinks != null) stats.dayLinks = saved.dayLinks;
@@ -2321,7 +2305,8 @@ function cleanCustomThemes(value) {
     if (src["color-scheme"] === "dark" || src["color-scheme"] === "light") vars["color-scheme"] = src["color-scheme"];
     if (!vars["--bg"] || !vars["--card"] || !vars["--acc"]) return null;
     let photo = "";
-    if (typeof row.photo === "string" && row.photo.indexOf("data:image/jpeg;base64,") === 0 && row.photo.length <= 450000) photo = row.photo;
+    if (typeof row.photo === "string" && /^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/.test(row.photo)) photo = row.photo;
+    else if (typeof row.photo === "string" && row.photo.indexOf("data:image/jpeg;base64,") === 0 && row.photo.length <= 450000) photo = row.photo;
     const theme = { id, name, bg: vars["--bg"], card: vars["--card"], acc: vars["--acc"], vars, photo };
     if (typeof row.owner === "string" && /^[A-Za-z0-9_-]{1,32}$/.test(row.owner)) theme.owner = row.owner;
     return theme;
@@ -2918,7 +2903,7 @@ async function writeStateOp(env, userId, body, pairLogin, ctx) {
         body
       );
     }
-    if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons" && body.key !== "cardQuizzes") {
+    if (pairLogin && op === "put-setting" && body.key !== "allowedLessons" && body.key !== "hiddenLessons" && body.key !== "cardQuizzes" && body.key !== "customThemes") {
       const pair = await studyPair(env, pairLogin);
       if (pair) {
         for (let attempt = 0; attempt < 8; attempt++) {

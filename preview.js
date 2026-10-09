@@ -68,7 +68,7 @@
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
-      const mark = dayScreens[id] || id;
+      const mark = (id === "exams" || id === "examblocks" || (lmState && lmState.examOwned && id === "material")) ? "exams" : (dayScreens[id] || id);
       chromeButtons.forEach((b) => {
         const on = b.dataset.jump === mark;
         b.classList.toggle("on", on);
@@ -930,6 +930,7 @@
     THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
     const THEME_KEY = "enquiz-theme";
     const CUSTOM_THEME_KEY = "enquiz-custom-themes";
+    const THEME_PICTURE_KEY = "enquiz-theme-picture";
     const HIDDEN_LESSONS_KEY = "enquiz-hidden-lessons";
     const ALLOWED_LESSONS_KEY = "enquiz-allowed-lessons";
     const CUSTOM_COLOR_KEYS = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc", "--photo-wash"];
@@ -1074,7 +1075,9 @@
       if (typeof row.vars["--card"] !== "string" || !hex.test(row.vars["--card"])) return false;
       if (typeof row.vars["--acc"] !== "string" || !hex.test(row.vars["--acc"])) return false;
       if (row.photo != null && row.photo !== "") {
-        if (typeof row.photo !== "string" || row.photo.length > 450000 || !photoRe.test(row.photo)) return false;
+        const photoKey = /^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/;
+        if (typeof row.photo !== "string" || row.photo.length > 450000) return false;
+        if (!photoRe.test(row.photo) && !photoKey.test(row.photo)) return false;
       }
       return true;
     }
@@ -1084,14 +1087,40 @@
         return Array.isArray(list) ? list.filter(customThemeOk) : [];
       } catch (e) { return []; }
     }
+    function themesForServer(list) {
+      return (list || []).map((row) => {
+        const copy = Object.assign({}, row);
+        const key = typeof row.photoKey === "string" && row.photoKey.indexOf("stage-local/themes/") === 0 ? row.photoKey : (typeof row.photo === "string" && row.photo.indexOf("stage-local/themes/") === 0 ? row.photo : "");
+        copy.photo = key;
+        delete copy.photoKey;
+        return copy;
+      });
+    }
+    function queueThemePhotos(list) {
+      if (!window.TursoMain || typeof window.TursoMain.uploadThemePhoto !== "function") return;
+      (list || []).forEach((row) => {
+        if (!row || typeof row.photo !== "string" || row.photo.indexOf("data:image/") !== 0 || row.photoKey) return;
+        const id = row.id;
+        Promise.resolve(dataUrlBlob(row.photo)).then((blob) => window.TursoMain.uploadThemePhoto(id, blob)).then((result) => {
+          const current = loadCustomThemes();
+          const item = current.find((theme) => theme && theme.id === id);
+          if (!item || !result || typeof result.photo !== "string") return;
+          item.photo = result.photo;
+          delete item.photoKey;
+          saveCustomThemes(current);
+        }).catch(() => {});
+      });
+    }
     function saveCustomThemes(list) {
+      if (viewAccount) return;
       const next = list.slice(0, 8);
       try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
       catch (e) {
-        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: "" })))); }
+        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: keptThemePhoto(row) })))); }
         catch (err) {}
       }
-      if (typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "customThemes", value: loadCustomThemes() });
+      if (typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "customThemes", value: themesForServer(next) });
+      queueThemePhotos(next);
     }
     const DEFAULT_THEME = "almond";
     function themeCut() {
@@ -1112,11 +1141,10 @@
     }
     function visibleCustomThemes() {
       const login = viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : "");
-      const twin = twinStudyLogin(login);
       return loadCustomThemes().filter((row) => {
         const owner = row.owner ? String(row.owner) : "";
         if (!login) return !owner;
-        return !owner || owner === login || (twin && owner === twin);
+        return !owner || owner === login;
       });
     }
     function currentTheme() {
@@ -1127,7 +1155,7 @@
       const next = (Array.isArray(list) ? list : []).filter(customThemeOk).slice(0, 8);
       try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
       catch (e) {
-        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: "" })))); }
+        try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: keptThemePhoto(row) })))); }
         catch (err) {}
       }
     }
@@ -1146,13 +1174,59 @@
       if (custom) return custom.name || "Picture";
       return THEME_NAMES[name || "auto"] || "Auto";
     }
-    function clearCustomPaint(root) {
+    function clearCustomPaint(root, keepPhoto) {
       CUSTOM_COLOR_KEYS.forEach((key) => root.style.removeProperty(key));
-      root.style.removeProperty("--theme-photo");
+      if (!keepPhoto) root.style.removeProperty("--theme-photo");
       root.style.removeProperty("color-scheme");
     }
+    function keptThemePhoto(row) {
+      const photo = row && typeof row.photo === "string" ? row.photo : "";
+      return photo.indexOf("stage-local/themes/") === 0 ? photo : "";
+    }
+    function themePhotoStamp(photo) {
+      return typeof photo === "string" && photo.indexOf("stage-local/themes/") === 0 ? photo.slice(photo.lastIndexOf("/") + 1) : "";
+    }
+    function rememberedThemePhoto(theme) {
+      if (!theme) return "";
+      try {
+        const saved = JSON.parse(localStorage.getItem(THEME_PICTURE_KEY) || "null");
+        if (!saved || saved.id !== theme.id || typeof saved.url !== "string" || saved.url.indexOf("data:image/") !== 0) return "";
+        return saved.url;
+      } catch (e) { return ""; }
+    }
+    function rememberThemePicture(id, stamp, dataUrl) {
+      if (!id || typeof dataUrl !== "string" || dataUrl.indexOf("data:image/") !== 0) return;
+      try { localStorage.setItem(THEME_PICTURE_KEY, JSON.stringify({ id: id, stamp: stamp || "", url: dataUrl })); } catch (e) {}
+    }
+    function cacheThemePicture(theme) {
+      if (!theme || rememberedThemePhoto(theme) || document.documentElement.style.getPropertyValue("--theme-photo").indexOf("data:image/") >= 0 || typeof theme.photo !== "string" || theme.photo.indexOf("stage-local/themes/") !== 0) return;
+      const remote = "/api/theme-photo?id=" + encodeURIComponent(theme.id) + (/^[a-f0-9]{64}$/.test(themePhotoStamp(theme.photo)) ? "&v=" + themePhotoStamp(theme.photo) : "");
+      fetch(remote, { credentials: "same-origin", cache: "force-cache" }).then((res) => res.blob()).then((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => rememberThemePicture(theme.id, themePhotoStamp(theme.photo), String(reader.result || ""));
+        reader.readAsDataURL(blob);
+      }).catch(() => {});
+    }
+    function themePhotoUrl(theme) {
+      const remembered = rememberedThemePhoto(theme);
+      if (remembered) return remembered;
+      if (!theme || typeof theme.photo !== "string" || !theme.photo) return "";
+      if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(theme.photo)) return theme.photo;
+      if (/^user-[a-z0-9-]{1,80}$/.test(theme.id) && theme.photo.indexOf("stage-local/themes/") === 0) {
+        const stamp = theme.photo.slice(theme.photo.lastIndexOf("/") + 1);
+        return "/api/theme-photo?id=" + encodeURIComponent(theme.id) + (/^[a-f0-9]{64}$/.test(stamp) ? "&v=" + stamp : "");
+      }
+      return "";
+    }
     function paintCustomVars(root, theme) {
-      clearCustomPaint(root);
+      const photoUrl = themePhotoUrl(theme);
+      const nextPhoto = photoUrl ? "url(" + JSON.stringify(photoUrl) + ")" : "";
+      const currentPhoto = root.style.getPropertyValue("--theme-photo");
+      const currentData = currentPhoto.indexOf("data:image/") >= 0;
+      const nextData = nextPhoto.indexOf("data:image/") >= 0;
+      const samePaint = !root.dataset.paintedTheme || root.dataset.paintedTheme === (theme && theme.id);
+      const keepPhoto = currentData && (samePaint || nextData);
+      clearCustomPaint(root, keepPhoto);
       const vars = theme && theme.vars ? theme.vars : {};
       const hex = /^#[0-9A-Fa-f]{6}$/;
       const wash = /^#[0-9A-Fa-f]{8}$/;
@@ -1166,9 +1240,9 @@
         if (hex.test(val)) root.style.setProperty(key, val);
       });
       if (vars["color-scheme"] === "dark" || vars["color-scheme"] === "light") root.style.setProperty("color-scheme", vars["color-scheme"]);
-      if (theme && typeof theme.photo === "string" && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(theme.photo)) {
-        root.style.setProperty("--theme-photo", "url(" + JSON.stringify(theme.photo) + ")");
-      }
+      if (nextData && currentPhoto.indexOf(photoUrl) < 0) root.style.setProperty("--theme-photo", nextPhoto);
+      else if (nextPhoto && !currentData) root.style.setProperty("--theme-photo", nextPhoto);
+      else if (!nextPhoto && !currentData) root.style.removeProperty("--theme-photo");
     }
     function themeNameParts(name) {
       const text = String(name || "").trim();
@@ -1187,7 +1261,14 @@
     function applyTheme(name, options) {
       const opts = options || {};
       const root = document.documentElement;
-      const chosen = themeCanShow(name) ? name : DEFAULT_THEME;
+      let chosen;
+      if (opts.keepPainted && !viewAccount && root.dataset.paintedTheme) {
+        chosen = root.dataset.paintedTheme;
+        const painted = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === chosen) : null;
+        if (painted) cacheThemePicture(painted);
+      } else {
+      const stored = name && String(name).indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === name) : null;
+      chosen = themeCanShow(name) ? name : (!viewAccount && stored ? name : DEFAULT_THEME);
       const custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === chosen) : null;
       if (chosen === "auto") {
         clearCustomPaint(root);
@@ -1195,11 +1276,14 @@
       } else if (custom) {
         root.setAttribute("data-theme", "user");
         paintCustomVars(root, custom);
+        cacheThemePicture(custom);
       } else {
         clearCustomPaint(root);
         root.setAttribute("data-theme", chosen);
       }
-      if (opts.persist !== false && themeCanShow(name)) {
+      if (!viewAccount) root.dataset.paintedTheme = chosen === "auto" ? "auto" : chosen;
+      }
+      if (opts.persist !== false && !viewAccount && themeCanShow(name)) {
         try { localStorage.setItem(THEME_KEY, chosen); } catch (e) {}
       }
       // Never push theme onto a viewed account; Open pages is display-only for theme.
@@ -1245,6 +1329,14 @@
       if (editing) endThemeEdit();
       if (active) applyTheme(DEFAULT_THEME, { sync: true });
       paintThemeSegs();
+    }
+    function dataUrlBlob(photo) {
+      const comma = String(photo || "").indexOf(",");
+      const mime = (String(photo || "").slice(0, comma).match(/^data:([^;,]+)/) || [])[1] || "image/jpeg";
+      const binary = atob(String(photo || "").slice(comma + 1));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
     }
     function jpegDataUrl(canvas, quality) {
       return new Promise((resolve) => {
@@ -1370,7 +1462,7 @@
           photo: theme.photo
         });
       }
-      function storeTheme(theme, message) {
+      function commitTheme(theme, message) {
         const list = loadCustomThemes();
         const index = list.findIndex((row) => row.id === theme.id);
         if (index >= 0) list[index] = theme;
@@ -1381,6 +1473,48 @@
         applyTheme(theme.id, { sync: true });
         customThemeStatus.textContent = message;
         customThemeStatus.className = "hint";
+        if (customThemeSubmit) customThemeSubmit.disabled = false;
+      }
+      function storeTheme(theme, message) {
+        theme.owner = authUser && authUser.login ? authUser.login : "";
+        if (viewAccount) {
+          idbGetStash().then((snap) => {
+            if (!snap) return;
+            let kept = [];
+            try { kept = JSON.parse(snap[CUSTOM_THEME_KEY] || "[]"); } catch (e) { kept = []; }
+            if (!Array.isArray(kept)) kept = [];
+            const at = kept.findIndex((row) => row && row.id === theme.id);
+            if (at >= 0) kept[at] = theme;
+            else kept.unshift(theme);
+            snap[CUSTOM_THEME_KEY] = JSON.stringify(kept.slice(0, 8));
+            return idbPutStash(snap);
+          }).catch(() => {});
+          clearThemeDraft();
+          customThemeStatus.textContent = message;
+          customThemeStatus.className = "hint";
+          if (customThemeSubmit) customThemeSubmit.disabled = false;
+          return;
+        }
+        const photo = theme.photo;
+        const upload = window.TursoMain && typeof window.TursoMain.uploadThemePhoto === "function"
+          && typeof photo === "string" && photo.indexOf("data:image/") === 0;
+        if (!upload) {
+          commitTheme(theme, message);
+          return;
+        }
+        customThemeStatus.textContent = "Saving the picture…";
+        customThemeStatus.className = "hint";
+        Promise.resolve(dataUrlBlob(photo)).then((blob) => window.TursoMain.uploadThemePhoto(theme.id, blob)).then((result) => {
+          if (!result || typeof result.photo !== "string" || result.photo.indexOf("stage-local/themes/") !== 0) throw new Error("The picture could not be saved.");
+          rememberThemePicture(theme.id, themePhotoStamp(result.photo), photo);
+          theme.photo = result.photo;
+          delete theme.photoKey;
+          commitTheme(theme, message);
+        }).catch((error) => {
+          customThemeStatus.textContent = error && error.message ? error.message : "The picture could not be saved.";
+          customThemeStatus.className = "hint bad";
+          if (customThemeSubmit) customThemeSubmit.disabled = false;
+        });
       }
       beginThemeEdit = function (id) {
         const theme = loadCustomThemes().find((row) => row.id === id);
@@ -1392,8 +1526,9 @@
         if (customThemePreviewUrl) URL.revokeObjectURL(customThemePreviewUrl);
         customThemePreviewUrl = "";
         customThemeFile.value = "";
-        if (theme.photo) {
-          customThemePreview.src = theme.photo;
+        const savedPhoto = themePhotoUrl(theme);
+        if (savedPhoto) {
+          customThemePreview.src = savedPhoto;
           if (customThemeShot) customThemeShot.hidden = false;
         } else if (customThemeShot) {
           customThemeShot.hidden = true;
@@ -1462,7 +1597,6 @@
         const percent = customThemeVeil ? customThemeVeil.value : 60;
         const done = (theme, message) => {
           storeTheme(theme, message);
-          if (submit) submit.disabled = false;
         };
         const fail = () => {
           customThemeStatus.textContent = "This picture could not be read.";
@@ -1480,7 +1614,7 @@
           if (!made || !made.palette) throw new Error("empty");
           const list = loadCustomThemes();
           made.palette.vars["--photo-wash"] = made.palette.vars["--bg"] + veilByte(percent);
-          const ownerLogin = existing && existing.owner ? existing.owner : (viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : ""));
+          const ownerLogin = authUser && authUser.login ? authUser.login : "";
           done({
             id: existing ? existing.id : "user-" + Date.now().toString(36),
             name: typedThemeName(list),
@@ -1547,7 +1681,11 @@
         }
       }
       const back = e.target.closest("[data-nav-back]");
-      if (back) { goBack(back.dataset.fallback || "home"); return; }
+      if (back) {
+        if (back.dataset.fallback === "exams") { show("exams"); return; }
+        goBack(back.dataset.fallback || "home");
+        return;
+      }
       const more = e.target.closest("[data-src-more]");
       if (more) {
         const rest = document.getElementById(more.dataset.srcMore);
@@ -2360,13 +2498,8 @@
     }
     function canEditAdded(item) {
       if (!item || !authUser) return false;
-      const place = item.place || "mine";
-      if (viewAccount) {
-        // Open pages: edit only that student's personal cards — not shared catalogs.
-        return (authUser.role === "ADMIN" || authUser.role === "DEVELOPER") && place === "mine";
-      }
-      if (!(authUser.role === "ADMIN" || authUser.role === "DEVELOPER")) return false;
-      return place === "mine" || isTeacher();
+      if (viewAccount) return authUser.role === "ADMIN" || authUser.role === "DEVELOPER";
+      return true;
     }
     function addedIndexOf(item) {
       const list = loadAdded();
@@ -3419,7 +3552,9 @@
       if (item.fromText) pos = item.expressionType === "PHRASAL_VERB" ? "phrasal verb" : item.expressionType === "IDIOM" ? "idiom" : "expression";
       const origin = cardOrigin(item);
       const label = item.ru || expressionNote(item);
-      return '<button class="wcard" type="button" data-added="' + index + '">' + wordPic(item.word) + '<div class="en">' + esc(item.word) + '</div><div class="pos">' + esc(pos) + '</div>' + ipaHtml(item) + '<div class="label">' + esc(label) + "</div>" + (origin ? '<div class="label">' + esc(origin) + "</div>" : "") + "</button>";
+      const card = '<button class="wcard" type="button" data-added="' + index + '">' + wordPic(item.word) + '<div class="en">' + esc(item.word) + '</div><div class="pos">' + esc(pos) + '</div>' + ipaHtml(item) + '<div class="label">' + esc(label) + "</div>" + (origin ? '<div class="label">' + esc(origin) + "</div>" : "") + "</button>";
+      if (!canEditAdded(item)) return card;
+      return '<div class="wcard-tools" data-edit-host data-edit-kind="added" data-edit-id="' + index + '">' + card + editActions() + "</div>";
     }
     function paintPlace(place, boxId, labelId) {
       const box = document.getElementById(boxId);
@@ -4441,6 +4576,37 @@
       return html;
     }
     let madeItem = null;
+    function dictionaryPlace(item) {
+      const pos = String(((item.data || {}).cambridge || {}).pos || "");
+      const type = String(item.expressionType || "");
+      const blob = (pos + " " + type).toLowerCase();
+      if (blob.includes("phrasal")) return "phrasal";
+      if (blob.includes("idiom") || blob.includes("phrase") || blob.includes("expression")) return "idioms";
+      const words = String((item && item.word) || "").trim().split(/\s+/).filter(Boolean);
+      if (words.length > 1) return "idioms";
+      return "mine";
+    }
+    function dictionaryOwned(word) {
+      const key = String(word || "").trim().toLowerCase();
+      if (!key) return true;
+      if (loadAdded().some((row) => String(row.word || "").trim().toLowerCase() === key)) return true;
+      return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
+    }
+    function dictionaryAddHtml(item) {
+      if (!item || dictionaryOwned(item.word)) return "";
+      return '<button class="btn primary dict-add" type="button" data-dict-add="' + dictionaryPlace(item) + '">Add word</button>';
+    }
+    function dictionarySaveWord(word, data) {
+      const source = data || {};
+      const item = { word: midTitle(word), ru: source.ru || "", data: source, place: dictionaryPlace({ word: word, data: source, expressionType: source.expressionType || "" }) };
+      if (source.expressionType) item.expressionType = source.expressionType;
+      const list = loadAdded();
+      list.unshift(item);
+      saveAdded(list, { op: "put-card", card: item });
+      trackEvent("card", cardArea(item.place), "add");
+      paintAdded();
+      return item;
+    }
     function renderMade(item) {
       madeItem = item;
       const data = item.data || {};
@@ -4504,7 +4670,7 @@
       let html = '<div class="gen card-edit-shell"><h2>Word card</h2>';
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
       html += madeEditHtml(item);
-      html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + "</div></div>";
+      html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + dictionaryAddHtml(item) + "</div></div>";
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
       html += ipa;
@@ -4582,6 +4748,12 @@
     }
     document.getElementById("madeView").addEventListener("click", (e) => {
       if (handleCardQuizClick(e)) return;
+      const dictAdd = e.target.closest("[data-dict-add]");
+      if (dictAdd && madeItem && !dictionaryOwned(madeItem.word)) {
+        dictionarySaveWord(madeItem.word, Object.assign({}, madeItem.data || {}, { ru: madeItem.ru || "", expressionType: madeItem.expressionType || "" }));
+        renderMade(madeItem);
+        return;
+      }
       const view = document.getElementById("madeView");
       const flip = e.target.closest("[data-flip]");
       if (flip) {
@@ -9093,6 +9265,11 @@
       if (selectionBlocked(node)) { hideSelpop(); return; }
       const pop = document.getElementById("selpop");
       document.getElementById("selpopWord").textContent = text;
+      const add = document.getElementById("selpopAdd");
+      if (add) {
+        add.hidden = dictionaryOwned(text);
+        add.disabled = false;
+      }
       pop.hidden = false;
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
       loadSelpop(text);
@@ -9106,6 +9283,23 @@
       e.preventDefault();
       e.stopPropagation();
       hideSelpop();
+    });
+    document.getElementById("selpopAdd").addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const button = e.currentTarget;
+      const word = document.getElementById("selpopWord").textContent.trim();
+      if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
+      button.disabled = true;
+      let data = {};
+      try {
+        const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
+        const body = await res.json();
+        if (res.ok && body) data = body;
+      } catch (err) {}
+      if (!dictionaryOwned(word)) dictionarySaveWord(word, data);
+      button.hidden = true;
+      button.disabled = false;
     });
     document.addEventListener("mousedown", (e) => {
       if (!e.target.closest("#selpop")) hideSelpop();
@@ -9712,7 +9906,7 @@
       // Personal browser keys swapped while viewing another account.
       // CARD_QUIZ_KEY is stashed separately: shared install overwrites it during view, then restore brings the teacher's local map back.
       // LM_KEY must stash too — otherwise lmPullFromServer overwrites local drafts while viewing.
-      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY, LINK_KEY, STARTED_KEY, LM_KEY];
+      return [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY, CUSTOM_THEME_KEY, THEME_PICTURE_KEY, THEME_KEY, TEXT_KEY, HIDDEN_LESSONS_KEY, ALLOWED_LESSONS_KEY, LINK_KEY, STARTED_KEY, LM_KEY];
     }
     function stashDeveloper() {
       // Always refresh stash from current keys so an orphan IDB stash cannot restore stale teacher data.
@@ -10046,7 +10240,9 @@
           paintHomeStats();
           paintHomeAccount();
           paintAccount();
+          applyTheme(currentTheme(), { sync: false, persist: false });
           settleThemeAudience();
+          queueThemePhotos(loadCustomThemes());
           paintViewBar();
           viewSwitching = false;
           accountReady = !!authUser;
@@ -10432,6 +10628,13 @@
     function clearOwnBrowserData(opts) {
       viewKeys().forEach((key) => localStorage.removeItem(key));
       [CARD_QUIZ_KEY, STARTED_KEY, LM_KEY, "enquiz-anon-backup", "enquiz-auth-on", "enquiz-dev-stash", "enquiz-view-id", "enquiz-view-login", "enquiz-view-role", "enquiz-view-email", "enquiz-view-name"].forEach((key) => localStorage.removeItem(key));
+      try {
+        const prefs = JSON.parse(localStorage.getItem("turso-main-prefs") || "{}");
+        if (prefs && typeof prefs === "object" && !Array.isArray(prefs)) {
+          delete prefs.customThemes;
+          localStorage.setItem("turso-main-prefs", JSON.stringify(prefs));
+        }
+      } catch (e) {}
       try { sessionStorage.removeItem("enquiz-place"); } catch (e) {}
       Object.keys(songBlobUrls).forEach(forgetBlobUrl);
       try { revokePreviewUrl(); } catch (e) {}
@@ -10922,7 +11125,7 @@
       installAllowedLessons(state.stats && state.stats.allowedLessons);
       const pendingTheme = syncQueue.some((change) => change && change.op === "put-setting" && change.key === "theme");
       const savedTheme = state.stats && typeof state.stats.theme === "string" ? state.stats.theme : "";
-      if (!pendingTheme && savedTheme) applyTheme(savedTheme, { sync: false });
+      if (!pendingTheme && savedTheme) applyTheme(savedTheme, { sync: false, keepPainted: true });
       settleThemeAudience();
       paintAdded();
       paintLyrics();
@@ -10946,7 +11149,7 @@
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
           if (personal) { leaveAccount(); return; }
-          try { localStorage.removeItem(CUSTOM_THEME_KEY); } catch (e) {}
+          try { localStorage.removeItem(CUSTOM_THEME_KEY); localStorage.removeItem(THEME_PICTURE_KEY); } catch (e) {}
           settleThemeAudience();
           paintHomeAccount();
           finishPlace();
@@ -11574,6 +11777,7 @@
       return { materials: materials, activeId: activeId, removed: removed };
     }
     function lmPersist() {
+      if (lmState && lmState.examOwned) { examSync(); return; }
       if (!lmLibrary) return;
       if (lmState) {
         const index = lmLibrary.materials.findIndex((row) => row.id === lmState.id);
@@ -12336,7 +12540,7 @@
         if (block.type === "wordcard") cards.push(lmWordCardHtml(block));
         else {
           flush();
-          html += '<div class="lm-panel">' + lmPreviewBlock(block) + "</div>";
+          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + lmPreviewBlock(block) + "</div>";
         }
       });
       flush();
@@ -12606,7 +12810,9 @@
     }
     function lmNote(text) {
       const note = document.getElementById("lmNote");
-      if (note) note.textContent = text;
+      if (!note) return;
+      note.textContent = text;
+      note.classList.toggle("is-ok", !!(lmState && lmState.examOwned && text === "Draft saved."));
     }
     function lmTakeFile(id, file) {
       const block = lmBlock(id);
@@ -12654,6 +12860,10 @@
       return block.items || (block.items = []);
     }
     function lmEnsure() {
+      if (lmState && lmState.examOwned) {
+        if (!lmLibrary) lmLibrary = lmLoadLibrary();
+        return;
+      }
       if (lmLibrary && lmState) return;
       lmLibrary = lmLoadLibrary();
       lmState = lmLibrary.materials.find((row) => row.id === lmLibrary.activeId) || lmLibrary.materials[0] || null;
@@ -12779,6 +12989,7 @@
       visit("material");
     }
     function lmKeepLesson() {
+      if (lmState && lmState.examOwned) { examSync(); return; }
       const index = lmLibrary.materials.findIndex((row) => row.id === lmState.id);
       if (index < 0) lmLibrary.materials.unshift(lmState);
       else lmLibrary.materials[index] = lmState;
@@ -13044,7 +13255,7 @@
         }
         const add = event.target.closest("[data-add-block]");
         if (add) {
-          const block = lmBlank(add.dataset.addBlock);
+          const block = lmBlank(add.dataset.addBlock, add.dataset.quiz || "");
           lmState.blocks.push(block);
           document.getElementById("lmPicker").hidden = true;
           lmRenderEditor();
@@ -13257,7 +13468,7 @@
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
-      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote("Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
         lmSortWordcardsForPublish();
@@ -13273,6 +13484,665 @@
       paintLmDays();
     }
 
+    let examHold = null;
+    let examCurrentId = "";
+    let examKnown = null;
+    let examReady = false;
+    let examPulling = false;
+    function examLoad() {
+      try {
+        const list = JSON.parse(localStorage.getItem("enquiz-exams") || "[]");
+        return Array.isArray(list) ? list : [];
+      } catch (e) { return []; }
+    }
+    function examWire(exam) {
+      return {
+        id: exam.id,
+        date: exam.date || "",
+        published: !!exam.published,
+        hidden: !!exam.hidden,
+        blocks: (exam.blocks || []).map((block) => {
+          const doc = block.doc || {};
+          return {
+            id: block.id,
+            title: doc.title || "Examination block",
+            published: !!doc.published,
+            hidden: !!block.hidden,
+            materials: (doc.blocks || []).map((part) => {
+              const copy = JSON.parse(JSON.stringify(part));
+              if (Array.isArray(copy.items)) copy.items.forEach((item) => { if (item) delete item.given; });
+              return copy;
+            })
+          };
+        })
+      };
+    }
+    function examFromWire(row) {
+      return {
+        id: row.id,
+        date: row.date || "",
+        published: !!row.published,
+        hidden: !!row.hidden,
+        created: row.created || Date.now(),
+        blocks: (row.blocks || []).map((block) => ({
+          id: block.id,
+          hidden: !!block.hidden,
+          doc: {
+            id: block.id,
+            title: block.title || "Examination block",
+            description: "",
+            className: "",
+            unit: "",
+            lesson: "",
+            date: row.date || "",
+            published: !!block.published,
+            mode: block.published ? "preview" : "edit",
+            blocks: block.materials || [],
+            examOwned: true,
+            examId: row.id,
+            blockId: block.id,
+            studentSaved: false
+          }
+        }))
+      };
+    }
+    function examMergeLocal(remote, local) {
+      return remote || local;
+    }
+    function examRemoteSave(exam) {
+      if (!exam || typeof accountFetch !== "function") return Promise.resolve();
+      return accountFetch("/api/exams", { method: "POST", body: JSON.stringify({ exam: examWire(exam) }) }).catch(() => {});
+    }
+    function examRemoteDrop(id) {
+      if (!id || typeof accountFetch !== "function") return Promise.resolve();
+      return accountFetch("/api/exams/" + encodeURIComponent(id), { method: "DELETE", body: "{}" }).catch(() => {});
+    }
+    function examPush(list) {
+      if (!examReady || !canEditLessons() || typeof accountFetch !== "function") return Promise.resolve();
+      const rows = Array.isArray(list) ? list : [];
+      const ids = new Set(rows.map((row) => row && row.id).filter(Boolean));
+      const gone = examKnown ? [...examKnown].filter((id) => !ids.has(id)) : [];
+      examKnown = ids;
+      return Promise.all(gone.map(examRemoteDrop).concat(rows.map(examRemoteSave))).catch(() => {});
+    }
+    function examSave(list) {
+      try { localStorage.setItem("enquiz-exams", JSON.stringify(list)); } catch (e) {}
+      return examPush(list);
+    }
+    function examPull() {
+      if (examPulling || examReady || !authUser || typeof accountFetch !== "function") return;
+      examPulling = true;
+      accountFetch("/api/exams").then((data) => {
+        const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
+        const local = examLoad();
+        const ids = new Set(remote.map((row) => row.id));
+        const extra = local.filter((row) => row && row.id && !ids.has(row.id));
+        const merged = remote.map((row) => examMergeLocal(row, local.find((item) => item.id === row.id))).concat(extra);
+        examKnown = new Set(merged.map((row) => row.id));
+        examReady = true;
+        try { localStorage.setItem("enquiz-exams", JSON.stringify(merged)); } catch (e) {}
+        extra.forEach(examRemoteSave);
+        examPaintList();
+        const blocks = document.getElementById("examblocks");
+        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+      }).catch(() => { examReady = true; });
+    }
+    function examFind(id) {
+      return examLoad().find((row) => row.id === id) || null;
+    }
+    let examWork = {};
+    let examWorkLoadedFor = "";
+    let examWorkPulling = false;
+    function examWorkAccount() {
+      return (viewAccount && viewAccount.id) || (authUser && authUser.id) || "";
+    }
+    function examWorkBag() {
+      const id = examWorkAccount();
+      if (!id) return {};
+      if (!examWork[id]) {
+        try { examWork[id] = JSON.parse(localStorage.getItem("enquiz-exam-work-" + id) || "{}"); }
+        catch (e) { examWork[id] = {}; }
+      }
+      return examWork[id];
+    }
+    function examWorkWrite() {
+      const id = examWorkAccount();
+      if (!id) return;
+      try { localStorage.setItem("enquiz-exam-work-" + id, JSON.stringify(examWork[id] || {})); } catch (e) {}
+    }
+    function examWorkPut(examId, blockId, patch) {
+      const bag = examWorkBag();
+      const key = examId + "/" + blockId;
+      const prev = bag[key] || { saved: false, answers: {}, corrections: {}, points: {} };
+      bag[key] = {
+        saved: patch.saved != null ? !!patch.saved : !!prev.saved,
+        answers: patch.answers || prev.answers || {},
+        corrections: patch.corrections || prev.corrections || {},
+        points: patch.points || prev.points || {}
+      };
+      examWorkWrite();
+      if (!examWorkAccount() || typeof accountFetch !== "function") return Promise.resolve();
+      const body = { examId: examId, blockId: blockId, saved: bag[key].saved, answers: bag[key].answers, corrections: bag[key].corrections, points: bag[key].points };
+      if (viewAccount && viewAccount.id) body.studentId = viewAccount.id;
+      return accountFetch("/api/exams/work", { method: "POST", body: JSON.stringify(body) }).catch(() => {});
+    }
+    function examPullWork() {
+      const account = examWorkAccount();
+      if (!account || examWorkPulling || typeof accountFetch !== "function") return;
+      examWorkPulling = true;
+      examWorkLoadedFor = account;
+      const path = "/api/exams/work" + (viewAccount && viewAccount.id ? "?student=" + encodeURIComponent(viewAccount.id) : "");
+      accountFetch(path).then((data) => {
+        const bag = {};
+        (data && data.work || []).forEach((row) => {
+          bag[row.examId + "/" + row.blockId] = { saved: !!row.saved, answers: row.answers || {}, corrections: row.corrections || {}, points: row.points || {} };
+        });
+        examWork[account] = bag;
+        examWorkWrite();
+        examWorkPulling = false;
+        examPaintList();
+        const blocks = document.getElementById("examblocks");
+        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+      }).catch(() => { examWorkPulling = false; examWorkLoadedFor = ""; });
+    }
+    function examApplyWork(exam) {
+      const bag = examWorkBag();
+      (exam.blocks || []).forEach((block) => {
+        const row = bag[exam.id + "/" + block.id];
+        if (!row || !block.doc) return;
+        block.doc.studentSaved = !!row.saved;
+        block.doc.examCorrections = row.corrections || {};
+        block.doc.examPoints = row.points || {};
+        const answers = row.answers || {};
+        (block.doc.blocks || []).forEach((part) => {
+          const given = answers[part.id] || {};
+          (part.items || []).forEach((item, index) => { if (item && given[index] != null) item.given = given[index]; });
+        });
+      });
+      return exam;
+    }
+    function examView(id) {
+      const exam = examFind(id);
+      if (!exam) return null;
+      return examApplyWork(JSON.parse(JSON.stringify(exam)));
+    }
+    function examShown() {
+      return examLoad().map((exam) => examApplyWork(JSON.parse(JSON.stringify(exam))));
+    }
+    function examStripDoc(doc) {
+      if (!doc) return;
+      delete doc.studentSaved;
+      delete doc.examPoints;
+      delete doc.examCorrections;
+      (doc.blocks || []).forEach((part) => (part.items || []).forEach((item) => { if (item) delete item.given; }));
+    }
+    function examCollectAnswers(doc) {
+      const answers = {};
+      (doc.blocks || []).forEach((part) => {
+        if (!part || part.type !== "quiz") return;
+        const row = {};
+        (part.items || []).forEach((item, index) => { if (item && item.given != null && item.given !== "") row[index] = item.given; });
+        if (Object.keys(row).length) answers[part.id] = row;
+      });
+      return answers;
+    }
+    function examPointsTotal(block) {
+      const map = (block.doc && block.doc.examPoints) || {};
+      let sum = 0;
+      Object.keys(map).forEach((partId) => {
+        const row = map[partId] || {};
+        Object.keys(row).forEach((index) => { sum += Number(row[index]) || 0; });
+      });
+      return sum;
+    }
+    function examVisibleBlocks(exam) {
+      return (exam.blocks || []).filter((block) => canEditLessons() || (block.doc && block.doc.published && !block.hidden));
+    }
+    function examReadyForReview(exam) {
+      const blocks = examVisibleBlocks(exam);
+      return blocks.length > 0 && blocks.every((block) => block.doc && block.doc.studentSaved);
+    }
+    function examStamp(exam) {
+      if (!exam) return false;
+      const published = (exam.blocks || []).some((block) => block.doc && block.doc.published);
+      if (!!exam.published === published) return false;
+      exam.published = published;
+      return true;
+    }
+    function examSync() {
+      if (!lmState || !lmState.examOwned || !canEditLessons()) return;
+      const exams = examLoad();
+      const exam = exams.find((row) => row.id === lmState.examId);
+      const block = exam && (exam.blocks || []).find((row) => row.id === lmState.blockId);
+      if (!block) return;
+      const copy = JSON.parse(JSON.stringify(lmState));
+      examStripDoc(copy);
+      block.doc = copy;
+      examStamp(exam);
+      return examSave(exams);
+    }
+    function examLeave() {
+      if (lmState && lmState.examOwned) {
+        examSync();
+        lmState = examHold;
+      }
+      examHold = null;
+      const root = document.getElementById("material");
+      if (root) {
+        root.classList.remove("is-exam-locked");
+        const back = root.querySelector("[data-nav-back]");
+        if (back) {
+          back.dataset.fallback = "days";
+          back.classList.add("back-text");
+          back.setAttribute("aria-label", "Classes");
+          back.textContent = "← Classes";
+        }
+      }
+      document.querySelectorAll("[data-exam-quiz]").forEach((btn) => { btn.hidden = true; });
+      const save = document.getElementById("examSave");
+      if (save) save.hidden = true;
+    }
+    function examDress() {
+      const root = document.getElementById("material");
+      const owned = !!(lmState && lmState.examOwned);
+      const reviewer = owned && canTuneStudentLessons();
+      const taking = owned && !canEditLessons() && !reviewer;
+      const locked = taking && !!lmState.studentSaved;
+      if (root) root.classList.toggle("is-exam-locked", locked);
+      const save = document.getElementById("examSave");
+      if (save) save.hidden = reviewer ? false : (!taking || locked);
+      document.querySelectorAll("[data-exam-quiz]").forEach((btn) => { btn.hidden = !owned || !canEditLessons(); });
+      if (!owned || !root) return;
+      const back = root.querySelector("[data-nav-back]");
+      if (back) {
+        back.dataset.fallback = "examblocks";
+        back.classList.add("back-text");
+        back.classList.remove("icon");
+        back.setAttribute("aria-label", "Blocks");
+        back.textContent = "← Blocks";
+      }
+      const heading = root.querySelector(".lm-meta h1");
+      if (heading) heading.textContent = "Examination block";
+      const chrome = root.querySelector(".lm-chrome");
+      if (chrome) chrome.hidden = true;
+      if (taking || reviewer) examFillAnswers();
+    }
+    function examSame(given, right) {
+      if (Array.isArray(right)) {
+        const left = (Array.isArray(given) ? given : []).map(Number).sort().join(",");
+        return left === right.map(Number).slice().sort().join(",");
+      }
+      return String(given == null ? "" : given).trim().toLowerCase() === String(right == null ? "" : right).trim().toLowerCase();
+    }
+    function examRight(item, kind) {
+      if (!item) return null;
+      if (kind === "Select all") return Array.isArray(item.answers) ? item.answers : null;
+      if (kind === "Match" || kind === "Memory") return item.right || "";
+      if (item.answer == null || item.answer === "") return null;
+      return item.answer;
+    }
+    function examMarkClass(reviewer, given, right, value) {
+      if (!reviewer || right == null || right === "") return "";
+      if (Array.isArray(right)) {
+        const correct = right.map(Number);
+        const chosen = (Array.isArray(given) ? given : []).map(Number);
+        if (correct.indexOf(Number(value)) >= 0) return " exam-hit";
+        if (chosen.indexOf(Number(value)) >= 0) return " exam-miss";
+        return "";
+      }
+      if (examSame(value, right)) return " exam-hit";
+      if (examSame(given, value)) return " exam-miss";
+      return "";
+    }
+    function examPointInput(block, index) {
+      const value = ((lmState.examPoints || {})[block.id] || {})[index];
+      const shown = value == null || value === "" ? "" : String(value);
+      return '<label class="exam-point">Points <input class="exam-points" type="number" min="0" step="1" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label>';
+    }
+    function examFixInput(block, index) {
+      const value = ((lmState.examCorrections || {})[block.id] || {})[index] || "";
+      return '<input type="text" data-exam-fix="' + block.id + ":" + index + '" value="' + esc(value) + '" placeholder="Correction" />';
+    }
+    function examTextReview(block, item, index, kind) {
+      const right = examRight(item, kind);
+      const given = item.given || "";
+      const known = right != null && right !== "";
+      const same = known && examSame(given, right);
+      let html = "";
+      if (!known) html = '<p class="exam-miss exam-strike">' + esc(given || "—") + "</p>";
+      else if (same) html = '<p class="exam-hit">' + esc(given || right) + "</p>";
+      else html = '<p class="exam-miss exam-strike">' + esc(given || "—") + '</p><p class="exam-hit">' + esc(right) + "</p>";
+      return html + examFixInput(block, index) + examPointInput(block, index);
+    }
+    function examAnswerHtml(block) {
+      const kind = lmQuizType(block);
+      const title = "<h3>" + esc(block.title || kind) + "</h3>";
+      const reviewer = canTuneStudentLessons();
+      const lock = reviewer || lmState.studentSaved ? " disabled" : "";
+      const items = block.items || [];
+      const tail = (index) => reviewer ? examPointInput(block, index) : "";
+      if (kind === "Choice" || kind === "Odd one out") {
+        return title + items.map((item, index) => {
+          const given = Number(item.given);
+          const right = examRight(item, kind);
+          const inputs = (item.options || []).map((opt, oi) => '<label class="lm-opt' + examMarkClass(reviewer, given, right, oi) + '"><input type="radio" name="ex-' + block.id + "-" + index + '" data-exam-given="' + block.id + ":" + index + '" data-exam-value="' + oi + '"' + (given === oi ? " checked" : "") + lock + " /> " + esc(opt || "Option") + "</label>").join("");
+          return '<div class="lm-q"><b>' + esc(item.prompt || kind) + "</b>" + inputs + tail(index) + "</div>";
+        }).join("");
+      }
+      if (kind === "Select all") {
+        return title + items.map((item, index) => {
+          const given = Array.isArray(item.given) ? item.given.map(Number) : [];
+          const right = examRight(item, kind);
+          const inputs = (item.options || []).map((opt, oi) => '<label class="lm-opt' + examMarkClass(reviewer, given, right, oi) + '"><input type="checkbox" data-exam-given="' + block.id + ":" + index + '" data-exam-value="' + oi + '"' + (given.indexOf(oi) >= 0 ? " checked" : "") + lock + " /> " + esc(opt || "Option") + "</label>").join("");
+          return '<div class="lm-q"><b>' + esc(item.prompt || "Question") + "</b>" + inputs + tail(index) + "</div>";
+        }).join("");
+      }
+      if (kind === "True / false") {
+        return title + items.map((item, index) => {
+          const right = examRight(item, kind);
+          const radio = (value, label) => '<label class="lm-opt' + examMarkClass(reviewer, item.given, right, value) + '"><input type="radio" name="ex-' + block.id + "-" + index + '" data-exam-given="' + block.id + ":" + index + '" data-exam-value="' + value + '"' + (item.given === value ? " checked" : "") + lock + " /> " + label + "</label>";
+          return '<div class="lm-q"><b>' + esc(item.prompt || "Statement") + "</b>" + radio("true", "True") + radio("false", "False") + tail(index) + "</div>";
+        }).join("");
+      }
+      if (kind === "Match" || kind === "Memory") {
+        const rights = items.map((item) => item.right || "").filter(Boolean);
+        return title + items.map((item, index) => {
+          if (reviewer) {
+            const ok = examSame(item.given, item.right);
+            const mark = ok ? '<p class="exam-hit">' + esc(item.given || item.right || "") + "</p>" : '<p class="exam-miss exam-strike">' + esc(item.given || "—") + '</p><p class="exam-hit">' + esc(item.right || "") + "</p>";
+            return '<div class="lm-q"><b>' + esc(item.left || "Left") + "</b>" + mark + examFixInput(block, index) + tail(index) + "</div>";
+          }
+          const options = '<option value="">Choose</option>' + rights.map((right) => '<option' + (item.given === right ? " selected" : "") + ">" + esc(right) + "</option>").join("");
+          return '<div class="lm-q"><b>' + esc(item.left || "Left") + '</b><select data-exam-given="' + block.id + ":" + index + '"' + lock + ">" + options + "</select></div>";
+        }).join("");
+      }
+      if (kind === "Gap" || kind === "Build") {
+        const prompt = (item) => kind === "Gap" ? (item.shown || "Fill the gap") : (item.parts || "Build the phrase");
+        return title + items.map((item, index) => '<div class="lm-q"><b>' + esc(prompt(item)) + "</b>" + (reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />") + "</div>").join("");
+      }
+      return title + items.map((item, index) => {
+        const prompt = item.prompt || item.front || item.word || item.text || kind;
+        const field = reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />";
+        return '<div class="lm-q"><b>' + esc(prompt) + "</b>" + field + "</div>";
+      }).join("");
+    }
+    function examFillAnswers() {
+      (lmState.blocks || []).forEach((block) => {
+        if (block.type !== "quiz") return;
+        const panel = document.querySelector('#lmPreview [data-lm-panel="' + block.id + '"]');
+        if (panel) panel.innerHTML = examAnswerHtml(block);
+      });
+    }
+    function examRemember(input) {
+      if (!lmState || !lmState.examOwned || canEditLessons()) return;
+      const reviewer = canTuneStudentLessons();
+      if (!reviewer && lmState.studentSaved) return;
+      const points = input.closest("[data-exam-points]");
+      const fix = input.closest("[data-exam-fix]");
+      if (points || fix) {
+        const source = points || fix;
+        const bits = (source.dataset.examPoints || source.dataset.examFix || "").split(":");
+        const partId = bits[0];
+        const index = bits[1];
+        const bucket = points ? "examPoints" : "examCorrections";
+        if (!lmState[bucket]) lmState[bucket] = {};
+        if (!lmState[bucket][partId]) lmState[bucket][partId] = {};
+        lmState[bucket][partId][index] = points ? source.value : source.value;
+        return;
+      }
+      const source = input.closest("[data-exam-given]");
+      if (!source || reviewer) return;
+      const bits = source.dataset.examGiven.split(":");
+      const block = (lmState.blocks || []).find((row) => row.id === bits[0]);
+      const item = block && (block.items || [])[Number(bits[1])];
+      if (!item) return;
+      if (source.type === "checkbox") {
+        item.given = [...source.closest(".lm-q").querySelectorAll("input:checked")].map((box) => Number(box.dataset.examValue));
+      } else if (source.type === "radio") {
+        item.given = source.dataset.examValue === "true" || source.dataset.examValue === "false" ? source.dataset.examValue : Number(source.dataset.examValue);
+      } else item.given = source.value;
+      const bag = examWorkBag();
+      const key = lmState.examId + "/" + lmState.blockId;
+      const prev = bag[key] || { saved: false, answers: {}, corrections: {}, points: {} };
+      prev.answers = examCollectAnswers(lmState);
+      bag[key] = prev;
+      examWorkWrite();
+    }
+    function examRow(chip, title, about, attr, locked, hidden, tools) {
+      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
+    }
+    function examTools(kind, id, hidden) {
+      if (!canEditLessons()) return "";
+      const eye = hidden
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
+      const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
+      const pencil = kind === "exam" ? '<button class="day-edit" type="button" data-exam-date="' + id + '" aria-label="Edit date" title="Edit date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg></button>' : "";
+      const hideLabel = hidden ? "Show" : "Hide";
+      return '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-exam-hide="' + kind + ":" + id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + "</button>" + pencil + '<button class="day-del" type="button" data-exam-del="' + kind + ":" + id + '" aria-label="Delete">' + trash + "</button></div>";
+    }
+    function examStudentSees(exam) {
+      if (!exam || exam.hidden) return false;
+      return (exam.blocks || []).some((block) => block.doc && block.doc.published && !block.hidden);
+    }
+    function examPaintList() {
+      const box = document.getElementById("examList");
+      const newer = document.getElementById("examNew");
+      if (newer) newer.hidden = !canEditLessons();
+      if (!box) return;
+      if (authUser && !examReady && !examPulling) examPull();
+      const account = examWorkAccount();
+      if (authUser && account && examWorkLoadedFor !== account && !examWorkPulling) examPullWork();
+      const stored = examLoad();
+      let dirty = false;
+      stored.forEach((exam) => { if (examStamp(exam)) dirty = true; });
+      if (dirty) examSave(stored);
+      const exams = examShown();
+      const rows = exams.filter((exam) => canEditLessons() || examStudentSees(exam)).slice().sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+        return (b.created || 0) - (a.created || 0);
+      });
+      box.innerHTML = rows.map((exam) => {
+        const chip = lmDateChip(exam.date);
+        const mine = !canEditLessons();
+        const ready = mine && examReadyForReview(exam);
+        const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
+        let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
+        if (mine) about += " · " + sum;
+        return examRow(chip, "Exam", about, 'data-exam-open="' + exam.id + '"', ready, !!exam.hidden, examTools("exam", exam.id, !!exam.hidden));
+      }).join("");
+    }
+    function examPaintBlocks() {
+      const box = document.getElementById("examBlocks");
+      const newer = document.getElementById("examBlockNew");
+      const title = document.getElementById("examBlocksTitle");
+      const exam = examView(examCurrentId);
+      if (newer) newer.hidden = !canEditLessons();
+      if (title && exam) title.textContent = lmLongDate(exam.date) || "Exam";
+      if (!box || !exam) return;
+      box.innerHTML = (exam.blocks || []).map((block, index) => {
+        if (!canEditLessons() && (!(block.doc && block.doc.published) || block.hidden)) return "";
+        const saved = !canEditLessons() && block.doc && block.doc.studentSaved;
+        const mine = !canEditLessons();
+        const sum = mine ? examPointsTotal(block) : 0;
+        let about = block.hidden ? "Hidden" : (saved ? "Saved" : (block.doc && block.doc.published ? "Published" : "Draft"));
+        if (mine) about += " · " + sum;
+        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, !!block.hidden, examTools("block", block.id, !!block.hidden));
+      }).join("");
+    }
+    function examHide(kind, id) {
+      if (!canEditLessons()) return;
+      const exams = examLoad();
+      if (kind === "exam") {
+        const exam = exams.find((row) => row.id === id);
+        if (!exam) return;
+        exam.hidden = !exam.hidden;
+      } else {
+        const exam = exams.find((row) => row.id === examCurrentId);
+        const block = exam && (exam.blocks || []).find((row) => row.id === id);
+        if (!block) return;
+        block.hidden = !block.hidden;
+      }
+      examSave(exams);
+      if (kind === "exam") examPaintList();
+      else examPaintBlocks();
+    }
+    function examDelete(kind, id) {
+      if (!canEditLessons()) return;
+      const exams = examLoad();
+      if (kind === "exam") {
+        examSave(exams.filter((row) => row.id !== id));
+        if (examCurrentId === id) examCurrentId = "";
+        examPaintList();
+        return;
+      }
+      const exam = exams.find((row) => row.id === examCurrentId);
+      if (!exam) return;
+      exam.blocks = (exam.blocks || []).filter((row) => row.id !== id);
+      examStamp(exam);
+      examSave(exams);
+      examPaintBlocks();
+    }
+    function examTool(event) {
+      const dateBtn = event.target.closest("[data-exam-date]");
+      const del = event.target.closest("[data-exam-del]");
+      const hide = event.target.closest("[data-exam-hide]");
+      if (!dateBtn && !del && !hide) return false;
+      event.preventDefault();
+      if (dateBtn) { examEditDate(dateBtn.getAttribute("data-exam-date"), dateBtn); return true; }
+      const raw = (del || hide).getAttribute(del ? "data-exam-del" : "data-exam-hide") || "";
+      const kind = raw.slice(0, raw.indexOf(":"));
+      const id = raw.slice(kind.length + 1);
+      if (del) examDelete(kind, id);
+      else examHide(kind, id);
+      return true;
+    }
+    function examEditDate(id, button) {
+      const exam = examFind(id);
+      if (!exam || !button) return;
+      const row = button.closest(".day-row");
+      if (!row) return;
+      let input = row.querySelector("input[type=date]");
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "date";
+        input.className = "exam-date";
+        button.parentElement.before(input);
+      }
+      input.value = exam.date || lmToday();
+      input.onchange = () => examSetDate(id, input.value);
+      input.focus();
+      try { if (input.showPicker) input.showPicker(); } catch (e) {}
+    }
+    function examSetDate(id, date) {
+      if (!canEditLessons() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      const exams = examLoad();
+      const exam = exams.find((row) => row.id === id);
+      if (!exam) return;
+      exam.date = date;
+      (exam.blocks || []).forEach((block) => { if (block.doc) block.doc.date = date; });
+      if (lmState && lmState.examOwned && lmState.examId === id) lmState.date = date;
+      examSave(exams);
+      examPaintList();
+    }
+    function examAdd() {
+      if (!canEditLessons()) return;
+      const input = document.getElementById("examDate");
+      if (!input) return;
+      input.hidden = false;
+      input.value = "";
+      input.focus();
+      try { if (input.showPicker) input.showPicker(); } catch (e) {}
+    }
+    function examAddBlock() {
+      if (!canEditLessons()) return;
+      const exams = examLoad();
+      const exam = exams.find((row) => row.id === examCurrentId);
+      if (!exam) return;
+      const doc = lmBlankMaterial();
+      doc.id = "exb-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      doc.title = "Examination block";
+      doc.date = exam.date || lmToday();
+      doc.examOwned = true;
+      doc.examId = exam.id;
+      doc.blockId = doc.id;
+      doc.studentSaved = false;
+      exam.blocks = exam.blocks || [];
+      exam.blocks.push({ id: doc.id, doc: doc });
+      examSave(exams);
+      examPaintBlocks();
+    }
+    function examOpenBlock(blockId) {
+      const exam = examView(examCurrentId);
+      const block = exam && (exam.blocks || []).find((row) => row.id === blockId);
+      if (!block || !block.doc) return;
+      if (!examHold) examHold = lmState && lmState.examOwned ? null : lmState;
+      lmState = block.doc;
+      lmState.examOwned = true;
+      lmState.examId = exam.id;
+      lmState.blockId = block.id;
+      if (!canEditLessons()) lmState.mode = "preview";
+      visit("material");
+    }
+    function examBoot() {
+      const openScreen = show;
+      show = function (id) {
+        if ((examHold || (lmState && lmState.examOwned)) && !(id === "material" && lmState && lmState.examOwned)) examLeave();
+        const result = openScreen(id);
+        if (id === "exams") examPaintList();
+        if (id === "examblocks") examPaintBlocks();
+        if (id === "material") examDress();
+        return result;
+      };
+      const newer = document.getElementById("examNew");
+      const blockNew = document.getElementById("examBlockNew");
+      const list = document.getElementById("examList");
+      const blocks = document.getElementById("examBlocks");
+      const save = document.getElementById("examSave");
+      if (newer) newer.addEventListener("click", examAdd);
+      const dateInput = document.getElementById("examDate");
+      if (dateInput) dateInput.addEventListener("change", () => {
+        if (!canEditLessons() || !/^\d{4}-\d{2}-\d{2}$/.test(dateInput.value)) return;
+        const exams = examLoad();
+        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: dateInput.value, created: Date.now(), blocks: [] });
+        examSave(exams);
+        dateInput.hidden = true;
+        dateInput.value = "";
+        examPaintList();
+      });
+      if (blockNew) blockNew.addEventListener("click", examAddBlock);
+      if (list) list.addEventListener("click", (event) => {
+        if (examTool(event)) return;
+        const open = event.target.closest("[data-exam-open]");
+        if (!open) return;
+        examCurrentId = open.dataset.examOpen;
+        show("examblocks");
+      });
+      if (blocks) blocks.addEventListener("click", (event) => {
+        if (examTool(event)) return;
+        const open = event.target.closest("[data-exam-block]");
+        if (!open) return;
+        examOpenBlock(open.dataset.examBlock);
+      });
+      if (save) save.addEventListener("click", () => {
+        if (!lmState || !lmState.examOwned) return;
+        if (canTuneStudentLessons()) {
+          examWorkPut(lmState.examId, lmState.blockId, { corrections: lmState.examCorrections || {}, points: lmState.examPoints || {} });
+          if (typeof lmNote === "function") lmNote("Saved.");
+          return;
+        }
+        if (canEditLessons() || lmState.studentSaved) return;
+        lmState.studentSaved = true;
+        examWorkPut(lmState.examId, lmState.blockId, { saved: true, answers: examCollectAnswers(lmState) });
+        const backTo = lmState.examId;
+        examLeave();
+        examCurrentId = backTo;
+        show("examblocks");
+      });
+      document.addEventListener("input", (event) => examRemember(event.target));
+      document.addEventListener("change", (event) => examRemember(event.target));
+    }
+    examBoot();
     paintTextCount();
     paintHomeStats();
     resumePlace();

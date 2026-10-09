@@ -1,18 +1,13 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="almond">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>English</title>
-  <link rel="icon" href="/favicon.ico?v=2" sizes="128x128" />
-  <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="128x128" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="preview.css" />
   <script>
     try {
-      var savedTheme = localStorage.getItem("enquiz-theme") || "almond";
+      var explicitTheme = localStorage.getItem("enquiz-theme");
+      var savedTheme = explicitTheme || "almond";
       if (savedTheme && savedTheme.indexOf("user-") === 0) {
         var customList = JSON.parse(localStorage.getItem("enquiz-custom-themes") || "[]");
         var customTheme = null;
@@ -22,16 +17,31 @@
         if (customTheme && customTheme.vars) {
           var root = document.documentElement;
           root.setAttribute("data-theme", "user");
+          if (explicitTheme) root.setAttribute("data-painted-theme", savedTheme);
           var themeKeys = ["--bg", "--card", "--ink", "--mute", "--line", "--acc", "--acc-s", "--ok", "--ok-s", "--bad", "--bad-s", "--on-acc", "--photo-wash"];
           for (var k = 0; k < themeKeys.length; k++) {
             if (customTheme.vars[themeKeys[k]]) root.style.setProperty(themeKeys[k], customTheme.vars[themeKeys[k]]);
           }
           if (customTheme.vars["color-scheme"]) root.style.setProperty("color-scheme", customTheme.vars["color-scheme"]);
-          if (customTheme.photo && customTheme.photo.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", "url(\"" + customTheme.photo + "\")");
+          var picture = null;
+          try { picture = JSON.parse(localStorage.getItem("enquiz-theme-picture") || "null"); } catch (err) { picture = null; }
+          if (picture && picture.id === customTheme.id && picture.url && picture.url.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", "url(\"" + picture.url + "\")");
+          else if (customTheme.photo && customTheme.photo.indexOf("data:image/") === 0) root.style.setProperty("--theme-photo", "url(\"" + customTheme.photo + "\")");
+          else if (customTheme.photo && customTheme.photo.indexOf("stage-local/themes/") === 0) root.style.setProperty("--theme-photo", "url(\"/api/theme-photo?id=" + encodeURIComponent(customTheme.id) + "&v=" + customTheme.photo.slice(customTheme.photo.lastIndexOf("/") + 1) + "\")");
+          if (customTheme.name) window.__themeLabel = customTheme.name;
         }
-      } else if (savedTheme && savedTheme !== "auto") document.documentElement.setAttribute("data-theme", savedTheme);
+      } else if (savedTheme && savedTheme !== "auto") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        if (explicitTheme) document.documentElement.setAttribute("data-painted-theme", savedTheme);
+      }
     } catch (e) {}
   </script>
+  <link rel="icon" href="/favicon.ico?v=2" sizes="128x128" />
+  <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="128x128" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="preview.css" />
 </head>
 <body>
   <div class="shell">
@@ -40,6 +50,7 @@
     <nav aria-label="Primary">
       <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
       <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
+      <button type="button" data-jump="exams"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8l4 4v14H8z"/><path d="M16 3v4h4M10 12h6M10 16h6"/></svg>Exam</button>
       <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
       <button type="button" data-jump="bugs" data-developer-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M8 8h8v8a4 4 0 0 1-8 0V8z"/><path d="M5 10H3M21 10h-2M5 15H3M21 15h-2M8 21l1.5-2M16 21l-1.5-2"/></svg>Bugs</button>
     </nav>
@@ -47,6 +58,19 @@
       <button class="btn ghost" type="button" data-jump="account">Account</button>
       <button class="btn ghost" type="button" data-jump="guide">How to use</button>
       <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">Almond blossom</span><span class="theme-sub">Van Gogh</span></span></button>
+      <script>
+        try {
+          var label = window.__themeLabel;
+          var button = document.getElementById("themeCycle");
+          if (label && button) {
+            var parts = String(label).split(/\s+(?:\u2014|\u2013|-)\s+/);
+            var title = button.querySelector(".theme-title");
+            var sub = button.querySelector(".theme-sub");
+            if (title) title.textContent = parts[0] || label;
+            if (sub) sub.textContent = parts.length > 1 ? parts[1] : "";
+          }
+        } catch (e) {}
+      </script>
     </div>
   </aside>
   <div class="phone"><div class="wrap">
@@ -505,12 +529,32 @@
       </div>
     </section>
 
+    <section id="exams">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Exam</h1></div>
+      <p class="sub">In date order.</p>
+      <div>
+        <button class="btn primary" type="button" id="examNew">+ New exam</button>
+        <input class="exam-date" type="date" id="examDate" hidden>
+        <div id="examList"></div>
+      </div>
+    </section>
+
+    <section id="examblocks">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="exams">Back</button><h1 id="examBlocksTitle">Exam</h1></div>
+      <p class="sub">Examination blocks, in number order.</p>
+      <div>
+        <button class="btn primary" type="button" id="examBlockNew">+ Examination block</button>
+        <div id="examBlocks"></div>
+      </div>
+    </section>
+
     <section id="material">
       <div class="lm">
         <div class="meta lm-meta">
           <button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button>
           <h1>Learning material</h1>
           <div class="lm-actions">
+            <button class="lm-btn" type="button" id="examSave" hidden>Save</button>
             <button class="lm-btn" type="button" id="lmSave">Save draft</button>
             <button class="lm-btn lm-btn-primary" type="button" id="lmPublish">Publish</button>
             <button class="lm-btn" type="button" id="lmEditBack" hidden>Back to editor</button>
@@ -567,6 +611,16 @@
                   <button type="button" data-add-block="file">File</button>
                   <button type="button" data-add-block="divider">Divider</button>
                   <button type="button" data-add-block="phrase">Phrase</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Choice" data-exam-quiz hidden>Choice</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Select all" data-exam-quiz hidden>Select all</button>
+                  <button type="button" data-add-block="quiz" data-quiz="True / false" data-exam-quiz hidden>True / false</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Type" data-exam-quiz hidden>Type</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Gap" data-exam-quiz hidden>Gap</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Build" data-exam-quiz hidden>Build</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Match" data-exam-quiz hidden>Match</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Listen" data-exam-quiz hidden>Listen</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Spell" data-exam-quiz hidden>Spell</button>
+                  <button type="button" data-add-block="quiz" data-quiz="Memory" data-exam-quiz hidden>Memory</button>
                 </div>
               </div>
             </div>
@@ -1657,6 +1711,7 @@
   <nav class="tabbar" aria-label="Primary">
     <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
     <button type="button" data-jump="days"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
+    <button type="button" data-jump="exams"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8l4 4v14H8z"/><path d="M16 3v4h4M10 12h6M10 16h6"/></svg>Exam</button>
     <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Library</button>
     <button type="button" data-jump="bugs" data-developer-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M8 8h8v8a4 4 0 0 1-8 0V8z"/><path d="M5 10H3M21 10h-2M5 15H3M21 15h-2M8 21l1.5-2M16 21l-1.5-2"/></svg>Bugs</button>
   </nav>
@@ -1668,7 +1723,7 @@
     </div>
   </div>
   <div id="selpop" class="selpop" hidden>
-    <div class="selpop-top"><b id="selpopWord"></b><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></div>
+    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
     <div id="selpopBody"></div>
   </div>
   <script src="grammar.js"></script>

@@ -239,14 +239,16 @@ function stageHostCard(host){
   return findCatalog(id);
 }
 function stageCanEditTranslation(card){
-  return canEditLessons()||!!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching&&card?.stageScope==='profile'&&card.stageId);
+  if(canEditLessons())return true;
+  if(!card||!card.stageId||card.stageScope!=='profile')return false;
+  if(viewAccount)return !!(authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
+  return !!(authUser&&accountReady&&!viewSwitching);
 }
 function stageCanManageAdded(card){
-  return !!(card?.stageId&&viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
+  return !!(card&&viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
 }
 function stageAddedActions(item){
-  if(stageCanManageAdded(item))return '<span class="edit-actions">'+(stageCanEditTranslation(item)?'<button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">'+actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>')+'</button>':'')+'<button class="icon-btn" type="button" data-card-delete aria-label="Remove from student cards">×</button></span>';
-  return canEditLessons()?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-card-delete aria-label="Remove from my cards">×</button></span>';
+  return typeof editActions==='function'?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit"></button><button class="icon-btn" type="button" data-card-delete aria-label="Delete"></button></span>';
 }
 function stageAddedEditHtml(item){
   const index=addedIndexOf(item);
@@ -710,6 +712,16 @@ function stageStampLesson(material){
   material.stageLessonBaseline=window.TursoMain.lessonSnapshot({...material,blocks:saved});
 }
 function stageSaveLesson(published){
+  if(lmState&&lmState.examOwned){
+    lmState.published=!!published;
+    lmState.mode=published?'preview':'edit';
+    if(typeof examSync==='function')return Promise.resolve(examSync()).then(()=>{
+      if(typeof lmShow==='function')lmShow(lmState.mode);
+      if(typeof lmNote==='function')lmNote(published?'':'Draft saved.');
+      if(typeof examDress==='function')examDress();
+    });
+    return Promise.resolve();
+  }
   const bound=document.getElementById('material')?.dataset.lmBound||'';
   if(bound&&lmState?.id!==bound){
     const found=lmLibrary?.materials?.find(row=>row.id===bound);
@@ -776,6 +788,15 @@ async function stageLookupLessonWord(){
   finally{if(button)button.disabled=false;}
 }
 function stageUploadLessonFile(id,file){
+  if(lmState&&lmState.examOwned){
+    const block=lmBlock(id);if(!block||!file)return;
+    block.name=file.name;block.size=typeof lmFileSize==='function'?lmFileSize(file.size):'';block.sample=false;block.hasFile=true;block.fileType=file.type||'';
+    if(lmFiles[id])URL.revokeObjectURL(lmFiles[id]);
+    lmFiles[id]=URL.createObjectURL(file);
+    if(typeof examSync==='function')examSync();
+    if(typeof lmRenderEditor==='function')lmRenderEditor();
+    return;
+  }
   if(!canEditLessons()||viewAccount||viewSwitching||!file)return;
   const block=lmBlock(id);if(!block)return;
   const current=lmState,generation=viewGen;
@@ -797,6 +818,14 @@ function stageUploadLessonFile(id,file){
   },document.getElementById('lmNote'));
 }
 function stageClearLessonFile(id){
+  if(lmState&&lmState.examOwned){
+    const block=lmBlock(id);if(!block)return;
+    block.name='';block.size='';block.sample=false;block.hasFile=false;block.fileType='';
+    if(lmFiles[id]){URL.revokeObjectURL(lmFiles[id]);delete lmFiles[id];}
+    if(typeof examSync==='function')examSync();
+    if(typeof lmRenderEditor==='function')lmRenderEditor();
+    return;
+  }
   if(!canEditLessons()||viewAccount||viewSwitching)return;
   const block=lmBlock(id);if(!block)return;
   const current=lmState,generation=viewGen;
@@ -848,6 +877,7 @@ document.addEventListener('click',event=>{
   event.preventDefault();event.stopPropagation();stageSaveLesson(button.id==='lmPublish');
 },true);
 function stageResponseEvent(event){
+  if(lmState&&lmState.examOwned)return;
   const input=event.target.closest('[data-response],[data-write],[data-pick],[data-quiz-check],[data-ex-check]');
   if(!input)return;
   const checking=input.hasAttribute('data-quiz-check')||input.hasAttribute('data-ex-check');
@@ -1518,7 +1548,7 @@ function stageKeepSetting(change){
   const prefs=stageReadPrefs();
   prefs[change.key]=change.value;
   try{localStorage.setItem('turso-main-prefs',JSON.stringify(prefs));}
-  catch(e){if(change.key==='customThemes'&&Array.isArray(change.value)){prefs.customThemes=change.value.map(row=>({...row,photo:''}));try{localStorage.setItem('turso-main-prefs',JSON.stringify(prefs));}catch(err){}}}
+  catch(e){if(change.key==='customThemes'&&Array.isArray(change.value)){prefs.customThemes=change.value.map(row=>({...row,photo:row&&typeof row.photo==='string'&&row.photo.indexOf('stage-local/themes/')===0?row.photo:''}));try{localStorage.setItem('turso-main-prefs',JSON.stringify(prefs));}catch(err){}}}
   return true;
 }
 function stageApplyPrefs(){
@@ -1528,7 +1558,11 @@ function stageApplyPrefs(){
     if(typeof lyricSize!=='undefined')lyricSize=Number(prefs.lyricSize)||lyricSize;
     if(typeof applyLyricSize==='function')applyLyricSize(document);
   }
-  if(Array.isArray(prefs.customThemes)&&typeof installCustomThemes==='function'){installCustomThemes(prefs.customThemes);if(typeof paintThemeSegs==='function')paintThemeSegs();}
+  if(Array.isArray(prefs.customThemes)&&typeof installCustomThemes==='function'){
+    const login=typeof authUser!=='undefined'&&authUser&&authUser.login?authUser.login:'';
+    const own=prefs.customThemes.filter(row=>{const owner=row&&row.owner?String(row.owner):'';return login?!owner||owner===login:!owner;});
+    if(own.length){installCustomThemes(own);if(typeof paintThemeSegs==='function')paintThemeSegs();}
+  }
   if(prefs.dayLinks){try{localStorage.setItem('enquiz-day-links',JSON.stringify(prefs.dayLinks));}catch(e){}}
   if(prefs.demonstratives){try{localStorage.setItem('enquiz-demonstratives',JSON.stringify(prefs.demonstratives));}catch(e){}if(typeof window.paintDemonstratives==='function'&&document.getElementById('demonstratives')?.classList.contains('on'))window.paintDemonstratives();}
 }
@@ -1537,15 +1571,19 @@ function stageApplyBootstrap(state){
   window.ContentCache?.set('account:bootstrap',state);
   stageSetActivity(state.stageActivity);
   if(state.stats){
-    if(typeof state.stats.theme==='string'&&typeof applyTheme==='function')applyTheme(state.stats.theme,{sync:false});
     if(state.stats.lyricSize)localStorage.setItem('enquiz-lyric-size',String(state.stats.lyricSize));
     if(typeof installHiddenLessons==='function')installHiddenLessons(state.stats.hiddenLessons);
     if(typeof installAllowedLessons==='function')installAllowedLessons(state.stats.allowedLessons);
     if(state.stats.dayLinks)localStorage.setItem(LINK_KEY,JSON.stringify(state.stats.dayLinks));
-    if(Array.isArray(state.stats.customThemes)&&typeof installCustomThemes==='function')installCustomThemes(state.stats.customThemes);
     if(state.stats.demonstratives)localStorage.setItem('enquiz-demonstratives',JSON.stringify(state.stats.demonstratives));
   }
   stageApplyPrefs();
+  if(state.stats&&Array.isArray(state.stats.customThemes)&&typeof installCustomThemes==='function')installCustomThemes(state.stats.customThemes);
+  const paintedRoot=typeof document!=='undefined'?document.documentElement:null;
+  const painted=paintedRoot&&paintedRoot.dataset?paintedRoot.dataset.paintedTheme:'';
+  const holdPaint=!!painted&&!(typeof viewAccount!=='undefined'&&viewAccount);
+  if(!holdPaint&&state.stats&&typeof state.stats.theme==='string'&&typeof applyTheme==='function')applyTheme(state.stats.theme,{sync:false});
+  else if(holdPaint&&typeof cacheThemePicture==='function'&&typeof loadCustomThemes==='function'){const row=loadCustomThemes().find(item=>item&&item.id===painted);if(row)cacheThemePicture(row);}
   stagePaintCounts(state.counts);
   if(typeof paintHomeAccount==='function')paintHomeAccount();
   stageStartPreload();

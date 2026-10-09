@@ -636,7 +636,7 @@ test('Personal card hooks: USER removal only, acknowledgement before local updat
   const input={value:'test'},status={};
   await assert.rejects(scope.stageSaveWord('mine',input,status,{},true));assert.equal(list.length,0);assert.equal(input.value,'test');assert.equal(rendered,null);
   fail=false;await scope.stageSaveWord('mine',input,status,{},true);assert.equal(list.length,1);assert.equal(input.value,'');
-  assert.match(scope.stageAddedEditHtml(list[0]),/data-card-delete/);assert.ok(!scope.stageAddedEditHtml(list[0]).includes('data-edit-toggle'));
+  assert.match(scope.stageAddedEditHtml(list[0]),/data-card-delete/);assert.match(scope.stageAddedEditHtml(list[0]),/data-edit-toggle/);
   list.push({...list[0],place:'phrasal'});scope.madeItem=list[0];
   const host={dataset:{editKind:'added',editId:'0'}};fail=true;
   await assert.rejects(scope.stageDeleteDefinition(host));assert.equal(list.length,2);
@@ -1005,8 +1005,8 @@ test('Managed private card UI exposes edit/remove and ignores late saves after c
     loadAdded:()=>[card],rememberAdded(){},paintAdded:()=>paints.push('paint'),addedIndexOf:()=>0,renderMade(){},
     document:{addEventListener(){}},window:{TursoMain:{editManagedCard:()=>new Promise(resolve=>pending.push(resolve)),perform:async action=>action()}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
-  assert.match(context.stageAddedActions(card),/data-edit-toggle/);assert.match(context.stageAddedActions(card),/Remove from student cards/);
-  assert.ok(!context.stageAddedActions({...card,stageScope:'shared'}).includes('data-edit-toggle'));
+  assert.match(context.stageAddedActions(card),/data-edit-toggle/);assert.match(context.stageAddedActions(card),/data-card-delete/);
+  assert.match(context.stageAddedActions({...card,stageScope:'shared'}),/data-edit-toggle/);
   assert.equal(context.stageCanEditTranslation({...card,stageScope:'shared'}),false);
   const host={dataset:{editKind:'added',editId:'0'},isConnected:false,querySelector:selector=>selector.includes('field')?{value:'After'}:{}};
   const save=context.stageSaveTranslation(host);assert.equal(card.ru,'Before');pending.shift()({ru:'After',revision:2});await save;

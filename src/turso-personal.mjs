@@ -17,6 +17,38 @@ export class PersonalService extends StudyService {
         :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='theme' AND revision=?",[JSON.stringify(body.theme),actor.id,expected]),this.guard()],
       result:{theme:body.theme,revision:expected+1}}));
   }
+  async saveCustomThemes(actor,body){
+    only(body,['mutationId','expectedRevision','themes']);const expected=rev(body.expectedRevision);
+    if(!Array.isArray(body.themes)||body.themes.length>8)bad(400,'Invalid themes.');
+    const hex=/^#[0-9A-Fa-f]{6}$/,wash=/^#[0-9A-Fa-f]{8}$/;
+    const mine=typeof actor?.login==='string'?actor.login.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
+    const themes=body.themes.map(row=>{
+      if(!row||typeof row.id!=='string'||!/^user-[a-z0-9-]{1,80}$/.test(row.id))bad(400,'Invalid theme.');
+      const incoming=typeof row.owner==='string'?row.owner.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
+      if(incoming&&mine&&incoming!==mine)return null;
+      const vars={};
+      if(row.vars&&typeof row.vars==='object')for(const [key,val] of Object.entries(row.vars)){
+        if(typeof val!=='string')continue;
+        if(key==='--photo-wash'&&(wash.test(val)||hex.test(val)))vars[key]=val;
+        else if(key==='color-scheme'&&(val==='light'||val==='dark'))vars[key]=val;
+        else if(hex.test(val))vars[key]=val;
+      }
+      if(!hex.test(vars['--bg'])||!hex.test(vars['--card'])||!hex.test(vars['--acc']))bad(400,'Invalid theme.');
+      const photo=typeof row.photo==='string'&&/^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/.test(row.photo)?row.photo:'';
+      return {id:row.id,name:typeof row.name==='string'?row.name.slice(0,64):'',owner:mine||incoming,bg:vars['--bg'],card:vars['--card'],acc:vars['--acc'],vars,photo};
+    }).filter(Boolean);
+    return this.personal(actor,body,['account-custom-themes'],async profile=>{
+      const stored=themes.map(row=>({...row,photo:row.photo.startsWith(`stage-local/themes/${profile}/${row.id}/`)?row.photo:''}));
+      const json=JSON.stringify(stored);
+      if(json.length>60000)bad(413,'Themes are too large.');
+      const [existing]=expected===0?await this.db.read("SELECT revision FROM account_settings WHERE account_id=? AND key='customThemes'",[actor.id]):[];
+      const base=existing?Number(existing.revision)||1:expected;
+      return {statements:[
+        base===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'customThemes',?)",[actor.id,json])
+          :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='customThemes' AND revision=?",[json,actor.id,base]),this.guard()],
+        result:{themes:stored,revision:base+1}};
+    });
+  }
   async createManagedCard(actor,accountId,body){
     id(accountId);only(body,['mutationId','id','expectedRevision','card']);id(body.id);const expected=rev(body.expectedRevision);
     only(body.card,['en','ru','place']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim(),place=ownPlace(body.card);

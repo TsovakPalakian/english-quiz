@@ -84,9 +84,11 @@ export async function legacyState(db,actor,{compact=false,summary=false}={}){
     cardEdits:{},cardQuizzes,mistakes:mistakes.map(r=>JSON.parse(r.progress_json)).filter(row=>!row.cleared),
     hiddenLessons:access.filter(a=>a.personal_hidden).map(a=>a.lesson_id),allowedLessons:access.filter(a=>a.allow_hidden).map(a=>a.lesson_id)};
   const theme=accountSettings.find(row=>row.key==='theme');
+  const custom=accountSettings.find(row=>row.key==='customThemes');
   if(theme)stats.theme=JSON.parse(theme.value_json); // Own theme overrides a legacy shared-profile setting.
+  if(custom)stats.customThemes=JSON.parse(custom.value_json);
   const songItem=row=>{const item=libraryDto(row);if(!summary)return item;const {lyrics,...rest}=item;return {...rest,stageLyricsDeferred:true};};
-  return {stageThemeRevision:theme?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(songItem),
+  return {stageThemeRevision:theme?.revision||0,stageCustomRevision:custom?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(songItem),
     learned:progress.filter(p=>p.learned).map(p=>p.en.toLowerCase()),variants:Object.fromEntries(progress.map(p=>[p.en.toLowerCase(),JSON.parse(p.variants_json)])),stats,
     stageCollections:collections,stageProfile:profile,
     stageCardProgress:progress.map(row=>({id:row.id,revision:row.revision})),
@@ -239,11 +241,12 @@ export async function accountBootstrap(db,actor){
   stats.hiddenLessons=access.filter(row=>row.personal_hidden).map(row=>row.lesson_id);
   stats.allowedLessons=access.filter(row=>row.allow_hidden).map(row=>row.lesson_id);
   const theme=settings.find(row=>row.key==='theme'&&row.origin==='account');
+  const custom=settings.find(row=>row.key==='customThemes'&&row.origin==='account');
   const versions={};
   for(const row of catalogs)versions[row.key]=Number(row.bytes)||0;
   const actions=activity.map(row=>JSON.parse(row.value_json));
   return {bootstrap:true,
-    stageThemeRevision:theme?.revision||0,stageAddedRevision:links[0]?.revision||0,stageProfile:profile,
+    stageThemeRevision:theme?.revision||0,stageCustomRevision:custom?.revision||0,stageAddedRevision:links[0]?.revision||0,stageProfile:profile,
     stageActivity:{tracked:!!actions.length,seconds:actions.reduce((n,row)=>n+(row.seconds||0),0),examPass:actions.reduce((n,row)=>n+(row.examPass||0),0)},
     counts:{cards:Number(counts[0]?.cards)||0,songs:Number(counts[0]?.songs)||0,texts:Number(counts[0]?.texts)||0,quizzes:Number(counts[0]?.quizzes)||0,progress:Number(counts[0]?.progress)||0,lessons:Number(lessonCount[0]?.n)||0,
       songRevision:Number(counts[0]?.songRevision)||0,textRevision:Number(counts[0]?.textRevision)||0,progressRevision:Number(counts[0]?.progressRevision)||0,quizRevision:Number(counts[0]?.quizRevision)||0,lessonRevision:Number(lessonCount[0]?.rev)||0},

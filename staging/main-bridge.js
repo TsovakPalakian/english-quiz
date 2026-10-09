@@ -10,7 +10,7 @@
   const personalKey='turso-main-personal-pending',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
-  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,themeRecovering=false,backendCapabilities={};
+  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
@@ -58,7 +58,9 @@
     }
   }catch{}
   // Avoid restored browser caches resurrecting removed/shared/private entities.
-  for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-'))localStorage.removeItem(key);
+  // The chosen theme and its picture stay, so a refresh paints the same picture without a download.
+  const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture'];
+  for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-')&&!themeLocal.includes(key))localStorage.removeItem(key);
   function notice(message,bad=false){
     const el=document.getElementById('turso-main-status');if(!el)return;
     const banner=document.getElementById('turso-main-banner');
@@ -80,12 +82,13 @@
   }
   function discardStaleTheme(){
     if(themeRecovering)return;
-    const next=personalQueue.filter(row=>!(row.kind==='theme'&&row.body&&row.body.expectedRevision!==themeRevision));
+    const next=personalQueue.filter(row=>!(row.kind==='theme'&&row.body&&row.body.expectedRevision!==themeRevision)&&!(row.kind==='customThemes'&&row.body&&row.body.expectedRevision!==customRevision));
     if(next.length===personalQueue.length)return;
     personalQueue=next;savePersonal();
   }
   function registerState(data){
     if(data.stageThemeRevision!=null)themeRevision=data.stageThemeRevision||0;
+    if(data.stageCustomRevision!=null)customRevision=data.stageCustomRevision||0;
     discardStaleTheme();
     if(data.stageAddedRevision!=null)addedRevision=data.stageAddedRevision||0;
     if(data.bootstrap){personalReady=true;return;}
@@ -291,6 +294,18 @@
       if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
       return;
     }
+    if(job.kind==='customThemes'){
+      const existing=personalQueue.find(row=>row.kind==='customThemes'&&row.key===job.key);
+      if(existing){existing.themes=job.themes;existing.paused=false;delete existing.body;}
+      else{
+        if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
+        personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
+      }
+      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Turso.');
+      clearTimeout(personalTimer);
+      if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
+      return;
+    }
     const queued=['response','activity'].includes(job.kind) && personalQueue.find(row=>row.kind===job.kind&&row.key===job.key&&!row.body&&(row.events?.length||0)<100);
     if(queued){if(job.kind==='activity')queued.events.push(...job.events);else queued.response=job.response;} // Preserve the first editor baseline.
     else{
@@ -309,8 +324,9 @@
       while(personalQueue.length){
         const job=personalQueue[0];
         if(job.actorId!==actorId)throw new Error('Несохранённая операция принадлежит другому аккаунту.');
-        if(job.kind==='theme'||!job.body){
+        if(job.kind==='theme'||job.kind==='customThemes'||!job.body){
           job.body=job.kind==='theme'?{mutationId:job.mutationId,expectedRevision:themeRevision,theme:job.theme}
+            :job.kind==='customThemes'?{mutationId:job.mutationId,expectedRevision:customRevision,themes:job.themes}
             :job.kind==='answer'?{mutationId:job.mutationId,expectedRevision:quizProgress.get(job.key)||0,quizType:job.type,correct:job.correct}
             :job.kind==='progress'?{mutationId:job.mutationId,expectedRevision:cardProgress.get(job.cardId)||0,changes:job.changes}
             :job.kind==='activity'?{mutationId:job.mutationId,events:job.events}
@@ -321,17 +337,20 @@
         let result;
         try{result=await api(job.path,{method:job.method,body:JSON.stringify(job.body),keepalive:unloading,quietBug:job.kind==='theme'});}
         catch(error){
-          if(!(job.kind==='theme'&&error.status===409&&!job.themeRetried))throw error;
+          if(!((job.kind==='theme'||job.kind==='customThemes')&&error.status===409&&!job.themeRetried))throw error;
           job.themeRetried=true;themeRecovering=true;
           try{
             const state=await accountFetch('/api/me/state?summary=1');
-            if(state?.stats?.theme===job.theme){personalQueue.shift();savePersonal();continue;}
+            if(job.kind==='theme'&&state?.stats?.theme===job.theme){personalQueue.shift();savePersonal();continue;}
+            if(job.kind==='customThemes'&&JSON.stringify(state?.stats?.customThemes||[])===JSON.stringify(job.themes||[])){personalQueue.shift();savePersonal();continue;}
+            if(job.kind==='customThemes'&&state?.stageCustomRevision!=null)customRevision=state.stageCustomRevision||0;
             job.mutationId=(crypto.randomUUID&&crypto.randomUUID())||job.mutationId;
             delete job.body;
           }finally{themeRecovering=false;}
           continue;
         }
         if(job.kind==='theme')themeRevision=result.revision;
+        if(job.kind==='customThemes')customRevision=result.revision;
         if(job.kind==='answer')quizProgress.set(job.key,result.revision);
         if(job.kind==='progress')cardProgress.set(job.cardId,result.revision);
         if(job.kind==='response')savedResponses.set(job.key,{revision:result.revision,blockRevision:job.blockRevision,intent:JSON.stringify(job.response)});
@@ -358,6 +377,7 @@
       return catalogDetails.get(key);
     },
     theme(value){enqueuePersonal({kind:'theme',key:'theme',theme:value,path:'/api/me/theme',method:'PUT'},150);},
+    customThemes(value){enqueuePersonal({kind:'customThemes',key:'customThemes',themes:value,path:'/api/me/custom-themes',method:'PUT'},150);},
     flushPersonal:()=>drainPersonal(true),
     cardForProgress:id=>cards.get(id),
     async dictionary(item,accountId=''){
@@ -498,6 +518,11 @@
         return write('/api/library/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
       }
       return write('/api/library','POST',{id:item.id,kind,changes});
+    },
+    async uploadThemePhoto(themeId,file){
+      if(!actorId||!mediaAllowed()||!/^user-[a-z0-9-]{1,80}$/.test(themeId))throw new Error('A theme picture can be saved only for your own theme.');
+      const mime=file.type==='image/png'||file.type==='image/webp'?file.type:'image/jpeg';
+      return sendBinary('/api/me/themes/'+encodeURIComponent(themeId)+'/photo',mime,await file.arrayBuffer());
     },
     async uploadSongAudio(item,file,onProgress){
       if(!actorId||!mediaAllowed()||item.stageScope!=='profile'||!item.stageId)throw new Error('Аудио доступно только для собственной сохранённой песни на разрешённом тестовом стенде.');

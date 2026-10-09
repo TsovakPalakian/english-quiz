@@ -4,7 +4,7 @@ import {mediaRange} from './turso-media.mjs';
 export const TEST_MEDIA_BUCKET='learn-english-turso-test-media';
 export const PRODUCTION_MEDIA_BUCKET='learn-english-production-media';
 const limit=25*1024*1024;
-const pattern=/^(?:stage-local\/(songs|lessons)\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}|migration-inline)\/([a-f0-9]{64})$/;
+const pattern=/^(?:stage-local\/(songs|lessons|themes)\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}|migration-inline)\/([a-f0-9]{64})$/;
 const mimes=new Set(['audio/wav','audio/mpeg','audio/ogg','application/pdf','image/png','image/jpeg','image/gif','image/webp']);
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const hex=bytes=>Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
