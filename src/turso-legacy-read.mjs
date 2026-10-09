@@ -271,10 +271,12 @@ export async function accountBootstrap(db,actor){
 function cardRow(row){
   return {...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stagePublicCatalog:row.stage_public||false};
 }
-export async function accountCards(db,actor,{after='',limit=50}={}){
-  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+const personalCardPlaces=['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+export async function accountCards(db,actor,{after='',limit=50,place=''}={}){
+  if(place&&!personalCardPlaces.includes(place))throw new StudyError(400,'Invalid personal card destination.');
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after),placeSql=place?' AND p.place=?':'';
   const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred,p.place
-    FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=? AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...accessArgs(actor),cursor,size+1]);
+    FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=?${placeSql} AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...(place?[place]:[]),...accessArgs(actor),cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
   const links=await db.read("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]);
   const revision=links[0]?.revision||0;

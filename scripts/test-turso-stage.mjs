@@ -5,6 +5,7 @@ import {readFileSync} from 'node:fs';
 import {once} from 'node:events';
 import {request} from 'node:http';
 import {StudyService,TursoStudyClient,statement} from '../src/turso-study.mjs';
+import {GroupService} from '../src/turso-groups.mjs';
 import {createStageServer} from './run-turso-stage.mjs';
 import {legacyLessons} from '../src/turso-legacy-read.mjs';
 
@@ -93,6 +94,29 @@ function fixture() {
 }
 const id=()=>crypto.randomUUID();
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
+test('Groups seed existing lessons, persist membership and keep student visibility',async()=>{
+  const {db,personas,sqlite}=fixture(),[teacher,,student]=personas;
+  sqlite.exec(`CREATE TABLE class_groups(id TEXT PRIMARY KEY NOT NULL,title TEXT NOT NULL,position INTEGER NOT NULL DEFAULT 0,
+    revision INTEGER NOT NULL DEFAULT 1,deleted_at INTEGER,created_at INTEGER NOT NULL DEFAULT (unixepoch()),updated_at INTEGER NOT NULL DEFAULT (unixepoch()));
+    CREATE TABLE class_group_lessons(group_id TEXT NOT NULL REFERENCES class_groups(id),lesson_id TEXT NOT NULL UNIQUE REFERENCES lessons(id),
+    position INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(group_id,lesson_id));`);
+  const groups=new GroupService(db);
+  const seeded=await groups.list(teacher);
+  assert.equal(seeded.length,1);
+  assert.deepEqual(new Set(seeded[0].lessonIds),new Set(['visible','draft','hidden']));
+  await groups.save(teacher,{groups:[
+    {id:seeded[0].id,title:'First group',date:'2026-10-08',hidden:true,lessonIds:['draft','hidden']},
+    {id:'group-second',title:'Second group',date:'2026-10-09',hidden:false,lessonIds:['visible']}
+  ]});
+  const saved=await groups.list(teacher);
+  assert.equal(saved[0].title,'Second group');
+  assert.deepEqual(saved[0].lessonIds,['visible']);
+  assert.equal(saved[1].hidden,true);
+  const learner=await groups.list(student);
+  assert.equal(learner.length,1);
+  assert.deepEqual(learner[0].lessonIds,['visible']);
+  await rejects(groups.save(student,{groups:saved}),403);
+});
 test('Managed unlink removes one target/place only, preserves definition/progress and supports receipt replay',async()=>{
   const {service,personas,sqlite}=fixture(),[teacher,,student]=personas;
   await service.linkManagedCard(teacher,'student',{mutationId:id(),cardId:'shared',place:'mine',expectedRevision:0,expectedCardRevision:1});

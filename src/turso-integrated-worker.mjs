@@ -256,7 +256,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         // Teacher may inspect definitions; responses belong strictly to target.
         if(managedRead[2]==='lessons')return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:new URL(request.url).searchParams.get('summary')==='1',lessonId:new URL(request.url).searchParams.get('id')||''})));
-        const params=new URL(request.url).searchParams,query={after:params.get('after')||'',limit:pageLimit(params.get('limit'))};
+        const params=new URL(request.url).searchParams,query={after:params.get('after')||'',limit:pageLimit(params.get('limit')),place:params.get('place')||''};
         if(managedRead[2]==='texts')return json(await legacyTexts(db,target,{summary:params.get('summary')!=='0',...query}));
         if(managedRead[2]==='cards')return json(await accountCards(db,target,query));
         if(managedRead[2]==='quizzes')return json(await accountQuizzes(db,target,query));

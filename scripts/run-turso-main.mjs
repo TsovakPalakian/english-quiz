@@ -132,7 +132,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       }
       if(path==='/api/me/account'){json(200,{user:actor,change:null,locked:true,testReadonly:true});return;}
       if(path==='/api/me/state'){json(200,await accountBootstrap(db,actor));return;}
-      const slice={after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))};
+      const slice={after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit')),place:url.searchParams.get('place')||''};
       if(path==='/api/me/cards'&&req.method==='GET'){json(200,await accountCards(db,actor,slice));return;}
       if(path==='/api/me/quizzes'&&req.method==='GET'){json(200,await accountQuizzes(db,actor,slice));return;}
       if(path==='/api/me/progress'&&req.method==='GET'){json(200,await accountProgress(db,actor,slice));return;}

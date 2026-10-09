@@ -6,6 +6,7 @@ const fail = (status, message) => { throw new StudyError(status, message); };
 const schema = [
   `CREATE TABLE IF NOT EXISTS exams (
     id TEXT PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL DEFAULT 'Exam',
     lesson_date TEXT NOT NULL DEFAULT '',
     published INTEGER NOT NULL DEFAULT 0 CHECK (published IN (0, 1)),
     hidden_from_students INTEGER NOT NULL DEFAULT 0 CHECK (hidden_from_students IN (0, 1)),
@@ -59,14 +60,20 @@ function signedIn(actor) {
 export class ExamService {
   constructor(db) { this.db = db; }
   ensure() {
-    if (!ready) ready = this.db.atomic(schema.map(sql => stmt(sql))).catch((error) => { ready = null; throw error; });
+    if (!ready) ready = (async () => {
+      await this.db.atomic(schema.map(sql => stmt(sql)));
+      const columns = await this.db.read('PRAGMA table_info(exams)');
+      if (!columns.some(column => column.name === 'title')) {
+        await this.db.atomic([stmt("ALTER TABLE exams ADD COLUMN title TEXT NOT NULL DEFAULT 'Exam'")]);
+      }
+    })().catch((error) => { ready = null; throw error; });
     return ready;
   }
   async list(actor) {
     signedIn(actor);
     await this.ensure();
     const teacher = reviewer(actor);
-    const exams = await this.db.read(`SELECT id, lesson_date, published, hidden_from_students, created_at FROM exams
+    const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at FROM exams
       WHERE deleted_at IS NULL AND (?=1 OR (published=1 AND hidden_from_students=0))
       ORDER BY lesson_date DESC, created_at DESC`, [teacher ? 1 : 0]);
     if (!exams.length) return [];
@@ -79,6 +86,7 @@ export class ExamService {
       WHERE deleted_at IS NULL AND exam_id IN (${marks}) ORDER BY position`, ids);
     return exams.map(exam => ({
       id: exam.id,
+      title: exam.title || 'Exam',
       date: exam.lesson_date || '',
       published: !!exam.published,
       hidden: !!exam.hidden_from_students,
@@ -102,14 +110,15 @@ export class ExamService {
     const exam = body && body.exam;
     if (!exam || !idOk(exam.id)) fail(400, 'Invalid exam.');
     const date = String(exam.date || '');
+    const title = String(exam.title || 'Exam').trim().slice(0, 120) || 'Exam';
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(400, 'Invalid exam date.');
     const blocks = Array.isArray(exam.blocks) ? exam.blocks : [];
     if (blocks.length > 100) fail(400, 'Too many examination blocks.');
     const commands = [
-      stmt(`INSERT INTO exams(id, lesson_date, published, hidden_from_students) VALUES(?,?,?,?)
-        ON CONFLICT(id) DO UPDATE SET lesson_date=excluded.lesson_date, published=excluded.published,
+      stmt(`INSERT INTO exams(id, title, lesson_date, published, hidden_from_students) VALUES(?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET title=excluded.title, lesson_date=excluded.lesson_date, published=excluded.published,
         hidden_from_students=excluded.hidden_from_students, deleted_at=NULL, revision=revision+1, updated_at=unixepoch()`,
-        [exam.id, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0])
+        [exam.id, title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0])
     ];
     const blockIds = [];
     blocks.forEach((block, index) => {

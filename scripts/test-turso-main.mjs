@@ -1195,8 +1195,12 @@ test('Bootstrap omits large collections and slices stay on their own pages',asyn
     const level=await speakoutLevel(f.db,'A1');
     assert.equal(level.level,'A1');assert.deepEqual(level.content.units,[1]);assert.equal(level.content.level,'A1');
     await assert.rejects(speakoutLevel(f.db,'Z9'),error=>error.status===400);
-    const cards=await accountCards(f.db,actor,{limit:50});
-    assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,'private');
+    f.sqlite.exec("INSERT INTO profile_cards(profile_id,card_id,place) VALUES('p1','private','phrasal')");
+    const cards=await accountCards(f.db,actor,{limit:50,place:'mine'});
+    assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,'private');assert.equal(cards.cards[0].place,'mine');
+    const phrasal=await accountCards(f.db,actor,{limit:50,place:'phrasal'});
+    assert.equal(phrasal.cards.length,1);assert.equal(phrasal.cards[0].place,'phrasal');
+    await assert.rejects(()=>accountCards(f.db,actor,{place:'unknown'}),error=>error.status===400);
     const items=await new PersonalService(f.db).libraryItems(actor,'song1,text1');
     assert.equal(items.length,2);assert.match(items.find(row=>row.stageId==='song1').lyrics,/la /);assert.equal(items.find(row=>row.kind==='text').text.includes('word '),true);
     await assert.rejects(()=>new PersonalService(f.db).libraryItems(actor,'song1,nope,bad id'),error=>error.status===400);
@@ -1222,7 +1226,7 @@ test('Background queue runs two requests at a time and shares an in-flight id',a
   assert.ok(peak<=2);assert.equal(seen.filter(id=>id==='a').length,1);
 });
 test('Session cache restores catalogs on refresh and All words omits lyrics and texts',()=>{
-  const session=new Map([['enquiz-session-cache',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
+  const session=new Map([['enquiz-session-cache',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:mine:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
   const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
     fetch:async()=>{throw new Error('network');},
     sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v),removeItem:k=>session.delete(k)},
@@ -1282,7 +1286,7 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
     document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append(){}}}};
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   window.ContentCache.set('account:bootstrap',{stageAddedRevision:1,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
-  window.ContentCache.set('cards:personal:after:start',{cards:[{stageId:'m1',word:'fresh',place:'mine',stageRevision:2}],next:null});
+  window.ContentCache.set('cards:personal:mine:after:start',{cards:[{stageId:'m1',word:'fresh',place:'mine',stageRevision:2}],next:null});
   window.ContentCache.set('cards:words:after:start',{cards:[{stageId:'w1',en:'day'}],next:null});
   window.ContentCache.set('block::m1:dictionary',{revision:2,data:null});
   let saved=null;
@@ -1294,7 +1298,7 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   assert.equal(saved.find(row=>row.stageId==='m1').word,'fresh');
   assert.ok(saved.some(row=>row.word==='unsaved'));
   hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
-  assert.equal(window.ContentCache.get('cards:personal:after:start'),undefined);
+  assert.equal(window.ContentCache.get('cards:personal:mine:after:start'),undefined);
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
   hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');

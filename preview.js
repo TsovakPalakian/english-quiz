@@ -25,7 +25,7 @@
     let openMarkerName = "";
     let openTenseId = "ps";
     const dayScreens = {
-      lesson: "days", lesson07: "days", lesson09: "days", lesson14: "days", lesson16: "days", lesson23: "days", material: "days", word: "days", rules: "days", daywords: "days", daywork: "days", daysetup: "days", dayq: "days", daychoice: "days", dayflip: "days", dayjudge: "days", days: "days", pdfview: "days",
+      lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
@@ -58,6 +58,7 @@
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
       if (id === "material" && window.paintMaterial) window.paintMaterial();
+      if (id === "groups" && window.paintGroups) window.paintGroups();
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
@@ -100,16 +101,9 @@
     function mountCrumbs() {
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
       document.querySelectorAll("[data-nav-back]").forEach((btn) => {
-        const toDays = btn.dataset.fallback === "days";
-        if (toDays) {
-          btn.classList.add("back-text");
-          btn.setAttribute("aria-label", "Classes");
-          btn.textContent = "← Classes";
-        } else {
-          btn.classList.add("icon");
-          btn.setAttribute("aria-label", "Back");
-          btn.innerHTML = backArrow;
-        }
+        btn.classList.add("icon");
+        btn.setAttribute("aria-label", "Back");
+        btn.innerHTML = backArrow;
         const home = document.createElement("button");
         home.className = "btn ghost icon";
         home.type = "button";
@@ -1690,7 +1684,7 @@
       }
       const back = e.target.closest("[data-nav-back]");
       if (back) {
-        if (lmState && lmState.examOwned && (document.querySelector("section.on") || {}).id === "material" && lmState.mode !== "preview") {
+        if (lmState && (document.querySelector("section.on") || {}).id === "material" && lmState.mode !== "preview") {
           lmShow("preview");
           lmPersist();
           return;
@@ -1763,6 +1757,14 @@
       if (lmHideBtn && window.lmHideLesson) { window.lmHideLesson(lmHideBtn.dataset.lmHide); return; }
       const lmOpenBtn = e.target.closest("[data-lm-open]");
       if (lmOpenBtn && window.lmOpenLesson) { window.lmOpenLesson(lmOpenBtn.dataset.lmOpen); return; }
+      const groupOpenBtn = e.target.closest("[data-group-open]");
+      if (groupOpenBtn) { groupOpen(groupOpenBtn.dataset.groupOpen); return; }
+      const groupEditBtn = e.target.closest("[data-group-edit]");
+      if (groupEditBtn) { groupEdit(groupEditBtn.dataset.groupEdit, groupEditBtn); return; }
+      const groupHideBtn = e.target.closest("[data-group-hide]");
+      if (groupHideBtn) { groupHide(groupHideBtn.dataset.groupHide); return; }
+      const groupDeleteBtn = e.target.closest("[data-group-delete]");
+      if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
       const bugTabBtn = e.target.closest("[data-bug-tab]");
       if (bugTabBtn) {
         bugTab = bugTabBtn.dataset.bugTab === "done" ? "done" : "open";
@@ -10672,6 +10674,7 @@
       lyricSize = 20;
       lmLibrary = null;
       lmState = null;
+      groupReset();
       viewGen += 1;
       // Wipe IndexedDB audio blobs on logout so the next account on this browser
       // cannot resolve a colliding song id to the previous user's file.
@@ -11211,6 +11214,7 @@
         localStorage.setItem("enquiz-auth-on", "1");
         paintAccount();
         examPreload();
+        groupPull();
         themesFlight.then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
@@ -11615,6 +11619,140 @@
     let lmFontRange = null;
     let lmServerReady = false;
     let lmPushTimer = 0;
+    let classGroups = [];
+    let classGroupsReady = false;
+    let classGroupsPulling = false;
+    let classGroupId = "";
+    let classGroupsDirty = false;
+    let classGroupsSaveVersion = 0;
+    function groupId() {
+      return "group-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+    function groupReset() {
+      classGroups = [];
+      classGroupsReady = false;
+      classGroupsPulling = false;
+      classGroupId = "";
+      classGroupsDirty = false;
+      classGroupsSaveVersion = 0;
+    }
+    function groupNormalize() {
+      if (!classGroups.length) classGroups = [{ id: "group-default", title: "Group 1", date: lmToday(), hidden: false, lessonIds: [] }];
+      if (!classGroups.some((group) => group.id === classGroupId)) classGroupId = classGroups[0].id;
+      const assigned = new Set();
+      classGroups.forEach((group) => {
+        group.lessonIds = (Array.isArray(group.lessonIds) ? group.lessonIds : []).filter((id) => {
+          if (!id || assigned.has(id)) return false;
+          assigned.add(id);
+          return true;
+        });
+      });
+      if (lmLibrary) lmLibrary.materials.forEach((material) => {
+        if (material && material.id && !assigned.has(material.id)) {
+          classGroups[0].lessonIds.push(material.id);
+          assigned.add(material.id);
+        }
+      });
+    }
+    function groupPull() {
+      if (!authUser || classGroupsPulling || classGroupsReady || typeof accountFetch !== "function") return Promise.resolve();
+      classGroupsPulling = true;
+      return accountFetch("/api/groups").then((data) => {
+        classGroups = Array.isArray(data && data.groups) ? data.groups.map((group) => ({
+          id: group.id,
+          title: group.title || "Untitled group",
+          date: group.date || lmToday(),
+          hidden: !!group.hidden,
+          lessonIds: Array.isArray(group.lessonIds) ? group.lessonIds.slice() : []
+        })) : [];
+        classGroupsReady = true;
+        groupNormalize();
+        paintGroups();
+        paintLmDays();
+      }).catch(() => {}).finally(() => { classGroupsPulling = false; });
+    }
+    function groupSave() {
+      classGroupsDirty = true;
+      const version = ++classGroupsSaveVersion;
+      if (!classGroupsReady || !lmServerReady || !canEditLessons() || viewAccount || viewSwitching || typeof accountFetch !== "function") return Promise.resolve();
+      groupNormalize();
+      const saved = new Set((lmLibrary && lmLibrary.materials || []).filter((row) => row && row.stageRevision).map((row) => row.id));
+      const groups = classGroups.map((group) => ({
+        id: group.id,
+        title: group.title,
+        date: group.date || lmToday(),
+        hidden: !!group.hidden,
+        lessonIds: group.lessonIds.filter((id) => saved.has(id))
+      }));
+      return accountFetch("/api/groups", { method: "POST", body: JSON.stringify({ groups: groups }) })
+        .then(() => { if (version === classGroupsSaveVersion) classGroupsDirty = false; }).catch(() => {});
+    }
+    function paintGroups() {
+      const box = document.getElementById("groupList");
+      const newer = document.getElementById("groupNew");
+      if (newer) newer.hidden = !canEditLessons();
+      if (!box) return;
+      if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
+      groupNormalize();
+      const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
+      const rows = classGroups.filter((group) => canEditLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+      box.innerHTML = rows.map((group) => {
+        const count = group.lessonIds.filter((id) => visible.has(id)).length;
+        const chip = lmDateChip(group.date);
+        const eye = group.hidden
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
+        const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
+        const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
+        const tools = canEditLessons() ? '<div class="day-tools"><button class="day-hide' + (group.hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (group.hidden ? "Show" : "Hide") + '">' + eye + '</button><button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + "</button></div>" : "";
+        return '<div class="day-row' + (group.hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + esc(group.hidden ? "Hidden" : count + " classes") + "</span></button>" + tools + "</div>";
+      }).join("");
+    }
+    function groupOpen(id) {
+      if (!classGroups.some((group) => group.id === id)) return;
+      classGroupId = id;
+      visit("days");
+    }
+    function groupCreate() {
+      if (!canEditLessons()) return;
+      openItemEditor(document.getElementById("groupNew"), { title: "Group", date: lmToday(), label: "Group name" }, (value) => {
+        const group = { id: groupId(), title: value.title, date: value.date, hidden: false, lessonIds: [] };
+        classGroups.push(group);
+        classGroupId = group.id;
+        paintGroups();
+        groupSave();
+      });
+    }
+    function groupEdit(id, button) {
+      if (!canEditLessons()) return;
+      const group = classGroups.find((row) => row.id === id);
+      if (!group || !button) return;
+      openItemEditor(button, { title: group.title, date: group.date, label: "Group name" }, (value) => {
+        group.title = value.title;
+        group.date = value.date;
+        paintGroups();
+        groupSave();
+      });
+    }
+    function groupHide(id) {
+      if (!canEditLessons()) return;
+      const group = classGroups.find((row) => row.id === id);
+      if (!group) return;
+      group.hidden = !group.hidden;
+      paintGroups();
+      groupSave();
+    }
+    function groupDelete(id) {
+      if (!canEditLessons() || classGroups.length < 2) return;
+      const group = classGroups.find((row) => row.id === id);
+      if (!group || !confirm("Delete this group? Its classes will move to the first group.")) return;
+      const rest = classGroups.filter((row) => row.id !== id);
+      rest[0].lessonIds.push(...group.lessonIds.filter((lessonId) => !rest[0].lessonIds.includes(lessonId)));
+      classGroups = rest;
+      if (classGroupId === id) classGroupId = rest[0].id;
+      paintGroups();
+      groupSave();
+    }
     const LM_FONTS = {
       serif: "Georgia, 'Times New Roman', serif",
       sans: "system-ui, sans-serif",
@@ -11921,6 +12059,7 @@
           return localBlocks > remoteBlocks;
         });
         lmApplyRemote(merged, { push: !!richerLocal || (canMerge && !remote.length && local.length) });
+        if (classGroupsDirty) groupSave();
       }).catch(() => {
         if (bootGen !== viewGen || viewSwitching) return;
         lmServerReady = !!authUser;
@@ -12997,7 +13136,12 @@
       if (newer) newer.hidden = !canEditLessons();
       if (!box) return;
       lmEnsure();
-      const rows = lmLibrary.materials.filter((row) => lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
+      groupNormalize();
+      const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
+      const title = document.getElementById("lmGroupTitle");
+      if (title) title.textContent = group ? group.title : "Classes";
+      const groupLessons = new Set(group ? group.lessonIds : []);
+      const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
         if (!a.date && !b.date) return 0;
         if (!a.date) return -1;
         if (!b.date) return 1;
@@ -13022,6 +13166,9 @@
           if (globalHidden) hideLabel = personalAllowed ? "Remove access for this student" : "Allow for this student";
           else hideLabel = personalHidden ? "Show to this student" : "Hide for this student";
         }
+        const move = canEditLessons() && !viewAccount && classGroups.length > 1
+          ? '<select class="group-move" data-group-move="' + esc(material.id) + '" aria-label="Move lesson to group">' + classGroups.map((row) => '<option value="' + esc(row.id) + '"' + (row.id === group.id ? " selected" : "") + ">" + esc(row.title) + "</option>").join("") + "</select>"
+          : "";
         const tools = (canEditLessons() || canTuneStudentLessons())
           ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-lm-hide="' + material.id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + '</button>' +
             (canEditLessons() ? '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "") +
@@ -13029,7 +13176,7 @@
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + move + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {
@@ -13037,6 +13184,8 @@
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
       if (!lmLessonVisibleToViewer(found)) return;
+      const group = classGroups.find((row) => row.lessonIds.includes(id));
+      if (group) classGroupId = group.id;
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
@@ -13062,6 +13211,8 @@
         if (lmLibrary.removed.indexOf(id) < 0) lmLibrary.removed.push(id);
         if (!lmLibrary.materials.some((row) => row.id === lmLibrary.activeId)) lmLibrary.activeId = lmLibrary.materials[0] ? lmLibrary.materials[0].id : "";
         try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
+        classGroups.forEach((group) => { group.lessonIds = group.lessonIds.filter((lessonId) => lessonId !== id); });
+        groupSave();
         lmSchedulePush();
       }
       if (lmState && lmState.id === id) lmState = null;
@@ -13095,6 +13246,9 @@
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
       fresh.date = lmToday();
+      groupNormalize();
+      const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
+      if (group && !group.lessonIds.includes(fresh.id)) group.lessonIds.push(fresh.id);
       lmState = fresh;
       fresh.mode = "edit";
       lmKeepLesson();
@@ -13535,6 +13689,20 @@
       });
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
+      const groupNew = document.getElementById("groupNew");
+      if (groupNew) groupNew.addEventListener("click", groupCreate);
+      const lmDayList = document.getElementById("lmDayList");
+      if (lmDayList) lmDayList.addEventListener("change", (event) => {
+        const select = event.target.closest("[data-group-move]");
+        if (!select || !canEditLessons() || viewAccount) return;
+        const lessonId = select.dataset.groupMove;
+        classGroups.forEach((group) => { group.lessonIds = group.lessonIds.filter((id) => id !== lessonId); });
+        const target = classGroups.find((group) => group.id === select.value);
+        if (target) target.lessonIds.push(lessonId);
+        paintLmDays();
+        paintGroups();
+        groupSave();
+      });
       paintLmDays();
     }
 
@@ -13564,6 +13732,7 @@
     function examWire(exam) {
       return {
         id: exam.id,
+        title: exam.title || "Exam",
         date: exam.date || "",
         published: !!exam.published,
         hidden: !!exam.hidden,
@@ -13586,6 +13755,7 @@
     function examFromWire(row) {
       return {
         id: row.id,
+        title: row.title || "Exam",
         date: row.date || "",
         published: !!row.published,
         hidden: !!row.hidden,
@@ -13818,9 +13988,10 @@
         const back = root.querySelector("[data-nav-back]");
         if (back) {
           back.dataset.fallback = "days";
-          back.classList.add("back-text");
-          back.setAttribute("aria-label", "Classes");
-          back.textContent = "← Classes";
+          back.classList.remove("back-text");
+          back.classList.add("icon");
+          back.setAttribute("aria-label", "Back");
+          back.innerHTML = backArrow;
         }
       }
       document.querySelectorAll("[data-exam-quiz]").forEach((btn) => { btn.hidden = true; });
@@ -14001,7 +14172,7 @@
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
       const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
-      const pencil = kind === "exam" ? '<button class="day-edit" type="button" data-exam-date="' + id + '" aria-label="Edit date" title="Edit date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg></button>' : "";
+      const pencil = kind === "exam" ? '<button class="day-edit" type="button" data-exam-edit="' + id + '" aria-label="Edit exam" title="Edit exam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg></button>' : "";
       const hideLabel = hidden ? "Show" : "Hide";
       return '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-exam-hide="' + kind + ":" + id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + "</button>" + pencil + '<button class="day-del" type="button" data-exam-del="' + kind + ":" + id + '" aria-label="Delete">' + trash + "</button></div>";
     }
@@ -14033,7 +14204,7 @@
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
         let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
         if (mine) about += " · " + sum;
-        return examRow(chip, "Exam", about, 'data-exam-open="' + exam.id + '"', ready, !!exam.hidden, examTools("exam", exam.id, !!exam.hidden));
+        return examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, !!exam.hidden, examTools("exam", exam.id, !!exam.hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -14088,12 +14259,12 @@
       examPaintBlocks();
     }
     function examTool(event) {
-      const dateBtn = event.target.closest("[data-exam-date]");
+      const dateBtn = event.target.closest("[data-exam-edit]");
       const del = event.target.closest("[data-exam-del]");
       const hide = event.target.closest("[data-exam-hide]");
       if (!dateBtn && !del && !hide) return false;
       event.preventDefault();
-      if (dateBtn) { examEditDate(dateBtn.getAttribute("data-exam-date"), dateBtn); return true; }
+      if (dateBtn) { examEdit(dateBtn.getAttribute("data-exam-edit"), dateBtn); return true; }
       const raw = (del || hide).getAttribute(del ? "data-exam-del" : "data-exam-hide") || "";
       const kind = raw.slice(0, raw.indexOf(":"));
       const id = raw.slice(kind.length + 1);
@@ -14180,27 +14351,57 @@
       examCalView = { y: parts[0], m: parts[1], selected: picked };
       examRenderCalendar();
     }
-    function examEditDate(id, button) {
+    function closeItemEditor() {
+      const pop = document.getElementById("itemEditPop");
+      if (pop) pop.remove();
+    }
+    function openItemEditor(anchor, value, onSave) {
+      closeItemEditor();
+      const pop = document.createElement("form");
+      pop.id = "itemEditPop";
+      pop.className = "item-edit-pop";
+      pop.innerHTML = '<label>' + esc(value.label || "Name") + '<input type="text" name="title" maxlength="120" value="' + esc(value.title || "") + '"></label><label>Date<span class="date-control"><input type="text" name="date" inputmode="numeric" placeholder="YYYY-MM-DD" maxlength="10" value="' + esc(value.date || "") + '"><button class="date-picker-btn" type="button" data-item-calendar aria-label="Choose date"></button></span></label><div class="item-edit-actions"><button class="btn ghost" type="button" data-item-cancel>Cancel</button><button class="btn primary" type="submit">Save</button></div>';
+      document.body.appendChild(pop);
+      pop.addEventListener("pointerdown", (event) => event.stopPropagation());
+      pop.querySelector("[data-item-cancel]").addEventListener("click", closeItemEditor);
+      pop.querySelector("[data-item-calendar]").addEventListener("click", (event) => {
+        const input = pop.elements.date;
+        examOpenCalendar(event.currentTarget, input.value, (date) => { input.value = date; });
+      });
+      pop.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const title = pop.elements.title.value.trim().slice(0, 120);
+        const date = pop.elements.date.value.trim();
+        if (!title) { pop.elements.title.focus(); return; }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { pop.elements.date.focus(); return; }
+        closeItemEditor();
+        onSave({ title: title, date: date });
+      });
+      pop.elements.title.focus();
+      pop.elements.title.select();
+    }
+    function examEdit(id, button) {
       const exam = examFind(id);
       if (!exam || !button) return;
-      examOpenCalendar(button, exam.date || "", (date) => examSetDate(id, date));
+      openItemEditor(button, { title: exam.title || "Exam", date: exam.date || "", label: "Exam name" }, (value) => examSetMeta(id, value));
     }
-    function examSetDate(id, date) {
-      if (!canEditLessons() || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    function examSetMeta(id, value) {
+      if (!canEditLessons() || !value.title || !/^\d{4}-\d{2}-\d{2}$/.test(value.date)) return;
       const exams = examLoad();
       const exam = exams.find((row) => row.id === id);
       if (!exam) return;
-      exam.date = date;
-      (exam.blocks || []).forEach((block) => { if (block.doc) block.doc.date = date; });
-      if (lmState && lmState.examOwned && lmState.examId === id) lmState.date = date;
+      exam.title = value.title;
+      exam.date = value.date;
+      (exam.blocks || []).forEach((block) => { if (block.doc) block.doc.date = value.date; });
+      if (lmState && lmState.examOwned && lmState.examId === id) lmState.date = value.date;
       examSave(exams);
       examPaintList();
     }
     function examAdd() {
       if (!canEditLessons()) return;
-      examOpenCalendar(document.getElementById("examNew"), "", (date) => {
+      openItemEditor(document.getElementById("examNew"), { title: "Exam", date: lmToday(), label: "Exam name" }, (value) => {
         const exams = examLoad();
-        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), date: date, created: Date.now(), blocks: [] });
+        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: value.title, date: value.date, created: Date.now(), blocks: [] });
         examSave(exams);
         examPaintList();
       });
@@ -14250,13 +14451,25 @@
       const blocks = document.getElementById("examBlocks");
       const save = document.getElementById("examSave");
       if (newer) newer.addEventListener("click", examAdd);
+      document.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-date-picker]");
+        if (!button) return;
+        const input = document.getElementById(button.dataset.datePicker);
+        if (!input) return;
+        examOpenCalendar(button, input.value, (date) => {
+          input.value = date;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+      });
       document.addEventListener("pointerdown", (event) => {
         const pop = document.getElementById("examCal");
-        if (!pop || pop.hidden || pop.contains(event.target)) return;
-        examCloseCalendar();
+        const editor = document.getElementById("itemEditPop");
+        if (pop && !pop.hidden && !pop.contains(event.target)) examCloseCalendar();
+        if (editor && !editor.contains(event.target)) closeItemEditor();
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") examCloseCalendar();
+        if (event.key === "Escape") { examCloseCalendar(); closeItemEditor(); }
       });
       if (blockNew) blockNew.addEventListener("click", examAddBlock);
       if (list) list.addEventListener("click", (event) => {

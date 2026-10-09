@@ -3,6 +3,7 @@ import {StudyService,TursoStudyClient,StudyError} from './turso-study.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ExamService} from './turso-exams.mjs';
+import {GroupService} from './turso-groups.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
@@ -114,14 +115,14 @@ export default {async fetch(request,env){
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
-    const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
+    const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
     const dictionary=path.match(/^\/api\/cards\/([A-Za-z0-9_-]{1,100})\/dictionary$/);
     const card=path.match(/^\/api\/(cards|quizzes)\/([^/]+)(\/quizzes)?$/),progress=path.match(/^\/api\/cards\/([^/]+)\/(progress|answers)$/),response=path.match(/^\/api\/lessons\/([^/]+)\/blocks\/([^/]+)\/response$/),lesson=path.match(/^\/api\/lessons\/([^/]+)$/),own=path.match(/^\/api\/me\/cards\/([^/]+)$/),library=path.match(/^\/api\/library\/([^/]+)$/);
     const songUpload=path.match(/^\/api\/library\/([A-Za-z0-9_-]{1,100})\/media$/),lessonUpload=path.match(/^\/api\/lessons\/([A-Za-z0-9_-]{1,100})\/blocks\/([A-Za-z0-9_-]{1,100})\/media$/);
     const themePhoto=path.match(/^\/api\/me\/themes\/(user-[a-z0-9-]{1,80})\/photo$/);
     const examItem=path.match(/^\/api\/exams\/([^/]+)$/);
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
-    const write=(method==='POST'&&['/api/lessons','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
+    const write=(method==='POST'&&['/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
@@ -175,7 +176,7 @@ export default {async fetch(request,env){
     if(path==='/api/me/state')return json(await accountBootstrap(db,actor));
     if(path==='/api/me/cards/dictionary'&&method==='GET')return json({cards:(await s.readableCards(actor,url.searchParams.get('ids')||'')).map(legacyCard)});
     if(dictionary)return json(legacyCard(await s.readableCard(actor,dictionary[1])));
-    if(path==='/api/me/cards'&&method==='GET')return json(await accountCards(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
+    if(path==='/api/me/cards'&&method==='GET')return json(await accountCards(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit')),place:url.searchParams.get('place')||''}));
     if(path==='/api/me/quizzes'&&method==='GET')return json(await accountQuizzes(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
     if(path==='/api/me/progress'&&method==='GET')return json(await accountProgress(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
     if(path==='/api/me/songs'&&method==='GET')return json(await accountSongs(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
@@ -189,6 +190,8 @@ export default {async fetch(request,env){
     if(path==='/api/me/cards/new')return json(await p.createOwnCard(actor,value));
     if(path==='/api/me/cards')return json(await s.linkCard(actor,value));
     if(own)return json(await s.unlinkCard(actor,id(own),value));
+    if(path==='/api/groups'&&method==='GET')return json({groups:await new GroupService(db).list(actor)});
+    if(path==='/api/groups'&&method==='POST')return json(await new GroupService(db).save(actor,value));
     if(path==='/api/exams/work'&&method==='GET')return json({work:await new ExamService(db).listWork(actor,url.searchParams.get('student')||'')});
     if(path==='/api/exams/work'&&method==='POST')return json(await new ExamService(db).saveWork(actor,value));
     if(path==='/api/exams'&&method==='GET')return json({exams:await new ExamService(db).list(actor)});
