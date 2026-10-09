@@ -17,7 +17,7 @@ const english=JSON.parse(readFileSync(resolve(root,'production/ui-english.json')
 const presentation=text=>Object.entries(english).sort(([a],[b])=>b.length-a.length).reduce((value,[from,to])=>value.replaceAll(from,to),text).replaceAll('тестовой Turso','Turso').replaceAll('тестовую Turso','Turso')
   .replaceAll('тестового сервера','сервера').replaceAll('тестовом сервере','сервере')
   .replaceAll('разрешённого тестового стенда','разрешённого сайта').replaceAll('разрешённом тестовом стенде','разрешённом сайте');
-for(const name of ['preview.css','almond-blossom.jpg','demonstratives.js','main-stage.css','favicon.svg','favicon.png','favicon.ico'])
+for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstratives.js','main-stage.css','favicon.svg','favicon.png','favicon.ico'])
   copyFileSync(resolve(accepted,name),resolve(target,name));
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));

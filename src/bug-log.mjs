@@ -85,10 +85,11 @@ async function ensure(db){
   ready=true;
 }
 export async function saveBug(db,event){
+  const status=Number(event.status)||0;
+  const path=String(event.path||'/').split('?')[0];
+  if(status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||event.error==='Sign in first.')return {ignored:true};
   await ensure(db);
   const method=String(event.method||'GET');
-  const path=String(event.path||'/');
-  const status=Number(event.status)||0;
   const error=clipText(event.error||('HTTP '+status)).slice(0,500);
   const signature=await bugSignature(method,path,status,error);
   const login=String(event.account?.login||event.account?.id||'');

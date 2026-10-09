@@ -6,7 +6,8 @@ import {pbkdf2Sync} from 'node:crypto';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {ActivityService} from '../src/turso-activity.mjs';
 import {StudyError} from '../src/turso-study.mjs';
-import {legacyState,legacyTexts} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyTexts,accountThemes} from '../src/turso-legacy-read.mjs';
+import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {inlineMedia,mediaKey,mediaPlaceholders,mediaRange,storedMediaResponse} from '../src/turso-media.mjs';
 import worker,{StageAuth,StageAuthBudget,reserveBudget} from '../src/turso-stage-worker.mjs';
 import {snapshot,restore,reverse,auditReverse} from './turso-backup.mjs';
@@ -57,6 +58,25 @@ test('Own account theme persists, overrides legacy profile theme and retains rep
     assert.equal((await legacyState(f.db,f.own)).stats.theme,'dark');
     assert.equal((await legacyState(f.db,f.own)).stageThemeRevision,2);
     assert.equal(f.sqlite.prepare("SELECT value_json FROM profile_settings WHERE key='theme'").get().value_json,'"almond"');
+  }finally{f.sqlite.close();}
+});
+test('A personal theme, its picture, and the selected choice survive a new session',async()=>{
+  const f=fixture(),actor={...f.own,login:'Student'},uploads=[];
+  const service=new ThemeMediaService(f.db,{kind:'isolated-r2-stage',putImmutable:async(...args)=>uploads.push(args)});
+  try{
+    const png=new Uint8Array([137,80,78,71,13,10,26,10,1]);
+    const picture=await service.upload(actor,'user-gallery',png,'image/png');
+    assert.equal(uploads.length,1);
+    const row={id:'user-gallery',name:'My painting',owner:'Student',vars:{'--bg':'#D4EEEA','--card':'#FFFFFF','--acc':'#123456','color-scheme':'light'},photo:picture.photo};
+    await service.saveCustomThemes(actor,{mutationId:mutation(),expectedRevision:0,themes:[row]});
+    await service.saveTheme(actor,{mutationId:mutation(),expectedRevision:0,theme:row.id});
+    const reopened=await accountThemes(f.db,actor);
+    assert.equal(reopened.theme,row.id);
+    assert.equal(reopened.themes.length,1);
+    assert.equal(reopened.themes[0].name,row.name);
+    assert.equal(reopened.themes[0].photo,picture.photo);
+    assert.equal(await new ThemeMediaService(f.db,service.store).ownedKey(actor,row.id),picture.photo);
+    assert.deepEqual((await accountThemes(f.db,f.other)).themes,[]);
   }finally{f.sqlite.close();}
 });
 test('R2 managed texts: target ownership, teacher receipts, replay, isolation and recoverable archive',async()=>{

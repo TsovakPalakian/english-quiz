@@ -451,6 +451,55 @@ test('R5 attachment removal updates editor only after server success and ignores
   const done=scope.stageClearLessonFile('image');pending.shift().resolve({});await done;assert.equal(notes.length,1);
   const late=scope.stageClearLessonFile('image');scope.lmState={id:'other'};pending.shift().resolve({});await late;assert.equal(notes.length,1);
 });
+test('Home greets guests, says goodbye only after explicit logout, and welcomes signed-in users back',async()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const helloStart=source.indexOf('    function paintHomeHello() {');
+  const leaveStart=source.indexOf('    function leaveAccount(options) {');
+  const code=source.slice(helloStart,source.indexOf('    function paintHomeAccount()',helloStart))+
+    source.slice(leaveStart,source.indexOf('    document.body.addEventListener("change"',leaveStart));
+  function page(user=null){
+    const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',
+      document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}}},
+      clearOwnBrowserData:async()=>{},clearTimeout(){},window:{},paintHomeAccount:()=>scope.paintHomeHello(),show:()=>scope.paintHomeHello()};
+    for(const name of ['paintDeveloperChrome','stopAccountPull','paintViewBar','paintAdded','paintLyrics','refreshCatalog','applyTheme','settleThemeAudience','paintAccount'])scope[name]=()=>{};
+    runInNewContext(code,scope);
+    return {hello,actions,scope};
+  }
+  const signedIn=page({id:'user'});
+  signedIn.scope.paintHomeHello();assert.equal(signedIn.hello.textContent,'Welcome back');assert.equal(signedIn.actions.hidden,true);
+  await signedIn.scope.leaveAccount({signedOut:true});
+  assert.equal(signedIn.hello.textContent,'See you soon');assert.equal(signedIn.actions.hidden,true);
+  const reopened=page();reopened.scope.paintHomeHello();
+  assert.equal(reopened.hello.textContent,'Hello!');assert.equal(reopened.actions.hidden,false);
+  reopened.scope.accountChecked=false;reopened.scope.paintHomeHello();
+  assert.equal(reopened.hello.style.visibility,'hidden');assert.equal(reopened.actions.hidden,true);
+  reopened.scope.accountChecked=true;
+  await reopened.scope.leaveAccount();
+  assert.equal(reopened.hello.textContent,'Hello!');assert.equal(reopened.actions.hidden,false);
+});
+test('Expected sign-in failures do not show a notice or file bugs, and logout does not reload',async()=>{
+  const banner={dataset:{compactNotices:'true'},hidden:true},status={classList:{toggle(){}}},window={},bugs=[];
+  let failure=401,reloads=0;
+  const scope={window,crypto,location:{reload(){reloads++;}},navigator:{language:'en',userAgent:'fixture',onLine:true},innerWidth:800,innerHeight:600,sessionStorage:{removeItem(){}},
+    localStorage:{getItem:()=>null,removeItem(){}},
+    document:{addEventListener(){},querySelector:()=>({id:'home'}),getElementById:id=>({'turso-main-banner':banner,'turso-main-status':status}[id]||null)},
+    fetch:async(path)=>{
+      if(path==='/api/bugs'){bugs.push(path);return {ok:true};}
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'user'}})};
+      if(path==='/api/logout')return {ok:true,json:async()=>({ok:true})};
+      return {ok:false,status:failure,json:async()=>({error:failure===401?'Sign in first.':'Failed.'})};
+    }};
+  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.TursoMain.fetch('/api/me');
+  await assert.rejects(window.TursoMain.fetch('/api/me/themes'),e=>e.status===401);
+  assert.equal(banner.hidden,true);assert.equal(bugs.length,0);
+  failure=403;await assert.rejects(window.TursoMain.fetch('/api/login'),e=>e.status===403);
+  assert.equal(bugs.length,0);
+  failure=500;await assert.rejects(window.TursoMain.fetch('/api/login'),e=>e.status===500);
+  assert.equal(bugs.length,1);assert.equal(banner.hidden,false);
+  await window.TursoMain.fetch('/api/logout',{method:'POST',body:'{}'});
+  assert.equal(reloads,0);
+});
 test('Offline UI status cannot claim real Turso acceptance',async()=>{
   const status={classList:{toggle(){}}},banner={dataset:{offlineFixture:'true'}},window={};
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem(){return null;},removeItem(){}},

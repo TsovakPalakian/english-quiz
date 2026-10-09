@@ -62,6 +62,7 @@
   const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture'];
   for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-')&&!themeLocal.includes(key))localStorage.removeItem(key);
   function notice(message,bad=false){
+    if(message==='Sign in first.')return;
     const el=document.getElementById('turso-main-status');if(!el)return;
     const banner=document.getElementById('turso-main-banner');
     if(banner?.dataset?.compactNotices==='true'){
@@ -103,7 +104,8 @@
   }
   function reportClientBug(entry){
     const path=String(entry.path||'/').split('?')[0];
-    if(path.startsWith('/api/bugs'))return;
+    const status=Number(entry.status)||0;
+    if(path.startsWith('/api/bugs')||status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}
@@ -165,9 +167,9 @@
         for(const lesson of value.materials||[])if(!lesson.stageLessonDeferred)lesson.stageLessonBaseline=lessonSnapshot(lesson);
         register(value.materials||[]);
       }
-      if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}location.reload();}
+      if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}}
       return value;
-    }catch(error){notice(error.message,true);throw error;}
+    }catch(error){if(error.status!==401)notice(error.message,true);throw error;}
   }
   function identify(card){
     if(card.stageId && cards.has(card.stageId))return {...cards.get(card.stageId),stageRevision:card.stageRevision||cards.get(card.stageId).stageRevision};

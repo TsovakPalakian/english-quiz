@@ -2,6 +2,7 @@
     const chromeButtons = document.querySelectorAll(".side nav button, .tabbar button");
     const navStack = [];
     let authUser = null;
+    let accountChecked = false;
     let viewAccount = null;
     let viewGen = 0;
     let viewSwitching = false;
@@ -95,9 +96,9 @@
       if (btn) btn.hidden = hidden;
       if (house) house.hidden = hidden;
     }
+    const backArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
     function mountCrumbs() {
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
-      const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
       document.querySelectorAll("[data-nav-back]").forEach((btn) => {
         const toDays = btn.dataset.fallback === "days";
         if (toDays) {
@@ -107,7 +108,7 @@
         } else {
           btn.classList.add("icon");
           btn.setAttribute("aria-label", "Back");
-          btn.innerHTML = arrow;
+          btn.innerHTML = backArrow;
         }
         const home = document.createElement("button");
         home.className = "btn ghost icon";
@@ -926,7 +927,7 @@
       ["topaz", "Topaz", "#1C1408", "#2C200C", "#F0A030"],
       ["brass", "Brass", "#1C1808", "#2C260C", "#E0C060"]
     ];
-    const THEME_NAMES = { auto: "Auto" };
+    const THEME_NAMES = {};
     THEMES.forEach((row) => { THEME_NAMES[row[0]] = row[1]; });
     const THEME_KEY = "enquiz-theme";
     const CUSTOM_THEME_KEY = "enquiz-custom-themes";
@@ -1148,7 +1149,11 @@
       });
     }
     function currentTheme() {
-      try { return localStorage.getItem(THEME_KEY) || DEFAULT_THEME; }
+      try {
+        const saved = localStorage.getItem(THEME_KEY);
+        if (saved === "auto") localStorage.setItem(THEME_KEY, DEFAULT_THEME);
+        return saved && saved !== "auto" ? saved : DEFAULT_THEME;
+      }
       catch (e) { return DEFAULT_THEME; }
     }
     function installCustomThemes(list) {
@@ -1160,7 +1165,6 @@
       }
     }
     function themeCanShow(name) {
-      if (name === "auto") return true;
       if (name && THEME_NAMES[name]) return !privateThemeId(name) || samePersonStudy();
       if (name && String(name).indexOf("user-") === 0) return visibleCustomThemes().some((row) => row.id === name);
       return false;
@@ -1172,7 +1176,7 @@
     function themeLabel(name) {
       const custom = loadCustomThemes().find((row) => row.id === name);
       if (custom) return custom.name || "Picture";
-      return THEME_NAMES[name || "auto"] || "Auto";
+      return THEME_NAMES[name || DEFAULT_THEME] || THEME_NAMES[DEFAULT_THEME] || "Theme";
     }
     function clearCustomPaint(root, keepPhoto) {
       CUSTOM_COLOR_KEYS.forEach((key) => root.style.removeProperty(key));
@@ -1270,10 +1274,7 @@
       const stored = name && String(name).indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === name) : null;
       chosen = themeCanShow(name) ? name : (!viewAccount && stored ? name : DEFAULT_THEME);
       const custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === chosen) : null;
-      if (chosen === "auto") {
-        clearCustomPaint(root);
-        root.removeAttribute("data-theme");
-      } else if (custom) {
+      if (custom) {
         root.setAttribute("data-theme", "user");
         paintCustomVars(root, custom);
         cacheThemePicture(custom);
@@ -1281,26 +1282,25 @@
         clearCustomPaint(root);
         root.setAttribute("data-theme", chosen);
       }
-      if (!viewAccount && opts.persist !== false) root.dataset.paintedTheme = chosen === "auto" ? "auto" : chosen;
+      if (!viewAccount && opts.persist !== false) root.dataset.paintedTheme = chosen;
       }
-      if (opts.persist !== false && !viewAccount && themeCanShow(name)) {
+      if (opts.persist !== false && !viewAccount && themeCanShow(chosen)) {
         try { localStorage.setItem(THEME_KEY, chosen); } catch (e) {}
       }
       // Never push theme onto a viewed account; Open pages is display-only for theme.
-      if (opts.sync && !viewAccount && themeCanShow(name)) syncChange({ op: "put-setting", key: "theme", value: chosen });
+      if (opts.sync && !viewAccount && themeCanShow(chosen)) syncChange({ op: "put-setting", key: "theme", value: chosen });
       name = chosen;
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
-        btn.setAttribute("aria-pressed", btn.dataset.th === (name || "auto") ? "true" : "false");
+        btn.setAttribute("aria-pressed", btn.dataset.th === (name || DEFAULT_THEME) ? "true" : "false");
       });
       const sideTheme = document.getElementById("themeCycle");
       if (sideTheme) {
-        const parts = themeNameParts(themeLabel(name || "auto"));
+        const parts = themeNameParts(themeLabel(name || DEFAULT_THEME));
         sideTheme.innerHTML = '<span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">' + esc(parts[0] || "") + '</span><span class="theme-sub">' + esc(parts[1] || "") + "</span></span>";
       }
       paintQuizContrast();
     }
     function paintThemeSegs() {
-      const auto = '<button type="button" data-th="auto"><span class="sw" style="background:linear-gradient(90deg,#F4F6FB 50%,#0D1020 50%)"><i style="background:#fff"></i></span>Auto</button>';
       const mine = visibleCustomThemes().map((row) => {
         const tools = canEditLessons() ? '<button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button>' : "";
         const bg = /^#[0-9A-Fa-f]{6}$/.test(row.bg) ? row.bg : "#CCCCCC";
@@ -1308,12 +1308,17 @@
         const acc = /^#[0-9A-Fa-f]{6}$/.test(row.acc) ? row.acc : "#333333";
         return '<div class="theme-pick"><button type="button" data-th="' + esc(row.id) + '"><span class="sw" style="background:' + bg + '"><i style="background:' + card + '"></i><b style="background:' + acc + '"></b></span><span class="theme-name">' + themeNameHtml(row.name || "Picture") + "</span></button>" + tools + "</div>";
       }).join("");
-      const rest = visibleThemes().map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>").join("");
-      document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = auto + mine + rest; });
+      const themes = visibleThemes();
+      const first = themes.filter((row) => row[0] === DEFAULT_THEME);
+      const rest = themes.filter((row) => row[0] !== DEFAULT_THEME);
+      const builtIn = first.concat(rest).map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>");
+      document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = builtIn.slice(0, 1).join("") + mine + builtIn.slice(1).join(""); });
       const themeOpen = document.getElementById("customThemeOpen");
-      if (themeOpen) themeOpen.hidden = false;
+      if (themeOpen) themeOpen.hidden = !authUser || !accountReady;
+      const themeSaveNote = document.getElementById("themeSaveNote");
+      if (themeSaveNote) themeSaveNote.textContent = authUser ? "Your choice is saved to your account." : "Your choice is saved in this browser.";
       const shown = document.documentElement.getAttribute("data-theme");
-      const name = shown === "user" ? currentTheme() : (shown || "auto");
+      const name = shown === "user" ? currentTheme() : (shown || DEFAULT_THEME);
       document.querySelectorAll("[data-theme-seg] button").forEach((btn) => {
         btn.setAttribute("aria-pressed", btn.dataset.th === name ? "true" : "false");
       });
@@ -1630,7 +1635,10 @@
     }
     function cycleTheme() {
       const now = currentTheme();
-      const choices = visibleThemes().map((row) => row[0]).concat(visibleCustomThemes().map((row) => row.id)).filter((name) => name !== now);
+      const builtIn = visibleThemes();
+      const first = builtIn.filter((row) => row[0] === DEFAULT_THEME);
+      const rest = builtIn.filter((row) => row[0] !== DEFAULT_THEME);
+      const choices = first.map((row) => row[0]).concat(visibleCustomThemes().map((row) => row.id), rest.map((row) => row[0])).filter((name) => name !== now);
       if (!choices.length) return;
       applyTheme(choices[Math.floor(Math.random() * choices.length)], { sync: true });
     }
@@ -1682,7 +1690,11 @@
       }
       const back = e.target.closest("[data-nav-back]");
       if (back) {
-        if (back.dataset.fallback === "exams") { show("exams"); return; }
+        if (lmState && lmState.examOwned && (document.querySelector("section.on") || {}).id === "material" && lmState.mode !== "preview") {
+          lmShow("preview");
+          lmPersist();
+          return;
+        }
         goBack(back.dataset.fallback || "home");
         return;
       }
@@ -9645,7 +9657,10 @@
     function paintHomeHello() {
       const hello = document.querySelector("#home .hello");
       if (!hello) return;
-      hello.textContent = !authUser && signedOutHello ? "See you soon" : "Welcome back";
+      hello.textContent = authUser ? "Welcome back" : signedOutHello ? "See you soon" : "Hello!";
+      hello.style.visibility = accountChecked ? "" : "hidden";
+      const guestActions = document.getElementById("homeAuth");
+      if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
     }
     function paintHomeAccount() {
       const who = document.getElementById("homeWho");
@@ -10167,6 +10182,8 @@
         syncQueue.length = 0;
         return stashDeveloper().then(() => {
           rememberView(user);
+          examResetWork();
+          examPullWork();
           const openedGen = viewGen;
           const openedId = user.id;
           refreshCatalog();
@@ -10196,6 +10213,7 @@
         }).catch(() => {
           viewAccount = null;
           viewGen += 1;
+          examResetWork();
           forgetViewFlags();
           const done = () => {
             viewSwitching = false;
@@ -10226,6 +10244,8 @@
         return restoreDeveloper().then(() => {
           viewAccount = null;
           viewGen += 1;
+          examResetWork();
+          examPullWork();
           forgetViewFlags();
           addedCache = null;
           lyricSize = Number(localStorage.getItem("enquiz-lyric-size")) || 20;
@@ -10595,6 +10615,7 @@
     }
     function enterAccount(user) {
       signedOutHello = false;
+      accountChecked = true;
       authUser = user;
       accountReady = false;
       paintDeveloperChrome();
@@ -10603,9 +10624,11 @@
       const on = document.querySelector("section.on");
       if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") paintHomeAccount();
-      return accountFetch("/api/me/state?summary=1").then((state) => {
+      examPreload();
+      return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
+        paintThemeSegs();
         startAccountPull();
         lmPullFromServer();
         if (syncQueue.length) scheduleStateSave();
@@ -10655,8 +10678,10 @@
       const mediaNames = (opts && opts.wipeFiles === false) ? ["added", "songs"] : ["files", "added", "songs"];
       return Promise.all([clearMediaStore(mediaNames), idbDeleteStash()]);
     }
-    function leaveAccount() {
-      signedOutHello = true;
+    function leaveAccount(options) {
+      signedOutHello = !!(options && options.signedOut);
+      accountChecked = true;
+      examResetAccount();
       viewAccount = null;
       viewSwitching = false;
       stashOwned = false;
@@ -10746,22 +10771,25 @@
       const button = e.target.closest("[data-account]");
       if (!button) return;
       const action = button.dataset.account;
-      if (action === "show-register") { paintAccountForm(true); return; }
-      if (action === "show-login") { paintAccountForm(false); return; }
+      if (action === "show-register" || action === "show-login") {
+        if (button.closest("#homeAuth")) show("account");
+        paintAccountForm(action === "show-register");
+        return;
+      }
       if (action === "logout") {
         drainUserState().then(() => {
           const theme = currentTheme();
           if (authUser && themeCanShow(theme)) {
             return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});
           }
-        }).then(() => accountFetch("/api/logout", { method: "POST", body: "{}" })).then(() => leaveAccount())
+        }).then(() => accountFetch("/api/logout", { method: "POST", body: "{}" })).then(() => leaveAccount({ signedOut: true }))
           .catch((err) => alert(err && err.message ? err.message : "Could not sign out safely. Try again."));
         return;
       }
       if (action === "revoke") {
         if (!confirm("This deletes your words, songs and progress. You will be signed out and cannot sign in to this account again. Registering with the same email starts a new empty account.")) return;
         drainUserState().then(() => accountFetch("/api/me/revoke", { method: "POST", body: "{}" }).then(() => {
-          return clearOwnBrowserData({ wipeFiles: true }).then(() => leaveAccount());
+          return clearOwnBrowserData({ wipeFiles: true }).then(() => leaveAccount({ signedOut: true }));
         })).catch((err) => alert(err && err.message ? err.message : "Some changes could not be saved. Try again."));
         return;
       }
@@ -11166,6 +11194,7 @@
       ready.then(() => {
       const themesFlight = loadAccountThemes();
       return accountFetch("/api/me").then((data) => {
+        accountChecked = true;
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
           if (personal) { leaveAccount(); return; }
@@ -11177,14 +11206,15 @@
         }
         signedOutHello = false;
         authUser = data.user;
+        paintHomeHello();
         paintDeveloperChrome();
         localStorage.setItem("enquiz-auth-on", "1");
         paintAccount();
-        examPull();
-        themesFlight.then((pack) => applyAccountThemes(pack));
-        accountFetch("/api/me/state?summary=1").then((state) => {
+        examPreload();
+        themesFlight.then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
+          paintThemeSegs();
           startAccountPull();
           const lessonsReady = lmPullFromServer();
           if (syncQueue.length) scheduleStateSave();
@@ -11195,7 +11225,7 @@
           if (syncQueue.length) scheduleStateSave();
           finishPlace();
         });
-      }).catch(() => { paintHomeAccount(); finishPlace(); });
+      }).catch(() => { accountChecked = true; paintHomeAccount(); finishPlace(); });
       });
     }
     const TEXT_KEY = "enquiz-texts";
@@ -12822,6 +12852,7 @@
       lmBindEditor();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
+      if (lmState.examOwned) examDress();
       const top = document.getElementById("material");
       if (top) top.scrollIntoView({ block: "start" });
     }
@@ -13512,6 +13543,18 @@
     let examKnown = null;
     let examReady = false;
     let examPulling = false;
+    let examSession = 0;
+    function examPreload() {
+      examPull();
+      examPullWork();
+    }
+    function examResetAccount() {
+      examSession += 1;
+      examKnown = null;
+      examReady = false;
+      examPulling = false;
+      examResetWork();
+    }
     function examLoad() {
       try {
         const list = JSON.parse(localStorage.getItem("enquiz-exams") || "[]");
@@ -13595,7 +13638,10 @@
     function examPull() {
       if (examPulling || examReady || !authUser || typeof accountFetch !== "function") return;
       examPulling = true;
+      const session = examSession;
+      const actorId = authUser.id;
       accountFetch("/api/exams").then((data) => {
+        if (session !== examSession || !authUser || authUser.id !== actorId) return;
         const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
         const local = examLoad();
         const ids = new Set(remote.map((row) => row.id));
@@ -13603,12 +13649,15 @@
         const merged = remote.map((row) => examMergeLocal(row, local.find((item) => item.id === row.id))).concat(extra);
         examKnown = new Set(merged.map((row) => row.id));
         examReady = true;
+        examPulling = false;
         try { localStorage.setItem("enquiz-exams", JSON.stringify(merged)); } catch (e) {}
         extra.forEach(examRemoteSave);
         examPaintList();
         const blocks = document.getElementById("examblocks");
         if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
-      }).catch(() => { examReady = true; });
+      }).catch(() => {
+        if (session === examSession && authUser && authUser.id === actorId) examPulling = false;
+      });
     }
     function examFind(id) {
       return examLoad().find((row) => row.id === id) || null;
@@ -13616,6 +13665,12 @@
     let examWork = {};
     let examWorkLoadedFor = "";
     let examWorkPulling = false;
+    let examWorkSession = 0;
+    function examResetWork() {
+      examWorkSession += 1;
+      examWorkLoadedFor = "";
+      examWorkPulling = false;
+    }
     function examWorkAccount() {
       return (viewAccount && viewAccount.id) || (authUser && authUser.id) || "";
     }
@@ -13654,8 +13709,11 @@
       if (!account || examWorkPulling || typeof accountFetch !== "function") return;
       examWorkPulling = true;
       examWorkLoadedFor = account;
+      const session = examSession;
+      const workSession = examWorkSession;
       const path = "/api/exams/work" + (viewAccount && viewAccount.id ? "?student=" + encodeURIComponent(viewAccount.id) : "");
       accountFetch(path).then((data) => {
+        if (session !== examSession || workSession !== examWorkSession || account !== examWorkAccount()) return;
         const bag = {};
         (data && data.work || []).forEach((row) => {
           bag[row.examId + "/" + row.blockId] = { saved: !!row.saved, answers: row.answers || {}, corrections: row.corrections || {}, points: row.points || {} };
@@ -13666,7 +13724,11 @@
         examPaintList();
         const blocks = document.getElementById("examblocks");
         if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
-      }).catch(() => { examWorkPulling = false; examWorkLoadedFor = ""; });
+      }).catch(() => {
+        if (session !== examSession || workSession !== examWorkSession) return;
+        examWorkPulling = false;
+        examWorkLoadedFor = "";
+      });
     }
     function examApplyWork(exam) {
       const bag = examWorkBag();
@@ -13779,15 +13841,14 @@
       const back = root.querySelector("[data-nav-back]");
       if (back) {
         back.dataset.fallback = "examblocks";
-        back.classList.add("back-text");
-        back.classList.remove("icon");
-        back.setAttribute("aria-label", "Blocks");
-        back.textContent = "← Blocks";
+        back.classList.remove("back-text");
+        back.classList.add("icon");
+        back.setAttribute("aria-label", "Back");
+        back.innerHTML = backArrow;
       }
       const heading = root.querySelector(".lm-meta h1");
       if (heading) heading.textContent = "Examination block";
-      const chrome = root.querySelector(".lm-chrome");
-      if (chrome) chrome.hidden = true;
+      root.querySelectorAll(".lm-chrome").forEach((chrome) => { chrome.hidden = true; });
       if (taking || reviewer) examFillAnswers();
     }
     function examSame(given, right) {
@@ -13978,10 +14039,10 @@
     function examPaintBlocks() {
       const box = document.getElementById("examBlocks");
       const newer = document.getElementById("examBlockNew");
-      const title = document.getElementById("examBlocksTitle");
+      const date = document.getElementById("examBlocksDate");
       const exam = examView(examCurrentId);
       if (newer) newer.hidden = !canEditLessons();
-      if (title && exam) title.textContent = lmLongDate(exam.date) || "Exam";
+      if (date && exam) date.textContent = lmLongDate(exam.date) || "";
       if (!box || !exam) return;
       box.innerHTML = (exam.blocks || []).map((block, index) => {
         if (!canEditLessons() && (!(block.doc && block.doc.published) || block.hidden)) return "";
@@ -14181,7 +14242,6 @@
         const result = openScreen(id);
         if (id === "exams") examPaintList();
         if (id === "examblocks") examPaintBlocks();
-        if (id === "material") examDress();
         return result;
       };
       const newer = document.getElementById("examNew");
@@ -14204,7 +14264,7 @@
         const open = event.target.closest("[data-exam-open]");
         if (!open) return;
         examCurrentId = open.dataset.examOpen;
-        show("examblocks");
+        visit("examblocks");
       });
       if (blocks) blocks.addEventListener("click", (event) => {
         if (examTool(event)) return;

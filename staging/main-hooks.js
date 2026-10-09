@@ -1566,6 +1566,11 @@ function stageApplyBootstrap(state){
   window.ContentCache?.set('account:bootstrap',state);
   stageSetActivity(state.stageActivity);
   if(state.stats){
+    if(!viewAccount&&Array.isArray(state.stats.customThemes)){
+      installCustomThemes(state.stats.customThemes);
+      paintThemeSegs();
+    }
+    if(!viewAccount&&typeof state.stats.theme==='string'&&state.stats.theme)applyTheme(state.stats.theme,{sync:false});
     if(state.stats.lyricSize)localStorage.setItem('enquiz-lyric-size',String(state.stats.lyricSize));
     if(typeof installHiddenLessons==='function')installHiddenLessons(state.stats.hiddenLessons);
     if(typeof installAllowedLessons==='function')installAllowedLessons(state.stats.allowedLessons);

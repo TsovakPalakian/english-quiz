@@ -74,7 +74,7 @@ test('bug list is hidden from teachers and readable by the developer',async()=>{
   assert.deepEqual(body,{bugs:[]});assert.equal(studied,1);
   assert.equal(headerMap(new Headers({cookie:'x'})) .cookie,'[hidden]');
 });
-test('every non-2xx response is stored, including 401 and 403',async()=>{
+test('expected sign-in failures are ignored while permission failures are stored',async()=>{
   resetBugStoreForTests();
   const db=memory();
   const call=(status,error)=>recordHttpBug(db,{login:'Tsovak'},new Request('https://learn-english.example/api/me'),new Response(JSON.stringify({error}),{status}));
@@ -82,8 +82,22 @@ test('every non-2xx response is stored, including 401 and 403',async()=>{
   await call(403,'Developer only.');
   await call(200,'');
   const bugs=await listBugs(db);
-  assert.equal(bugs.length,2);
-  assert.deepEqual(bugs.map(row=>row.status).sort(),[401,403]);
+  assert.equal(bugs.length,1);
+  assert.deepEqual(bugs.map(row=>row.status),[403]);
+});
+test('login and registration validation is ignored without hiding server failures',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  const call=(path,status)=>recordHttpBug(db,null,new Request('https://learn-english.example'+path),new Response(JSON.stringify({error:'Auth failure.'}),{status}));
+  await call('/api/login',401);
+  await call('/api/login',403);
+  await call('/api/register',400);
+  await call('/api/register',409);
+  await call('/api/login',429);
+  await saveBug(db,{path:'/api/me/themes',status:401,error:'Sign in first.'});
+  assert.equal(db.rows.length,0);
+  await call('/api/login',500);
+  assert.equal((await listBugs(db)).length,1);
 });
 test('a served non-2xx is stored, and a browser-reported failure is not stored twice',async()=>{
   resetBugStoreForTests();
