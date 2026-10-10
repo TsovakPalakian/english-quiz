@@ -30,6 +30,9 @@ assert.ok(!/[А-Яа-яЁё]/.test(presentation(bridge)),'Untranslated bridge UI
 assert.ok(!/[А-Яа-яЁё]/.test(presentation(readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))),'Untranslated hook UI text');
 writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')))
   .replaceAll('fetch("tense-bank.json")','window.TursoLoadCatalog("TENSE_BANK").then(data=>({ok:true,json:async()=>data}))'));
+const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
+const loader=readFileSync(resolve(root,'production/catalog-loader.js'),'utf8').replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'");
+writeFileSync(resolve(target,'catalog-loader.js'),loader);
 const html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 const banner='TEST Turso — отдельный Worker. Рабочий сайт не переключён.';
 assert.equal(html.split(banner).length,2);
@@ -38,10 +41,11 @@ const productionHtml=html.replace(banner,'')
   .replace('id="turso-main-banner"','id="turso-main-banner" data-compact-notices="true" hidden')
   .replace('>Проверить сервер</button>','>Reload server</button>')
   .replace('>Повторить</button>','>Retry</button>');
-const pagedHtml=productionHtml.replace(/<script src="(?:grammar|irregular|lesson-data|speakout|preview)\.js"><\/script>/g,'')+'\n';
-assert.ok(!pagedHtml.includes('src="preview.js"'));
+const pagedHtml=productionHtml.replace(/<script src="(?:grammar|irregular|lesson-data|speakout|preview)\.js(?:\?[^"<>]*)?"><\/script>/g,'')+'\n';
+assert.ok(!/<script[^>]+src="\/?preview\.js(?:\?|"|$)/.test(pagedHtml));
 assert.ok(pagedHtml.includes('</body>'));
-for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),pagedHtml.replace('</body>','<script src="/catalog-loader.js"></script></body>'));
+const versionedHtml=pagedHtml.replace(/((?:src|href)="\/?)(preview\.css|theme-init\.js|main-bridge\.js|main-stage\.css)(?:\?[^"<>]*)?"/g,(_,prefix,name)=>prefix+name+'?v='+version(name)+'"');
+for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),versionedHtml.replace('</body>','<script src="/catalog-loader.js?v='+version('catalog-loader.js')+'"></script></body>'));
 for(const path of pdfAssetPaths()){
   const file=resolve(target,path.slice(1));mkdirSync(resolve(file,'..'),{recursive:true,mode:0o700});copyFileSync(pdfAssetFile(path).file,file);
 }

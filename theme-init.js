@@ -3,6 +3,11 @@
   const root = document.documentElement;
   root.setAttribute("data-theme", "almond");
   try {
+    const size = localStorage.getItem("enquiz-display-size") || "comfortable";
+    root.setAttribute("data-display-size", ["compact", "comfortable", "large"].includes(size) ? size : "comfortable");
+    if (localStorage.getItem("enquiz-high-visibility") === "1") root.setAttribute("data-high-visibility", "1");
+  } catch (e) {}
+  try {
     const explicitTheme = localStorage.getItem("enquiz-theme");
     const savedTheme = explicitTheme && explicitTheme !== "auto" ? explicitTheme : "almond";
     if (savedTheme.indexOf("user-") === 0) {

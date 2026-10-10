@@ -57,6 +57,8 @@
       // Administration is teacher-only chrome; never open it while viewing another account.
       if (id === "admin" && viewAccount) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
+      if (id === "archive" && (!authUser || viewAccount)) id = "home";
+      if (id === "stats" && !authUser) id = "account";
       if (id === "account" && authUser) id = "profile";
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
@@ -71,7 +73,9 @@
       if (id === "profile") paintProfile();
       if (id === "admin") paintAdmin();
       if (id === "bugs") paintBugs();
+      if (id === "archive") paintArchive();
       if (id === "stats") paintStats();
+      if (id === "guide") paintGuide();
       if (id === "demonstratives" && window.paintDemonstratives) window.paintDemonstratives();
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
@@ -211,6 +215,9 @@
     }
     function rememberPlace() {
       const place = capture();
+      if (place.id === "material" && !placeBoot && !lmState?.examOwned) {
+        try { if (JSON.parse(sessionStorage.getItem("enquiz-place") || "null")?.examId) return; } catch (e) {}
+      }
       if (place.id === "song") {
         const sample = document.getElementById("songSample");
         place.songId = sample && !sample.hidden ? "sample" : ((document.getElementById("songUser") || {}).dataset.songId || "");
@@ -221,9 +228,13 @@
       if (place.id === "daywords" || place.id === "rules") place.lessonPlace = openLessonPlace;
       if (place.id === "daywork") { place.workDay = openWork.day; place.workKind = openWork.kind; }
       if (place.id === "material" && lmState) {
-        place.materialId = lmState.id || "";
+        if (lmState.examOwned) {
+          place.examId = lmState.examId;
+          place.examBlockId = lmState.blockId;
+        } else place.materialId = lmState.id || "";
         place.materialTab = lmState.tab || "";
       }
+      if (place.id === "examblocks") place.examId = examCurrentId;
       place.dayQuizPlace = dayQuizPlace;
       place.dayReturn = dayReturn;
       place.studyScreen = studyScreen;
@@ -270,6 +281,7 @@
       pushHistory();
       show(id);
     }
+    window.enquizVisit = visit;
     function restore(place) {
       if (place.id === "tenses" && place.view === "area") { openArea(place.area, true); return; }
       if (place.id === "tenses") { openHub(true); return; }
@@ -1853,6 +1865,7 @@
       }
     });
 
+
     function toggleTypeChip(e) {
       const more = e.target.closest("[data-types-more]");
       if (more) {
@@ -2412,6 +2425,40 @@
     function isDeveloper() {
       if (viewAccount) return false;
       return sessionIsDeveloper();
+    }
+    function guideShot(title, items) {
+      return '<div class="guide-shot" aria-label="' + esc(title) + '"><div class="guide-shot-top"><span>English</span><b>' + esc(title) + '</b><i></i></div><div class="guide-shot-body">' + items.map((item) => '<button type="button" class="guide-hotspot" data-jump="' + esc(item[1]) + '">' + esc(item[0]) + '</button>').join('') + '</div></div>';
+    }
+    function guideBlock(title, text, jump, label, shot) {
+      return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
+    }
+    function paintGuide() {
+      const box = document.getElementById('guideContent');
+      if (!box) return;
+      const ru = document.getElementById('guide').dataset.lang === 'ru';
+      const role = !authUser ? 'GUEST' : authUser.role;
+      const t = (en, russian) => ru ? russian : en;
+      let html = '';
+      if (role === 'GUEST') {
+        html += guideBlock(t('Sign in or create an account', 'Вход и регистрация'), t('Open Account to sign in or register. Registration creates a student account; access may wait for teacher approval.', 'Откройте Account, чтобы войти или зарегистрироваться. Создаётся аккаунт ученика; доступ может ожидать подтверждения учителя.'), 'account', t('Open Account', 'Открыть Account'), guideShot(t('Account', 'Аккаунт'), [[t('Sign in', 'Войти'), 'account'], [t('Register', 'Регистрация'), 'account']]));
+        html += guideBlock(t('Choose a theme', 'Выбор темы'), t('Open Theme to select Van Gogh or another theme. Your choice is restored on the next visit.', 'Откройте Theme и выберите Van Gogh или другую тему. Выбор восстановится при следующем посещении.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [['Van Gogh', 'themes'], [t('Add theme', 'Добавить тему'), 'themes']]));
+      } else {
+        html += guideBlock(t('Learn from your classes', 'Обучение по занятиям'), t('Open a group, choose a lesson, then study its cards, rules and tasks. Exams are listed separately and results remain in your account.', 'Откройте группу, выберите занятие и изучайте его карточки, правила и задания. Экзамены находятся отдельно, результаты сохраняются в аккаунте.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Study', 'Обучение'), [['Groups', 'groups'], ['Exams', 'exams'], ['Study', 'groups']]));
+        html += guideBlock(t('Cards: read, listen and practise', 'Карточки: смотреть, слушать и тренировать'), t('A card contains translation, part of speech, UK/US pronunciation and audio, examples and dictionary links. Study offers choice, typing, gaps, matching, listening and more.', 'Карточка содержит перевод, часть речи, британское и американское произношение и аудио, примеры и ссылки на словари. Есть выбор, ввод, пропуски, пары, аудирование и другие проверки.'), 'allwords', t('Open cards', 'Открыть карточки'), guideShot(t('Word card', 'Карточка слова'), [[t('Pronunciation', 'Произношение'), 'allwords'], [t('Examples', 'Примеры'), 'allwords'], [t('Study', 'Учить'), 'setup']]));
+        html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Library you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Library можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Library', 'Открыть Library'), guideShot(t('Library', 'Библиотека'), [[t('My words', 'Мои слова'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
+        html += guideBlock(t('Archive and account', 'Архив и аккаунт'), t('Archive holds removed materials without immediately erasing them. Restore your items or remove your own archived item. Profile contains statistics and sign-out.', 'Archive хранит убранные материалы без немедленного стирания. Свои материалы можно восстановить или удалить из архива. В Profile находятся статистика и выход.'), 'archive', t('Open Archive', 'Открыть Archive'), guideShot(t('Account tools', 'Управление'), [['Archive', 'archive'], [t('Profile', 'Профиль'), 'profile'], [t('Statistics', 'Статистика'), 'stats']]));
+        html += guideBlock(t('Statistics and progress', 'Статистика и прогресс'), t('Choose a period to see answers, accuracy, learned checks, study time, exams and added materials. Keep comparison enabled to compare the selected period with the previous period.', 'Выберите период, чтобы увидеть ответы, точность, выученные проверки, время, экзамены и добавленные материалы. Оставьте сравнение включённым, чтобы сопоставить выбранный период с предыдущим.'), 'stats', t('Open Statistics', 'Открыть статистику'), guideShot(t('Progress', 'Прогресс'), [[t('Period', 'Период'), 'stats'], [t('Learning', 'Обучение'), 'stats'], [t('Materials', 'Материалы'), 'stats']]));
+      }
+      if (role === 'ADMIN' || role === 'DEVELOPER') {
+        html += guideBlock(t('Create and manage learning', 'Создание и управление обучением'), t('Create groups, lessons, blocks and exams; edit names and dates; publish or hide material. Open a student in Administration to inspect progress, answers and exam work, and configure lesson access.', 'Создавайте группы, занятия, блоки и экзамены; редактируйте названия и даты; публикуйте или скрывайте материалы. Откройте ученика в Administration, чтобы посмотреть прогресс, ответы и экзамены и настроить доступ к занятиям.'), 'admin', t('Open Administration', 'Открыть Administration'), guideShot(t('Teacher tools', 'Инструменты учителя'), [[t('Students', 'Ученики'), 'admin'], ['Groups', 'groups'], ['Exams', 'exams']]));
+        html += '<div class="guide-note"><b>' + t('Teacher boundary', 'Граница роли учителя') + '</b><p>' + t('A teacher administers students only. Teacher and developer accounts cannot be managed by a teacher.', 'Учитель администрирует только учеников. Учитель не может управлять аккаунтами учителей и разработчиков.') + '</p></div>';
+        html += '<div class="guide-note"><b>' + t('Student statistics', 'Статистика ученика') + '</b><p>' + t('Open a student in Administration, then open Statistics to compare that student’s words, practice, materials, exams and study time for the selected period.', 'Откройте ученика в Administration, затем Statistics, чтобы сравнить его слова, практику, материалы, экзамены и время обучения за выбранный период.') + '</p></div>';
+      }
+      if (role === 'DEVELOPER') {
+        html += guideBlock(t('Developer control', 'Управление разработчика'), t('Manage students, teachers, roles and account states. Review every archive state and decide on permanent deletion. Bugs contains diagnostics and reports; sign-in errors are not added as bugs.', 'Управляйте учениками, учителями, ролями и состояниями аккаунтов. Просматривайте все состояния архива и принимайте решение об окончательном удалении. Bugs содержит диагностику и отчёты; ошибки входа туда не добавляются.'), 'admin', t('Open developer tools', 'Открыть управление'), guideShot(t('Developer', 'Разработчик'), [[t('Accounts', 'Аккаунты'), 'admin'], ['Archive', 'archive'], ['Bugs', 'bugs']]));
+        html += '<div class="guide-note danger"><b>' + t('Permanent actions', 'Необратимые действия') + '</b><p>' + t('Permanent deletion is developer-only and cannot be undone. Check the material, owner and archive status before confirming.', 'Окончательное удаление доступно только разработчику и не отменяется. Перед подтверждением проверьте материал, владельца и состояние архива.') + '</p></div>';
+      }
+      box.innerHTML = html;
     }
     function faceUser() {
       if (!viewAccount) return authUser;
@@ -3412,6 +3459,7 @@
       if (!btn) return;
       document.getElementById("guide").dataset.lang = btn.dataset.guideLang;
       document.querySelectorAll("#guideLang .chip").forEach((b) => b.classList.toggle("on", b === btn));
+      paintGuide();
     });
     document.getElementById("dayFlipBtn").onclick = () => setDayFlip(current, !dayFlipped);
     const dayFlipScene = document.getElementById("dayFlipScene");
@@ -9744,11 +9792,13 @@
         (viewAccount ? "" : '<button class="btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
         (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
-        '<div class="overview"><div><b>' + counts.learned + '</b><span>Learned</span></div><div><b>' + counts.words + '</b><span>Words</span></div>' +
-        (hideStudentSongs() ? "" : '<div><b>' + counts.songs + '</b><span>Songs</span></div>') + '</div>' +
+        '<div class="overview"><button class="stat-tile" type="button" data-stat="learned"><b>' + counts.learned + '</b><span>Learned</span></button><button class="stat-tile" type="button" data-jump="allwords"><b>' + counts.words + '</b><span>Words</span></button></div>' +
         (viewAccount ? "" : '<p class="hint">Words, songs and progress stay with the account. Signing out removes them from this browser. They come back after you sign in.</p>' +
         '<div class="row"><button class="btn stop" type="button" data-account="revoke">Delete my data</button></div>');
-      if (!viewAccount) loadOwnAccount();
+      if (!viewAccount) {
+        if (ownAccountData) renderOwnAccount(ownAccountData);
+        else loadOwnAccount();
+      }
     }
     function changeLines(row) {
       const lines = [];
@@ -9808,11 +9858,19 @@
         '<p class="label">Repeat new password</p><input name="repeat" type="password" minlength="8" maxlength="32" autocomplete="new-password" required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
+    let ownAccountFlight = null;
     function loadOwnAccount() {
-      accountFetch("/api/me/account").then(renderOwnAccount).catch((err) => {
+      const actor = authUser?.id, generation = viewGen;
+      if (ownAccountFlight?.actor === actor && ownAccountFlight.generation === generation) return ownAccountFlight.promise;
+      const flight = { actor, generation };
+      const valid = () => authUser?.id === actor && generation === viewGen && !viewAccount;
+      flight.promise = accountFetch("/api/me/account").then((data) => { if (valid()) renderOwnAccount(data); }).catch((err) => {
+        if (!valid()) return;
         const box = document.getElementById("ownAccount");
         if (box) box.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
-      });
+      }).finally(() => { if (ownAccountFlight === flight) ownAccountFlight = null; });
+      ownAccountFlight = flight;
+      return flight.promise;
     }
     function statusLabel(status) {
       if (status === "pending") return "Waiting";
@@ -9842,7 +9900,11 @@
       return head + '<div id="' + id + '" hidden>' + tail.map((item, i) => render(item, i + 4)).join("") + '</div>' +
         '<button class="btn" type="button" data-list-more="' + id + '">Show the rest</button>';
     }
+    let adminPaintToken = 0;
+    let adminUserPaintToken = 0;
     function paintAdmin() {
+      const token = ++adminPaintToken, actor = authUser?.id, generation = viewGen;
+      const still = () => token === adminPaintToken && actor === authUser?.id && generation === viewGen;
       const box = document.getElementById("adminBody");
       if (!box) return;
       if (!isTeacher()) {
@@ -9855,6 +9917,7 @@
         accountFetch("/api/admin/users"),
         accountFetch("/api/admin/changes")
       ]).then(([regs, users, changes]) => {
+        if (!still()) return;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
         const accounts = (users.users || []).filter(accountVisible);
         const accountIds = new Set(accounts.map((row) => row.id));
@@ -9895,14 +9958,18 @@
           ) : '<p class="hint">No registrations yet.</p>') +
           '</div><div id="adminUser"></div>';
       }).catch((err) => {
+        if (!still()) return;
         box.innerHTML = '<div class="card"><p class="hint bad">' + esc(err.message) + '</p></div>';
       });
     }
     function paintAdminUser(id) {
+      const token = ++adminUserPaintToken, actor = authUser?.id, generation = viewGen;
       const slot = document.getElementById("adminUser");
       if (!slot) return;
+      const still = () => token === adminUserPaintToken && actor === authUser?.id && generation === viewGen && slot.isConnected;
       slot.innerHTML = '<p class="hint">Loading…</p>';
       accountFetch("/api/admin/users/" + encodeURIComponent(id)).then((data) => {
+        if (!still()) return;
         const user = data.user;
         const openPages = canOpenPages(user)
           ? '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button>'
@@ -9934,6 +10001,7 @@
                 '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button></div>' : "")) +
           '<p class="hint">Passwords are not shown and cannot be changed here.</p></div>';
       }).catch((err) => {
+        if (!still()) return;
         slot.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
       });
     }
@@ -10023,7 +10091,55 @@
     function paintDeveloperChrome() {
       const allow = isDeveloper();
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
+      document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
     }
+    function archiveLabel(type) {
+      return { lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
+    }
+    let archivePaintToken = 0;
+    function paintArchive() {
+      const box = document.getElementById("archiveList");
+      if (!box || !authUser || viewAccount || !window.TursoMain) return;
+      const token = ++archivePaintToken, actor = authUser.id, generation = viewGen;
+      const render = (data) => {
+        if (token !== archivePaintToken || authUser?.id !== actor || generation !== viewGen || viewAccount) return;
+        const items = Array.isArray(data && data.items) ? data.items : [];
+        if (!items.length) { box.innerHTML = '<p class="hint">Archive is empty.</p>'; return; }
+        const groups = {};
+        items.forEach((item) => { (groups[item.type] || (groups[item.type] = [])).push(item); });
+        box.innerHTML = Object.keys(groups).map((type) => '<div class="archive-group"><h2 class="lib-h">' + esc(archiveLabel(type)) + '</h2>' + groups[type].map((item) => {
+          const when = item.archivedAt ? new Date(item.archivedAt * 1000).toLocaleString() : "";
+          const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
+          return '<div class="archive-row"><div><b>' + esc(item.title || "Untitled") + '</b><span class="label">Deleted by ' + esc(item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + esc(when) : "") + esc(hidden) + '</span></div><div class="row"><button class="btn" type="button" data-archive-restore="' + esc(type + ":" + item.id) + '">Restore</button><button class="btn stop" type="button" data-archive-remove="' + esc(type + ":" + item.id) + '">' + (isDeveloper() ? "Delete permanently" : "Remove from archive") + '</button></div></div>';
+        }).join("") + "</div>").join("");
+      };
+      const cached = window.TursoMain.archiveSnapshot?.();
+      if (cached) render(cached);
+      else box.innerHTML = '<p class="hint">Loading…</p>';
+      return window.TursoMain.archiveList().then(render).catch((error) => {
+        if (token === archivePaintToken && authUser?.id === actor && generation === viewGen) box.innerHTML = '<p class="hint">' + esc(error.message) + "</p>";
+      });
+    }
+    function archiveAction(action, raw) {
+      const split = String(raw || "").indexOf(":"), type = String(raw || "").slice(0, split), id = String(raw || "").slice(split + 1);
+      if (split < 1 || !id || !window.TursoMain) return;
+      let password = "";
+      if (action === "remove" && authUser && authUser.role === "ADMIN") {
+        password = prompt("Enter your password to remove this material from the teachers' archive:") || "";
+        if (!password) return;
+      }
+      if (action === "remove" && isDeveloper() && !confirm("Delete this material permanently? This cannot be undone.")) return;
+      window.TursoMain.perform(async () => {
+        if (action === "restore") await window.TursoMain.restoreArchive(type, id);
+        else await window.TursoMain.removeArchive(type, id, password);
+        paintArchive();
+      });
+    }
+    document.addEventListener("click", (event) => {
+      const restore = event.target.closest("[data-archive-restore]"), remove = event.target.closest("[data-archive-remove]");
+      if (restore) archiveAction("restore", restore.dataset.archiveRestore);
+      if (remove) archiveAction("remove", remove.dataset.archiveRemove);
+    });
     function bugWhen(ms, zone) {
       const time = Number(ms);
       if (!time) return "";
@@ -10412,6 +10528,23 @@
       return weeks;
     }
     let statsToken = 0;
+    let statsMode = "overview";
+    function displaySize() {
+      return localStorage.getItem("enquiz-display-size") || "comfortable";
+    }
+    function paintDisplaySettings() {
+      const dialog = document.getElementById("displayDialog");
+      document.querySelectorAll("button[data-display-size]").forEach((button) => button.classList.toggle("on", button.dataset.displaySize === displaySize()));
+      const high = document.getElementById("highVisibility");
+      if (high) high.checked = document.documentElement.getAttribute("data-high-visibility") === "1";
+      if (dialog && !dialog.hidden) dialog.querySelector("[data-display-size].on")?.focus();
+    }
+    function setDisplaySize(size) {
+      if (!["compact", "comfortable", "large"].includes(size)) return;
+      document.documentElement.setAttribute("data-display-size", size);
+      localStorage.setItem("enquiz-display-size", size);
+      paintDisplaySettings();
+    }
     function statsRates(series) {
       const groups = [];
       if (series.length <= 42) {
@@ -10522,6 +10655,8 @@
       const overall = data.scope === "all";
       const period = data.from + " to " + data.to + " UTC";
       let html = "";
+      html += statsVisualSummary(data, compare);
+      html += '<div class="stat-panel' + (statsMode === "details" ? " on" : "") + '" data-stat-panel="details">';
       if (overall && data.directory === false) {
         html += '<div class="card"><p>Account and registration counts are not ready yet. They appear after a teacher signs in once, when the account list is saved. Nothing here is filled in with zero.</p></div>';
       } else if (overall) {
@@ -10622,8 +10757,49 @@
           html += "</tbody></table></div>";
         }
       }
-      html += '<div class="row"><button class="btn" type="button" data-stats-export>Download CSV</button></div>';
+      html += '<div class="row"><button class="btn" type="button" data-stats-export>Download CSV</button></div></div>';
       boxDataset(data);
+      return html;
+    }
+    function statsVisualSummary(data, compare) {
+      const a = data.activity || {};
+      const pct = (part, total) => total ? Math.round(part * 100 / total) : 0;
+      const minutes = Math.round((a.seconds || 0) / 60);
+      const previousMinutes = Math.round((a.previousSeconds || 0) / 60);
+      const role = viewAccount ? "student" : (authUser && authUser.role === "DEVELOPER" ? "developer" : authUser && authUser.role === "ADMIN" ? "teacher" : "student");
+      const heading = role === "developer" ? "System overview" : role === "teacher" ? "Teaching and learning" : "Learning overview";
+      const tiles = [
+        [a.answers || 0, "Answers", a.previousAnswers || 0],
+        [pct(a.correct || 0, a.answers || 0) + "%", "Accuracy", pct(a.previousCorrect || 0, a.previousAnswers || 0) + "%"],
+        [a.learned || 0, "Learned checks", a.previousLearned || 0],
+        [minutes + " min", "Study time", previousMinutes + " min"]
+      ];
+      const modes = [["overview", "Overview"], ["learning", "Learning"], ["materials", "Materials"], ["exams", "Exams"], ["activity", "Activity"], ["details", "Details"]];
+      if (role === "developer") modes.push(["system", "System"]);
+      let html = '<div class="stat-section-head"><div><span>' + esc(heading) + '</span><h2>' + (viewAccount ? esc(viewAccount.name || viewAccount.login || "Student") : "Statistics") + '</h2></div></div>';
+      if (viewAccount) html += '<div class="stat-person"><b>' + esc(viewAccount.name || "Name not provided") + '</b><span>@' + esc(viewAccount.login || "student") + '</span><span>' + esc(viewAccount.email || "Email not provided") + '</span><span>Student</span><span>Group: not assigned</span></div>';
+      html += '<div class="stat-modes" role="tablist">' + modes.map((mode) => '<button type="button" role="tab" aria-selected="' + (statsMode === mode[0]) + '" class="' + (statsMode === mode[0] ? "on" : "") + '" data-stats-mode="' + mode[0] + '">' + mode[1] + '</button>').join('') + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "overview" ? " on" : "") + '" data-stat-panel="overview"><div class="stat-kpis">' + tiles.map((row) => '<div class="stat-kpi"><b>' + row[0] + '</b><span>' + row[1] + '</span>' + (compare ? '<small>Previous: ' + row[2] + '</small>' : '') + '</div>').join('') + '</div>';
+      const rows = [
+        ["Answers", a.answers || 0, a.previousAnswers || 0],
+        ["Learned", a.learned || 0, a.previousLearned || 0],
+        ["Cards added", a.cards || 0, a.previousCards || 0],
+        ["Exams", a.exams || 0, a.previousExams || 0],
+        ["Study minutes", minutes, previousMinutes]
+      ];
+      const max = Math.max(1, ...rows.flatMap((row) => [Number(row[1]) || 0, Number(row[2]) || 0]));
+      html += '<section class="stat-compare"><div class="stat-title"><h2>Progress by period</h2><span><i></i>Selected period <i></i>Previous</span></div>' + rows.map((row) => '<div class="stat-compare-row"><b>' + row[0] + '</b><div><i style="--w:' + Math.round(row[1] * 100 / max) + '%"></i><i style="--w:' + Math.round(row[2] * 100 / max) + '%"></i></div><span>' + row[1] + (compare ? ' / ' + row[2] : '') + '</span></div>').join('') + '</section></div>';
+      const accuracy = pct(a.correct || 0, a.answers || 0), examRate = pct(a.examPass || 0, a.exams || 0);
+      const ring = (value, label, detail) => '<div class="stat-ring-item"><div class="stat-ring" style="--p:' + value + '"><b>' + value + '%</b></div><strong>' + label + '</strong><small>' + detail + '</small></div>';
+      html += '<div class="stat-panel' + (statsMode === "learning" ? " on" : "") + '" data-stat-panel="learning"><div class="stat-rings">' + ring(accuracy, "Answer accuracy", (a.correct || 0) + " correct") + ring(Math.min(100, (a.learned || 0) * 10), "Learned checks", (a.learned || 0) + " completed") + ring(examRate, "Exam success", (a.examPass || 0) + " passed") + '</div><div class="card"><p class="label">Answers over time</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Answers over time") + '</div>' + statsList("Practice by quiz type", a.byArea) + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "materials" ? " on" : "") + '" data-stat-panel="materials"><div class="stat-kpis"><div class="stat-kpi"><b>' + (a.cards || 0) + '</b><span>Cards added</span></div><div class="stat-kpi"><b>' + (a.songs || 0) + '</b><span>Songs added</span></div><div class="stat-kpi"><b>' + (a.archives || 0) + '</b><span>Archived</span></div><div class="stat-kpi"><b>' + (a.learned || 0) + '</b><span>Learned checks</span></div></div>' + statsList("Cards and materials by section", a.cardAreas) + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "exams" ? " on" : "") + '" data-stat-panel="exams"><div class="stat-rings">' + ring(examRate, "Pass rate", (a.examPass || 0) + " of " + (a.exams || 0)) + ring(Math.max(0, 100 - examRate), "Needs review", Math.max(0, (a.exams || 0) - (a.examPass || 0)) + " attempts") + '</div>' + statsList("Why exams were not passed", a.examFail) + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "activity" ? " on" : "") + '" data-stat-panel="activity"><div class="stat-kpis"><div class="stat-kpi"><b>' + minutes + '</b><span>Study minutes</span></div><div class="stat-kpi"><b>' + (a.answers || 0) + '</b><span>Interactions</span></div><div class="stat-kpi"><b>' + ((a.series || []).filter((row) => (row.answers || row.seconds || row.exams)).length) + '</b><span>Active days</span></div><div class="stat-kpi"><b>' + accuracy + '%</b><span>Accuracy</span></div></div><div class="card"><p class="label">Daily activity</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Daily activity") + '</div></div>';
+      if (data.developerBugs) {
+        const bugs = data.developerBugs;
+        const system = data.developerSystem || {};
+        html += '<div class="stat-panel' + (statsMode === "system" ? " on" : "") + '" data-stat-panel="system"><div class="stat-system"><div class="stat-title"><h2>System health</h2><span>Live application snapshot</span></div><div class="stat-kpis"><div class="stat-kpi"><b>' + bugs.active + '</b><span>Active bugs</span><small>' + bugs.hits + ' recorded occurrences</small></div><div class="stat-kpi"><b>' + bugs.resolved + '</b><span>Resolved bugs</span></div><div class="stat-kpi"><b>' + (system.cards || 0) + '</b><span>Cards available</span></div><div class="stat-kpi"><b>' + (system.materials || 0) + '</b><span>Personal materials</span></div></div><div class="system-status"><div><i class="' + (system.online ? "ok" : "bad") + '"></i><span>Network</span><b>' + (system.online ? "Online" : "Offline") + '</b></div><div><i class="' + (system.preloadActive ? "busy" : "ok") + '"></i><span>Background loading</span><b>' + (system.preloadActive || 0) + ' active · ' + (system.preloadWaiting || 0) + ' waiting</b></div><div><i class="ok"></i><span>Viewport</span><b>' + esc(system.viewport || "—") + '</b></div></div><button class="btn primary" type="button" data-jump="bugs">Open bug diagnostics</button></div></div>';
+      }
       return html;
     }
     function boxDataset(data) {
@@ -10666,6 +10842,7 @@
       signedOutHello = false;
       accountChecked = true;
       authUser = user;
+      ownAccountData = null;
       accountReady = false;
       paintDeveloperChrome();
       localStorage.setItem("enquiz-auth-on", "1");
@@ -10736,6 +10913,7 @@
       viewSwitching = false;
       stashOwned = false;
       authUser = null;
+      ownAccountData = null;
       accountReady = false;
       paintDeveloperChrome();
       syncQueue.length = 0;
@@ -10755,8 +10933,24 @@
         show("home");
       });
     }
+    function performLogout() {
+      return drainUserState().then(() => {
+        const theme = currentTheme();
+        if (authUser && themeCanShow(theme)) {
+          return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});
+        }
+      }).then(() => accountFetch("/api/logout", { method: "POST", body: "{}" })).then(() => leaveAccount({ signedOut: true }))
+        .catch((err) => alert(err && err.message ? err.message : "Could not sign out safely. Try again."));
+    }
     document.body.addEventListener("change", (e) => {
       const id = e.target && e.target.id;
+      if (id === "highVisibility") {
+        const enabled = !!e.target.checked;
+        document.documentElement.toggleAttribute("data-high-visibility", enabled);
+        if (enabled) document.documentElement.setAttribute("data-high-visibility", "1");
+        localStorage.setItem("enquiz-high-visibility", enabled ? "1" : "0");
+        return;
+      }
       if (id === "statsFrom" || id === "statsTo") {
         document.querySelectorAll("[data-stats-range]").forEach((btn) => btn.classList.remove("primary"));
       }
@@ -10810,11 +11004,31 @@
       });
     });
     document.body.addEventListener("click", (e) => {
+      const displayOpen = e.target.closest("[data-display-open]");
+      if (displayOpen) {
+        const dialog = document.getElementById("displayDialog");
+        if (dialog) { dialog.hidden = false; paintDisplaySettings(); }
+        return;
+      }
+      if (e.target.closest("[data-display-close]")) {
+        const dialog = document.getElementById("displayDialog");
+        if (dialog) dialog.hidden = true;
+        return;
+      }
+      const displaySizeButton = e.target.closest("button[data-display-size]");
+      if (displaySizeButton) { setDisplaySize(displaySizeButton.dataset.displaySize); return; }
       const range = e.target.closest("[data-stats-range]");
       if (range) {
         document.querySelectorAll("[data-stats-range]").forEach((btn) => btn.classList.toggle("primary", btn === range));
         statsShift(Number(range.dataset.statsRange));
         paintStats();
+        return;
+      }
+      const statsModeButton = e.target.closest("[data-stats-mode]");
+      if (statsModeButton) {
+        statsMode = statsModeButton.dataset.statsMode;
+        const box = document.getElementById("statsBody");
+        if (box && box._stats) box.innerHTML = renderStats(box._stats, document.getElementById("statsCompare").checked);
         return;
       }
       if (e.target.closest("[data-stats-export]")) { exportStats(); return; }
@@ -10827,13 +11041,7 @@
         return;
       }
       if (action === "logout") {
-        drainUserState().then(() => {
-          const theme = currentTheme();
-          if (authUser && themeCanShow(theme)) {
-            return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});
-          }
-        }).then(() => accountFetch("/api/logout", { method: "POST", body: "{}" })).then(() => leaveAccount({ signedOut: true }))
-          .catch((err) => alert(err && err.message ? err.message : "Could not sign out safely. Try again."));
+        performLogout();
         return;
       }
       if (action === "revoke") {
@@ -10943,6 +11151,7 @@
     }
     let placeBoot = false;
     function resumePlace() {
+      if (!accountChecked) return;
       if (workFromLocation()) return;
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
@@ -10986,6 +11195,17 @@
         return;
       }
       if (place.id === "setup") { openGlobalStudy(); return; }
+      if ((place.id === "material" || place.id === "examblocks") && place.examId) {
+        if (place.id === "material" && lmState?.examOwned && lmState.examId === place.examId && lmState.blockId === place.examBlockId) return;
+        if (!examReady) { examPull().then(() => { if (examReady) resumePlace(); }); return; }
+        examCurrentId = place.examId;
+        if (place.id === "material") {
+          examOpenBlock(place.examBlockId);
+          if (lmState?.examOwned && lmState.examId === place.examId && lmState.blockId === place.examBlockId) show("material");
+        }
+        else show("examblocks");
+        return;
+      }
       if (place.id === "material") {
         lmEnsure();
         const found = place.materialId && lmLibrary && lmLibrary.materials.find((row) => row.id === place.materialId);
@@ -11701,10 +11921,13 @@
         }
       });
     }
-    function groupPull() {
-      if (!authUser || classGroupsPulling || classGroupsReady || typeof accountFetch !== "function") return Promise.resolve();
+    let groupPullToken = 0;
+    function groupPull(force = false) {
+      if (!authUser || (!force && (classGroupsPulling || classGroupsReady)) || typeof accountFetch !== "function") return Promise.resolve();
+      const token = ++groupPullToken, actor = authUser.id, generation = viewGen;
       classGroupsPulling = true;
       return accountFetch("/api/groups").then((data) => {
+        if (token !== groupPullToken || actor !== authUser?.id || generation !== viewGen) return;
         classGroups = Array.isArray(data && data.groups) ? data.groups.map((group) => ({
           id: group.id,
           title: group.title || "Untitled group",
@@ -11716,7 +11939,7 @@
         groupNormalize();
         paintGroups();
         paintLmDays();
-      }).catch(() => {}).finally(() => { classGroupsPulling = false; });
+      }).catch((error) => window.TursoMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
     }
     function groupSave() {
       classGroupsDirty = true;
@@ -11799,13 +12022,13 @@
       id = domEntityId(id);
       if (!canEditLessons() || classGroups.length < 2) return;
       const group = classGroups.find((row) => row.id === id);
-      if (!group || !confirm("Delete this group? Its classes will move to the first group.")) return;
-      const rest = classGroups.filter((row) => row.id !== id);
-      rest[0].lessonIds.push(...group.lessonIds.filter((lessonId) => !rest[0].lessonIds.includes(lessonId)));
-      classGroups = rest;
-      if (classGroupId === id) classGroupId = rest[0].id;
-      paintGroups();
-      groupSave();
+      if (!group || !confirm("Move this group to Archive? Its classes will move to the first group.")) return;
+      window.TursoMain.perform(async () => {
+        await window.TursoMain.archiveItem("group", id);
+        const rest = classGroups.filter((row) => row.id !== id);
+        rest[0].lessonIds.push(...group.lessonIds.filter((lessonId) => !rest[0].lessonIds.includes(lessonId)));
+        classGroups = rest;if (classGroupId === id) classGroupId = rest[0].id;paintGroups();
+      });
     }
     const LM_FONTS = {
       serif: "Georgia, 'Times New Roman', serif",
@@ -12071,17 +12294,18 @@
     }
     function lmApplyRemote(materials, opts) {
       lmEnsure();
-      const next = (materials || []).filter((row) => row && row.id && !lmIsDemoId(row.id));
+      const lessonState = lmState && !lmState.examOwned ? lmState : null;
+      const next = (materials || []).filter((row) => row && row.id && !row.examOwned && !lmIsDemoId(row.id));
       const byId = new Map();
       lmLibrary.materials.forEach((row) => {
-        if (row && row.id && !lmIsDemoId(row.id)) byId.set(row.id, row);
+        if (row && row.id && !row.examOwned && !lmIsDemoId(row.id)) byId.set(row.id, row);
       });
       next.forEach((row) => {
         if (!byId.has(row.id)) byId.set(row.id, row);
-        else if (!lmState || lmState.id !== row.id) byId.set(row.id, row);
+        else if (!lessonState || lessonState.id !== row.id) byId.set(row.id, row);
       });
-      if (lmState && lmState.id && !lmIsDemoId(lmState.id) && !byId.has(lmState.id)) byId.set(lmState.id, lmState);
-      const openId = lmState && lmState.id;
+      if (lessonState && lessonState.id && !lmIsDemoId(lessonState.id) && !byId.has(lessonState.id)) byId.set(lessonState.id, lessonState);
+      const openId = lessonState && lessonState.id;
       lmLibrary.materials = Array.from(byId.values());
       if (openId && byId.has(openId)) {
         lmState = byId.get(openId);
@@ -12137,7 +12361,7 @@
       }
       return id;
     }
-    function lmBlock(id) { return (lmState.blocks || []).find((row) => row.id === id); }
+    function lmBlock(id) { return (lmState.blocks || []).find((row) => row.id === domEntityId(id)); }
     function lmPlain(html) {
       const parsed = new DOMParser().parseFromString("<div>" + (html || "") + "</div>", "text/html");
       const box = parsed.body && parsed.body.firstElementChild ? parsed.body.firstElementChild : null;
@@ -12625,9 +12849,10 @@
     }
     function lmEditorLesson() {
       const root = document.getElementById("material");
-      const id = root && root.dataset.lmBound;
+      const id = root && domEntityId(root.dataset.lmBound);
       if (!id) return lmState;
       if (lmState && lmState.id === id) return lmState;
+      if (root.dataset.lmKind === "exam") return null;
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (found) return found;
@@ -12635,7 +12860,10 @@
     }
     function lmBindEditor() {
       const root = document.getElementById("material");
-      if (root && lmState && lmState.id) root.dataset.lmBound = lmState.id;
+      if (root && lmState && lmState.id) {
+        root.dataset.lmBound = lmState.id;
+        root.dataset.lmKind = lmState.examOwned ? "exam" : "lesson";
+      }
     }
     function lmRenderEditor() {
       const box = document.getElementById("lmBlocks");
@@ -12937,6 +13165,7 @@
       } else lmRenderPreview();
     }
     function lmMoveTabBlock(id, dir) {
+      id = domEntityId(id);
       const ids = lmBlocksFor().map((block) => block.id);
       const at = ids.indexOf(id);
       const next = at + dir;
@@ -13112,7 +13341,7 @@
         return;
       }
       if (lmLibrary && lmState) return;
-      lmLibrary = lmLoadLibrary();
+      if (!lmLibrary) lmLibrary = lmLoadLibrary();
       lmState = lmLibrary.materials.find((row) => row.id === lmLibrary.activeId) || lmLibrary.materials[0] || null;
       if (lmState) lmLibrary.activeId = lmState.id;
     }
@@ -13260,7 +13489,7 @@
       const found = lmLibrary.materials.find((row) => row.id === id);
       const unsaved = !found && lmState && lmState.id === id;
       if (!found && !unsaved) return;
-      if (!confirm("Delete this lesson?")) return;
+      if (!confirm("Move this lesson to Archive?")) return;
       if (found) {
         lmLibrary.materials = lmLibrary.materials.filter((row) => row.id !== id);
         if (!Array.isArray(lmLibrary.removed)) lmLibrary.removed = [];
@@ -13553,7 +13782,7 @@
         if (down) { lmMoveTabBlock(down.dataset.lmDown, 1); lmRenderEditor(); lmSchedule(); return; }
         const del = event.target.closest("[data-lm-del]");
         if (del) {
-          const id = del.dataset.lmDel;
+          const id = domEntityId(del.dataset.lmDel);
           lmState.blocks = lmState.blocks.filter((row) => row.id !== id);
           if (Array.isArray(lmState.stageBlockOrder)) lmState.stageBlockOrder = lmState.stageBlockOrder.filter((row) => row !== id);
           lmRenderEditor();
@@ -13704,8 +13933,8 @@
         if (!block || !from) return;
         event.preventDefault();
         const list = lmState.blocks;
-        const source = list.findIndex((row) => row.id === from);
-        const target = list.findIndex((row) => row.id === block.dataset.blockId);
+        const source = list.findIndex((row) => row.id === domEntityId(from));
+        const target = list.findIndex((row) => row.id === domEntityId(block.dataset.blockId));
         if (source < 0 || target < 0 || source === target) return;
         const item = list.splice(source, 1)[0];
         list.splice(target, 0, item);
@@ -13768,6 +13997,7 @@
     let examKnown = null;
     let examReady = false;
     let examPulling = false;
+    let examFlight = null;
     let examSession = 0;
     function examPreload() {
       examPull();
@@ -13778,6 +14008,7 @@
       examKnown = null;
       examReady = false;
       examPulling = false;
+      examFlight = null;
       examResetWork();
     }
     function examLoad() {
@@ -13846,19 +14077,34 @@
     }
     function examRemoteSave(exam) {
       if (!exam || typeof accountFetch !== "function") return Promise.resolve();
+      const session = examSession, actor = authUser?.id;
       return accountFetch("/api/exams", { method: "POST", body: JSON.stringify({ exam: examWire(exam) }) }).then((saved) => {
+        if (session !== examSession || actor !== authUser?.id) return;
         if (!saved || !saved.id) return;
         const exams = examLoad();
         const local = exams.find((row) => row.id === exam.id);
         if (!local) return;
         local.id = saved.id;
-        (saved.blocks || []).forEach((block, index) => { if (local.blocks && local.blocks[index]) local.blocks[index].id = block.id; });
+        if (examCurrentId === exam.id) examCurrentId = saved.id;
+        (saved.blocks || []).forEach((block, index) => {
+          const previous = local.blocks?.[index];
+          if (!previous) return;
+          const oldId = previous.id;
+          previous.id = block.id;
+          Object.assign(previous.doc, { id: block.id, examId: saved.id, blockId: block.id });
+          if (lmState?.examOwned && lmState.examId === exam.id && lmState.blockId === oldId) {
+            Object.assign(lmState, { id: block.id, examId: saved.id, blockId: block.id });
+            lmBindEditor();
+            rememberPlace();
+          }
+        });
         try { localStorage.setItem("enquiz-exams", JSON.stringify(exams)); } catch (e) {}
-      }).catch(() => {});
+        return saved;
+      });
     }
     function examRemoteDrop(id) {
       if (!Number.isSafeInteger(id) || id < 1 || typeof accountFetch !== "function") return Promise.resolve();
-      return accountFetch("/api/exams/" + encodeURIComponent(id), { method: "DELETE", body: "{}" }).catch(() => {});
+      return window.TursoMain.archiveItem("exam", id);
     }
     function examPush(list) {
       if (!examReady || !canEditLessons() || typeof accountFetch !== "function") return Promise.resolve();
@@ -13866,35 +14112,42 @@
       const ids = new Set(rows.map((row) => row && row.id).filter(Boolean));
       const gone = examKnown ? [...examKnown].filter((id) => !ids.has(id)) : [];
       examKnown = ids;
-      return Promise.all(gone.map(examRemoteDrop).concat(rows.map(examRemoteSave))).catch(() => {});
+      return Promise.all(gone.map(examRemoteDrop).concat(rows.map(examRemoteSave)));
     }
+    let examSaveQueue = Promise.resolve();
     function examSave(list) {
       try { localStorage.setItem("enquiz-exams", JSON.stringify(list)); } catch (e) {}
-      return examPush(list);
+      const session = examSession, actor = authUser?.id;
+      const task = examSaveQueue.catch(() => {}).then(() => {
+        if (session !== examSession || actor !== authUser?.id) return;
+        return examPush(examLoad());
+      });
+      examSaveQueue = task;
+      task.catch((error) => window.TursoMain?.notice(error.message, true));
+      return task;
     }
-    function examPull() {
-      if (examPulling || examReady || !authUser || typeof accountFetch !== "function") return;
+    function examPull(force = false) {
+      if (!force && examPulling) return examFlight || Promise.resolve();
+      if ((!force && examReady) || !authUser || typeof accountFetch !== "function") return Promise.resolve();
+      if (force) examSession += 1;
       examPulling = true;
       const session = examSession;
       const actorId = authUser.id;
-      accountFetch("/api/exams").then((data) => {
+      examFlight = accountFetch("/api/exams").then((data) => {
         if (session !== examSession || !authUser || authUser.id !== actorId) return;
         const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
-        const local = examLoad();
-        const ids = new Set(remote.map((row) => row.id));
-        const extra = local.filter((row) => row && row.id && !ids.has(row.id));
-        const merged = remote.map((row) => examMergeLocal(row, local.find((item) => item.id === row.id))).concat(extra);
-        examKnown = new Set(merged.map((row) => row.id));
+        examKnown = new Set(remote.map((row) => row.id));
         examReady = true;
         examPulling = false;
-        try { localStorage.setItem("enquiz-exams", JSON.stringify(merged)); } catch (e) {}
-        extra.forEach(examRemoteSave);
+        try { localStorage.setItem("enquiz-exams", JSON.stringify(remote)); } catch (e) {}
         examPaintList();
         const blocks = document.getElementById("examblocks");
         if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
-      }).catch(() => {
+      }).catch((error) => {
         if (session === examSession && authUser && authUser.id === actorId) examPulling = false;
+        window.TursoMain?.notice(error.message, true);
       });
+      return examFlight;
     }
     function examFind(id) {
       id = domEntityId(id);
@@ -14044,6 +14297,7 @@
       examStamp(exam);
       return examSave(exams);
     }
+    globalThis.examSync = examSync;
     function examLeave() {
       if (lmState && lmState.examOwned) {
         examSync();
@@ -14090,6 +14344,7 @@
       root.querySelectorAll(".lm-chrome").forEach((chrome) => { chrome.hidden = true; });
       if (taking || reviewer) examFillAnswers();
     }
+    globalThis.examDress = examDress;
     function examSame(given, right) {
       if (Array.isArray(right)) {
         const left = (Array.isArray(given) ? given : []).map(Number).sort().join(",");
@@ -14216,7 +14471,7 @@
       const source = input.closest("[data-exam-given]");
       if (!source || reviewer) return;
       const bits = source.dataset.examGiven.split(":");
-      const block = (lmState.blocks || []).find((row) => row.id === bits[0]);
+      const block = (lmState.blocks || []).find((row) => row.id === domEntityId(bits[0]));
       const item = block && (block.items || [])[Number(bits[1])];
       if (!item) return;
       if (source.type === "checkbox") {
@@ -14314,19 +14569,21 @@
     function examDelete(kind, id) {
       id = domEntityId(id);
       if (!canEditLessons()) return;
+      if (!confirm(kind === "exam" ? "Move this exam to Archive?" : "Move this examination block to Archive?")) return;
       const exams = examLoad();
       if (kind === "exam") {
-        examSave(exams.filter((row) => row.id !== id));
-        if (examCurrentId === id) examCurrentId = "";
-        examPaintList();
-        return;
+        return window.TursoMain.perform(async () => {
+          await window.TursoMain.archiveItem("exam", id);
+          if (examCurrentId === id) examCurrentId = "";
+          examPaintList();
+        });
       }
       const exam = exams.find((row) => row.id === examCurrentId);
       if (!exam) return;
-      exam.blocks = (exam.blocks || []).filter((row) => row.id !== id);
-      examStamp(exam);
-      examSave(exams);
-      examPaintBlocks();
+      return window.TursoMain.perform(async () => {
+        await window.TursoMain.archiveItem("exam-block", id);
+        examPaintBlocks();
+      });
     }
     function examTool(event) {
       const dateBtn = event.target.closest("[data-exam-edit]");

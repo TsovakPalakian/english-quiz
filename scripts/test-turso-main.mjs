@@ -11,6 +11,8 @@ import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
 import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
+import {ArchiveService} from '../src/turso-archive.mjs';
+import {ExamService} from '../src/turso-exams.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
 import {applyTursoSchema} from './turso-test-schema.mjs';
 
@@ -46,6 +48,78 @@ function fixture(){
   const source={byLogin:async login=>{queries++;return users.get(login)||null;},byId:async id=>{queries++;return users.get(id)||null;},gone:async id=>gone.has(id)};
   return {sqlite,db,source,users,gone,password,queries:()=>queries};
 }
+test('Archive preserves materials, records the actor, restores them, and lets teachers hide entries',async()=>{
+  const f=fixture();try{
+    const teacher={id:'teacher',login:'teacher',role:'ADMIN'},student={id:'student',login:'student',role:'USER'},developer={id:'developer',login:'developer',role:'DEVELOPER'};
+    const archive=new ArchiveService(f.db);
+    const start=await archive.revision();
+    await archive.archive(teacher,{type:'lesson',id:1});
+    assert.equal(f.sqlite.prepare('SELECT deleted_at IS NOT NULL gone FROM lessons WHERE id=1').get().gone,1);
+    let result=await archive.list(teacher),items=result.items;assert.equal(items.length,1);assert.equal(items[0].archivedByName,'teacher');assert.ok(result.revision>start);
+    assert.equal((await archive.list(student)).items.length,0);
+    await archive.restore(teacher,{type:'lesson',id:1});
+    assert.equal(f.sqlite.prepare('SELECT deleted_at IS NULL active FROM lessons WHERE id=1').get().active,1);
+    await archive.archive(teacher,{type:'lesson',id:1});
+    await archive.remove(teacher,{type:'lesson',id:1},{passwordVerified:true});
+    assert.equal((await archive.list(teacher)).items.length,0);
+    items=(await archive.list(developer)).items;assert.equal(items.length,1);assert.ok(items[0].teacherHiddenAt);
+    await archive.archive(student,{type:'card',id:3});
+    assert.equal((await archive.list(student)).items.length,1);assert.equal((await archive.list(teacher)).items.length,1);
+    await archive.remove(student,{type:'card',id:3});
+    assert.equal((await archive.list(student)).items.length,0);assert.equal((await archive.list(teacher)).items.length,0);
+    assert.equal((await archive.list(developer)).items.length,2);
+  }finally{f.sqlite.close();}
+});
+test('Exam blocks archive and restore with their materials/work; stale saves cannot resurrect them',async()=>{
+  const f=fixture();
+  const db={...f.db,async atomic(commands){
+    f.sqlite.exec('BEGIN');
+    try{
+      const result=commands.map(command=>{
+        const args=command.args.map(a=>a.type==='null'?null:a.type==='integer'?Number(a.value):a.value);
+        const sql=f.sqlite.prepare(command.sql);
+        if(/^SELECT\b/i.test(command.sql))return {rows:sql.all(...args).map(row=>Object.values(row).map(value=>({value:String(value)})))};
+        sql.run(...args);return {rows:[]};
+      });
+      f.sqlite.exec('COMMIT');return result;
+    }catch(error){f.sqlite.exec('ROLLBACK');throw error;}
+  }};
+  try{
+    const teacher={id:'teacher',login:'teacher',role:'ADMIN'},developer={id:'developer',role:'DEVELOPER'};
+    const exams=new ExamService(db),archive=new ArchiveService(db);
+    const saved=await exams.save(teacher,{exam:{title:'Fixture exam',published:true,blocks:[{title:'Fixture block',published:true,materials:[{type:'text',text:'Preserved material'}]}]}});
+    assert.ok(Number.isSafeInteger(saved.id));assert.equal(saved.blocks[0].materials.length,1);
+    const blockId=saved.blocks[0].id;
+    f.sqlite.prepare('INSERT INTO exam_work(account_id,exam_id,block_id,answers_json) VALUES(?,?,?,?)').run('student',saved.id,blockId,'{"answer":"kept"}');
+    await archive.archive(teacher,{type:'exam-block',id:blockId});
+    assert.equal((await exams.list(teacher))[0].blocks.length,0);
+    assert.equal((await archive.list(teacher)).items[0].type,'exam-block');
+    await assert.rejects(exams.save(teacher,{exam:saved}),e=>e.status===409);
+    await archive.restore(teacher,{type:'exam-block',id:blockId});
+    assert.equal((await exams.list(teacher))[0].blocks[0].materials[0].text,'Preserved material');
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM exam_work').get().n,1);
+    await exams.save(teacher,{exam:{...saved,blocks:[]}});
+    assert.equal((await archive.list(teacher)).items[0].archivedByName,'teacher');
+    await archive.archive(teacher,{type:'exam',id:saved.id});
+    await assert.rejects(archive.restore(teacher,{type:'exam-block',id:blockId}),e=>e.status===409);
+    await archive.remove(developer,{type:'exam',id:saved.id});
+    assert.equal((await archive.list(developer)).items.length,0);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM exam_materials').get().n,0);
+  }finally{f.sqlite.close();}
+});
+test('Cache invalidation fences late requests and permits a fresh request for the same key',async()=>{
+  const window={},pending=[];
+  runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),{
+    window,Map,Promise,Set,AbortSignal,encodeURIComponent,setTimeout,
+    document:{getElementById:()=>null,createElement:()=>({}),body:{append(){}}}
+  });
+  const cache=window.ContentCache;
+  const old=cache.load('archive:actor:revision:1',()=>new Promise(resolve=>pending.push(resolve)));
+  await Promise.resolve();cache.invalidate('archive:');
+  const fresh=cache.load('archive:actor:revision:1',async()=>({items:['new']}));
+  await fresh;pending[0]({items:['old']});await old;
+  assert.deepEqual(cache.get('archive:actor:revision:1').items,['new']);
+});
 test('Public catalog pages are bounded, cursor-based, compact and exclude private dictionaries',async()=>{
   const f=fixture();try{
     f.sqlite.prepare('UPDATE cards SET extra_json=? WHERE id=?').run(JSON.stringify({data:{links:{url:'large'},usages:['kept']}}),1);
@@ -80,7 +154,7 @@ test('Catalog loader starts the shell before catalogs and shares one in-flight l
   const calls=[],window={};
   const scope={window,Map,Promise,AbortSignal,encodeURIComponent,
     fetch:async path=>{calls.push(path);const key=path.split('?')[0].split('/').at(-1);return {ok:true,json:async()=>({documents:{[key]:[{cardId:key}]},cards:[{stageId:key,en:key}],next:null})};},
-    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append:script=>{assert.equal(calls.length,0);assert.equal(script.src,'/preview.js');}}}};
+    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append:script=>{assert.equal(calls.length,0);assert.match(script.src,/^\/preview\.js(?:\?v=[a-z0-9-]+)?$/);}}}};
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   await window.TursoCatalogReady;
   assert.ok(Array.isArray(window.LESSON_DATA.words));assert.equal(calls.length,0);
@@ -112,6 +186,7 @@ test('Lazy lesson open coalesces clicks, guards navigation/profile changes, and 
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   const first=scope.stageOpenLesson(material),second=scope.stageOpenLesson(material);
   assert.equal(pending.length,1);assert.equal(root.inert,true);
+  scope.lmLibrary.materials=[{...material}];
   pending.shift().resolve({materials:[{id:'lesson',stageRevision:1,blocks:[{response:'own'}]}]});await Promise.all([first,second]);
   assert.deepEqual(opened,['lesson']);assert.equal(root.inert,false);
   const disk={id:'lesson',stageRevision:1,stageLessonOwner:'student:',blocks:[{response:'old disk answer'}]};scope.lmLibrary.materials=[disk];
@@ -365,7 +440,7 @@ test('Stage statistics separate Turso activity from history and hide unsupported
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')+'\nstageStatsIntro();',scope);
   assert.equal(elements.statsRole.hidden,true);assert.equal(elements.statsUser.hidden,true);
   assert.equal(elements.statsRole.value,'');assert.equal(elements.statsUser.value,'');
-  assert.match(elements.statsSub.textContent,/new Turso activity only/);
+  assert.match(elements.statsSub.textContent,/Choose a period and a view/);
 });
 test('R3 answer coverage: all checked game types except Flip, no-card questions and teacher inspection',()=>{
   const events=[],answers=[],scope={authUser:{id:'student',role:'USER'},accountReady:true,viewSwitching:false,viewAccount:null,
@@ -1072,6 +1147,7 @@ test('Lesson buttons publish only after acknowledgement; failed Save keeps the o
 test('Managed add uses target endpoint, waits for acknowledgement and drops late results',async()=>{
   const pending=[],calls=[];let list=[];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
+    confirm:()=>true,
     loadAdded:()=>list,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},
     document:{addEventListener(){}},window:{TursoMain:{findCard:async()=>({id:1,revision:1}),
       linkManagedCard:(...args)=>{calls.push(args);return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
@@ -1128,7 +1204,7 @@ test('Managed text UI waits for acknowledgement and ignores a response after lea
   pending.shift().resolve({item:{...item,title:'Late'}});await late;assert.equal(saved.length,1);
 });
 test('A text expression uses the dedicated card route and updates the list only after acknowledgement',async()=>{
-  let list=[],resolveWrite,marked=0;
+  let list=[],resolveWrite,written,marked=0;
   const status={},baseWindow={LESSON_DATA:{},IRREGULAR:[],ContentCache:{drop(){}}};
   const scope={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:null,viewSwitching:false,
     cardIndex:()=>new Map(),loadAdded:()=>list,rememberAdded:value=>list=value,loadSongs:()=>[],loadTexts:()=>[],
@@ -1136,12 +1212,19 @@ test('A text expression uses the dedicated card route and updates the list only 
     markExpressionButton:()=>marked++,paintAdded(){},paintAllWords(){},paintHomeStats(){},
     document:{addEventListener(){},getElementById:id=>id==='textReadStatus'?status:null,querySelector:()=>null},
     window:{...baseWindow,TursoMain:{findCard:async()=>{throw new Error('missing');},
-      newCard:()=>new Promise(resolve=>{resolveWrite=resolve;}),perform:action=>action()}}};
+      newCard:(word,ru,place)=>new Promise(resolve=>{written={word,ru,place};resolveWrite=resolve;}),perform:action=>action()}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   const saving=scope.stageStoreTextExpression({type:'PHRASAL_VERB'}, {},{word:'give up',ru:'сдаться',place:'phrasal',fromText:true});
   await new Promise(resolve=>setImmediate(resolve));assert.equal(list.length,0);
   resolveWrite({revision:1,card:{word:'give up',ru:'сдаться',place:'phrasal',stageId:10,stageScope:'profile'}});
   await saving;assert.equal(list.length,1);assert.equal(list[0].stageId,10);assert.equal(marked,1);
+  const gloss=scope.stageStoreTextExpression({meaning:'to stop trying'},{},{word:'pack it in',ru:'',place:'idioms',fromText:true});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(written.ru,'to stop trying');
+  resolveWrite({revision:2,card:{word:'pack it in',ru:written.ru,place:'idioms',stageId:11,stageScope:'profile'}});
+  await gloss;assert.equal(list[0].ru,'to stop trying');
+  const button={disabled:true,textContent:'Looking up…'};
+  assert.equal(await scope.stageStoreTextExpression({},button,{word:'no gloss',ru:'',place:'idioms',fromText:true}),undefined);
+  assert.equal(button.disabled,false);assert.match(status.textContent,/translation is required/);assert.equal(list.length,2);
   assert.match(mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')),/return stageStoreTextExpression\(expr,button,item\)/);
 });
 test('Song and text lists show hide/delete controls and wait for server acknowledgement',async()=>{
@@ -1169,6 +1252,7 @@ test('Song and text lists show hide/delete controls and wait for server acknowle
 test('R2 managed text archive waits for server, preserves failures and ignores switched targets',async()=>{
   let list=[{id:'one',stageId:'one',stageScope:'profile'},{id:'two',stageId:'two',stageScope:'profile'}];const pending=[];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
+    confirm:()=>true,
     TEXT_KEY:'texts',loadTexts:()=>list,localStorage:{setItem:(key,value)=>list=JSON.parse(value)},paintTextCount(){},renderTextList(){},show(){},
     document:{addEventListener(){}},window:{TursoMain:{archiveManagedText:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async fn=>{try{await fn();}catch{}}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
@@ -1300,7 +1384,7 @@ test('Background queue runs two requests at a time and shares an in-flight id',a
   await new Promise(resolve=>setTimeout(resolve,200));
   assert.ok(peak<=2);assert.equal(seen.filter(id=>id==='a').length,1);
 });
-test('Session cache restores catalogs on refresh and All words omits lyrics and texts',()=>{
+test('Session cache restores catalogs on refresh and All words omits lyrics and texts',async()=>{
   const session=new Map([['enquiz-session-cache-v2',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:mine:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
   const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
     fetch:async()=>{throw new Error('network');},
@@ -1309,6 +1393,7 @@ test('Session cache restores catalogs on refresh and All words omits lyrics and 
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
   window.ContentCache.set('songs:list:after:start',{songs:[{id:'s1'}],next:null});
+  await new Promise(resolve=>setTimeout(resolve,60));
   assert.ok(JSON.parse(session.get('enquiz-session-cache-v2'))['songs:list:after:start']);
   const data={words:[],extraWords:[],lines21:[],ask07:[],phrases09:[],adverbs14:[],talk16:[],likes23:[],phrasalWords:[],idiomWords:[]};
   Object.assign(window,{LESSON_DATA:data,IRREGULAR:[],loadAdded:()=>[{word:'mine',place:'mine'},{word:'lyric',place:'music'},{word:'from text',place:'mine',fromText:true}],
@@ -1364,17 +1449,78 @@ test('Numeric song and text IDs open when DOM attributes provide strings',async(
   await scope.stageOpenSongId('10');await scope.stageOpenText('20');
   assert.deepEqual(opened,[['view','song'],['song',10],['text',20]]);
 });
+test('Lesson refresh cannot replace an open exam block with a matching lesson ID',()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const examDoc={id:8,examOwned:true,examId:9,blockId:8,published:false};
+  const remote={id:8,title:'Updated lesson',published:true};
+  const scope={lmState:examDoc,lmLibrary:{materials:[{id:8,title:'Old lesson'}, {id:10,examOwned:true}],activeId:8},
+    lmEnsure(){},lmIsDemoId:()=>false,localStorage:{setItem(){}},LM_KEY:'lessons',paintLmDays(){},lmSchedulePush(){}};
+  runInNewContext(source.slice(source.indexOf('    function lmApplyRemote('),source.indexOf('    function lmPullFromServer()')),scope);
+  scope.lmApplyRemote([remote],{push:false});
+  assert.equal(scope.lmState,examDoc);
+  assert.equal(scope.lmLibrary.materials.length,1);assert.equal(scope.lmLibrary.materials[0],remote);
+  scope.lmLibrary={materials:[],activeId:''};
+  scope.lmApplyRemote([{id:3}],{push:false});
+  assert.equal(scope.lmState,examDoc);assert.equal(scope.lmLibrary.materials.length,1);
+});
+test('Page restoration keeps examination identity separate from lesson IDs',()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),opened=[];
+  const examDoc={id:8,examOwned:true,examId:9,blockId:8},place={id:'material',examId:9,examBlockId:8};
+  const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',
+    workFromLocation:()=>false,sessionStorage:{getItem:()=>JSON.stringify(place)},document:{getElementById:()=>({})},
+    lmEnsure(){throw Error('Exam restoration must not search lessons');},examOpenBlock:id=>opened.push(id),show(){}};
+  runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace() {')),scope);
+  scope.resumePlace();assert.equal(scope.lmState,examDoc);assert.equal(opened.length,0);
+  scope.lmState={id:8};scope.resumePlace();assert.deepEqual(opened,[8]);assert.equal(scope.examCurrentId,9);
+  const written=[];
+  const remember={capture:()=>({id:'material'}),placeBoot:false,lmState:null,dayQuizPlace:'',dayReturn:'',studyScreen:'',
+    sessionStorage:{getItem:()=>JSON.stringify(place),setItem:(key,value)=>written.push(JSON.parse(value))}};
+  runInNewContext(source.slice(source.indexOf('    function rememberPlace() {'),source.indexOf('    function placeKey(')),remember);
+  remember.rememberPlace();assert.equal(written.length,0);
+  remember.lmState=examDoc;remember.rememberPlace();
+  assert.equal(written[0].examId,9);assert.equal(written[0].examBlockId,8);assert.equal(written[0].materialId,undefined);
+});
+test('Exam publication uses exam persistence and implicit saves preserve Published',async()=>{
+  const source=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),saved=[];
+  const scope={lmState:{id:8,examOwned:true,published:true,mode:'preview'},viewGen:1,viewAccount:null,viewSwitching:false,lmSaveTimer:0,
+    canEditLessons:()=>true,clearTimeout(){},document:{getElementById:()=>({dataset:{lmKind:'exam'}})},
+    window:{TursoMain:{perform:fn=>fn(),notice(){throw Error('Unexpected lesson save');}}},
+    examSync:async()=>saved.push(scope.lmState.published),lmShow(){},lmNote(){},examDress(){}};
+  runInNewContext(source.slice(source.indexOf('function stageSaveLesson('),source.indexOf('function stageServerBaseline(')),scope);
+  await scope.stageSaveLesson();assert.equal(scope.lmState.published,true);
+  await scope.stageSaveLesson(false);assert.equal(scope.lmState.published,false);
+  await scope.stageSaveLesson(true);assert.equal(scope.lmState.published,true);
+  assert.deepEqual(saved,[true,false,true]);
+});
+test('Administration ignores older page and user responses',async()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
+  const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
+  const scope={authUser:{id:'developer'},viewGen:1,document:{getElementById:id=>id==='adminBody'?box:slot},
+    accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
+    accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
+  runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
+  scope.paintAdmin();scope.paintAdmin();
+  for(const item of pending.slice(3,6))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  box.innerHTML='Selected user';
+  for(const item of pending.slice(0,3))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(box.innerHTML,'Selected user');
+  scope.paintAdminUser('one');scope.paintAdminUser('two');
+  pending[7].resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending[6].resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  assert.match(slot.innerHTML,/Second/);assert.doesNotMatch(slot.innerHTML,/First/);
+});
 test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
   const part=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
   const visits=[],exam={id:9,blocks:[{id:10,doc:{title:'Published block'}}]};
   const scope={classGroups:[{id:7,lessonIds:[8]}],classGroupId:'',visit:id=>visits.push(id),
-    lmEnsure(){},lmLibrary:{materials:[{id:8,published:true}]},lmLessonVisibleToViewer:()=>true,canEditLessons:()=>false,lmState:null,
+    lmLoadLibrary(){throw Error('Must preserve loaded server lessons');},lmLibrary:{materials:[{id:8,published:true}]},lmLessonVisibleToViewer:()=>true,canEditLessons:()=>false,lmState:null,
     localStorage:{getItem:key=>key==='enquiz-exams'?JSON.stringify([{id:9,title:'Published exam'}]):null},
     examLoad:()=>[{id:9,title:'Published exam'}],examCurrentId:9,examView:id=>id===9?structuredClone(exam):null,examHold:null};
   runInNewContext(
     part('    function domEntityId(value) {','    const dayScreens')+
     part('    function groupOpen(id) {','    function groupCreate() {')+
+    part('    function lmEnsure() {','    function loadHiddenLessons() {')+
     part('    function lmOpenLesson(id) {','    function lmKeepLesson() {')+
     part('    function examFind(id) {','    let examWork = {}')+
     part('    function examOpenBlock(blockId) {','    function examBoot() {'),scope);
@@ -1395,7 +1541,7 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   window.ContentCache.set('cards:words:after:start',{cards:[{stageId:'w1',en:'day'}],next:null});
   window.ContentCache.set('block::m1:dictionary',{revision:2,data:null});
   let saved=null;
-  const hooks={window,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadAdded:()=>[{stageId:'m1',word:'stale',place:'mine',stageRevision:1},{word:'unsaved',place:'mine'}],
+  const hooks={window,authUser:null,viewAccount:null,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadAdded:()=>[{stageId:'m1',word:'stale',place:'mine',stageRevision:1},{word:'unsaved',place:'mine'}],
     rememberAdded:list=>{saved=list;},loadSongs:()=>[],loadTexts:()=>[],setTimeout(){},
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
@@ -1433,7 +1579,7 @@ test('Library phrase sorting and song back keep the list in history',()=>{
 test('A finished list paints zero and drops rows the server no longer returns',async()=>{
   const songs=[{id:'keep',stageId:'s1',title:'Old',lyrics:'line',stageLyricsDeferred:false},{id:'gone',stageId:'s2',title:'Gone'}];
   const counts={lyricCount:{textContent:'4'}};
-  const scope={viewAccount:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
+  const scope={viewAccount:null,viewGen:1,authUser:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
     stageApplyLibraryBlocks(){},stageFlushBlocks(){},stageScheduleHydration(){},stageFollow(){},paintLyrics(){},
     document:{addEventListener(){},getElementById:id=>counts[id]||null,querySelector:()=>null},
     window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){}}},
@@ -1452,7 +1598,7 @@ test('A list response that arrives after a local delete does not restore the row
   const songs=[{id:'keep',stageId:'s1',title:'Keep'},{id:'gone',stageId:'s2',title:'Gone',archived:false}];
   const pending=new Promise(resolve=>{release=resolve;});
   let followed=0;
-  const scope={viewAccount:null,authUser:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
+  const scope={viewAccount:null,viewGen:1,authUser:null,loadSongs:()=>songs,writeSongs(list){songs.splice(0,songs.length,...list);},loadAdded:()=>[],loadTexts:()=>[],
     stageFollow(){followed++;},paintLyrics(){},
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){},drop(){}}},

@@ -8,7 +8,7 @@
   window.VERB_IPA=window.VERB_IPA||{};
   window.VERB_IPA_CASE=window.VERB_IPA_CASE||{};
   const STORE='enquiz-session-cache-v2';
-  const KEEP=/^(account:bootstrap|library:|cards:|irregular:|progress:|songs:list:|texts:list:|quizzes:after:|lesson:summary|block:)/;
+  const KEEP=/^(account:bootstrap|archive:|library:|cards:|irregular:|progress:|songs:list:|texts:list:|quizzes:after:|lesson:summary|block:)/;
   function restore(){
     try{
       const saved=JSON.parse(sessionStorage.getItem(STORE)||'null');
@@ -24,7 +24,13 @@
     catch(e){for(const key of Object.keys(dump))if(key.endsWith(':dictionary'))delete dump[key];try{sessionStorage.setItem(STORE,JSON.stringify(dump));}catch(err){}}
   }
   let held=false;
-  function remember(key,value){memory.set(key,{value,at:Date.now()});if(KEEP.test(key))persist();return value;}
+  let persistPending=false;
+  function schedulePersist(){
+    if(persistPending)return;
+    persistPending=true;
+    idle(()=>{persistPending=false;persist();});
+  }
+  function remember(key,value){memory.set(key,{value,at:Date.now()});if(KEEP.test(key))schedulePersist();return value;}
   window.ContentCache={
     get(key){return memory.has(key)?memory.get(key).value:undefined;},
     at(key){return memory.get(key)?.at||0;},
@@ -32,13 +38,13 @@
     set:remember,
     hold(key,value){memory.set(key,{value,at:Date.now()});held=true;return value;},
     flush(){if(!held)return;held=false;persist();},
-    drop(part){for(const key of [...memory.keys()])if(String(key).includes(part))memory.delete(key);persist();},
-    invalidate(prefix){for(const key of [...memory.keys()])if(String(key).startsWith(prefix))memory.delete(key);persist();},
-    clear(){memory.clear();try{sessionStorage.removeItem(STORE);}catch(e){}},
+    drop(part){for(const key of new Set([...memory.keys(),...loads.keys()]))if(String(key).includes(part)){memory.delete(key);loads.delete(key);}schedulePersist();},
+    invalidate(prefix){for(const key of new Set([...memory.keys(),...loads.keys()]))if(String(key).startsWith(prefix)){memory.delete(key);loads.delete(key);}schedulePersist();},
+    clear(){memory.clear();loads.clear();try{sessionStorage.removeItem(STORE);}catch(e){}},
     load(key,fetcher){
       if(memory.has(key))return Promise.resolve(memory.get(key).value);
       if(loads.has(key))return loads.get(key);
-      const job=Promise.resolve().then(fetcher).then(value=>{loads.delete(key);return remember(key,value);},error=>{loads.delete(key);throw error;});
+      const job=Promise.resolve().then(fetcher).then(value=>{if(loads.get(key)===job){loads.delete(key);remember(key,value);}return value;},error=>{if(loads.get(key)===job)loads.delete(key);throw error;});
       loads.set(key,job);return job;
     }
   };
@@ -83,7 +89,7 @@
     while(active<limit&&pending.length){
       const task=pending.shift();
       active++;
-      const job=Promise.resolve().then(task.run).then(()=>{active--;inflight.delete(task.id);pump();},()=>{active--;inflight.delete(task.id);pump();});
+      const job=Promise.resolve().then(task.run).then(()=>{active--;inflight.delete(task.id);idle(pump);},()=>{active--;inflight.delete(task.id);idle(pump);});
       inflight.set(task.id,job);
     }
   }
@@ -101,7 +107,7 @@
     active:()=>active,
     waiting:()=>pending.length
   };
-  const script=document.createElement('script');script.src='/preview.js';
+  const script=document.createElement('script');script.src='/preview.js?v=20261010-13';
   document.body.append(script);
   window.TursoCatalogReady=Promise.resolve();
 })();

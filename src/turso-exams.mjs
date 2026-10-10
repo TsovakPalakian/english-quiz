@@ -1,4 +1,5 @@
 import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
+import {ArchiveService} from './turso-archive.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -49,7 +50,7 @@ const schema = [
     PRIMARY KEY (account_id, exam_id, block_id)
   )`
 ];
-let ready = null;
+const ready = new WeakMap();
 
 function signedIn(actor) {
   if (!actor?.id || !['USER', 'ADMIN', 'DEVELOPER'].includes(actor.role)) fail(401, 'Sign in first.');
@@ -58,14 +59,14 @@ function signedIn(actor) {
 export class ExamService {
   constructor(db) { this.db = db; }
   ensure() {
-    if (!ready) ready = (async () => {
+    if (!ready.has(this.db)) ready.set(this.db,(async () => {
       await this.db.atomic(schema.map(sql => stmt(sql)));
       const columns = await this.db.read('PRAGMA table_info(exams)');
       if (!columns.some(column => column.name === 'title')) {
         await this.db.atomic([stmt("ALTER TABLE exams ADD COLUMN title TEXT NOT NULL DEFAULT 'Exam'")]);
       }
-    })().catch((error) => { ready = null; throw error; });
-    return ready;
+    })().catch((error) => { ready.delete(this.db); throw error; }));
+    return ready.get(this.db);
   }
   async list(actor) {
     signedIn(actor);
@@ -113,6 +114,17 @@ export class ExamService {
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(400, 'Invalid exam date.');
     const blocks = Array.isArray(exam.blocks) ? exam.blocks : [];
     if (blocks.length > 100) fail(400, 'Too many examination blocks.');
+    const archive=new ArchiveService(this.db);await archive.ensure();
+    if(examId!=null){
+      const active=await this.db.read('SELECT id FROM exams WHERE id=? AND deleted_at IS NULL',[examId]);
+      if(!active.length)fail(409,'This exam is archived. Refresh the exam list.');
+      const ids=blocks.map(block=>optionalId(block?.id)).filter(id=>id!=null);
+      if(new Set(ids).size!==ids.length)fail(400,'Duplicate examination block.');
+      if(ids.length){
+        const found=await this.db.read(`SELECT id FROM exam_blocks WHERE exam_id=? AND deleted_at IS NULL AND id IN (${ids.map(()=>'?').join(',')})`,[examId,...ids]);
+        if(found.length!==ids.length)fail(409,'An examination block is archived. Refresh the exam list.');
+      }
+    }
     const commands = [
       stmt('DROP TABLE IF EXISTS temp.saved_ids'),
       stmt("CREATE TEMP TABLE saved_ids(kind TEXT NOT NULL, seq INTEGER NOT NULL, id INTEGER NOT NULL, PRIMARY KEY(kind, seq))")
@@ -121,22 +133,23 @@ export class ExamService {
       stmt('INSERT INTO exams(title, lesson_date, published, hidden_from_students) VALUES(?,?,?,?)', [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0]),
       stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('exam', 0, last_insert_rowid())"));
     else commands.push(
-      stmt(`UPDATE exams SET title=?, lesson_date=?, published=?, hidden_from_students=?, deleted_at=NULL, revision=revision+1, updated_at=unixepoch() WHERE id=?`, [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0, examId]),
-      stmt('INSERT INTO saved_ids(kind, seq, id) SELECT \'exam\', 0, id FROM exams WHERE id=? AND changes()=1', [examId]));
+      stmt(`UPDATE exams SET title=?, lesson_date=?, published=?, hidden_from_students=?, revision=revision+1, updated_at=unixepoch() WHERE id=? AND deleted_at IS NULL`, [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0, examId]),
+      stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('exam',0,(SELECT id FROM exams WHERE id=? AND deleted_at IS NULL AND changes()=1))", [examId]));
     let materialSeq = 0;
     blocks.forEach((block, index) => {
       if (!block || typeof block !== 'object') fail(400, 'Invalid examination block.');
       const blockId = optionalId(block.id);
       const materials = Array.isArray(block.materials) ? block.materials : [];
+      const firstMaterialSeq=materialSeq;
       if (materials.length > 200) fail(400, 'Too many materials in one block.');
       if (blockId == null) commands.push(
         stmt(`INSERT INTO exam_blocks(exam_id, position, title, published, hidden_from_students)
           SELECT id,?,?,?,? FROM saved_ids WHERE kind='exam' AND seq=0`, [index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0]),
         stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('block', ?, last_insert_rowid())", [index]));
       else commands.push(
-        stmt(`UPDATE exam_blocks SET position=?, title=?, published=?, hidden_from_students=?, deleted_at=NULL, revision=revision+1
-          WHERE id=? AND exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0)`, [index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0, blockId]),
-        stmt("INSERT INTO saved_ids(kind, seq, id) SELECT 'block', ?, id FROM exam_blocks WHERE id=? AND changes()=1", [index, blockId]));
+        stmt(`UPDATE exam_blocks SET position=?, title=?, published=?, hidden_from_students=?, revision=revision+1
+          WHERE id=? AND deleted_at IS NULL AND exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0)`, [index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0, blockId]),
+        stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('block',?,(SELECT id FROM exam_blocks WHERE id=? AND deleted_at IS NULL AND changes()=1))", [index, blockId]));
       const partIds = [];
       materials.forEach((part, position) => {
         if (!part || !part.type) fail(400, 'Invalid exam material.');
@@ -161,14 +174,18 @@ export class ExamService {
         }
         materialSeq++;
       });
-      commands.push(partIds.length
-        ? stmt(`UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND block_id=(SELECT id FROM saved_ids WHERE kind='block' AND seq=?) AND deleted_at IS NULL AND id NOT IN (${partIds.map(() => '?').join(',')})`, [index, ...partIds])
-        : stmt("UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND block_id=(SELECT id FROM saved_ids WHERE kind='block' AND seq=?) AND deleted_at IS NULL", [index]));
+      commands.push(stmt(`UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND block_id=(SELECT id FROM saved_ids WHERE kind='block' AND seq=?) AND deleted_at IS NULL
+        AND id NOT IN (SELECT id FROM saved_ids WHERE kind='material' AND seq>=? AND seq<?)${partIds.length?' AND id NOT IN ('+partIds.map(()=>'?').join(',')+')':''}`,[index,firstMaterialSeq,materialSeq,...partIds]));
     });
+    commands.push(stmt(`INSERT INTO content_archive(entity_type,entity_id,title,archived_by,archived_by_name,archived_by_role)
+      SELECT 'exam-block',CAST(id AS TEXT),title,?,?,? FROM exam_blocks WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0)
+      AND deleted_at IS NULL AND id NOT IN (SELECT id FROM saved_ids WHERE kind='block')
+      ON CONFLICT(entity_type,entity_id) DO UPDATE SET title=excluded.title,archived_by=excluded.archived_by,archived_by_name=excluded.archived_by_name,
+      archived_by_role=excluded.archived_by_role,archived_at=unixepoch(),teacher_hidden_at=NULL,teacher_hidden_by=NULL`,[actor.id,String(actor.login||actor.name||actor.id),actor.role]),
+      stmt('UPDATE content_archive_state SET revision=revision+1 WHERE id=1 AND changes()>0'));
     commands.push(blocks.length
       ? stmt(`UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL AND id NOT IN (SELECT id FROM saved_ids WHERE kind='block')`)
       : stmt("UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL"));
-    commands.push(stmt("UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL AND block_id NOT IN (SELECT id FROM exam_blocks WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL)"));
     commands.push(stmt("SELECT id FROM saved_ids WHERE kind='exam' AND seq=0"));
     const results = await this.db.atomic(commands);
     const savedId = Number(results.at(-1)?.rows?.[0]?.[0]?.value);
@@ -180,12 +197,7 @@ export class ExamService {
     if (!reviewer(actor)) fail(403, 'Only a teacher can delete an exam.');
     recordId(id);
     await this.ensure();
-    await this.db.atomic([
-      stmt('UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL', [id]),
-      stmt('UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL', [id]),
-      stmt('UPDATE exams SET deleted_at=unixepoch(), revision=revision+1, updated_at=unixepoch() WHERE id=? AND deleted_at IS NULL', [id])
-    ]);
-    return { id, deleted: true };
+    return new ArchiveService(this.db).archive(actor,{type:'exam',id});
   }
   async listWork(actor, studentId) {
     signedIn(actor);

@@ -180,6 +180,9 @@ test('Managed lessons overlay only the target responses, never teacher responses
   const response=await worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/lessons'),env);
   assert.deepEqual(await response.json(),{materials:[]});
   assert.equal(queries[1].args[0].value,targetId);assert.ok(queries.every(q=>!q.args.some(a=>a.value===id)));
+  const detail=await worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/lessons?id=1'),env);
+  assert.equal(detail.status,404);assert.equal(queries[0].args.at(-1).value,'1');
+  assert.equal((await worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/lessons?id=invalid'),env)).status,400);
 });
 test('Managed state preserves teacher song restriction, pair boundary and rejects whole-state writes',async()=>{
   let songs=false,login='SyntheticStudent',reads=0;

@@ -4,6 +4,7 @@ import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ExamService} from './turso-exams.mjs';
 import {GroupService} from './turso-groups.mjs';
+import {ArchiveService} from './turso-archive.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
@@ -96,6 +97,17 @@ export class StageAuth {
     }catch{return null;}
   }
   async current(request){const p=await this.payload(request);if(!p)return null;await this.budget('read',{nonce:p.nonce});const row=await this.row(currentSql,[p.id]);return valid(row)&&await digest(row.password_hash)===p.proof&&!await this.gone(row.id)?publicUser(row):null;}
+  async verify(actor,password){
+    if(!actor?.id||typeof password!=='string'||!password||password.length>32)throw new StudyError(401,'Wrong password.');
+    const row=await this.row(currentSql,[actor.id]);
+    if(!valid(row)||row.password_iterations!==100000)throw new StudyError(401,'Wrong password.');
+    const salt=Uint8Array.from(row.password_salt.match(/../g),v=>parseInt(v,16));
+    const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
+    const actual=hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000},key,256));
+    let difference=0;for(let i=0;i<64;i++)difference|=actual.charCodeAt(i)^row.password_hash.charCodeAt(i);
+    if(difference!==0)throw new StudyError(401,'Wrong password.');
+    return true;
+  }
   async logout(request){const p=await this.payload(request);if(p)await this.budget('revoke',{nonce:p.nonce,expires:p.expires});return 'turso_stage=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0';}
 }
 export default {async fetch(request,env){
@@ -117,7 +129,7 @@ export default {async fetch(request,env){
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
-    const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
+    const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/archive','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
     const dictionary=path.match(/^\/api\/cards\/([1-9]\d{0,15})\/dictionary$/);
     const num='([1-9]\\d{0,15})';
     const card=path.match(new RegExp('^/api/(cards|quizzes)/'+num+'(/quizzes)?$')),progress=path.match(new RegExp('^/api/cards/'+num+'/(progress|answers)$')),response=path.match(new RegExp('^/api/lessons/'+num+'/blocks/'+num+'/response$')),lesson=path.match(new RegExp('^/api/lessons/'+num+'$')),own=path.match(new RegExp('^/api/me/cards/'+num+'$')),library=path.match(new RegExp('^/api/library/'+num+'$'));
@@ -125,7 +137,7 @@ export default {async fetch(request,env){
     const themePhoto=path.match(/^\/api\/me\/themes\/(user-[a-z0-9-]{1,80})\/photo$/);
     const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
-    const write=(method==='POST'&&['/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
+    const write=(method==='POST'&&['/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
@@ -172,12 +184,20 @@ export default {async fetch(request,env){
     const s=new StudyService(db),p=new PersonalService(db),a=new ActivityService(db);
     const libraryBody=(path==='/api/library'&&method==='POST')||(library&&method==='PATCH');
     const value=write?await body(request,libraryBody?LIBRARY_BODY_LIMIT:JSON_BODY_LIMIT):null,id=match=>decodeURIComponent(match[1]);
+    if(path==='/api/archive'){
+      const archive=new ArchiveService(db);
+      if(method==='GET')return json(await archive.list(actor));
+      if(value.action==='archive')return json(await archive.archive(actor,value));
+      if(value.action==='restore')return json(await archive.restore(actor,value));
+      if(value.action==='remove')return json(await archive.remove(actor,value,{passwordVerified:actor.role!=='ADMIN'||await auth.verify(actor,value.password)}));
+      throw new StudyError(400,'Invalid archive action.');
+    }
     if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(path==='/api/me/custom-themes')return json(await p.saveCustomThemes(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,cardKey(lessonUpload[1]),cardKey(lessonUpload[2]),value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
     if(path==='/api/me/themes'&&method==='GET')return json(await accountThemes(db,actor));
-    if(path==='/api/me/state')return json(await accountBootstrap(db,actor));
+    if(path==='/api/me/state'){const state=await accountBootstrap(db,actor);state.archiveRevision=await new ArchiveService(db).revision();return json(state);}
     if(path==='/api/me/cards/dictionary'&&method==='GET')return json({cards:(await s.readableCards(actor,url.searchParams.get('ids')||'')).map(legacyCard)});
     if(dictionary)return json(legacyCard(await s.readableCard(actor,cardKey(dictionary[1]))));
     if(path==='/api/me/cards'&&method==='GET')return json(await accountCards(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit')),place:url.searchParams.get('place')||''}));

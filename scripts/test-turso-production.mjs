@@ -44,7 +44,7 @@ test('Production wrapper preserves HTTPS/host/Origin/auth and write gates before
   assert.equal((await call('http://production.example/api/cards')).status,403);
   assert.equal((await call('https://other.example/api/cards')).status,403);
   assert.equal((await call('https://production.example/api/cards/card','PATCH','https://other.example')).status,403);
-  assert.equal((await call('https://production.example/api/admin/users/'+'a'.repeat(32)+'/cards/card','PATCH')).status,503);
+  assert.equal((await call('https://production.example/api/admin/users/'+'a'.repeat(32)+'/cards/1','PATCH')).status,503);
   assert.equal(accounts,0);assert.equal(study,0);
   assert.equal((await call('https://production.example/api/admin/users/'+'a'.repeat(32)+'/stats')).status,401);
   assert.equal(accounts,1);assert.equal(study,0);

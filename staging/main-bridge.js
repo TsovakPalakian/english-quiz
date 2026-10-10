@@ -60,7 +60,7 @@
   }catch{}
   // Avoid restored browser caches resurrecting removed/shared/private entities.
   // The chosen theme and its picture stay, so a refresh paints the same picture without a download.
-  const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture'];
+  const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture','enquiz-display-size','enquiz-high-visibility'];
   for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-')&&!themeLocal.includes(key))localStorage.removeItem(key);
   function notice(message,bad=false){
     if(message==='Sign in first.')return;
@@ -251,7 +251,9 @@
     if(!pending){pending={actorId,path,method,intent,body:{...body,mutationId:crypto.randomUUID()}};localStorage.setItem(queueKey,JSON.stringify(pending));}
     try{
       const result=await api(path,{method,body:JSON.stringify(pending.body)});
-      pending=null;localStorage.removeItem(queueKey);return result;
+      pending=null;localStorage.removeItem(queueKey);
+      if(path==='/api/archive')await archiveChanged(result);
+      return result;
     }catch(error){
       if(error.status>=400 && error.status<500){pending=null;localStorage.removeItem(queueKey);}
       if(error.status===409)error.message='Конфликт версии. Изменение не сохранено. Перечитайте сервер и повторите редактирование.';
@@ -414,8 +416,26 @@
       if(!error.reported)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
     }finally{personalRunning=false;}
   }
+  async function archiveChanged(result){
+    if(result?.revision!=null)window.__archiveRevision=Number(result.revision)||0;
+    window.ContentCache?.invalidate?.('archive:');
+    const detail={...result,actorId};
+    document.dispatchEvent(new CustomEvent('turso-archive-changed',{detail}));
+    if(detail.refresh)await detail.refresh;
+    return result;
+  }
+  function archiveList(){
+    const revision=Number(window.__archiveRevision)||0,key='archive:'+actorId+':revision:'+revision,actor=actorId;
+    const load=()=>api('/api/archive').then(result=>{if(actor===actorId&&result?.revision!=null){window.__archiveRevision=Number(result.revision)||0;window.ContentCache?.set('archive:'+actor+':revision:'+window.__archiveRevision,result);}return result;});
+    return window.ContentCache?.load?window.ContentCache.load(key,load):load();
+  }
   const bridge=window.TursoMain={
     fetch:accountFetch,register,notice,perform,mediaAllowed,lessonSnapshot,lessonDirty,
+    archiveList,
+    archiveSnapshot:()=>window.ContentCache?.get('archive:'+actorId+':revision:'+(Number(window.__archiveRevision)||0)),
+    archiveItem:(type,id)=>write('/api/archive','POST',{action:'archive',type,id}),
+    restoreArchive:(type,id)=>write('/api/archive','POST',{action:'restore',type,id}),
+    removeArchive:(type,id,password='')=>api('/api/archive',{method:'POST',body:JSON.stringify({action:'remove',type,id,password})}).then(archiveChanged),
     capabilities:()=>({...backendCapabilities}),
     catalogDictionary(card){
       const key=card.stageId+':'+card.stageRevision;
@@ -496,7 +516,7 @@
       material.stageBlockOrder=(material.blocks||[]).map(block=>block.id);
       material.stageLessonBaseline=lessonSnapshot(material);return result;
     },
-    deleteLesson:material=>write('/api/lessons/'+encodeURIComponent(material.id),'DELETE',{expectedRevision:material.stageRevision}),
+    deleteLesson:material=>write('/api/archive','POST',{action:'archive',type:'lesson',id:material.id}),
     async hideLesson(material,hidden){
       const result=await write('/api/lessons/'+encodeURIComponent(material.id),'PATCH',{expectedRevision:material.stageRevision,changes:{hiddenFromStudents:hidden},upserts:[],deletes:[]});
       material.stageRevision=result.revision;material.hiddenFromStudents=hidden;
@@ -562,7 +582,7 @@
     },
     async deleteManagedLibrary(accountId,item,kind){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
-      return write('/api/admin/users/'+accountId+'/'+(kind==='text'?'texts':'songs')+'/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});
+      return write('/api/archive','POST',{action:'archive',type:kind,id:item.stageId});
     },
     async saveLibrary(item,kind,changes){
       if(item.stageId){
@@ -574,7 +594,7 @@
     },
     async deleteLibrary(item){
       if(!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
-      return write('/api/library/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});
+      return write('/api/archive','POST',{action:'archive',type:item.kind||('lyrics' in item?'song':'text'),id:item.stageId});
     },
     async uploadThemePhoto(themeId,file){
       if(!actorId||!mediaAllowed()||!/^user-[a-z0-9-]{1,80}$/.test(themeId))throw new Error('A theme picture can be saved only for your own theme.');
@@ -621,13 +641,13 @@
       block.stageDefinition={...block.stageDefinition,content:clone(result.block.content)};
       material.stageRevision=result.revision;material.stageLessonBaseline=lessonSnapshot(material);return result;
     },
-    async deleteLibrary(item){return write('/api/library/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});},
+    async deleteLibrary(item){return write('/api/archive','POST',{action:'archive',type:item.kind||('lyrics' in item?'song':'text'),id:item.stageId});},
     async unlinkCard(card){
       if(!card.stageId)throw new Error('У личной карточки нет серверного ID. Перечитайте сервер.');
       const result=await write('/api/me/cards/'+encodeURIComponent(card.stageId),'DELETE',{place:card.place||'mine',expectedRevision:card.stageLinksRevision??addedRevision});
       addedRevision=result.revision;return result;
     },
-    async deleteCard(card){const c=identify(card);const result=await write('/api/cards/'+encodeURIComponent(c.stageId),'DELETE',{expectedRevision:c.stageRevision});cards.delete(c.stageId);return result;},
+    async deleteCard(card){const c=identify(card);const result=await write('/api/archive','POST',{action:'archive',type:'card',id:c.stageId});cards.delete(c.stageId);return result;},
     async writeQuiz(word,quiz,deleting){
       const known=quizzes.get(quiz.id),content={type:quiz.type,items:quiz.items};
       if(known){

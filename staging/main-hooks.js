@@ -104,9 +104,9 @@ async function stagePullLessons(){
     const seen=new Set(next.map(row=>row&&row.id).filter(Boolean));
     const drafts=[];
     for(const row of lmLibrary?.materials||[]){
-      if(row&&row.id&&!row.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(row.id)&&!seen.has(row.id)){drafts.push(row);seen.add(row.id);}
+      if(row&&row.id&&!row.examOwned&&!row.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(row.id)&&!seen.has(row.id)){drafts.push(row);seen.add(row.id);}
     }
-    if(typeof lmState!=='undefined'&&lmState&&lmState.id&&!lmState.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(lmState.id)&&!seen.has(lmState.id))drafts.unshift(lmState);
+    if(typeof lmState!=='undefined'&&lmState&&lmState.id&&!lmState.examOwned&&!lmState.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(lmState.id)&&!seen.has(lmState.id))drafts.unshift(lmState);
     lmServerReady=true;lmApplyRemote(drafts.concat(next),{push:false});
     if(typeof classGroupsDirty!=='undefined'&&classGroupsDirty&&typeof groupSave==='function')groupSave();
   }catch(error){if(generation===viewGen)window.TursoMain.notice(error.message,true);}
@@ -128,7 +128,7 @@ async function stageOpenLesson(material){
     const data=await stageLessonLoads.get(key);
     if(token!==stageLessonOpenToken||generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching||section!==document.querySelector('section.on')?.id)return;
     const full=data.materials?.find(row=>row.id===material.id);if(!full)throw new Error('Lesson not found.');
-    const index=lmLibrary.materials.findIndex(row=>row===material);if(index<0)return;
+    const index=lmLibrary.materials.findIndex(row=>row.id===material.id&&row.stageRevision===material.stageRevision);if(index<0)return;
     const extras=(material.blocks||[]).filter(b=>b&&b.id&&!(full.blocks||[]).some(row=>row.id===b.id));
     const blocks=extras.length?[...(full.blocks||[]),...extras]:full.blocks;
     const opened={...full,blocks,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
@@ -142,16 +142,9 @@ async function stageOpenLesson(material){
 }
 function stageStatsIntro(){
   for(const id of ['statsRole','statsUser']){const field=document.getElementById(id);if(field){field.hidden=true;field.value='';}}
+  for(const id of ['stageHistoryOwn','stageHistoryAll'])document.getElementById(id)?.remove();
   const sub=document.getElementById('statsSub');
-  if(sub)sub.textContent=(viewAccount?'Selected student: ':'Your study: ')+'new Turso activity only. Dates are UTC. Legacy history is not combined.';
-  if(viewAccount)return;
-  if(typeof window==='undefined'||!window.TursoMain?.capabilities?.().legacyHistory||!sub)return;
-  sub.textContent='New Turso activity and legacy R2 archive are separate reports. Dates are UTC; totals are not combined.';
-  for(const [id,label,all] of [['stageHistoryOwn','Legacy: my history',false],...(isDeveloper()?[['stageHistoryAll','Legacy: administrative history',true]]:[])]){
-    if(document.getElementById(id))continue;
-    const button=document.createElement('button');button.id=id;button.type='button';button.className='btn ghost';button.textContent=label;
-    button.onclick=()=>stageStatsHistory(all);sub.insertAdjacentElement('afterend',button);
-  }
+  if(sub)sub.textContent=viewAccount?'Progress and learning activity for the selected student.':'Choose a period and a view to explore progress.';
 }
 async function stagePaintStats(){
   const box=document.getElementById('statsBody');if(!box)return;
@@ -162,10 +155,12 @@ async function stagePaintStats(){
   const params=new URLSearchParams({from:document.getElementById('statsFrom').value,to:document.getElementById('statsTo').value});
   try{
     const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/stats':'/api/stats';
-    const data=await accountFetch(path+'?'+params);
+    const developer=typeof isDeveloper==='function'&&isDeveloper();
+    const results=await Promise.all([accountFetch(path+'?'+params),developer&&!target?accountFetch('/api/bugs?heads=1').catch(()=>({heads:[]})):Promise.resolve(null)]),data=results[0],bugData=results[1];
     if(token!==statsToken||generation!==viewGen||target!==(viewAccount?.id||''))return;
     if(data.statisticsSource!=='turso-activity'||data.legacyHistoryIncluded!==false)throw new Error('Unverified statistics source.');
-    box.innerHTML='<p class="hint">New Turso activity only; client-reported study, not certified exam results.</p>'+renderStats(data,document.getElementById('statsCompare').checked);
+    if(bugData){const heads=bugData.heads||[],counts=typeof stageLiveCounts==='function'?stageLiveCounts():{};data.developerBugs={active:heads.filter(row=>!row.resolved).length,resolved:heads.filter(row=>row.resolved).length,hits:heads.reduce((n,row)=>n+(Number(row.hits)||0),0)};data.developerSystem={cards:counts.words||0,materials:(counts.songs||0)+(counts.texts||0),online:typeof navigator==='undefined'||navigator.onLine!==false,viewport:typeof innerWidth==='number'?innerWidth+' × '+innerHeight:'',preloadActive:window.PreloadQueue?.active?.()||0,preloadWaiting:window.PreloadQueue?.waiting?.()||0};}
+    box.innerHTML=renderStats(data,document.getElementById('statsCompare').checked);
   }catch(error){if(token===statsToken&&generation===viewGen)box.textContent=error.message;}
 }
 async function stageStatsHistory(all){
@@ -177,7 +172,7 @@ async function stageStatsHistory(all){
   try{
     const data=await accountFetch('/api/stats/history?'+params.toString());if(token!==statsToken)return;
     if(data.historySource!=='legacy-r2-readonly'||data.combinedWithNewActivity!==false)throw new Error('Unverified archive source.');
-    box.innerHTML='<p class="hint">Legacy R2 archive — read only; not combined with new Turso activity.</p>'+renderStats(data,document.getElementById('statsCompare').checked);
+    box.innerHTML=renderStats(data,document.getElementById('statsCompare').checked);
   }catch(error){if(token===statsToken)box.textContent=error.message;}
 }
 async function stageLoadPdf(){
@@ -439,9 +434,17 @@ function stageStoreTextExpression(expr,button,item){
     if(status)status.textContent='Already in '+deck+'.';
     markExpressionButton(button,place,fromText);return;
   }
+  if(!String(item.ru||'').trim()){
+    const meaning=String((expr&&expr.meaning)||(item.data&&item.data.grammar&&item.data.grammar.note)||'').trim();
+    if(meaning)item.ru=meaning;
+  }
+  if(!String(item.ru||'').trim()){
+    if(button){button.disabled=false;button.textContent='Add to Cards';}
+    if(status){status.textContent='A translation is required before this expression can be saved.';if(status.classList)status.classList.add('bad');}
+    return;
+  }
   return window.TursoMain.perform(async()=>{
     if(viewAccount&&!stageManagedCardReady())throw new Error('Wait for the selected profile to load.');
-    if(!String(item.ru||'').trim())throw new Error('A translation is required before this expression can be saved.');
     const added=await stageKeepExpression(item,stageManagedCardReady());
     if(status)status.textContent=added?'Added to '+deck+'.':'Already in '+deck+'.';
     markExpressionButton(button,place,fromText);
@@ -606,7 +609,7 @@ function stageRemoveLibrary(item,kind){
 function stageLibraryAction(action,kind,rawId){
   if(!['song','text'].includes(kind)||!['toggle','delete'].includes(action))return;
   const item=(kind==='song'?loadSongs():loadTexts()).find(row=>row.id===stageDomId(rawId));if(!stageCanManageLibrary(item,kind))return;
-  if(action==='delete'&&!confirm('Delete this '+kind+'?'))return;
+  if(action==='delete'&&!confirm('Move this '+kind+' to Archive?'))return;
   const managed=!!viewAccount,accountId=viewAccount?.id||'',generation=viewGen;
   return window.TursoMain.perform(async()=>{
     if(action==='toggle'){
@@ -630,6 +633,7 @@ function stageMountTextArchive(id){
 function stageArchiveText(id){
   if(!viewAccount||!authUser||!['ADMIN','DEVELOPER'].includes(authUser.role)||!accountReady||viewSwitching)return;
   const item=loadTexts().find(row=>row.id===id);if(!item?.stageId||item.stageScope!=='profile')return;
+  if(!confirm('Move this text to Archive?'))return;
   const accountId=viewAccount.id,generation=viewGen;
   return window.TursoMain.perform(async()=>{
     await window.TursoMain.archiveManagedText(accountId,item);
@@ -643,10 +647,11 @@ document.addEventListener('click',event=>{
   event.preventDefault();event.stopPropagation();const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
   const accountId=viewAccount?.id||'',generation=viewGen;
   const item=loadSongs().find(row=>row.id===stageDomId(document.getElementById('songUser').dataset.songId));if(!item)return;
+  if(!confirm('Move this song to Archive?'))return;
   window.TursoMain.perform(async()=>{
-    const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,'song',{archived:true}):await window.TursoMain.saveLibrary(item,'song',{archived:true});
+    if(managed)await window.TursoMain.deleteManagedLibrary(accountId,item,'song');else await window.TursoMain.deleteLibrary(item);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-    stageInstallLibrary(result.item,'song');if(!managed)trackEvent('song','lyrics','archive');show('music');
+    stageRemoveLibrary(item,'song');if(!managed)trackEvent('song','lyrics','archive');show('music');
   });
 },true);
 document.addEventListener('DOMContentLoaded',()=>{
@@ -687,21 +692,24 @@ function stageDeleteDefinition(host){
   if(viewSwitching)return;
   const card=stageHostCard(host);if(!card)return;
   const personal=['added','made'].includes(host.dataset.editKind)&&addedIndexOf(card)>=0;
+  if(typeof confirm==='function'&&!confirm(card.stageScope==='profile'?'Move this card to Archive?':'Remove this card?'))return;
   if(viewAccount){
     if(!personal||!stageCanManageAdded(card))return;
     const accountId=viewAccount.id,generation=viewGen;
     return window.TursoMain.perform(async()=>{
-      const result=await window.TursoMain.unlinkManagedCard(accountId,card);
+      const result=card.stageScope==='profile'?await window.TursoMain.archiveItem('card',card.stageId):await window.TursoMain.unlinkManagedCard(accountId,card);
       if(viewAccount?.id!==accountId||viewGen!==generation)return;
-      stageStampLinks(loadAdded().filter(row=>!(row.stageId===card.stageId&&(row.place||'mine')===(card.place||'mine'))),result.revision);
+      const next=loadAdded().filter(row=>card.stageScope==='profile'?row.stageId!==card.stageId:!(row.stageId===card.stageId&&(row.place||'mine')===(card.place||'mine')));
+      if(result.revision&&!result.archived)stageStampLinks(next,result.revision);else{rememberAdded(next);paintAdded();paintAllWords();stagePaintCounts();}
       if(madeItem?.stageId===card.stageId){madeItem=null;show('add');}
     });
   }
   if(personal){
     if(!canEditAdded(card))return;
     return window.TursoMain.perform(async()=>{
-      const result=await window.TursoMain.unlinkCard(card);
-      stageStampLinks(loadAdded().filter(row=>!(row.stageId===card.stageId&&(row.place||'mine')===(card.place||'mine'))),result.revision);
+      const result=card.stageScope==='profile'?await window.TursoMain.archiveItem('card',card.stageId):await window.TursoMain.unlinkCard(card);
+      const next=loadAdded().filter(row=>card.stageScope==='profile'?row.stageId!==card.stageId:!(row.stageId===card.stageId&&(row.place||'mine')===(card.place||'mine')));
+      if(result.revision&&!result.archived)stageStampLinks(next,result.revision);else{rememberAdded(next);paintAdded();paintAllWords();stagePaintCounts();}
       if(madeItem?.stageId===card.stageId){madeItem=null;show('add');}
     });
   }
@@ -784,12 +792,19 @@ function stageStampLesson(material){
   material.stageLessonBaseline=window.TursoMain.lessonSnapshot({...material,blocks:saved});
 }
 function stageSaveLesson(published){
+  if(document.getElementById('material')?.dataset?.lmKind==='exam'&&!lmState?.examOwned){
+    window.TursoMain.notice('Open the examination block again before saving.',true);return Promise.resolve();
+  }
   if(lmState&&lmState.examOwned){
-    lmState.published=!!published;
-    lmState.mode=published?'preview':'edit';
-    if(typeof examSync==='function')return Promise.resolve(examSync()).then(()=>{
-      if(typeof lmShow==='function')lmShow(lmState.mode);
-      if(typeof lmNote==='function')lmNote(published?'':'Draft saved.');
+    if(!canEditLessons()||viewAccount||viewSwitching)return Promise.resolve();
+    const current=lmState,generation=viewGen;
+    clearTimeout(lmSaveTimer);
+    if(published!==undefined){current.published=!!published;current.mode=published?'preview':'edit';}
+    if(typeof examSync==='function')return window.TursoMain.perform(async()=>{
+      await examSync();
+      if(current!==lmState||generation!==viewGen||viewSwitching)return;
+      if(typeof lmShow==='function')lmShow(current.mode);
+      if(typeof lmNote==='function')lmNote(current.published?'':'Draft saved.');
       if(typeof examDress==='function')examDress();
     });
     return Promise.resolve();
@@ -910,20 +925,29 @@ function stageClearLessonFile(id){
   },document.getElementById('lmNote'));
 }
 function stageDeleteLesson(id){
+  id=stageDomId(id);
   if(!canEditLessons()||viewAccount||viewSwitching)return;
-  const current=lmLibrary?.materials.find(row=>row.id===id);
-  if(!current?.stageRevision){window.TursoMain.notice('Это несохранённый черновик, а не серверный урок.',true);return;}
-  if(!confirm('Delete this lesson?'))return;
+  const current=lmLibrary?.materials.find(row=>row.id===id)||(lmState?.id===id?lmState:null);
+  if(!current)return;
+  if(!confirm('Move this lesson to Archive?'))return;
   return window.TursoMain.perform(async()=>{
+    if(!current.stageRevision){
+      if(Number.isSafeInteger(current.id)){
+        const data=await accountFetch('/api/lessons?id='+encodeURIComponent(current.id));
+        const saved=data.materials?.find(row=>row.id===current.id);
+        if(!saved)throw new Error('Lesson not found. Refresh Classes.');
+        Object.assign(current,saved);
+      }else await window.TursoMain.saveLesson(current);
+    }
     await window.TursoMain.deleteLesson(current);
     window.ContentCache?.drop(':'+id+':');
-    lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id);
-    if(lmState?.id===id)lmState=null;
+    lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id&&row.id!==current.id);
+    if(lmState===current||lmState?.id===id||lmState?.id===current.id)lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
-    if(typeof groupSave==='function')await groupSave();
     lmPersist();show('days');
   });
 }
+globalThis.lmDeleteLesson=stageDeleteLesson;
 function stageHideLesson(id){
   if(viewSwitching||!accountReady)return;
   if(viewAccount){
@@ -1194,6 +1218,7 @@ function stageKick(id,run){
 }
 let stageCardWavePromise=null;
 function stageCardFirstWave(){
+  if(stageSettled.firstWave)return Promise.resolve();
   if(stageCardWavePromise)return stageCardWavePromise;
   stageCardWavePromise=(async()=>{
     const mine=await stagePersonalPage('mine','',false);
@@ -1210,6 +1235,7 @@ function stageCardFirstWave(){
     const rest=stagePersonalPlaces.slice(3).map(place=>({id:'cards:personal:'+place,priority:6,run:()=>stagePersonalPage(place,'')}));
     rest.push({id:'library:allwords',priority:6,run:()=>stageLibraryBatch('allwords')});
     if(queue)for(const job of rest)queue.add(job);else for(const job of rest)await job.run();
+    stageSettled.firstWave=true;
   })().finally(()=>{stageCardWavePromise=null;});
   return stageCardWavePromise;
 }
@@ -1226,6 +1252,14 @@ function stageDemand(id){
     if(id==='home'){stageKick('progress',()=>stageProgressPage(''));stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
   }catch(error){window.TursoMain?.notice?.(error.message,true);}
+}
+var stageDemandFrame=0,stageDemandNext='';
+function stageDemandLater(id){
+  stageDemandNext=id;
+  if(stageDemandFrame)return;
+  const run=()=>{stageDemandFrame=0;const next=stageDemandNext;stageDemandNext='';setTimeout(()=>stageDemand(next),0);};
+  if(typeof requestAnimationFrame==='function')stageDemandFrame=requestAnimationFrame(run);
+  else setTimeout(run,0);
 }
 function stageSpeakCount(index){
   const level=window.SPEAKOUT&&window.SPEAKOUT[index];
@@ -1516,7 +1550,7 @@ function stageScheduleHydration(){
   stageHydrateQueued=true;
   const run=()=>stageHydrateStep().then(more=>{
     stageHydrateQueued=false;
-    if(more)stageScheduleHydration();
+    if(more)setTimeout(stageScheduleHydration,50);
   },()=>{stageHydrateQueued=false;});
   const queue=window.PreloadQueue;
   if(queue)queue.add({id:'blocks:hydrate:'+(++stageHydrateSerial),priority:7,run});
@@ -1600,6 +1634,7 @@ function stageDropStale(previous,state){
   if(!cache||typeof cache.invalidate!=='function'||!previous||!state)return;
   const drop=prefix=>cache.invalidate(prefix);
   if((previous.stageAddedRevision||0)!==(state.stageAddedRevision||0))drop('cards:personal:');
+  if((previous.archiveRevision||0)!==(state.archiveRevision||0))drop('archive:');
   const prevV=previous.versions||{},nextV=state.versions||{};
   if(prevV.lessonData!==nextV.lessonData){drop('cards:words:');drop('cards:phrases:');drop('cards:idioms:');drop('library:');}
   if(prevV.irregular!==nextV.irregular)drop('irregular:');
@@ -1670,9 +1705,18 @@ function stageApplyPrefs(){
   if(prefs.dayLinks){try{localStorage.setItem('enquiz-day-links',JSON.stringify(prefs.dayLinks));}catch(e){}}
   if(prefs.demonstratives){try{localStorage.setItem('enquiz-demonstratives',JSON.stringify(prefs.demonstratives));}catch(e){}if(typeof window.paintDemonstratives==='function'&&document.getElementById('demonstratives')?.classList.contains('on'))window.paintDemonstratives();}
 }
+let stageCacheAudience='';
 function stageApplyBootstrap(state){
+  const audience=(authUser?.id||'')+':'+(viewAccount?.id||'');
+  if(stageCacheAudience&&stageCacheAudience!==audience){
+    for(const prefix of ['account:','cards:personal:','progress:','quizzes:','songs:','texts:','lesson:','library:summary','block:'])window.ContentCache?.invalidate(prefix);
+    for(const key of Object.keys(stageListEpoch))stageListEpoch[key]++;
+    stageProgressEpoch++;stageLessonOpenToken++;stageSettled={};stageCycles.clear();stagePreloadOn=false;
+  }
+  stageCacheAudience=audience;
   stageDropStale(window.ContentCache?.get('account:bootstrap'),state);
   window.ContentCache?.set('account:bootstrap',state);
+  window.__archiveRevision=Number(state.archiveRevision)||0;
   stageSetActivity(state.stageActivity);
   if(state.stats){
     if(!viewAccount&&Array.isArray(state.stats.customThemes)){
@@ -1698,19 +1742,51 @@ function stageStartPreload(){
   const here=(document.querySelector('section.on')||{}).id||'home';
   const later=typeof setTimeout==='function'?setTimeout:(fn)=>fn();
   later(()=>stageDemand(here),0);
-  later(()=>{
-    const cached=id=>!!(window.ContentCache?.has(id+':after:start')||window.ContentCache?.has(id)||window.ContentCache?.get('library:opened:'+id.replace('library:','')));
-    const add=(id,priority,run)=>{if(cached(id))return;const queue=window.PreloadQueue;if(queue)queue.add({id,priority,run});else run();};
-    add('progress',3,()=>stageProgressPage(''));
-    add('songs:list',4,()=>stageSongPage(''));
-    add('cards:first-wave',4,stageCardFirstWave);
-    add('quizzes',5,()=>stageQuizPage(''));
-    add('texts:list',5,()=>stagePaintTexts(''));
-    add('lesson:summary',5,()=>stageQueueLessons());
-    add('irregular:page',6,()=>stageIrregularPage(''));
-    stageScheduleHydration();
-  },400);
+  if(window.PreloadQueue){
+    window.PreloadQueue.add({id:'archive:preload',priority:4,run:()=>window.TursoMain.archiveList()});
+    window.PreloadQueue.add({id:'songs:preload',priority:5,run:()=>stageSongPage('')});
+    window.PreloadQueue.add({id:'texts:preload',priority:5,run:()=>stagePaintTexts('')});
+    window.PreloadQueue.add({id:'irregular:page',priority:6,run:()=>stageEnsureStatic('IRREGULAR')});
+  }
 }
+async function stageRefreshArchiveSources(detail){
+  if(!authUser||authUser.id!==detail.actorId)return;
+  const cache=window.ContentCache,type=detail.type,id=stageDomId(detail.id),jobs=[];
+  cache?.invalidate('library:summary');cache?.invalidate('account:bootstrap');
+  if(type==='song'||type==='text'){
+    const key=type==='song'?'songs':'texts';stageListEpoch[key]++;stageSettled[key]=false;
+    cache?.invalidate(key+':');cache?.drop(stageItemKey(type,id));
+    if(detail.archived||detail.removed){
+      const list=(type==='song'?loadSongs():loadTexts()).filter(row=>row.stageId!==id&&row.id!==id);
+      if(type==='song')writeSongs(list);else localStorage.setItem(TEXT_KEY,JSON.stringify(list));
+      stagePaintLibraryList(type);
+    }
+    jobs.push(type==='song'?stageSongPage(''):stagePaintTexts(''));
+  }
+  if(type==='lesson'||type==='group'){
+    cache?.invalidate('lesson:');cache?.drop('block:lesson:'+id+':');
+    stageLessonOpenToken++;
+    jobs.push(stagePullLessons().then(()=>groupPull(true)));
+  }
+  if(type==='exam'||type==='exam-block')jobs.push(examPull(true));
+  if(type==='card'){
+    stageListEpoch.cards++;stageSettled.firstWave=false;stageSettled.mine=false;
+    cache?.invalidate('cards:personal:');cache?.invalidate('library:');
+    for(const section of ['words','phrases','idioms'])cache?.invalidate('cards:'+section+':');
+    if(detail.archived||detail.removed){
+      rememberAdded(loadAdded().filter(row=>row.stageId!==id));
+      for(const key of ['words','extraWords','phrasalWords','idiomWords'])if(Array.isArray(window.LESSON_DATA[key]))window.LESSON_DATA[key]=window.LESSON_DATA[key].filter(row=>row.stageId!==id);
+    }
+    jobs.push(stageCardFirstWave(),stageLibraryBatch('allwords'));
+  }
+  jobs.push(window.TursoMain.archiveList());
+  await Promise.all(jobs).catch(error=>window.TursoMain.notice(error.message,true));
+  if(authUser?.id!==detail.actorId)return;
+  await stageLibrarySummary().catch(error=>window.TursoMain.notice(error.message,true));
+  if(document.querySelector('section.on')?.id==='archive')paintArchive();
+  stageRefreshHome();
+}
+document.addEventListener('turso-archive-changed',event=>{event.detail.refresh=stageRefreshArchiveSources(event.detail);});
 function stageQueueLibrary(section,depth){
   return stageLibraryBatch(section).then(page=>{if(page&&page.next&&depth<8)window.PreloadQueue.add({id:'library:'+section+':'+page.next,priority:6,run:()=>stageQueueLibrary(section,depth+1)});return page;});
 }
@@ -1722,9 +1798,10 @@ function stageFetchLesson(material){
     if(index>=0){const opened={...lmLibrary.materials[index],blocks:saved.data?.blocks||[],stageLessonDeferred:false};stageStampLesson(opened);lmLibrary.materials[index]=opened;stageLoadedLessons.add(opened);}
     return Promise.resolve();
   }
-  const target=viewAccount?.id||'',actor=authUser.id,path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser.id,path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
   const cacheKey='lesson:'+actor+':'+target+':'+material.id+':'+material.stageRevision;
   return window.ContentCache.load(cacheKey,()=>accountFetch(path+'?id='+encodeURIComponent(material.id))).then(data=>{
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching)return data;
     const full=(data.materials||[]).find(row=>row.id===material.id);
     if(!full||!lmLibrary)return data;
     const index=lmLibrary.materials.findIndex(row=>row.id===material.id);
@@ -1742,7 +1819,9 @@ function stageQueueLessons(){
 }
 function stagePersonalPage(place,after,follow=true){
   const epoch=stageListEpoch.cards,cursor=after||'',prefix='cards:personal:'+place+':after:';
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser?.id;
   return window.ContentCache.load(prefix+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/cards?place='+encodeURIComponent(place)+'&limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id)return page;
     if(stageListStale('cards',epoch,'cards:personal'))return page;
     const seen=stageCycle('cards:'+place,cursor);
     const list=loadAdded();
@@ -1813,7 +1892,9 @@ function stageProgressPage(after){
 }
 function stageSongPage(after){
   const epoch=stageListEpoch.songs,cursor=after||'';
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser?.id;
   return window.ContentCache.load('songs:list:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/songs?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id)return page;
     if(stageListStale('songs',epoch,'songs:list'))return page;
     const seen=stageCycle('songs',cursor);
     const list=loadSongs();

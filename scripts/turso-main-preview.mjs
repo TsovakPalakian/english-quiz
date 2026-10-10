@@ -22,7 +22,7 @@ export function mainPreview(source,hooks){
         });
       }`,'      if(!tenseBankReady && (legacy || tenseBank[id]))stageLoadTenseView("tense",id);');
   insert('    function openMarker(en, quiet) {','      if(!tenseBankReady)stageLoadTenseView("marker",en);');
-  insert('    function show(id) {','      stageDemand(id);');
+  insert('    function show(id) {','      stageDemandLater(id);');
   insert('    function paintAllWords() {','      if(stageWordsPending()){const box=document.getElementById("allWordGrid");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintStat() {','      if(statKind==="weak"&&typeof stageWeakPending==="function"&&stageWeakPending()){const title=document.getElementById("cardStatTitle");const box=document.getElementById("cardStatList");if(title)title.textContent="Weak cards";if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintVerbs() {','      if(!window.IRREGULAR.length){const box=document.getElementById("verbList");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
@@ -87,7 +87,7 @@ export function mainPreview(source,hooks){
   insert('        const ok = tf.dataset.tf === "ok";',"        stageMadeAnswer('True / false','usage',ok,tf.textContent);");
   insert('    async function openUsages(word, lessonRu) {','      const stored=loadAdded().filter(item=>String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
   insert('    function lmPullFromServer() {','      return stagePullLessons();');
-  insert('    function lmOpenLesson(id) {','      const deferred=lmLibrary?.materials?.find(row=>row.id===id);if(deferred?.stageLessonDeferred)return stageOpenLesson(deferred);');
+  insert('    function lmOpenLesson(id) {','      const deferred=lmLibrary?.materials?.find(row=>row.id===domEntityId(id));if(deferred?.stageLessonDeferred)return stageOpenLesson(deferred);');
   insert('    function paintMaterial() {','      if(lmState?.stageLessonDeferred){const deferred=lmState;queueMicrotask(()=>stageOpenLesson(deferred));return;}');
   insert('    function lmSchedulePush() {','      if(canEditLessons())lmNote("Черновик в браузере. Нажмите Save Draft или Publish для сохранения в тестовую Turso."); return;');
   insert('    function lmPushToServer() {','      return stageSaveLesson();');

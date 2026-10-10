@@ -10,11 +10,25 @@ import {mediaPlaceholders,mediaKey,storedMediaResponse} from './turso-media.mjs'
 import {stageR2Media} from './turso-r2-media.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
+import {ArchiveService} from './turso-archive.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const decoder=new TextDecoder();
+const encoder=new TextEncoder();
+const hex=bytes=>[...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+async function verifyAccountPassword(db,actor,password){
+  if(typeof password!=='string'||!password||password.length>32)throw new StudyError(401,'Wrong password.');
+  const row=await db.prepare('SELECT password_salt,password_hash,password_iterations FROM users WHERE id=?').bind(actor.id).first();
+  if(!row||row.password_iterations!==100000||! /^[a-f0-9]{32}$/.test(row.password_salt)||! /^[a-f0-9]{64}$/.test(row.password_hash))throw new StudyError(401,'Wrong password.');
+  const salt=Uint8Array.from(row.password_salt.match(/../g),value=>parseInt(value,16));
+  const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
+  const actual=hex(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:100000},key,256));
+  let difference=0;for(let i=0;i<64;i++)difference|=actual.charCodeAt(i)^row.password_hash.charCodeAt(i);
+  if(difference!==0)throw new StudyError(401,'Wrong password.');
+  return true;
+}
 function deploymentContext(env){
   const meta=env.CF_VERSION_METADATA||{};
   return {name:'English Quiz',service:'learn-english',host:env.STAGE_ALLOWED_HOST||'',deploymentId:String(meta.id||''),deploymentTag:String(meta.tag||''),deployedAt:String(meta.timestamp||'')};
@@ -100,6 +114,18 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/archive'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const archive=new ArchiveService(studyDatabase(env));
+        if(method==='GET')return json(await archive.list(actor));
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
+        const raw=await boundedText(request,JSON_BODY_LIMIT,'Archive request too large.');let value;
+        try{value=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(value.action==='archive')return json(await archive.archive(actor,value));
+        if(value.action==='restore')return json(await archive.restore(actor,value));
+        if(value.action==='remove')return json(await archive.remove(actor,value,{passwordVerified:actor.role!=='ADMIN'||await verifyAccountPassword(accountEnv.DB,actor,value.password)}));
+        throw new StudyError(400,'Invalid archive action.');
+      }
       if(path==='/api/bugs'&&method==='POST'){
         let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
         const raw=await request.text();if(raw.length>64000)throw new StudyError(413,'Bug report too large.');
@@ -271,7 +297,10 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           return json({...value,hideSongs:!found.songs,statisticsSource:'turso-activity',targetAccountId:target.id});
         }
         // Teacher may inspect definitions; responses belong strictly to target.
-        if(managedRead[2]==='lessons')return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:new URL(request.url).searchParams.get('summary')==='1',lessonId:new URL(request.url).searchParams.get('id')||''})));
+        if(managedRead[2]==='lessons'){
+          const params=new URL(request.url).searchParams,lessonId=params.get('id');
+          return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:params.get('summary')==='1',lessonId:lessonId?cardKey(lessonId):''})));
+        }
         const params=new URL(request.url).searchParams,query={after:params.get('after')||'',limit:pageLimit(params.get('limit')),place:params.get('place')||''};
         if(managedRead[2]==='texts')return json(await legacyTexts(db,target,{summary:params.get('summary')!=='0',...query}));
         if(managedRead[2]==='cards')return json(await accountCards(db,target,query));
