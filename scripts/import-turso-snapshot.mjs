@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { runInNewContext } from 'node:vm';
 import { credentials, pipeline, execute, rows, metadataSql, expectedMetadata, verifyMetadata } from './turso-staging.mjs';
 import {retainedScope} from './turso-retained-scope.mjs';
+import {remapJson} from './migrate-turso-integer-ids.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -31,9 +32,59 @@ const tables = {
   quiz_progress: ['profile_id','card_id','quiz_type'], lesson_access: ['account_id','lesson_id'],
   account_settings: ['account_id','key'], profile_settings: ['profile_id','key'],
   catalog_documents: ['namespace','key'], legacy_ids: ['entity_kind','source_namespace','source_key','target_id'],
-  migration_issues: ['id']
+  migration_issues: ['id'], entity_id_legacy: ['entity_kind','old_id']
 };
 
+function numbered(rows, keyOf) {
+  return new Map([...rows].sort((a,b)=>keyOf(a).localeCompare(keyOf(b))).map((row,index)=>[keyOf(row), index+1]));
+}
+function assignIntegerIds(model, add) {
+  const sep='\u001f';
+  const maps={
+    profile:numbered(model.study_profiles.values(), row=>String(row.id)),
+    lesson:numbered(model.lessons.values(), row=>String(row.id)),
+    card:numbered(model.cards.values(), row=>String(row.id)),
+    quiz_collection:numbered(model.quiz_collections.values(), row=>String(row.id)),
+    quiz:numbered(model.quizzes.values(), row=>String(row.id)),
+    library:numbered(model.library_items.values(), row=>String(row.id)),
+    lesson_block:numbered(model.lesson_blocks.values(), row=>row.lesson_id+sep+row.id)
+  };
+  const take=(kind,old)=>{
+    if(old==null)return old;
+    if(!maps[kind]?.has(old))throw new Error('Missing integer id for '+kind);
+    return maps[kind].get(old);
+  };
+  for(const [kind,map] of Object.entries(maps))for(const [old,id] of map)add('entity_id_legacy',{entity_kind:kind,old_id:old,new_id:id});
+  for(const row of model.study_profiles.values())row.id=take('profile',row.id);
+  for(const row of model.lessons.values())row.id=take('lesson',row.id);
+  for(const row of model.cards.values()){row.id=take('card',row.id);if(row.owner_profile_id)row.owner_profile_id=take('profile',row.owner_profile_id);}
+  for(const row of model.quiz_collections.values())row.id=take('quiz_collection',row.id);
+  for(const row of model.quizzes.values()){row.id=take('quiz',row.id);row.collection_id=take('quiz_collection',row.collection_id);}
+  for(const row of model.library_items.values()){
+    row.id=take('library',row.id);if(row.owner_profile_id)row.owner_profile_id=take('profile',row.owner_profile_id);
+    row.content_json=canonical(remapJson(JSON.parse(row.content_json),maps));
+  }
+  for(const row of model.lesson_blocks.values()){
+    const old=row.lesson_id+sep+row.id;
+    row.id=take('lesson_block',old);row.lesson_id=take('lesson',row.lesson_id);
+    if(row.card_id!=null)row.card_id=take('card',row.card_id);
+    row.content_json=canonical(remapJson(JSON.parse(row.content_json),maps));
+  }
+  for(const row of model.profile_members.values())row.profile_id=take('profile',row.profile_id);
+  for(const row of model.lesson_access.values())row.lesson_id=take('lesson',row.lesson_id);
+  for(const row of model.card_quiz_collections.values()){row.card_id=take('card',row.card_id);row.collection_id=take('quiz_collection',row.collection_id);}
+  for(const row of model.profile_cards.values()){row.profile_id=take('profile',row.profile_id);row.card_id=take('card',row.card_id);}
+  for(const row of model.card_progress.values()){row.profile_id=take('profile',row.profile_id);row.card_id=take('card',row.card_id);}
+  for(const row of model.quiz_progress.values()){row.profile_id=take('profile',row.profile_id);row.card_id=take('card',row.card_id);}
+  for(const row of model.profile_library_items.values()){row.profile_id=take('profile',row.profile_id);row.item_id=take('library',row.item_id);}
+  for(const row of model.profile_settings.values())row.profile_id=take('profile',row.profile_id);
+  const legacyKind={ 'added-card':'card', text:'library', song:'library' };
+  for(const row of model.legacy_ids.values()){
+    const kind=legacyKind[row.entity_kind]||row.entity_kind;
+    if(maps[kind]?.has(row.target_id))row.target_id=String(maps[kind].get(row.target_id));
+  }
+  for(const row of model.catalog_documents.values())row.value_json=canonical(remapJson(JSON.parse(row.value_json),maps));
+}
 export function build(directory,{scopeAnchor=null}={}) {
   directory = realpathSync(directory);
   if (directory === root || directory.startsWith(root + '/')) throw new Error('Snapshot must be outside published assets');
@@ -68,7 +119,7 @@ export function build(directory,{scopeAnchor=null}={}) {
     if (name === 'tense-bank.json') sandbox.window.TENSE_BANK = JSON.parse(bytes);
     else if (name !== 'demonstratives.js') runInNewContext(bytes.toString('utf8'), sandbox, { timeout: 3000 });
   }
-  const fingerprint = hash(canonical({ manifest: hash(manifestBytes), localSources, importerVersion: 2,scope:scope.anchor }));
+  const fingerprint = hash(canonical({ manifest: hash(manifestBytes), localSources, importerVersion: 3,scope:scope.anchor }));
   const runId = 'import_' + fingerprint;
   const model = Object.fromEntries(Object.keys(tables).map(name => [name, new Map()]));
   function add(table, row) {
@@ -272,6 +323,11 @@ export function build(directory,{scopeAnchor=null}={}) {
     });
   }
   for (const entry of media.values()) add('catalog_documents', { namespace: 'private-migration-media', key: entry.sha256, value_json: canonical(entry) });
+  assignIntegerIds(model, add);
+  for(const name of Object.keys(model)){
+    const records=[...model[name].values()];model[name]=new Map();
+    for(const row of records)add(name,row);
+  }
   const report = {
     fingerprint, runId, snapshot: directory, sourceJsonBytes: manifest.objects.reduce((n,row)=>n+row.bytes,0),
     counts: Object.fromEntries(Object.entries(model).map(([name,records])=>[name,records.size])),
@@ -328,7 +384,7 @@ function queries(model) {
   });
 }
 function checkOffline(plan, sql) {
-  const schemas = ['001_content_schema.sql','002_import_audit.sql'].map(name=>readFileSync(resolve(root,'migrations/turso',name),'utf8')).join('\n');
+  const schemas = ['001_content_schema.sql','002_import_audit.sql','003_exams.sql','004_groups.sql','005_exam_titles.sql','006_integer_entity_ids.sql'].map(name=>readFileSync(resolve(root,'migrations/turso',name),'utf8')).join('\n');
   const check = queries(plan.model).map(entry=>entry.sql + ';').join('\n');
   const output = execFileSync('sqlite3',['-json',':memory:'],{ input: schemas + '\n' + sql + '\nPRAGMA foreign_key_check;\n' + check + '\nPRAGMA page_count;\nPRAGMA page_size;', encoding:'utf8', maxBuffer:64*1024*1024, stdio:['pipe','pipe','pipe'] }).trim().split(/\r?\n(?=\[)/);
   const expected = queries(plan.model);

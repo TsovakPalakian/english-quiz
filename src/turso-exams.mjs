@@ -1,11 +1,12 @@
-import {statement as stmt, StudyError} from './turso-study.mjs';
+import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
-const idOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
+const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
+function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
 const fail = (status, message) => { throw new StudyError(status, message); };
 const schema = [
   `CREATE TABLE IF NOT EXISTS exams (
-    id TEXT PRIMARY KEY NOT NULL,
+    id INTEGER PRIMARY KEY CHECK (id > 0),
     title TEXT NOT NULL DEFAULT 'Exam',
     lesson_date TEXT NOT NULL DEFAULT '',
     published INTEGER NOT NULL DEFAULT 0 CHECK (published IN (0, 1)),
@@ -16,33 +17,30 @@ const schema = [
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
   )`,
   `CREATE TABLE IF NOT EXISTS exam_blocks (
-    exam_id TEXT NOT NULL REFERENCES exams(id),
-    id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY CHECK (id > 0),
+    exam_id INTEGER NOT NULL REFERENCES exams(id),
     position INTEGER NOT NULL CHECK (position >= 0),
     title TEXT NOT NULL DEFAULT '',
     published INTEGER NOT NULL DEFAULT 0 CHECK (published IN (0, 1)),
     hidden_from_students INTEGER NOT NULL DEFAULT 0 CHECK (hidden_from_students IN (0, 1)),
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-    deleted_at INTEGER,
-    PRIMARY KEY (exam_id, id)
+    deleted_at INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS exam_materials (
-    exam_id TEXT NOT NULL,
-    block_id TEXT NOT NULL,
-    id TEXT NOT NULL,
+    id INTEGER PRIMARY KEY CHECK (id > 0),
+    exam_id INTEGER NOT NULL,
+    block_id INTEGER NOT NULL REFERENCES exam_blocks(id),
     position INTEGER NOT NULL CHECK (position >= 0),
     type TEXT NOT NULL,
     tab TEXT NOT NULL DEFAULT '',
     content_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(content_json) AND json_type(content_json) = 'object'),
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-    deleted_at INTEGER,
-    PRIMARY KEY (exam_id, block_id, id),
-    FOREIGN KEY (exam_id, block_id) REFERENCES exam_blocks(exam_id, id)
+    deleted_at INTEGER
   )`,
   `CREATE TABLE IF NOT EXISTS exam_work (
     account_id TEXT NOT NULL,
-    exam_id TEXT NOT NULL,
-    block_id TEXT NOT NULL,
+    exam_id INTEGER NOT NULL REFERENCES exams(id),
+    block_id INTEGER NOT NULL REFERENCES exam_blocks(id),
     saved INTEGER NOT NULL DEFAULT 0 CHECK (saved IN (0, 1)),
     answers_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(answers_json) AND json_type(answers_json) = 'object'),
     corrections_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(corrections_json) AND json_type(corrections_json) = 'object'),
@@ -108,58 +106,79 @@ export class ExamService {
     if (!reviewer(actor)) fail(403, 'Only a teacher can save an exam.');
     await this.ensure();
     const exam = body && body.exam;
-    if (!exam || !idOk(exam.id)) fail(400, 'Invalid exam.');
+    if (!exam || typeof exam !== 'object') fail(400, 'Invalid exam.');
+    const examId = optionalId(exam.id);
     const date = String(exam.date || '');
     const title = String(exam.title || 'Exam').trim().slice(0, 120) || 'Exam';
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(400, 'Invalid exam date.');
     const blocks = Array.isArray(exam.blocks) ? exam.blocks : [];
     if (blocks.length > 100) fail(400, 'Too many examination blocks.');
     const commands = [
-      stmt(`INSERT INTO exams(id, title, lesson_date, published, hidden_from_students) VALUES(?,?,?,?,?)
-        ON CONFLICT(id) DO UPDATE SET title=excluded.title, lesson_date=excluded.lesson_date, published=excluded.published,
-        hidden_from_students=excluded.hidden_from_students, deleted_at=NULL, revision=revision+1, updated_at=unixepoch()`,
-        [exam.id, title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0])
+      stmt('DROP TABLE IF EXISTS temp.saved_ids'),
+      stmt("CREATE TEMP TABLE saved_ids(kind TEXT NOT NULL, seq INTEGER NOT NULL, id INTEGER NOT NULL, PRIMARY KEY(kind, seq))")
     ];
-    const blockIds = [];
+    if (examId == null) commands.push(
+      stmt('INSERT INTO exams(title, lesson_date, published, hidden_from_students) VALUES(?,?,?,?)', [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0]),
+      stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('exam', 0, last_insert_rowid())"));
+    else commands.push(
+      stmt(`UPDATE exams SET title=?, lesson_date=?, published=?, hidden_from_students=?, deleted_at=NULL, revision=revision+1, updated_at=unixepoch() WHERE id=?`, [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0, examId]),
+      stmt('INSERT INTO saved_ids(kind, seq, id) SELECT \'exam\', 0, id FROM exams WHERE id=? AND changes()=1', [examId]));
+    let materialSeq = 0;
     blocks.forEach((block, index) => {
-      if (!block || !idOk(block.id)) fail(400, 'Invalid examination block.');
-      blockIds.push(block.id);
+      if (!block || typeof block !== 'object') fail(400, 'Invalid examination block.');
+      const blockId = optionalId(block.id);
       const materials = Array.isArray(block.materials) ? block.materials : [];
       if (materials.length > 200) fail(400, 'Too many materials in one block.');
-      commands.push(stmt(`INSERT INTO exam_blocks(exam_id, id, position, title, published, hidden_from_students) VALUES(?,?,?,?,?,?)
-        ON CONFLICT(exam_id, id) DO UPDATE SET position=excluded.position, title=excluded.title, published=excluded.published,
-        hidden_from_students=excluded.hidden_from_students, deleted_at=NULL, revision=revision+1`,
-        [exam.id, block.id, index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0]));
+      if (blockId == null) commands.push(
+        stmt(`INSERT INTO exam_blocks(exam_id, position, title, published, hidden_from_students)
+          SELECT id,?,?,?,? FROM saved_ids WHERE kind='exam' AND seq=0`, [index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0]),
+        stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('block', ?, last_insert_rowid())", [index]));
+      else commands.push(
+        stmt(`UPDATE exam_blocks SET position=?, title=?, published=?, hidden_from_students=?, deleted_at=NULL, revision=revision+1
+          WHERE id=? AND exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0)`, [index, String(block.title || '').slice(0, 200), block.published ? 1 : 0, block.hidden ? 1 : 0, blockId]),
+        stmt("INSERT INTO saved_ids(kind, seq, id) SELECT 'block', ?, id FROM exam_blocks WHERE id=? AND changes()=1", [index, blockId]));
       const partIds = [];
       materials.forEach((part, position) => {
-        if (!part || !idOk(part.id) || !part.type) fail(400, 'Invalid exam material.');
-        partIds.push(part.id);
+        if (!part || !part.type) fail(400, 'Invalid exam material.');
+        const partId = optionalId(part.id);
         const content = { ...part };
         delete content.stageDefinition;
         delete content.studentSaved;
+        if (partId == null) delete content.id;
         if (Array.isArray(content.items)) content.items.forEach(item => { if (item && typeof item === 'object') delete item.given; });
         const json = JSON.stringify(content);
         if (json.length > 20000) fail(413, 'One exam material is too large.');
-        commands.push(stmt(`INSERT INTO exam_materials(exam_id, block_id, id, position, type, tab, content_json) VALUES(?,?,?,?,?,?,?)
-          ON CONFLICT(exam_id, block_id, id) DO UPDATE SET position=excluded.position, type=excluded.type, tab=excluded.tab,
-          content_json=excluded.content_json, deleted_at=NULL, revision=revision+1`,
-          [exam.id, block.id, part.id, position, String(part.type).slice(0, 40), String(part.tab || '').slice(0, 40), json]));
+        if (partId == null) commands.push(
+          stmt(`INSERT INTO exam_materials(exam_id, block_id, position, type, tab, content_json)
+            SELECT e.id, b.id, ?, ?, ?, ? FROM saved_ids e JOIN saved_ids b ON b.kind='block' AND b.seq=?
+            WHERE e.kind='exam' AND e.seq=0`, [position, String(part.type).slice(0, 40), String(part.tab || '').slice(0, 40), json, index]),
+          stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('material', ?, last_insert_rowid())", [materialSeq]));
+        else {
+          partIds.push(partId);
+          commands.push(stmt(`UPDATE exam_materials SET position=?, type=?, tab=?, content_json=?, deleted_at=NULL, revision=revision+1
+            WHERE id=? AND block_id=? AND exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0)`,
+            [position, String(part.type).slice(0, 40), String(part.tab || '').slice(0, 40), json, partId, blockId]));
+        }
+        materialSeq++;
       });
       commands.push(partIds.length
-        ? stmt(`UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=? AND block_id=? AND deleted_at IS NULL AND id NOT IN (${partIds.map(() => '?').join(',')})`, [exam.id, block.id, ...partIds])
-        : stmt('UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=? AND block_id=? AND deleted_at IS NULL', [exam.id, block.id]));
+        ? stmt(`UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND block_id=(SELECT id FROM saved_ids WHERE kind='block' AND seq=?) AND deleted_at IS NULL AND id NOT IN (${partIds.map(() => '?').join(',')})`, [index, ...partIds])
+        : stmt("UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND block_id=(SELECT id FROM saved_ids WHERE kind='block' AND seq=?) AND deleted_at IS NULL", [index]));
     });
-    commands.push(blockIds.length
-      ? stmt(`UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL AND id NOT IN (${blockIds.map(() => '?').join(',')})`, [exam.id, ...blockIds])
-      : stmt('UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL', [exam.id]));
-    commands.push(stmt(`UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL AND block_id NOT IN (SELECT id FROM exam_blocks WHERE exam_id=? AND deleted_at IS NULL)`, [exam.id, exam.id]));
-    await this.db.atomic(commands);
-    return { id: exam.id, saved: true };
+    commands.push(blocks.length
+      ? stmt(`UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL AND id NOT IN (SELECT id FROM saved_ids WHERE kind='block')`)
+      : stmt("UPDATE exam_blocks SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL"));
+    commands.push(stmt("UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL AND block_id NOT IN (SELECT id FROM exam_blocks WHERE exam_id=(SELECT id FROM saved_ids WHERE kind='exam' AND seq=0) AND deleted_at IS NULL)"));
+    commands.push(stmt("SELECT id FROM saved_ids WHERE kind='exam' AND seq=0"));
+    const results = await this.db.atomic(commands);
+    const savedId = Number(results.at(-1)?.rows?.[0]?.[0]?.value);
+    const exams = await this.list(actor);
+    return exams.find(row => row.id === savedId) || { id: savedId, saved: true };
   }
   async remove(actor, id) {
     signedIn(actor);
     if (!reviewer(actor)) fail(403, 'Only a teacher can delete an exam.');
-    if (!idOk(id)) fail(400, 'Invalid exam.');
+    recordId(id);
     await this.ensure();
     await this.db.atomic([
       stmt('UPDATE exam_materials SET deleted_at=unixepoch() WHERE exam_id=? AND deleted_at IS NULL', [id]),
@@ -186,7 +205,7 @@ export class ExamService {
     const account = studentId && studentId !== actor.id ? studentId : actor.id;
     if (account === actor.id) return account;
     if (!reviewer(actor)) fail(403, 'Only a teacher can open another student.');
-    if (!idOk(account)) fail(400, 'Invalid student.');
+    if (!accountOk(account)) fail(400, 'Invalid student.');
     return account;
   }
   async saveWork(actor, body) {
@@ -194,7 +213,7 @@ export class ExamService {
     await this.ensure();
     const examId = body && body.examId;
     const blockId = body && body.blockId;
-    if (!idOk(examId) || !idOk(blockId)) fail(400, 'Invalid exam work.');
+    recordId(examId);recordId(blockId);
     const account = this.workAccount(actor, body.studentId);
     const own = account === actor.id;
     const current = await this.db.read('SELECT saved, answers_json, corrections_json, points_json FROM exam_work WHERE account_id=? AND exam_id=? AND block_id=?', [account, examId, blockId]);

@@ -18,11 +18,11 @@ export class SongMediaService extends PersonalService {
   constructor(db,store){super(db);this.store=store;}
   async upload(actor,id,body,bytes){
     if(!this.store||!['isolated-local-stage','isolated-r2-stage'].includes(this.store.kind))fail(503,'Isolated audio storage is not configured.');
-    if(!/^[A-Za-z0-9_-]{1,100}$/.test(id)||!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','mime','name'].includes(k))
+    if(!Number.isSafeInteger(id)||id<1||!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','mime','name'].includes(k))
       ||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)fail(400,'Invalid audio upload.');
     const metadata=await audioMetadata(bytes,body.mime,body.name),intent={...body,...metadata};
     return this.personal(actor,intent,['upload-own-song',id],async profile=>{
-      if(!/^[A-Za-z0-9_-]{1,100}$/.test(profile))fail(503,'Invalid profile identity.');
+      if(!Number.isSafeInteger(profile)||profile<1)fail(503,'Invalid profile identity.');
       const [row]=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
         WHERE p.profile_id=? AND l.id=? AND l.kind='song' AND l.scope='profile' AND l.owner_profile_id=? AND l.deleted_at IS NULL`,[profile,id,profile]);
       if(!row)fail(404,'Own song not found.');

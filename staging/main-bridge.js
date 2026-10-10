@@ -4,15 +4,16 @@
   document.addEventListener('submit',event=>{
     if(event.target?.id==='loginForm')event.preventDefault();
   },true);
-  const queueKey='turso-main-pending',cards=new Map(),collections=new Map(),quizzes=new Map();
+  const queueKey='turso-main-pending-v3',cards=new Map(),collections=new Map(),quizzes=new Map();
   const managedLinkRevisions=new Map();
   const catalogDetails=new Map();
-  const personalKey='turso-main-personal-pending',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
+  const personalKey='turso-main-personal-pending-v3',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
   let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
+  const validCardId=value=>Number.isSafeInteger(value)&&value>0;
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
   function lessonSnapshot(material){
     const changes={};
@@ -31,7 +32,7 @@
         else delete content.collapsed;
       }
       for(const item of content.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','marked','correct'])delete item[key];
-      return {id:block.id,expectedRevision:block.stageBlockRevision||0,type:block.type,tab:block.tab||'',cardId,content};
+      return {...(Number.isSafeInteger(block.id)&&block.id>0?{id:block.id}:{}),expectedRevision:block.stageBlockRevision||0,type:block.type,tab:block.tab||'',cardId,content};
     });
     const visible=blocks.map(b=>b.id);
     const removed=new Set((material.stageLessonBaseline?.blocks||[]).map(b=>b.id).filter(id=>!visible.includes(id)));
@@ -187,14 +188,14 @@
     if(Array.isArray(window.IRREGULAR))lists.push(window.IRREGULAR);
     const ids=[];
     for(const list of lists)for(const row of list){
-      if(!row||typeof row!=='object'||!/^[A-Za-z0-9_-]{1,100}$/.test(String(row.stageId||'')))continue;
+      if(!row||typeof row!=='object'||!validCardId(row.stageId))continue;
       if(String(row.en||row.word||row.base||'').toLowerCase()!==en||String(row.ru||'')!==ru)continue;
       if(!ids.includes(row.stageId))ids.push(row.stageId);
     }
     return ids.length===1?ids[0]:'';
   }
   function studyCard(card){
-    if(card && /^[A-Za-z0-9_-]{1,100}$/.test(String(card.stageId||'')))return {stageId:card.stageId};
+    if(card && validCardId(card.stageId))return {stageId:card.stageId};
     const id=catalogStageId(card);
     if(id)return {stageId:id};
     return identify(card);
@@ -383,7 +384,7 @@
     flushPersonal:()=>drainPersonal(true),
     cardForProgress:id=>cards.get(id),
     async dictionary(item,accountId=''){
-      if(!/^[A-Za-z0-9_-]{1,100}$/.test(item.stageId||'')||accountId&&!/^[a-f0-9]{16,64}$/.test(accountId))throw new Error('Missing dictionary identity.');
+      if(!validCardId(item.stageId)||accountId&&!/^[a-f0-9]{16,64}$/.test(accountId))throw new Error('Missing dictionary identity.');
       const path=accountId?'/api/admin/users/'+accountId+'/cards/':'/api/cards/';
       return api(path+encodeURIComponent(item.stageId)+'/dictionary');
     },
@@ -412,7 +413,8 @@
       const snapshot=lessonSnapshot(material);
       let baseline=material.stageLessonBaseline,result;const changedIds=new Set();
       if(!material.stageRevision){
-        result=await write('/api/lessons','POST',{id:material.id,changes:snapshot.changes,blocks:snapshot.blocks});
+        result=await write('/api/lessons','POST',{changes:snapshot.changes,blocks:snapshot.blocks});
+        material.id=result.id;
       }else{
         if(!baseline){
           const data=await api('/api/lessons?id='+encodeURIComponent(material.id||''));
@@ -437,15 +439,18 @@
         result=await write('/api/lessons/'+encodeURIComponent(material.id),'PATCH',{expectedRevision:material.stageRevision,changes,upserts,deletes,...(order?{order}:{})});
       }
       material.stageRevision=result.revision;
-      material.stageBlockOrder=snapshot.order;
-      const revisions=new Map(result.blocks.map(b=>[b.id,b.revision]));
+      const revisions=new Map((result.blocks||[]).map(b=>[b.id,b.revision]));
+      const fresh=(result.blocks||[]).filter(row=>!(material.blocks||[]).some(block=>block.id===row.id));
       for(const [i,b] of (material.blocks||[]).entries()){
         if(changedIds.has(b.id)){
           delete b.response;delete b.score;
           for(const item of b.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','marked','correct'])delete item[key];
         }
-        if(revisions.has(b.id))b.stageBlockRevision=revisions.get(b.id);b.stageDefinition=clone({type:snapshot.blocks[i].type,tab:snapshot.blocks[i].tab,cardId:snapshot.blocks[i].cardId,content:snapshot.blocks[i].content});
+        if(revisions.has(b.id))b.stageBlockRevision=revisions.get(b.id);
+        else {const next=fresh.shift();if(next){b.id=next.id;b.stageBlockRevision=next.revision;}}
+        b.stageDefinition=clone({type:snapshot.blocks[i].type,tab:snapshot.blocks[i].tab,cardId:snapshot.blocks[i].cardId,content:snapshot.blocks[i].content});
       }
+      material.stageBlockOrder=(material.blocks||[]).map(block=>block.id);
       material.stageLessonBaseline=lessonSnapshot(material);return result;
     },
     deleteLesson:material=>write('/api/lessons/'+encodeURIComponent(material.id),'DELETE',{expectedRevision:material.stageRevision}),
@@ -474,9 +479,9 @@
       return rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===word.trim().toLowerCase());
     },
     lookupLessonCard:word=>write('/api/cards/lookup','POST',{word}),
-    async newManagedCard(accountId,id,en,ru,place){
+    async newManagedCard(accountId,en,ru,place){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
-      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{id,expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru,...(place?{place}:{})}});
+      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru,...(place?{place}:{})}});
       managedLinkRevisions.set(accountId,result.revision);return result;
     },
     async unlinkManagedCard(accountId,card){
@@ -494,8 +499,8 @@
       const result=await write('/api/me/cards','POST',{cardId:card.id,place,expectedRevision:addedRevision,expectedCardRevision:card.revision});
       addedRevision=result.revision;register(result.card);return result;
     },
-    async newCard(id,en,ru,place){
-      const result=await write('/api/me/cards/new','POST',{id,expectedRevision:addedRevision,card:{en,ru,...(place?{place}:{})}});
+    async newCard(en,ru,place){
+      const result=await write('/api/me/cards/new','POST',{expectedRevision:addedRevision,card:{en,ru,...(place?{place}:{})}});
       addedRevision=result.revision;register(result.card);return result;
     },
     async saveManagedText(accountId,item,changes){
@@ -504,7 +509,7 @@
     async saveManagedLibrary(accountId,item,kind,changes){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||item.stageId&&item.stageScope!=='profile')throw new Error('Общие материалы нельзя менять в личном профиле.');
       const path='/api/admin/users/'+accountId+'/'+(kind==='text'?'texts':'songs');
-      if(!item.stageId)return write(path,'POST',{id:item.id,changes});
+      if(!item.stageId)return write(path,'POST',{changes});
       const changed=Object.fromEntries(Object.entries(changes).filter(([key,value])=>item[key]!==value));
       if(!Object.keys(changed).length)return {item,unchanged:true};
       return write(path+'/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
@@ -519,7 +524,7 @@
         if(!Object.keys(changed).length)return {item,revision:item.stageRevision,unchanged:true};
         return write('/api/library/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
       }
-      return write('/api/library','POST',{id:item.id,kind,changes});
+      return write('/api/library','POST',{kind,changes});
     },
     async uploadThemePhoto(themeId,file){
       if(!actorId||!mediaAllowed()||!/^user-[a-z0-9-]{1,80}$/.test(themeId))throw new Error('A theme picture can be saved only for your own theme.');
@@ -533,7 +538,7 @@
       return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio',onProgress);
     },
     async setManagedLessonAccess(accountId,lessonId,expected,changes){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||! /^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new Error('Нет серверного ID аккаунта или урока.');
+      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!Number.isSafeInteger(lessonId)||lessonId<1)throw new Error('Нет серверного ID аккаунта или урока.');
       return write('/api/admin/users/'+accountId+'/lessons/'+lessonId+'/access','PATCH',{expected,changes});
     },
     async uploadLessonFile(material,block,file){

@@ -12,23 +12,23 @@ import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
 import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
-  sqlite.exec(readFileSync(new URL('../migrations/turso/001_content_schema.sql',import.meta.url),'utf8'));
-  sqlite.exec(readFileSync(new URL('../migrations/turso/002_import_audit.sql',import.meta.url),'utf8'));
+  applyTursoSchema(sqlite);
   sqlite.exec(`INSERT INTO account_refs(id) VALUES('teacher'),('student'),('student2');
-    INSERT INTO study_profiles(id,kind) VALUES('p1','personal'),('p2','personal');
-    INSERT INTO profile_members VALUES('teacher','p1'),('student','p1'),('student2','p2');
-    INSERT INTO lessons(id,title,published) VALUES('lesson','Visible',1),('hidden','Hidden',0);
-    INSERT INTO cards(id,scope,en,word_key,ru) VALUES('shared','shared','competitive','competitive','before'),('hidden-card','shared','hidden','hidden','hidden');
-    INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES('private','profile','p1','personal','personal','личное');
-    INSERT INTO profile_cards(profile_id,card_id,place) VALUES('p1','private','mine');
-    INSERT INTO lesson_blocks(lesson_id,id,position,type,tab,card_id) VALUES('lesson','block',0,'wordcard','words','shared'),('hidden','block',0,'wordcard','words','hidden-card');
-    INSERT INTO lesson_responses(profile_id,lesson_id,block_id,response_json) VALUES('p1','lesson','block','"my answer"');
+    INSERT INTO study_profiles(id,kind) VALUES(1,'personal'),(2,'personal');
+    INSERT INTO profile_members VALUES('teacher',1),('student',1),('student2',2);
+    INSERT INTO lessons(id,title,published) VALUES(1,'Visible',1),(2,'Hidden',0);
+    INSERT INTO cards(id,scope,en,word_key,ru) VALUES(1,'shared','competitive','competitive','before'),(2,'shared','hidden','hidden','hidden');
+    INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES(3,'profile',1,'personal','personal','личное');
+    INSERT INTO profile_cards(profile_id,card_id,place) VALUES(1,3,'mine');
+    INSERT INTO lesson_blocks(lesson_id,position,type,tab,card_id) VALUES(1,0,'wordcard','words',1),(2,0,'wordcard','words',2);
+    INSERT INTO lesson_responses(profile_id,lesson_id,block_id,response_json) VALUES(1,1,1,'"my answer"');
     INSERT INTO migration_runs(id,source_manifest_sha256,status) VALUES('run','unused','verified');
-    INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/0','shared','run');
-    INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','LESSON_DATA','{"words":[{"cardId":"shared"}]}'),('static','GRAMMAR','{}'),('static','IRREGULAR','[]'),('static','TENSE_BANK','{}');`);
+    INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/0','1','run');
+    INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','LESSON_DATA','{"words":[{"cardId":1}]}'),('static','GRAMMAR','{}'),('static','IRREGULAR','[]'),('static','TENSE_BANK','{}');`);
   const sqlArgs=statement=>statement.args.map(a=>a.type==='null'?null:a.type==='integer'?Number(a.value):a.value);
   const db={
     async read(sql,args=[]){return sqlite.prepare(sql).all(...args);},
@@ -48,17 +48,18 @@ function fixture(){
 }
 test('Public catalog pages are bounded, cursor-based, compact and exclude private dictionaries',async()=>{
   const f=fixture();try{
-    f.sqlite.prepare('UPDATE cards SET extra_json=? WHERE id=?').run(JSON.stringify({data:{links:{url:'large'},usages:['kept']}}),'shared');
-    f.sqlite.exec("INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/1','hidden-card','run');");
+    f.sqlite.prepare('UPDATE cards SET extra_json=? WHERE id=?').run(JSON.stringify({data:{links:{url:'large'},usages:['kept']}}),1);
+    f.sqlite.exec("INSERT INTO legacy_ids VALUES('card','LESSON_DATA','/words/1','2','run');");
     const first=await publicCatalogPage(f.db,'LESSON_DATA',{limit:1});
     assert.equal(first.cards.length,1);assert.ok(first.next);assert.ok(first.documents.LESSON_DATA);
     const second=await publicCatalogPage(f.db,'LESSON_DATA',{limit:1,after:first.next});
     assert.equal(second.cards.length,1);assert.equal(second.next,null);assert.deepEqual(second.documents,{});
     assert.notEqual(first.cards[0].stageId,second.cards[0].stageId);
-    const compact=[...first.cards,...second.cards].find(row=>row.stageId==='shared');
+    const compact=[...first.cards,...second.cards].find(row=>row.stageId===1);
     assert.equal(compact.stageDataDeferred,true);assert.equal(compact.data.links,undefined);assert.deepEqual(compact.data.usages,['kept']);
-    assert.deepEqual((await publicCatalogCard(f.db,'shared')).data.links,{url:'large'});
-    await assert.rejects(publicCatalogCard(f.db,'private'),e=>e.status===404);
+    assert.deepEqual((await publicCatalogCard(f.db,1)).data.links,{url:'large'});
+    await assert.rejects(publicCatalogCard(f.db,'private'),e=>e.status===400);
+    await assert.rejects(publicCatalogCard(f.db,9),e=>e.status===404);
     await assert.rejects(publicCatalogPage(f.db,'LESSON_DATA',{limit:61}),e=>e.status===400);
     await assert.rejects(publicCatalogPage(f.db,'private'),e=>e.status===400);
   }finally{f.sqlite.close();}
@@ -68,11 +69,11 @@ test('Lesson summaries omit all blocks; one-lesson loading preserves access and 
     const actor={id:'student',role:'USER'},summary=await legacyLessons(f.db,actor,{summary:true});
     assert.equal(summary.materials.length,1);assert.deepEqual(summary.materials[0].blocks,[]);assert.equal(summary.materials[0].stageLessonDeferred,true);
     assert.equal(summary.materials[0].wordCount,1);assert.equal(summary.materials[0].phraseCount,0);assert.equal(summary.materials[0].ruleCount,0);
-    const detail=await legacyLessons(f.db,actor,{lessonId:'lesson'});
+    const detail=await legacyLessons(f.db,actor,{lessonId:1});
     assert.equal(detail.materials.length,1);assert.equal(detail.materials[0].blocks[0].response,'my answer');
     assert.equal(detail.materials[0].wordCount,1);assert.equal(detail.materials[0].phraseCount,0);assert.equal(detail.materials[0].ruleCount,0);
-    await assert.rejects(legacyLessons(f.db,actor,{lessonId:'hidden'}),e=>e.status===404);
-    assert.equal((await legacyLessons(f.db,{id:'student2',role:'USER'},{lessonId:'lesson'})).materials[0].blocks[0].response,undefined);
+    await assert.rejects(legacyLessons(f.db,actor,{lessonId:2}),e=>e.status===404);
+    assert.equal((await legacyLessons(f.db,{id:'student2',role:'USER'},{lessonId:1})).materials[0].blocks[0].response,undefined);
   }finally{f.sqlite.close();}
 });
 test('Catalog loader starts the shell before catalogs and shares one in-flight load',async()=>{
@@ -121,8 +122,8 @@ test('Lazy lesson open coalesces clicks, guards navigation/profile changes, and 
   pending.shift().resolve({materials:[disk]});await switched;assert.equal(opened.length,1);
 });
 test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
-  const sent=[],material={id:'lesson',title:'Day',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:['old'],stageLessonDeferred:true,blocks:[]};
-  const savedBlocks=[{id:'old',type:'text',tab:'',html:'Hi',stageBlockRevision:2}];
+  const sent=[],material={id:'lesson',title:'Day',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:[3],stageLessonDeferred:true,blocks:[]};
+  const savedBlocks=[{id:3,type:'text',tab:'',html:'Hi',stageBlockRevision:2}];
   const window={ContentCache:{get(key){return String(key).endsWith(':lesson:blocks')?{revision:4,data:{blocks:savedBlocks}}:undefined;},set(){},hold(){},flush(){},drop(){}}};
   const scope={window,crypto,URL,location:{hostname:'127.0.0.1',reload(){}},sessionStorage:{getItem:()=>null,removeItem(){}},
     localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
@@ -130,7 +131,7 @@ test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
     fetch:async(path,options)=>{
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       sent.push(JSON.parse(options.body));
-      return {ok:true,json:async()=>({revision:5,blocks:[{id:'old',revision:2},{id:'link1',revision:1}]})};
+      return {ok:true,json:async()=>({revision:5,blocks:[{id:3,revision:2},{id:9,revision:1}]})};
     },
     authUser:{id:'teacher'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,canEditLessons:()=>true,
     lmLibrary:{materials:[material]},lmLessonVisibleToViewer:()=>true,lmOpenLesson(){},lmKeepLesson(){},lmPersist(){},lmShow(){},lmNote(){},lmSaveTimer:0,clearTimeout(){}};
@@ -138,15 +139,15 @@ test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
   await window.TursoMain.fetch('/api/me');
   await scope.stageOpenLesson(material);
   const opened=scope.lmLibrary.materials[0];
-  assert.equal(opened.stageLessonBaseline.blocks[0].id,'old');
-  opened.blocks.push({id:'link1',type:'link',tab:'overview',title:'Site',url:'https://example.com/lesson',description:''});
+  assert.equal(opened.stageLessonBaseline.blocks[0].id,3);
+  opened.blocks.push({type:'link',tab:'overview',title:'Site',url:'https://example.com/lesson',description:''});
   scope.lmState=opened;
   await scope.stageSaveLesson(false);
-  assert.equal(sent.length,1);assert.equal(sent[0].upserts[0].id,'link1');assert.equal(sent[0].upserts[0].content.url,'https://example.com/lesson');
-  assert.equal(opened.stageLessonBaseline.blocks.some(block=>block.id==='link1'),true);
-  opened.blocks.find(block=>block.id==='old').html='Edited';
+  assert.equal(sent.length,1);assert.equal(sent[0].upserts[0].id,undefined);assert.equal(sent[0].upserts[0].content.url,'https://example.com/lesson');
+  assert.equal(opened.blocks.at(-1).id,9);assert.equal(opened.stageLessonBaseline.blocks.some(block=>block.id===9),true);
+  opened.blocks.find(block=>block.id===3).html='Edited';
   await scope.stageSaveLesson(false);
-  assert.equal(sent.length,2);assert.equal(sent[1].upserts.find(block=>block.id==='old').content.html,'Edited');
+  assert.equal(sent.length,2);assert.equal(sent[1].upserts.find(block=>block.id===3).content.html,'Edited');
 });
 test('Dropping a Lesson PDF saves the new block before the file upload',async()=>{
   const calls=[],block={id:'pdf',type:'pdf',tab:'pdf',title:''};
@@ -204,53 +205,53 @@ test('Compatibility projection: profile pair, foreign private data, response and
   const mine=await legacyLessons(f.db,student),theirs=await legacyLessons(f.db,other);
   assert.equal(mine.materials.length,1);assert.equal(mine.materials[0].blocks[0].response,'my answer');
   assert.equal(theirs.materials[0].blocks[0].response,undefined);assert.equal((await legacyLessons(f.db,teacher)).materials.length,2);
-  assert.equal((await publicCatalogs(f.db)).LESSON_DATA.words[0].stageId,'shared');
-  await new StudyService(f.db).deleteCard(teacher,'shared',{mutationId:crypto.randomUUID(),expectedRevision:1});
+  assert.equal((await publicCatalogs(f.db)).LESSON_DATA.words[0].stageId,1);
+  await new StudyService(f.db).deleteCard(teacher,1,{mutationId:crypto.randomUUID(),expectedRevision:1});
   assert.deepEqual((await publicCatalogs(f.db)).LESSON_DATA.words,[]);assert.equal((await legacyLessons(f.db,student)).materials[0].blocks.length,0);
   f.sqlite.close();
 });
 test('All original quiz type names are supported without legacy whole-map writes',async()=>{
   const f=fixture(),service=new StudyService(f.db);let collection=0;
   for(const type of QUIZ_TYPES){
-    await service.createQuiz(f.users.get('teacher'),'shared',{mutationId:crypto.randomUUID(),expectedRevision:1,expectedCollectionRevision:collection,quiz:{type,items:[{front:'fixture',back:'test'}]}});
+    await service.createQuiz(f.users.get('teacher'),1,{mutationId:crypto.randomUUID(),expectedRevision:1,expectedCollectionRevision:collection,quiz:{type,items:[{front:'fixture',back:'test'}]}});
     collection=collection===0?1:collection+1;
   }
-  assert.equal((await service.card(f.users.get('student'),'shared')).quizzes.length,QUIZ_TYPES.length);f.sqlite.close();
+  assert.equal((await service.card(f.users.get('student'),1)).quizzes.length,QUIZ_TYPES.length);f.sqlite.close();
 });
 test('Personal card links: shared identity, own/pair isolation, monotonic CAS, replay and progress preservation',async()=>{
   const f=fixture(),service=new StudyService(f.db),student=f.users.get('student'),other=f.users.get('student2');
-  const body={mutationId:crypto.randomUUID(),cardId:'shared',place:'mine',expectedRevision:0,expectedCardRevision:1};
+  const body={mutationId:crypto.randomUUID(),cardId:1,place:'mine',expectedRevision:0,expectedCardRevision:1};
   const baseline=f.sqlite.prepare('SELECT count(*) n FROM cards').get().n;
   const first=await service.linkCard(student,body);
   assert.deepEqual(await service.linkCard(student,body),first);
-  assert.equal(first.card.stageId,'shared');assert.equal(first.card.word,'competitive');
+  assert.equal(first.card.stageId,1);assert.equal(first.card.word,'competitive');
   const own=await legacyState(f.db,student),pair=await legacyState(f.db,f.users.get('teacher'));
   assert.equal(own.stageAddedRevision,1);assert.equal(pair.stageAddedRevision,1);
   assert.equal(own.stats.tursoCardLinks,undefined);assert.equal(own.added[0].stageLinksRevision,1);
-  assert.ok(own.added.some(row=>row.stageId==='shared'));assert.deepEqual((await legacyState(f.db,other)).added,[]);
+  assert.ok(own.added.some(row=>row.stageId===1));assert.deepEqual((await legacyState(f.db,other)).added,[]);
   await service.linkCard(other,{...body,mutationId:crypto.randomUUID()});
   assert.equal(f.sqlite.prepare('SELECT count(*) n FROM cards').get().n,baseline,'Only references, not duplicate definitions');
-  await assert.rejects(service.linkCard(other,{...body,mutationId:crypto.randomUUID(),cardId:'private',expectedRevision:1}),e=>e.status===404);
-  await assert.rejects(service.linkCard(student,{...body,mutationId:crypto.randomUUID(),cardId:'hidden-card',expectedRevision:1}),e=>e.status===404);
+  await assert.rejects(service.linkCard(other,{...body,mutationId:crypto.randomUUID(),cardId:3,expectedRevision:1}),e=>e.status===404);
+  await assert.rejects(service.linkCard(student,{...body,mutationId:crypto.randomUUID(),cardId:2,expectedRevision:1}),e=>e.status===404);
   await assert.rejects(service.linkCard(student,{...body,mutationId:crypto.randomUUID(),profileId:'p2'}),e=>e.status===400);
   await assert.rejects(service.linkCard(student,{...body,mutationId:crypto.randomUUID(),place:'phrasal'}),e=>e.status===409);
   await assert.rejects(service.linkCard(student,{...body,mutationId:crypto.randomUUID(),expectedRevision:1}),e=>e.status===409);
   assert.equal((await legacyState(f.db,student)).stageAddedRevision,1,'Failed duplicate rolls back the version');
-  f.sqlite.exec("INSERT INTO card_progress(profile_id,card_id,learned) VALUES('p1','shared',1)");
+  f.sqlite.exec("INSERT INTO card_progress(profile_id,card_id,learned) VALUES(1,1,1)");
   const remove={mutationId:crypto.randomUUID(),place:'mine',expectedRevision:1};
-  assert.equal((await service.unlinkCard(student,'shared',remove)).revision,2);
-  assert.equal((await service.unlinkCard(student,'shared',remove)).revision,2);
-  assert.ok(!(await legacyState(f.db,student)).added.some(row=>row.stageId==='shared'));
-  assert.ok((await legacyState(f.db,other)).added.some(row=>row.stageId==='shared'));
-  assert.equal((await service.card(student,'shared')).revision,1);
-  assert.equal(f.sqlite.prepare("SELECT learned FROM card_progress WHERE profile_id='p1' AND card_id='shared'").get().learned,1);
+  assert.equal((await service.unlinkCard(student,1,remove)).revision,2);
+  assert.equal((await service.unlinkCard(student,1,remove)).revision,2);
+  assert.ok(!(await legacyState(f.db,student)).added.some(row=>row.stageId===1));
+  assert.ok((await legacyState(f.db,other)).added.some(row=>row.stageId===1));
+  assert.equal((await service.card(student,1)).revision,1);
+  assert.equal(f.sqlite.prepare("SELECT learned FROM card_progress WHERE profile_id=1 AND card_id=1").get().learned,1);
   await service.linkCard(student,{...body,mutationId:crypto.randomUUID(),expectedRevision:2});
-  await assert.rejects(service.unlinkCard(student,'shared',{...remove,mutationId:crypto.randomUUID()}),e=>e.status===409,'Delete/re-add does not reset CAS (no ABA)');
-  await assert.rejects(service.unlinkCard(other,'private',{...remove,mutationId:crypto.randomUUID()}),e=>e.status===409);
+  await assert.rejects(service.unlinkCard(student,1,{...remove,mutationId:crypto.randomUUID()}),e=>e.status===409,'Delete/re-add does not reset CAS (no ABA)');
+  await assert.rejects(service.unlinkCard(other,3,{...remove,mutationId:crypto.randomUUID()}),e=>e.status===409);
   assert.equal((await legacyState(f.db,other)).stageAddedRevision,1);
   const atomic=f.db.atomic;let dropped=false;
   f.db.atomic=async commands=>{await atomic(commands);if(!dropped){dropped=true;throw new StudyError(503,'Lost after commit');}};
-  const saved=await service.unlinkCard(student,'shared',{...remove,mutationId:crypto.randomUUID(),expectedRevision:3});
+  const saved=await service.unlinkCard(student,1,{...remove,mutationId:crypto.randomUUID(),expectedRevision:3});
   assert.equal(saved.revision,4);assert.deepEqual(f.sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
   f.sqlite.close();
 });
@@ -262,15 +263,15 @@ test('Personal card HTTP: own USER links, point removal and no client-supplied o
     if(r.headers.has('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];return r;
   };
   try{
-    const body={mutationId:crypto.randomUUID(),cardId:'shared',place:'mine',expectedRevision:0,expectedCardRevision:1};
+    const body={mutationId:crypto.randomUUID(),cardId:1,place:'mine',expectedRevision:0,expectedCardRevision:1};
     assert.equal((await call('/api/me/cards','POST',body)).status,401);
     assert.equal((await call('/api/login','POST',{login:'student',password:f.password})).status,200);
     assert.equal((await call('/api/cards?exact=1&q=comp')).status,200);
     assert.deepEqual(await (await call('/api/cards?exact=1&q=comp')).json(),[]);
     const before=f.queries();assert.equal((await call('/api/me/cards','POST',body)).status,200);assert.equal(f.queries()-before,1);
-    assert.equal((await call('/api/cards/shared','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:1})).status,403);
-    assert.equal((await call('/api/me/cards/shared','DELETE',{mutationId:crypto.randomUUID(),place:'mine',expectedRevision:1})).status,200);
-    assert.equal((await call('/api/cards/shared')).status,200);
+    assert.equal((await call('/api/cards/1','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:1})).status,403);
+    assert.equal((await call('/api/me/cards/1','DELETE',{mutationId:crypto.randomUUID(),place:'mine',expectedRevision:1})).status,200);
+    assert.equal((await call('/api/cards/1')).status,200);
     assert.equal((await call('/api/me/state','PUT',{op:'put-card',card:{}})).status,501);
   }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
 });
@@ -287,14 +288,14 @@ test('Main HTTP: real login, point Save, no persona or production write fallback
     assert.equal((await call('/api/test/session','POST',{persona:'teacher'})).status,501);
     assert.equal((await call('/api/login','POST',{login:'teacher',password:f.password})).status,200);
     const before=f.queries();const state=await call('/api/me/state');assert.equal(state.status,200);assert.equal(f.queries()-before,1);
-    assert.equal((await call('/api/cards/shared','PATCH',{mutationId:crypto.randomUUID(),expectedRevision:1,changes:{ru:'saved'}})).status,200);
-    assert.equal((await (await call('/api/cards/shared')).json()).ru,'saved');
+    assert.equal((await call('/api/cards/1','PATCH',{mutationId:crypto.randomUUID(),expectedRevision:1,changes:{ru:'saved'}})).status,200);
+    assert.equal((await (await call('/api/cards/1')).json()).ru,'saved');
     const baseline=f.queries();
     assert.equal((await call('/api/me/state','PUT',{op:'put-setting',key:'cardQuizzes',value:{}})).status,501);
     assert.equal((await call('/api/lessons','PUT',{materials:[]})).status,501);
     assert.equal((await call('/api/register','POST',{})).status,501);assert.equal(f.queries(),baseline);
     f.users.get('teacher').role='USER';
-    assert.equal((await call('/api/cards/shared','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,403);
+    assert.equal((await call('/api/cards/1','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,403);
     assert.equal((await call('/api/logout','POST',{}, {Origin:'https://evil.invalid'})).status,403);
     assert.equal((await call('/.dev.vars')).status,404);
     const script=await (await call('/preview.js')).text();new Function(script);assert.match(script,/stageSaveTranslation/);
@@ -413,18 +414,19 @@ test('R3 statistics select the managed endpoint and ignore late profile response
 test('R4 compact bootstrap retains quiz inputs and full dictionary rows, scoped catalogs are equivalent',async()=>{
   const f=fixture();try{
     const data={usages:[{en:'Example',ru:'Пример'}],grammar:{note:'Keep'},cambridge:{uk:'/uk/',us:'/us/',pos:'noun',definition:'Meaning',examples:['Detailed example']},wooordhunt:{uk:'/w/',phrases:[{en:'Phrase'}]},links:{dictionary:'https://example.test'},longman:{definition:'x'.repeat(10000)}};
-    const extra=JSON.stringify({data,custom:'keep'});f.sqlite.prepare("UPDATE cards SET extra_json=? WHERE id='private'").run(extra);
+    const extra=JSON.stringify({data,custom:'keep'});f.sqlite.prepare('UPDATE cards SET extra_json=? WHERE id=3').run(extra);
     const actor={id:'teacher',role:'ADMIN'},full=await legacyState(f.db,actor),compact=await legacyState(f.db,actor,{compact:true});
     const a=full.added[0],b=compact.added[0];assert.equal(b.stageDataDeferred,true);assert.deepEqual(b.data.usages,a.data.usages);assert.deepEqual(b.data.grammar,a.data.grammar);
     assert.equal(b.data.cambridge.definition,'Meaning');assert.equal(b.data.cambridge.uk,'/uk/');assert.equal(b.data.longman,undefined);
     assert.ok(JSON.stringify(compact).length<JSON.stringify(full).length/2);
-    assert.equal(f.sqlite.prepare("SELECT extra_json FROM cards WHERE id='private'").get().extra_json,extra);
-    const row=await new StudyService(f.db).readableCard(actor,'private');assert.deepEqual(JSON.parse(row.extra_json).data,data);
-    const batch=await new StudyService(f.db).readableCards(actor,'private,missing');assert.deepEqual(batch.map(item=>item.id),['private']);
-    assert.deepEqual(await new StudyService(f.db).readableCards({id:'student2',role:'USER'},'private'),[]);
+    assert.equal(f.sqlite.prepare('SELECT extra_json FROM cards WHERE id=3').get().extra_json,extra);
+    const row=await new StudyService(f.db).readableCard(actor,3);assert.deepEqual(JSON.parse(row.extra_json).data,data);
+    const batch=await new StudyService(f.db).readableCards(actor,'3');assert.deepEqual(batch.map(item=>item.id),[3]);
+    await assert.rejects(new StudyService(f.db).readableCards(actor,'3,missing'),e=>e.status===400);
+    assert.deepEqual(await new StudyService(f.db).readableCards({id:'student2',role:'USER'},'3'),[]);
     await assert.rejects(new StudyService(f.db).readableCards(actor,''),e=>e.status===400);
     await assert.rejects(new StudyService(f.db).readableCards(actor,Array.from({length:51},(_,i)=>'id'+i).join(',')),e=>e.status===400);
-    await assert.rejects(new StudyService(f.db).readableCard({id:'student2',role:'USER'},'private'),e=>e.status===404);
+    await assert.rejects(new StudyService(f.db).readableCard({id:'student2',role:'USER'},3),e=>e.status===404);
     const all=await publicCatalogs(f.db),scoped=await publicCatalogs(f.db,['LESSON_DATA']);assert.deepEqual(scoped.LESSON_DATA,all.LESSON_DATA);assert.deepEqual(Object.keys(scoped),['LESSON_DATA']);
     await assert.rejects(publicCatalogs(f.db,['private']),e=>e.status===400);
   }finally{f.sqlite.close();}
@@ -460,7 +462,7 @@ test('Home greets guests, says goodbye only after explicit logout, and welcomes 
   function page(user=null){
     const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',
       document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}}},
-      clearOwnBrowserData:async()=>{},clearTimeout(){},window:{},paintHomeAccount:()=>scope.paintHomeHello(),show:()=>scope.paintHomeHello()};
+      clearOwnBrowserData:async()=>{},clearTimeout(){},examResetAccount(){},window:{},paintHomeAccount:()=>scope.paintHomeHello(),show:()=>scope.paintHomeHello()};
     for(const name of ['paintDeveloperChrome','stopAccountPull','paintViewBar','paintAdded','paintLyrics','refreshCatalog','applyTheme','settleThemeAudience','paintAccount'])scope[name]=()=>{};
     runInNewContext(code,scope);
     return {hello,actions,scope};
@@ -513,7 +515,7 @@ test('Production notices hide success, show errors and retain retry only for pen
   for(const pending of [null,{actorId:'fixture',path:'/api/cards/fixture',method:'PATCH',body:{mutationId:'same-id'}}]){
     const banner={dataset:{compactNotices:'true'},hidden:true},status={classList:{toggle(){}}},retry={},window={};
     const scope={window,crypto,sessionStorage:{removeItem(){}},
-      localStorage:{getItem:key=>key==='turso-main-pending'?JSON.stringify(pending):null,removeItem(){}},
+      localStorage:{getItem:key=>key==='turso-main-pending-v3'?JSON.stringify(pending):null,removeItem(){}},
       document:{addEventListener(){},getElementById:id=>({'turso-main-banner':banner,'turso-main-status':status,'turso-main-retry':retry}[id]||null)}};
     runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
     window.TursoMain.notice('Saving');assert.equal(banner.hidden,true);
@@ -546,13 +548,13 @@ test('Theme queue coalesces clicks, retries the same operation and drains before
   window.TursoMain.theme('mint');window.TursoMain.theme('dark');
   await window.TursoMain.flushPersonal();assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,3);
   await window.TursoMain.fetch('/api/logout',{method:'POST',body:'{}'});
-  assert.equal(sent.length,2);assert.deepEqual(sent[0],sent[1]);assert.equal(saved.has('turso-main-personal-pending'),false);
+  assert.equal(sent.length,2);assert.deepEqual(sent[0],sent[1]);assert.equal(saved.has('turso-main-personal-pending-v3'),false);
   const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
   assert.ok(!source.includes('return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme })'));
   assert.ok(source.includes('change.key==="cardQuizzes")return;'));
 });
 test('A paused theme write retries with the account revision',async()=>{
-  const window={},saved=new Map([['turso-main-personal-pending',JSON.stringify([{kind:'theme',key:'theme',theme:'mint',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:7,theme:'mint'}}])]]),sent=[];
+  const window={},saved=new Map([['turso-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'mint',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:7,theme:'mint'}}])]]),sent=[];
   const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
     localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
@@ -569,10 +571,10 @@ test('A paused theme write retries with the account revision',async()=>{
   window.TursoMain.theme('dark');
   await window.TursoMain.flushPersonal();
   assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,0);
-  assert.equal(saved.has('turso-main-personal-pending'),false);
+  assert.equal(saved.has('turso-main-personal-pending-v3'),false);
 });
 test('A stale theme write is dropped instead of replaying an old revision',async()=>{
-  const window={},saved=new Map([['turso-main-personal-pending',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[];
+  const window={},saved=new Map([['turso-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[];
   const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
     localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
@@ -585,7 +587,7 @@ test('A stale theme write is dropped instead of replaying an old revision',async
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
   assert.deepEqual(sent,['/api/me','/api/me/state']);
-  assert.equal(saved.has('turso-main-personal-pending'),false);
+  assert.equal(saved.has('turso-main-personal-pending-v3'),false);
 });
 test('A theme conflict reloads the revision and saves once',async()=>{
   const window={},saved=new Map(),sent=[];let conflict=true;
@@ -608,7 +610,7 @@ test('A theme conflict reloads the revision and saves once',async()=>{
   assert.equal(sent.length,2);
   assert.equal(sent[0].expectedRevision,1);assert.equal(sent[1].expectedRevision,2);assert.equal(sent[1].theme,'champagne');
   assert.notEqual(sent[0].mutationId,sent[1].mutationId);
-  assert.equal(saved.has('turso-main-personal-pending'),false);
+  assert.equal(saved.has('turso-main-personal-pending-v3'),false);
 });
 test('Static catalog IDs initialize before edits; broken login never falls back to GET',()=>{
   const listeners=new Map(),card={stageId:'card_static',stageRevision:1,en:'gardening',ru:'садоводство'},window={LESSON_DATA:{words:[card]}};
@@ -634,7 +636,7 @@ test('Open form baseline survives later registry/state refresh',async()=>{
   };
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.TursoMain;await bridge.fetch('/api/me');
-  const form={stageId:'shared',stageRevision:1,stageScope:'shared',en:'competitive',ru:'before'};
+  const form={stageId:1,stageRevision:1,stageScope:'shared',en:'competitive',ru:'before'};
   bridge.register(form);bridge.register({...form,stageRevision:2,ru:'other editor'});
   await bridge.editCard(form,'my draft');assert.equal(sent[0].expectedRevision,1);
   await bridge.fetch('/api/me/state');
@@ -653,7 +655,7 @@ test('Successful login clears a stale provider error without reading or persisti
 });
 test('Personal card bridge carries only ID/place/versions and retains the exact uncertain intent',async()=>{
   const sent=[],memory=new Map(),window={};let fail=false;
-  const card={id:'shared',en:'competitive',ru:'before',revision:1};
+  const card={id:1,en:'competitive',ru:'before',revision:1};
   const context={window,crypto,console,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
       if(path==='/api/bugs')return {ok:true,json:async()=>({})};
@@ -661,25 +663,25 @@ test('Personal card bridge carries only ID/place/versions and retains the exact 
       if(path==='/api/me/state')return {ok:true,json:async()=>({stageAddedRevision:4,added:[],stats:{}})};
       if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[card]};
       sent.push({path,method:options.method,body:JSON.parse(options.body)});if(fail){fail=false;throw new Error('uncertain');}
-      return {ok:true,json:async()=>({revision:5,card:{stageId:'shared',stageRevision:1,word:'competitive'}})};
+      return {ok:true,json:async()=>({revision:5,card:{stageId:1,stageRevision:1,word:'competitive'}})};
     }};
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.TursoMain;await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');
   const found=await bridge.findCard('competitive');fail=true;
   await assert.rejects(bridge.linkCard(found,'mine'));
-  assert.ok(memory.has('turso-main-pending'));await bridge.linkCard(found,'mine');
+  assert.ok(memory.has('turso-main-pending-v3'));await bridge.linkCard(found,'mine');
   assert.deepEqual(sent[1],sent[0]);assert.deepEqual(Object.keys(sent[0].body).sort(),['cardId','expectedCardRevision','expectedRevision','mutationId','place']);
-  assert.equal(sent[0].body.expectedRevision,4);assert.equal(sent[0].body.cardId,'shared');
-  await bridge.unlinkCard({stageId:'shared',place:'mine',stageLinksRevision:3});
-  assert.equal(sent[2].method,'DELETE');assert.equal(sent[2].path,'/api/me/cards/shared');assert.equal(sent[2].body.expectedRevision,3,'Keep the displayed baseline, not a newer registry version');
+  assert.equal(sent[0].body.expectedRevision,4);assert.equal(sent[0].body.cardId,1);
+  await bridge.unlinkCard({stageId:1,place:'mine',stageLinksRevision:3});
+  assert.equal(sent[2].method,'DELETE');assert.equal(sent[2].path,'/api/me/cards/1');assert.equal(sent[2].body.expectedRevision,3,'Keep the displayed baseline, not a newer registry version');
 });
 test('Personal card hooks: USER removal only, acknowledgement before local updates and exact ID/place deletion',async()=>{
   let list=[],fail=true,rendered=null,removed=null;const notices=[];
   const scope={document:{addEventListener(){}},authUser:{id:'student',role:'USER'},accountReady:true,viewAccount:null,viewSwitching:false,madeItem:null,
     canEditLessons:()=>false,canEditAdded:item=>!!item.stageId,addedIndexOf:item=>list.findIndex(row=>row.stageId===item.stageId&&row.place===item.place),
     loadAdded:()=>list,rememberAdded:rows=>{list=rows;},paintAdded(){},paintAllWords(){},paintHomeStats(){},trackEvent(){},renderMade:card=>{rendered=card;},show(){},esc:String,
-    window:{TursoMain:{notice:(...args)=>notices.push(args),perform:async action=>action(),findCard:async()=>({id:'shared'}),
-      linkCard:async()=>{if(fail)throw new Error('Not saved');return {revision:1,card:{stageId:'shared',word:'test',ru:'тест',place:'mine',stageLinksRevision:1}};},
+    window:{TursoMain:{notice:(...args)=>notices.push(args),perform:async action=>action(),findCard:async()=>({id:1}),
+      linkCard:async()=>{if(fail)throw new Error('Not saved');return {revision:1,card:{stageId:1,word:'test',ru:'тест',place:'mine',stageLinksRevision:1}};},
       unlinkCard:async card=>{removed=card;if(fail)throw new Error('Not removed');return {revision:2};}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   const input={value:'test'},status={};
@@ -689,7 +691,7 @@ test('Personal card hooks: USER removal only, acknowledgement before local updat
   list.push({...list[0],place:'phrasal'});scope.madeItem=list[0];
   const host={dataset:{editKind:'added',editId:'0'}};fail=true;
   await assert.rejects(scope.stageDeleteDefinition(host));assert.equal(list.length,2);
-  fail=false;await scope.stageDeleteDefinition(host);assert.equal(removed.stageId,'shared');assert.equal(list.length,1);assert.equal(list[0].place,'phrasal');assert.equal(list[0].stageLinksRevision,2);
+  fail=false;await scope.stageDeleteDefinition(host);assert.equal(removed.stageId,1);assert.equal(list.length,1);assert.equal(list[0].place,'phrasal');assert.equal(list[0].stageLinksRevision,2);
   scope.viewAccount={id:'other'};input.value='blocked';await scope.stageSaveWord('mine',input,status,{},false);assert.equal(notices.length,1);assert.equal(list.length,1);
 });
 test('A word with no saved card is looked up and stored as a new personal card',async()=>{
@@ -715,14 +717,14 @@ test('Empty own My words exposes the first-add form without altering a foreign o
     loadAdded:()=>list,renderAddedList:()=>{painted++;}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.renderAddedList();assert.equal(scope.addGroup,'My words');assert.equal(painted,1);
-  scope.addGroup='';list=[{stageId:'shared',place:'phrasal'}];scope.renderAddedList();assert.equal(scope.addGroup,'');
+  scope.addGroup='';list=[{stageId:1,place:'phrasal'}];scope.renderAddedList();assert.equal(scope.addGroup,'');
   list=[];scope.viewAccount={id:'foreign'};scope.renderAddedList();assert.equal(scope.addGroup,'');
   scope.viewAccount=null;scope.accountReady=false;scope.renderAddedList();assert.equal(scope.addGroup,'My words','Navigation stays available during profile hydration, but writes remain gated');
   scope.addGroup='';scope.authUser=null;scope.renderAddedList();assert.equal(scope.addGroup,'');
 });
 test('Main HTTP personal routes: real USER auth, one users check per request, own-only response readback',async()=>{
   const f=fixture();
-  f.sqlite.exec("INSERT INTO lesson_blocks(lesson_id,id,position,type,content_json) VALUES('lesson','task',1,'task','{}')");
+  f.sqlite.exec("INSERT INTO lesson_blocks(lesson_id,position,type,content_json) VALUES(1,1,'task','{}')");
   const server=createMainServer({db:f.db,auth:new RealStageAuth(f.source)});
   server.listen(0,'127.0.0.1');await once(server,'listening');const origin=`http://127.0.0.1:${server.address().port}`;
   let cookie='';
@@ -733,30 +735,30 @@ test('Main HTTP personal routes: real USER auth, one users check per request, ow
   try{
     await call('/api/login','POST',{login:'student',password:f.password});
     const before=f.queries();
-    assert.equal((await call('/api/cards/shared/answers','POST',{mutationId:crypto.randomUUID(),expectedRevision:0,quizType:'Type',correct:false})).status,200);
+    assert.equal((await call('/api/cards/1/answers','POST',{mutationId:crypto.randomUUID(),expectedRevision:0,quizType:'Type',correct:false})).status,200);
     assert.equal(f.queries()-before,1);
-    assert.equal((await call('/api/cards/shared/progress','PATCH',{mutationId:crypto.randomUUID(),expectedRevision:0,changes:{learned:true}})).status,200);
+    assert.equal((await call('/api/cards/1/progress','PATCH',{mutationId:crypto.randomUUID(),expectedRevision:0,changes:{learned:true}})).status,200);
     const task={mutationId:crypto.randomUUID(),expectedRevision:0,expectedBlockRevision:1,response:'private HTTP answer'};
-    assert.equal((await call('/api/lessons/lesson/blocks/task/response','PUT',task)).status,200);
-    assert.equal((await call('/api/lessons/lesson/blocks/task/response','PUT',{...task,profileId:'p2'})).status,400);
+    assert.equal((await call('/api/lessons/1/blocks/3/response','PUT',task)).status,200);
+    assert.equal((await call('/api/lessons/1/blocks/3/response','PUT',{...task,profileId:'p2'})).status,400);
     const own=await (await call('/api/lessons')).json();
-    assert.equal(own.materials[0].blocks.find(b=>b.id==='task').response,'private HTTP answer');
-    assert.equal(own.materials[0].blocks.find(b=>b.id==='task').stageResponseRevision,1);
+    assert.equal(own.materials[0].blocks.find(b=>b.id===3).response,'private HTTP answer');
+    assert.equal(own.materials[0].blocks.find(b=>b.id===3).stageResponseRevision,1);
     const state=await (await call('/api/me/state')).json();
     assert.equal(state.bootstrap,true);assert.equal(state.added,undefined);assert.equal(state.songs,undefined);
     const progress=await (await call('/api/me/progress')).json();
     assert.equal(progress.stageQuizProgress[0].revision,1);assert.deepEqual(progress.learned,['competitive']);
     await call('/api/login','POST',{login:'student2',password:f.password});
     const other=await (await call('/api/lessons')).json();
-    assert.equal(other.materials[0].blocks.find(b=>b.id==='task').response,undefined);
+    assert.equal(other.materials[0].blocks.find(b=>b.id===3).response,undefined);
     assert.deepEqual((await (await call('/api/me/progress')).json()).mistakes,[]);
   }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
 });
 test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential revisions and durable uncertain retry',async()=>{
   const memory=new Map(),sent=[],events=[],timers=new Map(),listeners=new Map(),buttons=new Map();let drop=false,active='student';
-  const state={added:[{stageId:'card',stageRevision:1,stageScope:'shared',en:'fixture',ru:'fixture'}],stats:{cardQuizzes:{}},stageQuizProgress:[]};
+  const state={added:[{stageId:1,stageRevision:1,stageScope:'shared',en:'fixture',ru:'fixture'}],stats:{cardQuizzes:{}},stageQuizProgress:[]};
   function boot(){
-    const window={LESSON_DATA:{words:[{stageId:'catalog-word',en:'orphan',ru:'сирота'}]}},context={window,crypto,console,location:{reload(){}},CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},
+    const window={LESSON_DATA:{words:[{stageId:2,en:'orphan',ru:'сирота'}]}},context={window,crypto,console,location:{reload(){}},CustomEvent:class{constructor(type,options){this.type=type;this.detail=options.detail;}},
       setTimeout:fn=>{const key=crypto.randomUUID();timers.set(key,fn);return key;},clearTimeout:key=>timers.delete(key),
       sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},
       document:{addEventListener:(type,fn)=>listeners.set(type,fn),dispatchEvent:event=>events.push(event),
@@ -774,50 +776,51 @@ test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential 
   }
   const settle=async()=>{for(let i=0;i<25;i++)await Promise.resolve();};
   let bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');
-  const block={id:'task',stageBlockRevision:1,stageResponseRevision:0};
+  const block={id:1,stageBlockRevision:1,stageResponseRevision:0};
   bridge.response('lesson',block,'a');bridge.response('lesson',block,'answer');
-  assert.equal(sent.length,0);assert.equal(JSON.parse(memory.get('turso-main-personal-pending')).length,1);
+  assert.equal(sent.length,0);assert.equal(JSON.parse(memory.get('turso-main-personal-pending-v3')).length,1);
   for(const fn of timers.values())fn();timers.clear();await settle();
   assert.equal(sent[0].body.response,'answer');assert.equal(sent[0].body.expectedRevision,0);
   bridge.answer(state.added[0],'Type',false);bridge.answer(state.added[0],'Type',true);await settle();
   assert.equal(sent[1].body.expectedRevision,0);assert.equal(sent[2].body.expectedRevision,1);
-  bridge.answer({stageId:'catalog-card',en:'other',ru:'x'},'Choice',true);await settle();
-  assert.equal(sent.at(-1).path,'/api/cards/catalog-card/answers');
+  bridge.answer({stageId:3,en:'other',ru:'x'},'Choice',true);await settle();
+  assert.equal(sent.at(-1).path,'/api/cards/3/answers');
   bridge.answer({en:'orphan',ru:'сирота'},'Type',true);await settle();
-  assert.equal(sent.at(-1).path,'/api/cards/catalog-word/answers');
+  assert.equal(sent.at(-1).path,'/api/cards/2/answers');
   assert.throws(()=>bridge.answer({en:'missing',ru:''},'Type',true));
   drop=true;bridge.response('lesson',{...block,stageResponseRevision:1},'uncertain',true);await settle();
-  const original=sent[5];assert.ok(JSON.parse(memory.get('turso-main-personal-pending'))[0].paused);
+  const original=sent[5];assert.ok(JSON.parse(memory.get('turso-main-personal-pending-v3'))[0].paused);
   active='student2';bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');
   buttons.get('turso-main-retry')();await settle();assert.equal(sent.length,6,'Pending writes must never retarget another account');
   active='student';
   bridge=boot();await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');await settle();assert.equal(sent.length,6);
   buttons.get('turso-main-retry')();await settle();
-  assert.deepEqual(sent[6],original);assert.equal(memory.has('turso-main-personal-pending'),false);
+  assert.deepEqual(sent[6],original);assert.equal(memory.has('turso-main-personal-pending-v3'),false);
   assert.ok(events.some(event=>event.type==='turso-personal-saved'));
 });
 test('Personal exercise marks restored only from own response; stale shared answers never leak',async()=>{
   const f=fixture(),service=new StudyService(f.db),student=f.users.get('student'),other=f.users.get('student2');
   const content={items:[{kind:'write',write:'Expected',typed:'shared private input',marked:true,correct:true},{kind:'choice',options:['yes','no'],answer:0,picked:1}],score:'shared score'};
-  f.sqlite.prepare('INSERT INTO lesson_blocks(lesson_id,id,position,type,content_json) VALUES(?,?,?,?,?)').run('lesson','exercise',1,'exercise',JSON.stringify(content));
-  const before=await legacyLessons(f.db,other);const empty=before.materials[0].blocks.find(row=>row.id==='exercise');
+  f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,position,type,content_json) VALUES(1,9,'exercise',?)").run(JSON.stringify(content));
+  const blockId=f.sqlite.prepare("SELECT id FROM lesson_blocks WHERE type='exercise'").get().id;
+  const before=await legacyLessons(f.db,other);const empty=before.materials[0].blocks.find(row=>row.id===blockId);
   assert.equal(empty.items[0].typed,undefined);assert.equal(empty.items[0].marked,undefined);assert.equal(empty.items[1].picked,undefined);assert.equal(empty.score,undefined);
-  const result=await service.saveLessonResponse(student,'lesson','exercise',{mutationId:crypto.randomUUID(),expectedRevision:0,expectedBlockRevision:1,response:{items:[{typed:' expected '},{picked:1}],checked:true}});
+  const result=await service.saveLessonResponse(student,1,blockId,{mutationId:crypto.randomUUID(),expectedRevision:0,expectedBlockRevision:1,response:{items:[{typed:' expected '},{picked:1}],checked:true}});
   assert.equal(result.response.items[0].correct,true);assert.equal(result.response.items[1].correct,false);
-  const mine=(await legacyLessons(f.db,student)).materials[0].blocks.find(row=>row.id==='exercise');
+  const mine=(await legacyLessons(f.db,student)).materials[0].blocks.find(row=>row.id===blockId);
   assert.equal(mine.items[0].marked,true);assert.equal(mine.items[0].typed,' expected ');
-  assert.equal((await legacyLessons(f.db,other)).materials[0].blocks.find(row=>row.id==='exercise').items[0].typed,undefined);
-  assert.equal(f.sqlite.prepare('SELECT content_json FROM lesson_blocks WHERE id=?').get('exercise').content_json,JSON.stringify(content));
+  assert.equal((await legacyLessons(f.db,other)).materials[0].blocks.find(row=>row.id===blockId).items[0].typed,undefined);
+  assert.equal(f.sqlite.prepare('SELECT content_json FROM lesson_blocks WHERE id=?').get(blockId).content_json,JSON.stringify(content));
   f.sqlite.close();
 });
 test('Main response hooks intercept the old lesson-wide save and submit only personal inputs',()=>{
-  const sent=[],listeners=new Map(),blocks=[{id:'task',type:'task',stageBlockRevision:1,stageResponseRevision:0},{id:'quiz',type:'quiz',stageBlockRevision:1,items:[{answer:1,options:['no','yes'],picked:1}]}];
+  const sent=[],listeners=new Map(),blocks=[{id:1,type:'task',stageBlockRevision:1,stageResponseRevision:0},{id:2,type:'quiz',stageBlockRevision:1,items:[{answer:1,options:['no','yes'],picked:1}]}];
   const context={document:{addEventListener:(type,fn)=>listeners.set(type,fn)},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
     lmState:{id:'lesson',blocks},window:{TursoMain:{response:(...args)=>sent.push(args),notice:()=>assert.fail('Unexpected notice')}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
   let intercepted=0;
-  listeners.get('input')({type:'input',target:{closest:()=>({dataset:{response:'task'},value:'private draft',hasAttribute:()=>false})},stopPropagation:()=>intercepted++});
-  const input={dataset:{quizCheck:'quiz'},hasAttribute:key=>key==='data-quiz-check'};
+  listeners.get('input')({type:'input',target:{closest:()=>({dataset:{response:'1'},value:'private draft',hasAttribute:()=>false})},stopPropagation:()=>intercepted++});
+  const input={dataset:{quizCheck:'2'},hasAttribute:key=>key==='data-quiz-check'};
   listeners.get('click')({type:'click',target:{closest:()=>input},stopPropagation:()=>intercepted++});
   assert.equal(intercepted,2);assert.equal(sent[0][2],'private draft');
   assert.equal(JSON.stringify(sent[1][2]),'{"items":[{"picked":1}],"checked":true}');
@@ -856,8 +859,8 @@ test('Acknowledged progress refreshes Home and the open Weak cards list without 
 test('Lesson bridge sends only changed metadata/blocks; excludes answers, preserves editor baseline and retries the same intent',async()=>{
   const memory=new Map(),sent=[],window={};let dropped=false;
   const remote={id:'lesson',title:'Original',published:true,stageRevision:3,blocks:[
-    {id:'task',type:'task',text:'Write',response:'Private',stageBlockRevision:2,stageResponseRevision:1},
-    {id:'quiz',type:'quiz',quizType:'Choice',items:[{prompt:'Pick',options:['yes','no'],answer:0,picked:1,marked:true,correct:false}],score:'0 / 1',stageBlockRevision:1}
+    {id:1,type:'task',text:'Write',response:'Private',stageBlockRevision:2,stageResponseRevision:1},
+    {id:2,type:'quiz',quizType:'Choice',items:[{prompt:'Pick',options:['yes','no'],answer:0,picked:1,marked:true,correct:false}],score:'0 / 1',stageBlockRevision:1}
   ]};
   const context={window,crypto,console,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
@@ -866,7 +869,7 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
       const body=JSON.parse(options.body);sent.push({path,body});
       if(dropped){dropped=false;throw new Error('Lost response');}
-      return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:'task',revision:2},{id:'quiz',revision:2}]})};
+      return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:1,revision:2},{id:2,revision:2}]})};
     }};
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.TursoMain;await bridge.fetch('/api/me');
@@ -878,10 +881,10 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   await assert.rejects(bridge.saveLesson(lesson));assert.equal(lesson.stageRevision,4);
   await bridge.saveLesson(lesson);
   assert.deepEqual(sent[1],sent[2]);assert.equal(sent[2].body.upserts.length,1);
-  assert.equal(sent[2].body.upserts[0].id,'quiz');assert.equal(sent[2].body.upserts[0].expectedRevision,2);
+  assert.equal(sent[2].body.upserts[0].id,2);assert.equal(sent[2].body.upserts[0].expectedRevision,2);
   assert.deepEqual(sent[2].body.upserts[0].content.items[0],{prompt:'New prompt',options:['yes','no'],answer:0});
   assert.equal(JSON.stringify(sent[2].body).includes('Private'),false);assert.equal(sent[2].body.upserts[0].content.score,undefined);
-  assert.equal(memory.has('turso-main-pending'),false);
+  assert.equal(memory.has('turso-main-pending-v3'),false);
   assert.equal(lesson.blocks[1].score,undefined);assert.equal(lesson.blocks[1].items[0].picked,undefined);
   assert.equal(lesson.blocks[0].response,'Private','An unchanged task keeps its displayed answer');
   const count=sent.length;await bridge.saveLesson(lesson);assert.equal(sent.length,count,'Unchanged Save must not query the database');
@@ -890,25 +893,25 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   assert.equal(lesson.description,'Unsaved text');assert.equal(lesson.stageLessonBaseline.changes.description,'');
 });
 test('An existing lesson without a baseline loads the server copy and then saves the edit',async()=>{
-  const sent=[],window={},remote={id:'lesson',title:'Original',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,blocks:[{id:'old',type:'text',html:'Hi',stageBlockRevision:2}]};
+  const sent=[],window={},remote={id:'lesson',title:'Original',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,blocks:[{id:3,type:'text',html:'Hi',stageBlockRevision:2}]};
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
       if(path==='/api/bugs')return {ok:true,json:async()=>({})};
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/lessons?id=lesson')return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
       const body=JSON.parse(options.body);sent.push(body);
-      return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:'old',revision:2},{id:'link1',revision:1}]})};
+      return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:3,revision:2},{id:9,revision:1}]})};
     }};
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.TursoMain.fetch('/api/me');
-  const lesson={...structuredClone(remote),title:'Edited',blocks:[...remote.blocks,{id:'link1',type:'link',title:'Site',url:'https://example.com/lesson'}]};
+  const lesson={...structuredClone(remote),title:'Edited',blocks:[...remote.blocks,{type:'link',title:'Site',url:'https://example.com/lesson'}]};
   await window.TursoMain.saveLesson(lesson);
   assert.equal(sent.length,1);assert.equal(sent[0].expectedRevision,4);assert.deepEqual(sent[0].changes,{title:'Edited'});
-  assert.equal(sent[0].upserts.length,1);assert.equal(sent[0].upserts[0].id,'link1');
-  assert.equal(lesson.stageLessonBaseline.blocks.some(block=>block.id==='old'),true);
+  assert.equal(sent[0].upserts.length,1);assert.equal(sent[0].upserts[0].id,undefined);assert.equal(lesson.blocks.at(-1).id,9);
+  assert.equal(lesson.stageLessonBaseline.blocks.some(block=>block.id===3),true);
 });
 test('A file upload keeps the server block revision when the editor lost it',async()=>{
-  const sent=[],window={},material={id:'lesson',title:'Media',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:['pdf'],blocks:[{id:'pdf',type:'pdf',tab:'',title:'',stageBlockRevision:3}]};
+  const sent=[],window={},material={id:'lesson',title:'Media',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false,stageRevision:4,stageBlockOrder:[4],blocks:[{id:4,type:'pdf',tab:'',title:'',stageBlockRevision:3}]};
   const scope={window,crypto,URLSearchParams,location:{hostname:'127.0.0.1',reload(){}},sessionStorage:{removeItem(){}},
     localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
@@ -927,21 +930,21 @@ test('A file upload keeps the server block revision when the editor lost it',asy
   assert.equal(sent.length,1);assert.equal(sent[0].expectedBlockRevision,'3');assert.equal(material.blocks[0].fileId,'sf');
 });
 test('Lesson word insertion sends one linked block, not dictionary or unchanged lesson content',async()=>{
-  const sent=[],window={},remote={id:'lesson',title:'Saved',published:false,stageRevision:1,blocks:[{id:'text',type:'text',html:'Neighbour'.repeat(1000),stageBlockRevision:1}]};
+  const sent=[],window={},remote={id:'lesson',title:'Saved',published:false,stageRevision:1,blocks:[{id:1,type:'text',html:'Neighbour'.repeat(1000),stageBlockRevision:1}]};
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
-      if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[{id:'shared_card',en:'competitive',ru:'before',scope:'shared',revision:1}]};
-      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'text',revision:1},{id:'newword',revision:1}]})};
+      if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[{id:1,en:'competitive',ru:'before',scope:'shared',revision:1}]};
+      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:1,revision:1},{id:9,revision:1}]})};
     }};
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.TursoMain.fetch('/api/me');const lesson=(await window.TursoMain.fetch('/api/lessons')).materials[0];
-  lesson.published=true;lesson.blocks.push({id:'newword',type:'wordcard',word:'competitive',ru:'before',data:{dictionary:'Huge'.repeat(10000)}});
+  lesson.published=true;lesson.blocks.push({type:'wordcard',word:'competitive',ru:'before',data:{dictionary:'Huge'.repeat(10000)}});
   await window.TursoMain.saveLesson(lesson);
   assert.equal(sent.length,1);assert.equal(sent[0].path,'/api/lessons/lesson');
   assert.deepEqual(sent[0].body.changes,{published:true});assert.equal(sent[0].body.upserts.length,1);
-  assert.equal(sent[0].body.upserts[0].cardId,'shared_card');assert.deepEqual(sent[0].body.upserts[0].content,{});
+  assert.equal(sent[0].body.upserts[0].cardId,1);assert.deepEqual(sent[0].body.upserts[0].content,{});
   assert.equal(sent[0].body.order,undefined);
   assert.ok(JSON.stringify(sent[0].body).length<1000);assert.ok(!JSON.stringify(sent[0].body).includes('Neighbour'));
   lesson.published=false;await window.TursoMain.saveLesson(lesson);assert.deepEqual(sent[1].body.upserts,[]);
@@ -965,30 +968,30 @@ test('Lesson rule insert sends a rules-tab block without catalog text',async()=>
   assert.equal(JSON.stringify(sent[0].body).includes('will rain'),false);
 });
 test('Lesson block removal sends deletes and does not resurrect the id in order',async()=>{
-  const sent=[],window={},remote={id:'lesson',title:'Saved',published:true,stageRevision:4,stageBlockOrder:['keep','gone'],blocks:[
-    {id:'keep',type:'text',html:'A',stageBlockRevision:1},{id:'gone',type:'rule',tab:'rules',topic:'predictions',stageBlockRevision:2}
+  const sent=[],window={},remote={id:'lesson',title:'Saved',published:true,stageRevision:4,stageBlockOrder:[1,2],blocks:[
+    {id:1,type:'text',html:'A',stageBlockRevision:1},{id:2,type:'rule',tab:'rules',topic:'predictions',stageBlockRevision:2}
   ]};
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},document:{addEventListener(){},getElementById:()=>null},
     fetch:async(path,options)=>{
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
-      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'keep',revision:1}]})};
+      const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:1,revision:1}]})};
     }};
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.TursoMain.fetch('/api/me');const lesson=(await window.TursoMain.fetch('/api/lessons')).materials[0];
-  lesson.blocks=lesson.blocks.filter(block=>block.id!=='gone');
+  lesson.blocks=lesson.blocks.filter(block=>block.id!==2);
   await window.TursoMain.saveLesson(lesson);
-  assert.equal(sent.length,1);assert.deepEqual(sent[0].body.deletes,[{id:'gone',expectedRevision:2}]);
-  assert.equal(sent[0].body.order,undefined);assert.equal(JSON.stringify(lesson.stageBlockOrder),JSON.stringify(['keep']));
+  assert.equal(sent.length,1);assert.deepEqual(sent[0].body.deletes,[{id:2,expectedRevision:2}]);
+  assert.equal(sent[0].body.order,undefined);assert.equal(JSON.stringify(lesson.stageBlockOrder),JSON.stringify([1]));
 });
 test('Lesson card lookup retains the shared ID and never uses the external dictionary route',async()=>{
   const input={value:'competitive'},status={},button={},blocks=[];
   const context={canEditLessons:()=>true,accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,lmState:{blocks},
     lmTab:()=> 'words',lmId:()=> 'new_word',lmInsertBlockFront:block=>blocks.push(block),lmRenderEditor(){},lmSchedule(){},
     document:{addEventListener(){},getElementById:id=>({lmWordInput:input,lmWordStatus:status,lmWordGo:button}[id])},
-    window:{TursoMain:{lessonCards:async()=>[{id:'shared',en:'competitive'}],dictionary:async card=>({en:'competitive',ru:'before',stageId:card.stageId,stageRevision:2,data:{uk:'ipa'}}),notice(){}}}};
+    window:{TursoMain:{lessonCards:async()=>[{id:1,en:'competitive'}],dictionary:async card=>({en:'competitive',ru:'before',stageId:card.stageId,stageRevision:2,data:{uk:'ipa'}}),notice(){}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
-  await context.stageLookupLessonWord();assert.equal(blocks.length,1);assert.equal(blocks[0].stageId,'shared');assert.equal(blocks[0].stageRevision,2);assert.equal(button.disabled,false);
+  await context.stageLookupLessonWord();assert.equal(blocks.length,1);assert.equal(blocks[0].stageId,1);assert.equal(blocks[0].stageRevision,2);assert.equal(button.disabled,false);
 });
 test('New lesson words fall back to shared dictionary creation before adding an ID-linked block',async()=>{
   const blocks=[],calls=[],context={canEditLessons:()=>true,accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,lmState:{blocks},
@@ -1006,19 +1009,20 @@ test('Main HTTP lesson routes: teacher create/edit/delete, real-role denial and 
     if(response.headers.has('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return response;
   };
   try{
-    const creation={mutationId:crypto.randomUUID(),id:'new_lesson',changes:{title:'New'},blocks:[]};
+    const creation={mutationId:crypto.randomUUID(),changes:{title:'New'},blocks:[]};
     assert.equal((await call('/api/lessons','POST',creation)).status,401);
     await call('/api/login','POST',{login:'teacher',password:f.password});
-    const before=f.queries();assert.equal((await call('/api/lessons','POST',creation)).status,200);assert.equal(f.queries()-before,1);
+    const before=f.queries();const created=await call('/api/lessons','POST',creation);assert.equal(created.status,200);assert.equal(f.queries()-before,1);
+    const lessonId=(await created.json()).id;assert.equal(typeof lessonId,'number');
     const patch={mutationId:crypto.randomUUID(),expectedRevision:1,changes:{published:true},upserts:[],deletes:[]};
-    assert.equal((await call('/api/lessons/new_lesson','PATCH',patch)).status,200);
-    assert.equal((await call('/api/lessons/new_lesson','PATCH',{...patch,mutationId:crypto.randomUUID()})).status,409);
+    assert.equal((await call('/api/lessons/'+lessonId,'PATCH',patch)).status,200);
+    assert.equal((await call('/api/lessons/'+lessonId,'PATCH',{...patch,mutationId:crypto.randomUUID()})).status,409);
     f.users.get('teacher').role='USER';
-    assert.equal((await call('/api/lessons/new_lesson','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,403);
+    assert.equal((await call('/api/lessons/'+lessonId,'DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,403);
     f.users.get('teacher').role='DEVELOPER';
-    assert.equal((await call('/api/lessons/new_lesson','DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,200);
+    assert.equal((await call('/api/lessons/'+lessonId,'DELETE',{mutationId:crypto.randomUUID(),expectedRevision:2})).status,200);
     const reads=f.queries();assert.equal((await call('/api/lessons','PUT',{materials:[]})).status,501);assert.equal(f.queries(),reads);
-    assert.equal((await (await call('/api/lessons')).json()).materials.some(l=>l.id==='new_lesson'),false);
+    assert.equal((await (await call('/api/lessons')).json()).materials.some(l=>l.id===lessonId),false);
   }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
 });
 test('Lesson buttons publish only after acknowledgement; failed Save keeps the original lesson and draft',async()=>{
@@ -1037,12 +1041,12 @@ test('Managed add uses target endpoint, waits for acknowledgement and drops late
   const pending=[],calls=[];let list=[];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
     loadAdded:()=>list,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},
-    document:{addEventListener(){}},window:{TursoMain:{findCard:async()=>({id:'shared',revision:1}),
+    document:{addEventListener(){}},window:{TursoMain:{findCard:async()=>({id:1,revision:1}),
       linkManagedCard:(...args)=>{calls.push(args);return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
   const input={value:'Word'},save=context.stageSaveWord('mine',input,{},null,false);
   await new Promise(resolve=>setImmediate(resolve));assert.equal(list.length,0);assert.equal(calls[0][0],context.viewAccount.id);
-  pending.shift().resolve({card:{stageId:'shared',place:'mine'},revision:1});await save;assert.equal(list.length,1);assert.equal(input.value,'');
+  pending.shift().resolve({card:{stageId:1,place:'mine'},revision:1});await save;assert.equal(list.length,1);assert.equal(input.value,'');
   list=[];input.value='Other';const late=context.stageSaveWord('mine',input,{},null,false);await new Promise(resolve=>setImmediate(resolve));
   context.viewGen++;context.viewAccount=null;pending.shift().resolve({card:{stageId:'other'},revision:2});await late;
   assert.equal(list.length,0);assert.equal(input.value,'Other');
@@ -1064,7 +1068,7 @@ test('Managed private card UI exposes edit/remove and ignores late saves after c
   assert.equal(card.ru,'After');assert.equal(paints.length,1);
 });
 test('Managed removal waits for acknowledgement, filters exact ID/place and ignores switched profiles',async()=>{
-  const pending=[],removed=[];let list=[{stageId:'shared',stageScope:'shared',place:'mine'},{stageId:'shared',stageScope:'shared',place:'phrasal'}];
+  const pending=[],removed=[];let list=[{stageId:1,stageScope:'shared',place:'mine'},{stageId:1,stageScope:'shared',place:'phrasal'}];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,madeItem:null,
     loadAdded:()=>list,addedIndexOf:()=>0,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},document:{addEventListener(){}},
     window:{TursoMain:{unlinkManagedCard:(account,card)=>{removed.push({account,card});return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
@@ -1117,7 +1121,7 @@ test('Adding a song asks the lyric analyzer and stores a new expression card',as
   const song={id:'song',stageId:'song',stageRevision:1,lyrics:'I give up',marks:{}};
   const context={crypto,authUser:{role:'USER'},accountReady:true,viewAccount:null,viewGen:1,viewSwitching:false,
     cardIndex:()=>new Map([['i',{kind:'added'}]]),loadAdded:()=>added,stageStampLinks(){},stageInstallLibrary(){},renderUserSong(){},
-    lyricKeys:()=>['i','give','up'],lookupLyricWord:async word=>word==='give'?{word:'give',ru:'давать'}:null,
+    lyricKeys:()=>['i','give','up'],lyricTokens:()=>['i','give','up'],lookupLyricWord:async word=>word==='give'?{word:'give',ru:'давать'}:null,
     uniqueExpressions:list=>list,setTimeout(){},accountFetch:async(path,options)=>{calls.push([path,JSON.parse(options.body)]);
       return path==='/api/analyze'?{expressions:[{exactText:'give up',canonicalForm:'give up',type:'PHRASAL_VERB',meaning:'stop',context:'I give up'}]}:{card:{word:'give up',ru:'сдаться',place:'phrasal'}};},
     document:{addEventListener(){}},window:{TursoMain:{
@@ -1168,12 +1172,12 @@ test('Test banner reserves its actual wrapped height so editor buttons are not c
 });
 test('Bootstrap omits large collections and slices stay on their own pages',async()=>{
   const f=fixture();try{
-    f.sqlite.exec(`INSERT INTO library_items(id,kind,scope,owner_profile_id,content_json) VALUES
-      ('song1','song','profile','p1','{"title":"Gold","artist":"A","lyrics":"${'la '.repeat(500)}"}'),
-      ('text1','text','profile','p1','{"title":"Note","text":"${'word '.repeat(500)}"}');
-      INSERT INTO profile_library_items(profile_id,item_id) VALUES('p1','song1'),('p1','text1');
+    f.sqlite.exec(`INSERT INTO library_items(kind,scope,owner_profile_id,content_json) VALUES
+      ('song','profile',1,'{"title":"Gold","artist":"A","lyrics":"${'la '.repeat(500)}"}'),
+      ('text','profile',1,'{"title":"Note","text":"${'word '.repeat(500)}"}');
+      INSERT INTO profile_library_items(profile_id,item_id) VALUES(1,1),(1,2);
       INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT','[{"level":"A1","units":[1]},{"level":"A2","units":[2]}]');
-      INSERT INTO profile_settings(profile_id,key,value_json) VALUES('p1','theme','"almond"'),('p2','theme','"almond"');
+      INSERT INTO profile_settings(profile_id,key,value_json) VALUES(1,'theme','"almond"'),(2,'theme','"almond"');
       INSERT INTO account_settings(account_id,key,value_json) VALUES('student','theme','"mint"');`);
     const actor={id:'student',role:'USER'};
     const boot=await accountBootstrap(f.db,actor);
@@ -1191,21 +1195,21 @@ test('Bootstrap omits large collections and slices stay on their own pages',asyn
     const texts=await legacyTexts(f.db,actor,{summary:true,limit:50});
     assert.equal(texts.texts[0].title,'Note');assert.equal(texts.texts[0].text,undefined);assert.ok(texts.texts[0].preview.length<=140);
     const words=await catalogSection(f.db,'words',{limit:50});
-    assert.equal(words.cards.length,1);assert.equal(words.documents,undefined);assert.equal(words.cards[0].stageId,'shared');
+    assert.equal(words.cards.length,1);assert.equal(words.documents,undefined);assert.equal(words.cards[0].stageId,1);
     const level=await speakoutLevel(f.db,'A1');
     assert.equal(level.level,'A1');assert.deepEqual(level.content.units,[1]);assert.equal(level.content.level,'A1');
     await assert.rejects(speakoutLevel(f.db,'Z9'),error=>error.status===400);
-    f.sqlite.exec("INSERT INTO profile_cards(profile_id,card_id,place) VALUES('p1','private','phrasal')");
+    f.sqlite.exec("INSERT INTO profile_cards(profile_id,card_id,place) VALUES(1,3,'phrasal')");
     const cards=await accountCards(f.db,actor,{limit:50,place:'mine'});
-    assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,'private');assert.equal(cards.cards[0].place,'mine');
+    assert.equal(cards.cards.length,1);assert.equal(cards.cards[0].stageId,3);assert.equal(cards.cards[0].place,'mine');
     const phrasal=await accountCards(f.db,actor,{limit:50,place:'phrasal'});
     assert.equal(phrasal.cards.length,1);assert.equal(phrasal.cards[0].place,'phrasal');
     await assert.rejects(()=>accountCards(f.db,actor,{place:'unknown'}),error=>error.status===400);
-    const items=await new PersonalService(f.db).libraryItems(actor,'song1,text1');
-    assert.equal(items.length,2);assert.match(items.find(row=>row.stageId==='song1').lyrics,/la /);assert.equal(items.find(row=>row.kind==='text').text.includes('word '),true);
+    const items=await new PersonalService(f.db).libraryItems(actor,'1,2');
+    assert.equal(items.length,2);assert.match(items.find(row=>row.stageId===1).lyrics,/la /);assert.equal(items.find(row=>row.kind==='text').text.includes('word '),true);
     await assert.rejects(()=>new PersonalService(f.db).libraryItems(actor,'song1,nope,bad id'),error=>error.status===400);
-    const full=await publicCatalogCards(f.db,'shared');
-    assert.equal(full[0].stageId,'shared');assert.equal(full[0].stageDataDeferred,false);
+    const full=await publicCatalogCards(f.db,1);
+    assert.equal(full[0].stageId,1);assert.equal(full[0].stageDataDeferred,false);
     await assert.rejects(()=>publicCatalogCards(f.db,''),error=>error.status===400);
   }finally{f.sqlite.close();}
 });
@@ -1226,7 +1230,7 @@ test('Background queue runs two requests at a time and shares an in-flight id',a
   assert.ok(peak<=2);assert.equal(seen.filter(id=>id==='a').length,1);
 });
 test('Session cache restores catalogs on refresh and All words omits lyrics and texts',()=>{
-  const session=new Map([['enquiz-session-cache',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:mine:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
+  const session=new Map([['enquiz-session-cache-v2',JSON.stringify({'cards:words:after:start':{cards:[{stageId:'w1',en:'day'}],next:null},'cards:personal:mine:after:start':{cards:[{stageId:'m1',word:'mine',place:'mine'}],next:null}})]]);
   const window={};const scope={window,Map,Promise,setTimeout,clearTimeout,encodeURIComponent,AbortSignal,JSON,Date,
     fetch:async()=>{throw new Error('network');},
     sessionStorage:{getItem:k=>session.get(k)||null,setItem:(k,v)=>session.set(k,v),removeItem:k=>session.delete(k)},
@@ -1234,7 +1238,7 @@ test('Session cache restores catalogs on refresh and All words omits lyrics and 
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
   window.ContentCache.set('songs:list:after:start',{songs:[{id:'s1'}],next:null});
-  assert.ok(JSON.parse(session.get('enquiz-session-cache'))['songs:list:after:start']);
+  assert.ok(JSON.parse(session.get('enquiz-session-cache-v2'))['songs:list:after:start']);
   const data={words:[],extraWords:[],lines21:[],ask07:[],phrases09:[],adverbs14:[],talk16:[],likes23:[],phrasalWords:[],idiomWords:[]};
   Object.assign(window,{LESSON_DATA:data,IRREGULAR:[],loadAdded:()=>[{word:'mine',place:'mine'},{word:'lyric',place:'music'},{word:'from text',place:'mine',fromText:true}],
     loadSongs:()=>[{id:'s1'}],loadTexts:()=>[],writeSongs(){},rememberAdded(){},paintDeckCounts(){},paintHomeStats(){}});
@@ -1377,7 +1381,7 @@ test('A new lyric word keeps its song place',async()=>{
     rememberAdded(){},paintAdded(){},paintAllWords(){},paintHomeStats(){},loadAdded:()=>[],
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     crypto,
-    window:{TursoMain:{findCard:async()=>{throw new Error('missing');},newCard:(id,en,ru,place)=>{created.push(place);return {card:{id,word:en,ru,place},revision:1};}}}};
+    window:{TursoMain:{findCard:async()=>{throw new Error('missing');},newCard:(en,ru,place)=>{created.push(place);return {card:{word:en,ru,place},revision:1};}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   assert.equal(await scope.stageKeepExpression({word:'harbour',ru:'гавань',place:'music'}),true);
   assert.deepEqual(created,['music']);

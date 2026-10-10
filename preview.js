@@ -11678,14 +11678,17 @@
       groupNormalize();
       const saved = new Set((lmLibrary && lmLibrary.materials || []).filter((row) => row && row.stageRevision).map((row) => row.id));
       const groups = classGroups.map((group) => ({
-        id: group.id,
+        ...(Number.isSafeInteger(group.id) && group.id > 0 ? { id: group.id } : {}),
         title: group.title,
         date: group.date || lmToday(),
         hidden: !!group.hidden,
-        lessonIds: group.lessonIds.filter((id) => saved.has(id))
+        lessonIds: group.lessonIds.filter((id) => saved.has(id) && Number.isSafeInteger(id) && id > 0)
       }));
       return accountFetch("/api/groups", { method: "POST", body: JSON.stringify({ groups: groups }) })
-        .then(() => { if (version === classGroupsSaveVersion) classGroupsDirty = false; }).catch(() => {});
+        .then((data) => {
+          if (data && Array.isArray(data.ids)) data.ids.forEach((id, index) => { if (classGroups[index]) classGroups[index].id = id; });
+          if (version === classGroupsSaveVersion) classGroupsDirty = false;
+        }).catch(() => {});
     }
     function paintGroups() {
       const box = document.getElementById("groupList");
@@ -13730,8 +13733,9 @@
       } catch (e) { return []; }
     }
     function examWire(exam) {
+      const numeric = (value) => Number.isSafeInteger(value) && value > 0;
       return {
-        id: exam.id,
+        ...(numeric(exam.id) ? { id: exam.id } : {}),
         title: exam.title || "Exam",
         date: exam.date || "",
         published: !!exam.published,
@@ -13739,12 +13743,13 @@
         blocks: (exam.blocks || []).map((block) => {
           const doc = block.doc || {};
           return {
-            id: block.id,
+            ...(numeric(block.id) ? { id: block.id } : {}),
             title: doc.title || "Examination block",
             published: !!doc.published,
             hidden: !!block.hidden,
             materials: (doc.blocks || []).map((part) => {
               const copy = JSON.parse(JSON.stringify(part));
+              if (!numeric(copy.id)) delete copy.id;
               if (Array.isArray(copy.items)) copy.items.forEach((item) => { if (item) delete item.given; });
               return copy;
             })
@@ -13787,10 +13792,18 @@
     }
     function examRemoteSave(exam) {
       if (!exam || typeof accountFetch !== "function") return Promise.resolve();
-      return accountFetch("/api/exams", { method: "POST", body: JSON.stringify({ exam: examWire(exam) }) }).catch(() => {});
+      return accountFetch("/api/exams", { method: "POST", body: JSON.stringify({ exam: examWire(exam) }) }).then((saved) => {
+        if (!saved || !saved.id) return;
+        const exams = examLoad();
+        const local = exams.find((row) => row.id === exam.id);
+        if (!local) return;
+        local.id = saved.id;
+        (saved.blocks || []).forEach((block, index) => { if (local.blocks && local.blocks[index]) local.blocks[index].id = block.id; });
+        try { localStorage.setItem("enquiz-exams", JSON.stringify(exams)); } catch (e) {}
+      }).catch(() => {});
     }
     function examRemoteDrop(id) {
-      if (!id || typeof accountFetch !== "function") return Promise.resolve();
+      if (!Number.isSafeInteger(id) || id < 1 || typeof accountFetch !== "function") return Promise.resolve();
       return accountFetch("/api/exams/" + encodeURIComponent(id), { method: "DELETE", body: "{}" }).catch(() => {});
     }
     function examPush(list) {

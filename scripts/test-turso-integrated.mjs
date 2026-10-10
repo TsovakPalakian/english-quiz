@@ -37,7 +37,7 @@ test('R3 managed statistics use only authorized target, hide teacher song fields
 test('R4 managed dictionary requires source pair authorization before study access',async()=>{
   let reads=0;
   const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN'}),authorizeManaged:async()=>({error:Response.json({error:'denied'},{status:403})}),studyDatabase:()=>{reads++;throw Error('Denied');}});
-  assert.equal((await worker.fetch(new Request('https://test.invalid/api/admin/users/'+'b'.repeat(32)+'/cards/card/dictionary'),{DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'})).status,403);assert.equal(reads,0);
+  assert.equal((await worker.fetch(new Request('https://test.invalid/api/admin/users/'+'b'.repeat(32)+'/cards/1/dictionary'),{DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'})).status,403);assert.equal(reads,0);
 });
 test('R2 managed library routes fail closed on pair, origin, write flag and teacher song access',async()=>{
   let allowed=false,reads=0;
@@ -58,13 +58,13 @@ test('Managed DELETE authorizes target, denies teacher music and writes only tar
   const targetId='b'.repeat(32),commands=[];let allowed=true;
   const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'SyntheticTeacher'}),
     authorizeManaged:async()=>allowed?{row:{id:targetId,login:'SyntheticStudent',role:'USER'},songs:false}:{error:Response.json({error:'denied'},{status:403})},
-    studyDatabase:()=>({read:async(sql,args)=>{if(sql.includes('operation_receipts'))return [];assert.deepEqual(args,[targetId]);return [{profile_id:'target-profile'}];},atomic:async values=>commands.push(...values)})});
+    studyDatabase:()=>({read:async(sql,args)=>{if(sql.includes('operation_receipts'))return [];assert.deepEqual(args,[targetId]);return [{profile_id:1}];},atomic:async values=>commands.push(...values)})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
-  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/cards/shared',{
+  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/cards/1',{
     method:'DELETE',headers:{Origin:origin},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-unlink',place:'mine',expectedRevision:1};
   assert.equal((await call(body)).status,200);
-  const removal=commands.find(c=>c.sql.startsWith('DELETE FROM profile_cards'));assert.deepEqual(removal.args.map(a=>a.value),['target-profile','shared','mine']);
+  const removal=commands.find(c=>c.sql.startsWith('DELETE FROM profile_cards'));assert.deepEqual(removal.args.map(a=>a.value),['1','1','mine']);
   assert.ok(!commands.some(c=>/UPDATE cards|DELETE FROM cards|card_progress/.test(c.sql)));
   const count=commands.length;
   assert.equal((await call({...body,place:'music'})).status,403);
@@ -79,7 +79,7 @@ test('Managed card PATCH keeps target ownership and denies unauthorized, disable
     authorizeManaged:async()=>allowed?{row:{id:targetId,role:'USER',login:'SyntheticStudent'}}:{error:Response.json({error:'denied'},{status:403})},
     studyDatabase:()=>({read:async(sql,args)=>{queries.push({sql,args});return sql.includes('operation_receipts')?[]:[{owner_profile_id:'target-profile'}];},atomic:async values=>commands.push(...values)})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
-  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/cards/card',{
+  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/cards/1',{
     method:'PATCH',headers:{Origin:origin},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-card-patch',expectedRevision:1,changes:{ru:'New translation'}};
   assert.equal((await call(body)).status,200);assert.ok(queries.some(q=>q.sql.includes('profile_cards')&&q.args[0]===targetId));
@@ -101,7 +101,7 @@ test('Managed text PATCH authorizes target before Turso, rejects spoofing and pr
       return [{id:'text',kind:'text',scope:'profile',owner_profile_id:'student-profile',content_json:'{"id":"text","title":"Before","text":"Keep"}'}];
     },atomic:async values=>commands.push(...values)})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
-  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/texts/text',{
+  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/texts/1',{
     method:'PATCH',headers:{Origin:origin},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-text-patch',expectedRevision:1,changes:{title:'After'}};
   const response=await call(body);assert.equal(response.status,200);assert.equal((await response.json()).item.text,'Keep');
@@ -120,7 +120,7 @@ test('Managed access writes require source authorization, Origin and stage write
   const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'SyntheticTeacher'}),
     authorizeManaged:async()=>allowed?{row:{id:targetId,role:'USER',login:'SyntheticStudent'}}:{error:Response.json({error:'denied'},{status:403})},studyDatabase:()=>db});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
-  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/lessons/lesson/access',{
+  const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/lessons/1/access',{
     method:'PATCH',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-operation',expected:{allowHidden:false,personalHidden:false},changes:{allowHidden:true,personalHidden:false}};
   assert.equal((await call(body)).status,200);assert.ok(commands.some(c=>c.sql.includes('INSERT INTO lesson_access')));
@@ -136,13 +136,13 @@ test('Teachers may restrict Tsovak lessons, not pair study writes or TsovakDev',
   const access=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
     authorizeManaged:async()=>({row:{id:target,role:'USER',login:'Tsovak'}}),
     studyDatabase:()=>({read:async sql=>sql.includes('operation_receipts')?[]:[{allow_hidden:0,personal_hidden:0}],atomic:async values=>commands.push(...values)})});
-  assert.equal((await access.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/lesson/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,200);
+  assert.equal((await access.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/1/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,200);
   const blocked=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
     authorizeManaged:async()=>({row:{id:target,role:'USER',login:'Tsovak'},songs:true}),studyDatabase:()=>{throw new Error('pair study');}});
   assert.equal((await blocked.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/texts',{method:'POST',headers:{Origin:'https://test.invalid'},body:'{}'}),env)).status,403);
   const dev=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'Teacher'}),
     authorizeManaged:async()=>({row:{id:target,role:'DEVELOPER',login:'TsovakDev'}}),studyDatabase:()=>{throw new Error('dev pair');}});
-  assert.equal((await dev.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/lesson/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,403);
+  assert.equal((await dev.fetch(new Request('https://test.invalid/api/admin/users/'+target+'/lessons/1/access',{method:'PATCH',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify(body)}),env)).status,403);
 });
 test('Managed study reads reuse source authorization and read only the target Turso profile',async()=>{
   const targetId='b'.repeat(32),reads=[];let actor={id,role:'ADMIN'},allowed=true;
@@ -227,7 +227,7 @@ test('Integrated candidate preserves original account handler/session and delega
   const env={DB:f.raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',ACCOUNT_MUTATIONS_ENABLED:'true',AUTH_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>new Response(null)})}};
   const request=(path,method='GET',origin=true)=>new Request('https://test.invalid'+path,{method,headers:origin?{Origin:'https://test.invalid'}:{}});
   const account=await worker.fetch(request('/api/login','POST'),env);assert.equal(account.status,200);assert.equal(account.headers.get('set-cookie'),'original_session=fixture');
-  assert.equal((await worker.fetch(request('/api/cards/card','PATCH'),env)).status,200);assert.deepEqual(calls,['accounts','study']);
+  assert.equal((await worker.fetch(request('/api/cards/1','PATCH'),env)).status,200);assert.deepEqual(calls,['accounts','study']);
   assert.equal((await worker.fetch(request('/api/register','POST'),{...env,ACCOUNT_MUTATIONS_ENABLED:'false'})).status,503);
   assert.equal((await worker.fetch(request('/api/login','POST',false),env)).status,403);
   assert.equal((await worker.fetch(request('/'),{...env,STAGE_ENABLED:'false'})).status,503);

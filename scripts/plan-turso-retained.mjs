@@ -7,6 +7,7 @@ import {createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {retainedScope} from './turso-retained-scope.mjs';
 import {build,insertSql} from './import-turso-snapshot.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
 const root=fileURLToPath(new URL('../',import.meta.url));
 export function planRetainedSnapshot(source,{scopeAnchor=null,persistent=false}={}){
@@ -53,7 +54,7 @@ export function planRetainedSnapshot(source,{scopeAnchor=null,persistent=false}=
   const plan=build(directory,{scopeAnchor:scope.anchor});
   write('scoped.sqlite',new Uint8Array());const db=new DatabaseSync(resolve(directory,'scoped.sqlite'));
   try{
-    for(const name of ['001_content_schema.sql','002_import_audit.sql'])db.exec(readFileSync(resolve(root,'migrations/turso',name),'utf8'));
+    applyTursoSchema(db);
     db.exec(insertSql(plan.model));
     if(db.prepare('PRAGMA foreign_key_check').all().length||db.prepare('PRAGMA integrity_check').get().integrity_check!=='ok')throw new Error('Scoped SQLite verification failed.');
     for(const [table,rows] of Object.entries(plan.model))if(db.prepare('SELECT count(*) n FROM '+table).get().n!==rows.size)throw new Error('Scoped table count mismatch.');

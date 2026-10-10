@@ -23,12 +23,12 @@ export async function ensureStudyProfile(db,actor,pairAccountId=''){
       return profile;
     }
   }
-  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(['account',actor.id])));
-  const profile='profile_'+Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
   await db.atomic([
     s('INSERT OR IGNORE INTO account_refs(id) VALUES(?)',[actor.id]),
-    s("INSERT OR IGNORE INTO study_profiles(id,kind) SELECT ?,'personal' WHERE NOT EXISTS(SELECT 1 FROM profile_members WHERE account_id=?)",[profile,actor.id]),
-    s('INSERT OR IGNORE INTO profile_members(account_id,profile_id) VALUES(?,?)',[actor.id,profile])
+    s("INSERT INTO study_profiles(kind) SELECT 'personal' WHERE NOT EXISTS(SELECT 1 FROM profile_members WHERE account_id=?)",[actor.id]),
+    s(`INSERT INTO profile_members(account_id,profile_id)
+      SELECT ?,id FROM study_profiles WHERE id=last_insert_rowid() AND changes()>0
+        AND NOT EXISTS(SELECT 1 FROM profile_members WHERE account_id=?)`,[actor.id,actor.id])
   ]);
   const after=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
   if(after.length!==1)throw new StudyError(503,'Educational profile not acknowledged. Retry sign-in.');

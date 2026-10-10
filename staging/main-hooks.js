@@ -84,6 +84,7 @@ async function stageHydrateMade(item){
     paint(full);
   }catch(error){if(still()){paint(item);window.TursoMain?.notice?.(error.message,true);}}
 }
+function stageDomId(value){return /^[1-9]\d{0,15}$/.test(String(value||''))?Number(value):value;}
 const stageLessonLoads=new Map();
 const stageLoadedLessons=new WeakSet();
 let stageLessonOpenToken=0;
@@ -105,7 +106,7 @@ async function stagePullLessons(){
     for(const row of lmLibrary?.materials||[]){
       if(row&&row.id&&!row.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(row.id)&&!seen.has(row.id)){drafts.push(row);seen.add(row.id);}
     }
-    if(lmState&&lmState.id&&!lmState.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(lmState.id)&&!seen.has(lmState.id))drafts.unshift(lmState);
+    if(typeof lmState!=='undefined'&&lmState&&lmState.id&&!lmState.stageRevision&&typeof lmIsDemoId==='function'&&!lmIsDemoId(lmState.id)&&!seen.has(lmState.id))drafts.unshift(lmState);
     lmServerReady=true;lmApplyRemote(drafts.concat(next),{push:false});
     if(typeof classGroupsDirty!=='undefined'&&classGroupsDirty&&typeof groupSave==='function')groupSave();
   }catch(error){if(generation===viewGen)window.TursoMain.notice(error.message,true);}
@@ -289,8 +290,7 @@ function stageSaveWord(place,input,status,button,openCard){
       const en=String(data&&data.word||word).trim(),ru=String(data&&data.ru||'').trim();
       if(!data||!data.found||!en||!ru)throw new Error('No translation came back for this word.');
       if(loadAdded().some(row=>(row.place||'mine')===place&&String(row.word||row.en||'').toLowerCase()===en.toLowerCase()))throw new Error('Эта карточка уже добавлена на страницу.');
-      const id='own_'+crypto.randomUUID();
-      result=managed?await window.TursoMain.newManagedCard(accountId,id,en,ru,place):await window.TursoMain.newCard(id,en,ru,place);
+      result=managed?await window.TursoMain.newManagedCard(accountId,en,ru,place):await window.TursoMain.newCard(en,ru,place);
       result={...result,card:{...result.card,word:en,ru,place:result.card.place||place,data}};
     }
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
@@ -298,7 +298,7 @@ function stageSaveWord(place,input,status,button,openCard){
     input.value='';if(openCard)renderMade(result.card);
   },status);
 }
-let stageNewCardId='',stageTextDraft=null,stageSongDraft=null;
+let stageTextDraft=null,stageSongDraft=null;
 const stageMadeAttempts=new Map();
 function stageMadeAnswer(type,key,ok,value){
   if(!stageOwnReady())return;
@@ -380,7 +380,7 @@ function stageStoreText(analyze){
   if(!stageOwnReady()&&!managed){window.TursoMain.notice('Дождитесь загрузки профиля.',true);return;}
   const accountId=viewAccount?.id||'',generation=viewGen;
   const title=document.getElementById('textTitle').value.trim(),text=document.getElementById('textBody').value.replace(/\r\n/g,'\n').trim();
-  const item=loadTexts().find(row=>row.id===openTextId)|| (stageTextDraft ||= {id:'text_'+crypto.randomUUID()});
+  const item=loadTexts().find(row=>row.id===openTextId)|| (stageTextDraft ||= {});
   if(managed&&item.stageId&&item.stageScope!=='profile'){window.TursoMain.notice('Общие тексты нельзя менять в личном профиле.',true);return;}
   return window.TursoMain.perform(async()=>{
     const result=managed?await window.TursoMain.saveManagedText(accountId,item,{title,text}):await window.TursoMain.saveLibrary(item,'text',{title,text});
@@ -393,7 +393,7 @@ function stageStoreSong(existingId){
   const managed=stageManagedSongReady();
   if(!stageOwnReady()&&!managed){window.TursoMain.notice('Дождитесь загрузки разрешённого профиля.',true);return;}
   const accountId=viewAccount?.id||'',generation=viewGen;
-  const item=existingId?loadSongs().find(row=>row.id===existingId):(stageSongDraft ||= {id:'song_'+crypto.randomUUID()});
+  const item=existingId?loadSongs().find(row=>row.id===existingId):(stageSongDraft ||= {});
   if(!item)return;
   const changes=existingId?{lyrics:document.querySelector('#songUser [data-lyric-draft]').value}
     :{title:document.getElementById('lyricTitle').value.trim(),artist:document.getElementById('lyricArtist').value.trim(),lyrics:document.getElementById('lyricText').value,
@@ -428,8 +428,7 @@ async function stageKeepExpression(card){
   }catch{
     const ru=String(card.ru||'').trim();
     if(!ru)return false;
-    const id='expr_'+crypto.randomUUID();
-    const created=managed?await window.TursoMain.newManagedCard(accountId,id,word,ru,place):await window.TursoMain.newCard(id,word,ru,place);
+    const created=managed?await window.TursoMain.newManagedCard(accountId,word,ru,place):await window.TursoMain.newCard(word,ru,place);
     const list=loadAdded();list.unshift(created.card);stageStampLinks(list,created.revision);return true;
   }
 }
@@ -513,7 +512,7 @@ async function stageAnalyzeSong(song,status){
 function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
   const accountId=viewAccount?.id||'',generation=viewGen;
-  const item=loadSongs().find(row=>row.id===document.getElementById('songUser').dataset.songId);if(!item)return;
+  const item=loadSongs().find(row=>row.id===stageDomId(document.getElementById('songUser').dataset.songId));if(!item)return;
   if(editFileRemoved){window.TursoMain.unsupported('Изменение файла песни');return;}
   const file=!managed&&pendingEditFile&&!editFileSent?pendingEditFile:null;
   const read=key=>document.querySelector('#songUser [data-lyric-'+key+']').value.trim();
@@ -570,7 +569,7 @@ document.addEventListener('click',event=>{
   const archive=event.target.closest('[data-lyric-archive]');if(!archive)return;
   event.preventDefault();event.stopPropagation();const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
   const accountId=viewAccount?.id||'',generation=viewGen;
-  const item=loadSongs().find(row=>row.id===document.getElementById('songUser').dataset.songId);if(!item)return;
+  const item=loadSongs().find(row=>row.id===stageDomId(document.getElementById('songUser').dataset.songId));if(!item)return;
   window.TursoMain.perform(async()=>{
     const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,'song',{archived:true}):await window.TursoMain.saveLibrary(item,'song',{archived:true});
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
@@ -585,11 +584,10 @@ document.addEventListener('DOMContentLoaded',()=>{
     event.preventDefault();const managed=!!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
     if(!stageOwnReady()&&!managed){window.TursoMain.notice('Дождитесь загрузки профиля.',true);return;}
     const accountId=viewAccount?.id||'',generation=viewGen;
-    stageNewCardId ||= 'own_'+crypto.randomUUID();
     const en=form.elements.en.value.trim(),ru=form.elements.ru.value.trim();
     window.TursoMain.perform(async()=>{
-      const result=managed?await window.TursoMain.newManagedCard(accountId,stageNewCardId,en,ru):await window.TursoMain.newCard(stageNewCardId,en,ru);
-      stageNewCardId='';if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
+      const result=managed?await window.TursoMain.newManagedCard(accountId,en,ru):await window.TursoMain.newCard(en,ru);
+      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
       const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);form.reset();renderMade(result.card);if(!managed)trackEvent('card','mine','add');
     },form.querySelector('[role="status"]'));
   });host.append(form);
@@ -723,7 +721,7 @@ function stageSaveLesson(published){
     });
     return Promise.resolve();
   }
-  const bound=document.getElementById('material')?.dataset.lmBound||'';
+  const bound=stageDomId(document.getElementById('material')?.dataset?.lmBound||'');
   if(bound&&lmState?.id!==bound){
     const found=lmLibrary?.materials?.find(row=>row.id===bound);
     if(!found){window.TursoMain.notice('This editor is no longer attached to its lesson. Open the lesson again.',true);return Promise.resolve();}
@@ -889,7 +887,7 @@ function stageResponseEvent(event){
   event.stopPropagation();
   if(!authUser || viewAccount || viewSwitching || !accountReady){window.TursoMain.notice('Ответы сохраняются только в собственный профиль.',true);return;}
   const raw=input.dataset.response||input.dataset.write||input.dataset.pick||input.dataset.quizCheck||input.dataset.exCheck;
-  const bits=raw.split(':'),block=(lmState?.blocks||[]).find(row=>row.id===(input.dataset.response||input.dataset.quizCheck||input.dataset.exCheck||bits[0]));
+  const bits=raw.split(':'),block=(lmState?.blocks||[]).find(row=>row.id===stageDomId(input.dataset.response||input.dataset.quizCheck||input.dataset.exCheck||bits[0]));
   if(!block || !block.stageBlockRevision){window.TursoMain.notice('Задание не связано с серверным ID. Перезагрузите урок.',true);return;}
   if(input.dataset.response)block.response=input.value;
   if(input.dataset.write && block.items?.[Number(bits[1])])block.items[Number(bits[1])].typed=input.value;
@@ -906,7 +904,7 @@ document.addEventListener('click',event=>{
   const retry=event.target.closest&&event.target.closest('[data-stage-retry]');
   if(!retry)return;
   const kind=retry.dataset.stageRetry;
-  if(kind==='lesson'){const row=lmLibrary?.materials?.find(item=>item.id===retry.dataset.lessonId);if(row)stageOpenLesson(row);return;}
+  if(kind==='lesson'){const row=lmLibrary?.materials?.find(item=>item.id===stageDomId(retry.dataset.lessonId));if(row)stageOpenLesson(row);return;}
   if(kind==='speak'){stageLoadSpeak('level',speakLevel,-1,-1);return;}
   if(kind==='verbs'){show('verbs');return;}
   if(kind==='texts'){stagePaintTexts();return;}
@@ -1409,7 +1407,7 @@ function stageRepaintHydrated(){
   const on=typeof document!=='undefined'&&document.querySelector?(document.querySelector('section.on')||{}).id:'';
   if(on==='song'&&typeof renderUserSong==='function'){
     const user=document.getElementById('songUser');
-    const song=user&&typeof loadSongs==='function'?loadSongs().find(row=>row.id===user.dataset.songId):null;
+    const song=user&&typeof loadSongs==='function'?loadSongs().find(row=>row.id===stageDomId(user.dataset.songId)):null;
     if(song&&!song.stageLyricsDeferred&&user&&!user.querySelector('.lyric-text'))renderUserSong(song);
   }
   if(on==='textread'&&typeof showText==='function'&&typeof openTextId!=='undefined'&&openTextId){

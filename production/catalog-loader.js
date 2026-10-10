@@ -7,7 +7,7 @@
   window.SPEAKOUT=window.SPEAKOUT||[];
   window.VERB_IPA=window.VERB_IPA||{};
   window.VERB_IPA_CASE=window.VERB_IPA_CASE||{};
-  const STORE='enquiz-session-cache';
+  const STORE='enquiz-session-cache-v2';
   const KEEP=/^(account:bootstrap|library:|cards:|irregular:|progress:|songs:list:|texts:list:|quizzes:after:|lesson:summary|block:)/;
   function restore(){
     try{

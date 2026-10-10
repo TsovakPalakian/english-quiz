@@ -18,7 +18,7 @@ export async function publicCatalogs(db,keys=null){
   const [documents,cards]=await db.readMany([
     s("SELECT key,value_json FROM catalog_documents WHERE namespace='static'"+(keys?` AND key IN (${keys.map(()=>'?').join(',')})`:''),keys||[]),
     s(`SELECT c.* FROM cards c WHERE c.scope='shared' AND EXISTS(SELECT 1 FROM legacy_ids x
-      WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${selectedBanks.map(()=>'?').join(',')}))`,selectedBanks)
+      WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id AND x.source_namespace IN (${selectedBanks.map(()=>'?').join(',')}))`,selectedBanks)
   ]);
   const byId=new Map(cards.map(c=>[c.id,legacyCard(c)]));
   function hydrate(value){
@@ -33,12 +33,13 @@ export async function publicCatalogs(db,keys=null){
 }
 const review=actor=>+['ADMIN','DEVELOPER'].includes(actor.role);
 export async function publicCatalogPage(db,key,{after='',limit=60}={}){
-  if(!banks.includes(key)||!Number.isInteger(limit)||limit<1||limit>60||after&&!/^[A-Za-z0-9_-]{1,100}$/.test(after))throw new StudyError(400,'Invalid catalog page.');
+  const cursor=cardCursor(after);
+  if(!banks.includes(key)||!Number.isInteger(limit)||limit<1||limit>60)throw new StudyError(400,'Invalid catalog page.');
   const keys=key==='IRREGULAR'?[key,'VERB_IPA','VERB_IPA_CASE']:key==='TENSE_BANK'?[key]:[key];
   const [documents,cards]=await db.readMany([
-    s("SELECT key,value_json FROM catalog_documents WHERE namespace='static' AND key IN ("+keys.map(()=>'?').join(',')+") AND ?=''",[...keys,after]),
+    s("SELECT key,value_json FROM catalog_documents WHERE namespace='static' AND key IN ("+keys.map(()=>'?').join(',')+") AND ?=0",[...keys,cursor]),
     s(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred FROM cards c
-      WHERE c.scope='shared' AND c.id>? AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace=?) ORDER BY c.id LIMIT ?`,[after,key,limit+1])
+      WHERE c.scope='shared' AND c.id>? AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id AND x.source_namespace=?) ORDER BY c.id LIMIT ?`,[cursor,key,limit+1])
   ]);
   const more=cards.length>limit,rows=cards.slice(0,limit);
   return {documents:Object.fromEntries(documents.map(row=>[row.key,JSON.parse(row.value_json)])),
@@ -46,15 +47,16 @@ export async function publicCatalogPage(db,key,{after='',limit=60}={}){
     next:more?rows.at(-1).id:null};
 }
 export async function publicCatalogCards(db,raw){
-  const ids=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
-  if(!ids.length||ids.length>8||ids.some(item=>!/^[A-Za-z0-9_-]{1,100}$/.test(item)))throw new StudyError(400,'Invalid card ids.');
+  const parts=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+  if(!parts.length||parts.length>8||parts.some(item=>!/^[1-9]\d{0,15}$/.test(item)))throw new StudyError(400,'Invalid card ids.');
+  const ids=parts.map(Number);if(ids.some(id=>!Number.isSafeInteger(id)))throw new StudyError(400,'Invalid card ids.');
   const rows=await db.read(`SELECT c.* FROM cards c WHERE c.scope='shared' AND c.deleted_at IS NULL AND c.id IN (${ids.map(()=>'?').join(',')})
-    AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[...ids,...banks]);
+    AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[...ids,...banks]);
   return rows.map(row=>({...legacyCard(row),stagePublicCatalog:true,stageDataDeferred:false}));
 }
 export async function publicCatalogCard(db,id){
-  if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))throw new StudyError(400,'Invalid card ID.');
-  const rows=await db.read(`SELECT c.* FROM cards c WHERE c.id=? AND c.scope='shared' AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[id,...banks]);
+  if(!Number.isSafeInteger(id)||id<1)throw new StudyError(400,'Invalid card ID.');
+  const rows=await db.read(`SELECT c.* FROM cards c WHERE c.id=? AND c.scope='shared' AND c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id AND x.source_namespace IN (${banks.map(()=>'?').join(',')}))`,[id,...banks]);
   if(rows.length!==1)throw new StudyError(404,'Catalog card not found.');
   return {...legacyCard(rows[0]),stagePublicCatalog:true};
 }
@@ -101,7 +103,7 @@ export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={})
       AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
     return {texts:rows.map(row=>libraryDto(row))};
   }
-  const size=pageLimit(limit),cursor=pageCursor(after);
+  const size=pageLimit(limit),cursor=cardCursor(after);
   const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.level') level,
     substr(COALESCE(json_extract(l.content_json,'$.text'),''),1,140) preview,json_extract(l.content_json,'$.id') client_id
     FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id JOIN library_items l ON l.id=p.item_id
@@ -111,7 +113,7 @@ export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={})
   return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
 }
 export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
-  if(lessonId&&!/^[A-Za-z0-9_-]{1,100}$/.test(lessonId))throw new StudyError(400,'Invalid lesson ID.');
+  if(lessonId!==''&&lessonId!=null&&(!Number.isSafeInteger(lessonId)||lessonId<1))throw new StudyError(400,'Invalid lesson ID.');
   const filter=lessonId?' AND l.id=?':'',args=[review(actor),actor.id,actor.id,...(lessonId?[lessonId]:[])];
   if(summary){
     const [rows,counts]=await db.readMany([
@@ -184,8 +186,14 @@ export function pageCursor(after){
   if(value&&!/^[A-Za-z0-9_-]{1,100}$/.test(value))throw new StudyError(400,'Invalid cursor.');
   return value;
 }
+export function cardCursor(after){
+  if(after==null||after==='')return 0;
+  if(typeof after==='number'){if(Number.isSafeInteger(after)&&after>0)return after;throw new StudyError(400,'Invalid card cursor.');}
+  if(typeof after!=='string'||!/^[1-9]\d{0,15}$/.test(after)||!Number.isSafeInteger(Number(after)))throw new StudyError(400,'Invalid card cursor.');
+  return Number(after);
+}
 function collectIds(node,out){
-  if(Array.isArray(node)){for(const item of node){if(item&&typeof item==='object'&&item.cardId)out.push(item.cardId);else collectIds(item,out);}}
+  if(Array.isArray(node)){for(const item of node){if(item&&typeof item==='object'&&Number.isSafeInteger(item.cardId)&&item.cardId>0)out.push(item.cardId);else collectIds(item,out);}}
   else if(node&&typeof node==='object')for(const value of Object.values(node))collectIds(value,out);
 }
 async function profileOf(db,actor){
@@ -274,7 +282,7 @@ function cardRow(row){
 const personalCardPlaces=['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 export async function accountCards(db,actor,{after='',limit=50,place=''}={}){
   if(place&&!personalCardPlaces.includes(place))throw new StudyError(400,'Invalid personal card destination.');
-  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after),placeSql=place?' AND p.place=?':'';
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after),placeSql=place?' AND p.place=?':'';
   const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred,p.place
     FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=?${placeSql} AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...(place?[place]:[]),...accessArgs(actor),cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
@@ -284,7 +292,7 @@ export async function accountCards(db,actor,{after='',limit=50,place=''}={}){
 }
 export async function accountQuizzes(db,actor,{after='',limit=50}={}){
   await profileOf(db,actor);
-  const size=pageLimit(limit),cursor=pageCursor(after);
+  const size=pageLimit(limit),cursor=cardCursor(after);
   const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
   const rows=await db.read(`SELECT z.id,z.type,z.revision,z.items_json,q.legacy_word_key word FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id
     WHERE z.deleted_at IS NULL AND z.id>? AND ${visibleCollection} ORDER BY z.id LIMIT ?`,[cursor,...accessArgs(actor),size+1]);
@@ -292,7 +300,7 @@ export async function accountQuizzes(db,actor,{after='',limit=50}={}){
   return {quizzes:page.map(row=>({id:row.id,type:row.type,word:row.word,items:JSON.parse(row.items_json),stageRevision:row.revision})),next:more?page.at(-1).id:null};
 }
 export async function accountProgress(db,actor,{after='',limit=50}={}){
-  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after);
   const rows=await db.read(`SELECT c.id,c.en,p.learned,p.variants_json,p.revision FROM card_progress p JOIN cards c ON c.id=p.card_id
     WHERE p.profile_id=? AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...accessArgs(actor),cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
@@ -307,7 +315,7 @@ export async function accountProgress(db,actor,{after='',limit=50}={}){
     next:more?page.at(-1).id:mistakes.length>size?mistakePage.at(-1).card_id:null};
 }
 export async function accountSongs(db,actor,{after='',limit=50}={}){
-  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=pageCursor(after);
+  const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after);
   const rows=await db.read(`SELECT l.id,l.scope,l.revision,l.media_key,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.artist') artist,
     json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id,
     json_extract(l.content_json,'$.fileName') file_name,json_extract(l.content_json,'$.fileType') file_type
@@ -320,7 +328,7 @@ export async function accountSongs(db,actor,{after='',limit=50}={}){
 export async function catalogSection(db,section,{after='',limit=50}={}){
   const keys=section==='phrases'?['phrasalWords']:section==='idioms'?['idiomWords']:section==='words'?WORD_KEYS:null;
   if(!keys)throw new StudyError(400,'Invalid library section.');
-  const size=pageLimit(limit),cursor=pageCursor(after);
+  const size=pageLimit(limit),cursor=cardCursor(after);
   const doc=await readCatalog(db,'LESSON_DATA');
   const parsed=doc?.parsed||{};
   const ids=[];for(const key of keys)collectIds(parsed[key],ids);
@@ -342,15 +350,17 @@ export async function speakoutLevel(db,level){
 }
 export async function staticSlice(db,key,{after='',limit=50}={}){
   if(key!=='IRREGULAR')throw new StudyError(400,'Invalid catalog.');
-  const size=pageLimit(limit),cursor=pageCursor(after);
+  const size=pageLimit(limit);
   const doc=await readCatalog(db,'IRREGULAR');
   const parsed=doc?.parsed||[];
   const ids=[];collectIds(parsed,ids);
   if(!ids.length&&Array.isArray(parsed)){
+    const cursor=pageCursor(after);
     const indexes=parsed.map((_,index)=>String(index));
     const {page,next}=slicePage(indexes,cursor,size);
     return {version:doc?.version||0,cards:page.map(index=>parsed[Number(index)]),next};
   }
+  const cursor=cardCursor(after);
   const {page,next}=slicePage([...new Set(ids)],cursor,size);
   if(!page.length)return {version:doc?.version||0,cards:[],next:null};
   const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json FROM cards c WHERE c.scope='shared' AND c.deleted_at IS NULL AND c.id IN (${page.map(()=>'?').join(',')})`,page);

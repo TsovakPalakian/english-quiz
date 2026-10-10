@@ -83,11 +83,15 @@ export function createStageServer({db,personas,launchCode=randomBytes(24).toStri
       if (req.method==='GET' && url.pathname==='/api/test/me') {json(200,{key:actor.key,label:actor.label,role:actor.role});return;}
       if (req.method==='GET' && url.pathname==='/api/lessons') {json(200,await service.lessons(actor));return;}
       if (req.method==='GET' && url.pathname==='/api/cards') {
-        json(200,await service.cards(actor,{lessonId:url.searchParams.get('lessonId')||'',query:url.searchParams.get('q')||'',offset:Number(url.searchParams.get('offset')||0)}));return;
+        const lessonRaw=url.searchParams.get('lessonId')||'';
+        const lessonId=lessonRaw?Number(lessonRaw):'';
+        if(lessonRaw&&(!/^[1-9]\d{0,15}$/.test(lessonRaw)||!Number.isSafeInteger(lessonId)))throw new StudyError(400,'Invalid ID.');
+        json(200,await service.cards(actor,{lessonId,query:url.searchParams.get('q')||'',offset:Number(url.searchParams.get('offset')||0)}));return;
       }
       const match=url.pathname.match(/^\/api\/(cards|quizzes)\/([^/]+)(\/quizzes)?$/);
       if (match) {
-        const [,kind,rawId,suffix]=match,target=decodeURIComponent(rawId);
+        const [,kind,rawId,suffix]=match,raw=decodeURIComponent(rawId),target=Number(raw);
+        if(!/^[1-9]\d{0,15}$/.test(raw)||!Number.isSafeInteger(target))throw new StudyError(400,'Invalid ID.');
         if (kind==='cards' && !suffix && req.method==='GET') {json(200,await service.card(actor,target));return;}
         const handlers=kind==='cards'
           ? suffix ? {POST:'createQuiz'} : {PATCH:'editCard',DELETE:'deleteCard'}

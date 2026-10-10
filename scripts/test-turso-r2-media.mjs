@@ -9,6 +9,7 @@ import {LessonMediaService} from '../src/turso-lesson-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {mediaKey} from '../src/turso-media.mjs';
 import {StudyError} from '../src/turso-study.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 import worker from '../src/turso-stage-worker.mjs';
 import {inlineAssetResponse} from '../src/turso-inline-assets.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -59,32 +60,32 @@ test('Binary input is bounded before storage, including missing or dishonest len
 });
 test('Existing song/lesson services use remote store with CAS, replay, roles and profile isolation',async()=>{
   const f=fixture(),sqlite=new DatabaseSync(':memory:');
-  for(const name of ['001_content_schema.sql','002_import_audit.sql'])sqlite.exec(readFileSync(new URL('../migrations/turso/'+name,import.meta.url),'utf8'));
-  sqlite.exec("INSERT INTO account_refs(id) VALUES('one'),('two'); INSERT INTO study_profiles(id,kind) VALUES('p1','personal'),('p2','personal'); INSERT INTO profile_members VALUES('one','p1'),('two','p2'); INSERT INTO lessons(id,title,published) VALUES('lesson','Test',1); INSERT INTO lesson_blocks(lesson_id,id,position,type) VALUES('lesson','block',0,'pdf');");
+  applyTursoSchema(sqlite);
+  sqlite.exec("INSERT INTO account_refs(id) VALUES('one'),('two'); INSERT INTO study_profiles(id,kind) VALUES(1,'personal'),(2,'personal'); INSERT INTO profile_members VALUES('one',1),('two',2); INSERT INTO lessons(id,title,published) VALUES(1,'Test',1); INSERT INTO lesson_blocks(lesson_id,position,type) VALUES(1,0,'pdf');");
   const values=cmd=>cmd.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value);
   const db={read:async(sql,args=[])=>sqlite.prepare(sql).all(...args),readMany:async cmds=>cmds.map(c=>sqlite.prepare(c.sql).all(...values(c))),atomic:async cmds=>{
     sqlite.exec('BEGIN');try{for(const c of cmds)sqlite.prepare(c.sql).run(...values(c));sqlite.exec('COMMIT');}catch{sqlite.exec('ROLLBACK');throw new StudyError(409,'Conflict');}}};
   const own={id:'one',role:'USER'},other={id:'two',role:'DEVELOPER'};
   try{
-    await new PersonalService(db).createLibrary(own,{mutationId:crypto.randomUUID(),id:'song',kind:'song',changes:{title:'Song',lyrics:'Fixture lyrics'}});
+    const song=await new PersonalService(db).createLibrary(own,{mutationId:crypto.randomUUID(),kind:'song',changes:{title:'Song',lyrics:'Fixture lyrics'}});
     const wav=Buffer.alloc(44);wav.write('RIFF');wav.write('WAVE',8);
     const audio={mutationId:crypto.randomUUID(),expectedRevision:1,mime:'audio/wav',name:'song.wav'};
-    const songs=new SongMediaService(db,f.store),saved=await songs.upload(own,'song',audio,wav);
-    assert.deepEqual(await songs.upload(own,'song',audio,wav),saved);
-    assert.equal(await mediaKey(db,own,'song','song'),saved.media.key);
-    await assert.rejects(songs.upload(other,'song',{...audio,mutationId:crypto.randomUUID()},wav),e=>e.status===404);
+    const songs=new SongMediaService(db,f.store),saved=await songs.upload(own,song.id,audio,wav);
+    assert.deepEqual(await songs.upload(own,song.id,audio,wav),saved);
+    assert.equal(await mediaKey(db,own,'song',String(song.id)),saved.media.key);
+    await assert.rejects(songs.upload(other,song.id,{...audio,mutationId:crypto.randomUUID()},wav),e=>e.status===404);
     const lessons=new LessonMediaService(db,f.store),request={mutationId:crypto.randomUUID(),expectedRevision:1,expectedBlockRevision:1,mime:'application/pdf',name:'file.pdf'};
     const writes=f.calls.filter(c=>c[0]==='put').length;
-    await assert.rejects(lessons.upload(own,'lesson','block',request,file),e=>e.status===403);assert.equal(f.calls.filter(c=>c[0]==='put').length,writes);
-    const uploaded=await lessons.upload(other,'lesson','block',request,file);assert.deepEqual(await lessons.upload(other,'lesson','block',request,file),uploaded);
+    await assert.rejects(lessons.upload(own,1,1,request,file),e=>e.status===403);assert.equal(f.calls.filter(c=>c[0]==='put').length,writes);
+    const uploaded=await lessons.upload(other,1,1,request,file);assert.deepEqual(await lessons.upload(other,1,1,request,file),uploaded);
     assert.equal(await mediaKey(db,own,'lesson',uploaded.media.fileId),uploaded.media.key);
-    await assert.rejects(lessons.upload(other,'lesson','block',{...request,mutationId:crypto.randomUUID()},file),e=>e.status===409);
+    await assert.rejects(lessons.upload(other,1,1,{...request,mutationId:crypto.randomUUID()},file),e=>e.status===409);
     assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(),[]);
   }finally{sqlite.close();}
 });
 test('Worker media routes require authentication and origin; disabled Worker remains disabled',async()=>{
   const env={STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'stage.invalid',TURSO_URL:'libsql://english-quiz-test-fixture.turso.io',TURSO_AUTH_TOKEN:'fake'};
-  for(const path of ['/api/library/song/media','/api/lessons/lesson/blocks/block/media']){
+  for(const path of ['/api/library/1/media','/api/lessons/1/blocks/1/media']){
     assert.equal((await worker.fetch(new Request('https://stage.invalid'+path,{method:'POST',headers:{Origin:'https://stage.invalid'},body:file}),env)).status,401);
     assert.equal((await worker.fetch(new Request('https://stage.invalid'+path,{method:'POST',body:file}),env)).status,403);
   }

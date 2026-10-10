@@ -14,6 +14,7 @@ import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} fr
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const identity='[a-f0-9]{16,64}';
+const cardKey=value=>{const id=Number(value);if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(id))throw new StudyError(400,'Invalid card ID.');return id;};
 // The source handler uses HTTP-quoted ETags for CAS. R2Conditional needs raw
 // ETags; preserve its CAS and restrict this adapter to the account directory.
 export function accountMedia(bucket){
@@ -159,7 +160,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const db=studyDatabase(env);
         return json(managedLink[2]?await new PersonalService(db).createManagedCard(actor,found.row.id,body):await new StudyService(db).linkManagedCard(actor,found.row.id,body));
       }
-      const managedCard=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/([A-Za-z0-9_-]{1,100})$'));
+      const managedCard=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/([1-9]\\d{0,15})$'));
       if(managedCard&&['PATCH','DELETE'].includes(method)){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -169,9 +170,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(method==='DELETE'){
           if(!found.songs&&body.place==='music')throw new StudyError(403,'Teacher cannot manage student songs.');
-          return json(await new StudyService(studyDatabase(env)).unlinkManagedCard(actor,found.row.id,managedCard[2],body));
+          return json(await new StudyService(studyDatabase(env)).unlinkManagedCard(actor,found.row.id,cardKey(managedCard[2]),body));
         }
-        return json(await new PersonalService(studyDatabase(env)).editManagedCard(actor,found.row.id,managedCard[2],body));
+        return json(await new PersonalService(studyDatabase(env)).editManagedCard(actor,found.row.id,cardKey(managedCard[2]),body));
       }
       const managedText=path.match(new RegExp('^/api/admin/users/('+identity+')/(texts|songs)(?:/([A-Za-z0-9_-]{1,100}))?$'));
       if(managedText&&method==='GET'&&managedText[3]){
@@ -181,7 +182,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const kind=managedText[2]==='texts'?'text':'song';
         if(kind==='song'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song inspection only.');
         const target={id:found.row.id,role:found.row.role};
-        return json({item:await new PersonalService(studyDatabase(env)).libraryItem(target,managedText[3])});
+        return json({item:await new PersonalService(studyDatabase(env)).libraryItem(target,cardKey(managedText[3]))});
       }
       if(managedText&&(managedText[3]?['PATCH','DELETE'].includes(method):method==='POST')){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
@@ -193,9 +194,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const raw=await request.text();if(raw.length>64000)throw new StudyError(413,'Text request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         const service=new PersonalService(studyDatabase(env));
-        return json(method==='POST'?await service.createManagedLibrary(actor,found.row.id,kind,body):await service.editManagedLibrary(actor,found.row.id,managedText[3],kind,body,method==='DELETE'));
+        return json(method==='POST'?await service.createManagedLibrary(actor,found.row.id,kind,body):await service.editManagedLibrary(actor,found.row.id,cardKey(managedText[3]),kind,body,method==='DELETE'));
       }
-      const managedAccess=path.match(new RegExp('^/api/admin/users/('+identity+')/lessons/([A-Za-z0-9_-]{1,100})/access$'));
+      const managedAccess=path.match(new RegExp('^/api/admin/users/('+identity+')/lessons/([1-9]\\d{0,15})/access$'));
       if(managedAccess&&method==='PATCH'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -203,7 +204,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(pairManageDenied(actor,found.row.login,'restrict'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>4096)throw new StudyError(413,'Access request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
-        return json(await new StudyService(studyDatabase(env)).setLessonAccess(actor,found.row.id,managedAccess[2],body));
+        return json(await new StudyService(studyDatabase(env)).setLessonAccess(actor,found.row.id,cardKey(managedAccess[2]),body));
       }
       if(['/api/song-file','/api/lesson-file'].includes(path)&&['GET','HEAD'].includes(method)&&new URL(request.url).searchParams.has('for')){
         const params=new URL(request.url).searchParams;
@@ -229,14 +230,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return json({cards:rows.map(legacyCard)});
       }
-      const managedDictionary=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/([A-Za-z0-9_-]{1,100})/dictionary$'));
+      const managedDictionary=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/([1-9]\\d{0,15})/dictionary$'));
       if(managedDictionary&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,managedDictionary[1]);if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
         const db=studyDatabase(env),target={id:found.row.id,role:found.row.role};
-        if(!found.songs){const rows=await db.read("SELECT p.card_id FROM profile_cards p JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND p.card_id=? AND p.place<>'music'",[target.id,managedDictionary[2]]);if(!rows.length)throw new StudyError(403,'Song cards are unavailable to teachers.');}
-        return json(legacyCard(await new StudyService(db).readableCard(target,managedDictionary[2])));
+        const id=cardKey(managedDictionary[2]);
+        if(!found.songs){const rows=await db.read("SELECT p.card_id FROM profile_cards p JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND p.card_id=? AND p.place<>'music'",[target.id,id]);if(!rows.length)throw new StudyError(403,'Song cards are unavailable to teachers.');}
+        return json(legacyCard(await new StudyService(db).readableCard(target,id)));
       }
       const managedRead=path.match(new RegExp('^/api/admin/users/('+identity+')/(state|texts|lessons|stats|cards|quizzes|progress|songs)$'));
       if(managedRead&&method==='GET'){

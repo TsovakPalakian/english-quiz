@@ -17,6 +17,7 @@ import {stageContentPolicy} from './turso-embed.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 export const studyClient=env=>new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'});
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
+const cardKey=value=>{if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(Number(value)))throw new StudyError(400,'Invalid card ID.');return Number(value);};
 const hex=bytes=>[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
 const digest=async value=>hex(await crypto.subtle.digest('SHA-256',encoder.encode(value)));
 const base64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
@@ -116,11 +117,12 @@ export default {async fetch(request,env){
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
     const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
-    const dictionary=path.match(/^\/api\/cards\/([A-Za-z0-9_-]{1,100})\/dictionary$/);
-    const card=path.match(/^\/api\/(cards|quizzes)\/([^/]+)(\/quizzes)?$/),progress=path.match(/^\/api\/cards\/([^/]+)\/(progress|answers)$/),response=path.match(/^\/api\/lessons\/([^/]+)\/blocks\/([^/]+)\/response$/),lesson=path.match(/^\/api\/lessons\/([^/]+)$/),own=path.match(/^\/api\/me\/cards\/([^/]+)$/),library=path.match(/^\/api\/library\/([^/]+)$/);
-    const songUpload=path.match(/^\/api\/library\/([A-Za-z0-9_-]{1,100})\/media$/),lessonUpload=path.match(/^\/api\/lessons\/([A-Za-z0-9_-]{1,100})\/blocks\/([A-Za-z0-9_-]{1,100})\/media$/);
+    const dictionary=path.match(/^\/api\/cards\/([1-9]\d{0,15})\/dictionary$/);
+    const num='([1-9]\\d{0,15})';
+    const card=path.match(new RegExp('^/api/(cards|quizzes)/'+num+'(/quizzes)?$')),progress=path.match(new RegExp('^/api/cards/'+num+'/(progress|answers)$')),response=path.match(new RegExp('^/api/lessons/'+num+'/blocks/'+num+'/response$')),lesson=path.match(new RegExp('^/api/lessons/'+num+'$')),own=path.match(new RegExp('^/api/me/cards/'+num+'$')),library=path.match(new RegExp('^/api/library/'+num+'$'));
+    const songUpload=path.match(new RegExp('^/api/library/'+num+'/media$')),lessonUpload=path.match(new RegExp('^/api/lessons/'+num+'/blocks/'+num+'/media$'));
     const themePhoto=path.match(/^\/api\/me\/themes\/(user-[a-z0-9-]{1,80})\/photo$/);
-    const examItem=path.match(/^\/api\/exams\/([^/]+)$/);
+    const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
     const write=(method==='POST'&&['/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/stats/event'].includes(path))
       ||(examItem&&method==='DELETE')
@@ -128,7 +130,7 @@ export default {async fetch(request,env){
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
     const read=method==='GET'&&(allowedRead.includes(path)||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
-    const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([A-Za-z0-9_-]{1,100})$/),catalogCards=path==='/api/catalogs/cards';
+    const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
     const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     if(!read&&!write&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
@@ -145,7 +147,7 @@ export default {async fetch(request,env){
         const raw=params.get('limit');const limit=raw==null?60:Number(raw);return json(await publicCatalogPage(db,catalogPage[1],{after:params.get('after')||'',limit}));
       }
       if(catalogCards)return json({cards:await publicCatalogCards(db,url.searchParams.get('ids')||'')});
-      if(catalogCard)return json(await publicCatalogCard(db,catalogCard[1]));
+      if(catalogCard)return json(await publicCatalogCard(db,cardKey(catalogCard[1])));
       if(banks[path]){const data=await publicCatalogs(db,banks[path]);if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
       headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');
@@ -162,20 +164,20 @@ export default {async fetch(request,env){
       const store=stageR2Media(env),bytes=await boundedMediaBytes(request),value={mutationId:url.searchParams.get('mutationId'),expectedRevision:Number(url.searchParams.get('expectedRevision')),
         name:url.searchParams.get('name'),mime:request.headers.get('content-type')?.split(';')[0].trim()||''};
       if(themePhoto)return json(await new ThemeMediaService(db,store).upload(actor,themePhoto[1],bytes,value.mime));
-      return json(lessonUpload?await new LessonMediaService(db,store).upload(actor,lessonUpload[1],lessonUpload[2],{...value,expectedBlockRevision:Number(url.searchParams.get('expectedBlockRevision'))},bytes)
-        :await new SongMediaService(db,store).upload(actor,songUpload[1],value,bytes));
+      return json(lessonUpload?await new LessonMediaService(db,store).upload(actor,cardKey(lessonUpload[1]),cardKey(lessonUpload[2]),{...value,expectedBlockRevision:Number(url.searchParams.get('expectedBlockRevision'))},bytes)
+        :await new SongMediaService(db,store).upload(actor,cardKey(songUpload[1]),value,bytes));
     }
     if(inline){const entry=await inlineMedia(db,actor,inline[1]);return await inlineAssetResponse(env.ASSETS,request,entry);}
     const s=new StudyService(db),p=new PersonalService(db),a=new ActivityService(db);
     const value=write?await body(request):null,id=match=>decodeURIComponent(match[1]);
     if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(path==='/api/me/custom-themes')return json(await p.saveCustomThemes(actor,value));
-    if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,lessonUpload[1],lessonUpload[2],value));
+    if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,cardKey(lessonUpload[1]),cardKey(lessonUpload[2]),value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
     if(path==='/api/me/themes'&&method==='GET')return json(await accountThemes(db,actor));
     if(path==='/api/me/state')return json(await accountBootstrap(db,actor));
     if(path==='/api/me/cards/dictionary'&&method==='GET')return json({cards:(await s.readableCards(actor,url.searchParams.get('ids')||'')).map(legacyCard)});
-    if(dictionary)return json(legacyCard(await s.readableCard(actor,dictionary[1])));
+    if(dictionary)return json(legacyCard(await s.readableCard(actor,cardKey(dictionary[1]))));
     if(path==='/api/me/cards'&&method==='GET')return json(await accountCards(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit')),place:url.searchParams.get('place')||''}));
     if(path==='/api/me/quizzes'&&method==='GET')return json(await accountQuizzes(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
     if(path==='/api/me/progress'&&method==='GET')return json(await accountProgress(db,actor,{after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
@@ -183,26 +185,27 @@ export default {async fetch(request,env){
     if(path==='/api/texts')return json(await legacyTexts(db,actor,{summary:url.searchParams.get('summary')!=='0',after:url.searchParams.get('after')||'',limit:pageLimit(url.searchParams.get('limit'))}));
     if(path==='/api/library'&&method==='GET'&&url.searchParams.has('ids'))return json({items:await p.libraryItems(actor,url.searchParams.get('ids'))});
     if(path==='/api/library')return json(method==='POST'?await p.createLibrary(actor,value):{items:await p.library(actor)});
-    if(library&&method==='GET')return json({item:await p.libraryItem(actor,id(library))});
-    if(library)return json(await p.editLibrary(actor,id(library),value,method==='DELETE'));
+    if(library&&method==='GET')return json({item:await p.libraryItem(actor,cardKey(library[1]))});
+    if(library)return json(await p.editLibrary(actor,cardKey(library[1]),value,method==='DELETE'));
     if(path==='/api/stats/event')return json(await a.events(actor,value));
     if(path==='/api/stats')return json(await a.stats(actor,Object.fromEntries(url.searchParams)));
     if(path==='/api/me/cards/new')return json(await p.createOwnCard(actor,value));
     if(path==='/api/me/cards')return json(await s.linkCard(actor,value));
-    if(own)return json(await s.unlinkCard(actor,id(own),value));
+    if(own)return json(await s.unlinkCard(actor,cardKey(decodeURIComponent(own[1])),value));
     if(path==='/api/groups'&&method==='GET')return json({groups:await new GroupService(db).list(actor)});
     if(path==='/api/groups'&&method==='POST')return json(await new GroupService(db).save(actor,value));
     if(path==='/api/exams/work'&&method==='GET')return json({work:await new ExamService(db).listWork(actor,url.searchParams.get('student')||'')});
     if(path==='/api/exams/work'&&method==='POST')return json(await new ExamService(db).saveWork(actor,value));
     if(path==='/api/exams'&&method==='GET')return json({exams:await new ExamService(db).list(actor)});
     if(path==='/api/exams'&&method==='POST')return json(await new ExamService(db).save(actor,value));
-    if(examItem&&method==='DELETE')return json(await new ExamService(db).remove(actor,id(examItem)));
-    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor,{summary:url.searchParams.get('summary')==='1',lessonId:url.searchParams.get('id')||''})));
-    if(lesson)return json(await s[method==='DELETE'?'deleteLesson':'editLesson'](actor,id(lesson),value));
-    if(path==='/api/cards')return json(await s.cards(actor,{query:url.searchParams.get('q')||'',exact:url.searchParams.get('exact')==='1',offset:Number(url.searchParams.get('offset')||0),lessonId:url.searchParams.get('lessonId')||''}));
-    if(progress)return json(await s[progress[2]==='answers'?'answerCard':'saveCardProgress'](actor,id(progress),value));
-    if(response)return json(await s.saveLessonResponse(actor,id(response),decodeURIComponent(response[2]),value));
-    if(card){const key=decodeURIComponent(card[2]);return json(method==='GET'?await s.card(actor,key):await s[card[1]==='cards'?card[3]?'createQuiz':method==='PATCH'?'editCard':'deleteCard':method==='PATCH'?'editQuiz':'deleteQuiz'](actor,key,value));}
+    if(examItem&&method==='DELETE')return json(await new ExamService(db).remove(actor,cardKey(examItem[1])));
+    const lessonQuery=url.searchParams.get('id')||url.searchParams.get('lessonId')||'';
+    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor,{summary:url.searchParams.get('summary')==='1',lessonId:lessonQuery?cardKey(lessonQuery):''})));
+    if(lesson)return json(await s[method==='DELETE'?'deleteLesson':'editLesson'](actor,cardKey(lesson[1]),value));
+    if(path==='/api/cards')return json(await s.cards(actor,{query:url.searchParams.get('q')||'',exact:url.searchParams.get('exact')==='1',offset:Number(url.searchParams.get('offset')||0),lessonId:url.searchParams.get('lessonId')?cardKey(url.searchParams.get('lessonId')):''}));
+    if(progress)return json(await s[progress[2]==='answers'?'answerCard':'saveCardProgress'](actor,cardKey(decodeURIComponent(progress[1])),value));
+    if(response)return json(await s.saveLessonResponse(actor,cardKey(response[1]),cardKey(response[2]),value));
+    if(card){const key=cardKey(card[2]);return json(method==='GET'?await s.card(actor,key):await s[card[1]==='cards'?card[3]?'createQuiz':method==='PATCH'?'editCard':'deleteCard':method==='PATCH'?'editQuiz':'deleteQuiz'](actor,key,value));}
     if(['/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)){
       if(path==='/api/theme-photo'){
         const key=await new ThemeMediaService(db,null).ownedKey(actor,url.searchParams.get('id')||'');

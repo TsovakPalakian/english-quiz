@@ -5,11 +5,12 @@ import {readFileSync} from 'node:fs';
 import {snapshot} from './turso-backup.mjs';
 import {importEmpty,remoteSession} from './import-turso-production.mjs';
 import {statement} from '../src/turso-study.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 const args=c=>c.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value);
 async function fixture(){
   const db=new DatabaseSync(':memory:');
-  for(const name of ['001_content_schema.sql','002_import_audit.sql'])db.exec(readFileSync(new URL('../migrations/turso/'+name,import.meta.url),'utf8'));
-  db.exec("INSERT INTO account_refs(id) VALUES('retained'); INSERT INTO study_profiles(id,kind) VALUES('same-profile','personal'); INSERT INTO profile_members VALUES('retained','same-profile');");
+  applyTursoSchema(db);
+  db.exec("INSERT INTO account_refs(id) VALUES('retained'); INSERT INTO study_profiles(id,kind) VALUES(1,'personal'); INSERT INTO profile_members VALUES('retained',1);");
   const data=await snapshot({read:async(sql,p=[])=>db.prepare(sql).all(...p),readMany:async commands=>commands.map(c=>db.prepare(c.sql).all(...args(c)))});
   db.close();return data;
 }
@@ -23,8 +24,8 @@ function session(db,{failSql='',corrupt=false}={}){
 test('Production importer commits all 25 tables with stable IDs, foreign keys and row verification',async()=>{
   const db=new DatabaseSync(':memory:');try{
     const result=await importEmpty(session(db),await fixture());assert.equal(result.status,'committed-and-verified');
-    assert.equal(db.prepare('SELECT count(*) n FROM sqlite_master WHERE type=\'table\'').get().n,25);
-    assert.equal(db.prepare('SELECT profile_id FROM profile_members').get().profile_id,'same-profile');
+    assert.equal(db.prepare('SELECT count(*) n FROM sqlite_master WHERE type=\'table\'').get().n,33);
+    assert.equal(db.prepare('SELECT profile_id FROM profile_members').get().profile_id,1);
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
   }finally{db.close();}
 });

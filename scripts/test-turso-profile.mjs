@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {ensureStudyProfile} from '../src/turso-profile.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 const actor={id:'a'.repeat(32),role:'DEVELOPER',revoked:false};
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
-  for(const name of ['001_content_schema.sql','002_import_audit.sql'])sqlite.exec(readFileSync(new URL('../migrations/turso/'+name,import.meta.url),'utf8'));
+  applyTursoSchema(sqlite);
   const args=cmd=>cmd.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value);
   const db={read:async(sql,params)=>sqlite.prepare(sql).all(...params),atomic:async cmds=>{
     sqlite.exec('BEGIN');try{for(const cmd of cmds)sqlite.prepare(cmd.sql).run(...args(cmd));sqlite.exec('COMMIT');}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
@@ -25,9 +26,9 @@ test('Live new account gets one empty profile; retries/concurrent login and diff
 test('Retained shared/former-pair profile is not replaced, split or duplicated',async()=>{
   const f=fixture();try{
     f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(actor.id);
-    f.sqlite.exec("INSERT INTO study_profiles(id,kind) VALUES('retained_pair','shared');");
-    f.sqlite.prepare("INSERT INTO profile_members(account_id,profile_id) VALUES(?,'retained_pair')").run(actor.id);
-    assert.equal(await ensureStudyProfile(f.db,actor),'retained_pair');
+    f.sqlite.exec("INSERT INTO study_profiles(id,kind) VALUES(9,'shared');");
+    f.sqlite.prepare('INSERT INTO profile_members(account_id,profile_id) VALUES(?,9)').run(actor.id);
+    assert.equal(await ensureStudyProfile(f.db,actor),9);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
     assert.equal(f.sqlite.prepare('SELECT kind FROM study_profiles').get().kind,'shared');
   }finally{f.sqlite.close();}
@@ -35,10 +36,10 @@ test('Retained shared/former-pair profile is not replaced, split or duplicated',
 test('Restored pair student joins the retained twin profile and does not mint a second one',async()=>{
   const f=fixture(),student={id:'b'.repeat(32),role:'USER',revoked:false};try{
     f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(actor.id);
-    f.sqlite.exec("INSERT INTO study_profiles(id,kind) VALUES('retained_pair','shared');");
-    f.sqlite.prepare("INSERT INTO profile_members(account_id,profile_id) VALUES(?,'retained_pair')").run(actor.id);
-    assert.equal(await ensureStudyProfile(f.db,student,actor.id),'retained_pair');
-    assert.equal(await ensureStudyProfile(f.db,student,'c'.repeat(32)),'retained_pair');
+    f.sqlite.exec("INSERT INTO study_profiles(id,kind) VALUES(9,'shared');");
+    f.sqlite.prepare('INSERT INTO profile_members(account_id,profile_id) VALUES(?,9)').run(actor.id);
+    assert.equal(await ensureStudyProfile(f.db,student,actor.id),9);
+    assert.equal(await ensureStudyProfile(f.db,student,'c'.repeat(32)),9);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM profile_members').get().n,2);
     assert.deepEqual(f.sqlite.prepare('SELECT account_id FROM profile_members ORDER BY account_id').all().map(row=>row.account_id),[actor.id,student.id]);
@@ -47,7 +48,7 @@ test('Restored pair student joins the retained twin profile and does not mint a 
 test('Pair join is skipped when the twin has no profile, then isolation stays intact',async()=>{
   const f=fixture(),student={id:'b'.repeat(32),role:'USER',revoked:false};try{
     const own=await ensureStudyProfile(f.db,student,actor.id);
-    assert.match(own,/^profile_[a-f0-9]{64}$/);
+    assert.equal(typeof own,'number');assert.ok(own>0);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
     const other=await ensureStudyProfile(f.db,actor);assert.notEqual(other,own);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,2);

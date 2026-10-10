@@ -82,7 +82,7 @@ const lessonAccess = `l.deleted_at IS NULL AND (?=1 OR (l.published=1
   AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))`;
 const cardAccess = `c.deleted_at IS NULL AND (
   (c.scope='profile' AND EXISTS(SELECT 1 FROM profile_members p WHERE p.account_id=? AND p.profile_id=c.owner_profile_id))
-  OR (c.scope='shared' AND (?=1 OR EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND x.target_id=c.id
+  OR (c.scope='shared' AND (?=1 OR EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id
       AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT'))
     OR EXISTS(SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE b.card_id=c.id AND b.deleted_at IS NULL AND ${lessonAccess}))))`;
 function accessArgs(actor) { return [actor.id,+reviewer(actor),+reviewer(actor),actor.id,actor.id]; }
@@ -110,7 +110,9 @@ async function requestHash(value) {
 const lessonColumns={title:'title',description:'description',className:'class_name',unit:'unit',lesson:'lesson',date:'lesson_date',published:'published',hiddenFromStudents:'hidden_from_students'};
 const lessonDefaults={title:'',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false};
 const blockTypes=['heading','text','link','cards','vocab','exercise','quiz','note','dialogue','reading','table','task','divider','phrase','wordcard','word','rule','pdf','image','audio','file','pronunciation'];
-function entityId(value){if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))fail(400,'Invalid lesson/block ID.');return value;}
+function entityId(value){if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))fail(400,'Invalid account ID.');return value;}
+export function recordId(value){if(!Number.isSafeInteger(value)||value<1)fail(400,'Invalid ID.');return value;}
+export function cardId(value){return recordId(value);}
 function cardPlace(value){
   if(!['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'].includes(value))fail(400,'Invalid personal card destination.');
   return value;
@@ -126,12 +128,14 @@ function lessonChanges(value){
   return value;
 }
 function lessonBlock(value){
-  fields(value,['id','expectedRevision','type','tab','cardId','content']);entityId(value.id);personalRevision(value.expectedRevision);
+  fields(value,['id','expectedRevision','type','tab','cardId','content']);personalRevision(value.expectedRevision);
+  if(value.expectedRevision===0){if(value.id!=null)fail(400,'New blocks receive an ID from the database.');}
+  else recordId(value.id);
   if(!blockTypes.includes(value.type))fail(400,'This block type is not yet editable on the test server.');
   if(typeof value.tab!=='string'||value.tab.length>50||!value.content||typeof value.content!=='object'||Array.isArray(value.content)||stable(value.content).length>32_000)fail(400,'Invalid block content.');
   fields(value.content,Object.keys(value.content).filter(k=>!['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision','__proto__','constructor','prototype'].includes(k)));
   if(value.content.items!==undefined && (!Array.isArray(value.content.items)||value.content.items.length>100||value.content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item)||['picked','typed','marked','correct'].some(key=>key in item))))fail(400,'Personal answers are not lesson definitions.');
-  if(value.cardId!==null)entityId(value.cardId);
+  if(value.cardId!==null)cardId(value.cardId);
   if(['word','wordcard'].includes(value.type) && !value.cardId)fail(400,'Word blocks require an existing shared card ID.');
   if(!['word','wordcard'].includes(value.type) && value.cardId!==null)fail(400,'Only word blocks may link a card.');
   return value;
@@ -142,19 +146,26 @@ export class StudyService {
   async lookupSharedCard(actor,body,lookup){
     fields(body,['mutationId','word']);
     if(typeof body.word!=='string'||!body.word.trim()||body.word.length>120)fail(400,'Enter a word or phrase.');
-    return this.mutate(actor,body,['lookup-shared-card'],async()=>{
+    return this.createdCardMutation(actor,body,['lookup-shared-card'],async()=>{
       const data=await lookup(body.word.trim());
       if(!data?.found||typeof data.word!=='string'||!data.word.trim()||data.word.length>200)fail(404,'No dictionary entry found.');
       const en=data.word.trim(),ru=typeof data.ru==='string'?data.ru:'',pos=data.cambridge?.pos||'';
       if(ru.length>10000||typeof pos!=='string'||pos.length>100||stable(data).length>256000)fail(413,'Dictionary entry is too large.');
       const existing=await this.db.read("SELECT id,revision FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?",[en,ru,pos]);
       if(existing.length>1)fail(409,'Multiple shared cards match. Select the exact card instead.');
-      const id=existing[0]?.id||'card_'+await requestHash({en:en.toLowerCase(),ru,pos});
+      const resultSql=`SELECT json_object('id',c.id,'en',c.en,'ru',c.ru,'partOfSpeech',c.part_of_speech,
+        'scope',c.scope,'revision',c.revision) result_json FROM cards c WHERE c.id=`+(existing.length?'?':'(SELECT id FROM created_rows)');
+      if(existing.length)return {statements:[],resultSql,resultArgs:[existing[0].id]};
       const extra={data,uk:data.cambridge?.uk||data.wooordhunt?.uk||'',us:data.cambridge?.us||data.wooordhunt?.us||''};
-      return {statements:existing.length?[]:[
-        stmt("INSERT INTO cards(id,scope,en,word_key,ru,part_of_speech,extra_json) VALUES(?,'shared',?,?,?,?,?) ON CONFLICT(id) DO NOTHING",[id,en,en.toLowerCase(),ru,pos,stable(extra)]),
-        stmt("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?)",[id,en,ru,pos])],
-        result:{id,en,ru,partOfSpeech:pos,scope:'shared',revision:existing[0]?.revision||1}};
+      return {statements:[
+        stmt(`INSERT INTO cards(scope,en,word_key,ru,part_of_speech,extra_json)
+          SELECT 'shared',?,?,?,?,? WHERE NOT EXISTS(
+            SELECT 1 FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?
+          )`,[en,en.toLowerCase(),ru,pos,stable(extra),en,ru,pos]),
+        stmt(`INSERT INTO created_rows(id)
+          SELECT id FROM cards WHERE scope='shared' AND deleted_at IS NULL
+          AND lower(en)=lower(?) AND ru=? AND part_of_speech=? ORDER BY id LIMIT 1`,[en,ru,pos])],
+        resultSql,resultArgs:[]};
     });
   }
   async lessons(actor) {
@@ -167,6 +178,7 @@ export class StudyService {
     let restriction='';
     const args=accessArgs(actor);
     if (lessonId) {
+      recordId(lessonId);
       const visible=await this.db.read(`SELECT l.id FROM lessons l WHERE l.id=? AND ${lessonAccess}`,[lessonId,+reviewer(actor),actor.id,actor.id]);
       if (!visible.length) fail(404,'Lesson not found.');
       restriction=' AND EXISTS(SELECT 1 FROM lesson_blocks b WHERE b.lesson_id=? AND b.card_id=c.id AND b.deleted_at IS NULL)';
@@ -178,14 +190,16 @@ export class StudyService {
   }
   async readableCard(actor,id) {
     signedIn(actor);
+    cardId(id);
     const rows=await this.db.read(`SELECT c.* FROM cards c WHERE c.id=? AND ${cardAccess}`,[id,...accessArgs(actor)]);
     if (!rows.length) fail(404,'Card not found.');
     return rows[0];
   }
   async readableCards(actor,raw) {
     signedIn(actor);
-    const ids=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
-    if(!ids.length||ids.length>50||ids.some(item=>!/^[A-Za-z0-9_-]{1,100}$/.test(item)))fail(400,'Invalid card ids.');
+    const parts=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+    if(!parts.length||parts.length>50||parts.some(item=>!/^[1-9]\d{0,15}$/.test(item)))fail(400,'Invalid card ids.');
+    const ids=parts.map(Number);if(ids.some(item=>!Number.isSafeInteger(item)))fail(400,'Invalid card ids.');
     const rows=await this.db.read(`SELECT c.* FROM cards c WHERE c.id IN (${ids.map(()=>'?').join(',')}) AND ${cardAccess}`,[...ids,...accessArgs(actor)]);
     const byId=new Map(rows.map(row=>[row.id,row]));
     return ids.filter(id=>byId.has(id)).map(id=>byId.get(id));
@@ -210,10 +224,13 @@ export class StudyService {
     const hash=await requestHash({identity,body});
     const replay=await this.receipt(actor,body.mutationId,hash);
     if (replay) return replay;
-    const {statements,result}=await build();
-    const commands=[stmt('DROP TABLE IF EXISTS temp.mutation_guard'),stmt('CREATE TEMP TABLE mutation_guard(ok INTEGER NOT NULL CHECK(ok=1))'),...statements,
+    const built=await build();
+    const receipt=built.resultSql
+      ?stmt(`INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at) SELECT ?,?,?,result_json,unixepoch()+86400 FROM (${built.resultSql})`,[actor.id,body.mutationId,hash,...(built.resultArgs||[])])
+      :stmt('INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at) VALUES(?,?,?,?,unixepoch()+86400)',[actor.id,body.mutationId,hash,stable(built.result)]);
+    const commands=[stmt('DROP TABLE IF EXISTS temp.mutation_guard'),stmt('CREATE TEMP TABLE mutation_guard(ok INTEGER NOT NULL CHECK(ok=1))'),...built.statements,
       stmt('DELETE FROM operation_receipts WHERE account_id=? AND mutation_id=? AND expires_at<=unixepoch()',[actor.id,body.mutationId]),
-      stmt('INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at) VALUES(?,?,?,?,unixepoch()+86400)',[actor.id,body.mutationId,hash,stable(result)]),stmt('DROP TABLE temp.mutation_guard')];
+      receipt,stmt('DROP TABLE temp.mutation_guard')];
     try { await this.db.atomic(commands); }
     catch (error) {
       // Concurrent duplicate requests may race past the initial receipt lookup.
@@ -222,11 +239,41 @@ export class StudyService {
       if (saved) return saved;
       throw error;
     }
-    return result;
+    if(!built.resultSql)return built.result;
+    const saved=await this.receipt(actor,body.mutationId,hash);
+    if(!saved)fail(503,'The transaction result was not saved.');
+    return saved;
+  }
+  async createdCardMutation(actor,body,identity,build,{personal=false}={}) {
+    signedIn(actor);
+    if(!personal&&!reviewer(actor))fail(403,'Only teacher/developer test sessions can edit definitions.');
+    if(!body||!/^[A-Za-z0-9_-]{12,100}$/.test(body.mutationId||''))fail(400,'A stable mutationId is required.');
+    const hash=await requestHash({identity,body}),replay=await this.receipt(actor,body.mutationId,hash);
+    if(replay)return replay;
+    let profile=null;
+    if(personal){
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
+      if(members.length!==1)fail(409,'This account has not been imported into test Turso.');
+      profile=members[0].profile_id;
+    }
+    const command=await build(profile);
+    if(personal)command.statements.unshift(stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM profile_members WHERE account_id=? AND profile_id=?)',[actor.id,profile]));
+    const commands=[stmt('DROP TABLE IF EXISTS temp.mutation_guard'),stmt('CREATE TEMP TABLE mutation_guard(ok INTEGER NOT NULL CHECK(ok=1))'),
+      stmt('DROP TABLE IF EXISTS temp.created_rows'),stmt('CREATE TEMP TABLE created_rows(seq INTEGER PRIMARY KEY, id INTEGER NOT NULL)'),
+      ...command.statements,
+      stmt('DELETE FROM operation_receipts WHERE account_id=? AND mutation_id=? AND expires_at<=unixepoch()',[actor.id,body.mutationId]),
+      stmt(`INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at)
+        SELECT ?,?,?,result_json,unixepoch()+86400 FROM (${command.resultSql})`,[actor.id,body.mutationId,hash,...(command.resultArgs||[])]),
+      stmt('DROP TABLE temp.created_rows'),stmt('DROP TABLE temp.mutation_guard')];
+    try{await this.db.atomic(commands);}
+    catch(error){const saved=await this.receipt(actor,body.mutationId,hash);if(saved)return saved;throw error;}
+    const saved=await this.receipt(actor,body.mutationId,hash);
+    if(!saved)fail(503,'The transaction result was not saved.');
+    return saved;
   }
   guard() { return stmt('INSERT INTO mutation_guard SELECT changes()=1'); }
   async setLessonAccess(actor,accountId,lessonId,body){
-    fields(body,['mutationId','expected','changes']);entityId(accountId);entityId(lessonId);
+    fields(body,['mutationId','expected','changes']);entityId(accountId);recordId(lessonId);
     for(const value of [body.expected,body.changes]){
       fields(value,['allowHidden','personalHidden']);
       if(typeof value.allowHidden!=='boolean'||typeof value.personalHidden!=='boolean')fail(400,'Two boolean access flags are required.');
@@ -246,35 +293,46 @@ export class StudyService {
     });
   }
   async createLesson(actor,body){
-    fields(body,['mutationId','id','changes','blocks']);entityId(body.id);
+    fields(body,['mutationId','changes','blocks']);
     const changes={...lessonDefaults,...lessonChanges(body.changes)};
     if(!changes.title.trim())fail(400,'Enter a lesson title before saving.');
     if(!Array.isArray(body.blocks)||body.blocks.length>200)fail(400,'Invalid lesson blocks.');
     const blocks=body.blocks.map(lessonBlock);
-    if(blocks.some(b=>b.expectedRevision!==0)||new Set(blocks.map(b=>b.id)).size!==blocks.length)fail(400,'New blocks must have unique IDs and revision 0.');
-    return this.mutate(actor,body,['create-lesson',body.id],async()=>{
+    if(blocks.some(b=>b.expectedRevision!==0))fail(400,'New blocks must have revision 0.');
+    return this.createdCardMutation(actor,body,['create-lesson'],async()=>{
       const columns=Object.values(lessonColumns),args=Object.keys(lessonColumns).map(k=>typeof changes[k]==='boolean'?+changes[k]:changes[k]);
-      const commands=[stmt(`INSERT INTO lessons(id,${columns.join(',')},mode) VALUES(?,${columns.map(()=>'?').join(',')},?)`,[body.id,...args,changes.published?'preview':'edit']),this.guard()];
-      for(const [position,b] of blocks.entries())commands.push(...this.lessonBlockCommands(body.id,b,position));
-      return {statements:commands,result:{id:body.id,revision:1,blocks:blocks.map(b=>({id:b.id,revision:1}))}};
+      const commands=[stmt(`INSERT INTO lessons(${columns.join(',')},mode) VALUES(${columns.map(()=>'?').join(',')},?)`,[...args,changes.published?'preview':'edit']),
+        stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard()];
+      for(const [position,b] of blocks.entries())commands.push(...this.lessonBlockCommands(null,b,position));
+      return {statements:commands,resultSql:this.lessonResultSql(),resultArgs:[]};
     });
+  }
+  lessonResultSql(){
+    return `SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+      SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
+      FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
+    )) result_json FROM lessons l WHERE l.id=(SELECT id FROM created_rows WHERE seq=1)`;
   }
   lessonBlockCommands(lessonId,b,position){
     const commands=[];
     if(b.cardId)commands.push(stmt("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND scope='shared' AND deleted_at IS NULL)",[b.cardId]));
-    commands.push(b.expectedRevision===0
-      ?stmt('INSERT INTO lesson_blocks(lesson_id,id,position,type,tab,card_id,content_json) VALUES(?,?,?,?,?,?,?)',[lessonId,b.id,position,b.type,b.tab,b.cardId,stable(b.content)])
-      :stmt('UPDATE lesson_blocks SET type=?,tab=?,card_id=?,content_json=?,revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[b.type,b.tab,b.cardId,stable(b.content),lessonId,b.id,b.expectedRevision]),this.guard());
+    if(b.expectedRevision===0){
+      commands.push(lessonId==null
+        ?stmt('INSERT INTO lesson_blocks(lesson_id,position,type,tab,card_id,content_json) SELECT id,?,?,?,?,? FROM created_rows WHERE seq=1',[position,b.type,b.tab,b.cardId,stable(b.content)])
+        :stmt('INSERT INTO lesson_blocks(lesson_id,position,type,tab,card_id,content_json) VALUES(?,?,?,?,?,?)',[lessonId,position,b.type,b.tab,b.cardId,stable(b.content)]));
+    }else commands.push(stmt('UPDATE lesson_blocks SET type=?,tab=?,card_id=?,content_json=?,revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[b.type,b.tab,b.cardId,stable(b.content),lessonId,b.id,b.expectedRevision]));
+    commands.push(this.guard());
     return commands;
   }
   async editLesson(actor,id,body){
-    entityId(id);fields(body,['mutationId','expectedRevision','changes','upserts','deletes','order']);
+    recordId(id);fields(body,['mutationId','expectedRevision','changes','upserts','deletes','order']);
     const expected=revision(body.expectedRevision),changes=lessonChanges(body.changes);
     if(!Array.isArray(body.upserts)||!Array.isArray(body.deletes)||body.upserts.length+body.deletes.length>200)fail(400,'Invalid block changes.');
-    const upserts=body.upserts.map(lessonBlock),deletes=body.deletes.map(b=>{fields(b,['id','expectedRevision']);entityId(b.id);revision(b.expectedRevision);return b;});
-    if(new Set([...upserts,...deletes].map(b=>b.id)).size!==upserts.length+deletes.length)fail(400,'Conflicting block operations.');
+    const upserts=body.upserts.map(lessonBlock),deletes=body.deletes.map(b=>{fields(b,['id','expectedRevision']);recordId(b.id);revision(b.expectedRevision);return b;});
+    const named=[...upserts.map(b=>b.id),...deletes.map(b=>b.id)].filter(key=>key!=null);
+    if(new Set(named).size!==named.length)fail(400,'Conflicting block operations.');
     if(body.order!==undefined && (!Array.isArray(body.order)||body.order.length>200||new Set(body.order).size!==body.order.length))fail(400,'Invalid block order.');
-    for(const block of body.order||[])entityId(block);
+    for(const block of body.order||[])recordId(block);
     if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!body.order)fail(400,'No changed fields.');
     return this.mutate(actor,body,['edit-lesson',id],async()=>{
       const [lesson]=await this.db.read('SELECT * FROM lessons WHERE id=? AND deleted_at IS NULL',[id]);
@@ -284,7 +342,7 @@ export class StudyService {
       const current=await this.db.read('SELECT id,revision,position FROM lesson_blocks WHERE lesson_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
       const active=new Set(current.map(b=>b.id));
       for(const b of deletes)active.delete(b.id);
-      for(const b of upserts)active.add(b.id);
+      for(const b of upserts)if(b.id!=null)active.add(b.id);
       if(active.size>200)fail(400,'Too many blocks.');
       if(body.order && (body.order.length!==active.size||body.order.some(key=>!active.has(key))))fail(400,'Order must contain exactly the remaining blocks.');
       const assignments=Object.keys(changes).map(k=>lessonColumns[k]+'=?'),args=Object.values(changes).map(v=>typeof v==='boolean'?+v:v);
@@ -294,11 +352,14 @@ export class StudyService {
       for(const b of upserts)commands.push(...this.lessonBlockCommands(id,b,position++));
       for(const b of deletes)commands.push(stmt('UPDATE lesson_blocks SET deleted_at=unixepoch(),revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[id,b.id,b.expectedRevision]),this.guard());
       for(const [i,key] of (body.order||[]).entries())commands.push(stmt('UPDATE lesson_blocks SET position=? WHERE lesson_id=? AND id=? AND deleted_at IS NULL',[i,id,key]),this.guard());
-      return {statements:commands,result:{id,revision:expected+1,blocks:[...current.filter(b=>!deletes.some(d=>d.id===b.id)&&!upserts.some(u=>u.id===b.id)),...upserts.map(b=>({id:b.id,revision:b.expectedRevision+1}))].map(b=>({id:b.id,revision:b.revision}))}};
+      return {statements:commands,resultSql:`SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+        SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
+        FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
+      )) result_json FROM lessons l WHERE l.id=?`,resultArgs:[id]};
     });
   }
   async deleteLesson(actor,id,body){
-    entityId(id);fields(body,['mutationId','expectedRevision']);const expected=revision(body.expectedRevision);
+    recordId(id);fields(body,['mutationId','expectedRevision']);const expected=revision(body.expectedRevision);
     return this.mutate(actor,body,['delete-lesson',id],async()=>({statements:[stmt('UPDATE lessons SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard()],result:{id,deleted:true,revision:expected+1}}));
   }
   async personal(actor,body,identity,build){
@@ -319,7 +380,7 @@ export class StudyService {
       :stmt("UPDATE profile_settings SET revision=revision+1 WHERE profile_id=? AND key='tursoCardLinks' AND revision=?",[profile,expected]),this.guard()];
   }
   async linkCard(actor,body){
-    fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);entityId(body.cardId);
+    fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);cardId(body.cardId);
     const expected=personalRevision(body.expectedRevision),cardRevision=revision(body.expectedCardRevision);
     const place=cardPlace(body.place);
     return this.personal(actor,body,['link-card',body.cardId,place],async profile=>{
@@ -332,7 +393,7 @@ export class StudyService {
     });
   }
   async unlinkCard(actor,id,body){
-    entityId(id);fields(body,['mutationId','place','expectedRevision']);const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
+    cardId(id);fields(body,['mutationId','place','expectedRevision']);const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
     // Removing an own link is also allowed when its definition is hidden/deleted.
     // Neither the physical card nor anyone's existing progress is deleted.
     return this.personal(actor,body,['unlink-card',id,place],async profile=>({statements:[...this.linkRevisionCommands(profile,expected),
@@ -340,7 +401,7 @@ export class StudyService {
       result:{id,place,unlinked:true,revision:expected+1}}));
   }
   async linkManagedCard(actor,accountId,body){
-    entityId(accountId);fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);entityId(body.cardId);
+    entityId(accountId);fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);cardId(body.cardId);
     const expected=personalRevision(body.expectedRevision),cardRevision=revision(body.expectedCardRevision),place=cardPlace(body.place);
     return this.mutate(actor,body,['managed-link-card',accountId,body.cardId,place],async()=>{
       const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
@@ -354,7 +415,7 @@ export class StudyService {
     });
   }
   async unlinkManagedCard(actor,accountId,id,body){
-    entityId(accountId);entityId(id);fields(body,['mutationId','place','expectedRevision']);
+    entityId(accountId);cardId(id);fields(body,['mutationId','place','expectedRevision']);
     const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
     return this.mutate(actor,body,['managed-unlink-card',accountId,id,place],async()=>{
       const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
@@ -366,6 +427,7 @@ export class StudyService {
     });
   }
   async saveCardProgress(actor,id,body){
+    cardId(id);
     fields(body,['mutationId','expectedRevision','changes']);
     const expected=personalRevision(body.expectedRevision),changes=body.changes;
     if(!changes || !Object.keys(changes).length || Object.keys(changes).some(key=>!['learned','variants'].includes(key))
@@ -383,6 +445,7 @@ export class StudyService {
     });
   }
   async answerCard(actor,id,body){
+    cardId(id);
     fields(body,['mutationId','expectedRevision','quizType','correct']);
     const expected=personalRevision(body.expectedRevision),type=body.quizType;
     if(!QUIZ_TYPES.includes(type)||type==='Flip'||typeof body.correct!=='boolean')fail(400,'Invalid quiz answer.');
@@ -399,6 +462,7 @@ export class StudyService {
     });
   }
   async saveLessonResponse(actor,lessonId,blockId,body){
+    recordId(lessonId);recordId(blockId);
     fields(body,['mutationId','expectedRevision','expectedBlockRevision','response']);
     const expected=personalRevision(body.expectedRevision),blockRevision=revision(body.expectedBlockRevision);
     return this.personal(actor,body,['lesson-response',lessonId,blockId],async profile=>{
@@ -439,6 +503,7 @@ export class StudyService {
     });
   }
   async editCard(actor,id,body) {
+    cardId(id);
     return this.mutate(actor,body,['edit-card',id],async()=>{
       const expected=revision(body.expectedRevision);
       if (!body.changes || Object.keys(body.changes).join(',')!=='ru' || typeof body.changes.ru!=='string' || body.changes.ru.length>10_000) fail(400,'Send only the changed translation in changes.ru.');
@@ -447,32 +512,36 @@ export class StudyService {
     });
   }
   async deleteCard(actor,id,body) {
+    cardId(id);
     return this.mutate(actor,body,['delete-card',id],async()=>{
       const expected=revision(body.expectedRevision);
       await this.readableCard(actor,id);
       return {statements:[stmt('UPDATE cards SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard()],result:{id,deleted:true,revision:expected+1}};
     });
   }
-  async createQuiz(actor,cardId,body) {
-    return this.mutate(actor,body,['create-quiz',cardId],async()=>{
+  async createQuiz(actor,cardKey,body) {
+    cardId(cardKey);
+    return this.createdCardMutation(actor,body,['create-quiz',cardKey],async()=>{
       const expected=revision(body.expectedRevision);
       const quiz=validateQuiz(body.quiz);
       const expectedCollection=body.expectedCollectionRevision;
       if (!Number.isSafeInteger(expectedCollection) || expectedCollection<0) fail(400,'A valid collection revision is required.');
-      const card=await this.readableCard(actor,cardId);
+      const card=await this.readableCard(actor,cardKey);
       if (card.scope!=='shared') fail(403,'This staged quiz editor handles shared cards only.');
-      const quizId='quiz_'+crypto.randomUUID(),collectionId='collection_'+crypto.randomUUID();
-      const statements=[stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=? AND deleted_at IS NULL)',[cardId,expected])];
-      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(id,legacy_word_key) VALUES(?,?)',[collectionId,card.word_key]));
-      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[card.word_key,expectedCollection]));
+      const statements=[stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=? AND deleted_at IS NULL)',[cardKey,expected])];
+      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[card.word_key]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'));
+      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[card.word_key,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=?',[card.word_key]));
       statements.push(this.guard(),
-        stmt('INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,q.id FROM cards c JOIN quiz_collections q ON q.legacy_word_key=c.word_key WHERE c.word_key=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING',[card.word_key]),
-        stmt(`INSERT INTO quizzes(id,collection_id,position,type,items_json)
-          SELECT ?,c.id,COALESCE((SELECT max(position)+1 FROM quizzes WHERE collection_id=c.id),0),?,? FROM quiz_collections c WHERE c.legacy_word_key=?`,[quizId,quiz.type,stable(quiz.items),card.word_key]),this.guard());
-      return {statements,result:{id:quizId,type:quiz.type,items:quiz.items,revision:1}};
+        stmt('INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,r.id FROM cards c JOIN created_rows r ON r.seq=1 WHERE c.word_key=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING',[card.word_key]),
+        stmt(`INSERT INTO quizzes(collection_id,position,type,items_json)
+          SELECT id,COALESCE((SELECT max(position)+1 FROM quizzes WHERE collection_id=created_rows.id),0),?,? FROM created_rows WHERE seq=1`,[quiz.type,stable(quiz.items)]),
+        stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard());
+      return {statements,resultSql:`SELECT json_object('id',q.id,'type',q.type,'items',json(q.items_json),'revision',q.revision) result_json
+        FROM quizzes q WHERE q.id=(SELECT id FROM created_rows ORDER BY seq DESC LIMIT 1)`,resultArgs:[]};
     });
   }
   async editQuiz(actor,id,body) {
+    recordId(id);
     return this.mutate(actor,body,['edit-quiz',id],async()=>{
       const expected=revision(body.expectedRevision),quiz=validateQuiz(body.quiz);
       return {statements:[stmt('UPDATE quizzes SET type=?,items_json=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[quiz.type,stable(quiz.items),id,expected]),this.guard(),
@@ -480,6 +549,7 @@ export class StudyService {
     });
   }
   async deleteQuiz(actor,id,body) {
+    recordId(id);
     return this.mutate(actor,body,['delete-quiz',id],async()=>{
       const expected=revision(body.expectedRevision);
       return {statements:[stmt('UPDATE quizzes SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard(),

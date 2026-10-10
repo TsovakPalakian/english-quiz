@@ -11,6 +11,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const metadataSql = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name";
 const schema = readFileSync(resolve(root, 'migrations/turso/001_content_schema.sql'), 'utf8');
 const auditSchema = readFileSync(resolve(root, 'migrations/turso/002_import_audit.sql'), 'utf8');
+const laterSchema = ['003_exams.sql','004_groups.sql','005_exam_titles.sql','006_integer_entity_ids.sql'].map(name=>readFileSync(resolve(root,'migrations/turso/'+name),'utf8')).join('\n');
 
 function credentials() {
   // A second test target must not replace the running interface's credentials.
@@ -84,9 +85,9 @@ function rows(response) {
   })));
 }
 
-function expectedMetadata(includeAudit = true) {
+function expectedMetadata(includeAudit = true, includeCardInteger = true) {
   return JSON.parse(execFileSync('sqlite3', ['-json', ':memory:'], {
-    input: schema + '\n' + (includeAudit ? auditSchema : '') + '\n' + metadataSql + ';\n', encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
+    input: schema + '\n' + (includeAudit ? auditSchema : '') + '\n' + (includeAudit && includeCardInteger ? laterSchema : '') + '\n' + metadataSql + ';\n', encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
   }));
 }
 
@@ -112,23 +113,35 @@ BEGIN IMMEDIATE;
 CREATE TEMP TABLE staging_assert (ok INTEGER NOT NULL CHECK (ok = 1));
 INSERT INTO staging_assert SELECT (SELECT foreign_keys FROM pragma_foreign_keys) = 1;
 INSERT INTO account_refs(id) VALUES ('a-${id}'), ('b-${id}');
-INSERT INTO study_profiles(id,kind) VALUES ('p-${id}','personal'), ('r-${id}','personal');
-INSERT INTO profile_members(account_id,profile_id) VALUES ('a-${id}','p-${id}'), ('b-${id}','r-${id}');
-INSERT INTO cards(id,scope,en,word_key,ru) VALUES ('c-${id}','shared','staging check','staging check','before');
-INSERT INTO profile_cards(profile_id,card_id,place) VALUES ('p-${id}','c-${id}','mine'), ('r-${id}','c-${id}','mine');
-UPDATE cards SET ru='after',revision=revision+1 WHERE id='c-${id}' AND revision=1;
+CREATE TEMP TABLE smoke_profile(label TEXT PRIMARY KEY, id INTEGER NOT NULL);
+INSERT INTO study_profiles(kind) VALUES ('personal');
+INSERT INTO smoke_profile VALUES ('a', last_insert_rowid());
+INSERT INTO study_profiles(kind) VALUES ('personal');
+INSERT INTO smoke_profile VALUES ('b', last_insert_rowid());
+INSERT INTO profile_members(account_id,profile_id) SELECT 'a-${id}',id FROM smoke_profile WHERE label='a';
+INSERT INTO profile_members(account_id,profile_id) SELECT 'b-${id}',id FROM smoke_profile WHERE label='b';
+CREATE TEMP TABLE smoke_card(id INTEGER NOT NULL);
+INSERT INTO cards(scope,en,word_key,ru) VALUES ('shared','staging check','staging check','before');
+INSERT INTO smoke_card VALUES(last_insert_rowid());
+INSERT INTO profile_cards(profile_id,card_id,place) SELECT id,(SELECT id FROM smoke_card),'mine' FROM smoke_profile WHERE label='a';
+INSERT INTO profile_cards(profile_id,card_id,place) SELECT id,(SELECT id FROM smoke_card),'mine' FROM smoke_profile WHERE label='b';
+UPDATE cards SET ru='after',revision=revision+1 WHERE id=(SELECT id FROM smoke_card) AND revision=1;
 INSERT INTO staging_assert SELECT changes()=1;
-UPDATE cards SET ru='stale',revision=revision+1 WHERE id='c-${id}' AND revision=1;
+UPDATE cards SET ru='stale',revision=revision+1 WHERE id=(SELECT id FROM smoke_card) AND revision=1;
 INSERT INTO staging_assert SELECT changes()=0;
-INSERT INTO staging_assert SELECT (SELECT ru FROM cards WHERE id='c-${id}')='after';
-INSERT INTO staging_assert SELECT (SELECT count(DISTINCT card_id) FROM profile_cards WHERE card_id='c-${id}')=1;
-INSERT INTO card_progress(profile_id,card_id,learned) VALUES ('p-${id}','c-${id}',1), ('r-${id}','c-${id}',0);
-INSERT INTO staging_assert SELECT (SELECT learned FROM card_progress WHERE profile_id='r-${id}' AND card_id='c-${id}')=0;
-INSERT INTO quiz_collections(id) VALUES ('qc-${id}');
-INSERT INTO card_quiz_collections(card_id,collection_id) VALUES ('c-${id}','qc-${id}');
-INSERT INTO quizzes(id,collection_id,position,type) VALUES ('q1-${id}','qc-${id}',0,'Flip'), ('q2-${id}','qc-${id}',1,'Build');
-UPDATE quizzes SET deleted_at=unixepoch(),revision=revision+1 WHERE id='q1-${id}' AND revision=1;
-INSERT INTO staging_assert SELECT (SELECT count(*) FROM quizzes WHERE collection_id='qc-${id}' AND deleted_at IS NULL)=1;
+INSERT INTO staging_assert SELECT (SELECT ru FROM cards WHERE id=(SELECT id FROM smoke_card))='after';
+INSERT INTO staging_assert SELECT (SELECT count(DISTINCT card_id) FROM profile_cards WHERE card_id=(SELECT id FROM smoke_card))=1;
+INSERT INTO card_progress(profile_id,card_id,learned) SELECT id,(SELECT id FROM smoke_card),1 FROM smoke_profile WHERE label='a';
+INSERT INTO card_progress(profile_id,card_id,learned) SELECT id,(SELECT id FROM smoke_card),0 FROM smoke_profile WHERE label='b';
+INSERT INTO staging_assert SELECT (SELECT learned FROM card_progress WHERE profile_id=(SELECT id FROM smoke_profile WHERE label='b') AND card_id=(SELECT id FROM smoke_card))=0;
+INSERT INTO quiz_collections(legacy_word_key) VALUES ('smoke-${id}');
+CREATE TEMP TABLE smoke_quiz(id INTEGER NOT NULL);
+INSERT INTO card_quiz_collections(card_id,collection_id) SELECT (SELECT id FROM smoke_card),id FROM quiz_collections WHERE legacy_word_key='smoke-${id}';
+INSERT INTO quizzes(collection_id,position,type) SELECT id,0,'Flip' FROM quiz_collections WHERE legacy_word_key='smoke-${id}';
+INSERT INTO smoke_quiz VALUES(last_insert_rowid());
+INSERT INTO quizzes(collection_id,position,type) SELECT id,1,'Build' FROM quiz_collections WHERE legacy_word_key='smoke-${id}';
+UPDATE quizzes SET deleted_at=unixepoch(),revision=revision+1 WHERE id=(SELECT id FROM smoke_quiz) AND revision=1;
+INSERT INTO staging_assert SELECT (SELECT count(*) FROM quizzes WHERE collection_id=(SELECT id FROM quiz_collections WHERE legacy_word_key='smoke-${id}') AND deleted_at IS NULL)=1;
 ROLLBACK;`;
 }
 
@@ -147,16 +160,16 @@ async function main() {
   }
   if (mode === 'init' && actual.length === 0) {
     const [_, applied, version] = await pipeline(config, [
-      { type: 'sequence', sql: guardedSchema() + '\n' + auditSchema }, execute(metadataSql),
+      { type: 'sequence', sql: guardedSchema() + '\n' + auditSchema + '\n' + laterSchema }, execute(metadataSql),
       execute('SELECT version FROM schema_migrations ORDER BY version')
     ]);
     verifyMetadata(rows(applied), expected);
-    if (!isDeepStrictEqual(rows(version), [{ version: 1 }, { version: 2 }])) throw new Error('Unexpected schema version');
-    console.log('OK: schemas v1/v2 created in the empty test database');
-  } else if (mode === 'init' && isDeepStrictEqual(actual, expectedMetadata(false))) {
-    const [_, applied] = await pipeline(config, [{ type: 'sequence', sql: auditSchema }, execute(metadataSql)]);
+    if (!isDeepStrictEqual(rows(version), [{ version: 1 }, { version: 2 }, { version: 6 }])) throw new Error('Unexpected schema version');
+    console.log('OK: schemas v1/v2/v6 created in the empty test database');
+  } else if (mode === 'init' && isDeepStrictEqual(actual, expectedMetadata(false, false))) {
+    const [_, applied] = await pipeline(config, [{ type: 'sequence', sql: auditSchema + '\n' + laterSchema }, execute(metadataSql)]);
     verifyMetadata(rows(applied), expected);
-    console.log('OK: import-audit schema v2 applied transactionally; existing content untouched');
+    console.log('OK: import-audit and integer card schemas applied transactionally');
   } else {
     verifyMetadata(actual, expected);
     console.log('OK: existing test schema matches; no DDL applied');
@@ -166,7 +179,7 @@ async function main() {
     execute('SELECT version FROM schema_migrations ORDER BY version'),
     execute("SELECT (SELECT count(*) FROM account_refs) AS accounts, (SELECT count(*) FROM cards) AS cards, (SELECT count(*) FROM quizzes) AS quizzes")
   ]);
-  if (!isDeepStrictEqual(rows(versions), [{ version: 1 }, { version: 2 }])) throw new Error('Unexpected schema version');
+  if (!isDeepStrictEqual(rows(versions), [{ version: 1 }, { version: 2 }, { version: 6 }])) throw new Error('Unexpected schema version');
   // New staging databases must contain no persistent fixtures after rollback.
   if (mode === 'init' && actual.length === 0 && !isDeepStrictEqual(rows(fixtures), [{ accounts: 0, cards: 0, quizzes: 0 }])) {
     throw new Error('Unexpected persistent data after test rollback');

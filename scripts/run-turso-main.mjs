@@ -28,6 +28,11 @@ export async function jsonBody(req){
   catch{throw new StudyError(400,'Invalid JSON.');}
 }
 const safeJson=value=>JSON.stringify(value).replace(/</g,'\\u003c').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+function entityKey(value){
+  const id=Number(value);
+  if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(id))throw new StudyError(400,'Invalid ID.');
+  return id;
+}
 export function createMainServer({db,auth,mediaStore=null,offlineFixture=false}){
   const service=new StudyService(db),personal=new PersonalService(db),activity=new ActivityService(db);let catalogs=null,catalogTime=0;
   const songMedia=new SongMediaService(db,mediaStore);
@@ -117,7 +122,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       const actor=await auth.current(req);
       if(path==='/api/me' && req.method==='GET'){json(200,{user:actor});return;}
       if(!actor)throw new StudyError(401,'Sign in with your existing account.');
-      if(mediaDetach){json(200,await lessonMedia.detach(actor,lessonUpload[1],lessonUpload[2],await jsonBody(req)));return;}
+      if(mediaDetach){json(200,await lessonMedia.detach(actor,entityKey(lessonUpload[1]),entityKey(lessonUpload[2]),await jsonBody(req)));return;}
       if(audioWrite){
         if(lessonUpload&&!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only teacher/developer can upload lesson files.');
         const fields=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];
@@ -127,8 +132,8 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         if(Number(req.headers['content-length'])>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 25 MiB.');
         const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>AUDIO_LIMIT)throw new StudyError(413,'Audio exceeds 25 MiB.');chunks.push(chunk);}
         const body={mutationId:url.searchParams.get('mutationId'),expectedRevision:Number(url.searchParams.get('expectedRevision')),name:url.searchParams.get('name'),mime};
-        json(200,lessonUpload?await lessonMedia.upload(actor,lessonUpload[1],lessonUpload[2],{...body,expectedBlockRevision:Number(url.searchParams.get('expectedBlockRevision'))},Buffer.concat(chunks))
-          :await songMedia.upload(actor,mediaUpload[1],body,Buffer.concat(chunks)));return;
+        json(200,lessonUpload?await lessonMedia.upload(actor,entityKey(lessonUpload[1]),entityKey(lessonUpload[2]),{...body,expectedBlockRevision:Number(url.searchParams.get('expectedBlockRevision'))},Buffer.concat(chunks))
+          :await songMedia.upload(actor,entityKey(mediaUpload[1]),body,Buffer.concat(chunks)));return;
       }
       if(path==='/api/me/account'){json(200,{user:actor,change:null,locked:true,testReadonly:true});return;}
       if(path==='/api/me/state'){json(200,await accountBootstrap(db,actor));return;}
@@ -137,7 +142,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       if(path==='/api/me/quizzes'&&req.method==='GET'){json(200,await accountQuizzes(db,actor,slice));return;}
       if(path==='/api/me/progress'&&req.method==='GET'){json(200,await accountProgress(db,actor,slice));return;}
       if(path==='/api/me/songs'&&req.method==='GET'){json(200,await accountSongs(db,actor,slice));return;}
-      if(dictionaryRoute){json(200,legacyCard(await service.readableCard(actor,dictionaryRoute[1])));return;}
+      if(dictionaryRoute){json(200,legacyCard(await service.readableCard(actor,entityKey(dictionaryRoute[1]))));return;}
       if(inlineRoute){const entry=await inlineMedia(db,actor,inlineRoute[1]),bytes=readFileSync(resolve(defaultSnapshot,entry.file));
         if(bytes.length!==entry.bytes||createHash('sha256').update(bytes).digest('hex')!==entry.sha256)throw new StudyError(503,'Media checksum mismatch.');send(entry.mime,bytes);return;}
       if(fileRead){
@@ -158,32 +163,33 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         res.writeHead(response.status,headers);if(req.method==='HEAD'){await response.body?.cancel();res.end();}else if(response.body)Readable.fromWeb(response.body).on('error',()=>res.destroy()).pipe(res);else res.end();return;
       }
       if(newCardWrite){json(200,await personal.createOwnCard(actor,await jsonBody(req)));return;}
-      if(libraryWrite){const body=await jsonBody(req);json(200,path==='/api/library'?await personal.createLibrary(actor,body):await personal.editLibrary(actor,decodeURIComponent(libraryRoute[1]),body,req.method==='DELETE'));return;}
+      if(libraryWrite){const body=await jsonBody(req);json(200,path==='/api/library'?await personal.createLibrary(actor,body):await personal.editLibrary(actor,entityKey(decodeURIComponent(libraryRoute[1])),body,req.method==='DELETE'));return;}
       if(path==='/api/library'&&url.searchParams.has('ids')){json(200,{items:await personal.libraryItems(actor,url.searchParams.get('ids'))});return;}
       if(path==='/api/library'){json(200,{items:await personal.library(actor)});return;}
       if(activityWrite){json(200,await activity.events(actor,await jsonBody(req)));return;}
       if(path==='/api/stats'){json(200,await activity.stats(actor,{from:url.searchParams.get('from'),to:url.searchParams.get('to'),user:url.searchParams.get('user')||'',role:url.searchParams.get('role')||''}));return;}
       if(ownCardWrite){
         const body=await jsonBody(req);
-        json(200,path==='/api/me/cards'?await service.linkCard(actor,body):await service.unlinkCard(actor,decodeURIComponent(ownCardRoute[1]),body));return;
+        json(200,path==='/api/me/cards'?await service.linkCard(actor,body):await service.unlinkCard(actor,entityKey(decodeURIComponent(ownCardRoute[1])),body));return;
       }
       if(path==='/api/texts'){json(200,await legacyTexts(db,actor,{summary:url.searchParams.get('summary')!=='0',...slice}));return;}
       if(lessonWrite){
         const body=await jsonBody(req),result=path==='/api/lessons'?await service.createLesson(actor,body)
-          :await service[req.method==='DELETE'?'deleteLesson':'editLesson'](actor,decodeURIComponent(lessonRoute[1]),body);
+          :await service[req.method==='DELETE'?'deleteLesson':'editLesson'](actor,entityKey(decodeURIComponent(lessonRoute[1])),body);
         catalogs=null;json(200,result);return;
       }
       if(path==='/api/lessons'){json(200,mediaPlaceholders(await legacyLessons(db,actor)));return;}
       if(path==='/api/cards'){
-        json(200,await service.cards(actor,{query:url.searchParams.get('q')||'',lessonId:url.searchParams.get('lessonId')||'',offset:Number(url.searchParams.get('offset')||0),exact:url.searchParams.get('exact')==='1'}));return;
+        const lessonRaw=url.searchParams.get('lessonId')||'';
+        json(200,await service.cards(actor,{query:url.searchParams.get('q')||'',lessonId:lessonRaw?entityKey(lessonRaw):'',offset:Number(url.searchParams.get('offset')||0),exact:url.searchParams.get('exact')==='1'}));return;
       }
       if(progressRoute){
         const method=progressRoute[2]==='answers'?'answerCard':'saveCardProgress';
-        json(200,await service[method](actor,decodeURIComponent(progressRoute[1]),await jsonBody(req)));return;
+        json(200,await service[method](actor,entityKey(decodeURIComponent(progressRoute[1])),await jsonBody(req)));return;
       }
-      if(responseRoute){json(200,await service.saveLessonResponse(actor,decodeURIComponent(responseRoute[1]),decodeURIComponent(responseRoute[2]),await jsonBody(req)));return;}
+      if(responseRoute){json(200,await service.saveLessonResponse(actor,entityKey(decodeURIComponent(responseRoute[1])),entityKey(decodeURIComponent(responseRoute[2])),await jsonBody(req)));return;}
       if(cardRoute){
-        const [,kind,rawId,suffix]=cardRoute,id=decodeURIComponent(rawId);
+        const [,kind,rawId,suffix]=cardRoute,id=entityKey(decodeURIComponent(rawId));
         if(req.method==='GET'){json(200,await service.card(actor,id));return;}
         const operation=kind==='cards'?suffix?'createQuiz':req.method==='PATCH'?'editCard':'deleteCard':req.method==='PATCH'?'editQuiz':'deleteQuiz';
         const result=await service[operation](actor,id,await jsonBody(req));catalogs=null;json(200,result);return;

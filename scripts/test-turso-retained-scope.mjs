@@ -9,6 +9,7 @@ import {fileURLToPath} from 'node:url';
 import {retainedScope} from './turso-retained-scope.mjs';
 import {build,insertSql} from './import-turso-snapshot.mjs';
 import {planRetainedSnapshot} from './plan-turso-retained.mjs';
+import {applyTursoSchema} from './turso-test-schema.mjs';
 const dev={id:'a'.repeat(32),login:'TsovakDev',active:1,is_personal_data_revoked:0},twin={id:'b'.repeat(32),login:'Tsovak',active:1},other={id:'c'.repeat(32),login:'Other',active:1};
 const sha=value=>createHash('sha256').update(value).digest('hex'),pairKey='pair/tsovak-study.json';
 test('Scope preserves old pair identity but never imports the twin or other account',()=>{
@@ -59,11 +60,12 @@ function fixture(){
 test('Scoped full model restores with FK checks, preserves retained study/library/media and shared content only',()=>{
   const f=fixture(),db=new DatabaseSync(':memory:');try{
     const plan=build(f.directory);
-    for(const name of ['001_content_schema.sql','002_import_audit.sql'])db.exec(readFileSync(new URL('../migrations/turso/'+name,import.meta.url),'utf8'));
+    applyTursoSchema(db);
     db.exec(insertSql(plan.model));assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
     assert.deepEqual(db.prepare('SELECT id FROM account_refs').all().map(r=>r.id),[dev.id]);
     assert.equal(db.prepare('SELECT count(*) n FROM profile_members').get().n,1);
-    const profile=db.prepare('SELECT * FROM study_profiles').get();assert.equal(profile.kind,'personal');assert.equal(profile.id,plan.scopeAnchor.profileId);
+    const profile=db.prepare('SELECT * FROM study_profiles').get();assert.equal(profile.kind,'personal');
+    assert.equal(profile.id,db.prepare("SELECT new_id FROM entity_id_legacy WHERE entity_kind='profile' AND old_id=?").get(plan.scopeAnchor.profileId).new_id);
     assert.equal(db.prepare('SELECT count(*) n FROM card_progress WHERE learned=1').get().n,1);
     assert.equal(db.prepare("SELECT value_json FROM profile_settings WHERE key='theme'").get().value_json,'"pair-theme"');
     assert.equal(db.prepare("SELECT count(*) n FROM library_items").get().n,2);

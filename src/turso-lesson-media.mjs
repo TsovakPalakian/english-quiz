@@ -1,5 +1,5 @@
 // Local staging media references only; never uploads to production R2.
-import {StudyService,StudyError,statement as s} from './turso-study.mjs';
+import {StudyService,StudyError,statement as s,recordId} from './turso-study.mjs';
 import {audioMetadata,AUDIO_LIMIT} from './turso-song-media.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const id=value=>typeof value==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -20,7 +20,7 @@ export async function lessonMediaMetadata(bytes,mime,name){
 export class LessonMediaService extends StudyService {
   constructor(db,store){super(db);this.store=store;}
   async detach(actor,lessonId,blockId,body){
-    if(!id(lessonId)||!id(blockId)||!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','expectedBlockRevision'].includes(k))
+    recordId(lessonId);recordId(blockId);if(!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','expectedBlockRevision'].includes(k))
       ||![body.expectedRevision,body.expectedBlockRevision].every(v=>Number.isSafeInteger(v)&&v>0))fail(400,'A saved lesson and block revision are required.');
     return this.mutate(actor,body,['detach-lesson-file',lessonId,blockId],async()=>{
       const [row]=await this.db.read(`SELECT b.*,l.revision lesson_revision FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
@@ -38,7 +38,7 @@ export class LessonMediaService extends StudyService {
   }
   async upload(actor,lessonId,blockId,body,bytes){
     if(!this.store||!['isolated-local-stage','isolated-r2-stage'].includes(this.store.kind))fail(503,'Isolated storage unavailable.');
-    if(!id(lessonId)||!id(blockId)||!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','expectedBlockRevision','mime','name'].includes(k))
+    recordId(lessonId);recordId(blockId);if(!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','expectedBlockRevision','mime','name'].includes(k))
       ||![body.expectedRevision,body.expectedBlockRevision].every(v=>Number.isSafeInteger(v)&&v>0))fail(400,'Save the lesson and block before uploading.');
     // Deny learner writes before validating or storing any file.
     if(!actor?.id)fail(401,'Sign in first.');if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Only teacher/developer can upload lesson files.');
