@@ -29,8 +29,10 @@ export function mainPreview(source,hooks){
   insert('    function paintSpeak() {','      if(speakView==="levels" && stageSpeakIncomplete()){stagePaintSpeakLevels();return;}');
   insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && !(window.SPEAKOUT&&window.SPEAKOUT[level]&&window.SPEAKOUT[level].level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
   insert('    function paintTexts() {','      return stagePaintTexts();');
+  insert('    function renderTextList() {','      return stagePaintLibraryList("text");');
   insert('    function showText(id) {','      const pendingText=loadTexts().find(row=>row.id===id);if(pendingText&&pendingText.stageTextDeferred)return stageOpenText(id);');
   insert('    function renderUserSong(song) {','      if(song&&song.stageLyricsDeferred)return stageOpenSong(song);');
+  insert('    function paintLyrics() {','      return stagePaintLibraryList("song");');
   replace('              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();','              imageUrl = stagePreviewImage(parsed.href,location.origin);');
   insert('    function accountFetch(path, options) {','      return window.TursoMain.fetch(path, options);');
   insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="cardQuizzes")return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.TursoMain.theme(change.value);}catch(error){window.TursoMain.notice(error.message,true);} return;}\n      if(change?.op==="put-setting" && change.key==="customThemes"){if(!viewAccount && accountReady)try{window.TursoMain.customThemes(change.value);}catch(error){window.TursoMain.notice(error.message,true);} stageKeepSetting(change);return;}\n      if(stageKeepSetting(change))return;\n      return window.TursoMain.unsupported(change && change.op);');
@@ -99,6 +101,7 @@ export function mainPreview(source,hooks){
   insert('    function writeTexts(list) {','      return window.TursoMain.unsupported("Редактирование текстов");');
   insert('    function runTextAnalysis(item, status) {','      return stageRunTextAnalysis(item, status);');
   insert('    function storeText(analyze) {','      return stageStoreText(analyze);');
+  insert('    function storeExpressionCard(expr, button, item) {','      return stageStoreTextExpression(expr,button,item);');
   insert('    function showText(id) {','      stageMountTextArchive(id);');
   insert('    async function readLyrics(existingId) {','      return stageStoreSong(existingId);');
   insert('    async function saveSongMeta() {','      return stageSaveSongMeta();');

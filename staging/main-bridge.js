@@ -103,6 +103,38 @@
     for(const row of data.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);
     personalReady=true;
   }
+  const bugTrail=[];
+  function bugRemember(type,detail={}){
+    bugTrail.push({at:Date.now(),type,...detail});
+    if(bugTrail.length>40)bugTrail.splice(0,bugTrail.length-40);
+  }
+  function bugHeaders(value){
+    const out={},secret=/cookie|authorization|password|secret|token/i;
+    try{
+      const entries=typeof Headers!=='undefined'&&value instanceof Headers?[...value.entries()]:Object.entries(value||{});
+      for(const [key,item] of entries.slice(0,40))out[String(key).toLowerCase()]=secret.test(key)?'[hidden]':String(item).slice(0,1000);
+    }catch{}
+    return out;
+  }
+  function bugContext(entry){
+    const nav=typeof performance!=='undefined'&&performance.getEntriesByType?performance.getEntriesByType('navigation')[0]:null;
+    const connection=typeof navigator!=='undefined'&&(navigator.connection||navigator.mozConnection||navigator.webkitConnection);
+    return {
+      screen:(document.querySelector('section.on')||{}).id||'',href:String(location.href||'').slice(0,1000),
+      referrer:String(document.referrer||'').slice(0,1000),title:String(document.title||'').slice(0,300),
+      visibility:document.visibilityState||'',language:navigator.language||'',languages:Array.from(navigator.languages||[]).slice(0,12),
+      userAgent:String(navigator.userAgent||'').slice(0,1000),platform:String(navigator.platform||'').slice(0,200),
+      viewport:innerWidth+'x'+innerHeight,online:navigator.onLine,secureContext:!!globalThis.isSecureContext,
+      device:{hardwareConcurrency:navigator.hardwareConcurrency||0,deviceMemory:navigator.deviceMemory||0,maxTouchPoints:navigator.maxTouchPoints||0,cookieEnabled:navigator.cookieEnabled,doNotTrack:navigator.doNotTrack||''},
+      display:typeof screen==='undefined'?{}:{width:screen.width,height:screen.height,availableWidth:screen.availWidth,availableHeight:screen.availHeight,colorDepth:screen.colorDepth,pixelDepth:screen.pixelDepth,devicePixelRatio:globalThis.devicePixelRatio||1},
+      connection:connection?{effectiveType:connection.effectiveType||'',type:connection.type||'',downlink:connection.downlink||0,rtt:connection.rtt||0,saveData:!!connection.saveData}:{},
+      navigation:nav?{type:nav.type||'',duration:Math.round(nav.duration||0),domContentLoaded:Math.round(nav.domContentLoadedEventEnd||0),load:Math.round(nav.loadEventEnd||0),transferSize:nav.transferSize||0}:{},
+      storage:{localKeys:localStorage.length||0,sessionKeys:sessionStorage.length||0},historyLength:typeof history==='undefined'?0:history.length||0,
+      application:{name:'English Quiz',service:'learn-english',host:location.host||'',protocol:location.protocol||''},
+      error:{name:String(entry.errorName||'Error'),durationMs:Number(entry.durationMs)||0},trail:bugTrail.slice(-30),
+      stack:String(entry.stack||'').slice(0,8000)
+    };
+  }
   function reportClientBug(entry){
     const path=String(entry.path||'/').split('?')[0];
     const status=Number(entry.status)||0;
@@ -110,29 +142,39 @@
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}
-      const section=document.querySelector('section.on');
       const payload=JSON.stringify({
         method:String(entry.method||'GET').slice(0,16),path:path.slice(0,300),status:Number(entry.status)||0,
         error:String(entry.error||'Client failure').slice(0,500),timeZone,
-        request:{method:entry.method||'GET',url:String(entry.path||'/'),body:String(entry.requestBody??'').slice(0,4000),context:{
-          screen:section&&section.id||'',href:String(location.href||'').slice(0,500),language:navigator.language||'',
-          userAgent:String(navigator.userAgent||'').slice(0,300),viewport:innerWidth+'x'+innerHeight,online:navigator.onLine,stack:String(entry.stack||'').slice(0,1500)
-        }},
-        response:{status:Number(entry.status)||0,body:String(entry.responseBody??'').slice(0,4000)}
+        request:{method:entry.method||'GET',url:String(entry.path||'/'),headers:bugHeaders(entry.requestHeaders),body:String(entry.requestBody??'').slice(0,12000),context:bugContext(entry)},
+        response:{status:Number(entry.status)||0,headers:bugHeaders(entry.responseHeaders),body:String(entry.responseBody??'').slice(0,12000)}
       });
       Promise.resolve(fetch('/api/bugs',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:payload})).catch(()=>{});
     }catch{}
   }
+  document.addEventListener('click',event=>{
+    const target=event.target?.closest?.('button,a,[data-jump]')||event.target;
+    if(!target)return;
+    bugRemember('click',{tag:String(target.tagName||'').toLowerCase(),id:String(target.id||'').slice(0,100),
+      action:Object.keys(target.dataset||{}).slice(0,8).join(','),screen:(document.querySelector('section.on')||{}).id||''});
+  },true);
+  if(window.addEventListener){
+    window.addEventListener('error',event=>reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:event.message||'Unhandled error',errorName:event.error?.name,stack:event.error?.stack||''}));
+    window.addEventListener('unhandledrejection',event=>{const reason=event.reason;reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:reason?.message||String(reason||'Unhandled rejection'),errorName:reason?.name,stack:reason?.stack||''});});
+  }
   async function api(path,options={}){
     const method=String(options.method||'GET').toUpperCase();
+    const started=Date.now();
     const quietBug=options.quietBug===true;
     const {quietBug:_quiet,keepalive:keepAlive,...fetchOptions}=options;
     const requestBody=typeof options.body==='string'?options.body:options.body==null?'':'[binary]';
+    const requestHeaders={'Content-Type':'application/json','X-Client-Bug':'1',...options.headers};
+    bugRemember('request',{method,path:String(path).slice(0,300)});
     let response;
-    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:{'Content-Type':'application/json','X-Client-Bug':'1',...options.headers}});}
-    catch{
+    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:requestHeaders});}
+    catch(cause){
       const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true});
-      reportClientBug({method,path,status:0,error:error.message,requestBody,stack:error.stack});
+      bugRemember('network-error',{method,path:String(path).slice(0,300),name:cause?.name||'Error',durationMs:Date.now()-started});
+      reportClientBug({method,path,status:0,error:error.message,errorName:cause?.name,requestBody,requestHeaders,durationMs:Date.now()-started,stack:error.stack});
       throw error;
     }
     let value={},parsed=true,raw='';
@@ -143,9 +185,10 @@
     }else{
       try{value=await response.json();}catch{parsed=false;}
     }
+    bugRemember('response',{method,path:String(path).slice(0,300),status:Number(response.status)||0,durationMs:Date.now()-started});
     if(!response.ok||!parsed){
       const error=Object.assign(new Error(parsed?value.error||'Ошибка тестового сервера':'Unexpected response.'),{status:response.status,reported:!quietBug});
-      if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,requestBody,responseBody:parsed?value.error||'':'',stack:error.stack});
+      if(!(response.status===401&&!actorId)&&!quietBug)reportClientBug({method,path,status:response.status,error:error.message,errorName:error.name,requestBody,requestHeaders,responseBody:raw,responseHeaders:response.headers,durationMs:Date.now()-started,stack:error.stack});
       throw error;
     }
     return value;
@@ -515,8 +558,11 @@
       return write(path+'/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
     },
     async archiveManagedText(accountId,item){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!item.stageId||item.stageScope!=='profile')throw new Error('Архивируется только личный текст.');
-      return write('/api/admin/users/'+accountId+'/texts/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});
+      return window.TursoMain.deleteManagedLibrary(accountId,item,'text');
+    },
+    async deleteManagedLibrary(accountId,item,kind){
+      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
+      return write('/api/admin/users/'+accountId+'/'+(kind==='text'?'texts':'songs')+'/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});
     },
     async saveLibrary(item,kind,changes){
       if(item.stageId){
@@ -525,6 +571,10 @@
         return write('/api/library/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
       }
       return write('/api/library','POST',{kind,changes});
+    },
+    async deleteLibrary(item){
+      if(!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
+      return write('/api/library/'+encodeURIComponent(item.stageId),'DELETE',{expectedRevision:item.stageRevision});
     },
     async uploadThemePhoto(themeId,file){
       if(!actorId||!mediaAllowed()||!/^user-[a-z0-9-]{1,80}$/.test(themeId))throw new Error('A theme picture can be saved only for your own theme.');

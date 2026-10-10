@@ -38,6 +38,7 @@
   "Сначала загрузите серверный профиль ученика.": "Load the saved student profile first.",
   "Общие материалы нельзя менять в личном профиле.": "Shared materials cannot be edited from a personal profile.",
   "Архивируется только личный текст.": "Only personal texts can be archived here.",
+  "Удаляется только личный материал.": "Only personal content can be deleted here.",
   "Аудио доступно только для собственной сохранённой песни на разрешённом тестовом стенде.": "Audio uploads require your own saved song on the configured site.",
   "Выберите MP3, WAV или OGG.": "Select an MP3, WAV or OGG file.",
   "Нет серверного ID аккаунта или урока.": "The saved account or lesson ID is missing.",

@@ -485,8 +485,8 @@ test('Expected sign-in failures do not show a notice or file bugs, and logout do
   const scope={window,crypto,location:{reload(){reloads++;}},navigator:{language:'en',userAgent:'fixture',onLine:true},innerWidth:800,innerHeight:600,sessionStorage:{removeItem(){}},
     localStorage:{getItem:()=>null,removeItem(){}},
     document:{addEventListener(){},querySelector:()=>({id:'home'}),getElementById:id=>({'turso-main-banner':banner,'turso-main-status':status}[id]||null)},
-    fetch:async(path)=>{
-      if(path==='/api/bugs'){bugs.push(path);return {ok:true};}
+    fetch:async(path,options={})=>{
+      if(path==='/api/bugs'){bugs.push(JSON.parse(options.body));return {ok:true};}
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'user'}})};
       if(path==='/api/logout')return {ok:true,json:async()=>({ok:true})};
       return {ok:false,status:failure,json:async()=>({error:failure===401?'Sign in first.':'Failed.'})};
@@ -499,8 +499,22 @@ test('Expected sign-in failures do not show a notice or file bugs, and logout do
   assert.equal(bugs.length,0);
   failure=500;await assert.rejects(window.TursoMain.fetch('/api/login'),e=>e.status===500);
   assert.equal(bugs.length,1);assert.equal(banner.hidden,false);
+  assert.equal(bugs[0].request.context.application.service,'learn-english');assert.ok(Array.isArray(bugs[0].request.context.trail));
   await window.TursoMain.fetch('/api/logout',{method:'POST',body:'{}'});
   assert.equal(reloads,0);
+});
+test('Bug cards include deployment data, compact resolve/copy controls and copy the full body',async()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const start=source.indexOf('    function bugWhen(ms, zone) {'),end=source.indexOf('    let bugTab = "open";',start);
+  let copied='';
+  const scope={esc:value=>String(value),navigator:{clipboard:{writeText:async value=>{copied=value;}}},window:{isSecureContext:true},setTimeout};
+  runInNewContext(source.slice(start,end),scope);
+  const rows=[{id:'a'.repeat(32),method:'POST',path:'/api/save',status:500,error:'Failed',hits:2,accounts:['TsovakDev'],lastAt:1,firstAt:1,timeZone:'UTC',
+    request:{url:'/api/save',context:{application:{name:'English Quiz',service:'learn-english',deploymentId:'deploy-123',deploymentTag:'release'}}},response:{status:500}}];
+  const html=scope.bugListHtml(rows,true);
+  assert.match(html,/class="day-tools"/);assert.match(html,/data-bug-resolve=/);assert.match(html,/>✓</);assert.match(html,/data-bug-copy=/);assert.match(html,/Deployment ID: deploy-123/);
+  const detail={textContent:'full bug body'},button={closest:()=>({querySelector:()=>detail}),isConnected:false};
+  await scope.copyBugBody(button);assert.equal(copied,'full bug body');
 });
 test('Offline UI status cannot claim real Turso acceptance',async()=>{
   const status={classList:{toggle(){}}},banner={dataset:{offlineFixture:'true'}},window={};
@@ -1113,6 +1127,45 @@ test('Managed text UI waits for acknowledgement and ignores a response after lea
   const late=context.stageStoreText(false);context.viewGen++;context.viewAccount=null;
   pending.shift().resolve({item:{...item,title:'Late'}});await late;assert.equal(saved.length,1);
 });
+test('A text expression uses the dedicated card route and updates the list only after acknowledgement',async()=>{
+  let list=[],resolveWrite,marked=0;
+  const status={},baseWindow={LESSON_DATA:{},IRREGULAR:[],ContentCache:{drop(){}}};
+  const scope={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:null,viewSwitching:false,
+    cardIndex:()=>new Map(),loadAdded:()=>list,rememberAdded:value=>list=value,loadSongs:()=>[],loadTexts:()=>[],
+    expressionSaved:()=>false,expressionPlace:()=> 'phrasal',expressionDeckName:()=> 'Phrasal verbs',
+    markExpressionButton:()=>marked++,paintAdded(){},paintAllWords(){},paintHomeStats(){},
+    document:{addEventListener(){},getElementById:id=>id==='textReadStatus'?status:null,querySelector:()=>null},
+    window:{...baseWindow,TursoMain:{findCard:async()=>{throw new Error('missing');},
+      newCard:()=>new Promise(resolve=>{resolveWrite=resolve;}),perform:action=>action()}}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  const saving=scope.stageStoreTextExpression({type:'PHRASAL_VERB'}, {},{word:'give up',ru:'сдаться',place:'phrasal',fromText:true});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(list.length,0);
+  resolveWrite({revision:1,card:{word:'give up',ru:'сдаться',place:'phrasal',stageId:10,stageScope:'profile'}});
+  await saving;assert.equal(list.length,1);assert.equal(list[0].stageId,10);assert.equal(marked,1);
+  assert.match(mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')),/return stageStoreTextExpression\(expr,button,item\)/);
+});
+test('Song and text lists show hide/delete controls and wait for server acknowledgement',async()=>{
+  let songs=[{id:1,stageId:1,stageRevision:1,stageScope:'profile',title:'Song',artist:'A',archived:false}],texts=[{id:2,stageId:2,stageRevision:1,stageScope:'profile',title:'Text',archived:false}];
+  let resolveToggle,resolveDelete;
+  const boxes={lyricList:{closest:()=>null},textList:{closest:()=>null},lyricCount:{},textCount:{}};
+  const window={LESSON_DATA:{},IRREGULAR:[],ContentCache:{get:()=>null,set(){},drop(){}},TursoMain:{
+    perform:action=>action(),saveLibrary:()=>new Promise(resolve=>{resolveToggle=resolve;}),deleteLibrary:()=>new Promise(resolve=>{resolveDelete=resolve;})}};
+  const scope={window,authUser:{id:'u1',role:'USER'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,confirm:()=>true,
+    loadSongs:()=>songs,loadTexts:()=>texts,loadAdded:()=>[],writeSongs:value=>songs=value,
+    localStorage:{setItem(_key,value){texts=JSON.parse(value);},getItem:()=>null,removeItem(){}},
+    esc:value=>String(value),songRow:(_n,title)=>'<button>'+title+'</button>',songStat:()=>({}),statsLine:()=> 'Stats',textAbout:()=> 'Stats',
+    paintLyrics(){},paintTextCount(){},applyCardSearch(){},document:{addEventListener(){},getElementById:id=>boxes[id]||null,querySelector:()=>({})}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stageInstallLibrary=(item,kind)=>{if(kind==='song')songs=[item];else texts=[item];};
+  scope.stageRemoveLibrary=(item,kind)=>{if(kind==='song')songs=songs.filter(row=>row.id!==item.id);else texts=texts.filter(row=>row.id!==item.id);};
+  scope.stagePaintLibraryList('song');scope.stagePaintLibraryList('text');
+  assert.match(boxes.lyricList.innerHTML,/data-stage-library-action="toggle"/);assert.match(boxes.lyricList.innerHTML,/data-stage-library-action="delete"/);
+  assert.match(boxes.textList.innerHTML,/data-stage-library-action="toggle"/);assert.match(boxes.textList.innerHTML,/data-stage-library-action="delete"/);
+  const hiding=scope.stageLibraryAction('toggle','song','1');assert.equal(songs[0].archived,false);
+  resolveToggle({item:{...songs[0],archived:true,stageRevision:2}});await hiding;assert.equal(songs[0].archived,true);
+  const deleting=scope.stageLibraryAction('delete','text','2');assert.equal(texts.length,1);
+  resolveDelete({deleted:true});await deleting;assert.equal(texts.length,0);
+});
 test('R2 managed text archive waits for server, preserves failures and ignores switched targets',async()=>{
   let list=[{id:'one',stageId:'one',stageScope:'profile'},{id:'two',stageId:'two',stageScope:'profile'}];const pending=[];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
@@ -1310,6 +1363,25 @@ test('Numeric song and text IDs open when DOM attributes provide strings',async(
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageOpenSongId('10');await scope.stageOpenText('20');
   assert.deepEqual(opened,[['view','song'],['song',10],['text',20]]);
+});
+test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const part=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
+  const visits=[],exam={id:9,blocks:[{id:10,doc:{title:'Published block'}}]};
+  const scope={classGroups:[{id:7,lessonIds:[8]}],classGroupId:'',visit:id=>visits.push(id),
+    lmEnsure(){},lmLibrary:{materials:[{id:8,published:true}]},lmLessonVisibleToViewer:()=>true,canEditLessons:()=>false,lmState:null,
+    localStorage:{getItem:key=>key==='enquiz-exams'?JSON.stringify([{id:9,title:'Published exam'}]):null},
+    examLoad:()=>[{id:9,title:'Published exam'}],examCurrentId:9,examView:id=>id===9?structuredClone(exam):null,examHold:null};
+  runInNewContext(
+    part('    function domEntityId(value) {','    const dayScreens')+
+    part('    function groupOpen(id) {','    function groupCreate() {')+
+    part('    function lmOpenLesson(id) {','    function lmKeepLesson() {')+
+    part('    function examFind(id) {','    let examWork = {}')+
+    part('    function examOpenBlock(blockId) {','    function examBoot() {'),scope);
+  scope.groupOpen('7');scope.lmOpenLesson('8');
+  assert.equal(scope.examFind('9').title,'Published exam');
+  scope.examOpenBlock('10');
+  assert.deepEqual(visits,['days','material','material']);assert.equal(scope.lmState.blockId,10);
 });
 test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   const session=new Map();

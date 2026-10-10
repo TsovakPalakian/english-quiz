@@ -33,7 +33,7 @@ function memory(){
 test('repeated HTTP failures collapse to one row and keep the latest exchange',async()=>{
   resetBugStoreForTests();
   const db=memory();
-  const call=(path,login)=>recordHttpBug(db,{id:login,login,role:'USER'},new Request('https://learn-english.example'+path,{method:'POST',headers:{cookie:'session=secret','content-type':'application/json'},body:'{"order":[1]}'}),new Response(JSON.stringify({error:'Order must contain exactly the remaining blocks.'}),{status:400,headers:{'content-type':'application/json','set-cookie':'a=b'}}));
+  const call=(path,login)=>recordHttpBug(db,{id:login,login,role:'USER'},new Request('https://learn-english.example'+path,{method:'POST',headers:{cookie:'session=secret','content-type':'application/json'},body:'{"order":[1]}'}),new Response(JSON.stringify({error:'Order must contain exactly the remaining blocks.'}),{status:400,headers:{'content-type':'application/json','set-cookie':'a=b'}}),{service:'learn-english',deploymentId:'deployment-test'});
   await call('/api/lessons/lesson_2026_09_14','Tsovak');
   await call('/api/lessons/lesson_2026_09_23','Teacher');
   const bugs=await listBugs(db);
@@ -46,6 +46,7 @@ test('repeated HTTP failures collapse to one row and keep the latest exchange',a
   assert.match(bugs[0].request.body,/"order"/);
   assert.equal(bugs[0].error,'Order must contain exactly the remaining blocks.');
   assert.equal(bugs[0].request.context.role,'USER');
+  assert.equal(bugs[0].request.context.application.deploymentId,'deployment-test');
   assert.equal(bugs[0].request.history.length,1);
   assert.match(bugs[0].request.history[0].url,/lesson_2026_09_14/);
   assert.equal(bugs[0].timeZone,'UTC');
@@ -114,7 +115,7 @@ test('the browser can file an unconfirmed operation without opening the journal'
   const db=memory();
   let role='USER';
   const worker=integratedWorker({authenticate:async()=>({id:'a'.repeat(32),role,login:'Tsovak'}),studyDatabase:()=>db});
-  const env={DB:{prepare(){throw new Error('no');}},STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',ACCOUNT_QUERY_LIMIT_ENABLED:'false'};
+  const env={DB:{prepare(){throw new Error('no');}},STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',ACCOUNT_QUERY_LIMIT_ENABLED:'false',CF_VERSION_METADATA:{id:'version-123',tag:'release',timestamp:'2026-10-10T07:00:00Z'}};
   const posted=await worker.fetch(new Request('https://test.invalid/api/bugs',{method:'POST',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify({method:'POST',path:'/api/lessons/lesson_1',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',timeZone:'Asia/Yerevan',request:{body:'{"title":"x"}'},response:{body:'No confirmed response'}})}),env);
   assert.equal(posted.status,204);
   role='ADMIN';
@@ -126,6 +127,8 @@ test('the browser can file an unconfirmed operation without opening the journal'
   assert.equal(body.bugs[0].accounts[0],'Tsovak');
   assert.match(body.bugs[0].error,/Unconfirmed operation/);
   assert.equal(body.bugs[0].timeZone,'Asia/Yerevan');
+  assert.equal(body.bugs[0].request.context.application.deploymentId,'version-123');
+  assert.equal(body.bugs[0].request.context.application.service,'learn-english');
   assert.ok(body.bugs[0].lastAt>0);
   const heads=await(await worker.fetch(new Request('https://test.invalid/api/bugs?heads=1'),env)).json();
   assert.equal(heads.heads.length,1);assert.equal(heads.heads[0].id,body.bugs[0].id);assert.equal(heads.heads[0].request,undefined);

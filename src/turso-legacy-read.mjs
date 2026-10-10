@@ -105,12 +105,12 @@ export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={})
   }
   const size=pageLimit(limit),cursor=cardCursor(after);
   const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.level') level,
-    substr(COALESCE(json_extract(l.content_json,'$.text'),''),1,140) preview,json_extract(l.content_json,'$.id') client_id
+    substr(COALESCE(json_extract(l.content_json,'$.text'),''),1,140) preview,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id
     FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id JOIN library_items l ON l.id=p.item_id
     WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) AND l.id>?
     ORDER BY l.id LIMIT ?`,[actor.id,cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
-  return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
+  return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
 }
 export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
   if(lessonId!==''&&lessonId!=null&&(!Number.isSafeInteger(lessonId)||lessonId<1))throw new StudyError(400,'Invalid lesson ID.');

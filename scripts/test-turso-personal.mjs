@@ -196,6 +196,10 @@ test('Own text/song: point edit, saved IDs and revisions, replay/stale/foreign d
   await service.editLibrary(f.own,created.id,edit);assert.equal((await service.library(f.own))[0].text,body.changes.text);
   await assert.rejects(service.editLibrary(f.own,created.id,{...edit,mutationId:mutation()}),e=>e.status===409);
   await assert.rejects(service.editLibrary(f.other,created.id,{...edit,mutationId:mutation(),expectedRevision:2}),e=>e.status===404);
+  const hidden=await service.editLibrary(f.own,created.id,{mutationId:mutation(),expectedRevision:2,changes:{archived:true}});
+  assert.equal(hidden.item.archived,true);
+  const shown=await service.editLibrary(f.own,created.id,{mutationId:mutation(),expectedRevision:3,changes:{archived:false}});
+  assert.equal(shown.item.archived,false);
   const song=await service.createLibrary(f.own,{mutationId:mutation(),kind:'song',changes:{title:'Song',lyrics:'Words',artist:'Artist'}});
   f.sqlite.prepare("UPDATE library_items SET media_key='u1/song' WHERE id=?").run(song.id);
   await service.editLibrary(f.dev,song.id,{mutationId:mutation(),expectedRevision:1,changes:{lyrics:'New words'}});
@@ -204,7 +208,7 @@ test('Own text/song: point edit, saved IDs and revisions, replay/stale/foreign d
   const cleared=await service.editLibrary(f.own,song.id,{mutationId:mutation(),expectedRevision:marked.revision,changes:{lyrics:'Again'}});
   assert.deepEqual(cleared.item.marks,{});
   assert.equal(await mediaKey(f.db,f.own,'song',String(song.id)),'u1/song');await assert.rejects(mediaKey(f.db,f.other,'song',String(song.id)),e=>e.status===404);
-  const result=await service.editLibrary(f.own,created.id,{mutationId:mutation(),expectedRevision:2},true);assert.equal(result.revision,3);
+  const result=await service.editLibrary(f.own,created.id,{mutationId:mutation(),expectedRevision:4},true);assert.equal(result.revision,5);
   assert.ok(!(await service.library(f.own)).some(row=>row.stageId===created.id));assert.ok(f.sqlite.prepare('SELECT deleted_at FROM library_items WHERE id=?').get(created.id).deleted_at);
   await assert.rejects(service.createLibrary(f.own,{...body,mutationId:mutation(),changes:{title:'X',text:'X',owner_profile_id:2}}),e=>e.status===400);
   await assert.rejects(service.editLibrary(f.own,song.id,{mutationId:mutation(),expectedRevision:2,changes:{videoUrl:'javascript:alert(1)'}}),e=>e.status===400);

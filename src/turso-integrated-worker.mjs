@@ -15,6 +15,10 @@ import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const decoder=new TextDecoder();
+function deploymentContext(env){
+  const meta=env.CF_VERSION_METADATA||{};
+  return {name:'English Quiz',service:'learn-english',host:env.STAGE_ALLOWED_HOST||'',deploymentId:String(meta.id||''),deploymentTag:String(meta.tag||''),deployedAt:String(meta.timestamp||'')};
+}
 async function boundedText(request,limit,message){
   if(Number(request.headers.get('content-length')||0)>limit)throw new StudyError(413,message);
   const reader=request.body?.getReader();if(!reader)return '';let size=0,chunks=[];
@@ -98,7 +102,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
       if(path==='/api/bugs'&&method==='POST'){
         let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
-        const raw=await request.text();if(raw.length>12000)throw new StudyError(413,'Bug report too large.');
+        const raw=await request.text();if(raw.length>64000)throw new StudyError(413,'Bug report too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         const reported=String(body.path||'/');
         const status=Number(body.status);
@@ -107,7 +111,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           account:actor?{id:actor.id||'',login:actor.login||'',role:actor.role||''}:{id:'',login:'',role:''},
           method:String(body.method||'GET').slice(0,16),path:reported.slice(0,300),status,
           error:String(body.error||'Client failure').slice(0,500),timeZone:body.timeZone,
-          request:body.request&&typeof body.request==='object'&&!Array.isArray(body.request)?body.request:{},
+          request:body.request&&typeof body.request==='object'&&!Array.isArray(body.request)?{...body.request,context:{...(body.request.context&&typeof body.request.context==='object'&&!Array.isArray(body.request.context)?body.request.context:{}),application:{...(body.request.context?.application&&typeof body.request.context.application==='object'?body.request.context.application:{}),...deploymentContext(env)}}}:{context:{application:deploymentContext(env)}},
           response:body.response&&typeof body.response==='object'&&!Array.isArray(body.response)?body.response:{}
         });
         return new Response(null,{status:204});
@@ -314,7 +318,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
     }catch(error){return json({error:error instanceof StudyError?error.message:'Integrated test service unavailable.'},error instanceof StudyError?error.status:503);}
     })();
     if(bugProbe&&response&&(response.status<200||response.status>=300)&&request.headers.get('x-client-bug')!=='1'){
-      try{await recordHttpBug(studyDatabase(env),bugActor,bugProbe,response.clone());}catch{}
+      try{await recordHttpBug(studyDatabase(env),bugActor,bugProbe,response.clone(),deploymentContext(env));}catch{}
     }
     return response;
   }};

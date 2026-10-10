@@ -1,6 +1,6 @@
 // Developer-only failure journal. One row per repeated failure. The latest exchange replaces the stored one.
 import {statement} from './turso-study.mjs';
-const CLIP=4000;
+const CLIP=12000;
 const SECRET=new Set(['cookie','authorization','set-cookie','proxy-authorization']);
 const CREATE=`CREATE TABLE IF NOT EXISTS bug_reports (
   signature TEXT PRIMARY KEY,
@@ -55,14 +55,22 @@ export function zoneName(value){
   const zone=String(value||'UTC');
   return /^[A-Za-z0-9_+\-/]{1,80}$/.test(zone)?zone:'UTC';
 }
+function safeDetail(value,depth=0,key=''){
+  if(/password|secret|token|cookie|authorization/i.test(key))return '[hidden]';
+  if(value==null||typeof value==='boolean'||typeof value==='number')return value;
+  if(typeof value==='string')return clipText(value);
+  if(depth>=4)return '[depth limit]';
+  if(Array.isArray(value))return value.slice(0,40).map(item=>safeDetail(item,depth+1));
+  if(typeof value==='object')return Object.fromEntries(Object.entries(value).slice(0,60).map(([name,item])=>[name,safeDetail(item,depth+1,name)]));
+  return String(value);
+}
 function bugRequest(event,previous,now){
   const request=Object.assign({},event.request||{});
   delete request.history;
-  const context=request.context&&typeof request.context==='object'&&!Array.isArray(request.context)?Object.assign({},request.context):{};
-  for(const key of ['screen','href','language','userAgent','viewport','stack','role']){
-    if(context[key]==null||context[key]==='')delete context[key];
-    else context[key]=clipText(context[key]).slice(0,key==='stack'?1500:500);
-  }
+  const source=request.context&&typeof request.context==='object'&&!Array.isArray(request.context)?request.context:{};
+  const context=safeDetail(source);
+  for(const key of ['screen','href','language','userAgent','viewport','role'])if(context[key]!=null)context[key]=clipText(context[key]).slice(0,1000);
+  if(context.stack!=null)context.stack=clipText(context.stack).slice(0,8000);
   if(typeof context.online!=='boolean')delete context.online;
   if(event.account?.role)context.role=String(event.account.role).slice(0,40);
   if(Object.keys(context).length)request.context=context;
@@ -154,7 +162,7 @@ export async function listBugsByIds(db,ids){
   const byId=new Map(rows.map(row=>[row.signature,bugView(row)]));
   return wanted.map(id=>byId.get(id)).filter(Boolean);
 }
-export async function recordHttpBug(db,actor,request,response){
+export async function recordHttpBug(db,actor,request,response,application={}){
   if(!db||!response)return;
   const url=new URL(request.url);
   if((!url.pathname.startsWith('/api/')&&url.pathname!=='/lookup'&&url.pathname!=='/translate')||url.pathname==='/api/bugs'||url.pathname.endsWith('/media'))return;
@@ -171,7 +179,7 @@ export async function recordHttpBug(db,actor,request,response){
   await saveBug(db,{
     account:actor?{id:actor.id||'',login:actor.login||'',role:actor.role||''}:{id:'',login:'',role:''},
     method:request.method,path:url.pathname,status:response.status,error,timeZone:'UTC',
-    request:{method:request.method,url:url.pathname+url.search,headers:headerMap(request.headers),body:clipText(requestText)},
+    request:{method:request.method,url:url.pathname+url.search,headers:headerMap(request.headers),body:clipText(requestText),context:{application}},
     response:{status:response.status,headers:headerMap(response.headers),body:clipText(responseText)}
   });
 }

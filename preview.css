@@ -1516,6 +1516,8 @@ a.btn { text-decoration: none; }
 .bug-item .day { align-items: start; }
 .bug-item .day > b, .bug-item .day .about { overflow-wrap: anywhere; white-space: normal; }
 .bug-item .day.active { border-color: var(--acc); background: var(--acc-s); }
+.bug-item .bug-resolve, .bug-item .bug-copy { font-size: 18px; font-weight: 800; line-height: 1; }
+.bug-item .bug-copy:first-child { border-top: 0; }
 .bug-item.is-fixed .day {
   background: color-mix(in srgb, var(--mute) 18%, var(--card));
   border-color: color-mix(in srgb, var(--mute) 35%, var(--line));

@@ -414,11 +414,10 @@ function stageStoreSong(existingId){
     if(typeof accountFetch==='function')await stageAnalyzeSong(saved,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
 }
-async function stageKeepExpression(card){
+async function stageKeepExpression(card,managed=stageManagedSongReady()){
   const word=String(card.word||'').trim();
   const place=['phrasal','idioms','mine','music'].includes(card.place)?card.place:'mine';
   if(!word||cardIndex().has(word.toLowerCase()))return false;
-  const managed=stageManagedSongReady();
   const accountId=viewAccount?.id||'';
   try{
     const found=await window.TursoMain.findCard(word);
@@ -431,6 +430,22 @@ async function stageKeepExpression(card){
     const created=managed?await window.TursoMain.newManagedCard(accountId,word,ru,place):await window.TursoMain.newCard(word,ru,place);
     const list=loadAdded();list.unshift(created.card);stageStampLinks(list,created.revision);return true;
   }
+}
+function stageManagedCardReady(){return !!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);}
+function stageStoreTextExpression(expr,button,item){
+  const place=item.place||expressionPlace(expr),fromText=!!item.fromText;
+  const deck=expressionDeckName(place,fromText),status=document.getElementById('textReadStatus');
+  if(expressionSaved(expr)){
+    if(status)status.textContent='Already in '+deck+'.';
+    markExpressionButton(button,place,fromText);return;
+  }
+  return window.TursoMain.perform(async()=>{
+    if(viewAccount&&!stageManagedCardReady())throw new Error('Wait for the selected profile to load.');
+    if(!String(item.ru||'').trim())throw new Error('A translation is required before this expression can be saved.');
+    const added=await stageKeepExpression(item,stageManagedCardReady());
+    if(status)status.textContent=added?'Added to '+deck+'.':'Already in '+deck+'.';
+    markExpressionButton(button,place,fromText);
+  },status);
 }
 function stageLyricRu(data){
   const cam=data&&data.cambridge||{},wh=data&&data.wooordhunt||{};
@@ -547,10 +562,68 @@ function stagePaintLocalAudio(song,box){
   return true;
 }
 function stageManagedSongReady(){return !!(viewAccount&&authUser?.role==='DEVELOPER'&&accountReady&&!viewSwitching);}
+function stageCanManageLibrary(item,kind){
+  if(!item?.stageId||item.stageScope!=='profile')return false;
+  if(!viewAccount)return stageOwnReady();
+  return !!(authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching&&(kind==='text'||authUser.role==='DEVELOPER'));
+}
+function stageLibraryTools(item,kind){
+  if(!stageCanManageLibrary(item,kind))return '';
+  const hidden=!!item.archived;
+  const eye=hidden
+    ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
+    :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
+  const trash='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
+  const attrs=' data-library-kind="'+kind+'" data-library-id="'+esc(item.id)+'"';
+  return '<div class="day-tools"><button class="day-hide'+(hidden?' is-on':'')+'" type="button" data-stage-library-action="toggle"'+attrs+' aria-label="'+(hidden?'Show':'Hide')+'" title="'+(hidden?'Show':'Hide')+'">'+eye+'</button><button class="day-del" type="button" data-stage-library-action="delete"'+attrs+' aria-label="Delete" title="Delete">'+trash+'</button></div>';
+}
+function stagePaintLibraryList(kind){
+  const song=kind==='song',list=song?loadSongs():loadTexts(),visible=list.filter(item=>!item.archived);
+  const count=document.getElementById(song?'lyricCount':'textCount');if(count)count.textContent=String(visible.length);
+  if(song){const title=document.querySelector('#music h1');if(title)title.textContent='Song lyrics · '+visible.length;}
+  const box=document.getElementById(song?'lyricList':'textList');if(!box)return;
+  if(!list.length){box.innerHTML='<p class="hint">No '+(song?'songs':'texts')+' yet.</p>';return;}
+  box.innerHTML=list.map((item,index)=>{
+    let about='Hidden';
+    if(!item.archived){
+      if(song){try{about=statsLine(songStat(Object.keys(item.marks||{}),item.marks||{}));}catch{about='';}}
+      else about=textAbout(item);
+    }
+    const attr=song?'data-lyric="'+esc(item.id)+'"':'data-text-open="'+esc(item.id)+'"';
+    return '<div class="day-row'+(item.archived?' is-hidden':'')+'">'+songRow(index+1,item.title||'Untitled',song?item.artist||'':'',about,attr)+stageLibraryTools(item,kind)+'</div>';
+  }).join('');
+  if(typeof applyCardSearch==='function')applyCardSearch(box.closest('section'));
+}
+function stageRemoveLibrary(item,kind){
+  const list=(kind==='song'?loadSongs():loadTexts()).filter(row=>row.id!==item.id);
+  stageListEpoch[kind==='song'?'songs':'texts']++;
+  stageSettled[kind==='song'?'songs':'texts']=true;
+  window.ContentCache?.drop(kind==='song'?'songs:list':'texts:list');
+  if(item.stageId)window.ContentCache?.drop(stageItemKey(kind,item.stageId));
+  if(kind==='song')writeSongs(list);else localStorage.setItem(TEXT_KEY,JSON.stringify(list));
+  stagePaintLibraryList(kind);stagePaintCounts();
+}
+function stageLibraryAction(action,kind,rawId){
+  if(!['song','text'].includes(kind)||!['toggle','delete'].includes(action))return;
+  const item=(kind==='song'?loadSongs():loadTexts()).find(row=>row.id===stageDomId(rawId));if(!stageCanManageLibrary(item,kind))return;
+  if(action==='delete'&&!confirm('Delete this '+kind+'?'))return;
+  const managed=!!viewAccount,accountId=viewAccount?.id||'',generation=viewGen;
+  return window.TursoMain.perform(async()=>{
+    if(action==='toggle'){
+      const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,kind,{archived:!item.archived}):await window.TursoMain.saveLibrary(item,kind,{archived:!item.archived});
+      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
+      stageInstallLibrary(result.item,kind);stagePaintLibraryList(kind);
+    }else{
+      if(managed)await window.TursoMain.deleteManagedLibrary(accountId,item,kind);else await window.TursoMain.deleteLibrary(item);
+      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
+      stageRemoveLibrary(item,kind);
+    }
+  });
+}
 function stageMountTextArchive(id){
   const item=loadTexts().find(row=>row.id===id),host=document.getElementById('textEdit')?.parentNode;if(!host)return;
   let button=host.querySelector('[data-stage-text-archive]');
-  if(!button){button=document.createElement('button');button.type='button';button.className='btn';button.dataset.stageTextArchive='';button.textContent='Archive text';host.append(button);}
+  if(!button){button=document.createElement('button');button.type='button';button.className='btn';button.dataset.stageTextArchive='';button.textContent='Delete text';host.append(button);}
   button.hidden=!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching&&item?.stageScope==='profile'&&item.stageId);
   button.onclick=()=>stageArchiveText(id);
 }
@@ -899,6 +972,8 @@ function stageResponseEvent(event){
   catch(error){window.TursoMain.notice(error.message,true);}
 }
 document.addEventListener('click',event=>{
+  const action=event.target.closest&&event.target.closest('[data-stage-library-action]');
+  if(action){event.preventDefault();event.stopPropagation();stageLibraryAction(action.dataset.stageLibraryAction,action.dataset.libraryKind,action.dataset.libraryId);return;}
   const song=event.target.closest&&event.target.closest('[data-lyric]');
   if(song){event.preventDefault();event.stopPropagation();stageOpenSongId(song.dataset.lyric);return;}
   const text=event.target.closest&&event.target.closest('[data-text-open]');
@@ -1013,7 +1088,7 @@ function stageLiveCounts(){
   const phrases=(data.phrasalWords||[]).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='phrasal'&&!item.fromText).length:0);
   const idioms=(data.idiomWords||[]).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='idioms'&&!item.fromText).length:0);
   const words=typeof allRows==='function'?allRows().length:((data.words||[]).length+(data.extraWords||[]).length+(data.lines21||[]).length+(data.ask07||[]).length+(data.phrases09||[]).length+(data.adverbs14||[]).length+(data.talk16||[]).length+(data.likes23||[]).length+mine+phrases+idioms);
-  return {words,mine,phrases,idioms,verbs:(window.IRREGULAR||[]).length,songs:typeof loadSongs==='function'?loadSongs().filter(row=>!row.archived).length:0,texts:typeof loadTexts==='function'?loadTexts().length:0};
+  return {words,mine,phrases,idioms,verbs:(window.IRREGULAR||[]).length,songs:typeof loadSongs==='function'?loadSongs().filter(row=>!row.archived).length:0,texts:typeof loadTexts==='function'?loadTexts().filter(row=>!row.archived).length:0};
 }
 function stagePaintCounts(counts){
   const live=stageLiveCounts();
@@ -1209,7 +1284,7 @@ function stagePaintTexts(after){
     if(!data.next&&seen.started)stageSettled.texts=true;
     localStorage.setItem(TEXT_KEY,JSON.stringify(next));
     window.ContentCache.set('texts:after',data.next||'');
-    renderTextList();paintTextCount();
+    paintTextCount();renderTextList();
     stagePaintCounts();
     stageFollow('texts',data.next,cursor,stagePaintTexts);
     for(const row of loadTexts())stageApplyLibraryBlocks(row,'text');

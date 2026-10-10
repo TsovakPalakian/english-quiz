@@ -24,6 +24,12 @@
     let compareId = "";
     let openMarkerName = "";
     let openTenseId = "ps";
+    function domEntityId(value) {
+      const raw = String(value == null ? "" : value);
+      if (!/^[1-9]\d{0,15}$/.test(raw)) return value;
+      const id = Number(raw);
+      return Number.isSafeInteger(id) ? id : value;
+    }
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
@@ -1771,6 +1777,11 @@
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
         if (bugCache) paintBugs(bugCache);
         else paintBugs();
+        return;
+      }
+      const bugCopy = e.target.closest("[data-bug-copy]");
+      if (bugCopy) {
+        copyBugBody(bugCopy);
         return;
       }
       const bugResolve = e.target.closest("[data-bug-resolve]");
@@ -10028,6 +10039,30 @@
         return new Date(time).toISOString() + " UTC";
       }
     }
+    async function copyBugBody(button) {
+      const item = button && button.closest(".bug-item");
+      const detail = item && item.querySelector(".bug-detail");
+      const text = detail ? detail.textContent : "";
+      if (!text) return;
+      try {
+        if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(text);
+        else {
+          const area = document.createElement("textarea");
+          area.value = text;
+          area.setAttribute("readonly", "");
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.select();
+          if (!document.execCommand("copy")) throw new Error("Copy failed");
+          area.remove();
+        }
+        button.textContent = "✓";
+        setTimeout(() => { if (button.isConnected) button.textContent = "⧉"; }, 1200);
+      } catch (e) {
+        button.title = "Copy failed";
+      }
+    }
     function bugListHtml(rows, canResolve) {
       if (!rows.length) return '<p class="sub">No bugs yet.</p>';
       const ordered = rows.slice().sort((a, b) => {
@@ -10050,11 +10085,15 @@
         })();
         const happened = ((row.status || row.status === 0 ? String(row.status) + " " : "") + (row.error || "")).trim();
         const ctx = row.request && row.request.context && typeof row.request.context === "object" ? row.request.context : {};
+        const app = ctx.application && typeof ctx.application === "object" ? ctx.application : {};
         const headers = row.request && row.request.headers && typeof row.request.headers === "object" ? row.request.headers : {};
         const history = Array.isArray(row.request && row.request.history) ? row.request.history : [];
         const earlier = history.map((item) => [bugWhen(item && item.at, zone), item && item.url, item && item.body].filter(Boolean).join(" ")).join("\n");
         const detail = [
-          "Where: " + place, "What happened: " + happened, "Account: " + who, ctx.role ? "Role: " + ctx.role : "",
+          "Bug ID: " + (row.id || ""), "Where: " + place, "What happened: " + happened, "Account: " + who, ctx.role ? "Role: " + ctx.role : "",
+          app.name ? "Application: " + app.name : "", app.service ? "Service: " + app.service : "",
+          app.deploymentId ? "Deployment ID: " + app.deploymentId : "", app.deploymentTag ? "Deployment tag: " + app.deploymentTag : "",
+          app.deployedAt ? "Deployed: " + app.deployedAt : "", app.host ? "Host: " + app.host : "",
           "Count: " + hits, "Last: " + when, "First: " + first, ctx.screen ? "Screen: " + ctx.screen : "",
           ctx.href ? "Page: " + ctx.href : "", (ctx.userAgent || headers["user-agent"]) ? "Browser: " + (ctx.userAgent || headers["user-agent"]) : "",
           ctx.language ? "Language: " + ctx.language : "", ctx.viewport ? "Viewport: " + ctx.viewport : "",
@@ -10065,8 +10104,9 @@
         const stamp = when ? '<small style="display:block;font-size:11px;font-weight:400">' + esc(when) + "</small>" : "";
         const caption = esc(happened) + " · " + esc(who) + stamp;
         const route = ((row.method || "") + " " + (row.path || "")).trim();
-        const resolve = canResolve ? '<button class="btn" type="button" data-bug-resolve="' + esc(row.id) + '">Resolved</button>' : "";
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button>' + resolve + '</div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
+        const resolve = canResolve ? '<button class="day-hide bug-resolve" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
+        const copy = '<button class="day-edit bug-copy" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><pre class="bug-detail" hidden>' + esc(detail) + "</pre></div>";
       }).join("");
     }
     let bugTab = "open";
@@ -11719,6 +11759,7 @@
       }).join("");
     }
     function groupOpen(id) {
+      id = domEntityId(id);
       if (!classGroups.some((group) => group.id === id)) return;
       classGroupId = id;
       visit("days");
@@ -11734,6 +11775,7 @@
       });
     }
     function groupEdit(id, button) {
+      id = domEntityId(id);
       if (!canEditLessons()) return;
       const group = classGroups.find((row) => row.id === id);
       if (!group || !button) return;
@@ -11745,6 +11787,7 @@
       });
     }
     function groupHide(id) {
+      id = domEntityId(id);
       if (!canEditLessons()) return;
       const group = classGroups.find((row) => row.id === id);
       if (!group) return;
@@ -11753,6 +11796,7 @@
       groupSave();
     }
     function groupDelete(id) {
+      id = domEntityId(id);
       if (!canEditLessons() || classGroups.length < 2) return;
       const group = classGroups.find((row) => row.id === id);
       if (!group || !confirm("Delete this group? Its classes will move to the first group.")) return;
@@ -13190,6 +13234,7 @@
       }).join("");
     }
     function lmOpenLesson(id) {
+      id = domEntityId(id);
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
@@ -13209,6 +13254,7 @@
       lmLibrary.activeId = lmState.id;
     }
     function lmDeleteLesson(id) {
+      id = domEntityId(id);
       if (!canEditLessons() || viewAccount) return;
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
@@ -13231,6 +13277,7 @@
       else paintLmDays();
     }
     function lmHideLesson(id) {
+      id = domEntityId(id);
       if (!canEditLessons() && !canTuneStudentLessons()) return;
       lmEnsure();
       if (viewAccount) {
@@ -13705,9 +13752,9 @@
       if (lmDayList) lmDayList.addEventListener("change", (event) => {
         const select = event.target.closest("[data-group-move]");
         if (!select || !canEditLessons() || viewAccount) return;
-        const lessonId = select.dataset.groupMove;
+        const lessonId = domEntityId(select.dataset.groupMove);
         classGroups.forEach((group) => { group.lessonIds = group.lessonIds.filter((id) => id !== lessonId); });
-        const target = classGroups.find((group) => group.id === select.value);
+        const target = classGroups.find((group) => group.id === domEntityId(select.value));
         if (target) target.lessonIds.push(lessonId);
         paintLmDays();
         paintGroups();
@@ -13850,6 +13897,7 @@
       });
     }
     function examFind(id) {
+      id = domEntityId(id);
       return examLoad().find((row) => row.id === id) || null;
     }
     let examWork = {};
@@ -14246,6 +14294,7 @@
       }).join("");
     }
     function examHide(kind, id) {
+      id = domEntityId(id);
       if (!canEditLessons()) return;
       const exams = examLoad();
       if (kind === "exam") {
@@ -14263,6 +14312,7 @@
       else examPaintBlocks();
     }
     function examDelete(kind, id) {
+      id = domEntityId(id);
       if (!canEditLessons()) return;
       const exams = examLoad();
       if (kind === "exam") {
@@ -14401,6 +14451,7 @@
       pop.elements.title.select();
     }
     function examEdit(id, button) {
+      id = domEntityId(id);
       const exam = examFind(id);
       if (!exam || !button) return;
       openItemEditor(button, { title: exam.title || "Exam", date: exam.date || "", label: "Exam name" }, (value) => examSetMeta(id, value));
@@ -14445,6 +14496,7 @@
       examPaintBlocks();
     }
     function examOpenBlock(blockId) {
+      blockId = domEntityId(blockId);
       const exam = examView(examCurrentId);
       const block = exam && (exam.blocks || []).find((row) => row.id === blockId);
       if (!block || !block.doc) return;
@@ -14496,7 +14548,7 @@
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
         if (!open) return;
-        examCurrentId = open.dataset.examOpen;
+        examCurrentId = domEntityId(open.dataset.examOpen);
         visit("examblocks");
       });
       if (blocks) blocks.addEventListener("click", (event) => {

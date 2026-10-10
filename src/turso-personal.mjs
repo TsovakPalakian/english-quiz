@@ -118,7 +118,7 @@ export class PersonalService extends StudyService {
   }
   validateLibrary(kind,changes){
     if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
-    only(changes,kind==='text'?['title','text','analysis']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
+    only(changes,kind==='text'?['title','text','analysis','archived']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
     if(!Object.keys(changes).length)bad(400,'Send changed fields only.');
     for(const [key,value] of Object.entries(changes)){
       if(key==='marks'||key==='analysis'){
