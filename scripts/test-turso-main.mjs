@@ -1025,6 +1025,24 @@ test('Main HTTP lesson routes: teacher create/edit/delete, real-role denial and 
     assert.equal((await (await call('/api/lessons')).json()).materials.some(l=>l.id===lessonId),false);
   }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
 });
+test('Large text create/edit bodies are accepted while other JSON routes stay at 64 KiB',async()=>{
+  const f=fixture(),server=createMainServer({db:f.db,auth:new RealStageAuth(f.source)});
+  server.listen(0,'127.0.0.1');await once(server,'listening');const origin=`http://127.0.0.1:${server.address().port}`;
+  let cookie='';const call=async(path,method,body)=>{
+    const response=await fetch(origin+path,{method,headers:{Origin:origin,...(cookie?{Cookie:cookie}:{}),'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(response.headers.has('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return response;
+  };
+  try{
+    await call('/api/login','POST',{login:'teacher',password:f.password});
+    const text='Chapter '.repeat(10_000);
+    const created=await call('/api/library','POST',{mutationId:crypto.randomUUID(),kind:'text',changes:{title:'Book',text}});
+    assert.equal(created.status,200);const saved=await created.json();
+    const edited=await call('/api/library/'+saved.id,'PATCH',{mutationId:crypto.randomUUID(),expectedRevision:1,changes:{text:text+'End'}});
+    assert.equal(edited.status,200);assert.equal((await edited.json()).item.text.length,text.length+3);
+    const ordinary=await call('/api/me/cards/new','POST',{mutationId:crypto.randomUUID(),expectedRevision:0,card:{en:'word',ru:text,place:'mine'}});
+    assert.equal(ordinary.status,413);
+  }finally{await new Promise(resolve=>server.close(resolve));f.sqlite.close();}
+});
 test('Lesson buttons publish only after acknowledgement; failed Save keeps the original lesson and draft',async()=>{
   const pending=[],shown=[],notes=[],context={lmState:{id:'lesson',title:'Draft',published:false,mode:'edit',blocks:[]},lmSaveTimer:0,
     canEditLessons:()=>true,viewAccount:null,viewSwitching:false,clearTimeout(){},lmKeepLesson(){},lmPersist(){},
@@ -1281,6 +1299,17 @@ test('A saved card opens from the cache when the session is not ready',async()=>
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageHydrateMade({word:'',en:'mine',stageId:'m1',stageRevision:1,stageDataDeferred:true,place:'mine'});
   assert.deepEqual(shown,['made']);assert.equal(painted[0].word,'mine');assert.equal(painted[0].stageDataDeferred,false);
+});
+test('Numeric song and text IDs open when DOM attributes provide strings',async()=>{
+  const opened=[],held=new Map(),song={id:10,stageId:10,stageRevision:1,stageLyricsDeferred:false,lyrics:'Words',marks:{}};
+  const text={id:20,stageId:20,stageRevision:1,stageTextDeferred:false,text:'Story'};
+  const window={ContentCache:{get:key=>held.get(key),hold:(key,value)=>held.set(key,value),flush(){}}};
+  const scope={window,crypto,console,location:{},loadSongs:()=>[song],loadTexts:()=>[text],
+    renderUserSong:value=>opened.push(['song',value.id]),showText:id=>opened.push(['text',id]),visit:id=>opened.push(['view',id]),
+    document:{addEventListener(){},querySelector(){return {id:''};},getElementById:id=>id==='songUser'?{}:null}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  await scope.stageOpenSongId('10');await scope.stageOpenText('20');
+  assert.deepEqual(opened,[['view','song'],['song',10],['text',20]]);
 });
 test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   const session=new Map();

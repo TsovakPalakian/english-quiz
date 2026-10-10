@@ -19,11 +19,13 @@ import {pdfAssetFile} from './turso-pdf-assets.mjs';
 import {credentials} from './turso-staging.mjs';
 import {defaultSnapshot} from './run-turso-stage.mjs';
 import {stageContentPolicy} from '../src/turso-embed.mjs';
+import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from '../src/turso-request-limits.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
-export async function jsonBody(req){
+export async function jsonBody(req,limit=JSON_BODY_LIMIT){
   if(req.headers['content-type']?.split(';')[0]!=='application/json')throw new StudyError(415,'Use application/json.');
+  if(Number(req.headers['content-length']||0)>limit)throw new StudyError(413,'Request too large.');
   const chunks=[];let size=0;
-  for await(const chunk of req){size+=chunk.length;if(size>65_536)throw new StudyError(413,'Request too large.');chunks.push(chunk);}
+  for await(const chunk of req){size+=chunk.length;if(size>limit)throw new StudyError(413,'Request too large.');chunks.push(chunk);}
   try{const body=JSON.parse(Buffer.concat(chunks).toString('utf8'));if(!body || typeof body!=='object' || Array.isArray(body))throw new Error();return body;}
   catch{throw new StudyError(400,'Invalid JSON.');}
 }
@@ -163,7 +165,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         res.writeHead(response.status,headers);if(req.method==='HEAD'){await response.body?.cancel();res.end();}else if(response.body)Readable.fromWeb(response.body).on('error',()=>res.destroy()).pipe(res);else res.end();return;
       }
       if(newCardWrite){json(200,await personal.createOwnCard(actor,await jsonBody(req)));return;}
-      if(libraryWrite){const body=await jsonBody(req);json(200,path==='/api/library'?await personal.createLibrary(actor,body):await personal.editLibrary(actor,entityKey(decodeURIComponent(libraryRoute[1])),body,req.method==='DELETE'));return;}
+      if(libraryWrite){const body=await jsonBody(req,req.method==='DELETE'?JSON_BODY_LIMIT:LIBRARY_BODY_LIMIT);json(200,path==='/api/library'?await personal.createLibrary(actor,body):await personal.editLibrary(actor,entityKey(decodeURIComponent(libraryRoute[1])),body,req.method==='DELETE'));return;}
       if(path==='/api/library'&&url.searchParams.has('ids')){json(200,{items:await personal.libraryItems(actor,url.searchParams.get('ids'))});return;}
       if(path==='/api/library'){json(200,{items:await personal.library(actor)});return;}
       if(activityWrite){json(200,await activity.events(actor,await jsonBody(req)));return;}

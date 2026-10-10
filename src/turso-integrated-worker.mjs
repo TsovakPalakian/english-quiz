@@ -11,8 +11,18 @@ import {stageR2Media} from './turso-r2-media.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
+import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
+const decoder=new TextDecoder();
+async function boundedText(request,limit,message){
+  if(Number(request.headers.get('content-length')||0)>limit)throw new StudyError(413,message);
+  const reader=request.body?.getReader();if(!reader)return '';let size=0,chunks=[];
+  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw new StudyError(413,message);}chunks.push(value);}}
+  finally{reader.releaseLock();}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  return decoder.decode(bytes);
+}
 const identity='[a-f0-9]{16,64}';
 const cardKey=value=>{const id=Number(value);if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(id))throw new StudyError(400,'Invalid card ID.');return id;};
 // The source handler uses HTTP-quoted ETags for CAS. R2Conditional needs raw
@@ -191,7 +201,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const kind=managedText[2]==='texts'?'text':'song';
         if(kind==='song'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song management only.');
-        const raw=await request.text();if(raw.length>64000)throw new StudyError(413,'Text request too large.');
+        const raw=await boundedText(request,kind==='text'?LIBRARY_BODY_LIMIT:JSON_BODY_LIMIT,'Text request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         const service=new PersonalService(studyDatabase(env));
         return json(method==='POST'?await service.createManagedLibrary(actor,found.row.id,kind,body):await service.editManagedLibrary(actor,found.row.id,cardKey(managedText[3]),kind,body,method==='DELETE'));

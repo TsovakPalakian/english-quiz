@@ -899,6 +899,12 @@ function stageResponseEvent(event){
   catch(error){window.TursoMain.notice(error.message,true);}
 }
 document.addEventListener('click',event=>{
+  const song=event.target.closest&&event.target.closest('[data-lyric]');
+  if(song){event.preventDefault();event.stopPropagation();stageOpenSongId(song.dataset.lyric);return;}
+  const text=event.target.closest&&event.target.closest('[data-text-open]');
+  if(text){event.preventDefault();event.stopPropagation();stageOpenText(text.getAttribute('data-text-open'));return;}
+},true);
+document.addEventListener('click',event=>{
   const more=event.target.closest&&event.target.closest('[data-stage-more]');
   if(more){stageLibraryBatch(more.dataset.stageMore);return;}
   const retry=event.target.closest&&event.target.closest('[data-stage-retry]');
@@ -908,7 +914,7 @@ document.addEventListener('click',event=>{
   if(kind==='speak'){stageLoadSpeak('level',speakLevel,-1,-1);return;}
   if(kind==='verbs'){show('verbs');return;}
   if(kind==='texts'){stagePaintTexts();return;}
-  if(kind==='song'){const song=loadSongs().find(row=>row.id===retry.dataset.songId);if(song)stageOpenSong(song);return;}
+  if(kind==='song'){stageOpenSongId(retry.dataset.songId);return;}
   stageLibraryBatch(kind);
 });
 for(const event of ['input','change','focusout','click'])document.addEventListener(event,stageResponseEvent,true);
@@ -1212,6 +1218,7 @@ function stagePaintTexts(after){
   }).catch(error=>{if(box)box.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="texts">Retry</button></p>';throw error;});
 }
 function stageOpenText(id){
+  id=stageDomId(id);
   const item=loadTexts().find(row=>row.id===id);
   const box=document.getElementById('textList');
   if(!item||!item.stageId)return;
@@ -1278,6 +1285,10 @@ function stageOpenSong(song){
     const list=loadSongs();
     renderUserSong(list.find(row=>row.stageId===key||row.id===song.id)||{...song,...full,stageLyricsDeferred:false});
   }).catch(error=>{window.TursoMain.notice(error.message,true);if(user)user.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="song" data-song-id="'+esc(song.id||'')+'">Retry</button></p>';});
+}
+function stageOpenSongId(id){
+  const song=loadSongs().find(row=>row.id===stageDomId(id));
+  if(song&&!song.archived)return stageOpenSong(song);
 }
 function stageAccountBase(){return viewAccount&&viewAccount.id?'/api/admin/users/'+encodeURIComponent(viewAccount.id):'/api/me';}
 function stageWho(){return (typeof viewAccount!=='undefined'&&viewAccount&&viewAccount.id)||(typeof authUser!=='undefined'&&authUser&&authUser.id)||'';}

@@ -2023,6 +2023,9 @@ video.player { display: block; width: 100%; max-height: 360px; background: var(-
 #songUser.card.grow { overflow: visible; }
 .song-player { border: 1px solid var(--acc); border-radius: 20px; padding: 8px 10px 10px; margin: 0 0 12px; background: var(--card); overflow: hidden; }
 .song-player .player, .song-player iframe, .song-player audio, .song-player video { position: relative !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important; transform: none !important; border-radius: 12px; max-width: 100%; }
+.song-player iframe[data-embed="spotify"] { display: block; width: 100%; margin-bottom: 0; background: transparent; }
+.song-player iframe[data-spotify-height="152"] { height: 152px !important; min-height: 152px !important; max-height: 152px !important; }
+.song-player iframe[data-spotify-height="232"] { height: 232px !important; min-height: 232px !important; max-height: 232px !important; }
 .song-player.is-playing { background: var(--card); z-index: 5; }
 .drop { border: 1px dashed var(--line); border-radius: 16px; padding: 16px; text-align: center; color: var(--mute); margin: 8px 0; background: var(--bg); }
 button:disabled { opacity: .45; }

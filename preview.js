@@ -5963,11 +5963,18 @@
       if (!uri) return;
       iframe.dataset.spotifyOn = "1";
       const height = uri.indexOf(":track:") >= 0 || uri.indexOf(":episode:") >= 0 ? 152 : 232;
+      const size = (node) => {
+        if (!node || !node.style) return;
+        node.dataset.spotifyHeight = String(height);
+        ["height", "min-height", "max-height"].forEach((name) => node.style.setProperty(name, height + "px", "important"));
+      };
+      size(iframe);
       try {
         api.createController(iframe, { uri: uri, width: "100%", height: height }, (controller) => {
           const live = (controller && controller.iframeElement) || iframe;
           if (live.classList) live.classList.add("player");
           live.dataset.embed = "spotify";
+          size(live);
           live.__spotifyController = controller;
           iframe.__spotifyController = controller;
           const box = live.closest(".song-player");

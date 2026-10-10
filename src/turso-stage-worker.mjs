@@ -14,6 +14,7 @@ import {inlineAssetResponse} from './turso-inline-assets.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
 import {pdfAsset} from './turso-pdf-assets.mjs';
 import {stageContentPolicy} from './turso-embed.mjs';
+import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 export const studyClient=env=>new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'});
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
@@ -59,11 +60,11 @@ export class StageAuthBudget {
     });
   }
 }
-async function body(request){
+async function body(request,limit=JSON_BODY_LIMIT){
   if(request.headers.get('content-type')?.split(';')[0]!=='application/json')throw new StudyError(415,'Use JSON.');
-  if(Number(request.headers.get('content-length')||0)>65536)throw new StudyError(413,'Body too large.');
+  if(Number(request.headers.get('content-length')||0)>limit)throw new StudyError(413,'Body too large.');
   const reader=request.body?.getReader();if(!reader)throw new StudyError(400,'Missing body.');let size=0,chunks=[];
-  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>65536){await reader.cancel();throw new StudyError(413,'Body too large.');}chunks.push(value);}}
+  try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();throw new StudyError(413,'Body too large.');}chunks.push(value);}}
   finally{reader.releaseLock();}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   try{const value=JSON.parse(decoder.decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))throw new Error();return value;}catch{throw new StudyError(400,'Invalid JSON.');}
@@ -169,7 +170,8 @@ export default {async fetch(request,env){
     }
     if(inline){const entry=await inlineMedia(db,actor,inline[1]);return await inlineAssetResponse(env.ASSETS,request,entry);}
     const s=new StudyService(db),p=new PersonalService(db),a=new ActivityService(db);
-    const value=write?await body(request):null,id=match=>decodeURIComponent(match[1]);
+    const libraryBody=(path==='/api/library'&&method==='POST')||(library&&method==='PATCH');
+    const value=write?await body(request,libraryBody?LIBRARY_BODY_LIMIT:JSON_BODY_LIMIT):null,id=match=>decodeURIComponent(match[1]);
     if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(path==='/api/me/custom-themes')return json(await p.saveCustomThemes(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,cardKey(lessonUpload[1]),cardKey(lessonUpload[2]),value));

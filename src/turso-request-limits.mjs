@@ -1,0 +1,2 @@
+export const JSON_BODY_LIMIT=65_536;
+export const LIBRARY_BODY_LIMIT=8*1024*1024;

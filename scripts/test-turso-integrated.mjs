@@ -105,6 +105,8 @@ test('Managed text PATCH authorizes target before Turso, rejects spoofing and pr
     method:'PATCH',headers:{Origin:origin},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-text-patch',expectedRevision:1,changes:{title:'After'}};
   const response=await call(body);assert.equal(response.status,200);assert.equal((await response.json()).item.text,'Keep');
+  const large=await call({...body,mutationId:'synthetic-large-text-patch',changes:{text:'Chapter '.repeat(10_000)}});
+  assert.equal(large.status,200);
   assert.ok(queries.some(q=>q.sql.includes('profile_members')&&q.args[0]===targetId));
   assert.equal(commands.find(c=>c.sql.startsWith('INSERT INTO operation_receipts')).args[0].value,id);
   const count=commands.length;
