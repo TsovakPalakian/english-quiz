@@ -219,7 +219,7 @@ function slicePage(ids,cursor,size){
   return {page,next:start+size<ids.length?page.at(-1)||null:null};
 }
 export async function accountThemes(db,actor){
-  const rows=await db.read("SELECT key,value_json,length(value_json) bytes FROM account_settings WHERE account_id=? AND key IN ('theme','customThemes')",[actor.id]);
+  const rows=await db.read("SELECT key,value_json,revision,length(value_json) bytes FROM account_settings WHERE account_id=? AND key IN ('theme','customThemes')",[actor.id]);
   let theme='',themes=[];
   for(const row of rows){
     let value;
@@ -227,7 +227,7 @@ export async function accountThemes(db,actor){
     if(row.key==='theme'&&typeof value==='string')theme=value;
     if(row.key==='customThemes'&&Array.isArray(value)&&Number(row.bytes)<=60000)themes=value;
   }
-  return {theme,themes};
+  return {accountId:actor.id,theme,themes,stageThemeRevision:Number(rows.find(row=>row.key==='theme')?.revision)||0,stageCustomRevision:Number(rows.find(row=>row.key==='customThemes')?.revision)||0};
 }
 export async function accountBootstrap(db,actor){
   const profile=await profileOf(db,actor);
@@ -279,7 +279,7 @@ export async function accountBootstrap(db,actor){
 function cardRow(row){
   return {...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stagePublicCatalog:row.stage_public||false};
 }
-const personalCardPlaces=['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const personalCardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 export async function accountCards(db,actor,{after='',limit=50,place=''}={}){
   if(place&&!personalCardPlaces.includes(place))throw new StudyError(400,'Invalid personal card destination.');
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after),placeSql=place?' AND p.place=?':'';

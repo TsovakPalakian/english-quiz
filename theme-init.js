@@ -25,7 +25,8 @@
       let picture = null;
       try { picture = JSON.parse(localStorage.getItem("enquiz-theme-picture") || "null"); } catch (e) {}
       let photo = "";
-      if (picture && picture.id === theme.id && typeof picture.url === "string" && picture.url.startsWith("data:image/")) photo = picture.url;
+      const stamp = typeof theme.photo === "string" && theme.photo.startsWith("stage-local/themes/") ? theme.photo.slice(theme.photo.lastIndexOf("/") + 1) : "";
+      if (theme.photo && picture && picture.id === theme.id && picture.stamp === stamp && typeof picture.url === "string" && picture.url.startsWith("data:image/")) photo = picture.url;
       else if (typeof theme.photo === "string" && theme.photo.startsWith("data:image/")) photo = theme.photo;
       else if (typeof theme.photo === "string" && theme.photo.startsWith("stage-local/themes/")) photo = "/api/theme-photo?id=" + encodeURIComponent(theme.id) + "&v=" + theme.photo.slice(theme.photo.lastIndexOf("/") + 1);
       if (photo) root.style.setProperty("--theme-photo", "url(" + JSON.stringify(photo) + ")");

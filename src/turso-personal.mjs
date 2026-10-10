@@ -1,7 +1,7 @@
 // Point mutations for own content; used only by isolated Turso staging.
 import {StudyService,StudyError,statement as s,cardAccess,accessArgs,cardId,recordId} from './turso-study.mjs';
 const bad=(status,message)=>{throw new StudyError(status,message);};
-const cardPlaces=['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const cardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 function ownPlace(card){if(card.place==null||card.place==='')return 'mine';if(!cardPlaces.includes(card.place))bad(400,'Invalid personal card destination.');return card.place;}
 const only=(value,keys)=>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))bad(400,'Invalid fields.');};
 const id=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))bad(400,'Invalid ID.');return value;};
@@ -25,7 +25,6 @@ export class PersonalService extends StudyService {
     const themes=body.themes.map(row=>{
       if(!row||typeof row.id!=='string'||!/^user-[a-z0-9-]{1,80}$/.test(row.id))bad(400,'Invalid theme.');
       const incoming=typeof row.owner==='string'?row.owner.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
-      if(incoming&&mine&&incoming!==mine)return null;
       const vars={};
       if(row.vars&&typeof row.vars==='object')for(const [key,val] of Object.entries(row.vars)){
         if(typeof val!=='string')continue;
@@ -37,12 +36,21 @@ export class PersonalService extends StudyService {
       const photo=typeof row.photo==='string'&&/^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/.test(row.photo)?row.photo:'';
       return {id:row.id,name:typeof row.name==='string'?row.name.slice(0,64):'',owner:mine||incoming,bg:vars['--bg'],card:vars['--card'],acc:vars['--acc'],vars,photo};
     }).filter(Boolean);
+    if(new Set(themes.map(row=>row.id)).size!==themes.length)bad(400,'Duplicate theme identity.');
     return this.personal(actor,body,['account-custom-themes'],async profile=>{
-      const stored=themes.map(row=>({...row,photo:row.photo.startsWith(`stage-local/themes/${profile}/${row.id}/`)?row.photo:''}));
+      const [existing]=await this.db.read("SELECT revision,value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[actor.id]);
+      let previous=[];
+      try{previous=JSON.parse(existing?.value_json||'[]');}catch{}
+      const stored=themes.map(row=>{
+        const prefix=`stage-local/themes/${profile}/${row.id}/`;
+        if(row.photo&&!row.photo.startsWith(prefix))bad(403,'This theme picture belongs to another profile.');
+        const old=Array.isArray(previous)?previous.find(item=>item.id===row.id):null;
+        const photo=row.photo||(typeof old?.photo==='string'&&old.photo.startsWith(prefix)?old.photo:'');
+        return {...row,photo};
+      });
       const json=JSON.stringify(stored);
       if(json.length>60000)bad(413,'Themes are too large.');
-      const [existing]=expected===0?await this.db.read("SELECT revision FROM account_settings WHERE account_id=? AND key='customThemes'",[actor.id]):[];
-      const base=existing?Number(existing.revision)||1:expected;
+      const base=expected===0&&existing?Number(existing.revision)||1:expected;
       return {statements:[
         base===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'customThemes',?)",[actor.id,json])
           :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='customThemes' AND revision=?",[json,actor.id,base]),this.guard()],

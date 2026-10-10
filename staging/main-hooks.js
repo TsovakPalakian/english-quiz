@@ -411,8 +411,8 @@ function stageStoreSong(existingId){
 }
 async function stageKeepExpression(card,managed=stageManagedSongReady()){
   const word=String(card.word||'').trim();
-  const place=['phrasal','idioms','mine','music'].includes(card.place)?card.place:'mine';
-  if(!word||cardIndex().has(word.toLowerCase()))return false;
+  const place=card.fromText&&(!card.place||card.place==='mine')?'text':(['phrasal','idioms','mine','music','text'].includes(card.place)?card.place:'mine');
+  if(!word||(!card.fromText&&cardIndex().has(word.toLowerCase())))return false;
   const accountId=viewAccount?.id||'';
   try{
     const found=await window.TursoMain.findCard(word);
@@ -428,7 +428,7 @@ async function stageKeepExpression(card,managed=stageManagedSongReady()){
 }
 function stageManagedCardReady(){return !!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);}
 function stageStoreTextExpression(expr,button,item){
-  const place=item.place||expressionPlace(expr),fromText=!!item.fromText;
+  const place=item.fromText&&(!item.place||item.place==='mine')?'text':(item.place||expressionPlace(expr)),fromText=!!item.fromText;
   const deck=expressionDeckName(place,fromText),status=document.getElementById('textReadStatus');
   if(expressionSaved(expr)){
     if(status)status.textContent='Already in '+deck+'.';
@@ -1122,7 +1122,7 @@ function stagePaintCounts(counts){
   set('allWordCount',merged.words);set('myWordCount',merged.mine);set('phrasalCount',merged.phrases);set('idiomCount',merged.idioms);set('verbCount',merged.verbs);set('lyricCount',merged.songs);set('textCount',merged.texts);
 }
 var stageSettled={};
-const stagePersonalPlaces=['mine','phrasal','idioms','music','tenses','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const stagePersonalPlaces=['mine','phrasal','idioms','text','music','tenses','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 const stageCycles=new Map();
 function stageCycle(name,cursor){
   if(!cursor)stageCycles.set(name,{ids:new Set(),extra:new Map(),started:true});
@@ -1719,11 +1719,7 @@ function stageApplyBootstrap(state){
   window.__archiveRevision=Number(state.archiveRevision)||0;
   stageSetActivity(state.stageActivity);
   if(state.stats){
-    if(!viewAccount&&Array.isArray(state.stats.customThemes)){
-      installCustomThemes(state.stats.customThemes);
-      paintThemeSegs();
-    }
-    if(!viewAccount&&typeof state.stats.theme==='string'&&state.stats.theme)applyTheme(state.stats.theme,{sync:false});
+    if(!viewAccount)applyAccountThemes({theme:state.stats.theme,themes:state.stats.customThemes});
     if(state.stats.lyricSize)localStorage.setItem('enquiz-lyric-size',String(state.stats.lyricSize));
     if(typeof installHiddenLessons==='function')installHiddenLessons(state.stats.hiddenLessons);
     if(typeof installAllowedLessons==='function')installAllowedLessons(state.stats.allowedLessons);

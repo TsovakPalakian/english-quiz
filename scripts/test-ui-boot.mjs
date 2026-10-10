@@ -20,6 +20,9 @@ try{
   const page=await browser.newPage();const errors=[],requests=[];
   page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
   const user={id:'a'.repeat(32),login:'fixture_dev',name:'Fixture',email:'fixture@example.invalid',role:'DEVELOPER'};
+  let selectedTheme='almond',themeRevision=0,customRevision=1;
+  let customThemes=['first','second'].map((name,index)=>({id:'user-'+name,name:'Picture '+name,owner:user.login,
+    vars:{'--bg':'#eef5f2','--card':'#ffffff','--acc':'#127569'},photo:'stage-local/themes/1/user-'+name+'/'+(index?'b':'a').repeat(64)}));
   let signedIn=true,revision=1,songActive=true,heldBlock=null;
   const archived=new Map();
   let exam={id:11,title:'Fixture exam',date:'2026-10-10',published:false,blocks:[{id:12,title:'Fixture examination block',published:false,materials:[{id:13,type:'text',tab:'overview',html:'<p>Fixture material</p>'}]}]};
@@ -34,8 +37,11 @@ try{
     if(path==='/api/logout')signedIn=false;
     if(path==='/api/me'||path==='/api/login')data={user:signedIn?user:null};
     if(path==='/api/me/account')data={user,locked:false};
-    if(path==='/api/me/themes')data={theme:'almond',customThemes:[]};
-    if(path==='/api/me/state')data={bootstrap:true,archiveRevision:revision,added:[],songs:[],settings:{},counts:{songs:songActive?1:0,lessons:1},stageActivity:{}};
+    if(path==='/api/me/themes')data={accountId:user.id,theme:selectedTheme,themes:customThemes,stageThemeRevision:themeRevision,stageCustomRevision:customRevision};
+    if(path==='/api/me/theme'){const body=JSON.parse(route.request().postData());selectedTheme=body.theme;themeRevision++;data={theme:selectedTheme,revision:themeRevision};}
+    if(path==='/api/me/custom-themes'){const body=JSON.parse(route.request().postData());customThemes=body.themes;customRevision++;data={themes:customThemes,revision:customRevision};}
+    if(path==='/api/theme-photo'){await route.fulfill({status:200,contentType:'image/jpeg',body:readFileSync(resolve(root,'almond-blossom.jpg'))});return;}
+    if(path==='/api/me/state')data={bootstrap:true,archiveRevision:revision,stageThemeRevision:themeRevision,stageCustomRevision:customRevision,stats:{theme:selectedTheme,customThemes},added:[],songs:[],settings:{},counts:{songs:songActive?1:0,lessons:1},stageActivity:{}};
     if(path==='/api/stats')data={statisticsSource:'turso-activity',legacyHistoryIncluded:false,scope:'user',from:'2026-10-04',to:'2026-10-10',activity:{answers:3,correct:2,series:[]}};
     if(path==='/api/exams'){
       if(method==='POST'){exam=JSON.parse(route.request().postData()).exam;data=exam;}
@@ -113,11 +119,27 @@ try{
   await page.locator('[data-jump="groups"]:visible').click();
   await page.locator('[data-group-open="41"]').click();
   assert.equal(await page.locator('section.on').getAttribute('id'),'days');
+  assert.equal(await page.locator('#lmGroupTitle').innerText(),'Lessons');
+  assert.equal(await page.locator('#lmGroupName').innerText(),'Fixture group');
+  assert.deepEqual(await page.locator('#days .page-path li').allTextContents(),['Groups','Fixture group']);
   await page.locator('[data-lm-open="31"]').click();
   await page.locator('#material.on').waitFor();
+  await page.waitForFunction(()=>document.querySelector('#material .page-path')?.textContent.includes('Fixture lesson'));
+  assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Groups','Fixture group','Fixture lesson']);
+  await page.locator('#material [data-page-path="days"]').click();
+  await page.locator('#days.on').waitFor();
+  await page.locator('[data-lm-open="31"]').click();
   await page.locator('[data-jump="exams"]:visible').click();
   await page.locator('[data-exam-open="11"]').click();
+  assert.equal(await page.locator('#examBlocksName').innerText(),'Fixture exam');
+  assert.deepEqual(await page.locator('#examblocks .page-path li').allTextContents(),['Exams','Fixture exam']);
   await page.locator('[data-exam-block="12"]').click();
+  assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Exams','Fixture exam','Fixture examination block','Edit']);
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'/private/tmp/english-quiz-breadcrumb-mobile.png'});
+  assert.ok(await page.locator('#material .page-path').evaluate(node=>node.scrollWidth<=node.clientWidth),'Breadcrumbs fit mobile');
+  await page.setViewportSize({width:1280,height:900});
+  await page.screenshot({path:'/private/tmp/english-quiz-breadcrumb-desktop.png'});
   await page.locator('#lmPublish').click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('enquiz-exams'))[0]?.blocks[0]?.doc.published);
   assert.equal(exam.blocks[0].published,true);
@@ -146,10 +168,39 @@ try{
   await page.locator('[data-archive-remove="song:21"]').click();
   await page.waitForFunction(()=>!document.querySelector('[data-archive-remove="song:21"]'));
   await page.locator('[data-jump="account"]:visible').first().click();
+  await page.locator('#profile [data-jump="themes"]').click();
+  await page.locator('#themes [data-th="user-first"]').click();
+  await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-first'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
+  await page.waitForFunction(()=>!window.TursoMain.themeSavePending());assert.equal(selectedTheme,'user-first');
+  await page.reload();
+  await page.locator('[data-jump="archive"]:visible').waitFor();
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.paintedTheme),'user-first');
+  await page.locator('#themes [data-th="user-second"]').click();
+  await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
+  await page.waitForFunction(()=>!window.TursoMain.themeSavePending());assert.equal(selectedTheme,'user-second');
+  await page.locator('[data-theme-edit="user-second"]').click();
+  await page.locator('#customThemeVeil').press('ArrowRight');
+  assert.match(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--theme-photo')),/data:image\/jpeg/);
+  await page.locator('#customThemeName').fill('Renamed picture');
+  await page.locator('#customThemeSubmit').click();
+  await page.getByText('Theme saved.',{exact:true}).waitFor();
+  assert.equal(customThemes.find(row=>row.id==='user-second').name,'Renamed picture');
+  await page.evaluate(()=>{localStorage.clear();sessionStorage.clear();});
+  await page.reload();
+  await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
+  assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-theme')),'user-second');
+  await page.screenshot({path:'/private/tmp/english-quiz-theme-empty-cache.png'});
+  await page.locator('[data-jump="account"]:visible').first().click();
   await page.locator('[data-account="logout"]:visible').click();
   await page.getByText('See you soon',{exact:true}).waitFor();
   assert.equal(await page.locator('section.on').getAttribute('id'),'home');
   assert.equal(signedIn,false);
+  await page.locator('[data-jump="account"]:visible').first().click();
+  await page.locator('#loginForm [name="login"]').fill(user.login);
+  await page.locator('#loginForm [name="password"]').fill('fixture-only');
+  await page.locator('#loginForm button[type="submit"]').click();
+  await page.waitForFunction(()=>accountReady&&document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
+  assert.equal(signedIn,true);assert.equal(selectedTheme,'user-second');
   signedIn=true;holdLessonSummary=true;
   exam.blocks[0].published=false;exam.published=false;lesson={...lesson,id:12};
   const racePage=await browser.newPage();
@@ -180,5 +231,5 @@ try{
   assert.equal(exam.blocks[0].published,true);
   await racePage.screenshot({path:'/private/tmp/english-quiz-exam-publish-test.png'});
   assert.deepEqual(errors,[]);
-  console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal and logout passed');
+  console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal, theme switching/reload/empty cache/relogin and logout passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

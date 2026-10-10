@@ -230,10 +230,10 @@ export default {async fetch(request,env){
     if(card){const key=cardKey(card[2]);return json(method==='GET'?await s.card(actor,key):await s[card[1]==='cards'?card[3]?'createQuiz':method==='PATCH'?'editCard':'deleteCard':method==='PATCH'?'editQuiz':'deleteQuiz'](actor,key,value));}
     if(['/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)){
       if(path==='/api/theme-photo'){
-        const key=await new ThemeMediaService(db,null).ownedKey(actor,url.searchParams.get('id')||'');
+        const key=await new ThemeMediaService(db,null).ownedKey(actor,url.searchParams.get('id')||'',url.searchParams.get('v')||'');
         const response=await stageR2Media(env).response(key,method,request.headers.get('range')||'');
         const headers=new Headers(response.headers);
-        headers.set('Cache-Control','private, max-age=31536000, immutable');
+        headers.set('Cache-Control',url.searchParams.get('v')?'private, max-age=31536000, immutable':'private, no-cache');
         return new Response(response.body,{status:response.status,headers});
       }
       if(url.searchParams.get('for'))throw new StudyError(403,'Only own media.');const key=await mediaKey(db,actor,path==='/api/song-file'?'song':'lesson',url.searchParams.get('id')||'');

@@ -8,9 +8,10 @@
   const managedLinkRevisions=new Map();
   const catalogDetails=new Map();
   const personalKey='turso-main-personal-pending-v3',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
-  let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false;
+  let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false,personalFlight=null;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
   let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
+  let confirmedThemes={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const validCardId=value=>Number.isSafeInteger(value)&&value>0;
@@ -82,16 +83,27 @@
       else Object.values(value).forEach(register);
     }
   }
-  function discardStaleTheme(){
-    if(themeRecovering)return;
-    const next=personalQueue.filter(row=>!(row.kind==='theme'&&row.body&&row.body.expectedRevision!==themeRevision)&&!(row.kind==='customThemes'&&row.body&&row.body.expectedRevision!==customRevision));
-    if(next.length===personalQueue.length)return;
-    personalQueue=next;savePersonal();
+  function registerThemes(data){
+    if(data.stageThemeRevision!=null&&Number(data.stageThemeRevision)>=themeRevision){
+      themeRevision=Number(data.stageThemeRevision)||0;
+      if(typeof data.stats?.theme==='string')confirmedThemes.theme=data.stats.theme;
+    }
+    if(data.stageCustomRevision!=null&&Number(data.stageCustomRevision)>=customRevision){
+      customRevision=Number(data.stageCustomRevision)||0;
+      if(Array.isArray(data.stats?.customThemes))confirmedThemes.themes=data.stats.customThemes;
+    }
   }
-  function registerState(data){
-    if(data.stageThemeRevision!=null)themeRevision=data.stageThemeRevision||0;
-    if(data.stageCustomRevision!=null)customRevision=data.stageCustomRevision||0;
-    discardStaleTheme();
+  function themePreferences(){
+    const result={...confirmedThemes};
+    for(const job of personalQueue){
+      if(job.actorId!==actorId)continue;
+      if(job.kind==='theme')result.theme=job.theme;
+      if(job.kind==='customThemes')result.themes=job.themes;
+    }
+    return result;
+  }
+  function registerState(data,own=true){
+    if(own)registerThemes(data);
     if(data.stageAddedRevision!=null)addedRevision=data.stageAddedRevision||0;
     if(data.bootstrap){personalReady=true;return;}
     register(data.added||[]);
@@ -198,10 +210,15 @@
       if(path==='/api/logout')await drainPersonal(true);
       if(path==='/api/logout' && (pending||personalQueue.length))throw new Error('Есть несохранённые изменения. Повторите запись или явно отмените её через «Проверить сервер» перед выходом.');
       const value=await api(path,options);
-      if(path==='/api/me' || path==='/api/login'){actorId=value.user?.id||'';backendCapabilities=value.user?value.migrationCapabilities||{}:{};}
+      if(path==='/api/me' || path==='/api/login'){
+        const nextActor=value.user?.id||'';
+        if(nextActor!==actorId){confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;}
+        actorId=nextActor;backendCapabilities=value.user?value.migrationCapabilities||{}:{};
+      }
       if((path==='/api/me'||path==='/api/login')&&value.user&&!pending&&!personalQueue.length)notice('Вход подтверждён. Подключено к тестовой Turso.');
       const bare=path.split('?')[0];
-      if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value);void drainPersonal();}
+      if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value,bare==='/api/me/state');void drainPersonal();}
+      if(bare==='/api/me/themes'&&(!value.accountId||value.accountId===actorId))registerThemes({...value,stats:{theme:value.theme,customThemes:value.themes}});
       if(bare==='/api/me/cards'&&String(options.method||'GET').toUpperCase()==='GET')register(value.cards||[]);
       if(bare==='/api/me/quizzes')for(const quiz of value.quizzes||[])quizzes.set(quiz.id,{...quiz,word:quiz.word});
       if(bare==='/api/me/progress'){for(const row of value.stageCardProgress||[])cardProgress.set(row.id,row.revision);for(const row of value.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);}
@@ -211,7 +228,7 @@
         for(const lesson of value.materials||[])if(!lesson.stageLessonDeferred)lesson.stageLessonBaseline=lessonSnapshot(lesson);
         register(value.materials||[]);
       }
-      if(path==='/api/logout'){actorId='';cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}}
+      if(path==='/api/logout'){actorId='';confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}}
       return value;
     }catch(error){if(error.status!==401)notice(error.message,true);throw error;}
   }
@@ -323,6 +340,7 @@
   function enqueuePersonal(job,delay=0){
     if(!actorId || !personalReady)throw new Error('Дождитесь загрузки личного профиля.');
     if(personalQueue.some(row=>row.actorId!==actorId))throw new Error('Сначала проверьте несохранённые изменения предыдущего аккаунта.');
+    if(['theme','customThemes'].includes(job.kind))for(const row of personalQueue)if(['theme','customThemes'].includes(row.kind))row.paused=false;
     if(job.kind==='response'){
       const same=personalQueue.find(row=>row.key===job.key && JSON.stringify(row.response)===JSON.stringify(job.response));
       const saved=savedResponses.get(job.key);
@@ -331,7 +349,7 @@
       }
     }
     if(job.kind==='theme'){
-      const existing=personalQueue.find(row=>row.kind==='theme'&&row.key===job.key);
+      const existing=personalQueue.find(row=>row.kind==='theme'&&row.key===job.key&&!row.body);
       if(existing){existing.theme=job.theme;existing.paused=false;delete existing.body;}
       else{
         if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
@@ -343,7 +361,7 @@
       return;
     }
     if(job.kind==='customThemes'){
-      const existing=personalQueue.find(row=>row.kind==='customThemes'&&row.key===job.key);
+      const existing=personalQueue.find(row=>row.kind==='customThemes'&&row.key===job.key&&!row.body);
       if(existing){existing.themes=job.themes;existing.paused=false;delete existing.body;}
       else{
         if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
@@ -364,7 +382,13 @@
     clearTimeout(personalTimer);
     if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
   }
-  async function drainPersonal(retry=false){
+  function drainPersonal(retry=false){
+    if(personalFlight)return personalFlight;
+    if(busy||pending||!personalReady||!actorId||!personalQueue.length||personalQueue[0]?.paused&&!retry)return Promise.resolve();
+    personalFlight=runPersonal(retry).finally(()=>{personalFlight=null;});
+    return personalFlight;
+  }
+  async function runPersonal(retry=false){
     if(personalRunning || busy || pending || !personalReady || !actorId || !personalQueue.length)return;
     if(personalQueue[0]?.paused && !retry)return;
     personalRunning=true;
@@ -397,8 +421,8 @@
           }finally{themeRecovering=false;}
           continue;
         }
-        if(job.kind==='theme')themeRevision=result.revision;
-        if(job.kind==='customThemes')customRevision=result.revision;
+        if(job.kind==='theme')registerThemes({stageThemeRevision:result.revision,stats:{theme:job.theme}});
+        if(job.kind==='customThemes')registerThemes({stageCustomRevision:result.revision,stats:{customThemes:result.themes||job.themes}});
         if(job.kind==='answer')quizProgress.set(job.key,result.revision);
         if(job.kind==='progress')cardProgress.set(job.cardId,result.revision);
         if(job.kind==='response')savedResponses.set(job.key,{revision:result.revision,blockRevision:job.blockRevision,intent:JSON.stringify(job.response)});
@@ -442,6 +466,8 @@
       if(!catalogDetails.has(key))catalogDetails.set(key,api('/api/catalogs/cards/'+encodeURIComponent(card.stageId)).catch(error=>{catalogDetails.delete(key);throw error;}));
       return catalogDetails.get(key);
     },
+    themePreferences,
+    themeSavePending:()=>personalQueue.some(job=>job.actorId===actorId&&['theme','customThemes'].includes(job.kind)),
     theme(value){enqueuePersonal({kind:'theme',key:'theme',theme:value,path:'/api/me/theme',method:'PUT'},150);},
     customThemes(value){enqueuePersonal({kind:'customThemes',key:'customThemes',themes:value,path:'/api/me/custom-themes',method:'PUT'},150);},
     flushPersonal:()=>drainPersonal(true),

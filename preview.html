@@ -512,7 +512,7 @@
     </section>
 
     <section id="days">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groups">Back</button><h1 id="lmGroupTitle">Classes</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groups">Back</button><div class="page-heading"><h1 id="lmGroupTitle">Lessons</h1><p id="lmGroupName" class="page-context"></p></div></div>
       <p class="sub">In date order. One date can hold as many lessons as you add.</p>
       <div>
         <button class="btn primary" type="button" id="lmNew">+ New lesson</button>
@@ -530,7 +530,7 @@
     </section>
 
     <section id="examblocks">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="exams">Back</button><h1>Examination blocks</h1></div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="exams">Back</button><div class="page-heading"><h1>Examination blocks</h1><p id="examBlocksName" class="page-context"></p></div></div>
       <p class="sub" id="examBlocksDate"></p>
       <div>
         <button class="btn primary" type="button" id="examBlockNew">+ Examination block</button>
@@ -1662,8 +1662,8 @@
           <button class="btn primary" type="submit" id="customThemeSubmit">Make a theme</button>
           <button class="btn" type="button" id="customThemeCancel" hidden>Cancel</button>
         </div>
-        <p id="customThemeStatus" class="hint"></p>
       </form>
+      <p id="customThemeStatus" class="hint" role="status"></p>
       <div class="card"><div class="theme-seg" data-theme-seg></div></div>
     </section>
 

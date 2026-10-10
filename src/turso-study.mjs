@@ -114,7 +114,7 @@ function entityId(value){if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.
 export function recordId(value){if(!Number.isSafeInteger(value)||value<1)fail(400,'Invalid ID.');return value;}
 export function cardId(value){return recordId(value);}
 function cardPlace(value){
-  if(!['mine','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'].includes(value))fail(400,'Invalid personal card destination.');
+  if(!['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'].includes(value))fail(400,'Invalid personal card destination.');
   return value;
 }
 function lessonChanges(value){

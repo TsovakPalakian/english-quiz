@@ -29,7 +29,7 @@ export class ThemeMediaService extends PersonalService {
     await this.store.putImmutable(key,bytes,metadata);
     return {photo:key};
   }
-  async ownedKey(actor,themeId){
+  async ownedKey(actor,themeId,stamp=''){
     if(!/^user-[a-z0-9-]{1,80}$/.test(themeId))fail(404,'Theme picture not found.');
     const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
     if(members.length!==1)fail(404,'Theme picture not found.');
@@ -40,6 +40,7 @@ export class ThemeMediaService extends PersonalService {
     const theme=Array.isArray(list)?list.find(row=>row&&row.id===themeId):null;
     const key=theme&&theme.photo;
     if(typeof key!=='string'||!photoKey.test(key)||!key.startsWith(`stage-local/themes/${profile}/${themeId}/`))fail(404,'Theme picture not found.');
+    if(stamp&&stamp!==key.slice(key.lastIndexOf('/')+1))fail(404,'Theme picture version not found.');
     return key;
   }
 }

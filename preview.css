@@ -1678,6 +1678,17 @@ a.btn { text-decoration: none; }
   padding-right: 6px;
 }
 .meta-side { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+.page-heading { flex: 1; min-width: 0; }
+.page-context { margin: 0; color: var(--mute); overflow-wrap: anywhere; }
+.page-path { width: 100%; min-width: 0; margin: 4px 0 16px; }
+.page-path ol { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; list-style: none; margin: 0; padding: 0; }
+.page-path li { display: flex; align-items: baseline; gap: 10px; min-width: 0; max-width: 100%; color: var(--mute); }
+.page-path li + li::before { content: "/"; flex-shrink: 0; color: var(--mute); }
+.page-path button, .page-path span { font: inherit; line-height: 1.5; overflow-wrap: anywhere; min-width: 0; }
+.page-path button { border: 0; border-radius: 4px; background: transparent; color: var(--ink); padding: 2px 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.page-path button:hover { color: var(--accent); }
+.page-path button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.page-path [aria-current="page"] { color: var(--ink); font-weight: 600; }
 .song-banner { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1; min-height: 40px; }
 .song-banner b { display: block; font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.2; margin: 0; }
 .song-banner span { font-weight: 500; color: var(--mute); font-size: 13px; line-height: 1.2; }

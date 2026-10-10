@@ -94,7 +94,61 @@
       rememberPlace();
       const shown = document.getElementById(id);
       if (shown) applyCardSearch(shown);
+      paintPagePath(id);
     }
+    function pagePathItems(id, seen = new Set()) {
+      if (!id || id === "home" || seen.has(id)) return [];
+      seen.add(id);
+      const root = document.getElementById(id);
+      if (!root) return [];
+      const group = classGroups.find((row) => row.id === classGroupId);
+      if (id === "days") return [{ id: "groups", label: "Groups" }, { id: "days", label: group?.title || "Lessons" }];
+      if (id === "examblocks") return [{ id: "exams", label: "Exams" }, { id: "examblocks", label: examFind(examCurrentId)?.title || "Exam" }];
+      if (id === "material" && lmState) {
+        const owner = lmState.examOwned ? examFind(lmState.examId) : classGroups.find((row) => row.lessonIds.includes(lmState.id));
+        const path = lmState.examOwned
+          ? [{ id: "exams", label: "Exams" }, { id: "examblocks", label: owner?.title || "Exam" }]
+          : [{ id: "groups", label: "Groups" }, { id: "days", label: owner?.title || group?.title || "Lessons" }];
+        path.push({ id: "material", tab: "overview", label: lmState.title || (lmState.examOwned ? "Examination block" : "Lesson") });
+        if (!lmState.examOwned && lmTab() !== "overview") {
+          const names = { words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF" };
+          path.push({ id: "material", tab: lmTab(), label: names[lmTab()] || lmTab() });
+        }
+        if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
+        return path;
+      }
+      const parents = { music: "library", add: "library", allwords: "library", tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
+      const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
+      const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
+      const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
+      return [...pagePathItems(parent, seen), { id, label }];
+    }
+    function paintPagePath(id) {
+      const root = document.getElementById(id);
+      const meta = root?.querySelector(".meta");
+      if (!meta || id === "home") return;
+      let path = root.querySelector(".page-path");
+      if (!path) {
+        path = document.createElement("nav");
+        path.className = "page-path";
+        path.setAttribute("aria-label", "Breadcrumb");
+        meta.insertAdjacentElement("afterend", path);
+      }
+      const items = pagePathItems(id);
+      path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
+        ? '<span aria-current="page">' + esc(item.label) + "</span>"
+        : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
+    }
+    document.addEventListener("click", (event) => {
+      const target = event.target.closest("[data-page-path]");
+      if (!target) return;
+      if (target.dataset.pagePath === "material") {
+        pushHistory();
+        lmState.tab = target.dataset.pageTab || "overview";
+        lmShow("preview");
+        rememberPlace();
+      } else visit(target.dataset.pagePath);
+    });
     function revealLyricReturn() {
       const spot = document.querySelector("#songUser [data-lyric-return]");
       if (!spot) return;
@@ -1109,19 +1163,24 @@
         return copy;
       });
     }
+    const themeUploadFlights = new Map();
     function queueThemePhotos(list) {
       if (!window.TursoMain || typeof window.TursoMain.uploadThemePhoto !== "function") return;
       (list || []).forEach((row) => {
         if (!row || typeof row.photo !== "string" || row.photo.indexOf("data:image/") !== 0 || row.photoKey) return;
-        const id = row.id;
+        const id = row.id, photo = row.photo, actor = authUser?.id;
+        if (!actor || themeUploadFlights.has(id)) return;
+        themeUploadFlights.set(id, photo);
         Promise.resolve(dataUrlBlob(row.photo)).then((blob) => window.TursoMain.uploadThemePhoto(id, blob)).then((result) => {
+          if (authUser?.id !== actor || viewAccount) return;
           const current = loadCustomThemes();
           const item = current.find((theme) => theme && theme.id === id);
-          if (!item || !result || typeof result.photo !== "string") return;
+          if (!item || item.photo !== photo || !result || typeof result.photo !== "string") return;
+          rememberThemePicture(id, themePhotoStamp(result.photo), photo);
           item.photo = result.photo;
           delete item.photoKey;
           saveCustomThemes(current);
-        }).catch(() => {});
+        }).catch(() => {}).finally(() => themeUploadFlights.delete(id));
       });
     }
     function saveCustomThemes(list) {
@@ -1132,7 +1191,8 @@
         try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: keptThemePhoto(row) })))); }
         catch (err) {}
       }
-      if (typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "customThemes", value: themesForServer(next) });
+      const pendingPhotos = next.some((row) => typeof row.photo === "string" && row.photo.indexOf("data:image/") === 0 && !row.photoKey);
+      if (!pendingPhotos && typeof syncChange === "function" && !viewAccount) syncChange({ op: "put-setting", key: "customThemes", value: themesForServer(next) });
       queueThemePhotos(next);
     }
     const DEFAULT_THEME = "almond";
@@ -1207,6 +1267,7 @@
       try {
         const saved = JSON.parse(localStorage.getItem(THEME_PICTURE_KEY) || "null");
         if (!saved || saved.id !== theme.id || typeof saved.url !== "string" || saved.url.indexOf("data:image/") !== 0) return "";
+        if (!theme.photo || saved.stamp !== themePhotoStamp(theme.photo)) return "";
         return saved.url;
       } catch (e) { return ""; }
     }
@@ -1214,14 +1275,31 @@
       if (!id || typeof dataUrl !== "string" || dataUrl.indexOf("data:image/") !== 0) return;
       try { localStorage.setItem(THEME_PICTURE_KEY, JSON.stringify({ id: id, stamp: stamp || "", url: dataUrl })); } catch (e) {}
     }
+    const themePictureFlights = new Map();
     function cacheThemePicture(theme) {
-      if (!theme || rememberedThemePhoto(theme) || document.documentElement.style.getPropertyValue("--theme-photo").indexOf("data:image/") >= 0 || typeof theme.photo !== "string" || theme.photo.indexOf("stage-local/themes/") !== 0) return;
+      if (!theme || rememberedThemePhoto(theme) || typeof theme.photo !== "string" || theme.photo.indexOf("stage-local/themes/") !== 0) return;
+      const actor = authUser && authUser.id, key = (actor || "") + ":" + theme.photo;
+      if (!actor || themePictureFlights.has(key)) return;
       const remote = "/api/theme-photo?id=" + encodeURIComponent(theme.id) + (/^[a-f0-9]{64}$/.test(themePhotoStamp(theme.photo)) ? "&v=" + themePhotoStamp(theme.photo) : "");
-      fetch(remote, { credentials: "same-origin", cache: "force-cache" }).then((res) => res.blob()).then((blob) => {
+      const flight = fetch(remote, { credentials: "same-origin", cache: "no-cache" }).then((res) => {
+        if (!res.ok) throw new Error("Theme picture is unavailable.");
+        return res.blob();
+      }).then((blob) => {
+        if (!/^image\/(png|jpeg|webp)$/.test(blob.type)) throw new Error("Invalid theme picture.");
+        return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => rememberThemePicture(theme.id, themePhotoStamp(theme.photo), String(reader.result || ""));
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(reader.error || new Error("Could not read theme picture."));
         reader.readAsDataURL(blob);
-      }).catch(() => {});
+        });
+      }).then((photo) => {
+        if (authUser?.id !== actor || viewAccount) return;
+        const current = loadCustomThemes().find((row) => row.id === theme.id);
+        if (!current || current.photo !== theme.photo) return;
+        rememberThemePicture(theme.id, themePhotoStamp(theme.photo), photo);
+        if (document.documentElement.dataset.paintedTheme === theme.id) paintCustomVars(document.documentElement, current);
+      }).catch(() => {}).finally(() => themePictureFlights.delete(key));
+      themePictureFlights.set(key, flight);
     }
     function themePhotoUrl(theme) {
       const remembered = rememberedThemePhoto(theme);
@@ -1238,11 +1316,7 @@
       const photoUrl = themePhotoUrl(theme);
       const nextPhoto = photoUrl ? "url(" + JSON.stringify(photoUrl) + ")" : "";
       const currentPhoto = root.style.getPropertyValue("--theme-photo");
-      const currentData = currentPhoto.indexOf("data:image/") >= 0;
-      const nextData = nextPhoto.indexOf("data:image/") >= 0;
-      const samePaint = !root.dataset.paintedTheme || root.dataset.paintedTheme === (theme && theme.id);
-      const keepPhoto = currentData && (samePaint || nextData);
-      clearCustomPaint(root, keepPhoto);
+      clearCustomPaint(root, true);
       const vars = theme && theme.vars ? theme.vars : {};
       const hex = /^#[0-9A-Fa-f]{6}$/;
       const wash = /^#[0-9A-Fa-f]{8}$/;
@@ -1256,9 +1330,8 @@
         if (hex.test(val)) root.style.setProperty(key, val);
       });
       if (vars["color-scheme"] === "dark" || vars["color-scheme"] === "light") root.style.setProperty("color-scheme", vars["color-scheme"]);
-      if (nextData && currentPhoto.indexOf(photoUrl) < 0) root.style.setProperty("--theme-photo", nextPhoto);
-      else if (nextPhoto && !currentData) root.style.setProperty("--theme-photo", nextPhoto);
-      else if (!nextPhoto && !currentData) root.style.removeProperty("--theme-photo");
+      if (nextPhoto && nextPhoto !== currentPhoto) root.style.setProperty("--theme-photo", nextPhoto);
+      else if (!nextPhoto) root.style.removeProperty("--theme-photo");
     }
     function themeNameParts(name) {
       const text = String(name || "").trim();
@@ -1475,22 +1548,33 @@
         const theme = loadCustomThemes().find((row) => row.id === editingThemeId);
         if (!theme || !theme.vars) return;
         paintCustomVars(document.documentElement, {
+          id: theme.id,
           vars: Object.assign({}, theme.vars, { "--photo-wash": String(theme.vars["--bg"] || "#FFFFFF").slice(0, 7) + veilByte(percent) }),
           photo: theme.photo
         });
       }
-      function commitTheme(theme, message) {
+      async function commitTheme(theme, message) {
         const list = loadCustomThemes();
         const index = list.findIndex((row) => row.id === theme.id);
         if (index >= 0) list[index] = theme;
         else list.unshift(theme);
         saveCustomThemes(list);
-        clearThemeDraft();
         paintThemeSegs();
         applyTheme(theme.id, { sync: true });
-        customThemeStatus.textContent = message;
+        customThemeStatus.textContent = "Saving the theme…";
         customThemeStatus.className = "hint";
-        if (customThemeSubmit) customThemeSubmit.disabled = false;
+        try {
+          if (window.TursoMain?.flushPersonal) await window.TursoMain.flushPersonal();
+          if (window.TursoMain?.themeSavePending?.()) throw new Error("The theme is saved in this browser, but the account save is not confirmed. Retry before signing out.");
+          if (window.TursoMain?.themePreferences) applyAccountThemes(window.TursoMain.themePreferences());
+          clearThemeDraft();
+          customThemeStatus.textContent = message;
+        } catch (error) {
+          customThemeStatus.textContent = error.message;
+          customThemeStatus.className = "hint bad";
+        } finally {
+          if (customThemeSubmit) customThemeSubmit.disabled = false;
+        }
       }
       function storeTheme(theme, message) {
         theme.owner = authUser && authUser.login ? authUser.login : "";
@@ -1513,6 +1597,7 @@
           return;
         }
         const photo = theme.photo;
+        const actor = authUser?.id;
         const upload = window.TursoMain && typeof window.TursoMain.uploadThemePhoto === "function"
           && typeof photo === "string" && photo.indexOf("data:image/") === 0;
         if (!upload) {
@@ -1522,6 +1607,7 @@
         customThemeStatus.textContent = "Saving the picture…";
         customThemeStatus.className = "hint";
         Promise.resolve(dataUrlBlob(photo)).then((blob) => window.TursoMain.uploadThemePhoto(theme.id, blob)).then((result) => {
+          if (authUser?.id !== actor || viewAccount) throw new Error("The account changed before the theme was saved.");
           if (!result || typeof result.photo !== "string" || result.photo.indexOf("stage-local/themes/") !== 0) throw new Error("The picture could not be saved.");
           rememberThemePicture(theme.id, themePhotoStamp(result.photo), photo);
           theme.photo = result.photo;
@@ -3607,7 +3693,7 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
       }[ch]));
     }
-    const PLACE_LABEL = { "lesson-23": "23 Sep", "lesson-21": "21 Sep", "lesson-16": "16 Sep", "lesson-14": "14 Sep", "lesson-09": "9 Sep", "lesson-07": "7 Sep", music: "Song lyrics", tenses: "Grammar", mine: "My words", phrasal: "Phrasal verbs", idioms: "Idioms" };
+    const PLACE_LABEL = { "lesson-23": "23 Sep", "lesson-21": "21 Sep", "lesson-16": "16 Sep", "lesson-14": "14 Sep", "lesson-09": "9 Sep", "lesson-07": "7 Sep", music: "Song lyrics", tenses: "Grammar", mine: "My words", text: "Text", phrasal: "Phrasal verbs", idioms: "Idioms" };
     function cardOrigin(item) {
       try {
         if (!item || (item.place !== "phrasal" && item.place !== "idioms")) return "";
@@ -11436,15 +11522,11 @@
     }
     function applyAccountThemes(pack) {
       if (!pack || viewAccount) return;
-      if (Array.isArray(pack.themes)) installCustomThemes(pack.themes);
+      if (pack.accountId && pack.accountId !== authUser?.id) return;
+      pack = Object.assign({}, pack, window.TursoMain?.themePreferences?.() || {});
+      if (Array.isArray(pack.themes)) installCustomThemes(pack.themes.map((row) => Object.assign({}, row, { owner: authUser?.login || row.owner || "" })));
       if (typeof paintThemeSegs === "function") paintThemeSegs();
       const saved = typeof pack.theme === "string" ? pack.theme : "";
-      const painted = document.documentElement.dataset.paintedTheme || "";
-      if (saved && painted === saved) {
-        const row = saved.indexOf("user-") === 0 ? loadCustomThemes().find((item) => item && item.id === saved) : null;
-        if (row) cacheThemePicture(row);
-        return;
-      }
       if (saved) applyTheme(saved, { sync: false });
     }
     function loadAccountThemes() {
@@ -11736,10 +11818,10 @@
       });
     }
     function expressionPlace(expr) {
-      if (!expr) return "mine";
+      if (!expr) return "text";
       if (expr.type === "PHRASAL_VERB") return "phrasal";
       if (expr.type === "IDIOM") return "idioms";
-      return "mine";
+      return "text";
     }
     function expressionDeckName(place, fromText) {
       if (fromText && (!place || place === "mine")) return "Text";
@@ -11750,7 +11832,7 @@
       const word = expressionHead(expr.canonicalForm) || expr.exactText || "";
       const key = expressionIdentity(expr);
       if (!word) return null;
-      return loadAdded().find((row) => addedExpressionIdentity(row) === key || (String(row.word || "").toLowerCase() === word.toLowerCase() && (row.place || "mine") === place)) || null;
+      return loadAdded().find((row) => ((row.place || "mine") === place || (place === "text" && row.fromText && (row.place || "mine") === "mine")) && (addedExpressionIdentity(row) === key || String(row.word || "").toLowerCase() === word.toLowerCase())) || null;
     }
     function expressionSaved(expr) {
       return !!findExpressionCard(expr);
@@ -12864,6 +12946,7 @@
         root.dataset.lmBound = lmState.id;
         root.dataset.lmKind = lmState.examOwned ? "exam" : "lesson";
       }
+      paintPagePath("material");
     }
     function lmRenderEditor() {
       const box = document.getElementById("lmBlocks");
@@ -13422,7 +13505,10 @@
       groupNormalize();
       const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
       const title = document.getElementById("lmGroupTitle");
-      if (title) title.textContent = group ? group.title : "Classes";
+      if (title) title.textContent = "Lessons";
+      const name = document.getElementById("lmGroupName");
+      if (name) name.textContent = group ? group.title : "";
+      paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
         if (!a.date && !b.date) return 0;
@@ -14536,7 +14622,10 @@
       const date = document.getElementById("examBlocksDate");
       const exam = examView(examCurrentId);
       if (newer) newer.hidden = !canEditLessons();
+      const name = document.getElementById("examBlocksName");
+      if (name) name.textContent = exam ? exam.title || "Exam" : "";
       if (date && exam) date.textContent = lmLongDate(exam.date) || "";
+      paintPagePath("examblocks");
       if (!box || !exam) return;
       box.innerHTML = (exam.blocks || []).map((block, index) => {
         if (!canEditLessons() && (!(block.doc && block.doc.published) || block.hidden)) return "";

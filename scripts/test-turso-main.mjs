@@ -9,7 +9,8 @@ import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {createMainServer} from './run-turso-main.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
-import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,accountThemes,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
+import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
@@ -292,6 +293,23 @@ test('All original quiz type names are supported without legacy whole-map writes
     collection=collection===0?1:collection+1;
   }
   assert.equal((await service.card(f.users.get('student'),1)).quizzes.length,QUIZ_TYPES.length);f.sqlite.close();
+});
+test('Text card links survive reload without entering My words, including managed profiles',async()=>{
+  const f=fixture();try{
+    const service=new StudyService(f.db),student=f.users.get('student');
+    const body={mutationId:crypto.randomUUID(),cardId:3,place:'text',expectedRevision:0,expectedCardRevision:1};
+    const saved=await service.linkCard(student,body);
+    assert.equal(saved.card.place,'text');
+    const text=await accountCards(f.db,student,{place:'text'}),mine=await accountCards(f.db,student,{place:'mine'});
+    assert.deepEqual(text.cards.map(row=>row.stageId),[3]);
+    assert.deepEqual(mine.cards.map(row=>row.stageId),[3],'The original manual My words link remains intact');
+    await service.linkManagedCard(f.users.get('teacher'),'student',{...body,mutationId:crypto.randomUUID(),cardId:1,expectedRevision:1});
+    assert.deepEqual((await accountCards(f.db,student,{place:'text'})).cards.map(row=>row.stageId).sort(),[1,3]);
+    assert.deepEqual((await accountCards(f.db,student,{place:'mine'})).cards.map(row=>row.stageId),[3]);
+    assert.ok((await legacyState(f.db,student)).added.some(row=>row.stageId===1&&row.place==='text'));
+    await service.unlinkCard(student,3,{mutationId:crypto.randomUUID(),place:'text',expectedRevision:2});
+    assert.deepEqual((await accountCards(f.db,student,{place:'mine'})).cards.map(row=>row.stageId),[3]);
+  }finally{f.sqlite.close();}
 });
 test('Personal card links: shared identity, own/pair isolation, monotonic CAS, replay and progress preservation',async()=>{
   const f=fixture(),service=new StudyService(f.db),student=f.users.get('student'),other=f.users.get('student2');
@@ -615,6 +633,67 @@ test('Production notices hide success, show errors and retain retry only for pen
   const css=readFileSync(new URL('../production/notification.css',import.meta.url),'utf8');
   assert.match(css,/padding-top:0!important/);assert.match(css,/\[hidden\]\{display:none\}/);
 });
+test('Custom theme metadata and selected identity survive an empty cache; omitted photos are preserved',async()=>{
+  const f=fixture();try{
+    const actor=f.users.get('student'),service=new PersonalService(f.db),stamp='a'.repeat(64);
+    const theme={id:'user-fixture',name:'Picture',owner:'student',vars:{'--bg':'#ffffff','--card':'#eeeeee','--acc':'#113355'},photo:'stage-local/themes/1/user-fixture/'+stamp};
+    await service.saveCustomThemes(actor,{mutationId:crypto.randomUUID(),expectedRevision:0,themes:[theme]});
+    await service.saveTheme(actor,{mutationId:crypto.randomUUID(),expectedRevision:0,theme:theme.id});
+    const pack=await accountThemes(f.db,actor);
+    assert.equal(pack.accountId,actor.id);assert.equal(pack.theme,theme.id);assert.equal(pack.themes[0].photo,theme.photo);assert.equal(pack.stageCustomRevision,1);
+    await service.saveCustomThemes(actor,{mutationId:crypto.randomUUID(),expectedRevision:1,themes:[{...theme,photo:'',name:'Renamed'}]});
+    assert.equal((await accountThemes(f.db,actor)).themes[0].photo,theme.photo);
+    const media=new ThemeMediaService(f.db,null);
+    assert.equal(await media.ownedKey(actor,theme.id,stamp),theme.photo);
+    await assert.rejects(media.ownedKey(actor,theme.id,'b'.repeat(64)),error=>error.status===404);
+    await assert.rejects(media.ownedKey(f.users.get('student2'),theme.id),error=>error.status===404);
+    await assert.rejects(service.saveCustomThemes(actor,{mutationId:crypto.randomUUID(),expectedRevision:2,themes:[{...theme,photo:theme.photo.replace('/1/','/2/')}]}),error=>error.status===403);
+  }finally{f.sqlite.close();}
+});
+test('Theme pictures switch from cached data to remote keys without clearing the background; cache validates the hash',()=>{
+  const saved=new Map(),styles=new Map([['--theme-photo','url("data:image/png;base64,OLD")']]);
+  const root={dataset:{paintedTheme:'user-old'},style:{getPropertyValue:key=>styles.get(key)||'',setProperty:(key,value)=>styles.set(key,value),removeProperty:key=>styles.delete(key)}};
+  const scope={authUser:{id:'fixture'},viewAccount:null,THEME_PICTURE_KEY:'enquiz-theme-picture',CUSTOM_COLOR_KEYS:['--bg','--card','--acc'],
+    document:{documentElement:root},localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value)}};
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  runInNewContext(source.slice(source.indexOf('    function clearCustomPaint('),source.indexOf('    function themeNameParts(')),scope);
+  const theme={id:'user-next',photo:'stage-local/themes/1/user-next/'+'b'.repeat(64),vars:{'--bg':'#ffffff'}};
+  scope.paintCustomVars(root,theme);assert.match(styles.get('--theme-photo'),/theme-photo\?id=user-next/);
+  scope.rememberThemePicture(theme.id,'a'.repeat(64),'data:image/png;base64,OLD');
+  assert.equal(scope.rememberedThemePhoto(theme),'');
+  scope.rememberThemePicture(theme.id,'b'.repeat(64),'data:image/png;base64,NEW');
+  scope.paintCustomVars(root,theme);assert.match(styles.get('--theme-photo'),/base64,NEW/);
+  scope.paintCustomVars(root,{...theme,photo:''});assert.equal(styles.has('--theme-photo'),false);
+});
+test('Theme and custom-theme writes stay immutable in flight; refresh cannot overwrite pending or acknowledged choices',async()=>{
+  for(const kind of ['theme','customThemes']){
+    const window={},saved=new Map(),sent=[];let release;
+    const scope={window,crypto,CustomEvent:class{},location:{reload(){}},setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+      localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+      document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+      fetch:async(path,options)=>{
+        if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+        if(String(path).startsWith('/api/me/state'))return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:0,stageCustomRevision:0,stats:{theme:'almond',customThemes:[]}})};
+        const body=JSON.parse(options.body);sent.push(body);
+        if(sent.length===1)await new Promise(resolve=>release=resolve);
+        return {ok:true,json:async()=>({revision:body.expectedRevision+1,...(kind==='theme'?{theme:body.theme}:{themes:body.themes})})};
+      }};
+    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+    await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
+    const first=kind==='theme'?'user-first':[{id:'user-first',photo:'first'}],last=kind==='theme'?'user-last':[{id:'user-last',photo:'last'}];
+    window.TursoMain[kind](first);const draining=window.TursoMain.flushPersonal();
+    await new Promise(resolve=>setImmediate(resolve));window.TursoMain[kind](last);
+    await window.TursoMain.fetch('/api/me/state');
+    assert.equal(JSON.stringify(window.TursoMain.themePreferences()[kind==='theme'?'theme':'themes']),JSON.stringify(last));
+    assert.equal(window.TursoMain.themeSavePending(),true);
+    const concurrent=window.TursoMain.flushPersonal();release();await draining;await concurrent;
+    assert.equal(sent.length,2);assert.equal(sent[0].expectedRevision,0);assert.equal(sent[1].expectedRevision,1);
+    assert.notEqual(sent[0].mutationId,sent[1].mutationId);
+    await window.TursoMain.fetch('/api/me/state');
+    assert.equal(JSON.stringify(window.TursoMain.themePreferences()[kind==='theme'?'theme':'themes']),JSON.stringify(last));
+    assert.equal(window.TursoMain.themeSavePending(),false);
+  }
+});
 test('Theme queue coalesces clicks, retries the same operation and drains before logout without legacy PUT',async()=>{
   const window={},saved=new Map(),sent=[];let fail=true;
   const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
@@ -642,7 +721,7 @@ test('Theme queue coalesces clicks, retries the same operation and drains before
   assert.ok(!source.includes('return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme })'));
   assert.ok(source.includes('change.key==="cardQuizzes")return;'));
 });
-test('A paused theme write retries with the account revision',async()=>{
+test('A paused theme write preserves its replay identity before saving the latest choice',async()=>{
   const window={},saved=new Map([['turso-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'mint',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:7,theme:'mint'}}])]]),sent=[];
   const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
@@ -659,10 +738,10 @@ test('A paused theme write retries with the account revision',async()=>{
   await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
   window.TursoMain.theme('dark');
   await window.TursoMain.flushPersonal();
-  assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,0);
+  assert.equal(sent.length,2);assert.equal(sent[0].theme,'mint');assert.equal(sent[0].mutationId,'m1');assert.equal(sent[1].theme,'dark');assert.equal(sent[1].expectedRevision,1);
   assert.equal(saved.has('turso-main-personal-pending-v3'),false);
 });
-test('A stale theme write is dropped instead of replaying an old revision',async()=>{
+test('A pending theme intent survives a newer server revision instead of being silently dropped',async()=>{
   const window={},saved=new Map([['turso-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[];
   const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
@@ -676,7 +755,8 @@ test('A stale theme write is dropped instead of replaying an old revision',async
   runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.TursoMain.fetch('/api/me');await window.TursoMain.fetch('/api/me/state');
   assert.deepEqual(sent,['/api/me','/api/me/state']);
-  assert.equal(saved.has('turso-main-personal-pending-v3'),false);
+  assert.equal(saved.has('turso-main-personal-pending-v3'),true);
+  assert.equal(window.TursoMain.themePreferences().theme,'champagne');
 });
 test('A theme conflict reloads the revision and saves once',async()=>{
   const window={},saved=new Map(),sent=[];let conflict=true;
@@ -1225,7 +1305,32 @@ test('A text expression uses the dedicated card route and updates the list only 
   const button={disabled:true,textContent:'Looking up…'};
   assert.equal(await scope.stageStoreTextExpression({},button,{word:'no gloss',ru:'',place:'idioms',fromText:true}),undefined);
   assert.equal(button.disabled,false);assert.match(status.textContent,/translation is required/);assert.equal(list.length,2);
+  const plain=scope.stageStoreTextExpression({type:'WORD'},{},{word:'example',ru:'пример',place:'mine',fromText:true});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(written.place,'text');
+  resolveWrite({revision:3,card:{word:'example',ru:'пример',place:'text',stageId:12,stageScope:'profile'}});
+  await plain;assert.equal(list[0].place,'text');assert.ok(!list.some(row=>row.place==='mine'));
+  scope.cardIndex=()=>new Map([['competitive',{place:'mine'}]]);
+  scope.window.TursoMain.findCard=async()=>({id:13});
+  scope.window.TursoMain.linkCard=async(found,place)=>{
+    assert.equal(place,'text');return {revision:4,card:{word:'competitive',ru:'конкурентный',place,stageId:found.id}};
+  };
+  await scope.stageStoreTextExpression({type:'WORD'},{},{word:'competitive',ru:'конкурентный',place:'text',fromText:true});
+  assert.equal(list[0].stageId,13,'An existing My words entry must not block saving into Text');
   assert.match(mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')),/return stageStoreTextExpression\(expr,button,item\)/);
+});
+test('Text expressions classify into Text, Phrasal verbs or Idioms, never My words',()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  let cards=[{word:'example',place:'mine'}];
+  const scope={PLACE_LABEL:{text:'Text',mine:'My words',phrasal:'Phrasal verbs',idioms:'Idioms'},loadAdded:()=>cards,
+    expressionHead:value=>value||'',expressionIdentity:expr=>expr.canonicalForm,addedExpressionIdentity:row=>row.expressionKey};
+  runInNewContext(source.slice(source.indexOf('    function expressionPlace(expr)'),source.indexOf('    function expressionSaved(expr)')),scope);
+  assert.equal(scope.expressionPlace({type:'WORD'}),'text');assert.equal(scope.expressionPlace(null),'text');
+  assert.equal(scope.expressionPlace({type:'PHRASAL_VERB'}),'phrasal');assert.equal(scope.expressionPlace({type:'IDIOM'}),'idioms');
+  const expr={type:'WORD',canonicalForm:'example'};
+  assert.equal(scope.findExpressionCard(expr),null);
+  cards.push({word:'example',place:'text'});assert.equal(scope.findExpressionCard(expr).place,'text');
+  assert.equal(scope.expressionDeckName('text',false),'Text');
+  cards=[{word:'example',place:'mine',fromText:true}];assert.equal(scope.findExpressionCard(expr),cards[0]);
 });
 test('Song and text lists show hide/delete controls and wait for server acknowledgement',async()=>{
   let songs=[{id:1,stageId:1,stageRevision:1,stageScope:'profile',title:'Song',artist:'A',archived:false}],texts=[{id:2,stageId:2,stageRevision:1,stageScope:'profile',title:'Text',archived:false}];
