@@ -36,7 +36,7 @@
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
-      account: "account", profile: "account", admin: "admin", themes: "account"
+      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingroup: "admin", themes: "account"
     };
     (function holdPlace() {
       let place = null;
@@ -58,7 +58,7 @@
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (id === "admin" && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
@@ -74,7 +74,13 @@
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
-      if (id === "admin") paintAdmin();
+      if (id === "admin" && !['adminuser','admingroup'].includes(previous?.id)) paintAdmin();
+      if (id === "admin" && ['adminuser','admingroup'].includes(previous?.id)) {
+        const target = document.querySelector('#admin [data-account="user"][data-id="' + adminSelectedUser + '"]');
+        const fold = target?.closest('details'); if (fold) fold.open = true;
+      }
+      if (id === "adminuser") { adminSelectedUser = null; if (!adminGroups.length) paintAdmin('adminuser'); else paintAdminUser(adminAccountId); }
+      if (id === "admingroup") { if (!adminGroups.length) paintAdmin('admingroup'); else paintAdminGroup(); }
       if (id === "bugs") paintBugs();
       if (id === "archive") paintArchive();
       if (id === "stats") paintStats();
@@ -309,6 +315,9 @@
         id: on ? on.id : "home",
         scrollY: window.scrollY,
         focusKey: focused?.getAttribute("data-return-focus") || "",
+        adminAccountId: typeof adminAccountId === 'undefined' ? null : adminAccountId,
+        adminGroupId: typeof adminGroupId === 'undefined' ? null : adminGroupId,
+        adminTab: typeof adminTab === 'undefined' ? null : adminTab,
         focusAttrs: focused ? [...focused.attributes].filter(attr => attr.name === 'id' || attr.name === 'href' || attr.name.startsWith('data-') && attr.name !== 'data-return-focus').map(attr => [attr.name, attr.value]) : [],
         view: grammarView,
         area: grammarArea,
@@ -346,6 +355,9 @@
     }
     window.enquizVisit = visit;
     function restore(place) {
+      if (['admin','adminuser','admingroup'].includes(place.id)) {
+        adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
+      }
       if (place.id === "tenses" && place.view === "area") { openArea(place.area, true); return; }
       if (place.id === "tenses") { openHub(true); return; }
       if (place.id === "tense" && place.kind === "compare") { openCompare(place.compare, true); return; }
@@ -9202,6 +9214,34 @@
       });
     });
     syncExamPassInputs();
+    document.querySelectorAll('.chip-n').forEach((input) => {
+      // Text inputs support selection consistently, including numeric mobile keyboards.
+      if (input.type === 'number') { input.type = 'text'; input.inputMode = 'numeric'; input.maxLength = 4; }
+      input.addEventListener('focus', () => { if (!input.readOnly) input.select(); });
+      input.addEventListener('pointerdown', (event) => {
+        event.stopPropagation();
+        if (input.readOnly || input.disabled) return;
+        event.preventDefault(); input.focus(); input.select();
+      });
+      input.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (input.readOnly || input.disabled) return;
+        input.select();
+        if (input.hasAttribute('data-memory-size')) {
+          input.closest('.chip')?.classList.add('on');
+          if (document.querySelector('section.on')?.id === 'daysetup') refreshDaySetupTime();
+        }
+      });
+      input.addEventListener('keydown', (event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); input.blur(); }
+      });
+      if (input.hasAttribute('data-memory-size')) input.addEventListener('change', () => {
+        const maximum = Math.max(2, Number(input.max) || 2);
+        input.value = String(Math.min(maximum, Math.max(2, Math.floor(Number(input.value) || 4))));
+        if (document.querySelector('section.on')?.id === 'daysetup') refreshDaySetupTime();
+      });
+    });
     document.getElementById("dayExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("dayMistakes").onclick = () => openMistakes(quizPool());
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
@@ -9972,6 +10012,8 @@
       const slot = document.getElementById("ownAccountFormSlot");
       const data = ownAccountData;
       if (!slot || !data || !data.user) return;
+      const passwordSlot = document.getElementById('ownPasswordSlot');
+      if (passwordSlot) { passwordSlot.hidden = true; passwordSlot.innerHTML = ''; }
       if (!slot.hidden) { slot.hidden = true; slot.innerHTML = ""; return; }
       const user = data.user;
       if (data.locked) {
@@ -9996,6 +10038,8 @@
     function openOwnPasswordForm() {
       const slot = document.getElementById("ownPasswordSlot");
       if (!slot) return;
+      const detailsSlot = document.getElementById('ownAccountFormSlot');
+      if (detailsSlot) { detailsSlot.hidden = true; detailsSlot.innerHTML = ''; }
       if (!slot.hidden) { slot.hidden = true; slot.innerHTML = ""; return; }
       slot.hidden = false;
       slot.innerHTML = '<form id="ownPasswordForm"><p class="hint">The new password is saved immediately.</p>' +
@@ -10049,22 +10093,52 @@
     let adminPaintToken = 0;
     let adminUserPaintToken = 0;
     let adminTab = 'accounts', adminGroups = [], adminMembers = [], adminAccounts = [], adminGroupId = null;
+    let adminSearch = '', adminSelectedUser = null;
+    let adminAccountId = null;
+    function paintAdminAccounts() {
+      const list = document.getElementById('adminAccountList'); if (!list) return;
+      const query = adminSearch.trim().toLocaleLowerCase();
+      const accounts = adminAccounts.filter(user => [user.name,user.login,user.email].some(value => String(value || '').toLocaleLowerCase().includes(query)));
+      list.innerHTML = adminAccountRows(accounts) || '<p class="hint">No matching accounts.</p>';
+    }
+    document.addEventListener('input',event => {
+      if (event.target.id !== 'adminAccountSearch' || !isTeacher() || viewAccount) return;
+      adminSearch = event.target.value; adminSelectedUser = null; ++adminUserPaintToken;
+      const slot = document.getElementById('adminUser'); if (slot) slot.innerHTML = '';
+      paintAdminAccounts();
+    });
     function adminGroupOptions(selected) {
       return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
     }
     function adminAccountRows(accounts) {
       const members = new Map(adminMembers.map(member => [member.accountId,member.groupId])), groups = new Map();
       for (const user of accounts) { const name = user.role === 'USER' ? adminGroups.find(g => g.id === members.get(user.id))?.title || 'Unassigned' : 'Teachers and staff'; if (!groups.has(name)) groups.set(name,[]); groups.get(name).push(user); }
-      return [...groups].map(([name,users]) => '<h3>' + esc(name) + ' · ' + users.length + '</h3>' + recentRows(users,(row,n) => '<button class="path" type="button" data-account="user" data-id="' + esc(row.id) + '"><span><b>' + n + '. ' + esc(row.login) + '</b><br><span class="label">' + esc(row.email) + ' · ' + roleLabel(row.role) + accountMark(row) + '</span></span></button>')).join('');
+      return [...groups].map(([name,users]) => '<details class="accounts-fold"' + (adminSearch.trim() ? ' open' : '') + '><summary>' + esc(name) + ' · ' + users.length + '</summary>' + recentRows(users,(row,n) => '<button class="path" type="button" data-account="user" data-id="' + esc(row.id) + '"><span><b>' + n + '. ' + esc(row.login) + '</b><br><span class="label">' + esc(row.email) + ' · ' + roleLabel(row.role) + accountMark(row) + '</span></span></button>') + '</details>').join('');
     }
     function paintAdminGroups() {
       const box = document.getElementById('adminBody'); if (!box || !isTeacher() || viewAccount) return;
+      const expanded = new Set([...box.querySelectorAll('[data-admin-group-fold][open]')].map(fold => fold.dataset.adminGroupFold));
+      box.innerHTML = '<div class="row accounts-group-create"><input id="accountGroupName" aria-label="New group name" placeholder="Group name" maxlength="120"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>' + adminGroups.map(group => '<details class="accounts-fold" data-admin-group-fold="' + group.id + '"' + (expanded.has(String(group.id)) ? ' open' : '') + '><summary>' + esc(group.title) + '</summary><button class="path" type="button" data-admin-group="' + group.id + '"><span><b>Open ' + esc(group.title) + '</b><br><span class="label">' + adminMembers.filter(m => m.groupId === group.id).length + ' students · ' + group.lessonIds.length + ' lessons · ' + (group.examIds || []).length + ' exams</span></span></button></details>').join('');
+      if (document.querySelector('section.on')?.id === 'admingroup') paintAdminGroup();
+    }
+    function paintAdminGroup() {
+      if (!isTeacher() || viewAccount) return;
       const selected = adminGroups.find(group => group.id === adminGroupId);
-      box.innerHTML = '<div class="row accounts-group-create"><input id="accountGroupName" aria-label="New group name" maxlength="120"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>' + adminGroups.map(group => '<button class="path" type="button" data-admin-group="' + group.id + '"><span><b>' + esc(group.title) + '</b><br><span class="label">' + adminMembers.filter(m => m.groupId === group.id).length + ' students · ' + group.lessonIds.length + ' lessons · ' + (group.examIds || []).length + ' exams</span></span></button>').join('') + '<div id="adminGroupDetail"></div><div id="adminUser"></div>';
-      if (!selected) return;
+      if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
+      document.getElementById('adminGroupTitle').textContent = selected.title;
+      const detail = document.getElementById('adminGroupDetail');
+      const examsOpen = detail.dataset.groupId === String(selected.id) && !!detail.querySelector('[data-group-exams]')?.open;
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
       const exams = examLoad(), lessons = lmLibrary?.materials || [];
-      document.getElementById('adminGroupDetail').innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Save name</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button><button class="btn" type="button" data-group-open="' + selected.id + '">Open lessons</button></div><h3>Students · ' + students.length + '</h3>' + adminAccountRows(students) + '<h3>Lessons · ' + selected.lessonIds.length + '</h3>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '<h3>Exams · ' + (selected.examIds || []).length + '</h3>' + exams.filter(exam => (selected.examIds || []).includes(exam.id)).map(exam => '<button class="path" type="button" data-exam-open="' + exam.id + '">' + esc(exam.title) + '</button>').join('') + '<div class="row"><select id="accountGroupExam" aria-label="Exam to assign"><option value="">Choose exam</option>' + exams.map(exam => '<option value="' + exam.id + '">' + esc(exam.title) + '</option>').join('') + '</select><button class="btn" type="button" data-account-group="exam">Assign exam</button></div>';
+      const examRows = exams.map(exam => {
+        const assigned = (selected.examIds || []).includes(exam.id), owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
+        const label = assigned ? 'Unassign' : 'Assign';
+        const icon = '<svg class="lucide lucide-circle-' + (assigned ? 'minus' : 'plus') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>' + (assigned ? '' : '<path d="M12 8v8"/>') + '</svg>';
+        return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(owner?.title || 'Unassigned') + (assigned ? ' · Assigned' : '') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="' + (assigned ? 'unassign-exam' : 'exam') + '" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
+      }).join('');
+      document.getElementById('adminGroupDetail').innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Save name</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button><button class="btn" type="button" data-group-open="' + selected.id + '">Open lessons</button></div><h3>Students · ' + students.length + '</h3>' + adminAccountRows(students) + '<details class="accounts-fold" data-group-lessons><summary>Lessons · ' + selected.lessonIds.length + '</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>Exams · ' + exams.length + '</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
+      detail.dataset.groupId = String(selected.id);
+      detail.querySelector('[data-group-exams]').open = examsOpen;
     }
     async function saveAccountGroup(body) {
       const actor = authUser?.id, generation = viewGen;
@@ -10079,19 +10153,21 @@
       const tab = event.target.closest('[data-admin-tab]'), group = event.target.closest('[data-admin-group]'), action = event.target.closest('[data-account-group]');
       if (!tab && !group && !action || !isTeacher() || viewAccount) return;
       if (tab) { adminTab = tab.dataset.adminTab; paintAdmin(); return; }
-      if (group) { adminGroupId = domEntityId(group.dataset.adminGroup); classGroupId = adminGroupId; paintAdminGroups(); return; }
+      if (group) { adminGroupId = domEntityId(group.dataset.adminGroup); classGroupId = adminGroupId; visit('admingroup'); return; }
       const kind = action.dataset.accountGroup, selected = adminGroups.find(g => g.id === adminGroupId);
       const body = kind === 'create' ? {action:kind,title:document.getElementById('accountGroupName').value} : {action:kind,id:selected?.id,expectedRevision:selected?.revision};
       if (kind === 'rename') body.title = document.getElementById('accountGroupTitle').value;
-      if (kind === 'exam') { body.examId = Number(document.getElementById('accountGroupExam').value); if (!body.examId) return; }
+      if (kind === 'exam' || kind === 'unassign-exam') { body.examId = Number(action.dataset.examId); if (!body.examId) return; }
       if (kind === 'archive' && !confirm('Move this group to Archive?')) return;
       action.disabled = true; saveAccountGroup(body).catch(error => { window.TursoMain?.notice(error.message,true); }).finally(() => { action.disabled = false; });
     });
-    function paintAdmin() {
+    function paintAdmin(detailPage = '') {
+      if (!detailPage) { const active = document.querySelector?.('section.on')?.id; if (['adminuser','admingroup'].includes(active)) detailPage = active; }
       const token = ++adminPaintToken, actor = authUser?.id, generation = viewGen;
       const still = () => token === adminPaintToken && actor === authUser?.id && generation === viewGen;
       const box = document.getElementById("adminBody");
       if (!box) return;
+      adminSelectedUser = null; ++adminUserPaintToken;
       if (!isTeacher()) {
         box.innerHTML = '<div class="card"><p>Teachers only.</p></div>';
         return;
@@ -10105,14 +10181,16 @@
       ]).then(([regs, users, changes, groups, membership]) => {
         if (!still()) return;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
+        const requestsTab = document.querySelector('[data-admin-tab="requests"]');
+        if (requestsTab) requestsTab.textContent = 'Approval requests' + (waiting.length ? ' · ' + waiting.length : '');
         const accounts = (users.users || []).filter(accountVisible);
         adminGroups = groups.groups || []; adminMembers = membership.members || []; adminAccounts = accounts;
         if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
-        if (adminTab === 'groups') { paintAdminGroups(); return; }
+        if (adminTab === 'groups') { paintAdminGroups(); if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup(); return; }
         const accountIds = new Set(accounts.map((row) => row.id));
         const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
-        const changeRows = (changes.changes || []).filter((row) => accountVisible(row) && accountIds.has(row.user_id));
-        box.innerHTML = '<div class="card"><p class="label">Account changes</p>' +
+        const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(row.user_id));
+        const changesHtml = '<div class="card"><p class="label">Account change requests</p>' +
           (changeRows.length ? recentRows(changeRows, (row, n) => {
             if (row.status !== "pending") {
               return '<div style="margin:8px 0"><b>' + n + ". " + esc(row.from_login) + '</b> · ' + statusLabel(row.status) +
@@ -10125,34 +10203,40 @@
               ? '<p class="hint">This teacher can change account details after a second active teacher joins.</p>'
               : (own && !sessionIsDeveloper() ? '<p class="hint">Someone else has to approve this.</p>' : "");
             const approve = blocked ? "" : '<button class="btn primary" type="button" data-account="approve-change" data-id="' + esc(row.id) + '">Approve</button>';
-            return '<div style="margin:8px 0"><b>' + n + ". " + esc(row.from_login) + '</b>' +
+            return '<div data-list-row style="margin:8px 0"><b>' + n + ". " + esc(row.from_login) + '</b>' +
               (isDeveloper() ? " · " + esc(roleLabel(row.role)) : "") +
               changeHtml(row) + note +
               '<div class="row">' + approve +
               '<button class="btn" type="button" data-account="reject-change" data-id="' + esc(row.id) + '">Reject</button></div></div>';
           }) : '<p class="hint">No account changes are waiting.</p>') +
-          '</div><div class="card"><p class="label">Waiting for approval</p>' +
+          '</div>';
+        const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
-            '<div class="row" style="margin:8px 0"><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
+            '<div class="row" data-list-row style="margin:8px 0"><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
             '<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1')?.id) + '</select><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
-          '</div><div class="card"><p class="label">Accounts</p>' +
-          adminAccountRows(accounts) +
-          '</div><div class="card"><p class="label">Registration history</p>' +
+          '</div>';
+        const historyHtml = '<div class="card"><p class="label">Registration history</p>' +
           (history.length ? recentRows(history, (row, n) =>
-            '<p><b>' + n + ". " + esc(row.login) + '</b> · ' + esc(row.email) + '<br><span class="hint">' + statusLabel(row.status) + ' · ' + esc(when(row.created_at)) + '</span></p>'
+            '<p data-list-row><b>' + n + ". " + esc(row.login) + '</b> · ' + esc(row.email) + '<br><span class="hint">' + statusLabel(row.status) + ' · ' + esc(when(row.created_at)) + '</span></p>'
           ) : '<p class="hint">No registrations yet.</p>') +
-          '</div><div id="adminUser"></div>';
+          '</div>';
+        box.innerHTML = adminTab === 'requests' ? waitingHtml + changesHtml : adminTab === 'history' ? historyHtml :
+          '<label for="adminAccountSearch">Search accounts</label><input id="adminAccountSearch" type="search" placeholder="Name, login or email" value="' + esc(adminSearch) + '"><div id="adminAccountList"></div>';
+        if (adminTab === 'accounts') paintAdminAccounts();
+        if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup();
       }).catch((err) => {
         if (!still()) return;
         box.innerHTML = '<div class="card"><p class="hint bad">' + esc(err.message) + '</p></div>';
       });
     }
     function paintAdminUser(id) {
-      const token = ++adminUserPaintToken, actor = authUser?.id, generation = viewGen;
       const slot = document.getElementById("adminUser");
       if (!slot) return;
+      const token = ++adminUserPaintToken, actor = authUser?.id, generation = viewGen;
+      if (adminSelectedUser === id) { adminSelectedUser = null; slot.innerHTML = ''; return; }
+      adminSelectedUser = id;
       const still = () => token === adminUserPaintToken && actor === authUser?.id && generation === viewGen && slot.isConnected;
       slot.innerHTML = '<p class="hint">Loading…</p>';
       accountFetch("/api/admin/users/" + encodeURIComponent(id)).then((data) => {
@@ -11326,7 +11410,7 @@
         const picker = button.closest('.card').querySelector('[data-student-group]');button.disabled = true;
         accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
-          if (adminTab === 'groups') paintAdminGroups(); else { paintAdmin(); }
+          if (adminTab === 'groups') paintAdminGroups(); else paintAdminAccounts();
         }).catch(error => alert(error.message)).finally(() => { button.disabled = false; });return;
       }
       if (action === "save-profile") {
@@ -11393,7 +11477,7 @@
       }
       if (action === "user") {
         if (!isTeacher() || viewAccount) return;
-        paintAdminUser(button.dataset.id);
+        adminAccountId = button.dataset.id; visit('adminuser');
       }
     });
     function cardByEn(en) {
@@ -12941,7 +13025,7 @@
       if (!block || !block.id) return "";
       if (lmFiles[block.id]) return lmFiles[block.id];
       if (lmExternalFile(block)) return lmExternalFile(block);
-      if (block.hasFile || (block.name && !block.sample)) return lmFileUrl(block.id);
+      if (block.hasFile || (block.hasFile !== false && block.name && !block.sample)) return lmFileUrl(block.id);
       return "";
     }
     function lmUploadFile(id, file) {
@@ -13176,6 +13260,7 @@
     function lmPreviewFile(block, label, action, attr) {
       const external = lmExternalFile(block);
       if (external) return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + '</b><span>' + esc(block.name || '') + '</span><div style="margin-top:8px"><a class="lm-btn lm-btn-primary" href="' + esc(external) + '" target="_blank" rel="noopener noreferrer">' + esc(action) + '</a></div></div>';
+      if (block.hasFile === false && !lmSrc(block)) return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + '</b><span>' + esc(block.name || '') + '</span><p class="hint">No file attached.</p></div>';
       return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + "</b><span>" + esc([block.name && block.title ? block.name : "", block.size || ""].filter(Boolean).join(" · ")) + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
     }
     function lmPreviewChoices(block, index, question) {
@@ -15440,6 +15525,11 @@
         if (event.key === "Escape") { examCloseCalendar(); closeItemEditor(); }
       });
       if (blockNew) blockNew.addEventListener("click", examAddBlock);
+      document.addEventListener('click',event => {
+        const open = event.target.closest('#adminGroupDetail [data-exam-open]');
+        if (!open || !isTeacher() || viewAccount) return;
+        examCurrentId = domEntityId(open.dataset.examOpen); visit('examblocks');
+      });
       if (list) list.addEventListener("click", (event) => {
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
@@ -15489,6 +15579,149 @@
       document.addEventListener("input", (event) => examRemember(event.target));
       document.addEventListener("change", (event) => examRemember(event.target));
     }
+    function installListSearch(id, label, selector, scopeKey) {
+      const list = document.getElementById(id);
+      if (!list) return;
+      const control = document.createElement('div');
+      control.className = 'list-search';
+      const input = document.createElement('input');
+      input.type = 'search'; input.id = id + 'Search';
+      input.placeholder = label; input.setAttribute('aria-label', label);
+      const status = document.createElement('p');
+      status.className = 'hint'; status.setAttribute('role', 'status'); status.hidden = true;
+      control.append(input, status); list.before(control);
+      const originalHidden = new WeakMap(), originalOpen = new WeakMap();
+      let scope;
+      const apply = () => {
+        if (scopeKey) {
+          const next = scopeKey();
+          if (scope !== next) { input.value = ''; scope = next; }
+        }
+        const query = input.value.trim().toLocaleLowerCase();
+        const rows = [...list.querySelectorAll(selector)].filter(row => !row.parentElement.closest(selector) || !list.contains(row.parentElement.closest(selector)));
+        if (id === 'adminBody') {
+          control.hidden = adminTab === 'accounts';
+          input.placeholder = adminTab === 'groups' ? 'Search groups' : adminTab === 'requests' ? 'Search approval requests' : 'Search registration history';
+          input.setAttribute('aria-label', input.placeholder);
+        }
+        let matches = 0;
+        rows.forEach(row => {
+          if (!originalHidden.has(row)) originalHidden.set(row, row.hidden);
+          row.hidden = originalHidden.get(row) || !!query && !row.textContent.toLocaleLowerCase().includes(query);
+          if (!row.hidden) matches++;
+        });
+        list.querySelectorAll('.accounts-fold, .archive-group').forEach(group => {
+          const children = rows.filter(row => group.contains(row));
+          if (!children.length) return;
+          group.hidden = !!query && children.every(row => row.hidden);
+          if (group.tagName === 'DETAILS') {
+            if (query && !originalOpen.has(group)) originalOpen.set(group, group.open);
+            if (query && !group.hidden) group.open = true;
+            if (!query && originalOpen.has(group)) { group.open = originalOpen.get(group); originalOpen.delete(group); }
+          }
+        });
+        list.querySelectorAll(':scope > .lib-h').forEach(heading => {
+          let row = heading.nextElementSibling, visible = false;
+          while (row && !row.matches('.lib-h')) { if (rows.includes(row) && !row.hidden) visible = true; row = row.nextElementSibling; }
+          heading.hidden = !!query && !visible;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' results' : 'No matches.';
+      };
+      input.addEventListener('input', apply);
+      new MutationObserver(apply).observe(list, {childList: true, subtree: true, characterData: true});
+      apply();
+    }
+    for (const [id, label, selector, scope] of [
+      ['groupList', 'Search groups', '.day-row'],
+      ['lmDayList', 'Search lessons', '.day-row', () => classGroupId],
+      ['examList', 'Search exams', '.day-row'],
+      ['examBlocks', 'Search examination blocks', '.day-row', () => examCurrentId],
+      ['textList', 'Search texts', '[data-text-open]'],
+      ['textExpressions', 'Search expressions', '.expression-card', () => openTextId],
+      ['speakoutList', 'Search Speakout', '.file-card, .tense', () => [speakView,speakLevel,speakUnit,speakLesson].join(':')],
+      ['archiveList', 'Search archive', '.day-row'],
+      ['bugList', 'Search bugs', '.bug-item'],
+      ['adminBody', 'Search groups', '[data-admin-group-fold], [data-list-row]', () => adminTab],
+      ['adminGroupDetail', 'Search students, lessons or exams', '.day-row, .path', () => adminGroupId]
+    ]) installListSearch(id, label, selector, scope);
+    const textSearch = document.createElement('input');
+    textSearch.type = 'search'; textSearch.id = 'textBodySearch'; textSearch.className = 'text-body-search';
+    textSearch.placeholder = 'Search in this text'; textSearch.setAttribute('aria-label', 'Search in this text');
+    const textBody = document.getElementById('textReadBody');
+    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar';
+    textBody.before(textSearchBar); textSearchBar.append(textSearch);
+    const textSearchNav = document.createElement('div'); textSearchNav.className = 'text-search-nav'; textSearchNav.hidden = true;
+    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number'; textMatchNumber.setAttribute('role', 'status');
+    function textIconButton(label, path) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon';
+      button.title = label; button.setAttribute('aria-label', label);
+      button.innerHTML = '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + path + '"/></svg>';
+      return button;
+    }
+    const textPrevious = textIconButton('Previous match', 'm18 15-6-6-6 6');
+    const textNext = textIconButton('Next match', 'm6 9 6 6 6-6');
+    textSearchNav.append(textPrevious, textMatchNumber, textNext); textSearchBar.append(textSearchNav);
+    const textCollapse = textIconButton('Collapse text', 'm7 11 5-5 5 5 M7 18l5-5 5 5');
+    textCollapse.id = 'textCollapse'; textCollapse.hidden = true;
+    document.getElementById('textread').append(textCollapse);
+    const textSearchStatus = document.createElement('p'); textSearchStatus.className = 'hint'; textSearchStatus.hidden = true;
+    textSearchStatus.setAttribute('role', 'status'); textSearchBar.after(textSearchStatus);
+    let textWasCollapsed = false, textMatches = [], textMatchIndex = -1;
+    function goToTextMatch(index, focus = true) {
+      if (!textMatches.length) return;
+      textMatches[textMatchIndex]?.classList.remove('is-current');
+      textMatchIndex = (index + textMatches.length) % textMatches.length;
+      const match = textMatches[textMatchIndex]; match.classList.add('is-current'); match.tabIndex = -1;
+      textBody.classList.remove('collapsed'); document.getElementById('textReadMore').hidden = true;
+      textMatchNumber.textContent = (textMatchIndex + 1) + ' / ' + textMatches.length;
+      if (focus) match.focus({preventScroll: true});
+      match.scrollIntoView({block: 'center', behavior: 'auto'});
+    }
+    textPrevious.addEventListener('click', () => goToTextMatch(textMatchIndex - 1));
+    textNext.addEventListener('click', () => goToTextMatch(textMatchIndex + 1));
+    textSearch.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); goToTextMatch(textMatchIndex + (event.shiftKey ? -1 : 1), false); }
+    });
+    textCollapse.addEventListener('click', () => {
+      textWasCollapsed = true; textBody.classList.add('collapsed');
+      const more = document.getElementById('textReadMore'); more.hidden = false; more.textContent = 'Show the rest';
+      textSearchBar.scrollIntoView({block: 'start'}); textSearch.focus({preventScroll: true});
+    });
+    new MutationObserver(() => { textCollapse.hidden = textBody.classList.contains('collapsed') || !textBody.textContent.trim(); })
+      .observe(textBody, {attributes: true, attributeFilter: ['class'], childList: true});
+    function findInText() {
+      const query = textSearch.value.trim().toLocaleLowerCase();
+      const raw = textBody.textContent;
+      const fragment = document.createDocumentFragment();
+      let start = 0, count = 0;
+      const pattern = query && new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'giu');
+      for (const match of pattern ? raw.matchAll(pattern) : []) {
+        count++;
+        if (count > 1000) continue;
+        fragment.append(document.createTextNode(raw.slice(start, match.index)));
+        const mark = document.createElement('mark'); mark.textContent = match[0]; fragment.append(mark);
+        start = match.index + match[0].length;
+      }
+      fragment.append(document.createTextNode(raw.slice(start))); textBody.replaceChildren(fragment);
+      textMatches = [...textBody.querySelectorAll('mark')]; textMatchIndex = -1;
+      textSearchNav.hidden = !textMatches.length;
+      if (query) {
+        if (!textSearch.dataset.searching) textWasCollapsed = textBody.classList.contains('collapsed');
+        textSearch.dataset.searching = '1'; textBody.classList.remove('collapsed');
+        document.getElementById('textReadMore').hidden = true;
+      } else if (textSearch.dataset.searching) {
+        delete textSearch.dataset.searching; textBody.classList.toggle('collapsed', textWasCollapsed); fitTextBody();
+      }
+      textSearchStatus.hidden = !query; textSearchStatus.textContent = count ? count + ' matches' + (count > 1000 ? ' · First 1000 highlighted' : '') : 'No matches.';
+      if (textMatches.length) goToTextMatch(0, false);
+    }
+    let textSearchTimer;
+    textSearch.addEventListener('input', () => { clearTimeout(textSearchTimer); textSearchTimer = setTimeout(findInText, 120); });
+    new MutationObserver(() => {
+      clearTimeout(textSearchTimer); textSearch.value = ''; delete textSearch.dataset.searching;
+      textSearchStatus.hidden = true; textSearchNav.hidden = true; textMatches = []; textMatchIndex = -1;
+    }).observe(document.getElementById('textReadTitle'), {childList: true});
     examBoot();
     paintTextCount();
     paintHomeStats();

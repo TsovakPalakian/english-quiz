@@ -80,7 +80,7 @@ export class ContentCopyService extends StudyService {
         if(count.n+(source.type==='material'?1:containers.length)>(target.type==='exam'?100:200))fail(400,'The destination is full.');
       }
       const mediaNamespace='copy-'+crypto.randomUUID();
-      let materialSeq=0,cardSeq=0;
+      let materialSeq=0,cardSeq=0,unattachedFiles=0;
       const cards=new Map();
       const prepare=async(part)=>{
         const raw=JSON.parse(part.content_json),content=copyDefinition(raw);
@@ -125,7 +125,7 @@ export class ContentCopyService extends StudyService {
           cardKey=cards.get(cardKey);
         }else cardKey=null;
         if(source.type==='material'&&Object.hasOwn(content,'title'))content.title=body.title.trim();
-        const attachment=['image','audio','pronunciation','pdf','file'].includes(part.type)&&!raw.sample&&!raw.remoteUrl&&(raw.hasFile||raw.name);
+        const attachment=['image','audio','pronunciation','pdf','file'].includes(part.type)&&raw.hasFile!==false&&!raw.sample&&!raw.remoteUrl&&(raw.hasFile||raw.name);
         if(raw.localMediaKey||attachment||raw.fileId){
           if(!this.store)fail(503,'File-copy storage is unavailable. Nothing was copied.');
           let bytes,metadata;
@@ -133,12 +133,18 @@ export class ContentCopyService extends StudyService {
           else{
             if(!this.readLegacy)fail(503,'The original attachment is unavailable. Nothing was copied.');
             const key=lesson?await legacyLessonFileKey(this.db,part.id,raw.fileId):'lessons/files/'+(raw.fileId||part.id);
-            const media=await this.readLegacy(key);
-            bytes=media.bytes;metadata=await lessonMediaMetadata(bytes,media.mime.split(';')[0].trim(),raw.name||'attachment');
+            let media;
+            try{media=await this.readLegacy(key);}catch(error){
+              if(!(error instanceof StudyError)||error.status!==404||raw.hasFile||raw.fileId)throw error;
+              content.hasFile=false;content.size='';unattachedFiles++;
+            }
+            if(media){bytes=media.bytes;metadata=await lessonMediaMetadata(bytes,media.mime.split(';')[0].trim(),raw.name||'attachment');}
           }
-          const key=`stage-local/copies/${mediaNamespace}/${crypto.randomUUID()}/${metadata.sha256}`;
-          await this.store.putImmutable(key,bytes,metadata);
-          Object.assign(content,{fileId:'sf_'+await digest(key),localMediaKey:key,hasFile:true,sample:false,name:metadata.name||raw.name,fileType:metadata.mime,size:`${bytes.length} B`});
+          if(bytes){
+            const key=`stage-local/copies/${mediaNamespace}/${crypto.randomUUID()}/${metadata.sha256}`;
+            await this.store.putImmutable(key,bytes,metadata);
+            Object.assign(content,{fileId:'sf_'+await digest(key),localMediaKey:key,hasFile:true,sample:false,name:metadata.name||raw.name,fileType:metadata.mime,size:`${bytes.length} B`});
+          }
         }
         return {content,cardSeq:cardKey,type:part.type,tab:target.tab||part.tab||'overview',linkedQuizzes};
       };
@@ -168,7 +174,7 @@ export class ContentCopyService extends StudyService {
       if(target.type==='lesson')commands.push(s('UPDATE lessons SET revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=?',[target.id,destination.revision]),this.guard());
       if(target.type==='exam-block')commands.push(s('UPDATE exam_blocks SET revision=revision+1 WHERE id=? AND revision=?',[target.id,destination.revision]),this.guard(),s('UPDATE exams SET revision=revision+1,updated_at=unixepoch() WHERE id=? AND deleted_at IS NULL',[destination.exam_id]),this.guard());
       commands.splice(2,0,...guards);
-      return {statements:commands,resultSql:`SELECT json_object('copied',json('true'),'destination',?, 'ids',json((SELECT json_group_array(json_object('type',kind,'id',id)) FROM copy_ids))) result_json`,resultArgs:[target.type]};
+      return {statements:commands,resultSql:`SELECT json_object('copied',json('true'),'destination',?,'unattachedFiles',?, 'ids',json((SELECT json_group_array(json_object('type',kind,'id',id)) FROM copy_ids))) result_json`,resultArgs:[target.type,unattachedFiles]};
     });
   }
 }

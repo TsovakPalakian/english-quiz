@@ -1428,6 +1428,8 @@ button.ring { border: 0; background: transparent; color: inherit; padding: 0; bo
   padding-right: 8px;
 }
 .chip-mem .chip-n {
+  cursor: text;
+  caret-color: currentColor;
   width: 2.6em;
   min-height: 28px;
   margin: 0;
@@ -1442,6 +1444,12 @@ button.ring { border: 0; background: transparent; color: inherit; padding: 0; bo
   text-align: center;
   -moz-appearance: textfield;
 }
+.chip-mem .chip-n:focus:not([readonly]) {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.chip-mem .chip-n::selection { background: #ffe08a; color: #172b27; }
 .chip-mem .chip-n::-webkit-outer-spin-button,
 .chip-mem .chip-n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .chip-mem .chip-n[data-round-from],
@@ -2347,6 +2355,22 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .seg { display: flex; gap: 4px; background: var(--acc-s); border-radius: 14px; padding: 4px; margin: 4px 0 16px; }
 .seg button { flex: 1; border: 0; background: transparent; color: var(--acc); border-radius: 10px; padding: 8px 6px; font-weight: 800; }
 .seg button.on { background: var(--card); }
+.accounts-tabs { flex-wrap: wrap; }
+.accounts-tabs button { flex: 1 1 150px; min-width: 0; overflow-wrap: anywhere; }
+#adminAccountSearch { margin: 8px 0 16px; }
+.list-search { margin: 8px 0 16px; }
+.list-search input, .text-body-search { width: 100%; min-width: 0; box-sizing: border-box; }
+.list-search .hint { margin: 6px 0; }
+.text-body-search { margin-bottom: 12px; }
+#textReadBody mark { color: #172b27; background: #ffe08a; border-radius: 2px; }
+.text-search-bar { position: sticky; top: 8px; z-index: 6; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; background: var(--card); border-radius: 8px; margin-bottom: 12px; }
+.text-search-bar .text-body-search { flex: 1 1 180px; width: auto; margin: 0; }
+.text-search-nav { display: flex; align-items: center; gap: 6px; }
+.text-search-nav .btn.icon, #textCollapse { width: 44px; height: 44px; min-height: 44px; padding: 10px; flex-shrink: 0; }
+.text-search-nav svg, #textCollapse svg { width: 24px; height: 24px; display: block; }
+.text-match-number { min-width: 6em; text-align: center; font-variant-numeric: tabular-nums; }
+#textReadBody mark.is-current { background: #ffbd4a; outline: 2px solid #172b27; outline-offset: 2px; }
+#textCollapse { position: fixed; right: 20px; bottom: 100px; z-index: 7; background: var(--card); color: var(--acc); border: 2px solid var(--acc); box-shadow: 0 3px 12px rgba(0,0,0,.18); }
 .lm-chrome { margin: 0 0 16px; }
 .lm-section-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr)); gap:12px; margin:12px 0; }
 .lm-section-card { min-width:0; min-height:96px; padding:16px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); text-align:left; font:inherit; overflow-wrap:anywhere; }
@@ -2376,6 +2400,14 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .review-edit:focus { outline:2px solid var(--acc); }
 .review-answer { margin:12px 0; }
 .accounts-group-create { margin:16px 0; }
+.accounts-fold { margin: 12px 0; }
+.accounts-fold > summary { cursor: pointer; padding: 14px 16px; background: var(--acc-s); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; font-weight: 800; }
+.accounts-fold[open] > summary { margin-bottom: 12px; }
+.accounts-exam-row .path { flex: 1; min-width: 0; margin-bottom: 0; }
+.accounts-exam-row .path b,.accounts-exam-row .path .label { overflow-wrap: anywhere; }
+.accounts-group-create input,#adminGroupDetail input,#adminGroupDetail select { box-sizing: border-box; padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: inherit; }
+.accounts-group-create input,#adminGroupDetail input,#adminGroupDetail select { background: color-mix(in srgb, var(--card) 94%, var(--acc) 6%); border-color: color-mix(in srgb, var(--line) 65%, var(--card) 35%); }
+.accounts-group-create input:focus,#adminGroupDetail input:focus,#adminGroupDetail select:focus { outline: 2px solid var(--acc); outline-offset: 2px; }
 .mobile-tools { flex-wrap:wrap; }
 .accounts-group-create input,#adminGroupDetail input,#adminGroupDetail select { flex:1; min-width:160px; }
 :root[data-high-visibility="1"] .lm-assignment { border:3px solid var(--assignment-accent); background:var(--card); }

@@ -228,6 +228,12 @@ test('Accounts groups seed levels once, assign students and exams, reject stale 
     const level=await service.activeGroup(first[0].id);await service.manage({...teacher,role:'DEVELOPER'},{action:'exam',id:level.id,expectedRevision:level.revision,examId:10});
     assert.equal((await examService.list(teacher))[0].groupId,level.id);
     assert.deepEqual((await service.list(teacher)).find(g=>g.id===level.id).examIds,[10]);
+    const assigned=await service.activeGroup(level.id);
+    await service.manage(teacher,{action:'unassign-exam',id:level.id,expectedRevision:assigned.revision,examId:10});
+    assert.deepEqual((await service.list(teacher)).find(g=>g.id===level.id).examIds,[]);
+    assert.equal((await examService.list(teacher))[0].groupId,null);
+    await assert.rejects(service.manage(teacher,{action:'unassign-exam',id:level.id,expectedRevision:assigned.revision,examId:10}),error=>error.status===409);
+    const cleared=await service.activeGroup(level.id);await service.manage(teacher,{action:'exam',id:level.id,expectedRevision:cleared.revision,examId:10});
     const archive=new ArchiveService(f.db),developer={...teacher,role:'DEVELOPER'};
     await archive.archive(developer,{type:'exam',id:10});await archive.remove(developer,{type:'exam',id:10});
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM class_group_exams WHERE exam_id=10').get().n,0);
@@ -435,6 +441,21 @@ test('Imported PDF copies resolve the original file ID after integer migration',
     assert.deepEqual(files.get(content.localMediaKey),bytes);
     const archive=new ArchiveService(f.db);await archive.archive(actor,{type:'lesson',id:1});
     assert.equal(await archive.mediaKey(actor,{type:'lesson',id:1},'3'),'lessons/files/old_pdf');
+  }finally{f.sqlite.close();}
+});
+test('Copy preserves an unattached named PDF but rejects a missing uploaded file',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');");
+    const insert=f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)");
+    insert.run(JSON.stringify({name:'14.09.2026.pdf',title:'Lesson PDF'}));
+    const actor={id:'teacher',role:'ADMIN'},service=new ContentCopyService(f.db,{store:{putImmutable(){throw Error('No file exists');}},readLegacy:async()=>{throw new StudyError(404,'Original unavailable');}});
+    const body={mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:1},title:'Placeholder copy'};
+    const result=await service.copy(actor,body);assert.equal(result.unattachedFiles,1);
+    const lessonId=result.ids.find(row=>row.type==='lesson').id,part=JSON.parse(f.sqlite.prepare("SELECT content_json FROM lesson_blocks WHERE lesson_id=? AND type='pdf'").get(lessonId).content_json);
+    assert.equal(part.hasFile,false);assert.equal(part.name,'14.09.2026.pdf');assert.equal(part.localMediaKey,undefined);
+    f.sqlite.prepare('UPDATE lesson_blocks SET content_json=? WHERE id=3').run(JSON.stringify({name:'uploaded.pdf',hasFile:true}));
+    await assert.rejects(service.copy(actor,{...body,mutationId:crypto.randomUUID()}),error=>error.status===404);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM lessons').get().n,3);
   }finally{f.sqlite.close();}
 });
 test('Copy rejects students, archived sources, incompatible locations and changed revisions without partial records',async()=>{
@@ -2012,7 +2033,7 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
 test('Administration ignores older page and user responses',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
-  const scope={authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:slot,addEventListener(){},querySelectorAll:()=>[]},
+  const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:slot,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
     accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
   runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);

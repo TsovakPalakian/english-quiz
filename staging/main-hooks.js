@@ -110,8 +110,9 @@ document.addEventListener('submit',async event=>{
   document.getElementById('contentCopyStatus').textContent='Creating copy…';
   try{
     await examSaveQueue;
-    await window.TursoMain.copyContent({source:job.source,destination,title});
+    const result=await window.TursoMain.copyContent({source:job.source,destination,title});
     job.busy=false;stageCloseCopy();
+    if(result.unattachedFiles)window.TursoMain.notice('Copy created. '+result.unattachedFiles+' file placeholder(s) had no uploaded file.');
   }catch(error){document.getElementById('contentCopyStatus').textContent=error.message;job.busy=false;document.getElementById('contentCopySubmit').disabled=false;}
   finally{document.getElementById('contentCopyFields').disabled=false;}
 });

@@ -117,6 +117,9 @@ export class GroupService{
         const [count]=await this.db.read('SELECT (SELECT COUNT(*) FROM class_group_students WHERE group_id=?)+(SELECT COUNT(*) FROM class_group_lessons WHERE group_id=?)+(SELECT COUNT(*) FROM class_group_exams WHERE group_id=?) n',[body.id,body.id,body.id]);
         if(count.n)fail(409,'Reassign students, lessons and exams before archiving this group.');
         await new ArchiveService(this.db).archive(actor,{type:'group',id:body.id});
+      }else if(body.action==='unassign-exam'){
+        recordId(body.examId);
+        await this.groupTransaction([stmt('INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND revision=? AND deleted_at IS NULL)',[body.id,body.expectedRevision]),stmt('DELETE FROM class_group_exams WHERE group_id=? AND exam_id=?',[body.id,body.examId]),stmt('INSERT INTO group_guard SELECT changes()=1'),stmt('UPDATE class_groups SET revision=revision+1 WHERE id=?',[body.id])]);
       }else if(body.action==='exam'){
         recordId(body.examId);const [exam]=await this.db.read('SELECT id FROM exams WHERE id=? AND deleted_at IS NULL',[body.examId]);if(!exam)fail(404,'Exam not found.');
         await this.groupTransaction([stmt('INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND revision=? AND deleted_at IS NULL)',[body.id,body.expectedRevision]),stmt('INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM exams WHERE id=? AND deleted_at IS NULL)',[body.examId]),stmt('INSERT INTO class_group_exams(group_id,exam_id) VALUES(?,?) ON CONFLICT(exam_id) DO UPDATE SET group_id=excluded.group_id',[body.id,body.examId]),stmt('UPDATE class_groups SET revision=revision+1 WHERE id=?',[body.id])]);
