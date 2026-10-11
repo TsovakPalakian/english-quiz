@@ -2,6 +2,7 @@ import {StudyService,StudyError,statement as s,recordId} from './turso-study.mjs
 import {ExamService} from './turso-exams.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {lessonMediaMetadata} from './turso-lesson-media.mjs';
+import {legacyLessonFileKey} from './turso-media.mjs';
 
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const own=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(key=>keys.includes(key));
@@ -131,7 +132,8 @@ export class ContentCopyService extends StudyService {
           if(raw.localMediaKey){({bytes,metadata}=await this.store.readVerified(raw.localMediaKey));}
           else{
             if(!this.readLegacy)fail(503,'The original attachment is unavailable. Nothing was copied.');
-            const media=await this.readLegacy('lessons/files/'+(raw.fileId||part.id));
+            const key=lesson?await legacyLessonFileKey(this.db,part.id,raw.fileId):'lessons/files/'+(raw.fileId||part.id);
+            const media=await this.readLegacy(key);
             bytes=media.bytes;metadata=await lessonMediaMetadata(bytes,media.mime.split(';')[0].trim(),raw.name||'attachment');
           }
           const key=`stage-local/copies/${mediaNamespace}/${crypto.randomUUID()}/${metadata.sha256}`;

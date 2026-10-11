@@ -1,4 +1,5 @@
 import {statement as stmt,StudyError} from './turso-study.mjs';
+import {legacyLessonFileKey} from './turso-media.mjs';
 
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
@@ -105,7 +106,7 @@ export class ArchiveService{
       return part.localMediaKey;
     }
     if(fileId.startsWith('sf_'))fail(404,'Archived media not found.');
-    return 'lessons/files/'+fileId;
+    return ['lesson','group'].includes(value.type)?legacyLessonFileKey(this.db,part.id,part.fileId):'lessons/files/'+fileId;
   }
   async archive(actor,value){
     if(!actor?.id)fail(401,'Sign in first.');

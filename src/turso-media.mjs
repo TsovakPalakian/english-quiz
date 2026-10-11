@@ -42,6 +42,19 @@ export function mediaPlaceholders(value){
   if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,mediaPlaceholders(v)]));
   return value;
 }
+export async function legacyLessonFileKey(db,blockId,fileId){
+  if(fileId)return 'lessons/files/'+fileId;
+  const [table]=await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='entity_id_legacy'");
+  if(table){
+    const [mapping]=await db.read("SELECT old_id FROM entity_id_legacy WHERE entity_kind='lesson_block' AND new_id=?",[blockId]);
+    if(mapping){
+      const id=mapping.old_id.split('\u001f').at(-1);
+      if(!/^[A-Za-z0-9_-]{1,100}$/.test(id))throw new StudyError(404,'Invalid legacy file reference.');
+      return 'lessons/files/'+id;
+    }
+  }
+  return 'lessons/files/'+blockId;
+}
 export async function inlineMedia(db,actor,digest){
   if(!actor?.id)throw new StudyError(401,'Sign in first.');if(!/^[a-f0-9]{64}$/.test(digest))throw new StudyError(404,'Media not found.');
   const needle='migration-media:'+digest;
@@ -88,7 +101,7 @@ export async function mediaKey(db,actor,kind,id){
   }
   if(rows.every(row=>JSON.parse(row.content_json).localMediaKey===undefined)){
     if(id.startsWith('sf_'))throw new StudyError(404,'Local lesson media unavailable. No production fallback.');
-    return 'lessons/files/'+id;
+    return legacyLessonFileKey(db,rows[0].block_id,JSON.parse(rows[0].content_json).fileId);
   }
   if(rows.length!==1)throw new StudyError(404,'Ambiguous local lesson file.');
   const content=JSON.parse(rows[0].content_json),key=content.localMediaKey;
@@ -103,5 +116,5 @@ export async function mediaKey(db,actor,kind,id){
     return key;
   }
   if(id.startsWith('sf_'))throw new StudyError(404,'Local lesson media unavailable. No production fallback.');
-  return 'lessons/files/'+id;
+  return legacyLessonFileKey(db,rows[0].block_id,content.fileId);
 }

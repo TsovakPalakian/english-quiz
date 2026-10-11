@@ -422,6 +422,21 @@ test('Copied attachments have different immutable keys and remain readable after
     assert.deepEqual(files.get(content.localMediaKey).bytes,bytes);
   }finally{f.sqlite.close();}
 });
+test('Imported PDF copies resolve the original file ID after integer migration',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec("CREATE TABLE IF NOT EXISTS entity_id_legacy(entity_kind TEXT,old_id TEXT,new_id INTEGER); INSERT INTO class_groups(id,title) VALUES(1,'A1');");
+    f.sqlite.prepare('INSERT INTO entity_id_legacy VALUES(?,?,?)').run('lesson_block','old_lesson\u001fold_pdf',3);
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)").run(JSON.stringify({name:'lesson.pdf'}));
+    const actor={id:'teacher',role:'ADMIN'},bytes=new TextEncoder().encode('%PDF-1.4\nlegacy'),files=new Map();
+    assert.equal(await mediaKey(f.db,actor,'lesson','3'),'lessons/files/old_pdf');
+    const service=new ContentCopyService(f.db,{store:{putImmutable:async(key,bytes)=>files.set(key,bytes)},readLegacy:async key=>{assert.equal(key,'lessons/files/old_pdf');return {bytes,mime:'application/pdf'};}});
+    const result=await service.copy(actor,{mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:1},title:'Imported PDF copy'});
+    const lessonId=result.ids.find(row=>row.type==='lesson').id,content=JSON.parse(f.sqlite.prepare("SELECT content_json FROM lesson_blocks WHERE lesson_id=? AND type='pdf'").get(lessonId).content_json);
+    assert.deepEqual(files.get(content.localMediaKey),bytes);
+    const archive=new ArchiveService(f.db);await archive.archive(actor,{type:'lesson',id:1});
+    assert.equal(await archive.mediaKey(actor,{type:'lesson',id:1},'3'),'lessons/files/old_pdf');
+  }finally{f.sqlite.close();}
+});
 test('Copy rejects students, archived sources, incompatible locations and changed revisions without partial records',async()=>{
   const f=fixture();try{
     f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');");
