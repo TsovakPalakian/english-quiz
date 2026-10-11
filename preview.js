@@ -9927,6 +9927,34 @@
       paintHomeHello();
       paintHomeStats();
       paintHomeStudy();
+      refreshAccountsCount();
+    }
+    let accountsCountActor = '', accountsCountAt = 0, accountsCountFlight = null;
+    function paintAccountsCount(count) {
+      const suffix = count ? ' · ' + count : '';
+      document.querySelectorAll('[data-jump="admin"]').forEach(button => {
+        button.childNodes.forEach(node => { if (node.nodeType === 3 && node.textContent.trim()) node.textContent = 'Accounts' + suffix; });
+      });
+      const tab = document.querySelector('[data-admin-tab="requests"]');
+      if (tab) tab.textContent = 'Approval requests' + suffix;
+    }
+    function refreshAccountsCount() {
+      const actor = authUser?.id;
+      if (!isTeacher() || viewAccount) {
+        accountsCountActor = ''; accountsCountAt = 0; accountsCountFlight = null;
+        paintAccountsCount(0); return;
+      }
+      if (accountsCountActor !== actor) {
+        accountsCountActor = actor; accountsCountAt = 0; accountsCountFlight = null;
+        paintAccountsCount(0);
+      }
+      if (accountsCountFlight || Date.now() - accountsCountAt < 30000) return;
+      const flight = accountFetch('/api/admin/registrations').then(data => {
+        if (authUser?.id !== actor || viewAccount || !isTeacher()) return;
+        paintAccountsCount((data.registrations || []).filter(row => row.status === 'pending' && accountVisible(row)).length);
+        accountsCountAt = Date.now();
+      }).catch(() => {}).finally(() => { if (accountsCountFlight === flight) accountsCountFlight = null; });
+      accountsCountFlight = flight;
     }
     function paintAccount() {
       const box = document.getElementById("accountBody");
@@ -10181,8 +10209,8 @@
       ]).then(([regs, users, changes, groups, membership]) => {
         if (!still()) return;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
-        const requestsTab = document.querySelector('[data-admin-tab="requests"]');
-        if (requestsTab) requestsTab.textContent = 'Approval requests' + (waiting.length ? ' · ' + waiting.length : '');
+        paintAccountsCount(waiting.length);
+        accountsCountActor = actor; accountsCountAt = Date.now();
         const accounts = (users.users || []).filter(accountVisible);
         adminGroups = groups.groups || []; adminMembers = membership.members || []; adminAccounts = accounts;
         if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
@@ -10370,6 +10398,7 @@
       const allow = isDeveloper();
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
       document.querySelectorAll('[data-teacher-only]').forEach(el => { el.hidden = !isTeacher() || !!viewAccount; });
+      refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
     }
     function archiveLabel(type) {

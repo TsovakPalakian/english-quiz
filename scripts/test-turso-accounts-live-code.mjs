@@ -53,6 +53,39 @@ test('Registration is not blocked by failed logins and retains its separate floo
     assert.equal((await user.call('/api/register','POST',{login:'AnotherStudent',email:'another@example.invalid',password})).status,429);
   }finally{f.close();}
 });
+test('Login failures expire, keep a fixed window and use raw R2 ETags',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
+    const user=f.client(),key='login-fail/unknown',start=Math.floor(Date.now()/1000)-901;
+    await f.env.MEDIA.put(key,JSON.stringify({count:7,until:0,start}));
+    const put=f.env.MEDIA.put;
+    f.env.MEDIA.put=async(path,text,options)=>{
+      if(path===key&&options?.onlyIf?.etagMatches)assert.ok(!options.onlyIf.etagMatches.includes('"'));
+      return put(path,text,options);
+    };
+    assert.equal((await user.call('/api/login','POST',{login:'Missing',password:'wrong'})).status,401);
+    const first=await (await f.env.MEDIA.get(key)).json();
+    assert.equal(first.count,1);assert.equal(first.until,0);assert.ok(first.start>start);
+    assert.equal((await user.call('/api/login','POST',{login:'Missing',password:'wrong'})).status,401);
+    const second=await (await f.env.MEDIA.get(key)).json();assert.equal(second.start,first.start);
+    assert.equal((await user.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
+    assert.equal(await f.env.MEDIA.get(key),undefined);
+  }finally{f.close();}
+});
+test('Auth storage failures are unavailable, not false attempt lockouts',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
+    const user=f.client(),get=f.env.MEDIA.get;
+    f.env.MEDIA.get=async key=>{if(key.endsWith('-fail/unknown'))throw new Error('Fixture unavailable');return get(key);};
+    for(const path of ['/api/login','/api/register']){
+      const result=await user.call(path,'POST',{login:'FixtureDev',password});
+      assert.equal(result.status,503);assert.match(result.value.error,/temporarily unavailable/);
+    }
+    f.env.MEDIA.get=get;f.env.MEDIA.put=async()=>null;
+    const failedWrite=await user.call('/api/login','POST',{login:'Missing',password:'wrong'});
+    assert.equal(failedWrite.status,503);assert.match(failedWrite.value.error,/temporarily unavailable/);
+  }finally{f.close();}
+});
 test('Original registration approval, role boundary, password change and logout work through the integrated router',async()=>{
   const f=fixture();try{
     const dev=f.client(),student=f.client();assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);

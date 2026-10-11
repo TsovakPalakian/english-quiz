@@ -87,14 +87,14 @@ function loginFailKey(ip, kind = "login") {
 
 async function tooManyLoginFailures(env, ip, kind = "login") {
   // Fail closed: without durable fail state, reject rather than allow unlimited guesses.
-  if (!env.MEDIA) return true;
+  if (!env.MEDIA) return null;
   try {
     const object = await env.MEDIA.get(loginFailKey(ip, kind));
     if (!object) return false;
     const row = JSON.parse(await object.text());
     return !!(row && row.until && row.until > now());
   } catch (e) {
-    return true;
+    return null;
   }
 }
 
@@ -104,15 +104,20 @@ async function noteLoginFailure(env, ip, kind = "login") {
     let count = 0;
     let until = 0;
     let etag = "";
+    let start = now();
     try {
       const object = await env.MEDIA.get(loginFailKey(ip, kind));
       if (object) {
-        etag = object.httpEtag || "";
+        etag = object.etag || String(object.httpEtag || "").replace(/^"|"$/g, "");
         const row = JSON.parse(await object.text());
         count = Number(row && row.count) || 0;
         until = Number(row && row.until) || 0;
         if (until > now()) return true;
-        if (kind === "register" && Number(row.start || 0) + LOGIN_LOCK_SECONDS <= now()) count = 0;
+        start = Number(row.start || 0);
+        if (!start || start + LOGIN_LOCK_SECONDS <= now() || until) {
+          count = 0;
+          start = now();
+        }
       }
     } catch (e) {
       return false;
@@ -124,7 +129,7 @@ async function noteLoginFailure(env, ip, kind = "login") {
     } else {
       until = 0;
     }
-    const saved = await putMediaJson(env, loginFailKey(ip, kind), { count: count, until: until, start: now() }, etag);
+    const saved = await putMediaJson(env, loginFailKey(ip, kind), { count: count, until: until, start: start }, etag);
     if (saved) return true;
   }
   return false;
@@ -1734,7 +1739,9 @@ async function phraseCard(env, request, body) {
 async function register(env, request, body, secure) {
   const db = env.DB;
   const ip = clientIp(request);
-  if (env.MEDIA && (await tooManyLoginFailures(env, ip, "register"))) {
+  const registrationLimited = await tooManyLoginFailures(env, ip, "register");
+  if (registrationLimited === null) return json({ error: "Registration is temporarily unavailable. Please try again shortly." }, 503);
+  if (registrationLimited) {
     return json({ error: "Too many registration attempts. Try again in 15 minutes." }, 429, { "Retry-After": String(LOGIN_LOCK_SECONDS) });
   }
   const fields = validateSignup(body);
@@ -1811,8 +1818,10 @@ async function login(env, request, body, secure) {
   const db = env.DB;
   const ip = clientIp(request);
   if (!env.MEDIA) return json({ error: "Sign-in is not configured." }, 503);
-  if (await tooManyLoginFailures(env, ip)) {
-    return json({ error: "Too many attempts. Wait and try again." }, 429);
+  const loginLimited = await tooManyLoginFailures(env, ip);
+  if (loginLimited === null) return json({ error: "Sign-in is temporarily unavailable. Please try again shortly." }, 503);
+  if (loginLimited) {
+    return json({ error: "Too many sign-in attempts. Try again in 15 minutes." }, 429, { "Retry-After": String(LOGIN_LOCK_SECONDS) });
   }
   const key = String(body.login || "").trim();
   const password = String(body.password || "");
@@ -1821,7 +1830,7 @@ async function login(env, request, body, secure) {
   ).bind(key, key.toLowerCase()).first();
   if (!row || !timingSafeEqual(await pbkdf2(password, row.password_salt), row.password_hash)) {
     if (!(await noteLoginFailure(env, ip))) {
-      return json({ error: "Too many attempts. Wait and try again." }, 429);
+      return json({ error: "Sign-in is temporarily unavailable. Please try again shortly." }, 503);
     }
     // Same body for pending / deleted / wrong — avoid account-existence oracle.
     return json({ error: "Wrong login or password." }, 401);

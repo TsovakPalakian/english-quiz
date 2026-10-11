@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve('rollback/turso-production-assets');
+const root=resolve(process.env.UI_ASSETS_DIR || 'rollback/turso-production-assets');
 const server=createServer((req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname;
   const file=resolve(root,name==='/'?'index.html':'.'+name);
@@ -127,12 +127,27 @@ try{
       }else data={revision,items:[...archived.values()]};
     }
     if(path==='/api/bugs')data={heads:[]};
+    if(path==='/api/messages')data={rooms:[],groups:[],contacts:[],unread:{personal:0,learning:0},total:0,revision:''};
     if(path.includes('catalogs'))data=path.includes('SPEAKOUT')?{content:{level:'Starter',units:[{title:'Fixture unit',lessons:[{letter:'A',title:'Fixture lesson'}]}]}}:{documents:{},cards:[],next:null};
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   };
   await page.context().route('**/api/**',handleApi);
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>typeof window.enquizVisit==='function');
+  const pronunciationTabs=await page.evaluate(()=>{
+    const original=window.open,calls=[];
+    window.open=(...args)=>{calls.push(args);return {moveTo(){},focus(){}};};
+    try {
+      openClipFrame('https://www.playphrase.me/#/search?q=hello','PlayPhrase');
+      openClipFrame('https://youglish.com/pronounce/hello/english','YouGlish');
+      return {calls,frameHidden:document.getElementById('clipFrame').hidden};
+    } finally {window.open=original;}
+  });
+  assert.equal(pronunciationTabs.frameHidden,true);
+  for (const args of pronunciationTabs.calls) {
+    assert.equal(args[1],'enquiz-clip');
+    assert.match(args[2],/^width=520,height=720,left=\d+,top=\d+$/);
+  }
   await page.locator('[data-jump="account"]:visible').first().click();
   await page.locator('[data-account="edit-password"]').waitFor();
   await page.locator('[data-account="edit-password"]').click();
@@ -149,6 +164,7 @@ try{
   assert.equal(await page.locator('[data-jump="admin"] svg').count(),2);
   assert.equal(await page.locator('[data-admin-tab]').count(),4);
   await page.waitForFunction(()=>document.querySelector('[data-admin-tab="requests"]')?.textContent==='Approval requests · 1');
+  assert.deepEqual(await page.locator('[data-jump="admin"]').allTextContents(),['Accounts · 1','Accounts · 1']);
   await page.locator('#adminAccountSearch').fill('student@example.invalid');
   assert.equal(await page.locator('#adminAccountList [data-account="user"]').count(),1);
   await page.locator('#adminAccountSearch').fill('No matching student');
@@ -216,6 +232,7 @@ try{
   assert.match(await page.locator('#adminBody .label').first().innerText(),/Waiting for approval/);
   await page.locator('[data-account="approve"]').click();
   await page.waitForFunction(()=>document.querySelector('[data-admin-tab="requests"]')?.textContent==='Approval requests');
+  assert.deepEqual(await page.locator('[data-jump="admin"]').allTextContents(),['Accounts','Accounts']);
   assert.equal(await page.locator('#adminAccountSearch').count(),0);
   await page.locator('[data-admin-tab="history"]').click();
   await page.locator('#adminBody').getByText('Registration history',{exact:true}).waitFor();
