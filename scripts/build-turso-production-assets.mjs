@@ -21,6 +21,7 @@ for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstra
   copyFileSync(resolve(accepted,name),resolve(target,name));
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
+for(const name of ['speakout-editor.js','speakout-editor.css'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 copyFileSync(resolve(root,'staging/messages-test.js'),resolve(target,'messages.js'));
 copyFileSync(resolve(root,'staging/messages-test.css'),resolve(target,'messages.css'));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');

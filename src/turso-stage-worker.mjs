@@ -6,6 +6,7 @@ import {ExamService} from './turso-exams.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {ArchiveService} from './turso-archive.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
+import {speakoutLesson,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout} from './turso-speakout.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
 import {ThemeMediaService} from './turso-theme-media.mjs';
@@ -143,12 +144,14 @@ export default {async fetch(request,env){
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
+      ||method==='HEAD'&&path==='/api/speakout/media'
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
-    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
+    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/speakout-editor.js','/speakout-editor.css','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
     const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
-    if(!read&&!write&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
+    const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
+    if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
     const db=studyClient(env);
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
@@ -157,6 +160,12 @@ export default {async fetch(request,env){
       const catalogJson=async value=>{const projected=await projectStudentCatalog(db,viewer,value);if(projected===null)throw new StudyError(404,'Card not found.');return json(projected);};
       if(catalogPage){
         const params=url.searchParams;
+        if(catalogPage[1]==='SPEAKOUT'&&params.get('revision')==='1'){
+          const [doc]=await db.read("SELECT value_json FROM catalog_documents WHERE namespace='static' AND key='SPEAKOUT'");
+          if(!doc)throw new StudyError(404,'Speakout not found.');
+          const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(doc.value_json));
+          return json({revision:Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('')});
+        }
         if(params.get('slice')==='1')return await catalogJson(await staticSlice(db,catalogPage[1],{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
         if(params.get('document')==='1'&&!params.get('after'))return await catalogJson(await staticDocument(db,catalogPage[1]));
         if(catalogPage[1]==='SPEAKOUT'&&params.get('level'))return await catalogJson(await speakoutLevel(db,params.get('level')));
@@ -173,7 +182,22 @@ export default {async fetch(request,env){
     }
     // All non-public content requires a live, owner-bound test session.
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
-    if(write&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
+    if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
+    if(path.startsWith('/api/speakout/')){
+      const location={level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson')),block:url.searchParams.get('block')};
+      const store=stageR2Media(env);
+      if(path==='/api/speakout/media')return method==='POST'?json(await uploadSpeakout(db,actor,{...location,expectedRevision:Number(url.searchParams.get('expectedRevision')),mutationId:url.searchParams.get('mutationId')},await boundedMediaBytes(request),request.headers.get('content-type')?.split(';')[0],url.searchParams.get('name'),store)):await speakoutMedia(db,actor,location,store,request);
+      if(path==='/api/speakout/answers')return json(await answerSpeakout(db,actor,await body(request,JSON_BODY_LIMIT),store));
+    }
+    if(path==='/api/speakout/lesson'){
+      if(speakoutWrite){
+        const value=await body(request,JSON_BODY_LIMIT);
+        if(!value||typeof value!=='object')throw new StudyError(400,'Invalid Speakout request.');
+        if(value.action==='save')return json(await saveSpeakout(db,actor,value,stageR2Media(env)));
+        return json(await speakoutLesson(db,actor,value,undefined,stageR2Media(env)));
+      }
+      return json(await speakoutLesson(db,actor,{level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson'))},undefined,stageR2Media(env),url.searchParams.get('revision')==='1'));
+    }
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];
       if([...url.searchParams.keys()].some(key=>!allowed.includes(key)||url.searchParams.getAll(key).length!==1))throw new StudyError(400,'Invalid upload parameters.');

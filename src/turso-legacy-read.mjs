@@ -276,7 +276,7 @@ export async function accountBootstrap(db,actor){
     s('SELECT lesson_id,allow_hidden,personal_hidden FROM lesson_access WHERE account_id=?',[actor.id]),
     s("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]),
     s("SELECT value_json FROM profile_settings WHERE profile_id=? AND key LIKE 'activity:%'",[profile]),
-    s("SELECT key,length(value_json) bytes FROM catalog_documents WHERE namespace='static' AND key IN ('LESSON_DATA','GRAMMAR','IRREGULAR','SPEAKOUT')"),
+    s("SELECT key,length(value_json) bytes,CASE WHEN key='SPEAKOUT' THEN value_json END content FROM catalog_documents WHERE namespace='static' AND key IN ('LESSON_DATA','GRAMMAR','IRREGULAR','SPEAKOUT')"),
     s(`SELECT COUNT(*) n, COALESCE(SUM(l.revision),0) rev FROM lessons l WHERE ${lessonAccess}`,[+review(actor),actor.id,actor.id])
   ]);
   const stats={};
@@ -296,6 +296,8 @@ export async function accountBootstrap(db,actor){
   const custom=settings.find(row=>row.key==='customThemes'&&row.origin==='account');
   const versions={};
   for(const row of catalogs)versions[row.key]=Number(row.bytes)||0;
+  const speakout=catalogs.find(row=>row.key==='SPEAKOUT');
+  if(speakout?.content)versions.SPEAKOUT=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(speakout.content))),byte=>byte.toString(16).padStart(2,'0')).join('');
   const actions=activity.map(row=>JSON.parse(row.value_json));
   return {bootstrap:true,
     stageThemeRevision:theme?.revision||0,stageCustomRevision:custom?.revision||0,stageAddedRevision:links[0]?.revision||0,stageProfile:profile,

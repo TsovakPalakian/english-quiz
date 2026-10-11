@@ -135,6 +135,7 @@
       return [...pagePathItems(parent, seen), { id, label }];
     }
     function paintPagePath(id) {
+      if (id === 'speakouteditor') return;
       const root = document.getElementById(id);
       const meta = root?.querySelector(".meta");
       if (!meta || id === "home") return;
@@ -173,9 +174,9 @@
       if (house) house.hidden = hidden;
     }
     const backArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
-    function mountCrumbs() {
+    function mountCrumbs(scope = document) {
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
-      document.querySelectorAll("[data-nav-back]").forEach((btn) => {
+      scope.querySelectorAll("[data-nav-back]").forEach((btn) => {
         btn.classList.add("icon");
         btn.setAttribute("aria-label", "Back");
         btn.innerHTML = backArrow;
@@ -196,6 +197,7 @@
       });
     }
     mountCrumbs();
+    window.enquizMountCrumbs = mountCrumbs;
     let statKind = "learned";
     let statGroup = "";
     let allGroup = "";
@@ -355,6 +357,7 @@
     }
     window.enquizVisit = visit;
     function restore(place) {
+      if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
       if (['admin','adminuser','admingroup'].includes(place.id)) {
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
@@ -1867,7 +1870,10 @@
       const speakUnitBtn = e.target.closest("[data-speak-unit]");
       if (speakUnitBtn) { openSpeak("unit", speakLevel, Number(speakUnitBtn.dataset.speakUnit), -1); return; }
       const speakLessonBtn = e.target.closest("[data-speak-lesson]");
-      if (speakLessonBtn) { openSpeak("lesson", speakLevel, speakUnit, Number(speakLessonBtn.dataset.speakLesson)); return; }
+      if (speakLessonBtn) {
+        if (typeof stageOpenSpeakMaterial === 'function' && authUser && !viewAccount) { void stageOpenSpeakMaterial(e, Number(speakLessonBtn.dataset.speakLesson)); return; }
+        openSpeak("lesson", speakLevel, speakUnit, Number(speakLessonBtn.dataset.speakLesson)); return;
+      }
       const lessonWords = e.target.closest("[data-lesson-words]");
       if (lessonWords) { openLessonWords(lessonWords.dataset.lessonWords); return; }
       const lessonRulesBtn = e.target.closest("[data-lesson-rules]");
@@ -10275,7 +10281,7 @@
           : "";
         slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
           '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
-          (user.role === 'USER' ? '<label>Group<select data-student-group>' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '">Save group</button>' : '') +
+          (user.role === 'USER' ? '<div class="account-group-row"><label>Group<select data-student-group data-original-group="' + esc(String(adminMembers.find(member => member.accountId === user.id)?.groupId || '')) + '">' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Save group</button></div>' : '') +
           (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
             '<p class="label">Login</p><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off" />' +
             '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +
@@ -10305,6 +10311,12 @@
         slot.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
       });
     }
+    document.addEventListener('change', event => {
+      const picker = event.target.closest('[data-student-group]');
+      if (!picker) return;
+      const button = picker.closest('.account-group-row')?.querySelector('[data-account="assign-group"]');
+      if (button) button.disabled = picker.value === picker.dataset.originalGroup;
+    });
     function viewKeys() {
       // Personal browser keys swapped while viewing another account.
       // CARD_QUIZ_KEY is stashed separately: shared install overwrites it during view, then restore brings the teacher's local map back.
@@ -11436,11 +11448,14 @@
       }
       if (action === 'assign-group') {
         if (!isTeacher() || viewAccount) return;
-        const picker = button.closest('.card').querySelector('[data-student-group]');button.disabled = true;
+        const picker = button.closest('.card').querySelector('[data-student-group]');
+        if (!picker || picker.value === picker.dataset.originalGroup || picker.disabled) return;
+        const selected = picker.value;button.disabled = true;picker.disabled = true;
         accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
+          picker.dataset.originalGroup = selected;
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
           if (adminTab === 'groups') paintAdminGroups(); else paintAdminAccounts();
-        }).catch(error => alert(error.message)).finally(() => { button.disabled = false; });return;
+        }).catch(error => alert(error.message)).finally(() => { picker.disabled = false;button.disabled = picker.value === picker.dataset.originalGroup; });return;
       }
       if (action === "save-profile") {
         if (!sessionIsDeveloper() || viewAccount) return;
@@ -11527,6 +11542,7 @@
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
       if (!place || !place.id || place.id === "home" || !document.getElementById(place.id)) return;
+      if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
       if (place.id === "bugs" && !placeBoot) return;
       if (place.dayQuizPlace) dayQuizPlace = place.dayQuizPlace;
       if (place.dayReturn) dayReturn = place.dayReturn;
@@ -14472,6 +14488,7 @@
     function examFromWire(row) {
       return {
         id: row.id,
+        stageRevision: row.revision || 0,
         groupId: row.groupId || null,
         title: row.title || "Exam",
         date: row.date || "",

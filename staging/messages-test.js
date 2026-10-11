@@ -64,10 +64,11 @@
   function paintMessages() {
     let date = '', unreadHeading = false;
     timeline.innerHTML = messages.length ? messages.map(message => {
-      const when = new Date(message.created*1000), day = when.toLocaleDateString(), heading = day!==date ? '<p class="msg-day">'+escape(day)+'</p>' : ''; date = day;
+      const when = new Date(message.createdMs ?? message.created*1000), day = when.toLocaleDateString(), heading = day!==date ? '<p class="msg-day">'+escape(day)+'</p>' : ''; date = day;
+      const stamp = day + ' ' + when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) + (message.createdMs == null ? '' : '.' + String(when.getMilliseconds()).padStart(3,'0'));
       const own = message.senderId===account;
       const unread = !unreadHeading && !own && message.id>readThrough; if(unread)unreadHeading=true;
-      return heading + (unread?'<p class="msg-day">Unread messages</p>':'') + '<article class="msg-message'+(own?' is-own':'')+(message.category==='learning'?' is-learning':'')+'" data-msg-id="'+message.id+'" tabindex="-1"><header><strong>'+escape(message.sender)+'</strong><time datetime="'+when.toISOString()+'">'+escape(when.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</time></header>' +
+      return heading + (unread?'<p class="msg-day">Unread messages</p>':'') + '<article class="msg-message'+(own?' is-own':'')+(message.category==='learning'?' is-learning':'')+'" data-msg-id="'+message.id+'" tabindex="-1"><header><strong>'+escape(message.sender)+'</strong><time datetime="'+when.toISOString()+'">'+escape(stamp)+'</time></header>' +
         (message.replyText?'<button class="msg-quote" type="button" data-msg-quote="'+message.replyTo+'"><b>'+escape(message.replySender)+'</b><br>'+escape(message.replyText.slice(0,240))+'</button>':'') + '<p>'+escape(message.text)+'</p>' +
         (message.examId?'<button class="btn" type="button" data-msg-exam="'+message.examId+'"'+(message.assignmentActive?'':' disabled')+'>'+(message.assignmentActive?'Open exam':'Assignment cancelled')+'</button>':'') +
         '<div class="msg-compose-actions"><button class="btn ghost" type="button" data-msg-reply="'+message.id+'">Reply</button>'+(own?'<span class="msg-receipt'+(message.read?' is-read':'')+'" role="img" aria-label="'+(message.read?'Read':'Delivered')+'" title="'+(message.read?(data?.rooms.find(row=>row.id===room)?.kind==='group'?'Read by everyone':'Read'):'Delivered, not yet read')+'"><svg class="lucide lucide-check-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg></span>':'')+'</div></article>';
@@ -121,9 +122,6 @@
     refreshing = true;
     try {
       data = await api(''); badge(); paintRooms();
-      const ownAccount = el('profile'); let summary = ownAccount.querySelector('.msg-account-summary');
-      if (!summary) { summary=document.createElement('div'); summary.className='msg-account-summary'; ownAccount.append(summary); }
-      summary.hidden = !current(); summary.innerHTML = '<button class="btn" type="button" data-msg-open>Messages'+(data.total?' · '+data.total:'')+'</button>' + (data.total ? '<p class="hint">'+data.unread.learning+' learning · '+data.unread.personal+' personal unread</p>':'') + data.rooms.filter(row=>row.lastMessage).slice(0,3).map(row=>'<button class="msg-room" type="button" data-msg-preview="'+escape(row.id)+'" data-msg-preview-kind="'+row.lastMessage.category+'"><b>'+escape(row.title)+'</b><small>'+escape(row.lastMessage.text)+'</small></button>').join('');
       if (room && !data.rooms.some(row => row.id===room)) { room=''; messages=[]; timeline.replaceChildren(); el('msgCompose').hidden=true; section.classList.remove('has-room'); }
       status('');
     } catch(error) { if (section.classList.contains('on')) status(error.message); }
@@ -137,7 +135,7 @@
     document.body.append(node); node.showModal();
   }
   el('msgNew').onclick=async()=>{
-    await refresh(); if(!data)return;
+    if(!data)await refresh(); if(!data)return;
     dialog('Open chat','<label>Conversation<select name="target" required><optgroup label="Groups">'+data.groups.map(group=>'<option value="group:'+group.id+'">'+escape(group.title)+'</option>').join('')+'</optgroup><optgroup label="People">'+data.contacts.map(user=>'<option value="direct:'+escape(user.id)+'">'+escape(user.name)+' · '+escape(user.role)+'</option>').join('')+'</optgroup></select></label>',async form=>{
       const value=form.get('target'),split=value.indexOf(':'),type=value.slice(0,split),id=value.slice(split+1);
       const result=await api('/open',type==='group'?{kind:type,groupId:Number(id)}:{kind:type,accountId:id}); await refresh(); await openRoom(result.roomId);
@@ -145,7 +143,9 @@
   };
   el('msgAssign').onclick=async()=>{
     try {
-      await refresh(); await examPull(); const assigned=await api('/assignments');
+      if(!data)await refresh(); if(!data)return;
+      const cachedExams=examLoad(),cachedRevision=cachedExams.length+':'+cachedExams.reduce((sum,row)=>sum+(row.stageRevision||0),0);
+      await examPull(data.examRevision!=null&&cachedRevision!==data.examRevision);
       const exams=examLoad();
       dialog('Assign exam','<label>Exam<select name="exam" required>'+exams.map(exam=>'<option value="'+exam.id+'">'+escape(exam.title)+'</option>').join('')+'</select></label><label>Recipient<select name="target" required><optgroup label="Groups">'+data.groups.map(group=>'<option value="group:'+group.id+'">'+escape(group.title)+'</option>').join('')+'</optgroup><optgroup label="Students">'+data.contacts.filter(user=>user.role==='Student').map(user=>'<option value="student:'+escape(user.id)+'">'+escape(user.name)+'</option>').join('')+'</optgroup></select></label><label>Action<select name="action"><option value="assign">Assign</option><option value="unassign">Unassign</option></select></label>',async form=>{
         const value=form.get('target'),split=value.indexOf(':'),targetKind=value.slice(0,split),targetId=value.slice(split+1),examId=Number(form.get('exam'));
@@ -170,6 +170,31 @@
     finally { busy=false; el('msgSend').disabled=false; if(!pending)el('msgSend').textContent='Send'; }
   };
   el('msgText').addEventListener('input',remember);
+  let composing = false, shiftedEnter = false;
+  const composer = el('msgText');
+  composer.addEventListener('compositionstart',()=>{composing=true;});
+  composer.addEventListener('compositionend',()=>{composing=false;});
+  composer.addEventListener('keydown',event=>{
+    if(event.key!=='Enter')return;
+    shiftedEnter=event.shiftKey;
+    if(event.shiftKey || event.isComposing || composing || event.keyCode===229)return;
+    event.preventDefault(); el('msgCompose').requestSubmit();
+  });
+  composer.addEventListener('keyup',()=>{shiftedEnter=false;});
+  composer.addEventListener('beforeinput',event=>{
+    if(!['insertParagraph','insertLineBreak'].includes(event.inputType) || shiftedEnter || composing || event.isComposing || !event.cancelable)return;
+    event.preventDefault(); el('msgCompose').requestSubmit();
+  });
+  const emojis = [['\u{1F600}','Smile'],['\u{1F604}','Happy'],['\u{1F602}','Laugh'],['\u{1F609}','Wink'],['\u{1F914}','Thinking'],['\u{1F44D}','Thumbs up'],['\u{1F44F}','Applause'],['\u{1F64F}','Thanks'],['\u{2764}\u{FE0F}','Heart'],['\u{1F389}','Celebrate'],['\u{2705}','Done'],['\u{1F4DA}','Books']];
+  el('msgEmojiPicker').innerHTML=emojis.map(([emoji,label])=>'<button type="button" class="btn icon" data-msg-emoji="'+emoji+'" title="'+label+'" aria-label="'+label+'">'+emoji+'</button>').join('');
+  el('msgEmoji').onclick=()=>{const picker=el('msgEmojiPicker');picker.hidden=!picker.hidden;el('msgEmoji').setAttribute('aria-expanded',String(!picker.hidden));};
+  el('msgEmojiPicker').addEventListener('click',event=>{
+    const button=event.target.closest('[data-msg-emoji]');if(!button)return;
+    const emoji=button.dataset.msgEmoji;
+    if(composer.value.length-(composer.selectionEnd-composer.selectionStart)+emoji.length>composer.maxLength)return;
+    composer.setRangeText(emoji,composer.selectionStart,composer.selectionEnd,'end');remember();composer.focus();
+    el('msgEmojiPicker').hidden=true;el('msgEmoji').setAttribute('aria-expanded','false');
+  });
   el('msgRoomSearch').addEventListener('input',paintRooms); el('msgUnreadOnly').onchange=paintRooms;
   el('msgTextSearch').addEventListener('input',()=>{clearTimeout(queryTimer);queryTimer=setTimeout(()=>history().catch(error=>status(error.message)),180);});
   el('msgOlder').onclick=()=>history({older:true}).catch(error=>status(error.message));
@@ -192,7 +217,8 @@
   });
   // Add controls without replacing the existing navigation or account handlers.
   document.querySelectorAll('[data-jump="stats"]').forEach(button=>{const next=document.createElement('button');next.type='button';next.className=button.className;next.dataset.msgOpen='';next.textContent='Messages';button.after(next);});
-  const footer=document.querySelector('.side-foot');if(footer){const button=document.createElement('button');button.type='button';button.className='btn ghost';button.dataset.msgOpen='';button.textContent='Messages';footer.prepend(button);}
+  const footer=document.querySelector('.side-foot');if(footer){const button=document.createElement('button');button.type='button';button.className='btn ghost';button.dataset.msgOpen='';button.textContent='Messages';const account=footer.querySelector('[data-jump="account"]');if(account)account.after(button);else footer.prepend(button);}
+  const mobile=document.querySelector('.mobile-tools');if(mobile){const button=document.createElement('button');button.type='button';button.className='btn ghost';button.dataset.msgOpen='';button.textContent='Messages';mobile.querySelector('[data-jump="account"]')?.after(button);}
   if(typeof dayScreens!=='undefined')dayScreens.messages='account';
   const guide=el('guide');
   function paintMessageGuide() {
@@ -206,7 +232,7 @@
   async function tick() {
     lastPoll=Date.now();
     const user=current();
-    if((user?.id||'')!==account){remember();account=user?.id||'';generation++;historyToken++;data=null;room='';messages=[];reply=null;pending=null;restoreRoom=true;timeline.replaceChildren();el('msgText').value='';badge();paintRooms();}
+    if((user?.id||'')!==account){remember();account=user?.id||'';generation++;historyToken++;data=null;room='';messages=[];reply=null;pending=null;restoreRoom=true;timeline.replaceChildren();el('msgText').value='';el('msgEmojiPicker').hidden=true;el('msgEmoji').setAttribute('aria-expanded','false');badge();paintRooms();}
     document.querySelectorAll('[data-msg-open]').forEach(button=>button.hidden=!user);
     const summary=el('profile')?.querySelector('.msg-account-summary');if(summary)summary.hidden=!user;
     paintMessageGuide();

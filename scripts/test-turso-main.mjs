@@ -26,6 +26,7 @@ import {practiceExams} from './seed-practice-exams.mjs';
 import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
 import {ContentCopyService,copyDefinition} from '../src/turso-content-copy.mjs';
 import {mediaKey} from '../src/turso-media.mjs';
+import {speakoutLesson,saveSpeakout,answerSpeakout} from '../src/turso-speakout.mjs';
 function runInNewContext(code,scope){
   scope.viewAccount??=null;
   scope.hiddenCardIds??=new Set();
@@ -347,6 +348,52 @@ function fixture(){
   const source={byLogin:async login=>{queries++;return users.get(login)||null;},byId:async id=>{queries++;return users.get(id)||null;},gone:async id=>gone.has(id)};
   return {sqlite,db,source,users,gone,password,queries:()=>queries};
 }
+test('Speakout owns its documents and answers and never changes Lessons',async()=>{
+  const f=fixture();try{
+    const book=[{level:'A1',units:[{title:'First unit',lessons:[{letter:'A',title:'Hello'}]}]}];
+    f.sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT',?)").run(JSON.stringify(book));
+    const teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},where={level:'A1',unit:0,lesson:0};
+    assert.deepEqual(await speakoutLesson(f.db,student,where),{materials:[]});
+    const beforeLessons=f.sqlite.prepare('SELECT * FROM lessons').all(),beforeBlocks=f.sqlite.prepare('SELECT * FROM lesson_blocks').all();
+    const draft=(await speakoutLesson(f.db,teacher,where,'speakout-create-1')).materials[0];
+    assert.equal(draft.title,'1A Hello');assert.equal(draft.published,false);
+    assert.equal((await speakoutLesson(f.db,teacher,where,'speakout-create-2')).materials[0].id,draft.id);
+    assert.equal((await speakoutLesson(f.db,student,where)).materials.length,0);
+    const body={...where,action:'save',mutationId:'speakout-publish-1',expectedRevision:0,published:true,content:{title:draft.title,description:'',blocks:[{id:'own-text',type:'text',tab:'overview',html:'Hello world'},{id:'own-task',type:'task',tab:'overview',text:'Answer'}]}};
+    await assert.rejects(saveSpeakout(f.db,student,body),error=>error.status===403);
+    const result=await saveSpeakout(f.db,teacher,body);assert.deepEqual(await saveSpeakout(f.db,teacher,body),result);
+    const published=(await speakoutLesson(f.db,student,where)).materials[0];
+    assert.equal(published.id,draft.id);assert.equal(published.blocks[0].html,'Hello world');
+    await assert.rejects(saveSpeakout(f.db,teacher,{...body,mutationId:'speakout-stale-2'}),error=>error.status===409);
+    await answerSpeakout(f.db,student,{...where,expectedRevision:1,answers:{'own-task':'My answer'}});
+    assert.equal((await speakoutLesson(f.db,student,where)).materials[0].answers['own-task'],'My answer');
+    assert.deepEqual(f.sqlite.prepare('SELECT * FROM lessons').all(),beforeLessons);assert.deepEqual(f.sqlite.prepare('SELECT * FROM lesson_blocks').all(),beforeBlocks);
+    const before=(await accountBootstrap(f.db,student)).versions.speakout;
+    book[0].units[0].lessons[0].title='Hallo';
+    f.sqlite.prepare("UPDATE catalog_documents SET value_json=? WHERE key='SPEAKOUT'").run(JSON.stringify(book));
+    assert.notEqual((await accountBootstrap(f.db,student)).versions.speakout,before,'Same-length catalog edits change revision');
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM speakout_documents').get().n,1);
+  }finally{f.sqlite.close();}
+});
+test('Previous Speakout links import once as an independent snapshot',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec(`INSERT INTO catalog_documents VALUES('static','SPEAKOUT','[{"level":"A1","units":[{"lessons":[{"letter":"A","title":"Hello"}]}]}]');CREATE TABLE speakout_lessons(level TEXT,unit_index INTEGER,lesson_index INTEGER,lesson_id INTEGER);INSERT INTO speakout_lessons VALUES('A1',0,0,1);`);
+    const where={level:'A1',unit:0,lesson:0},actor={id:'teacher',role:'ADMIN'},first=(await speakoutLesson(f.db,actor,where)).materials[0];
+    f.sqlite.exec("UPDATE lessons SET title='Changed original' WHERE id=1");
+    assert.equal((await speakoutLesson(f.db,actor,where)).materials[0].title,first.title);
+  }finally{f.sqlite.close();}
+});
+test('Speakout catalog cache survives reload and logout and respects a changed revision',async()=>{
+  const values=new Map(),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const loader=readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8');
+  const boot=()=>{const context={window:{},localStorage:storage,sessionStorage:storage,document:{createElement:()=>({}),body:{append(){}}},setTimeout:fn=>fn()};runInNewContext(loader,context);return context.window.ContentCache;};
+  let calls=0;const fetcher=async()=>{calls++;return {content:{level:'A1',units:[]}};};
+  const first=boot();await first.load('speakout:student:A1:revision1',fetcher);
+  first.clear();await first.load('speakout:student:A1:revision1',fetcher);assert.equal(calls,1);
+  const second=boot();await second.load('speakout:student:A1:revision1',fetcher);assert.equal(calls,1);
+  await second.load('speakout:student:A1:revision2',fetcher);assert.equal(calls,2);
+  assert.equal(JSON.parse(values.get('english-static-speakout-v1'))['speakout:student:A1:revision1'],undefined);
+});
 test('Copy lesson creates independent IDs, cards, quizzes and group membership, and retry is idempotent',async()=>{
   const f=fixture();try{
     f.sqlite.exec(`INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'A2');

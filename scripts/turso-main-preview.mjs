@@ -27,7 +27,7 @@ export function mainPreview(source,hooks){
   insert('    function paintStat() {','      if(statKind==="weak"&&typeof stageWeakPending==="function"&&stageWeakPending()){const title=document.getElementById("cardStatTitle");const box=document.getElementById("cardStatList");if(title)title.textContent="Weak cards";if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintVerbs() {','      if(!window.IRREGULAR.length){const box=document.getElementById("verbList");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
   insert('    function paintSpeak() {','      if(speakView==="levels" && stageSpeakIncomplete()){stagePaintSpeakLevels();return;}');
-  insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && !(window.SPEAKOUT&&window.SPEAKOUT[level]&&window.SPEAKOUT[level].level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
+  insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && stageSpeakNeedsLoad(level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
   insert('    function paintTexts() {','      return stagePaintTexts();');
   insert('    function renderTextList() {','      return stagePaintLibraryList("text");');
   insert('    function showText(id) {','      const pendingText=loadTexts().find(row=>row.id===id);if(pendingText&&pendingText.stageTextDeferred)return stageOpenText(id);');

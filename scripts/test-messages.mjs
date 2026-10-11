@@ -30,6 +30,8 @@ test('Private rooms, group membership and teacher-only announcements are enforce
     await assert.rejects(s.send(by('student'),{roomId,text:'Announcement',category:'learning',clientKey:'notice'}),error=>error.status===403);
     const body={roomId,text:'Hello <script>',category:'personal',clientKey:'first'};
     const sent=await s.send(by('student'),body);assert.ok(sent.id>0);assert.deepEqual(await s.send(by('student'),body),sent);
+    const first=(await s.history(by('student'),roomId)).messages[0];
+    assert.ok(Number.isSafeInteger(first.createdMs));assert.ok(Math.abs(first.createdMs-Date.now())<5000);
     await assert.rejects(s.send(by('student'),{...body,text:'Changed'}),error=>error.status===409);
     assert.equal((await s.summary(by('mate'))).total,1);
     await s.read(by('mate'),{roomId,category:'personal',through:sent.id});assert.equal((await s.summary(by('mate'))).total,0);

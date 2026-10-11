@@ -27,6 +27,13 @@ export class MessageService {
     if (!ready.has(this.db)) ready.set(this.db,(async () => {
       await new ExamService(this.db).ensure(); await new GroupService(this.db).ensure();
       await this.db.atomic(schema.map(sql => s(sql)));
+      const columns = await this.db.read('PRAGMA table_info(chat_messages)');
+      if (!columns.some(column => column.name === 'created_ms')) {
+        try { await this.db.atomic([s('ALTER TABLE chat_messages ADD COLUMN created_ms INTEGER')]); }
+        catch (error) {
+          if (!(await this.db.read('PRAGMA table_info(chat_messages)')).some(column => column.name === 'created_ms')) throw error;
+        }
+      }
     })().catch(error => { ready.delete(this.db); throw error; }));
     return ready.get(this.db);
   }
@@ -106,7 +113,8 @@ export class MessageService {
       const last = latest.find(message => message.room_id===row.id);
       rooms.push({id:row.id,kind:row.kind,groupId:row.group_id,title:row.kind === 'group' ? groups.find(g => g.id === row.group_id)?.title || 'Group' : name(users.find(u => u.id === row.peer)||{name:'Unavailable account'}),unread:counts,has,lastId:row.last_id||0,muted:!!row.muted,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.sender_name}:null});
     }
-    return {rooms,groups,contacts,unread:totals,total:totals.personal+totals.learning,revision:rooms.map(row => [row.id,row.lastId,row.unread.personal,row.unread.learning].join(':')).join('|')};
+    const [exams] = staff(actor) ? await this.db.read('SELECT COUNT(*) n,COALESCE(SUM(revision),0) revision FROM exams WHERE deleted_at IS NULL') : [];
+    return {rooms,groups,contacts,examRevision:exams?exams.n+':'+exams.revision:null,unread:totals,total:totals.personal+totals.learning,revision:rooms.map(row => [row.id,row.lastId,row.unread.personal,row.unread.learning].join(':')).join('|')};
   }
   async history(actor,roomId,{before=0,after=0,category:kind='personal',query=''}={}) {
     category(kind); const {member} = await this.member(actor,roomId);
@@ -122,7 +130,7 @@ export class MessageService {
       ORDER BY m.id ${after?'ASC':'DESC'} LIMIT 51`,[member.joined_seq,member.joined_seq,member.joined_seq,actor.id,roomId,kind,member.joined_seq,before,before,after,after,query,query]);
     const more = rows.length>50, page = rows.slice(0,50); if (!after) page.reverse();
     const [receipt] = await this.db.read(`SELECT MIN(${kind==='learning'?'read_learning':'read_personal'}) through FROM chat_members WHERE room_id=? AND account_id<>?`,[roomId,actor.id]);
-    return {messages:page.map(row => ({id:row.id,senderId:row.sender_id,sender:row.sender_name,category:row.category,text:row.body,created:row.created_at,replyTo:row.reply_to,replyText:row.reply_body,replySender:row.reply_name,replyCategory:row.reply_category,examId:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:row.peer_read>=row.id})),more,readThrough:kind==='learning'?member.read_learning:member.read_personal,peerReadThrough:Number(receipt?.through)||0};
+    return {messages:page.map(row => ({id:row.id,senderId:row.sender_id,sender:row.sender_name,category:row.category,text:row.body,created:row.created_at,createdMs:row.created_ms,replyTo:row.reply_to,replyText:row.reply_body,replySender:row.reply_name,replyCategory:row.reply_category,examId:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:row.peer_read>=row.id})),more,readThrough:kind==='learning'?member.read_learning:member.read_personal,peerReadThrough:Number(receipt?.through)||0};
   }
   async send(actor,body) {
     signed(actor); const {member,room} = await this.member(actor,body.roomId);
@@ -144,7 +152,7 @@ export class MessageService {
       ...(room.kind==='group' ? [this.groupMemberCommand(room.id,room.group_id)] : []),
       s(`INSERT INTO chat_send_budget(account_id,window_start,n) VALUES(?,unixepoch(),1) ON CONFLICT(account_id) DO UPDATE SET n=CASE WHEN window_start<=unixepoch()-60 THEN 1 ELSE n+1 END,window_start=CASE WHEN window_start<=unixepoch()-60 THEN unixepoch() ELSE window_start END`,[actor.id]),
       s('INSERT INTO chat_guard SELECT n<=30 FROM chat_send_budget WHERE account_id=?',[actor.id]),
-      s('INSERT INTO chat_messages(room_id,sender_id,sender_name,category,body,reply_to,client_key) VALUES(?,?,?,?,?,?,?)',[body.roomId,actor.id,name(actor),kind,text,reply,body.clientKey]),
+      s('INSERT INTO chat_messages(room_id,sender_id,sender_name,category,body,reply_to,client_key,created_ms) VALUES(?,?,?,?,?,?,?,?)',[body.roomId,actor.id,name(actor),kind,text,reply,body.clientKey,Date.now()]),
       s('SELECT last_insert_rowid() id'),s('DROP TABLE temp.chat_guard')]);
     return {id:Number(result.at(-2)?.rows?.[0]?.[0]?.value),sent:true};
   }
@@ -180,7 +188,7 @@ export class MessageService {
   }
   noticeCommands(actor,recipients,assignment,body,clientKey) {
     return recipients.flatMap(recipient => [...this.directCommands(actor,recipient),
-      s("INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key) VALUES(?,?,?,'learning',?,?,?)",[directId(actor.id,recipient),actor.id,name(actor),body,assignment,clientKey+':'+recipient])]);
+      s("INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms) VALUES(?,?,?,'learning',?,?,?,?)",[directId(actor.id,recipient),actor.id,name(actor),body,assignment,clientKey+':'+recipient,Date.now()])]);
   }
   async assign(actor,body) {
     signed(actor); if (!staff(actor)) fail(403,'Only a teacher can assign exams.'); await this.ensure();

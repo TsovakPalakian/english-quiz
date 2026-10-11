@@ -1,4 +1,12 @@
 #messages { min-width: 0; }
+.msg-emoji-picker:not([hidden]) { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.msg-emoji-picker .btn { min-width: 44px; min-height: 44px; font-size: 24px; }
+#msgEmoji svg { width: 24px; height: 24px; }
+.msg-compose-actions #msgSendState { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.account-group-row { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.account-group-row label { width: min(100%,360px); }
+.account-group-row select { width: 100%; box-sizing: border-box; }
+.account-group-row .btn { margin-bottom: 0; }
 .msg-toolbar,.msg-tabs,.msg-compose-actions,.msg-room-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .msg-toolbar { margin-bottom: 16px; }
 .msg-tabs .on { background: var(--acc); color: var(--on-acc,#fff); }
@@ -46,4 +54,14 @@
   #messages.has-room .msg-conversation { display: block; }
   .msg-list-back { display: inline-flex; }
   .msg-timeline { height: 48vh; }
+}
+@media(max-width:760px) {
+  .mobile-tools { gap: 4px; flex-wrap: wrap; }
+  .mobile-tools .btn { padding: 10px 12px; font-size: 15px; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+  .msg-toolbar .btn { padding: 10px 14px; font-size: 15px; min-height: 44px; white-space: normal; }
+  .msg-tabs { flex-wrap: wrap; min-width: 0; }
+  .msg-dialog { box-sizing: border-box; }
+}
+@media(max-width:380px) {
+  .mobile-tools .btn { padding: 8px; font-size: 14px; }
 }
