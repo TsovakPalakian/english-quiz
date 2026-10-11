@@ -15,6 +15,7 @@ import {stageR2Media} from './turso-r2-media.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ArchiveService} from './turso-archive.mjs';
+import {AssessmentService} from './turso-assessment.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
@@ -118,6 +119,27 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/exams/work'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        let value={studentId:url.searchParams.get('student')||''};
+        if(method==='POST'){
+          if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+          try{value=JSON.parse(await boundedText(request,100000,'Exam work too large.'));}catch{throw new StudyError(400,'Invalid exam work.');}
+        }
+        if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid exam work.');
+        if(value.studentId&&value.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
+        const service=new ExamService(studyDatabase(env));
+        return json(method==='GET'?{work:await service.listWork(actor,value.studentId)}:await service.saveWork(actor,value));
+      }
+      if(path==='/api/assessment'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        let value;if(method==='GET')value={kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id')),studentId:url.searchParams.get('student')||'',history:url.searchParams.get('history')==='1'};
+        else{if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');try{value=JSON.parse(await boundedText(request,100000,'Assessment too large.'));}catch{throw new StudyError(400,'Invalid assessment.');}}
+        if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid assessment.');
+        if(value.studentId&&value.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
+        const service=new AssessmentService(studyDatabase(env));
+        return json(method==='POST'?await service.write(actor,value):value.history?{history:await service.history(actor,value)}:await service.get(actor,value));
+      }
       if(path==='/api/archive'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const archive=new ArchiveService(studyDatabase(env));

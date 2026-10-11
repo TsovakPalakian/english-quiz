@@ -140,6 +140,19 @@ function lessonChanges(value){
   }
   return value;
 }
+export function validateAssessmentContent(content,type){
+  if(!['quiz','exercise','task'].includes(type))return;
+  if(content.assessed!=null&&typeof content.assessed!=='boolean')fail(400,'Invalid assessment setting.');
+  const items=type==='task'?[content]:[content,...(content.items||[])];
+  for(const item of items){
+    if(item.maxPoints!=null&&(!['number','string'].includes(typeof item.maxPoints)||!Number.isFinite(Number(item.maxPoints))||Number(item.maxPoints)<0||Number(item.maxPoints)>10000))fail(400,'Maximum points must be between zero and 10000.');
+    if(item.criteria!=null){
+      if(typeof item.criteria!=='string'||item.criteria.length>3000)fail(400,'Invalid grading criteria.');
+      const rows=item.criteria.split('\n').filter(line=>line.trim());
+      if(rows.length>20||rows.some(line=>{const bits=line.split('|'),points=Number(bits[1]);return bits.length!==2||!bits[0].trim()||!Number.isFinite(points)||points<=0||points>10000;}))fail(400,'Use one criterion per line: Content | 3.');
+    }
+  }
+}
 function lessonBlock(value){
   fields(value,['id','expectedRevision','type','tab','cardId','content']);personalRevision(value.expectedRevision);
   if(value.expectedRevision===0){if(value.id!=null)fail(400,'New blocks receive an ID from the database.');}
@@ -148,6 +161,7 @@ function lessonBlock(value){
   if(typeof value.tab!=='string'||value.tab.length>50||!value.content||typeof value.content!=='object'||Array.isArray(value.content)||stable(value.content).length>32_000)fail(400,'Invalid block content.');
   fields(value.content,Object.keys(value.content).filter(k=>!['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision','__proto__','constructor','prototype'].includes(k)));
   if(value.content.items!==undefined && (!Array.isArray(value.content.items)||value.content.items.length>100||value.content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item)||['picked','typed','marked','correct'].some(key=>key in item))))fail(400,'Personal answers are not lesson definitions.');
+  validateAssessmentContent(value.content,value.type);
   if(value.cardId!==null)cardId(value.cardId);
   if(['word','wordcard'].includes(value.type) && !value.cardId)fail(400,'Word blocks require an existing shared card ID.');
   if(!['word','wordcard'].includes(value.type) && value.cardId!==null)fail(400,'Only word blocks may link a card.');
@@ -483,6 +497,7 @@ export class StudyService {
       const [block]=await this.db.read(`SELECT b.type,b.content_json FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
         WHERE b.lesson_id=? AND b.id=? AND b.deleted_at IS NULL AND ${lessonAccess}`,[lessonId,blockId,+reviewer(actor),actor.id,actor.id]);
       if(!block)fail(404,'Task not found.');
+      if(JSON.parse(block.content_json).assessed)fail(409,'Use the assessment submission for this task.');
       let response=body.response;
       if(block.type==='task'){
         if(typeof response!=='string'||response.length>10_000)fail(400,'Invalid task response.');

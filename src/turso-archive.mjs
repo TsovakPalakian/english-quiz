@@ -124,6 +124,12 @@ export class ArchiveService{
     const rows=await this.db.read(`SELECT ${item.title} title FROM ${item.table} WHERE CAST(id AS TEXT)=?${item.kind?' AND kind=?':''}${owner} AND deleted_at IS NULL`,args);
     if(rows.length!==1)fail(404,'Material not found.');
     const commands=[];
+    if(['lesson','exam','exam-block'].includes(value.type)){
+      const tables=await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('assessment_work','assessment_history')");
+      const predicate=value.type==='exam'?"kind='exam-block' AND material_id IN (SELECT id FROM exam_blocks WHERE CAST(exam_id AS TEXT)=?)":"kind=? AND CAST(material_id AS TEXT)=?";
+      const args=value.type==='exam'?[key]:[value.type,key];
+      for(const {name} of tables)commands.push(stmt(`DELETE FROM ${name} WHERE ${predicate}`,args));
+    }
     if(value.type==='group')commands.push(stmt(`UPDATE class_group_lessons SET group_id=(SELECT id FROM class_groups
       WHERE deleted_at IS NULL AND CAST(id AS TEXT)<>? ORDER BY position,created_at,id LIMIT 1) WHERE group_id=CAST(? AS INTEGER)`,[key,key]));
     commands.push(stmt(`UPDATE ${item.table} SET deleted_at=unixepoch()${['lesson','group','exam','exam-block','card'].includes(value.type)?',revision=revision+1':''} WHERE CAST(id AS TEXT)=? AND deleted_at IS NULL`,[key]));

@@ -1,6 +1,7 @@
-import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
+import {statement as stmt, StudyError, recordId,validateAssessmentContent} from './turso-study.mjs';
 import {ArchiveService} from './turso-archive.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
+import {AssessmentService} from './turso-assessment.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -169,6 +170,8 @@ export class ExamService {
         if (!part || !part.type) fail(400, 'Invalid exam material.');
         const partId = optionalId(part.id);
         const content = { ...part };
+        if(content.items!=null&&(!Array.isArray(content.items)||content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item))))fail(400,'Invalid questions.');
+        validateAssessmentContent(content,part.type);
         delete content.stageDefinition;
         delete content.studentSaved;
         if (partId == null) delete content.id;
@@ -222,14 +225,18 @@ export class ExamService {
       WHERE w.account_id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
         AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0))`,[account,+reviewer(actor)]);
     const hidden=await materialVisibility(this.db,account);
-    return rows.filter(row=>reviewer(actor)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(row => ({
+    const service=new AssessmentService(this.db);await service.ensure();
+    return Promise.all(rows.filter(row=>reviewer(actor)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(async row => {
+      const tracked=await service.row(account,'exam-block',row.block_id);if(tracked)return service.project(tracked,actor);
+      return ({
       examId: row.exam_id,
       blockId: row.block_id,
       saved: !!row.saved,
       answers: JSON.parse(row.answers_json || '{}'),
-      corrections: JSON.parse(row.corrections_json || '{}'),
-      points: JSON.parse(row.points_json || '{}')
-    }));
+      corrections: reviewer(actor) ? JSON.parse(row.corrections_json || '{}') : {},
+      points: reviewer(actor) ? JSON.parse(row.points_json || '{}') : {},
+      state:row.saved?'submitted':'draft',revision:0
+    });}));
   }
   workAccount(actor, studentId) {
     const account = studentId && studentId !== actor.id ? studentId : actor.id;
@@ -239,6 +246,10 @@ export class ExamService {
     return account;
   }
   async saveWork(actor, body) {
+    await this.ensure();
+    return new AssessmentService(this.db).write(actor,{...body,kind:'exam-block',id:body.blockId,action:body.action||(body.studentId&&body.studentId!==actor.id?'review':body.saved?'submit':'draft')});
+  }
+  async legacySaveWork(actor, body) {
     signedIn(actor);
     await this.ensure();
     const examId = body && body.examId;

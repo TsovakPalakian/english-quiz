@@ -3,6 +3,7 @@
 import {statement as s,lessonAccess,cardAccess,accessArgs,StudyError} from './turso-study.mjs';
 import {libraryDto,libraryVisibility} from './turso-personal.mjs';
 import {themeAccount} from './turso-paired-themes.mjs';
+import {studentExamContent} from './turso-exams.mjs';
 const banks=['LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT'];
 // Detail fields are deferred, never deleted from SQL. Quiz data remains synchronous.
 export const dictionaryDetailPaths=['links','longman','merriam','oxford','wikdict','wiktionary','collins','englishAtHome','englishClub','openRussian',
@@ -170,12 +171,13 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
     const definition={type:b.type,tab:b.tab,cardId:b.card_id,content:JSON.parse(b.content_json)};
     delete definition.content.response;delete definition.content.score;
     if(['quiz','exercise'].includes(b.type))for(const item of definition.content.items||[]){delete item.picked;delete item.typed;delete item.marked;delete item.correct;}
+    if(actor.role==='USER'&&definition.content.assessed)definition.content=studentExamContent(definition.content,b.type);
     const block={...JSON.parse(JSON.stringify(definition.content)),id:b.id,type:b.type,tab:b.tab,stageDefinition:definition,stageBlockRevision:b.revision,stageResponseRevision:b.response_revision||0};
     // Shared definitions are never a source of a learner's previous answers.
     delete block.response;delete block.score;
     if(['quiz','exercise'].includes(b.type))for(const item of block.items||[]){delete item.picked;delete item.typed;delete item.marked;delete item.correct;}
     if(b.card_id)Object.assign(block,JSON.parse(b.card_extra),{word:b.en,ru:b.ru,pos:b.part_of_speech,stageId:b.card_id,stageRevision:b.card_revision,stageScope:'shared'});
-    if(b.response_json!==null){
+    if(b.response_json!==null&&!block.assessed){
       const saved=JSON.parse(b.response_json),wrapped=saved && typeof saved==='object' && Number.isSafeInteger(saved.definitionRevision) && Object.hasOwn(saved,'value');
       const response=(wrapped?saved.definitionRevision===b.revision:b.revision===1)?(wrapped?saved.value:saved):null;
       if(['quiz','exercise'].includes(b.type) && response && typeof response==='object'){

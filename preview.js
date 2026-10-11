@@ -2578,6 +2578,8 @@
         html += '<div class="guide-note danger"><b>' + t('Permanent actions', 'Необратимые действия') + '</b><p>' + t('Permanent deletion is developer-only and cannot be undone. Check the material, owner and archive status before confirming.', 'Окончательное удаление доступно только разработчику и не отменяется. Перед подтверждением проверьте материал, владельца и состояние архива.') + '</p></div>';
       }
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
+      if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Only your teacher can reopen a submission. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Повторно открыть работу может только учитель. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
+      if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Administration','Открыть Administration'));
       html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
@@ -12980,7 +12982,7 @@
       const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : "+ Add card";
       const memory = kind === "Memory" ? '<label>Pairs in one set<input type="number" min="2" data-field="memorySize" data-block="' + block.id + '" value="' + esc(String(block.memorySize || 4)) + '" /></label>' : "";
       const rows = (block.items || []).map((item, index) =>
-        '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
+        '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + assessmentEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
       ).join("");
       return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
     }
@@ -12998,7 +13000,7 @@
         const write = block.type === "exercise" && question.kind === "write";
         const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (write ? "" : " selected") + '>Choices</option><option value="write"' + (write ? " selected" : "") + ">Type the answer</option></select></label>" : "";
         const body = write ? '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>' : lmChoiceEditor(block, index);
-        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
+        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + assessmentEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
       }).join("");
     }
     function lmBody(block) {
@@ -13084,7 +13086,9 @@
       const blocks = lmBlocksFor();
       box.innerHTML = blocks.length ? blocks.map((block) => {
         const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
-        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, label) + '<div class="lm-body">' + lmBody(block) + "</div></article>";
+        const grading = ["quiz", "exercise", "task"].includes(block.type);
+        const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
+        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, label) + '<div class="lm-body">' + assessed + lmBody(block) + (block.type === 'task' ? assessmentEditor(block) : '') + "</div></article>";
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
       dressWords(box);
       lmPaintChrome();
@@ -13237,17 +13241,17 @@
     }
     function lmChromeHtml() {
       const tab = lmTab();
-      const counts = lmIsNewestLesson(lmState, 3) ? lmBlockCounts(lmState) : null;
-      const tabs = [["overview", "Overview"], ["words", counts ? "Words · " + counts.words : "Words"], ["phrases", counts ? "Phrases · " + counts.phrases : "Phrases"], ["rules", counts ? "Rules · " + counts.rules : "Rules"]];
+      const counts = lmBlockCounts(lmState);
+      const tabs = [["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["quiz", "Day quiz", false], ["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
-      const tabBtns = tabs.map((pair) => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>").join("");
+      const tabBtns = tabs.map((pair) => '<button type="button" data-lm-tab="' + pair[0] + '" class="lm-section-card' + (pair[0] === tab ? " on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '"><b>' + pair[1] + "</b></button>").join("");
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
           return '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + "</div></div>";
+      return '<div class="lm-chrome"><div role="tablist" aria-label="This lesson"><button class="lm-btn" type="button" data-lm-tab="overview" role="tab" aria-selected="' + (tab === 'overview' ? 'true' : 'false') + '">Overview</button><div class="lm-section-cards">' + tabBtns + '</div></div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + "</div></div>";
     }
     function lmQuizCards() {
       if (!lmState) return [];
@@ -13468,11 +13472,12 @@
     }
     function lmShow(mode) {
       if (!canEditLessons()) mode = "preview";
+      if (viewAccount && assessmentActive(lmState)) mode = "preview";
       lmState.mode = mode;
       const editing = mode !== "preview";
       document.getElementById("lmEditor").hidden = !editing;
       document.getElementById("lmPreview").hidden = editing;
-      document.getElementById("lmEditBack").hidden = editing || !canEditLessons();
+      document.getElementById("lmEditBack").hidden = editing || !canEditLessons() || !!viewAccount && assessmentActive(lmState);
       document.getElementById("lmSave").hidden = !editing;
       document.getElementById("lmPublish").hidden = !editing;
       const copy = document.getElementById("lmCopy");
@@ -13486,7 +13491,8 @@
       lmBindEditor();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
-      if (lmState.examOwned) examDress();
+      examDress();
+      if (assessmentActive(lmState) && !editing && (!canEditLessons() || canTuneStudentLessons()) && !lmState.assessmentReady) assessmentRead(lmState);
       const top = document.getElementById("material");
       if (top) top.scrollIntoView({ block: "start" });
     }
@@ -13786,7 +13792,7 @@
           const block = lmBlock(field.dataset.block);
           if (block) {
             if (field.dataset.field === "memorySize") block.memorySize = Math.max(2, Number(field.value) || 4);
-            else block[field.dataset.field] = field.value;
+            else block[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value;
           }
           if (field.tagName === "SELECT") lmRenderEditor();
           lmSchedule();
@@ -14385,21 +14391,103 @@
       if (!id) return;
       try { localStorage.setItem("enquiz-exam-work-" + id, JSON.stringify(examWork[id] || {})); } catch (e) {}
     }
-    function examWorkPut(examId, blockId, patch) {
-      const bag = examWorkBag();
-      const key = examId + "/" + blockId;
-      const prev = bag[key] || { saved: false, answers: {}, corrections: {}, points: {} };
-      bag[key] = {
-        saved: patch.saved != null ? !!patch.saved : !!prev.saved,
-        answers: patch.answers || prev.answers || {},
-        corrections: patch.corrections || prev.corrections || {},
-        points: patch.points || prev.points || {}
-      };
-      examWorkWrite();
-      if (!examWorkAccount() || typeof accountFetch !== "function") return Promise.resolve();
-      const body = { examId: examId, blockId: blockId, saved: bag[key].saved, answers: bag[key].answers, corrections: bag[key].corrections, points: bag[key].points };
-      if (viewAccount && viewAccount.id) body.studentId = viewAccount.id;
-      return accountFetch("/api/exams/work", { method: "POST", body: JSON.stringify(body) }).catch(() => {});
+    function assessmentActive(doc) { return !!doc && (!!doc.examOwned || (doc.blocks || []).some(part => part.assessed)); }
+    function assessmentRubric(item) {
+      return String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(points)}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 10000).slice(0,20);
+    }
+    function assessmentMax(part, index) {
+      const item = part.type === 'task' ? part : (part.items || [])[index] || {}, criteria = assessmentRubric(item);
+      return criteria.length ? criteria.reduce((n,c) => n + c.max,0) : Number(item.maxPoints ?? part.maxPoints ?? 1);
+    }
+    function assessmentQuestions(doc) {
+      return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
+    }
+    function assessmentEditor(block,index) {
+      const item = index == null ? block : block.items[index], attr = index == null ? 'data-field=' : 'data-item-list="items" data-item="' + index + '" data-item-field=';
+      const field = name => attr + '"' + name + '" data-block="' + block.id + '"';
+      return '<label>Maximum points<input type="number" min="0" max="10000" step="any" ' + field('maxPoints') + ' value="' + esc(String(item.maxPoints ?? 1)) + '"></label><label>Criteria<textarea ' + field('criteria') + ' placeholder="Content | 3&#10;Grammar | 2">' + esc(item.criteria || '') + '</textarea></label>';
+    }
+    function assessmentKey(doc) { return (doc.examOwned ? doc.examId : 'lesson') + '/' + (doc.examOwned ? doc.blockId : doc.id); }
+    function assessmentApply(doc,row) {
+      doc.studentSaved = !!row.saved; doc.assessmentState = row.state || (row.saved ? 'submitted' : 'draft'); doc.assessmentRevision = row.revision || 0;
+      doc.examCorrections = row.corrections || {}; doc.examPoints = row.points || {}; doc.examErrors = row.errors || {}; doc.examCriteriaPoints = row.criteriaPoints || {};
+      if (row.saved && row.materials?.length) {
+        if (doc.examOwned) doc.blocks = row.materials;
+        else doc.blocks = (doc.blocks || []).map(part => row.materials.find(p => String(p.id) === String(part.id)) || part);
+      }
+      (doc.blocks || []).forEach(part => {
+        if (!doc.examOwned && !part.assessed) return;
+        const given = (row.answers || {})[part.id] || {};
+        if (part.type === 'task') part.response = given[0] || '';
+        (part.items || []).forEach((item,index) => { item.given = given[index] ?? ''; });
+      });
+      doc.assessmentReady = true;
+    }
+    function assessmentStatus(message,doc=lmState) {
+      if (doc !== lmState) return;
+      let box = document.getElementById('assessmentSummary');
+      if (!box) { box = document.createElement('div'); box.id = 'assessmentSummary'; box.className = 'assessment-summary'; document.querySelector('#material .lm-meta')?.after(box); }
+      box.hidden = !assessmentActive(doc);
+      if (box.hidden) return;
+      const qs = assessmentQuestions(doc), max = qs.reduce((n,q) => n + q.max,0), graded = qs.filter(q => doc.examPoints?.[q.part.id]?.[q.index] != null && doc.examPoints[q.part.id][q.index] !== '');
+      const earned = graded.reduce((n,q) => n + Number(doc.examPoints[q.part.id][q.index]),0);
+      const states = {draft:'Draft',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'};
+      box.innerHTML = '<strong>' + esc(states[doc.assessmentState] || 'Draft') + '</strong><span>Maximum: ' + esc(String(max)) + ' points</span>' + (canTuneStudentLessons() || doc.assessmentState === 'published' ? '<span>' + esc(String(earned)) + ' / ' + esc(String(max)) + ' · ' + graded.length + ' / ' + qs.length + ' graded</span>' : '') + '<span role="status" aria-live="polite">' + esc(message || doc.assessmentMessage || '') + '</span>';
+      if (doc.assessmentError) box.innerHTML += '<button class="lm-btn" type="button" id="assessmentRetry">Retry saving</button>';
+    }
+    async function assessmentRead(doc) {
+      if (doc.assessmentLoading) return;
+      doc.assessmentLoading = true;
+      const account = examWorkAccount(), kind = doc.examOwned ? 'exam-block' : 'lesson', id = doc.examOwned ? doc.blockId : doc.id;
+      assessmentStatus('Loading answers…',doc);
+      try {
+        if (assessmentPendingDoc && assessmentKey(assessmentPendingDoc) === assessmentKey(doc)) {
+          clearTimeout(assessmentTimer); const pendingDoc = assessmentPendingDoc; assessmentPendingDoc = null;
+          await assessmentWrite(pendingDoc,'draft').catch(() => {});
+        }
+        await assessmentQueue.catch(() => {});
+        const row = await accountFetch('/api/assessment?kind=' + kind + '&id=' + id + (viewAccount?.id ? '&student=' + encodeURIComponent(viewAccount.id) : ''),{signal:AbortSignal.timeout(20000)});
+        if (account !== examWorkAccount()) return;
+        const pending = examWorkBag()[assessmentKey(doc)]?.pendingAnswers;
+        const recovered = pending && !row.saved ? {...row,answers:pending,pendingAnswers:pending} : row;
+        assessmentApply(doc,recovered); examWorkBag()[assessmentKey(doc)] = recovered; examWorkWrite();
+        if (pending && !row.saved) { doc.assessmentError = true; doc.assessmentMessage = 'Unsaved answers recovered. Retry saving.'; }
+        else { doc.assessmentError = false; doc.assessmentMessage = ''; }
+        if (doc === lmState) { lmRenderPreview(); examDress(); }
+      } catch(error) { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Could not load answers.'; if (doc === lmState) assessmentStatus(doc.assessmentMessage,doc); }
+      finally { doc.assessmentLoading = false; }
+    }
+    let assessmentQueue = Promise.resolve(), assessmentTimer, assessmentPendingDoc;
+    function assessmentWrite(doc,action,extra={}) {
+      const account = examWorkAccount(), actor = authUser?.id, target = viewAccount?.id;
+      const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
+      if (target) payload.studentId = target;
+      const task = assessmentQueue.catch(() => {}).then(async () => {
+        if (actor !== authUser?.id || account !== examWorkAccount()) throw new Error('Account changed. Reopen the material.');
+        if (!doc.assessmentReady) throw new Error('Load answers before saving.');
+        payload.expectedRevision = doc.assessmentRevision || 0;
+        assessmentStatus('Saving…',doc);
+        const row = await accountFetch('/api/assessment',{method:'POST',body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)});
+        doc.assessmentRevision = row.revision; doc.assessmentState = row.state; doc.studentSaved = !!row.saved; doc.assessmentError = false;
+        doc.assessmentMessage = action === 'draft' ? 'Draft saved' : action === 'submit' ? 'Submitted' : action === 'publish' ? 'Results published' : 'Saved';
+        const pending = examWorkBag()[assessmentKey(doc)]?.pendingAnswers;
+        examWorkBag()[assessmentKey(doc)] = {...row,...(action === 'draft' && pending && JSON.stringify(pending) !== JSON.stringify(row.answers) ? {pendingAnswers:pending} : {})}; examWorkWrite();
+        if (action !== 'draft') {
+          assessmentApply(doc,row);
+          if (doc === lmState) { lmRenderPreview(); examDress(); }
+        }
+        assessmentStatus(doc.assessmentMessage,doc); examPaintList(); if (examCurrentId) examPaintBlocks();
+        return row;
+      }).catch(error => { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Not saved. Retry.'; assessmentStatus(doc.assessmentMessage,doc); throw error; });
+      assessmentQueue = task; return task;
+    }
+    function assessmentAutosave(doc) {
+      clearTimeout(assessmentTimer);
+      if (assessmentPendingDoc && assessmentPendingDoc !== doc && !assessmentPendingDoc.studentSaved) assessmentWrite(assessmentPendingDoc,'draft').catch(() => {});
+      assessmentPendingDoc = doc; doc.assessmentMessage = 'Unsaved changes'; assessmentStatus(doc.assessmentMessage,doc);
+      const bag = examWorkBag(), key = assessmentKey(doc);
+      const answers = examCollectAnswers(doc); bag[key] = {...bag[key],answers,pendingAnswers:answers}; examWorkWrite();
+      assessmentTimer = setTimeout(() => { assessmentPendingDoc = null; assessmentWrite(doc,'draft').catch(() => {}); },700);
     }
     function examPullWork() {
       const account = examWorkAccount();
@@ -14411,10 +14499,12 @@
       const path = "/api/exams/work" + (viewAccount && viewAccount.id ? "?student=" + encodeURIComponent(viewAccount.id) : "");
       accountFetch(path).then((data) => {
         if (session !== examSession || workSession !== examWorkSession || account !== examWorkAccount()) return;
-        const bag = {};
+        const cached = examWorkBag(), bag = {};
         (data && data.work || []).forEach((row) => {
-          bag[row.examId + "/" + row.blockId] = { saved: !!row.saved, answers: row.answers || {}, corrections: row.corrections || {}, points: row.points || {} };
+          const key = row.examId + '/' + row.blockId;
+          bag[key] = { ...row, saved: !!row.saved, answers: row.answers || {}, corrections: row.corrections || {}, points: row.points || {}, ...(!row.saved && cached[key]?.pendingAnswers ? {pendingAnswers:cached[key].pendingAnswers} : {}) };
         });
+        for (const [key,row] of Object.entries(cached)) if (!bag[key] && (key.startsWith('lesson/') || row.pendingAnswers)) bag[key] = row;
         examWork[account] = bag;
         examWorkWrite();
         examWorkPulling = false;
@@ -14433,6 +14523,10 @@
         const row = bag[exam.id + "/" + block.id];
         if (!row || !block.doc) return;
         block.doc.studentSaved = !!row.saved;
+        block.doc.assessmentState = row.state || (row.saved ? 'submitted' : 'draft');
+        block.doc.assessmentRevision = row.revision || 0;
+        block.doc.examErrors = row.errors || {};
+        block.doc.examCriteriaPoints = row.criteriaPoints || {};
         block.doc.examCorrections = row.corrections || {};
         block.doc.examPoints = row.points || {};
         const answers = row.answers || {};
@@ -14457,12 +14551,15 @@
       delete doc.studentSaved;
       delete doc.examPoints;
       delete doc.examCorrections;
+      for (const key of Object.keys(doc)) if (key.startsWith('assessment') || ['examErrors','examCriteriaPoints'].includes(key)) delete doc[key];
+      (doc.blocks || []).forEach(part => { if (part.type === 'task') delete part.response; });
       (doc.blocks || []).forEach((part) => (part.items || []).forEach((item) => { if (item) delete item.given; }));
     }
     function examCollectAnswers(doc) {
       const answers = {};
       (doc.blocks || []).forEach((part) => {
         if (!part || !["quiz", "exercise", "task"].includes(part.type)) return;
+        if (!doc.examOwned && !part.assessed) return;
         const row = {};
         if (part.type === "task" && part.response) row[0] = part.response;
         (part.items || []).forEach((item, index) => { if (item && item.given != null && item.given !== "") row[index] = item.given; });
@@ -14546,24 +14643,28 @@
     }, true);
     function examDress() {
       const root = document.getElementById("material");
-      const owned = !!(lmState && lmState.examOwned);
+      const owned = assessmentActive(lmState);
       const reviewer = owned && canTuneStudentLessons();
       const taking = owned && !canEditLessons() && !reviewer;
       const locked = taking && !!lmState.studentSaved;
       if (root) root.classList.toggle("is-exam-locked", locked);
       if (root) {
-        const restricted = owned && authUser?.role === "USER" && !viewAccount;
+        const restricted = !!lmState?.examOwned && authUser?.role === "USER" && !viewAccount;
         root.classList.toggle("is-exam-restricted", restricted);
         root.classList.toggle("notranslate", restricted);
         if (restricted) { root.setAttribute("translate", "no"); hideSelpop(); }
         else root.removeAttribute("translate");
       }
       const save = document.getElementById("examSave");
-      if (save) save.hidden = reviewer ? false : (!taking || locked);
+      if (save) { save.hidden = reviewer ? !lmState.studentSaved || lmState.assessmentState === 'published' : (!taking || locked); save.textContent = reviewer ? 'Save review' : 'Submit'; save.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
+      for (const [id,visible] of [['assessmentPublish',reviewer && lmState.studentSaved && lmState.assessmentState !== 'published'],['assessmentReopen',reviewer && lmState.studentSaved],['assessmentAmend',reviewer && lmState.assessmentState === 'published'],['assessmentHistory',reviewer]]) {
+        const button = document.getElementById(id); if (button) { button.hidden = !visible; button.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
+      }
+      assessmentStatus();
       document.querySelectorAll("[data-exam-quiz]").forEach((btn) => { btn.hidden = !owned || !canEditLessons(); });
       if (!owned || !root) return;
       const back = root.querySelector("[data-nav-back]");
-      if (back) {
+      if (back && lmState.examOwned) {
         back.dataset.fallback = "examblocks";
         back.classList.remove("back-text");
         back.classList.add("icon");
@@ -14571,9 +14672,11 @@
         back.innerHTML = backArrow;
       }
       const heading = root.querySelector(".lm-meta h1");
-      if (heading) heading.textContent = "Examination block";
-      root.querySelectorAll(".lm-chrome").forEach((chrome) => { chrome.hidden = true; });
+      if (heading && lmState.examOwned) heading.textContent = "Examination block";
+      if (lmState.examOwned) root.querySelectorAll(".lm-chrome").forEach((chrome) => { chrome.hidden = true; });
       if (taking || reviewer) examFillAnswers();
+      if ((taking || reviewer) && !lmState.assessmentReady) root.querySelectorAll('[data-exam-given],[data-exam-response],[data-exam-points],[data-exam-fix],[data-exam-error],[data-exam-criterion]').forEach(input => { input.disabled = true; });
+      if (reviewer && (!lmState.studentSaved || lmState.assessmentState === 'published')) root.querySelectorAll('[data-exam-points],[data-exam-fix],[data-exam-error],[data-exam-criterion]').forEach(input => { input.disabled = true; });
     }
     globalThis.examDress = examDress;
     function examSame(given, right) {
@@ -14604,13 +14707,26 @@
       return "";
     }
     function examPointInput(block, index) {
+      if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
       const value = ((lmState.examPoints || {})[block.id] || {})[index];
       const shown = value == null || value === "" ? "" : String(value);
-      return '<label class="exam-point">Points <input class="exam-points" type="number" min="0" step="1" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label>';
+      const mark = ((lmState.examErrors || {})[block.id] || {})[index] || '';
+      const item = block.type === 'task' ? block : (block.items || [])[index] || {}, criteria = assessmentRubric(item);
+      const criteriaHtml = criteria.map((criterion,i) => '<label>' + esc(criterion.label) + ' / ' + criterion.max + '<input type="number" min="0" max="' + criterion.max + '" step="any" data-exam-criterion="' + block.id + ':' + index + ':' + i + '" value="' + esc(String(lmState.examCriteriaPoints?.[block.id]?.[index]?.[i] ?? '')) + '"></label>').join('');
+      return '<div class="assessment-grading">' + criteriaHtml + '<label class="exam-point">Points / ' + assessmentMax(block,index) + ' <input class="exam-points" type="number" min="0" max="' + assessmentMax(block,index) + '" step="any" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label><label>Review<select data-exam-error="' + block.id + ':' + index + '"><option value="">Unmarked</option><option value="correct"' + (mark === 'correct' ? ' selected' : '') + '>Correct</option><option value="needs-work"' + (mark === 'needs-work' ? ' selected' : '') + '>Needs work</option></select></label></div>';
     }
     function examFixInput(block, index) {
+      if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
       const value = ((lmState.examCorrections || {})[block.id] || {})[index] || "";
-      return '<input type="text" data-exam-fix="' + block.id + ":" + index + '" value="' + esc(value) + '" placeholder="Correction" />';
+      return '<label>Feedback<textarea maxlength="3000" data-exam-fix="' + block.id + ":" + index + '">' + esc(value) + '</textarea></label>';
+    }
+    function assessmentFeedback(block,index) {
+      if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
+      let html = '<p class="assessment-question-score">Maximum: ' + assessmentMax(block,index) + ' points</p>';
+      if (lmState.assessmentState !== 'published') return html;
+      const points = lmState.examPoints?.[block.id]?.[index], feedback = lmState.examCorrections?.[block.id]?.[index], mark = lmState.examErrors?.[block.id]?.[index];
+      html += '<div class="assessment-feedback"><strong>' + esc(String(points ?? 'Not graded')) + ' / ' + assessmentMax(block,index) + '</strong>' + (mark ? '<span>' + (mark === 'correct' ? 'Correct' : 'Needs work') + '</span>' : '') + (feedback ? '<p>' + esc(feedback) + '</p>' : '') + '</div>';
+      return html;
     }
     function examTextReview(block, item, index, kind) {
       const right = examRight(item, kind);
@@ -14629,7 +14745,7 @@
       const reviewer = canTuneStudentLessons();
       const lock = reviewer || lmState.studentSaved ? " disabled" : "";
       const items = block.items || [];
-      const tail = (index) => reviewer ? (["Choice", "Odd one out", "Select all", "True / false"].includes(kind) ? examFixInput(block, index) : "") + examPointInput(block, index) : "";
+      const tail = (index) => reviewer ? (["Choice", "Odd one out", "Select all", "True / false"].includes(kind) ? examFixInput(block, index) : "") + examPointInput(block, index) : assessmentFeedback(block,index);
       if (kind === "Choice" || kind === "Odd one out") {
         return title + items.map((item, index) => {
           const given = Number(item.given);
@@ -14662,7 +14778,7 @@
             return '<div class="lm-q"><b>' + esc(item.left || "Left") + "</b>" + mark + examFixInput(block, index) + tail(index) + "</div>";
           }
           const options = '<option value="">Choose</option>' + rights.map((right) => '<option' + (item.given === right ? " selected" : "") + ">" + esc(right) + "</option>").join("");
-          return '<div class="lm-q"><b>' + esc(item.left || "Left") + '</b><select data-exam-given="' + block.id + ":" + index + '"' + lock + ">" + options + "</select></div>";
+          return '<div class="lm-q"><b>' + esc(item.left || "Left") + '</b><select data-exam-given="' + block.id + ":" + index + '"' + lock + ">" + options + "</select>" + tail(index) + "</div>";
         }).join("");
       }
       if (kind === "Gap" || kind === "Build") {
@@ -14677,22 +14793,40 @@
     }
     function examFillAnswers() {
       (lmState.blocks || []).forEach((block) => {
-        if (!["quiz", "exercise", "task"].includes(block.type)) return;
+        if (!["quiz", "exercise", "task"].includes(block.type) || !lmState.examOwned && !block.assessed) return;
         const panel = document.querySelector('#lmPreview [data-lm-panel="' + block.id + '"]');
         if (!panel) return;
         if (block.type === "quiz") panel.innerHTML = examAnswerHtml(block);
         else if (block.type === "task") {
           const reviewer = canTuneStudentLessons(), given = block.response || "";
-          panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : "");
+          panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : assessmentFeedback(block,0));
         } else {
-          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll(block.id + ":0", block.id + ":" + index).replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
+          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
         }
+      });
+      if (!canTuneStudentLessons()) (lmState.blocks || []).filter(part => ['quiz','exercise'].includes(part.type) && (lmState.examOwned || part.assessed)).forEach(part => {
+        document.querySelectorAll('#lmPreview [data-lm-panel="' + part.id + '"] .lm-q').forEach((question,index) => { if (!question.querySelector('.assessment-question-score')) question.insertAdjacentHTML('beforeend',assessmentFeedback(part,index)); });
       });
     }
     function examRemember(input) {
-      if (!lmState || !lmState.examOwned || canEditLessons()) return;
+      if (!assessmentActive(lmState) || canEditLessons() && !canTuneStudentLessons() || !lmState.assessmentReady) return;
       const reviewer = canTuneStudentLessons();
       if (!reviewer && lmState.studentSaved) return;
+      if (reviewer && lmState.assessmentState === 'published') return;
+      const errorMark = input.closest('[data-exam-error]'), criterion = input.closest('[data-exam-criterion]');
+      if ((errorMark || criterion) && reviewer) {
+        const source = errorMark || criterion, bits = (source.dataset.examError || source.dataset.examCriterion).split(':');
+        if (errorMark) { lmState.examErrors ||= {}; (lmState.examErrors[bits[0]] ||= {})[bits[1]] = source.value; }
+        else {
+          lmState.examCriteriaPoints ||= {}; const scores = ((lmState.examCriteriaPoints[bits[0]] ||= {})[bits[1]] ||= {}); scores[bits[2]] = source.value;
+          const part = lmState.blocks.find(p => String(p.id) === bits[0]), item = part.type === 'task' ? part : part.items[Number(bits[1])];
+          const rows = assessmentRubric(item), complete = rows.every((_,i) => scores[i] != null && scores[i] !== '');
+          const total = complete ? rows.reduce((n,_,i) => n + Number(scores[i]),0) : '';
+          (lmState.examPoints[bits[0]] ||= {})[bits[1]] = total;
+          const field = document.querySelector('[data-exam-points="' + bits[0] + ':' + bits[1] + '"]'); if (field) field.value = total;
+        }
+        assessmentStatus('Unsaved review'); return;
+      }
       const points = input.closest("[data-exam-points]");
       const fix = input.closest("[data-exam-fix]");
       if (points || fix) {
@@ -14704,13 +14838,14 @@
         if (!lmState[bucket]) lmState[bucket] = {};
         if (!lmState[bucket][partId]) lmState[bucket][partId] = {};
         lmState[bucket][partId][index] = points ? source.value : source.value;
+        assessmentStatus('Unsaved review');
         return;
       }
       const source = input.closest("[data-exam-given]");
       const response = input.closest("[data-exam-response]");
       if (response && !reviewer) {
         const block = lmState.blocks.find(row => String(row.id) === response.dataset.examResponse);
-        if (block) { block.response = response.value; examWorkPut(lmState.examId, lmState.blockId, { answers: examCollectAnswers(lmState) }); }
+        if (block) { block.response = response.value; assessmentAutosave(lmState); }
         return;
       }
       if (!source || reviewer) return;
@@ -14723,12 +14858,7 @@
       } else if (source.type === "radio") {
         item.given = source.dataset.examValue === "true" || source.dataset.examValue === "false" ? source.dataset.examValue : Number(source.dataset.examValue);
       } else item.given = source.value;
-      const bag = examWorkBag();
-      const key = lmState.examId + "/" + lmState.blockId;
-      const prev = bag[key] || { saved: false, answers: {}, corrections: {}, points: {} };
-      prev.answers = examCollectAnswers(lmState);
-      bag[key] = prev;
-      examWorkWrite();
+      assessmentAutosave(lmState);
     }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
       return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
@@ -14770,7 +14900,10 @@
         const ready = mine && examReadyForReview(exam);
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
         let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
-        if (mine) about += " · " + sum;
+        const visible = examVisibleBlocks(exam), maximum = visible.reduce((n,b) => n + assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q) => m + q.max,0),0);
+        const reviewed = visible.filter(b => b.doc?.assessmentState === 'published').length;
+        about += ' · Maximum ' + maximum;
+        if (mine && (canTuneStudentLessons() || reviewed)) about += ' · ' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed';
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
         if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
@@ -14793,8 +14926,10 @@
         const saved = !canEditLessons() && block.doc && block.doc.studentSaved;
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
-        let about = block.hidden ? "Hidden" : (saved ? "Saved" : (block.doc && block.doc.published ? "Published" : "Draft"));
-        if (mine) about += " · " + sum;
+        let about = block.hidden ? "Hidden" : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? "Submitted" : (block.doc && block.doc.published ? "Published" : "Draft"));
+        const maximum = assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0);
+        about += ' · Maximum ' + maximum;
+        if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
         const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
         return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, examTools("block", block.id, hidden));
@@ -15083,21 +15218,39 @@
         if (!open) return;
         examOpenBlock(open.dataset.examBlock);
       });
-      if (save) save.addEventListener("click", () => {
-        if (!lmState || !lmState.examOwned) return;
-        if (canTuneStudentLessons()) {
-          examWorkPut(lmState.examId, lmState.blockId, { corrections: lmState.examCorrections || {}, points: lmState.examPoints || {} });
-          if (typeof lmNote === "function") lmNote("Saved.");
-          return;
-        }
-        if (canEditLessons() || lmState.studentSaved) return;
-        lmState.studentSaved = true;
-        examWorkPut(lmState.examId, lmState.blockId, { saved: true, answers: examCollectAnswers(lmState) });
-        const backTo = lmState.examId;
-        examLeave();
-        examCurrentId = backTo;
-        show("examblocks");
+      async function assessmentAction(action,extra={}) {
+        const doc = lmState;
+        if (!assessmentActive(doc) || !doc.assessmentReady || doc.assessmentBusy) return;
+        if (assessmentPendingDoc === doc) { clearTimeout(assessmentTimer); assessmentPendingDoc = null; }
+        doc.assessmentBusy = true; examDress();
+        try { await assessmentWrite(doc,action,extra); }
+        catch(error) { assessmentStatus(error.message,doc); }
+        finally { doc.assessmentBusy = false; if (doc === lmState) examDress(); }
+      }
+      if (save) save.addEventListener('click',async () => {
+        if (!assessmentActive(lmState) || canEditLessons() && !canTuneStudentLessons()) return;
+        if (canTuneStudentLessons()) return assessmentAction('review');
+        if (lmState.studentSaved) return;
+        const answers = examCollectAnswers(lmState), missing = assessmentQuestions(lmState).filter(q => answers[q.part.id]?.[q.index] == null || answers[q.part.id][q.index] === '' || Array.isArray(answers[q.part.id][q.index]) && !answers[q.part.id][q.index].length).length;
+        if (!confirm((missing ? missing + ' unanswered question(s). ' : '') + 'Submit your answers? You cannot change them unless your teacher reopens the submission.')) return;
+        await assessmentAction('submit');
       });
+      document.getElementById('assessmentPublish')?.addEventListener('click',() => { if (confirm('Publish scores and feedback for this student?')) assessmentAction('publish'); });
+      for (const [id,action] of [['assessmentReopen','reopen'],['assessmentAmend','amend']]) document.getElementById(id)?.addEventListener('click',() => {
+        const reason = prompt(action === 'reopen' ? 'Why are you reopening the submission?' : 'Why are you amending the published review?');
+        if (reason?.trim()) assessmentAction(action,{reason:reason.trim()});
+      });
+      document.getElementById('assessmentHistory')?.addEventListener('click',async () => {
+        const doc = lmState;
+        try {
+          const result = await accountFetch('/api/assessment?history=1&kind=' + (doc.examOwned ? 'exam-block' : 'lesson') + '&id=' + (doc.examOwned ? doc.blockId : doc.id) + '&student=' + encodeURIComponent(viewAccount.id));
+          const rows = result.history || [];
+          const dialog = document.createElement('dialog'); dialog.className = 'assessment-history';
+          dialog.innerHTML = '<form method="dialog"><button class="lm-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');
+          document.body.append(dialog); dialog.addEventListener('close',() => dialog.remove()); dialog.showModal();
+        } catch(error) { assessmentStatus(error.message); }
+      });
+      document.addEventListener('click',event => { if (event.target.closest('#assessmentRetry')) { if (!lmState.assessmentReady) assessmentRead(lmState); else assessmentAction(canTuneStudentLessons() ? 'review' : lmState.studentSaved ? 'review' : 'draft'); } });
       document.addEventListener("input", (event) => examRemember(event.target));
       document.addEventListener("change", (event) => examRemember(event.target));
     }

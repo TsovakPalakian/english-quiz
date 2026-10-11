@@ -4,6 +4,17 @@ import {accountRoute,accountDatabase,integratedWorker} from '../src/turso-integr
 import {ACCOUNT_AUTH} from '../src/turso-stage-worker.mjs';
 import {managedAccount} from '../src/worker.js';
 const id='a'.repeat(32);
+test('Assessment and legacy exam-work routes authorize the target before any study access',async()=>{
+  let reads=0;
+  const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN'}),authorizeManaged:async()=>({error:Response.json({error:'denied'},{status:403})}),studyDatabase:()=>{reads++;throw Error('Must not read');}});
+  const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',STAGE_WRITES:'true'};
+  const target='b'.repeat(32);
+  for(const path of ['/api/assessment','/api/exams/work']){
+    assert.equal((await worker.fetch(new Request('https://test.invalid'+path+'?kind=lesson&id=1&student='+target),env)).status,403);
+    assert.equal((await worker.fetch(new Request('https://test.invalid'+path,{method:'POST',headers:{Origin:'https://test.invalid'},body:JSON.stringify({kind:'lesson',id:1,studentId:target,action:'publish'})}),env)).status,403);
+  }
+  assert.equal(reads,0);
+});
 test('R5 managed media requires source authorization, target ownership and developer song rights before storage',async()=>{
   const target='b'.repeat(32);let role='ADMIN',allowed=true,reads=0,objects=0,songs=false;
   const worker=integratedWorker({authenticate:async()=>({id,role,login:'SyntheticReviewer'}),

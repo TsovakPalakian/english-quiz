@@ -14,6 +14,7 @@ import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
+import {AssessmentService} from '../src/turso-assessment.mjs';
 import {GroupService} from '../src/turso-groups.mjs';
 import {VisibilityService,materialVisibility} from '../src/turso-visibility.mjs';
 import {ensureStudyProfile} from '../src/turso-profile.mjs';
@@ -158,8 +159,66 @@ test('Student exam reads omit solution keys and submitted work cannot be changed
     await assert.rejects(service.saveWork(student,{...body,saved:false,answers:{30:{0:1}}}),error=>error.status===409);
     assert.equal((await service.listWork(student))[0].answers[30][0],0);
     await service.saveWork(teacher,{...body,studentId:'student',corrections:{30:{0:'reviewed'}},points:{30:{0:1}}});
+    assert.deepEqual((await service.listWork(student))[0].corrections,{});
+    const assessment=new AssessmentService(f.db);
+    await assert.rejects(assessment.write(teacher,{kind:'exam-block',id:20,studentId:'student',action:'publish',points:{30:{0:1}}}),e=>e.status===400);
+    const graded={30:{0:1},31:{0:0.5},32:{0:1,1:0}};
+    await assessment.write(teacher,{kind:'exam-block',id:20,studentId:'student',action:'publish',points:graded,corrections:{30:{0:'reviewed'}}});
     assert.equal((await service.listWork(student))[0].corrections[30][0],'reviewed');
+    assert.equal((await assessment.get(student,{kind:'exam-block',id:20})).materials[0].items[0].answer,undefined);
   }finally{f.sqlite.close();}
+});
+test('Assessment drafts, locking, rubric bounds, publication, revision conflicts and reopening preserve history',async()=>{
+  const f=fixture();try{
+    const service=new AssessmentService(f.db),student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'};
+    const task={assessed:true,text:'Write a short answer',maxPoints:5,criteria:'Content | 3\nGrammar | 2'};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(10,1,1,'task',?)").run(JSON.stringify(task));
+    const base={kind:'lesson',id:1},review={...base,studentId:'student'};
+    assert.equal((await service.get(student,base)).state,'draft');
+    let row=await service.write(student,{...base,action:'draft',answers:{10:{0:'My answer'}},expectedRevision:0});
+    assert.equal(row.revision,1);assert.equal(row.saved,false);
+    await assert.rejects(service.write(student,{...base,action:'draft',expectedRevision:0}),e=>e.status===409);
+    row=await service.write(student,{...base,action:'submit',answers:row.answers,expectedRevision:1});
+    assert.equal(row.state,'submitted');
+    await assert.rejects(service.write(student,{...base,action:'draft',answers:{10:{0:'Changed'}}}),e=>e.status===409);
+    await assert.rejects(service.write(student,{...base,action:'publish',points:{10:{0:5}}}),e=>e.status===403);
+    await assert.rejects(service.write(teacher,{...review,action:'review',points:{10:{0:6}}}),e=>e.status===400);
+    await assert.rejects(service.write(teacher,{...review,action:'review',points:['bad']}),e=>e.status===400);
+    const grading={points:{10:{0:4}},corrections:{10:{0:'Review verb agreement.'}},errors:{10:{0:'needs-work'}},criteriaPoints:{10:{0:{0:3,1:1}}}};
+    row=await service.write(teacher,{...review,action:'review',...grading});
+    assert.deepEqual((await service.get(student,base)).points,{});
+    await assert.rejects(service.write(teacher,{...review,action:'publish',...grading,criteriaPoints:{10:{0:{0:4,1:0}}}}),e=>e.status===400);
+    // Submitted definitions and maxima remain stable when the source is edited.
+    f.sqlite.prepare('UPDATE lesson_blocks SET content_json=? WHERE id=10').run(JSON.stringify({...task,text:'New question',maxPoints:20,criteria:''}));
+    row=await service.write(teacher,{...review,action:'publish',...grading});
+    assert.equal(row.materials[0].text,task.text);
+    assert.equal((await service.get(student,base)).points[10][0],4);
+    await assert.rejects(service.write(teacher,{...review,action:'review',...grading}),e=>e.status===409);
+    await assert.rejects(service.write(teacher,{...review,action:'amend'}),e=>e.status===400);
+    row=await service.write(teacher,{...review,action:'amend',reason:'Correct a grading mistake'});
+    assert.equal(row.state,'reviewing');assert.deepEqual((await service.get(student,base)).points,{});
+    row=await service.write(teacher,{...review,action:'reopen',reason:'Allow one revision'});
+    assert.equal(row.state,'draft');assert.equal(row.answers[10][0],'My answer');
+    row=await service.write(student,{...base,action:'submit',answers:{10:{0:'Revised answer'}},expectedRevision:row.revision});
+    assert.equal(row.materials[0].text,'New question');
+    const history=await service.history(teacher,review);assert.equal(history.filter(h=>h.action==='submit').length,2);assert.equal(history.find(h=>h.action==='reopen').reason,'Allow one revision');
+    await assert.rejects(service.history(student,base),e=>e.status===403);
+    await assert.rejects(new StudyService(f.db).saveLessonResponse(student,1,10,{mutationId:'assessed-old-write',expectedRevision:0,expectedBlockRevision:1,response:'Bypass'}),e=>e.status===409);
+    const archive=new ArchiveService(f.db);await archive.archive(teacher,{type:'lesson',id:1});await archive.remove({...teacher,role:'DEVELOPER'},{type:'lesson',id:1});
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_work').get().n,0);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_history').get().n,0);
+  }finally{f.sqlite.close();}
+});
+test('Every lesson has opening section cards with counts, including zero and older lessons',()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const code=source.slice(source.indexOf('    function lmChromeHtml()'),source.indexOf('    function lmQuizCards()'));
+  const scope={lmState:{id:1},lmTab:()=> 'phrases',lmBlockCounts:()=>({words:0,phrases:1,rules:1})};
+  runInNewContext(code,scope);const html=scope.lmChromeHtml();
+  for(const label of ['Words · 0','Phrases · 1','Rules · 1'])assert.ok(html.includes('<b>'+label+'</b>'));
+  assert.equal((html.match(/class="lm-section-card(?: on)?"/g)||[]).length,3);
+  assert.match(html,/data-lm-tab="phrases" class="lm-section-card on" role="tab" aria-selected="true"/);
+  for(const tab of ['overview','words','phrases','rules','classwork','homework','pdf'])assert.ok(html.includes('data-lm-tab="'+tab+'"'));
+  assert.ok(html.includes('data-lm-tool="quiz"'));
 });
 test('Archive preview and attachments respect archive visibility without restoring content',async()=>{
   const f=fixture();try{

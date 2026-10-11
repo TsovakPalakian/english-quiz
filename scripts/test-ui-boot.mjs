@@ -31,6 +31,7 @@ try{
   const targetId='b'.repeat(32),hiddenMaterials=new Set();
   let lesson={id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-10',blocks:[{id:32,type:'text',tab:'overview',html:'<p>Fixture lesson</p>'}],mode:'preview'};
   const copiedLessons=[];let copyWrites=0;
+  const assessmentRecords=new Map();let failSubmit=false;
   let holdLessonSummary=false,releaseLessons;
   page.on('dialog',dialog=>dialog.accept());
   const handleApi=async route=>{
@@ -51,6 +52,22 @@ try{
       else data={exams:[{...exam,personalHidden:hiddenMaterials.has('exam:11'),blocks:exam.blocks.map(block=>({...block,personalHidden:hiddenMaterials.has('exam-block:'+block.id)}))}]};
     }
     if(path==='/api/exams/work')data={work:[]};
+    if(path==='/api/assessment'){
+      const body=method==='POST'?JSON.parse(route.request().postData()):{kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id'))};
+      const key=body.kind+'/'+body.id;
+      const materials=body.kind==='exam-block'?exam.blocks.find(row=>row.id===body.id)?.materials:copiedLessons.find(row=>row.id===body.id)?.blocks.filter(p=>p.assessed);
+      let record=assessmentRecords.get(key)||{kind:body.kind,examId:exam.id,blockId:body.id,revision:0,state:'draft',saved:false,answers:{},points:{},corrections:{},errors:{},materials:structuredClone(materials||[])};
+      if(method==='POST'){
+        if(body.action==='submit'&&failSubmit){failSubmit=false;await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic submission failure'})});return;}
+        assert.equal(body.expectedRevision,record.revision);
+        record={...record,revision:record.revision+1};
+        if(['draft','submit'].includes(body.action)){record.answers=body.answers;record.state=body.action==='submit'?'submitted':'draft';}
+        else if(['review','publish'].includes(body.action)){record.points=body.points;record.corrections=body.corrections;record.errors=body.errors;record.state=body.action==='publish'?'published':'reviewing';}
+        else record.state=body.action==='reopen'?'draft':'reviewing';
+        record.saved=record.state!=='draft';assessmentRecords.set(key,record);
+      }
+      data=record;
+    }
     if(path==='/api/groups')data={groups:[{id:41,title:'Fixture group',date:'2026-10-10',lessonIds:[31],personalHidden:hiddenMaterials.has('group:41')},{id:42,title:'Copy destination',date:'2026-10-10',lessonIds:copiedLessons.map(row=>row.id)}]};
     if(path==='/api/content/copy'){
       const body=JSON.parse(route.request().postData());copyWrites++;
@@ -260,8 +277,8 @@ try{
   await racePage.getByRole('heading',{name:'Published examination fixture',exact:true}).waitFor();
   assert.equal(exam.blocks[0].published,true);
   await racePage.locator('#material [data-nav-back]').first().click();
-  await racePage.locator('[data-exam-block="12"]').getByText('Published',{exact:true}).waitFor();
-  await racePage.reload();await racePage.locator('[data-exam-block="12"]').getByText('Published',{exact:true}).waitFor();
+  await racePage.locator('[data-exam-block="12"]').getByText(/^Published · Maximum/).waitFor();
+  await racePage.reload();await racePage.locator('[data-exam-block="12"]').getByText(/^Published · Maximum/).waitFor();
   assert.equal(exam.blocks[0].published,true);
   await racePage.screenshot({path:'/private/tmp/english-quiz-exam-publish-test.png'});
   await page.evaluate(()=>window.TursoMain.notice('Dismissible fixture error',true));
@@ -358,6 +375,7 @@ try{
   user.role='USER';await page.reload();await page.waitForFunction(()=>accountReady);
   await page.evaluate(()=>window.enquizVisit('exams'));await page.locator('[data-exam-open="11"]').click();await page.locator('[data-exam-block="90"]').click();
   await page.locator('#material.is-exam-restricted').waitFor();
+  await page.waitForFunction(()=>lmState.assessmentReady);
   assert.equal(await page.locator('#material').getAttribute('translate'),'no');
   assert.equal(await page.locator('#lmCopy').isVisible(),false);
   assert.equal(await page.locator('#lmPreview [data-content-copy],#lmPreview [data-ex-check],#lmPreview [data-quiz-check]').count(),0);
@@ -368,6 +386,26 @@ try{
   assert.equal(await page.evaluate(()=>Object.values(examCollectAnswers(lmState)).some(row=>row[0]==='My exam response')),true);
   assert.equal(await taskField.evaluate(el=>el.dispatchEvent(new Event('paste',{bubbles:true,cancelable:true}))),false);
   await page.locator('#lmPreview [data-read]').first().click({force:true});assert.equal(await page.locator('#selpop').isVisible(),false);
+  assert.equal(await page.locator('#examSave').innerText(),'Submit');
+  failSubmit=true;await page.locator('#examSave').click();
+  await page.locator('#assessmentSummary').getByText('Synthetic submission failure',{exact:true}).waitFor();
+  assert.equal(await page.locator('#lmPreview [data-exam-response]').first().isEnabled(),true);
+  assert.equal(await page.evaluate(()=>lmState.studentSaved),false);
+  await page.locator('#examSave').click();
+  await page.waitForFunction(()=>lmState.studentSaved===true&&!lmState.assessmentBusy);
+  assert.equal(await page.locator('#lmPreview [data-exam-response]').first().isEnabled(),false);
+  assert.equal(await page.locator('#examSave').isVisible(),false);
+  await page.evaluate(()=>{authUser.role='ADMIN';viewAccount={id:'b'.repeat(32),role:'USER'};lmState.assessmentReady=false;lmShow('preview');});
+  await page.waitForFunction(()=>lmState.assessmentReady);
+  assert.equal(await page.locator('#examSave').innerText(),'Save review');
+  await page.locator('#lmPreview [data-exam-points]').first().fill('1');
+  await page.locator('#examSave').click();await page.waitForFunction(()=>lmState.assessmentState==='reviewing'&&!lmState.assessmentBusy);
+  await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);
+  assert.equal(await page.locator('#lmPreview [data-exam-points]').first().isEnabled(),false);
+  assert.equal(await page.locator('#assessmentAmend').isVisible(),true);
+  await page.evaluate(()=>{authUser.role='USER';viewAccount=null;lmState.assessmentReady=false;lmShow('preview');});
+  await page.waitForFunction(()=>lmState.assessmentReady);
+  assert.equal(await page.locator('#lmPreview .assessment-feedback').count()>0,true);
   await page.evaluate(()=>window.enquizVisit('groups'));await page.locator('[data-group-open="42"]').click();await page.locator('[data-lm-open="51"]').click();
   assert.equal(await page.locator('#material').getAttribute('translate'),null);
   assert.equal(await page.locator('#lmPreview').evaluate(el=>el.dispatchEvent(new Event('copy',{bubbles:true,cancelable:true}))),true);
