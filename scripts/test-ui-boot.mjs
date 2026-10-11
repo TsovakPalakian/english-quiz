@@ -4,6 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root=resolve('rollback/turso-production-assets');
@@ -27,7 +28,9 @@ try{
   const archived=new Map();
   let exam={id:11,title:'Fixture exam',date:'2026-10-10',published:false,blocks:[{id:12,title:'Fixture examination block',published:false,materials:[{id:13,type:'text',tab:'overview',html:'<p>Fixture material</p>'}]}]};
   const song={id:21,stageId:21,stageRevision:1,stageScope:'profile',title:'Fixture song',artist:'Fixture',kind:'song',lyrics:'Fixture lyrics',marks:{}};
+  const targetId='b'.repeat(32),hiddenMaterials=new Set();
   let lesson={id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-10',blocks:[{id:32,type:'text',tab:'overview',html:'<p>Fixture lesson</p>'}],mode:'preview'};
+  const copiedLessons=[];let copyWrites=0;
   let holdLessonSummary=false,releaseLessons;
   page.on('dialog',dialog=>dialog.accept());
   const handleApi=async route=>{
@@ -45,14 +48,28 @@ try{
     if(path==='/api/stats')data={statisticsSource:'turso-activity',legacyHistoryIncluded:false,scope:'user',from:'2026-10-04',to:'2026-10-10',activity:{answers:3,correct:2,series:[]}};
     if(path==='/api/exams'){
       if(method==='POST'){exam=JSON.parse(route.request().postData()).exam;data=exam;}
-      else data={exams:[exam]};
+      else data={exams:[{...exam,personalHidden:hiddenMaterials.has('exam:11'),blocks:exam.blocks.map(block=>({...block,personalHidden:hiddenMaterials.has('exam-block:'+block.id)}))}]};
     }
     if(path==='/api/exams/work')data={work:[]};
-    if(path==='/api/groups')data={groups:[{id:41,title:'Fixture group',date:'2026-10-10',lessonIds:[31]}]};
+    if(path==='/api/groups')data={groups:[{id:41,title:'Fixture group',date:'2026-10-10',lessonIds:[31],personalHidden:hiddenMaterials.has('group:41')},{id:42,title:'Copy destination',date:'2026-10-10',lessonIds:copiedLessons.map(row=>row.id)}]};
+    if(path==='/api/content/copy'){
+      const body=JSON.parse(route.request().postData());copyWrites++;
+      assert.equal(body.source.type,'exam-block');assert.equal(body.source.id,90);
+      assert.deepEqual(body.destination,{type:'group',id:42});
+      const copied={id:51,stageRevision:1,title:body.title,date:exam.date,published:true,mode:'preview',blocks:structuredClone(exam.blocks.find(row=>row.id===90).materials).map((part,i)=>({...part,id:500+i}))};
+      copiedLessons.push(copied);data={copied:true,destination:'group',ids:[{type:'lesson',id:copied.id},...copied.blocks.map(part=>({type:'material',id:part.id}))]};
+    }
+    if(path==='/api/admin/users/'+targetId+'/state')data={bootstrap:true,stats:{hiddenLessons:[],allowedLessons:[]},counts:{lessons:1},stageActivity:{}};
+    if(path==='/api/admin/users/'+targetId+'/lessons')data={materials:[{...lesson,blocks:[],stageLessonDeferred:true}]};
+    if(path==='/api/admin/users/'+targetId+'/visibility'){
+      const body=JSON.parse(route.request().postData()),key=body.type+':'+body.id;
+      if(body.hidden)hiddenMaterials.add(key);else hiddenMaterials.delete(key);data={...body,revision:1};
+    }
+    if(path==='/api/admin/users/'+targetId+'/lessons/31/access')data={saved:true};
     if(path==='/api/lessons'){
       if(method!=='GET')throw Error('Examination publication must not write lessons');
       if(holdLessonSummary&&url.searchParams.get('summary')==='1')await new Promise(resolve=>{releaseLessons=resolve;});
-      data={materials:[url.searchParams.has('id')?lesson:{...lesson,blocks:[],stageLessonDeferred:true}]};
+      const rows=[lesson,...copiedLessons];data={materials:url.searchParams.has('id')?rows.filter(row=>row.id===Number(url.searchParams.get('id'))):rows.map(row=>({...row,blocks:[],stageLessonDeferred:true}))};
     }
     if(path==='/api/me/songs')data={songs:songActive?[song]:[],next:null};
     if(path==='/api/archive'){
@@ -68,6 +85,9 @@ try{
           if(body.action==='restore'&&body.type==='exam-block')exam.blocks.push(heldBlock);
         }
         data={type:body.type,id:body.id,revision:++revision,[body.action==='archive'?'archived':body.action==='restore'?'restored':'removed']:true};
+      }else if(url.searchParams.has('type')){
+        const type=url.searchParams.get('type'),id=url.searchParams.get('id'),item=archived.get(type+':'+id);assert.ok(item);
+        data={type,id,title:item.title,documents:type==='exam-block'?[{title:item.title,blocks:heldBlock.materials}]:[],...(type==='song'?{content:song}:{})};
       }else data={revision,items:[...archived.values()]};
     }
     if(path==='/api/bugs')data={heads:[]};
@@ -84,6 +104,11 @@ try{
   await page.locator('[data-account="edit-details"]').click();
   assert.equal(await page.locator('#ownAccountForm').isVisible(),true);
   await page.locator('[data-display-open]:visible').click();
+  assert.equal(await page.locator('button[data-display-size]').count(),5);
+  for(const size of ['small','extra-large']){
+    await page.locator('button[data-display-size="'+size+'"]').click();
+    assert.equal(await page.locator('html').getAttribute('data-display-size'),size);
+  }
   await page.locator('button[data-display-size="large"]').click();
   assert.equal(await page.locator('html').getAttribute('data-display-size'),'large');
   await page.locator('#highVisibility').check({force:true});
@@ -148,6 +173,15 @@ try{
   await page.locator('[data-exam-del="block:12"]').click();
   await page.waitForFunction(()=>!document.querySelector('[data-exam-block="12"]'));
   await page.locator('[data-jump="archive"]:visible').click();
+  await page.locator('[data-archive-open="exam-block:12"]').click();
+  await page.locator('#archivePreviewBody').getByText('Fixture material',{exact:true}).waitFor();
+  await page.screenshot({path:'/private/tmp/english-quiz-archive-preview.png'});
+  await page.locator('#archivePreviewDialog').getByRole('button',{name:'Close',exact:true}).click();
+  assert.equal(await page.locator('#archivePreviewDialog').isVisible(),false);
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.locator('[data-archive-open="exam-block:12"]').evaluate(el=>{const rect=el.closest('.day-row').getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth;}),true);
+  await page.screenshot({path:'/private/tmp/english-quiz-archive-mobile.png'});
+  await page.setViewportSize({width:1280,height:900});
   await page.locator('[data-archive-restore="exam-block:12"]').click();
   await page.waitForFunction(()=>!document.querySelector('[data-archive-restore="exam-block:12"]'));
   await page.locator('[data-jump="exams"]:visible').click();
@@ -230,6 +264,113 @@ try{
   await racePage.reload();await racePage.locator('[data-exam-block="12"]').getByText('Published',{exact:true}).waitFor();
   assert.equal(exam.blocks[0].published,true);
   await racePage.screenshot({path:'/private/tmp/english-quiz-exam-publish-test.png'});
+  await page.evaluate(()=>window.TursoMain.notice('Dismissible fixture error',true));
+  await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('#turso-main-banner').isVisible(),false);
+  await page.evaluate(()=>window.enquizVisit('guide'));
+  await page.evaluate(()=>window.scrollTo(0,600));
+  const link=page.locator('#guideContent [data-jump="themes"]').first();await link.scrollIntoViewIfNeeded();
+  const origin=await page.evaluate(()=>window.scrollY);
+  await link.click();
+  await page.locator('#themes [data-nav-back]').first().click();
+  await page.waitForFunction(y=>Math.abs(window.scrollY-y)<2,origin);
+  assert.equal(await page.locator('section.on').getAttribute('id'),'guide');
+  signedIn=false;await page.evaluate(()=>sessionStorage.clear());await page.reload();
+  await page.evaluate(()=>window.enquizVisit('guide'));
+  assert.doesNotMatch(await page.locator('#guideContent').innerText(),/Add theme|developer/i);
+  signedIn=true;user.role='USER';await page.reload();await page.waitForFunction(()=>accountReady);
+  await page.evaluate(()=>window.enquizVisit('themes'));
+  await page.locator('[data-theme-edit="user-second"]').waitFor({state:'visible'});
+  assert.equal(await page.locator('[data-theme-remove="user-second"]').isVisible(),true);
+  await page.evaluate(()=>window.enquizVisit('guide'));
+  assert.match(await page.locator('#guideContent').innerText(),/Personal themes/);
+  assert.doesNotMatch(await page.locator('#guideContent').innerText(),/developer/i);
+  user.role='ADMIN';await page.reload();await page.waitForFunction(()=>accountReady);
+  await page.evaluate(()=>window.enquizVisit('guide'));
+  assert.doesNotMatch(await page.locator('#guideContent').innerText(),/developer/i);
+  lesson={...lesson,id:31};
+  await page.evaluate(id=>openStudentPages({id,login:'fixture_student',role:'USER',name:'Student'}),targetId);
+  await page.waitForFunction(()=>accountReady&&!viewSwitching&&!!viewAccount);
+  assert.equal(await page.locator('html').getAttribute('data-theme'),'almond');
+  assert.equal(await page.locator('#themeCycle').isVisible(),false);
+  assert.equal(await page.locator('[data-jump="texts"]:visible').count(),0);
+  assert.equal(await page.locator('[data-jump="themes"]:visible').count(),0);
+  assert.equal(await page.locator('[data-page-study]:visible, [data-all-study]:visible, #homeStudy:visible').count(),0);
+  const privateReads=requests.length;
+  await page.evaluate(()=>window.enquizVisit('texts'));
+  assert.equal(await page.locator('section.on').getAttribute('id'),'library');
+  assert.equal(requests.slice(privateReads).some(path=>path.includes('/texts')||path.includes('/songs')),false);
+  await page.evaluate(()=>window.enquizVisit('guide'));
+  assert.doesNotMatch(await page.locator('#guideContent').innerText(),/developer/i);
+  await page.evaluate(()=>window.enquizVisit('groups'));
+  await page.locator('[data-group-hide="41"]').waitFor();
+  assert.equal(await page.locator('[data-group-delete]').count(),0);
+  await page.locator('[data-group-hide="41"]').click();await page.waitForFunction(()=>document.querySelector('[data-group-hide="41"]')?.classList.contains('is-on'));
+  assert.ok(hiddenMaterials.has('group:41'));
+  await page.locator('[data-group-open="41"]').click();
+  const access=page.waitForResponse(response=>response.url().includes('/lessons/31/access'));
+  await page.locator('[data-lm-hide="31"]').click();await access;
+  assert.equal(await page.locator('[data-lm-delete]').count(),0);
+  assert.equal(await page.locator('[data-content-copy]').count(),0);
+  await page.evaluate(()=>window.enquizVisit('exams'));
+  await page.locator('[data-exam-hide="exam:11"]').waitFor();
+  assert.equal(await page.locator('[data-exam-del]').count(),0);
+  await page.locator('[data-exam-hide="exam:11"]').click();await page.waitForFunction(()=>document.querySelector('[data-exam-hide="exam:11"]')?.classList.contains('is-on'));
+  assert.ok(hiddenMaterials.has('exam:11'));
+  exam.blocks.push({...allMaterialsBlock,id:90,materials:allMaterialsBlock.materials.map((p,i)=>({...p,id:100+i}))});
+  user.role='DEVELOPER';
+  await page.reload();await page.waitForFunction(()=>accountReady&&!viewSwitching);
+  await page.evaluate(()=>window.enquizVisit('exams'));
+  await page.locator('[data-exam-open="11"]').click();
+  await page.locator('[data-exam-block="90"]').click();
+  await page.locator('#lmPreview').getByText('Sources and credits',{exact:true}).waitFor();
+  assert.equal(await page.locator('#lmPreview [data-lm-panel]').count(),allMaterialsBlock.materials.length-1);
+  assert.equal(await page.locator('#lmPreview img.lm-shot').getAttribute('src'),sources.image);
+  assert.equal(await page.locator('#lmPreview video').getAttribute('src'),sources.video);
+  assert.equal(await page.locator('#lmPreview audio').count(),2);
+  const pdfLink=page.locator('#lmPreview').getByRole('link',{name:'Open PDF',exact:true});
+  assert.equal(await pdfLink.getAttribute('href'),sources.pdf);
+  assert.equal(await pdfLink.getAttribute('target'),'_blank');
+  assert.equal(await pdfLink.getAttribute('rel'),'noopener noreferrer');
+  const originalBlock=JSON.stringify(exam.blocks.find(row=>row.id===90));
+  await page.locator('#lmCopy').click();
+  await page.locator('#contentCopyKind').selectOption('group');
+  await page.locator('#contentCopyContainer').selectOption('42');
+  assert.equal(copyWrites,0);
+  await page.locator('#contentCopyDialog').getByRole('button',{name:'Cancel',exact:true}).click();
+  assert.equal(copyWrites,0);assert.equal(await page.locator('#contentCopyDialog').isVisible(),false);
+  await page.locator('#lmCopy').click();await page.locator('#contentCopyContainer').selectOption('42');
+  await page.locator('#contentCopyName').fill('Independent lesson copy');
+  await page.screenshot({path:'/private/tmp/english-quiz-copy-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'/private/tmp/english-quiz-copy-mobile.png'});
+  assert.equal(await page.locator('.content-copy-panel').evaluate(el=>{const rect=el.getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth&&el.scrollWidth<=el.clientWidth;}),true);
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#contentCopySubmit').click();
+  await page.locator('#contentCopyDialog').waitFor({state:'hidden'});
+  assert.equal(copyWrites,1);assert.equal(JSON.stringify(exam.blocks.find(row=>row.id===90)),originalBlock);
+  await page.evaluate(()=>window.enquizVisit('groups'));
+  await page.locator('[data-group-open="42"]').click();
+  assert.equal(await page.locator('[data-group-move]').count(),0);
+  await page.locator('[data-lm-open="51"]').click();
+  await page.locator('#lmPreview').getByText('Sources and credits',{exact:true}).waitFor();
+  assert.equal(await page.locator('#lmPreview [data-lm-panel]').count(),allMaterialsBlock.materials.length-1);
+  assert.deepEqual(errors,[]);
+  user.role='USER';await page.reload();await page.waitForFunction(()=>accountReady);
+  await page.evaluate(()=>window.enquizVisit('exams'));await page.locator('[data-exam-open="11"]').click();await page.locator('[data-exam-block="90"]').click();
+  await page.locator('#material.is-exam-restricted').waitFor();
+  assert.equal(await page.locator('#material').getAttribute('translate'),'no');
+  assert.equal(await page.locator('#lmCopy').isVisible(),false);
+  assert.equal(await page.locator('#lmPreview [data-content-copy],#lmPreview [data-ex-check],#lmPreview [data-quiz-check]').count(),0);
+  assert.equal(await page.locator('#lmPreview').evaluate(el=>getComputedStyle(el).userSelect),'none');
+  for(const type of ['copy','contextmenu'])assert.equal(await page.locator('#lmPreview').evaluate((el,type)=>el.dispatchEvent(new Event(type,{bubbles:true,cancelable:true})),type),false);
+  assert.equal(await page.locator('#lmPreview [data-exam-given]').first().isEnabled(),true);
+  const taskField=page.locator('#lmPreview [data-exam-response]').first();await taskField.fill('My exam response');
+  assert.equal(await page.evaluate(()=>Object.values(examCollectAnswers(lmState)).some(row=>row[0]==='My exam response')),true);
+  assert.equal(await taskField.evaluate(el=>el.dispatchEvent(new Event('paste',{bubbles:true,cancelable:true}))),false);
+  await page.locator('#lmPreview [data-read]').first().click({force:true});assert.equal(await page.locator('#selpop').isVisible(),false);
+  await page.evaluate(()=>window.enquizVisit('groups'));await page.locator('[data-group-open="42"]').click();await page.locator('[data-lm-open="51"]').click();
+  assert.equal(await page.locator('#material').getAttribute('translate'),null);
+  assert.equal(await page.locator('#lmPreview').evaluate(el=>el.dispatchEvent(new Event('copy',{bubbles:true,cancelable:true}))),true);
   assert.deepEqual(errors,[]);
   console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal, theme switching/reload/empty cache/relogin and logout passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

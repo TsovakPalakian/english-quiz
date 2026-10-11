@@ -62,7 +62,8 @@ export async function mediaKey(db,actor,kind,id){
   if(kind==='song'){
     const rows=await db.read(`SELECT l.media_key FROM library_items l JOIN profile_library_items p ON p.item_id=l.id JOIN profile_members m ON m.profile_id=p.profile_id
       WHERE m.account_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)
-      AND (l.id=? OR json_extract(l.content_json,'$.id')=?)`,[actor.id,id,id]);
+      AND (?=1 OR COALESCE(json_extract(l.content_json,'$.archived'),0) NOT IN (1,'true'))
+      AND (l.id=? OR json_extract(l.content_json,'$.id')=?)`,[actor.id,+['ADMIN','DEVELOPER'].includes(actor.role),id,id]);
     if(rows.length!==1||!rows[0].media_key)throw new StudyError(404,'Song media not found.');
     const key=rows[0].media_key;if(!/^[A-Za-z0-9_/-]{1,400}$/.test(key)||key.includes('..'))throw new StudyError(404,'Invalid media reference.');return key;
   }
@@ -76,7 +77,15 @@ export async function mediaKey(db,actor,kind,id){
        AND COALESCE(json_extract(b.content_json,'$.sample'),0)=0
        AND (json_extract(b.content_json,'$.hasFile')=1 OR length(trim(COALESCE(json_extract(b.content_json,'$.name'),'')))>0)))
     AND ${lessonAccess} LIMIT 2`,[id,id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,actor.id]);
-  if(!rows.length)throw new StudyError(404,'Lesson file not found.');
+  if(!rows.length){
+    const exams=await db.read(`SELECT m.content_json FROM exam_materials m JOIN exam_blocks b ON b.id=m.block_id JOIN exams e ON e.id=b.exam_id
+      WHERE m.deleted_at IS NULL AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND json_extract(m.content_json,'$.fileId')=?
+      AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0
+        AND NOT EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=? AND a.value_json='true'
+          AND a.key IN ('visibility:exam:'||e.id,'visibility:exam-block:'||b.id)))) LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id]);
+    if(exams.length!==1)throw new StudyError(404,'Lesson file not found.');
+    rows.push(exams[0]);
+  }
   if(rows.every(row=>JSON.parse(row.content_json).localMediaKey===undefined)){
     if(id.startsWith('sf_'))throw new StudyError(404,'Local lesson media unavailable. No production fallback.');
     return 'lessons/files/'+id;
@@ -84,6 +93,11 @@ export async function mediaKey(db,actor,kind,id){
   if(rows.length!==1)throw new StudyError(404,'Ambiguous local lesson file.');
   const content=JSON.parse(rows[0].content_json),key=content.localMediaKey;
   if(key!==undefined){
+    if(/^stage-local\/copies\/copy-[a-f0-9-]{36}\/[a-f0-9-]{36}\/[a-f0-9]{64}$/.test(key)){
+      const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+      if(id!=='sf_'+hash)throw new StudyError(404,'Invalid copied file reference.');
+      return key;
+    }
     const prefix=`stage-local/lessons/${rows[0].lesson_id}/${rows[0].block_id}/`;
     if(typeof key!=='string'||!key.startsWith(prefix)||! /^[a-f0-9]{64}$/.test(key.slice(prefix.length))||! /^sf_[a-f0-9]{64}$/.test(id))throw new StudyError(404,'Invalid local lesson media reference.');
     return key;

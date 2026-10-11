@@ -75,6 +75,11 @@
     if(document.getElementById('turso-main-banner')?.dataset?.offlineFixture==='true')
       message=String(message).replaceAll('тестовой Turso','автономной SQLite').replaceAll('тестовую Turso','автономную SQLite');
     el.textContent=message;el.classList.toggle('bad',bad);
+    if(banner&&document.createElement&&!document.getElementById('turso-main-dismiss')){
+      const close=document.createElement('button');close.id='turso-main-dismiss';close.type='button';close.className='btn icon';
+      close.textContent='\u00d7';close.setAttribute('aria-label','Dismiss notification');
+      close.addEventListener('click',()=>{banner.hidden=true;});banner.append(close);
+    }
   }
   function register(value){
     if(Array.isArray(value)){value.forEach(register);return;}
@@ -270,6 +275,10 @@
       const result=await api(path,{method,body:JSON.stringify(pending.body)});
       pending=null;localStorage.removeItem(queueKey);
       if(path==='/api/archive')await archiveChanged(result);
+      if(path==='/api/content/copy'){
+        const detail={...result,actorId};document.dispatchEvent(new CustomEvent('turso-content-copied',{detail}));
+        if(detail.refresh)await detail.refresh;
+      }
       return result;
     }catch(error){
       if(error.status>=400 && error.status<500){pending=null;localStorage.removeItem(queueKey);}
@@ -456,6 +465,12 @@
   const bridge=window.TursoMain={
     fetch:accountFetch,register,notice,perform,mediaAllowed,lessonSnapshot,lessonDirty,
     archiveList,
+    archivePreview:(type,id)=>{
+      const load=()=>api('/api/archive?type='+encodeURIComponent(type)+'&id='+encodeURIComponent(id));
+      const key='archive:'+actorId+':revision:'+(Number(window.__archiveRevision)||0)+':item:'+type+':'+id;
+      return window.ContentCache?.load?window.ContentCache.load(key,load):load();
+    },
+    copyContent:body=>write('/api/content/copy','POST',body),
     archiveSnapshot:()=>window.ContentCache?.get('archive:'+actorId+':revision:'+(Number(window.__archiveRevision)||0)),
     archiveItem:(type,id)=>write('/api/archive','POST',{action:'archive',type,id}),
     restoreArchive:(type,id)=>write('/api/archive','POST',{action:'restore',type,id}),
@@ -633,6 +648,7 @@
       if(!['audio/wav','audio/ogg','audio/mpeg'].includes(mime))throw new Error('Выберите MP3, WAV или OGG.');
       return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio',onProgress);
     },
+    setManagedVisibility:(accountId,type,id,expected,hidden)=>write('/api/admin/users/'+encodeURIComponent(accountId)+'/visibility','PATCH',{type,id,expected,hidden}),
     async setManagedLessonAccess(accountId,lessonId,expected,changes){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!Number.isSafeInteger(lessonId)||lessonId<1)throw new Error('Нет серверного ID аккаунта или урока.');
       return write('/api/admin/users/'+accountId+'/lessons/'+lessonId+'/access','PATCH',{expected,changes});
@@ -682,7 +698,7 @@
         return result;
       }
       if(deleting){throw new Error('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.');}
-      const candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.en||'').toLowerCase()===word.toLowerCase());
+      const candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.quizKey||c.en||'').toLowerCase()===word.toLowerCase());
       if(candidates.length!==1)throw new Error('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.');
       const c=candidates[0],collection=collections.get(word);
       return write('/api/cards/'+encodeURIComponent(c.stageId)+'/quizzes','POST',{expectedRevision:c.stageRevision,expectedCollectionRevision:collection?.revision||0,quiz:content});

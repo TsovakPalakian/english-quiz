@@ -4,7 +4,7 @@
   root.setAttribute("data-theme", "almond");
   try {
     const size = localStorage.getItem("enquiz-display-size") || "comfortable";
-    root.setAttribute("data-display-size", ["compact", "comfortable", "large"].includes(size) ? size : "comfortable");
+    root.setAttribute("data-display-size", ["small", "compact", "comfortable", "large", "extra-large"].includes(size) ? size : "comfortable");
     if (localStorage.getItem("enquiz-high-visibility") === "1") root.setAttribute("data-high-visibility", "1");
   } catch (e) {}
   try {

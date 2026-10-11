@@ -1,6 +1,6 @@
 // Inject hooks only into the served staging copy. Production preview.js stays
 // byte-for-byte unchanged. Exact anchors fail closed if the main source changes.
-import {embedSource,previewImage} from '../src/turso-embed.mjs';
+import {embedSource,previewImage,mediaSource} from '../src/turso-embed.mjs';
 export function mainPreview(source,hooks){
   const insert=(anchor,text)=>{
     if(source.split(anchor).length!==2)throw new Error('Main preview hook anchor changed: '+anchor);
@@ -85,7 +85,7 @@ export function mainPreview(source,hooks){
   insert('        const ok = input.value.trim().toLowerCase() === input.dataset.gapAnswer.trim().toLowerCase();',"        stageMadeAnswer('Gap',index,ok,input.value);");
   insert('        view.querySelectorAll("[data-usage-choice]").forEach((btn) => btn.classList.remove("ok", "bad"));',"        stageMadeAnswer('Choice','usage',usageChoice.dataset.usageChoice==='ok',usageChoice.textContent);");
   insert('        const ok = tf.dataset.tf === "ok";',"        stageMadeAnswer('True / false','usage',ok,tf.textContent);");
-  insert('    async function openUsages(word, lessonRu) {','      const stored=loadAdded().filter(item=>String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
+  insert('    async function openUsages(word, lessonRu, quizKey) {','      const stored=loadAdded().filter(item=>quizKey?item.quizKey===quizKey:!item.quizKey&&String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
   insert('    function lmPullFromServer() {','      return stagePullLessons();');
   insert('    function lmOpenLesson(id) {','      const deferred=lmLibrary?.materials?.find(row=>row.id===domEntityId(id));if(deferred?.stageLessonDeferred)return stageOpenLesson(deferred);');
   insert('    function paintMaterial() {','      if(lmState?.stageLessonDeferred){const deferred=lmState;queueMicrotask(()=>stageOpenLesson(deferred));return;}');
@@ -109,5 +109,5 @@ export function mainPreview(source,hooks){
   insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.TursoMain.unsupported("Добавление личных карточек");');
   insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
   insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
-  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+source+'\n'+hooks;
+  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+mediaSource.toString().replace('function mediaSource','function stageMediaSource')+'\n'+source+'\n'+hooks;
 }

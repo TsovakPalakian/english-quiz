@@ -4,19 +4,208 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync} from 'node:crypto';
 import {once} from 'node:events';
-import {runInNewContext} from 'node:vm';
+import {runInNewContext as runVm} from 'node:vm';
 import {RealStageAuth,cloudflareAccountSource} from './turso-real-auth.mjs';
 import {createMainServer} from './run-turso-main.mjs';
 import {mainPreview} from './turso-main-preview.mjs';
 import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
-import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,accountThemes,catalogSection,speakoutLevel} from '../src/turso-legacy-read.mjs';
+import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,accountThemes,catalogSection,speakoutLevel,projectStudentCatalog} from '../src/turso-legacy-read.mjs';
 import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
+import {GroupService} from '../src/turso-groups.mjs';
+import {VisibilityService,materialVisibility} from '../src/turso-visibility.mjs';
+import {ensureStudyProfile} from '../src/turso-profile.mjs';
+import {embedSource,mediaSource} from '../src/turso-embed.mjs';
 import {StudyError,StudyService,QUIZ_TYPES} from '../src/turso-study.mjs';
 import {applyTursoSchema} from './turso-test-schema.mjs';
+import {ensurePairedThemes} from '../src/turso-paired-themes.mjs';
+import {practiceExams} from './seed-practice-exams.mjs';
+import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
+import {ContentCopyService,copyDefinition} from '../src/turso-content-copy.mjs';
+import {mediaKey} from '../src/turso-media.mjs';
+function runInNewContext(code,scope){
+  scope.viewAccount??=null;
+  scope.hiddenCardIds??=new Set();
+  scope.hideStudentSongs??=()=>!!(scope.viewAccount&&scope.authUser?.role==='ADMIN');
+  scope.cardVisible??=card=>!!(card&&!card.deleted);
+  return runVm(code,scope);
+}
+test('Open-source showcase covers every material type and quiz type without empty media',()=>{
+  const materials=allMaterialsBlock.materials,types=new Set(materials.map(p=>p.type));
+  const html=readFileSync(new URL('../preview.html',import.meta.url),'utf8');
+  const supported=new Set([...html.matchAll(/data-add-block="([^"]+)"/g)].map(match=>match[1]));
+  supported.add('wordcard');supported.add('rule');
+  assert.deepEqual([...types].sort(),[...supported].sort());
+  assert.deepEqual(materials.filter(p=>p.type==='quiz').map(p=>p.quizType).sort(),[...QUIZ_TYPES].sort());
+  assert.ok(materials.every(p=>p.tab==='overview'));
+  assert.ok(materials.filter(p=>['image','audio','pdf','file','pronunciation'].includes(p.type)).every(p=>p.remoteUrl?.startsWith('https:')));
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const scope={URL,lmFiles:{}};
+  runInNewContext(source.slice(source.indexOf('    function lmFileUrl('),source.indexOf('    function lmUploadFile(')),scope);
+  assert.equal(scope.lmSrc({id:1,remoteUrl:sources.image}),sources.image);
+  for(const remoteUrl of ['javascript:alert(1)','http://example.invalid/a','https://password@example.invalid/a'])assert.equal(scope.lmExternalFile({remoteUrl}),'');
+  assert.equal(scope.lmSrc({id:1,hasFile:true,remoteUrl:sources.image}),'/api/lesson-file?id=1');
+});
 
+test('Spotify players use their own layout height rather than the generic tall video frame',()=>{
+  const context={URL,stageEmbedSource:embedSource,stageMediaSource:mediaSource,esc:value=>value,openLink:()=>'',songPlayerHtml:(kind,html)=>html,document:{addEventListener(){}},window:{}};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  const track=context.stageExternalPlayer('https://open.spotify.com/track/123abc','Music');
+  assert.match(track,/data-spotify-height="152"/);assert.doesNotMatch(track,/player tall/);
+  const album=context.stageExternalPlayer('https://open.spotify.com/album/123abc','Music');
+  assert.match(album,/data-spotify-height="352"/);assert.doesNotMatch(album,/player tall/);
+  assert.equal(context.stageExternalKind(sources.video).kind,'video-file');
+  assert.equal(context.stageExternalKind(sources.audio).kind,'audio-file');
+});
+test('Paired accounts share an existing study profile without copying or changing their roles',async()=>{
+  const f=fixture();try{
+    const dev={id:'a'.repeat(32),login:'TsovakDev',role:'DEVELOPER'},studentId='b'.repeat(32);
+    f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(dev.id);
+    f.sqlite.prepare('INSERT INTO profile_members(account_id,profile_id) VALUES(?,1)').run(dev.id);
+    assert.equal(await ensureStudyProfile(f.db,dev,studentId),1);
+    assert.equal(f.sqlite.prepare('SELECT profile_id FROM profile_members WHERE account_id=?').get(studentId).profile_id,1);
+    assert.equal(await ensureStudyProfile(f.db,{id:studentId,login:'Tsovak',role:'USER'},dev.id),1);
+    assert.equal(dev.role,'DEVELOPER');
+  }finally{f.sqlite.close();}
+});
+test('Reserved paired themes merge once, share revisions and pictures, and do not resurrect deletions',async()=>{
+  const f=fixture();try{
+    const dev={id:'a'.repeat(32),login:'TsovakDev',role:'DEVELOPER'},student={id:'b'.repeat(32),login:'Tsovak',role:'USER'};
+    for(const actor of [dev,student]){f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(actor.id);f.sqlite.prepare('INSERT INTO profile_members(account_id,profile_id) VALUES(?,1)').run(actor.id);}
+    const theme={id:'user-pair',name:'Student painting',vars:{'--bg':'#ffffff','--card':'#eeeeee','--acc':'#113355'},photo:'stage-local/themes/1/user-pair/'+'a'.repeat(64)};
+    const personal=new PersonalService(f.db);
+    await personal.saveCustomThemes(student,{mutationId:crypto.randomUUID(),expectedRevision:0,themes:[theme]});
+    await personal.saveTheme(student,{mutationId:crypto.randomUUID(),expectedRevision:0,theme:theme.id});
+    await ensurePairedThemes(f.db,dev,student.id);
+    const left=await accountThemes(f.db,dev),right=await accountThemes(f.db,student);
+    assert.equal(left.theme,theme.id);assert.deepEqual(left.themes,right.themes);assert.equal(left.stageCustomRevision,right.stageCustomRevision);
+    assert.equal((await accountBootstrap(f.db,dev)).stats.customThemes[0].name,theme.name);
+    assert.equal(await new ThemeMediaService(f.db,null).ownedKey(dev,theme.id),theme.photo);
+    await personal.saveCustomThemes(dev,{mutationId:crypto.randomUUID(),expectedRevision:left.stageCustomRevision,themes:[]});
+    await ensurePairedThemes(f.db,student,dev.id);
+    assert.equal((await accountThemes(f.db,student)).themes.length,0);
+    assert.equal(dev.role,'DEVELOPER');assert.equal(student.role,'USER');
+  }finally{f.sqlite.close();}
+});
+test('Hidden lesson cards are absent from personal dictionaries, public projections and caches',async()=>{
+  const f=fixture();try{
+    const student={id:'student',role:'USER'};
+    f.sqlite.exec("INSERT INTO profile_cards(profile_id,card_id,place) VALUES(1,1,'mine'); INSERT INTO lesson_access(account_id,lesson_id,personal_hidden) VALUES('student',1,1)");
+    assert.ok(!(await accountCards(f.db,student)).cards.some(card=>card.stageId===1));
+    await assert.rejects(new StudyService(f.db).readableCard(student,1),error=>error.status===404);
+    const catalog=await publicCatalogs(f.db,['LESSON_DATA']);
+    assert.equal((await projectStudentCatalog(f.db,student,catalog)).LESSON_DATA.words.length,0);
+    assert.equal((await projectStudentCatalog(f.db,{id:'teacher',role:'ADMIN'},catalog)).LESSON_DATA.words.length,1);
+    assert.ok((await accountBootstrap(f.db,student)).stats.hiddenCardIds.includes(1));
+    f.sqlite.exec("DELETE FROM lesson_access WHERE account_id='student'; INSERT INTO class_groups(id,title,hidden_from_students) VALUES(1,'Hidden group',1); INSERT INTO class_group_lessons(group_id,lesson_id) VALUES(1,1)");
+    assert.equal((await legacyLessons(f.db,student)).materials.length,0);
+    assert.ok(!(await accountCards(f.db,student)).cards.some(card=>card.stageId===1));
+  }finally{f.sqlite.close();}
+});
+test('Hidden personal library items cannot be listed or opened by students',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec(`INSERT INTO library_items(id,kind,scope,owner_profile_id,content_json) VALUES
+      (1,'song','profile',1,'{"title":"Hidden song","archived":true}'),
+      (2,'text','profile',1,'{"title":"Hidden text","archived":true}');
+      INSERT INTO profile_library_items(profile_id,item_id) VALUES(1,1),(1,2);`);
+    const student={id:'student',role:'USER'},service=new PersonalService(f.db);
+    assert.equal((await service.library(student)).length,0);
+    assert.equal((await service.libraryItems(student,'1,2')).length,0);
+    await assert.rejects(service.libraryItem(student,1),error=>error.status===404);
+    assert.equal((await accountSongs(f.db,student)).songs.length,0);
+    assert.equal((await legacyTexts(f.db,student,{summary:true})).texts.length,0);
+    const readMany=f.db.readMany;
+    f.db.readMany=statements=>{
+      assert.match(statements[0].sql,/visible_cards AS MATERIALIZED/);
+      assert.equal((statements[0].sql.match(/\(SELECT \? account_id, \? reviewer\)/g)||[]).length,1);
+      return readMany(statements);
+    };
+    assert.equal((await accountBootstrap(f.db,student)).counts.songs,0);
+    assert.equal((await service.library({...student,role:'DEVELOPER'})).length,2);
+  }finally{f.sqlite.close();}
+});
+test('Practice exams publish seven visible blocks with forty questions in a supported tab',async()=>{
+  const f=fixture();try{
+    const service=new ExamService({...f.db,async atomic(commands){
+      await f.db.atomic(commands);
+      const last=commands.at(-1);
+      return [{rows:/^SELECT\b/.test(last.sql)?f.sqlite.prepare(last.sql).all().map(row=>Object.values(row).map(value=>({value:String(value)}))):[]}];
+    }});
+    for(const exam of practiceExams)await service.save({id:'teacher',role:'ADMIN'},{exam});
+    const exams=await service.list({id:'student',role:'USER'}),blocks=exams.flatMap(e=>e.blocks);
+    assert.equal(exams.length,3);assert.equal(blocks.length,7);
+    assert.ok(blocks.every(b=>b.published&&b.materials.every(p=>p.tab==='overview')));
+    assert.equal(blocks.reduce((n,b)=>n+b.materials.reduce((sum,p)=>sum+(p.items?.length||0),0),0),40);
+  }finally{f.sqlite.close();}
+});
+test('Student exam reads omit solution keys and submitted work cannot be changed',async()=>{
+  const f=fixture();try{
+    const service=new ExamService(f.db);await service.ensure();
+    f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Exam',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(20,10,0,'Block',1);");
+    const items=[{id:30,type:'quiz',quizType:'Choice',items:[{prompt:'Choose',options:['a','b'],answer:1,hint:'secret',given:'old'}]},
+      {id:31,type:'exercise',items:[{kind:'write',prompt:'Write',write:'secret'}]},
+      {id:32,type:'quiz',quizType:'Match',items:[{left:'one',right:'z'},{left:'two',right:'a'}]}];
+    for(const item of items)f.sqlite.prepare('INSERT INTO exam_materials(id,exam_id,block_id,position,type,content_json) VALUES(?,10,20,?,?,?)').run(item.id,item.id-30,item.type,JSON.stringify(item));
+    const student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'};
+    const parts=(await service.list(student))[0].blocks[0].materials;
+    assert.equal(parts[0].items[0].answer,undefined);assert.equal(parts[0].items[0].hint,undefined);assert.equal(parts[0].items[0].given,undefined);
+    assert.equal(parts[1].items[0].write,undefined);assert.equal(parts[2].items[0].right,undefined);assert.deepEqual(parts[2].answerOptions,['a','z']);
+    assert.equal((await service.list(teacher))[0].blocks[0].materials[0].items[0].answer,1);
+    const body={examId:10,blockId:20,answers:{30:{0:0}},saved:true};
+    await service.saveWork(student,body);await service.saveWork(student,body);
+    await assert.rejects(service.saveWork(student,{...body,saved:false,answers:{30:{0:1}}}),error=>error.status===409);
+    assert.equal((await service.listWork(student))[0].answers[30][0],0);
+    await service.saveWork(teacher,{...body,studentId:'student',corrections:{30:{0:'reviewed'}},points:{30:{0:1}}});
+    assert.equal((await service.listWork(student))[0].corrections[30][0],'reviewed');
+  }finally{f.sqlite.close();}
+});
+test('Archive preview and attachments respect archive visibility without restoring content',async()=>{
+  const f=fixture();try{
+    const archive=new ArchiveService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},developer={id:'teacher',role:'DEVELOPER'};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)").run(JSON.stringify({fileId:'document',hasFile:true,name:'paper.pdf'}));
+    await archive.archive(teacher,{type:'lesson',id:1});
+    const preview=await archive.preview(teacher,{type:'lesson',id:1});assert.equal(preview.documents[0].blocks.length,2);
+    assert.equal(await archive.mediaKey(teacher,{type:'lesson',id:1},'document'),'lessons/files/document');
+    await assert.rejects(archive.preview(student,{type:'lesson',id:1}),error=>error.status===404);
+    await assert.rejects(archive.mediaKey(teacher,{type:'lesson',id:1},'other'),error=>error.status===404);
+    assert.ok(f.sqlite.prepare('SELECT deleted_at FROM lessons WHERE id=1').get().deleted_at);
+    await archive.remove(teacher,{type:'lesson',id:1},{passwordVerified:true});
+    await assert.rejects(archive.preview(teacher,{type:'lesson',id:1}),error=>error.status===404);
+    assert.equal((await archive.preview(developer,{type:'lesson',id:1})).documents.length,1);
+    await archive.archive(student,{type:'card',id:3});
+    assert.equal((await archive.preview(student,{type:'card',id:3})).documents[0].blocks[0].type,'wordcard');
+    await archive.remove(student,{type:'card',id:3});
+    await assert.rejects(archive.preview(student,{type:'card',id:3}),error=>error.status===404);
+  }finally{f.sqlite.close();}
+});
+test('Personal group/exam visibility is scoped, persistent, reversible and protected by CAS',async()=>{
+  const f=fixture();try{
+    const teacher={id:'teacher',role:'ADMIN'},student={id:'b'.repeat(32),role:'USER'};
+    f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(student.id);
+    const groups=await new GroupService(f.db).list(teacher),group=groups[0];
+    await new ExamService(f.db).ensure();
+    f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(1,'Visibility',1); INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(1,1,0,'Block',1)");
+    const exam=(await new ExamService(f.db).list(teacher))[0];
+    const visibility=new VisibilityService(f.db);
+    for(const [type,id] of [['group',group.id],['exam',exam.id],['exam-block',exam.blocks[0].id]]){
+      const body={mutationId:'visibility-hide-'+type,type,id,expected:false,hidden:true};
+      await assert.rejects(visibility.set(student,student.id,body),error=>error.status===403);
+      const result=await visibility.set(teacher,student.id,body);
+      assert.deepEqual(await visibility.set(teacher,student.id,body),result);
+      await assert.rejects(visibility.set(teacher,student.id,{...body,mutationId:'visibility-stale-'+type}),error=>error.status===409);
+    }
+    assert.equal((await materialVisibility(f.db,student.id)).size,3);
+    assert.equal((await new GroupService(f.db).list(student)).length,0);
+    assert.equal((await new ExamService(f.db).list(student)).length,0);
+    assert.equal((await materialVisibility(f.db,'student2')).size,0);
+    await visibility.set(teacher,student.id,{mutationId:'visibility-show-exam',type:'exam',id:exam.id,expected:true,hidden:false});
+    const shown=await new ExamService(f.db).list(student);assert.equal(shown.length,1);assert.equal(shown[0].blocks.length,0);
+    await visibility.set(teacher,student.id,{mutationId:'visibility-show-block',type:'exam-block',id:exam.blocks[0].id,expected:true,hidden:false});
+    assert.equal((await new ExamService(f.db).list(student))[0].blocks.length,1);
+  }finally{f.sqlite.close();}
+});
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
   applyTursoSchema(sqlite);
@@ -49,6 +238,106 @@ function fixture(){
   const source={byLogin:async login=>{queries++;return users.get(login)||null;},byId:async id=>{queries++;return users.get(id)||null;},gone:async id=>gone.has(id)};
   return {sqlite,db,source,users,gone,password,queries:()=>queries};
 }
+test('Copy lesson creates independent IDs, cards, quizzes and group membership, and retry is idempotent',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec(`INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'A2');
+      INSERT INTO class_group_lessons(group_id,lesson_id,position) VALUES(1,1,0);
+      INSERT INTO quiz_collections(id,legacy_word_key) VALUES(5,'competitive');
+      INSERT INTO card_quiz_collections VALUES(1,5);
+      INSERT INTO quizzes(id,collection_id,position,type,items_json) VALUES(5,5,0,'Type','[{"prompt":"Word","answer":"competitive","given":"old","picked":1}]');`);
+    const service=new ContentCopyService(f.db),body={mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:2},title:'Independent copy'};
+    const result=await service.copy({id:'teacher',role:'ADMIN'},body),id=result.ids.find(row=>row.type==='lesson').id;
+    assert.notEqual(id,1);assert.deepEqual(await service.copy({id:'teacher',role:'ADMIN'},body),result);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM lessons').get().n,3);
+    assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_lessons WHERE lesson_id=1').get().group_id,1);
+    assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_lessons WHERE lesson_id=?').get(id).group_id,2);
+    const part=f.sqlite.prepare('SELECT * FROM lesson_blocks WHERE lesson_id=?').get(id);
+    assert.notEqual(part.id,1);assert.notEqual(part.card_id,1);
+    const quizKey='copy-card:'+part.card_id;
+    assert.equal(JSON.parse(f.sqlite.prepare('SELECT extra_json FROM cards WHERE id=?').get(part.card_id).extra_json).quizKey,quizKey);
+    const quiz=f.sqlite.prepare('SELECT q.* FROM quizzes q JOIN card_quiz_collections x ON x.collection_id=q.collection_id WHERE x.card_id=?').get(part.card_id);
+    assert.notEqual(quiz.id,5);assert.notEqual(quiz.collection_id,5);assert.equal(JSON.parse(quiz.items_json)[0].given,undefined);
+    assert.equal(f.sqlite.prepare('SELECT legacy_word_key FROM quiz_collections WHERE id=?').get(quiz.collection_id).legacy_word_key,quizKey);
+    await new StudyService(f.db).createQuiz({id:'teacher',role:'ADMIN'},part.card_id,{mutationId:crypto.randomUUID(),expectedRevision:1,expectedCollectionRevision:1,quiz:{type:'Flip',items:[{front:'copy only',back:'independent'}]}});
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM card_quiz_collections WHERE card_id=1 AND collection_id=?').get(quiz.collection_id).n,0);
+    await new StudyService(f.db).createQuiz({id:'teacher',role:'ADMIN'},1,{mutationId:crypto.randomUUID(),expectedRevision:1,expectedCollectionRevision:1,quiz:{type:'Flip',items:[{front:'original only',back:'original'}]}});
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM card_quiz_collections WHERE card_id=? AND collection_id=5').get(part.card_id).n,0);
+    f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Exam',1);");
+    const examCopy=await service.copy({id:'teacher',role:'ADMIN'},{mutationId:crypto.randomUUID(),source:{type:'lesson',id},destination:{type:'exam',id:10},title:'Copied words with quizzes'});
+    const examBlock=examCopy.ids.find(row=>row.type==='block').id;
+    assert.equal(f.sqlite.prepare("SELECT COUNT(*) n FROM exam_materials WHERE block_id=? AND type='quiz'").get(examBlock).n,2);
+    f.sqlite.exec("UPDATE lessons SET title='Changed original',deleted_at=1 WHERE id=1;UPDATE cards SET ru='changed' WHERE id=1;UPDATE quizzes SET items_json='[]' WHERE id=5;");
+    assert.equal(f.sqlite.prepare('SELECT title FROM lessons WHERE id=?').get(id).title,'Independent copy');
+    assert.equal(f.sqlite.prepare('SELECT ru FROM cards WHERE id=?').get(part.card_id).ru,'before');
+    assert.equal(f.sqlite.prepare('SELECT items_json FROM quizzes WHERE id=?').get(quiz.id).items_json,JSON.stringify([{prompt:'Word',answer:'competitive'}]));
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM lesson_responses WHERE lesson_id=?').get(id).n,0);
+  }finally{f.sqlite.close();}
+});
+test('Copy exam, block and material across compatible destinations preserves definitions, not learner work',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec(`INSERT INTO class_groups(id,title) VALUES(1,'A1');
+      INSERT INTO exams(id,title,published) VALUES(10,'Exam',1);
+      INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(20,10,0,'Reading',1);
+      INSERT INTO exam_materials(id,exam_id,block_id,position,type,tab,content_json) VALUES(30,10,20,0,'quiz','overview','{"quizType":"Type","items":[{"prompt":"Hello","answer":"Hi","given":"old"}],"score":"old"}');
+      INSERT INTO exam_work(account_id,exam_id,block_id,answers_json) VALUES('student',10,20,'{"30":{"0":"old"}}');`);
+    const service=new ContentCopyService(f.db),actor={id:'teacher',role:'ADMIN'};
+    const copy=(source,destination,title='Copied')=>service.copy(actor,{mutationId:crypto.randomUUID(),source,destination,title});
+    const exam=await copy({type:'exam',id:10},{type:'exam'}),examId=exam.ids.find(row=>row.type==='exam').id;
+    assert.notEqual(examId,10);
+    const block=f.sqlite.prepare('SELECT * FROM exam_blocks WHERE exam_id=?').get(examId),part=f.sqlite.prepare('SELECT * FROM exam_materials WHERE block_id=?').get(block.id);
+    assert.notEqual(block.id,20);assert.notEqual(part.id,30);assert.equal(JSON.parse(part.content_json).items[0].given,undefined);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM exam_work WHERE exam_id=?').get(examId).n,0);
+    const lesson=await copy({type:'exam-block',id:20},{type:'group',id:1}),lessonId=lesson.ids.find(row=>row.type==='lesson').id;
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM lesson_blocks WHERE lesson_id=?').get(lessonId).n,1);
+    const appended=await copy({type:'material',id:30,parent:'exam-block',parentId:20},{type:'lesson',id:lessonId,tab:'homework'});
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM lesson_blocks WHERE lesson_id=?').get(lessonId).n,2);
+    const materialId=appended.ids.find(row=>row.type==='material').id;
+    assert.equal(f.sqlite.prepare('SELECT tab FROM lesson_blocks WHERE id=?').get(materialId).tab,'homework');
+    await copy({type:'lesson',id:lessonId},{type:'exam',id:10},'Lesson as an exam block');
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM exam_blocks WHERE exam_id=10').get().n,2);
+    assert.equal(JSON.parse(f.sqlite.prepare('SELECT content_json FROM exam_materials WHERE id=30').get().content_json).items[0].given,'old');
+  }finally{f.sqlite.close();}
+});
+test('Copied attachments have different immutable keys and remain readable after archiving the original',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');");
+    const bytes=new TextEncoder().encode('%PDF-1.4\nfixture'),sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
+    const key='stage-local/lessons/1/3/'+sha256,metadata={sha256,bytes:bytes.length,mime:'application/pdf',name:'paper.pdf'},files=new Map([[key,{bytes,metadata}]]);
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)").run(JSON.stringify({hasFile:true,localMediaKey:key,fileId:'sf_'+'a'.repeat(64),name:'paper.pdf'}));
+    const store={readVerified:async key=>{assert.ok(files.has(key));return files.get(key);},putImmutable:async(key,bytes,metadata)=>files.set(key,{bytes:bytes.slice(),metadata:{...metadata}})};
+    const result=await new ContentCopyService(f.db,{store}).copy({id:'teacher',role:'ADMIN'},{mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:1},title:'PDF copy'});
+    const id=result.ids.find(row=>row.type==='lesson').id,content=JSON.parse(f.sqlite.prepare("SELECT content_json FROM lesson_blocks WHERE lesson_id=? AND type='pdf'").get(id).content_json);
+    assert.notEqual(content.localMediaKey,key);assert.notEqual(content.fileId,'sf_'+'a'.repeat(64));assert.equal(files.size,2);
+    f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Exam',1);");
+    const examCopy=await new ContentCopyService(f.db,{store}).copy({id:'teacher',role:'ADMIN'},{mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'exam',id:10},title:'PDF in exam'});
+    const examBlock=examCopy.ids.find(row=>row.type==='block').id;
+    const examContent=JSON.parse(f.sqlite.prepare("SELECT content_json FROM exam_materials WHERE block_id=? AND type='pdf'").get(examBlock).content_json);
+    f.sqlite.exec('UPDATE lessons SET deleted_at=1 WHERE id=1;');
+    assert.equal(await mediaKey(f.db,{id:'student',role:'USER'},'lesson',content.fileId),content.localMediaKey);
+    assert.notEqual(examContent.localMediaKey,content.localMediaKey);
+    assert.equal(await mediaKey(f.db,{id:'student',role:'USER'},'lesson',examContent.fileId),examContent.localMediaKey);
+    assert.deepEqual(files.get(content.localMediaKey).bytes,bytes);
+  }finally{f.sqlite.close();}
+});
+test('Copy rejects students, archived sources, incompatible locations and changed revisions without partial records',async()=>{
+  const f=fixture();try{
+    f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');");
+    const body={mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:1},title:'Copy'},service=new ContentCopyService(f.db);
+    await assert.rejects(service.copy({id:'student',role:'USER'},body),error=>error.status===403);
+    await assert.rejects(service.copy({id:'teacher',role:'ADMIN'},{...body,destination:{type:'lesson',id:2}}),error=>error.status===400);
+    let raced=false;
+    const atomic=f.db.atomic;f.db.atomic=async commands=>{
+      if(!raced&&commands.some(command=>command.sql==='CREATE TEMP TABLE copy_ids(kind TEXT, seq INTEGER, id INTEGER NOT NULL, PRIMARY KEY(kind,seq))')){raced=true;f.sqlite.exec('UPDATE lessons SET revision=revision+1 WHERE id=1;');}
+      return atomic(commands);
+    };
+    await assert.rejects(service.copy({id:'teacher',role:'ADMIN'},body),error=>error.status===409);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM lessons').get().n,2);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM class_group_lessons').get().n,0);
+    f.sqlite.exec('UPDATE lessons SET deleted_at=1 WHERE id=1;');
+    await assert.rejects(service.copy({id:'teacher',role:'ADMIN'},{...body,mutationId:crypto.randomUUID()}),error=>error.status===404);
+    assert.deepEqual(copyDefinition({response:'private',items:[{answer:'keep',answers:[0,2],given:'private'}],stageId:1}),{items:[{answer:'keep',answers:[0,2]}]});
+  }finally{f.sqlite.close();}
+});
 test('Archive preserves materials, records the actor, restores them, and lets teachers hide entries',async()=>{
   const f=fixture();try{
     const teacher={id:'teacher',login:'teacher',role:'ADMIN'},student={id:'student',login:'student',role:'USER'},developer={id:'developer',login:'developer',role:'DEVELOPER'};
@@ -247,11 +536,14 @@ test('Staging word rendering preserves the displayed identity across catalog ref
   const start=source.indexOf('    function renderWord(w) {'),end=source.indexOf('    function setDayFlip(w, open) {',start);
   assert.ok(start>=0&&end>start);
   const elements={wordView:{},toDayFlip:{},back:{dataset:{}}};
-  const context={current:{en:'humid'},card:{en:'gardening',ru:'садоводство'},
+  const quizKeys=[];
+  const context={current:{en:'humid'},card:{en:'gardening',ru:'садоводство',quizKey:'copy-card:70'},
     document:{getElementById:id=>elements[id],querySelector:()=>elements.back},
-    catalogEditHtml:()=>'',wordPic:()=>'',esc:value=>value||'',ipaHtml:()=>'',clipLine:()=>'',clipOf:()=>'',meaningOf:()=>'',cardLinks:()=>'',cardQuizHtml:()=>''};
-  runInNewContext(source.slice(start,end)+'\nrenderWord(card);renderWord(current);',context);
+    catalogEditHtml:()=>'',wordPic:()=>'',esc:value=>value||'',ipaHtml:()=>'',clipLine:()=>'',clipOf:()=>'',meaningOf:()=>'',cardLinks:()=>'',cardQuizHtml:key=>{quizKeys.push(key);return '';}};
+  const keyStart=source.indexOf('    function cardQuizKey(card) {'),keyEnd=source.indexOf('    function customQuizzesFor',keyStart);
+  runInNewContext(source.slice(keyStart,keyEnd)+source.slice(start,end)+'\nrenderWord(card);renderWord(current);',context);
   assert.equal(context.current,context.card);
+  assert.deepEqual(quizKeys,['copy-card:70','copy-card:70']);
   assert.match(elements.wordView.innerHTML,/gardening/);assert.doesNotMatch(elements.wordView.innerHTML,/humid/);
 });
 test('Real password check, live roles, disable/revoke/password change, logout and rate bound',async()=>{
@@ -562,6 +854,7 @@ test('Home greets guests, says goodbye only after explicit logout, and welcomes 
   }
   const signedIn=page({id:'user'});
   signedIn.scope.paintHomeHello();assert.equal(signedIn.hello.textContent,'Welcome back');assert.equal(signedIn.actions.hidden,true);
+  const newcomer=page({id:'new',firstLogin:true});newcomer.scope.paintHomeHello();assert.equal(newcomer.hello.textContent,"Welcome! Let's get started");
   await signedIn.scope.leaveAccount({signedOut:true});
   assert.equal(signedIn.hello.textContent,'See you soon');assert.equal(signedIn.actions.hidden,true);
   const reopened=page();reopened.scope.paintHomeHello();
@@ -1214,7 +1507,7 @@ test('Large text create/edit bodies are accepted while other JSON routes stay at
 });
 test('Lesson buttons publish only after acknowledgement; failed Save keeps the original lesson and draft',async()=>{
   const pending=[],shown=[],notes=[],context={lmState:{id:'lesson',title:'Draft',published:false,mode:'edit',blocks:[]},lmSaveTimer:0,
-    canEditLessons:()=>true,viewAccount:null,viewSwitching:false,clearTimeout(){},lmKeepLesson(){},lmPersist(){},
+    canEditLessons:()=>true,viewAccount:null,viewGen:0,viewSwitching:false,clearTimeout(){},lmKeepLesson(){},lmPersist(){},
     lmShow:mode=>shown.push(mode),lmNote:message=>notes.push(message),
     document:{addEventListener(){},getElementById:()=>({})},
     window:{TursoMain:{saveLesson:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async(action)=>{try{await action();}catch{};}}}};
@@ -1239,14 +1532,15 @@ test('Managed add uses target endpoint, waits for acknowledgement and drops late
   context.viewGen++;context.viewAccount=null;pending.shift().resolve({card:{stageId:'other'},revision:2});await late;
   assert.equal(list.length,0);assert.equal(input.value,'Other');
 });
-test('Managed private card UI exposes edit/remove and ignores late saves after changing target',async()=>{
+test('Managed private card UI exposes teacher edit without removal and ignores late saves',async()=>{
   const pending=[],card={stageId:'private',stageScope:'profile',stageRevision:1,ru:'Before'},paints=[];
   const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
     madeItem:null,canEditLessons:()=>false,canEditAdded:()=>true,actionIcon:()=>'<svg></svg>',
     loadAdded:()=>[card],rememberAdded(){},paintAdded:()=>paints.push('paint'),addedIndexOf:()=>0,renderMade(){},
     document:{addEventListener(){}},window:{TursoMain:{editManagedCard:()=>new Promise(resolve=>pending.push(resolve)),perform:async action=>action()}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
-  assert.match(context.stageAddedActions(card),/data-edit-toggle/);assert.match(context.stageAddedActions(card),/data-card-delete/);
+  assert.match(context.stageAddedActions(card),/data-edit-toggle/);assert.doesNotMatch(context.stageAddedActions(card),/data-card-delete/);
+  context.authUser.role='DEVELOPER';assert.match(context.stageAddedActions(card),/data-card-delete/);context.authUser.role='ADMIN';
   assert.match(context.stageAddedActions({...card,stageScope:'shared'}),/data-edit-toggle/);
   assert.equal(context.stageCanEditTranslation({...card,stageScope:'shared'}),false);
   const host={dataset:{editKind:'added',editId:'0'},isConnected:false,querySelector:selector=>selector.includes('field')?{value:'After'}:{}};
@@ -1257,7 +1551,7 @@ test('Managed private card UI exposes edit/remove and ignores late saves after c
 });
 test('Managed removal waits for acknowledgement, filters exact ID/place and ignores switched profiles',async()=>{
   const pending=[],removed=[];let list=[{stageId:1,stageScope:'shared',place:'mine'},{stageId:1,stageScope:'shared',place:'phrasal'}];
-  const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,madeItem:null,
+  const context={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,madeItem:null,
     loadAdded:()=>list,addedIndexOf:()=>0,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},document:{addEventListener(){}},
     window:{TursoMain:{unlinkManagedCard:(account,card)=>{removed.push({account,card});return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
@@ -1356,7 +1650,7 @@ test('Song and text lists show hide/delete controls and wait for server acknowle
 });
 test('R2 managed text archive waits for server, preserves failures and ignores switched targets',async()=>{
   let list=[{id:'one',stageId:'one',stageScope:'profile'},{id:'two',stageId:'two',stageScope:'profile'}];const pending=[];
-  const context={authUser:{role:'ADMIN'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
+  const context={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
     confirm:()=>true,
     TEXT_KEY:'texts',loadTexts:()=>list,localStorage:{setItem:(key,value)=>list=JSON.parse(value)},paintTextCount(){},renderTextList(){},show(){},
     document:{addEventListener(){}},window:{TursoMain:{archiveManagedText:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async fn=>{try{await fn();}catch{}}}}};

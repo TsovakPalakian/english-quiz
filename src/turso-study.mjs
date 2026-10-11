@@ -77,15 +77,28 @@ export class TursoStudyClient {
 function signedIn(actor) {
   if (!actor?.id || !['USER','ADMIN','DEVELOPER'].includes(actor.role)) fail(401,'Select a test session first.');
 }
+const lessonHiddenForViewer = `EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.personal_hidden=1)
+  OR EXISTS(SELECT 1 FROM class_group_lessons gl JOIN class_groups g ON g.id=gl.group_id
+    WHERE gl.lesson_id=l.id AND (g.deleted_at IS NOT NULL OR g.hidden_from_students=1
+      OR EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=viewer.account_id AND a.key='visibility:group:'||g.id AND a.value_json='true')))`;
+const lessonVisibleForViewer = `l.deleted_at IS NULL AND l.published=1 AND NOT (${lessonHiddenForViewer})
+  AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.allow_hidden=1))`;
 const lessonAccess = `l.deleted_at IS NULL AND (?=1 OR (l.published=1
-  AND NOT EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.personal_hidden=1)
+  AND NOT EXISTS(SELECT 1 FROM (SELECT ? account_id) viewer WHERE ${lessonHiddenForViewer})
   AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))`;
-const cardAccess = `c.deleted_at IS NULL AND (
-  (c.scope='profile' AND EXISTS(SELECT 1 FROM profile_members p WHERE p.account_id=? AND p.profile_id=c.owner_profile_id))
-  OR (c.scope='shared' AND (?=1 OR EXISTS(SELECT 1 FROM legacy_ids x WHERE x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id
-      AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT'))
-    OR EXISTS(SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE b.card_id=c.id AND b.deleted_at IS NULL AND ${lessonAccess}))))`;
-function accessArgs(actor) { return [actor.id,+reviewer(actor),+reviewer(actor),actor.id,actor.id]; }
+const cardAccess = `c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM (SELECT ? account_id, ? reviewer) viewer WHERE
+  (viewer.reviewer=1 OR NOT EXISTS(
+    SELECT 1 FROM account_settings a WHERE a.account_id=viewer.account_id AND a.key='visibility:card:'||c.id AND a.value_json='true'
+    UNION ALL SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE b.card_id=c.id AND b.deleted_at IS NULL
+      AND (l.deleted_at IS NOT NULL OR ${lessonHiddenForViewer}
+        OR (l.hidden_from_students=1 AND NOT EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.allow_hidden=1)))))
+  AND EXISTS(
+    SELECT 1 FROM profile_members p WHERE c.scope='profile' AND p.account_id=viewer.account_id AND p.profile_id=c.owner_profile_id
+    UNION ALL SELECT 1 WHERE c.scope='shared' AND viewer.reviewer=1
+    UNION ALL SELECT 1 FROM legacy_ids x WHERE c.scope='shared' AND x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id
+      AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT')
+    UNION ALL SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE c.scope='shared' AND b.card_id=c.id AND b.deleted_at IS NULL AND ${lessonVisibleForViewer}))`;
+function accessArgs(actor) { return [actor.id,+reviewer(actor)]; }
 function cardDto(row) {
   return {id:row.id,en:row.en,ru:row.ru,partOfSpeech:row.part_of_speech,scope:row.scope,revision:row.revision};
 }
@@ -219,7 +232,7 @@ export class StudyService {
   }
   async mutate(actor,body,identity,build,{personal=false}={}) {
     signedIn(actor);
-    if (!personal && !reviewer(actor)) fail(403,'Only teacher/developer test sessions can edit definitions.');
+    if (!personal && !reviewer(actor)) fail(403,'Only a teacher can edit definitions.');
     if (!body || !/^[A-Za-z0-9_-]{12,100}$/.test(body.mutationId || '')) fail(400,'A stable mutationId is required.');
     const hash=await requestHash({identity,body});
     const replay=await this.receipt(actor,body.mutationId,hash);
@@ -246,7 +259,7 @@ export class StudyService {
   }
   async createdCardMutation(actor,body,identity,build,{personal=false}={}) {
     signedIn(actor);
-    if(!personal&&!reviewer(actor))fail(403,'Only teacher/developer test sessions can edit definitions.');
+    if(!personal&&!reviewer(actor))fail(403,'Only a teacher can edit definitions.');
     if(!body||!/^[A-Za-z0-9_-]{12,100}$/.test(body.mutationId||''))fail(400,'A stable mutationId is required.');
     const hash=await requestHash({identity,body}),replay=await this.receipt(actor,body.mutationId,hash);
     if(replay)return replay;
@@ -415,6 +428,7 @@ export class StudyService {
     });
   }
   async unlinkManagedCard(actor,accountId,id,body){
+    if(actor?.role!=='DEVELOPER')fail(403,'You cannot remove another account\'s data.');
     entityId(accountId);cardId(id);fields(body,['mutationId','place','expectedRevision']);
     const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
     return this.mutate(actor,body,['managed-unlink-card',accountId,id,place],async()=>{
@@ -528,11 +542,12 @@ export class StudyService {
       if (!Number.isSafeInteger(expectedCollection) || expectedCollection<0) fail(400,'A valid collection revision is required.');
       const card=await this.readableCard(actor,cardKey);
       if (card.scope!=='shared') fail(403,'This staged quiz editor handles shared cards only.');
+      const collectionKey=JSON.parse(card.extra_json).quizKey||card.word_key;
       const statements=[stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=? AND deleted_at IS NULL)',[cardKey,expected])];
-      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[card.word_key]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'));
-      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[card.word_key,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=?',[card.word_key]));
+      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[collectionKey]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'));
+      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[collectionKey,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=?',[collectionKey]));
       statements.push(this.guard(),
-        stmt('INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,r.id FROM cards c JOIN created_rows r ON r.seq=1 WHERE c.word_key=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING',[card.word_key]),
+        stmt("INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,r.id FROM cards c JOIN created_rows r ON r.seq=1 WHERE COALESCE(json_extract(c.extra_json,'$.quizKey'),c.word_key)=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING",[collectionKey]),
         stmt(`INSERT INTO quizzes(collection_id,position,type,items_json)
           SELECT id,COALESCE((SELECT max(position)+1 FROM quizzes WHERE collection_id=created_rows.id),0),?,? FROM created_rows WHERE seq=1`,[quiz.type,stable(quiz.items)]),
         stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard());

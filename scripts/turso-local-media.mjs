@@ -5,7 +5,7 @@ import {createHash} from 'node:crypto';
 import {StudyError} from '../src/turso-study.mjs';
 import {mediaRange} from '../src/turso-media.mjs';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
-const keyPattern=/^stage-local\/(songs|lessons)\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}\/[a-f0-9]{64}$/;
+const keyPattern=/^stage-local\/(songs|lessons|copies)\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}\/[a-f0-9]{64}$/;
 const allowedMime=['audio/wav','audio/mpeg','audio/ogg','application/pdf','image/png','image/jpeg','image/gif','image/webp'];
 export function localMediaStore(directory){
   const dir=resolve(directory);

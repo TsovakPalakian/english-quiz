@@ -42,6 +42,17 @@ function fixture(){
   }};};
   return {sqlite,env,client,get queries(){return queries;},close(){sqlite.close();}};
 }
+test('Registration is not blocked by failed logins and retains its separate flood limit',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
+    const user=f.client();
+    for(let i=0;i<8;i++)await user.call('/api/login','POST',{login:'Missing',password:'wrong'});
+    assert.equal((await user.call('/api/login','POST',{login:'FixtureDev',password})).status,429);
+    assert.equal((await user.call('/api/register','POST',{login:'FreshStudent',email:'fresh@example.invalid',password})).status,200);
+    for(let i=0;i<8;i++)await user.call('/api/register','POST',{login:'FreshStudent',email:'fresh@example.invalid',password});
+    assert.equal((await user.call('/api/register','POST',{login:'AnotherStudent',email:'another@example.invalid',password})).status,429);
+  }finally{f.close();}
+});
 test('Original registration approval, role boundary, password change and logout work through the integrated router',async()=>{
   const f=fixture();try{
     const dev=f.client(),student=f.client();assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);

@@ -1,6 +1,7 @@
 // Theme pictures stay in the media bucket. The theme row stores only the key.
 import {PersonalService} from './turso-personal.mjs';
 import {StudyError} from './turso-study.mjs';
+import {themeAccount,themeProfiles} from './turso-paired-themes.mjs';
 export const THEME_PHOTO_LIMIT=400000;
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const photoKey=/^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/;
@@ -33,13 +34,13 @@ export class ThemeMediaService extends PersonalService {
     if(!/^user-[a-z0-9-]{1,80}$/.test(themeId))fail(404,'Theme picture not found.');
     const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
     if(members.length!==1)fail(404,'Theme picture not found.');
-    const profile=members[0].profile_id;
-    const rows=await this.db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[actor.id]);
+    const profiles=await themeProfiles(this.db,actor),owner=await themeAccount(this.db,actor);
+    const rows=await this.db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[owner]);
     let list=[];
     try{list=rows.length?JSON.parse(rows[0].value_json):[];}catch{list=[];}
     const theme=Array.isArray(list)?list.find(row=>row&&row.id===themeId):null;
     const key=theme&&theme.photo;
-    if(typeof key!=='string'||!photoKey.test(key)||!key.startsWith(`stage-local/themes/${profile}/${themeId}/`))fail(404,'Theme picture not found.');
+    if(typeof key!=='string'||!photoKey.test(key)||!profiles.some(profile=>key.startsWith(`stage-local/themes/${profile}/${themeId}/`)))fail(404,'Theme picture not found.');
     if(stamp&&stamp!==key.slice(key.lastIndexOf('/')+1))fail(404,'Theme picture version not found.');
     return key;
   }

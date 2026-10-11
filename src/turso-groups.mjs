@@ -1,4 +1,5 @@
 import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
+import {materialVisibility} from './turso-visibility.mjs';
 
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
@@ -69,7 +70,8 @@ export class GroupService{
         AND NOT EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.personal_hidden=1)
         AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
-    return groups.map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,revision:group.revision,
+    const hidden=await materialVisibility(this.db,actor.id);
+    return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,
       lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id)}));
   }
   async save(actor,body){

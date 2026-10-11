@@ -81,15 +81,15 @@ function clientIp(request) {
   ).trim() || "unknown";
 }
 
-function loginFailKey(ip) {
-  return "login-fail/" + encodeURIComponent(String(ip || "unknown")).slice(0, 120);
+function loginFailKey(ip, kind = "login") {
+  return (kind === "register" ? "register-fail/" : "login-fail/") + encodeURIComponent(String(ip || "unknown")).slice(0, 120);
 }
 
-async function tooManyLoginFailures(env, ip) {
+async function tooManyLoginFailures(env, ip, kind = "login") {
   // Fail closed: without durable fail state, reject rather than allow unlimited guesses.
   if (!env.MEDIA) return true;
   try {
-    const object = await env.MEDIA.get(loginFailKey(ip));
+    const object = await env.MEDIA.get(loginFailKey(ip, kind));
     if (!object) return false;
     const row = JSON.parse(await object.text());
     return !!(row && row.until && row.until > now());
@@ -98,20 +98,21 @@ async function tooManyLoginFailures(env, ip) {
   }
 }
 
-async function noteLoginFailure(env, ip) {
+async function noteLoginFailure(env, ip, kind = "login") {
   if (!env.MEDIA) return false;
   for (let attempt = 0; attempt < 8; attempt++) {
     let count = 0;
     let until = 0;
     let etag = "";
     try {
-      const object = await env.MEDIA.get(loginFailKey(ip));
+      const object = await env.MEDIA.get(loginFailKey(ip, kind));
       if (object) {
         etag = object.httpEtag || "";
         const row = JSON.parse(await object.text());
         count = Number(row && row.count) || 0;
         until = Number(row && row.until) || 0;
         if (until > now()) return true;
+        if (kind === "register" && Number(row.start || 0) + LOGIN_LOCK_SECONDS <= now()) count = 0;
       }
     } catch (e) {
       return false;
@@ -123,7 +124,7 @@ async function noteLoginFailure(env, ip) {
     } else {
       until = 0;
     }
-    const saved = await putMediaJson(env, loginFailKey(ip), { count: count, until: until }, etag);
+    const saved = await putMediaJson(env, loginFailKey(ip, kind), { count: count, until: until, start: now() }, etag);
     if (saved) return true;
   }
   return false;
@@ -1733,17 +1734,17 @@ async function phraseCard(env, request, body) {
 async function register(env, request, body, secure) {
   const db = env.DB;
   const ip = clientIp(request);
-  if (env.MEDIA && (await tooManyLoginFailures(env, ip))) {
-    return json({ error: "Too many attempts. Wait and try again." }, 429);
+  if (env.MEDIA && (await tooManyLoginFailures(env, ip, "register"))) {
+    return json({ error: "Too many registration attempts. Try again in 15 minutes." }, 429, { "Retry-After": String(LOGIN_LOCK_SECONDS) });
   }
   const fields = validateSignup(body);
   if (fields.error) {
-    if (env.MEDIA) await noteLoginFailure(env, ip);
+    if (env.MEDIA) await noteLoginFailure(env, ip, "register");
     return json({ error: fields.error }, 400);
   }
   const conflict = await activeConflict(db, fields.login, fields.email);
   if (conflict) {
-    if (env.MEDIA) await noteLoginFailure(env, ip);
+    if (env.MEDIA) await noteLoginFailure(env, ip, "register");
     return json({ error: conflict }, 409);
   }
   const hashed = await hashPassword(fields.password);
@@ -1802,7 +1803,7 @@ async function register(env, request, body, secure) {
   }
   await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(body), user_id: "", created_at: created, decided_at: 0 });
   // Count successful pending inserts toward the IP lockout to limit registration floods.
-  if (env.MEDIA) await noteLoginFailure(env, ip);
+  if (env.MEDIA) await noteLoginFailure(env, ip, "register");
   return json({ status: "pending" });
 }
 

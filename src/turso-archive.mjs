@@ -62,6 +62,51 @@ export class ArchiveService{
       ORDER BY entity_type,archived_at DESC`,[actor.role==='DEVELOPER'?1:0,actor.role==='ADMIN'?1:0,actor.id]);
     return {revision:await this.revision(),items:rows.map(row=>({...row,archivedAt:Number(row.archivedAt)||0,teacherHiddenAt:Number(row.teacherHiddenAt)||0}))};
   }
+  async preview(actor,value){
+    if(!actor?.id)fail(401,'Sign in first.');
+    const {item,key}=entity(value?.type,value?.id);await this.ensure();
+    const [entry]=await this.db.read(`SELECT title FROM content_archive WHERE entity_type=? AND entity_id=?
+      AND (?=1 OR (teacher_hidden_at IS NULL AND (?=1 OR (archived_by=? AND archived_by_role='USER'))))`,
+      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.role==='ADMIN'?1:0,actor.id]);
+    if(!entry)fail(404,'Archived material not found.');
+    const [row]=await this.db.read(`SELECT * FROM ${item.table} WHERE CAST(id AS TEXT)=?${item.kind?' AND kind=?':''} AND deleted_at IS NOT NULL`,[key,...(item.kind?[item.kind]:[])]);
+    if(!row)fail(404,'Archived material not found.');
+    const blocks=async(table,column,id)=>{
+      const rows=await this.db.read(`SELECT * FROM ${table} WHERE ${column}=? AND deleted_at IS NULL ORDER BY position,id`,[id]);
+      const parts=[];
+      for(const part of rows){
+        const content=JSON.parse(part.content_json);
+        if(part.card_id){const [card]=await this.db.read('SELECT * FROM cards WHERE id=?',[part.card_id]);if(card)Object.assign(content,JSON.parse(card.extra_json),{word:card.en,ru:card.ru,pos:card.part_of_speech});}
+        parts.push({...content,id:part.id,type:part.type,tab:part.tab||'overview'});
+      }
+      return parts;
+    };
+    const documents=[];
+    if(value.type==='lesson')documents.push({title:row.title,description:row.description,blocks:await blocks('lesson_blocks','lesson_id',row.id)});
+    if(value.type==='exam-block')documents.push({title:row.title,blocks:await blocks('exam_materials','block_id',row.id)});
+    if(value.type==='exam')for(const block of await this.db.read('SELECT * FROM exam_blocks WHERE exam_id=? AND deleted_at IS NULL ORDER BY position,id',[row.id]))documents.push({title:block.title,blocks:await blocks('exam_materials','block_id',block.id)});
+    if(value.type==='group')for(const lesson of await this.db.read('SELECT l.* FROM lessons l JOIN class_group_lessons g ON g.lesson_id=l.id WHERE g.group_id=? AND l.deleted_at IS NULL ORDER BY g.position,l.id',[row.id]))documents.push({title:lesson.title,description:lesson.description,blocks:await blocks('lesson_blocks','lesson_id',lesson.id)});
+    if(value.type==='card')documents.push({title:row.en,blocks:[{...JSON.parse(row.extra_json),id:row.id,type:'wordcard',word:row.en,ru:row.ru,pos:row.part_of_speech}]});
+    return {type:value.type,id:key,title:entry.title,documents,...(item.kind?{content:JSON.parse(row.content_json),hasMedia:!!row.media_key}:{})};
+  }
+  async mediaKey(actor,value,fileId){
+    const preview=await this.preview(actor,value);
+    if(value.type==='song'){
+      const [row]=await this.db.read("SELECT media_key FROM library_items WHERE CAST(id AS TEXT)=? AND kind='song' AND deleted_at IS NOT NULL",[preview.id]);
+      const key=row?.media_key;
+      if(!key||!/^[A-Za-z0-9_/-]{1,400}$/.test(key)||key.includes('..'))fail(404,'Archived media not found.');
+      return key;
+    }
+    if(!/^[A-Za-z0-9_-]{1,100}$/.test(fileId||''))fail(400,'Invalid file ID.');
+    const part=preview.documents.flatMap(doc=>doc.blocks).find(part=>part.fileId===fileId||String(part.id)===fileId&&!part.fileId&&['image','audio','pronunciation','pdf','file'].includes(part.type)&&!part.sample&&!part.remoteUrl&&(part.hasFile||part.name));
+    if(!part)fail(404,'Archived media not found.');
+    if(part.localMediaKey){
+      if(!/^stage-local\/(lessons|copies)\/[A-Za-z0-9_/-]{1,350}$/.test(part.localMediaKey)||part.localMediaKey.includes('..'))fail(404,'Invalid archived media reference.');
+      return part.localMediaKey;
+    }
+    if(fileId.startsWith('sf_'))fail(404,'Archived media not found.');
+    return 'lessons/files/'+fileId;
+  }
   async archive(actor,value){
     if(!actor?.id)fail(401,'Sign in first.');
     const {item,key}=entity(value?.type,value?.id);
@@ -71,6 +116,9 @@ export class ArchiveService{
     let owner='';
     if(!reviewer(actor)){
       owner=` AND scope='profile' AND owner_profile_id=(SELECT profile_id FROM profile_members WHERE account_id=?)`;
+      args.push(actor.id);
+    }else if(actor.role==='ADMIN'&&['card','song','text'].includes(value.type)){
+      owner=` AND (scope='shared' OR owner_profile_id=(SELECT profile_id FROM profile_members WHERE account_id=?))`;
       args.push(actor.id);
     }
     const rows=await this.db.read(`SELECT ${item.title} title FROM ${item.table} WHERE CAST(id AS TEXT)=?${item.kind?' AND kind=?':''}${owner} AND deleted_at IS NULL`,args);

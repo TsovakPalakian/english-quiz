@@ -13,8 +13,10 @@ import {LessonMediaService} from './turso-lesson-media.mjs';
 import {stageR2Media,boundedMediaBytes} from './turso-r2-media.mjs';
 import {inlineAssetResponse} from './turso-inline-assets.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
+import {projectStudentCatalog} from './turso-legacy-read.mjs';
 import {pdfAsset} from './turso-pdf-assets.mjs';
 import {stageContentPolicy} from './turso-embed.mjs';
+import {ContentCopyService} from './turso-content-copy.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 export const studyClient=env=>new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'});
@@ -137,12 +139,12 @@ export default {async fetch(request,env){
     const themePhoto=path.match(/^\/api\/me\/themes\/(user-[a-z0-9-]{1,80})\/photo$/);
     const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
-    const write=(method==='POST'&&['/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
+    const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
-      ||method==='HEAD'&&['/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
+    const read=method==='GET'&&(allowedRead.includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
+      ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
     const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
@@ -151,17 +153,19 @@ export default {async fetch(request,env){
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){
+      const viewer=(catalogPage||catalogCard||catalogCards||banks[path])&&(request.headers.has('cookie')||request.headers.has('authorization'))?await auth.current(request):null;
+      const catalogJson=async value=>{const projected=await projectStudentCatalog(db,viewer,value);if(projected===null)throw new StudyError(404,'Card not found.');return json(projected);};
       if(catalogPage){
         const params=url.searchParams;
-        if(params.get('slice')==='1')return json(await staticSlice(db,catalogPage[1],{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
-        if(params.get('document')==='1'&&!params.get('after'))return json(await staticDocument(db,catalogPage[1]));
-        if(catalogPage[1]==='SPEAKOUT'&&params.get('level'))return json(await speakoutLevel(db,params.get('level')));
-        if(catalogPage[1]==='LESSON_DATA'&&params.get('section'))return json(await catalogSection(db,params.get('section'),{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
-        const raw=params.get('limit');const limit=raw==null?60:Number(raw);return json(await publicCatalogPage(db,catalogPage[1],{after:params.get('after')||'',limit}));
+        if(params.get('slice')==='1')return await catalogJson(await staticSlice(db,catalogPage[1],{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
+        if(params.get('document')==='1'&&!params.get('after'))return await catalogJson(await staticDocument(db,catalogPage[1]));
+        if(catalogPage[1]==='SPEAKOUT'&&params.get('level'))return await catalogJson(await speakoutLevel(db,params.get('level')));
+        if(catalogPage[1]==='LESSON_DATA'&&params.get('section'))return await catalogJson(await catalogSection(db,params.get('section'),{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
+        const raw=params.get('limit');const limit=raw==null?60:Number(raw);return await catalogJson(await publicCatalogPage(db,catalogPage[1],{after:params.get('after')||'',limit}));
       }
-      if(catalogCards)return json({cards:await publicCatalogCards(db,url.searchParams.get('ids')||'')});
-      if(catalogCard)return json(await publicCatalogCard(db,cardKey(catalogCard[1])));
-      if(banks[path]){const data=await publicCatalogs(db,banks[path]);if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
+      if(catalogCards)return await catalogJson({cards:await publicCatalogCards(db,url.searchParams.get('ids')||'')});
+      if(catalogCard)return await catalogJson(await publicCatalogCard(db,cardKey(catalogCard[1])));
+      if(banks[path]){const data=await projectStudentCatalog(db,viewer,await publicCatalogs(db,banks[path]));if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
       headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');
       headers.set('Content-Security-Policy',stageContentPolicy);
@@ -173,7 +177,7 @@ export default {async fetch(request,env){
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];
       if([...url.searchParams.keys()].some(key=>!allowed.includes(key)||url.searchParams.getAll(key).length!==1))throw new StudyError(400,'Invalid upload parameters.');
-      if(lessonUpload&&!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only teacher/developer can upload lesson files.');
+      if(lessonUpload&&!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only a teacher can upload lesson files.');
       const store=stageR2Media(env),bytes=await boundedMediaBytes(request),value={mutationId:url.searchParams.get('mutationId'),expectedRevision:Number(url.searchParams.get('expectedRevision')),
         name:url.searchParams.get('name'),mime:request.headers.get('content-type')?.split(';')[0].trim()||''};
       if(themePhoto)return json(await new ThemeMediaService(db,store).upload(actor,themePhoto[1],bytes,value.mime));
@@ -184,9 +188,14 @@ export default {async fetch(request,env){
     const s=new StudyService(db),p=new PersonalService(db),a=new ActivityService(db);
     const libraryBody=(path==='/api/library'&&method==='POST')||(library&&method==='PATCH');
     const value=write?await body(request,libraryBody?LIBRARY_BODY_LIMIT:JSON_BODY_LIMIT):null,id=match=>decodeURIComponent(match[1]);
+    if(path==='/api/content/copy')return json(await new ContentCopyService(db,{store:stageR2Media(env),readLegacy:async key=>{
+      const object=await env.MEDIA.get(key);
+      if(!object)throw new StudyError(404,'The original attachment is unavailable. Nothing was copied.');
+      return {bytes:await boundedMediaBytes(new Response(object.body,{headers:{'Content-Length':String(object.size)}})),mime:object.httpMetadata?.contentType||''};
+    }}).copy(actor,value));
     if(path==='/api/archive'){
       const archive=new ArchiveService(db);
-      if(method==='GET')return json(await archive.list(actor));
+      if(method==='GET')return json(url.searchParams.has('type')||url.searchParams.has('id')?await archive.preview(actor,{type:url.searchParams.get('type'),id:url.searchParams.get('id')}):await archive.list(actor));
       if(value.action==='archive')return json(await archive.archive(actor,value));
       if(value.action==='restore')return json(await archive.restore(actor,value));
       if(value.action==='remove')return json(await archive.remove(actor,value,{passwordVerified:actor.role!=='ADMIN'||await auth.verify(actor,value.password)}));
@@ -228,6 +237,10 @@ export default {async fetch(request,env){
     if(progress)return json(await s[progress[2]==='answers'?'answerCard':'saveCardProgress'](actor,cardKey(decodeURIComponent(progress[1])),value));
     if(response)return json(await s.saveLessonResponse(actor,cardKey(response[1]),cardKey(response[2]),value));
     if(card){const key=cardKey(card[2]);return json(method==='GET'?await s.card(actor,key):await s[card[1]==='cards'?card[3]?'createQuiz':method==='PATCH'?'editCard':'deleteCard':method==='PATCH'?'editQuiz':'deleteQuiz'](actor,key,value));}
+    if(path==='/api/archive/media'){
+      const key=await new ArchiveService(db).mediaKey(actor,{type:url.searchParams.get('type'),id:url.searchParams.get('id')},url.searchParams.get('fileId'));
+      return key.startsWith('stage-local/')?await stageR2Media(env).response(key,method,request.headers.get('range')||''):await storedMediaResponse(env.MEDIA,key,request);
+    }
     if(['/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)){
       if(path==='/api/theme-photo'){
         const key=await new ThemeMediaService(db,null).ownedKey(actor,url.searchParams.get('id')||'',url.searchParams.get('v')||'');

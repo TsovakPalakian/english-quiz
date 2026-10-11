@@ -547,6 +547,7 @@
             <button class="lm-btn" type="button" id="examSave" hidden>Save</button>
             <button class="lm-btn" type="button" id="lmSave">Save draft</button>
             <button class="lm-btn lm-btn-primary" type="button" id="lmPublish">Publish</button>
+            <button class="lm-btn icon content-copy-icon" type="button" id="lmCopy" aria-label="Copy" title="Copy" hidden><span aria-hidden="true">&#10697;</span></button>
             <button class="lm-btn" type="button" id="lmEditBack" hidden>Back to editor</button>
           </div>
         </div>
@@ -1699,15 +1700,40 @@
     </section>
 
   </div></div>
+  <div class="display-dialog archive-preview-dialog" id="archivePreviewDialog" hidden>
+    <button class="display-backdrop" type="button" data-archive-close aria-label="Close archive preview"></button>
+    <div class="display-panel archive-preview-panel" role="dialog" aria-modal="true" aria-labelledby="archivePreviewTitle">
+      <div class="display-head"><h2 id="archivePreviewTitle">Archived material</h2><button class="btn icon" type="button" data-archive-close aria-label="Close">&#215;</button></div>
+      <div id="archivePreviewBody"></div>
+    </div>
+  </div>
+  <div class="display-dialog content-copy-dialog" id="contentCopyDialog" hidden>
+    <button class="display-backdrop" type="button" data-copy-close aria-label="Cancel copy"></button>
+    <form class="display-panel content-copy-panel" role="dialog" aria-modal="true" aria-labelledby="contentCopyTitle" id="contentCopyForm">
+      <div class="display-head"><h2 id="contentCopyTitle">Copy</h2><button class="btn icon" type="button" data-copy-close aria-label="Close">&#215;</button></div>
+      <p id="contentCopySource" class="sub"></p>
+      <fieldset id="contentCopyFields">
+        <label>Copy name<input id="contentCopyName" type="text" maxlength="120" required /></label>
+        <label>Destination<select id="contentCopyKind"></select></label>
+        <label id="contentCopyContainerLabel">Group<select id="contentCopyContainer"></select></label>
+        <label id="contentCopyItemLabel" hidden>Lesson<select id="contentCopyItem"></select></label>
+        <label id="contentCopyTabLabel" hidden>Page<select id="contentCopyTab"><option value="overview">Overview</option><option value="words">Words</option><option value="phrases">Phrases</option><option value="rules">Rules</option><option value="classwork">Classwork</option><option value="homework">Homework</option><option value="pdf">PDF</option></select></label>
+      </fieldset>
+      <p id="contentCopyStatus" class="hint" role="status"></p>
+      <div class="content-copy-actions"><button class="btn" type="button" data-copy-close>Cancel</button><button class="btn primary" type="submit" id="contentCopySubmit">Create copy</button></div>
+    </form>
+  </div>
   <div class="display-dialog" id="displayDialog" hidden>
     <button class="display-backdrop" type="button" data-display-close aria-label="Close display settings"></button>
     <div class="display-panel" role="dialog" aria-modal="true" aria-labelledby="displayTitle">
       <div class="display-head"><div><span>Accessibility</span><h2 id="displayTitle">Display</h2></div><button class="btn icon" type="button" data-display-close aria-label="Close">×</button></div>
       <p>Choose a comfortable size for every page.</p>
       <div class="display-sizes" role="group" aria-label="Text and interface size">
+        <button type="button" data-display-size="small"><b>Aa</b><span>Small</span></button>
         <button type="button" data-display-size="compact"><b>Aa</b><span>Compact</span></button>
         <button type="button" data-display-size="comfortable"><b>Aa</b><span>Comfortable</span></button>
         <button type="button" data-display-size="large"><b>Aa</b><span>Large</span></button>
+        <button type="button" data-display-size="extra-large"><b>Aa</b><span>Extra large</span></button>
       </div>
       <label class="display-visibility"><input type="checkbox" id="highVisibility" /><span></span><div><b>High visibility</b><small>Stronger contrast, larger controls and clearer focus.</small></div></label>
     </div>

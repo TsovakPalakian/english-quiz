@@ -41,7 +41,7 @@ export class LessonMediaService extends StudyService {
     recordId(lessonId);recordId(blockId);if(!body||Object.keys(body).some(k=>!['mutationId','expectedRevision','expectedBlockRevision','mime','name'].includes(k))
       ||![body.expectedRevision,body.expectedBlockRevision].every(v=>Number.isSafeInteger(v)&&v>0))fail(400,'Save the lesson and block before uploading.');
     // Deny learner writes before validating or storing any file.
-    if(!actor?.id)fail(401,'Sign in first.');if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Only teacher/developer can upload lesson files.');
+    if(!actor?.id)fail(401,'Sign in first.');if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Only a teacher can upload lesson files.');
     const metadata=await lessonMediaMetadata(bytes,body.mime,body.name);
     return this.mutate(actor,{...body,...metadata},['upload-lesson-file',lessonId,blockId],async()=>{
       const [row]=await this.db.read(`SELECT b.*,l.revision lesson_revision FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id

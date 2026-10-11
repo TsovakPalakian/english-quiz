@@ -1,5 +1,6 @@
 // Point mutations for own content; used only by isolated Turso staging.
 import {StudyService,StudyError,statement as s,cardAccess,accessArgs,cardId,recordId} from './turso-study.mjs';
+import {themeAccount,themeProfiles} from './turso-paired-themes.mjs';
 const bad=(status,message)=>{throw new StudyError(status,message);};
 const cardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 function ownPlace(card){if(card.place==null||card.place==='')return 'mine';if(!cardPlaces.includes(card.place))bad(400,'Invalid personal card destination.');return card.place;}
@@ -8,18 +9,21 @@ const id=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(val
 const rev=value=>{if(!Number.isSafeInteger(value)||value<0)bad(400,'Invalid expectedRevision.');return value;};
 const text=(value,max)=>{if(typeof value!=='string'||value.length>max)bad(400,'Invalid content size.');return value;};
 export const libraryDto=row=>({...JSON.parse(row.content_json),stageId:row.id,stageRevision:row.revision,stageScope:row.scope,stageLocalMedia:!!row.media_key?.startsWith('stage-local/')});
+export const libraryVisibility=actor=>actor.role==='USER'?" AND COALESCE(json_extract(l.content_json,'$.archived'),0) NOT IN (1,'true')":'';
 export class PersonalService extends StudyService {
   async saveTheme(actor,body){
     only(body,['mutationId','expectedRevision','theme']);const expected=rev(body.expectedRevision);
     if(typeof body.theme!=='string'||! /^[a-z][a-z0-9-]{0,99}$/.test(body.theme))bad(400,'Invalid theme.');
+    const owner=await themeAccount(this.db,actor);
     return this.personal(actor,body,['account-theme'],async()=>({statements:[
-      expected===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'theme',?)",[actor.id,JSON.stringify(body.theme)])
-        :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='theme' AND revision=?",[JSON.stringify(body.theme),actor.id,expected]),this.guard()],
+      expected===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'theme',?)",[owner,JSON.stringify(body.theme)])
+        :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='theme' AND revision=?",[JSON.stringify(body.theme),owner,expected]),this.guard()],
       result:{theme:body.theme,revision:expected+1}}));
   }
   async saveCustomThemes(actor,body){
     only(body,['mutationId','expectedRevision','themes']);const expected=rev(body.expectedRevision);
-    if(!Array.isArray(body.themes)||body.themes.length>8)bad(400,'Invalid themes.');
+    if(!Array.isArray(body.themes)||body.themes.length>16)bad(400,'Invalid themes.');
+    const owner=await themeAccount(this.db,actor),profiles=await themeProfiles(this.db,actor);
     const hex=/^#[0-9A-Fa-f]{6}$/,wash=/^#[0-9A-Fa-f]{8}$/;
     const mine=typeof actor?.login==='string'?actor.login.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
     const themes=body.themes.map(row=>{
@@ -38,22 +42,22 @@ export class PersonalService extends StudyService {
     }).filter(Boolean);
     if(new Set(themes.map(row=>row.id)).size!==themes.length)bad(400,'Duplicate theme identity.');
     return this.personal(actor,body,['account-custom-themes'],async profile=>{
-      const [existing]=await this.db.read("SELECT revision,value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[actor.id]);
+      const [existing]=await this.db.read("SELECT revision,value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[owner]);
       let previous=[];
       try{previous=JSON.parse(existing?.value_json||'[]');}catch{}
       const stored=themes.map(row=>{
-        const prefix=`stage-local/themes/${profile}/${row.id}/`;
-        if(row.photo&&!row.photo.startsWith(prefix))bad(403,'This theme picture belongs to another profile.');
+        const allowed=photo=>profiles.some(id=>photo.startsWith(`stage-local/themes/${id}/${row.id}/`));
+        if(row.photo&&!allowed(row.photo))bad(403,'This theme picture belongs to another profile.');
         const old=Array.isArray(previous)?previous.find(item=>item.id===row.id):null;
-        const photo=row.photo||(typeof old?.photo==='string'&&old.photo.startsWith(prefix)?old.photo:'');
+        const photo=row.photo||(typeof old?.photo==='string'&&allowed(old.photo)?old.photo:'');
         return {...row,photo};
       });
       const json=JSON.stringify(stored);
       if(json.length>60000)bad(413,'Themes are too large.');
       const base=expected===0&&existing?Number(existing.revision)||1:expected;
       return {statements:[
-        base===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'customThemes',?)",[actor.id,json])
-          :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='customThemes' AND revision=?",[json,actor.id,base]),this.guard()],
+        base===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'customThemes',?)",[owner,json])
+          :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='customThemes' AND revision=?",[json,owner,base]),this.guard()],
         result:{themes:stored,revision:base+1}};
     });
   }
@@ -105,7 +109,7 @@ export class PersonalService extends StudyService {
     const ids=parts.map(Number);if(ids.some(item=>!Number.isSafeInteger(item)))bad(400,'Invalid library ids.');
     const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
       JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.deleted_at IS NULL
-      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) AND l.id IN (${ids.map(()=>'?').join(',')})`,[actor.id,...ids]);
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} AND l.id IN (${ids.map(()=>'?').join(',')})`,[actor.id,...ids]);
     return rows.map(row=>({kind:row.kind,...libraryDto(row)}));
   }
   async libraryItem(actor,itemId){
@@ -113,7 +117,7 @@ export class PersonalService extends StudyService {
     recordId(itemId);
     const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
       JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.id=? AND l.deleted_at IS NULL
-      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)`,[actor.id,itemId]);
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)}`,[actor.id,itemId]);
     if(rows.length!==1)bad(404,'Not found.');
     return {kind:rows[0].kind,...libraryDto(rows[0])};
   }
@@ -121,7 +125,7 @@ export class PersonalService extends StudyService {
     if(!actor?.id)bad(401,'Sign in first.');
     const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
       JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.deleted_at IS NULL
-      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} ORDER BY p.position,l.id`,[actor.id]);
     return rows.map(row=>({kind:row.kind,...libraryDto(row)}));
   }
   validateLibrary(kind,changes){
@@ -175,7 +179,7 @@ export class PersonalService extends StudyService {
   }
   async createManagedLibrary(actor,accountId,kind,body){
     id(accountId);only(body,['mutationId','changes']);
-    if(kind==='song'&&actor?.role!=='DEVELOPER')bad(403,'Developer song management only.');
+    if(actor?.role!=='DEVELOPER')bad(403,'This material is unavailable.');
     const changes=this.validateLibrary(kind,body.changes);
     if(!changes.title||!changes[kind==='text'?'text':'lyrics']?.trim())bad(400,'Title and content are required.');
     return this.createdCardMutation(actor,body,['create-managed-library',accountId,kind],async()=>{
@@ -193,9 +197,10 @@ export class PersonalService extends StudyService {
     });
   }
   async editManagedLibrary(actor,accountId,key,kind,body,deleting=false){
+    if(deleting&&actor?.role!=='DEVELOPER')bad(403,'You cannot remove another account\'s data.');
     id(accountId);recordId(key);only(body,deleting?['mutationId','expectedRevision']:['mutationId','expectedRevision','changes']);
     if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
-    if(kind==='song'&&actor?.role!=='DEVELOPER')bad(403,'Developer song management only.');
+    if(actor?.role!=='DEVELOPER')bad(403,'This material is unavailable.');
     const expected=rev(body.expectedRevision);if(!expected)bad(400,'Expected a saved text.');
     const changes=deleting?{}:this.validateLibrary(kind,body.changes);
     return this.mutate(actor,body,[deleting?'archive-managed-'+kind:'edit-managed-'+kind,accountId,key],async()=>{

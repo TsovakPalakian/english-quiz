@@ -8,8 +8,8 @@ test('R5 managed media requires source authorization, target ownership and devel
   const target='b'.repeat(32);let role='ADMIN',allowed=true,reads=0,objects=0,songs=false;
   const worker=integratedWorker({authenticate:async()=>({id,role,login:'SyntheticReviewer'}),
     authorizeManaged:async()=>allowed?{row:{id:target,role:'USER',login:'SyntheticStudent'},songs}:{error:Response.json({error:'denied'},{status:403})},
-    studyDatabase:()=>({read:async(sql,args)=>{reads++;if(sql.includes('library_items')){assert.equal(args[0],target);return [{media_key:'songs/target'}];}
-      assert.deepEqual(args,['lesson-file','lesson-file',0,target,target]);return [{lesson_id:'lesson',block_id:'block',content_json:JSON.stringify({fileId:'lesson-file'})}];}})});
+    studyDatabase:()=>({read:async(sql,args)=>{reads++;if(sql.includes('library_items')){assert.deepEqual(args,[target,1,'song','song']);return [{media_key:'songs/target'}];}
+      assert.deepEqual(args,['lesson-file','lesson-file',1,target,target]);return [{lesson_id:'lesson',block_id:'block',content_json:JSON.stringify({fileId:'lesson-file'})}];}})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',MEDIA:{head:async()=>{objects++;return {size:4,writeHttpMetadata:h=>h.set('Content-Type','audio/mpeg')};}}};
   const call=(path,query='id=lesson-file&for='+target)=>worker.fetch(new Request('https://test.invalid'+path+'?'+query,{method:'HEAD'}),env);
   assert.equal((await call('/api/lesson-file')).status,200);assert.equal(objects,1);
@@ -54,15 +54,16 @@ test('R2 managed library routes fail closed on pair, origin, write flag and teac
   }
   assert.equal(reads,0);
 });
-test('Managed DELETE authorizes target, denies teacher music and writes only target links',async()=>{
-  const targetId='b'.repeat(32),commands=[];let allowed=true;
-  const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'SyntheticTeacher'}),
+test('Managed DELETE is forbidden to teachers and developer removal writes only target links',async()=>{
+  const targetId='b'.repeat(32),commands=[];let allowed=true,role='ADMIN';
+  const worker=integratedWorker({authenticate:async()=>({id,role,login:'SyntheticTeacher'}),
     authorizeManaged:async()=>allowed?{row:{id:targetId,login:'SyntheticStudent',role:'USER'},songs:false}:{error:Response.json({error:'denied'},{status:403})},
     studyDatabase:()=>({read:async(sql,args)=>{if(sql.includes('operation_receipts'))return [];assert.deepEqual(args,[targetId]);return [{profile_id:1}];},atomic:async values=>commands.push(...values)})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
   const call=(body,settings=env,origin='https://test.invalid')=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+targetId+'/cards/1',{
     method:'DELETE',headers:{Origin:origin},body:JSON.stringify(body)}),settings);
   const body={mutationId:'synthetic-unlink',place:'mine',expectedRevision:1};
+  assert.equal((await call(body)).status,403);assert.equal(commands.length,0);role='DEVELOPER';
   assert.equal((await call(body)).status,200);
   const removal=commands.find(c=>c.sql.startsWith('DELETE FROM profile_cards'));assert.deepEqual(removal.args.map(a=>a.value),['1','1','mine']);
   assert.ok(!commands.some(c=>/UPDATE cards|DELETE FROM cards|card_progress/.test(c.sql)));
@@ -93,7 +94,7 @@ test('Managed card PATCH keeps target ownership and denies unauthorized, disable
 });
 test('Managed text PATCH authorizes target before Turso, rejects spoofing and preserves actor identity',async()=>{
   const targetId='b'.repeat(32),queries=[],commands=[];let allowed=true;
-  const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN',login:'SyntheticTeacher'}),
+  const worker=integratedWorker({authenticate:async()=>({id,role:'DEVELOPER',login:'SyntheticReviewer'}),
     authorizeManaged:async()=>allowed?{row:{id:targetId,role:'USER',login:'SyntheticStudent'}}:{error:Response.json({error:'denied'},{status:403})},
     studyDatabase:()=>({read:async(sql,args)=>{queries.push({sql,args});
       if(sql.includes('operation_receipts'))return [];
@@ -155,8 +156,9 @@ test('Managed study reads reuse source authorization and read only the target Tu
   },studyDatabase:()=>({read:async(sql,args)=>{reads.push({sql,args});return [];}})});
   const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'};
   const request=method=>new Request('https://test.invalid/api/admin/users/'+targetId+'/texts',{method,headers:{Origin:'https://test.invalid'}});
-  assert.deepEqual(await(await worker.fetch(request('GET'),env)).json(),{texts:[],next:null});
-  assert.equal(reads.length,1);assert.equal(reads[0].args[0],targetId);assert.ok(!reads[0].args.includes(id));
+  const denied=await worker.fetch(request('GET'),env);assert.equal(denied.status,403);assert.doesNotMatch(JSON.stringify(await denied.json()),/developer/i);assert.equal(reads.length,0);
+  actor={...actor,role:'DEVELOPER'};assert.deepEqual(await(await worker.fetch(request('GET'),env)).json(),{texts:[],next:null});
+  assert.equal(reads.length,1);assert.equal(reads[0].args[0],targetId);
   allowed=false;assert.equal((await worker.fetch(request('GET'),env)).status,403);assert.equal(reads.length,1);
   actor=null;assert.equal((await worker.fetch(request('GET'),env)).status,401);assert.equal(reads.length,1);
 });
@@ -195,8 +197,8 @@ test('Managed state preserves teacher song restriction, pair boundary and reject
   const call=method=>worker.fetch(new Request('https://test.invalid/api/admin/users/'+id+'/state',{method,headers:{Origin:'https://test.invalid'}}),env);
   let value=await(await call('GET')).json();assert.equal(value.bootstrap,true);assert.equal(value.added,undefined);assert.equal(value.songs,undefined);assert.equal(value.counts.songs,0);
   songs=true;value=await(await call('GET')).json();assert.equal(value.bootstrap,true);assert.equal(value.added,undefined);
-  login='TsovakDev';assert.equal((await call('GET')).status,403);assert.equal(reads,2);
-  assert.equal((await call('PUT')).status,501);assert.equal(reads,2);
+  login='TsovakDev';assert.equal((await call('GET')).status,403);assert.equal(reads,4);
+  assert.equal((await call('PUT')).status,501);assert.equal(reads,4);
 });
 function fixture({limit=50}={}){
   let queries=0;const calls=[];

@@ -116,20 +116,22 @@ test('Groups seed existing lessons, persist membership and keep student visibili
 });
 test('Managed unlink removes one target/place only, preserves definition/progress and supports receipt replay',async()=>{
   const {service,personas,sqlite}=fixture(),[teacher,,student]=personas;
+  const developer={...teacher,role:'DEVELOPER'};
   await service.linkManagedCard(teacher,'student',{mutationId:id(),cardId:1,place:'mine',expectedRevision:0,expectedCardRevision:1});
   sqlite.exec("INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(1,1,'phrasal',1),(2,1,'mine',1); INSERT INTO card_progress(profile_id,card_id,learned) VALUES(1,1,1);");
   const definitions=sqlite.prepare('SELECT * FROM cards ORDER BY id').all(),progress=sqlite.prepare('SELECT * FROM card_progress').all();
   const body={mutationId:id(),place:'mine',expectedRevision:1};
-  const result=await service.unlinkManagedCard(teacher,'student',1,body);
-  assert.deepEqual(await service.unlinkManagedCard(teacher,'student',1,body),result);
+  await rejects(service.unlinkManagedCard(teacher,'student',1,body),403);
+  const result=await service.unlinkManagedCard(developer,'student',1,body);
+  assert.deepEqual(await service.unlinkManagedCard(developer,'student',1,body),result);
   assert.equal(sqlite.prepare("SELECT count(*) n FROM profile_cards WHERE profile_id=1 AND place='mine'").get().n,0);
   assert.equal(sqlite.prepare("SELECT count(*) n FROM profile_cards WHERE profile_id=1 AND place='phrasal'").get().n,1);
   assert.equal(sqlite.prepare("SELECT count(*) n FROM profile_cards WHERE profile_id=2").get().n,1);
   assert.deepEqual(sqlite.prepare('SELECT * FROM cards ORDER BY id').all(),definitions);
   assert.deepEqual(sqlite.prepare('SELECT * FROM card_progress').all(),progress);
-  await rejects(service.unlinkManagedCard(teacher,'student',1,{...body,mutationId:id()}),409);
+  await rejects(service.unlinkManagedCard(developer,'student',1,{...body,mutationId:id()}),409);
   await rejects(service.unlinkManagedCard(student,'student2',1,{...body,mutationId:id()}),403);
-  await rejects(service.unlinkManagedCard(teacher,'student',1,{...body,mutationId:id(),expectedRevision:2}),409);
+  await rejects(service.unlinkManagedCard(developer,'student',1,{...body,mutationId:id(),expectedRevision:2}),409);
   assert.equal(sqlite.prepare("SELECT revision FROM profile_settings WHERE profile_id=1 AND key='tursoCardLinks'").get().revision,2,'Failed missing-link removal rolls back CAS');
   sqlite.close();
 });

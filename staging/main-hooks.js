@@ -1,4 +1,120 @@
 // App-private hooks appended to the isolated copy of preview.js.
+let stageCopyJob=null;
+function stageCopyOptions(select,rows,preferred){
+  select.innerHTML=rows.map(row=>'<option value="'+row.id+'">'+esc(row.title||'Untitled')+'</option>').join('');
+  if(rows.some(row=>String(row.id)===String(preferred)))select.value=String(preferred);
+}
+function stageCopyDestinations(){
+  if(!stageCopyJob)return;
+  const kind=document.getElementById('contentCopyKind').value;
+  const container=document.getElementById('contentCopyContainer'),item=document.getElementById('contentCopyItem');
+  const containerLabel=document.getElementById('contentCopyContainerLabel'),itemLabel=document.getElementById('contentCopyItemLabel');
+  const tabLabel=document.getElementById('contentCopyTabLabel');
+  containerLabel.hidden=kind==='new-exam';itemLabel.hidden=!['lesson','exam-block'].includes(kind);tabLabel.hidden=kind!=='lesson';
+  if(kind==='new-exam'){document.getElementById('contentCopySubmit').disabled=false;return;}
+  const group=kind==='group'||kind==='lesson';
+  containerLabel.firstChild.textContent=group?'Group':'Exam';itemLabel.firstChild.textContent=group?'Lesson':'Examination block';
+  const rows=group?classGroups.filter(row=>Number.isSafeInteger(row.id)):examLoad().filter(row=>Number.isSafeInteger(row.id));
+  const previous=container.value;stageCopyOptions(container,rows,previous);
+  if(kind==='lesson'){
+    const selected=classGroups.find(row=>String(row.id)===container.value);
+    const lessons=(lmLibrary?.materials||[]).filter(row=>selected?.lessonIds.includes(row.id)&&Number.isSafeInteger(row.id));
+    stageCopyOptions(item,lessons,item.value);
+  }else if(kind==='exam-block'){
+    const selected=examFind(Number(container.value));
+    stageCopyOptions(item,(selected?.blocks||[]).map(block=>({id:block.id,title:block.doc?.title||block.title||'Examination block'})),item.value);
+  }
+  const ready=!!container.value&&(!['lesson','exam-block'].includes(kind)||!!item.value);
+  document.getElementById('contentCopySubmit').disabled=!ready;
+  document.getElementById('contentCopyStatus').textContent=ready?'':'No saved destination available.';
+}
+function stageCloseCopy(){
+  if(stageCopyJob?.busy)return;
+  const trigger=stageCopyJob?.trigger;stageCopyJob=null;
+  document.getElementById('contentCopyDialog').hidden=true;
+  if(trigger?.isConnected)trigger.focus();
+}
+async function stageOpenCopy(token,trigger){
+  if(!canEditLessons()||!accountReady||viewSwitching)return;
+  const [type,rawId,parent,rawParent]=String(token||'').split(':'),id=Number(rawId);
+  if(!Number.isSafeInteger(id)||id<1)return;
+  const source={type,id,...(parent?{parent,parentId:Number(rawParent)}:{})};
+  const active=lmState&&(type==='lesson'&&lmState.id===id||type==='exam-block'&&lmState.examOwned&&lmState.id===id||type==='material'&&lmState.id===source.parentId);
+  if(active&&lmState.mode==='edit'&&(lmState.examOwned||window.TursoMain.lessonDirty(lmState))){window.TursoMain.notice('Save draft or Publish before copying your changes.',true);return;}
+  let title='Material';
+  if(type==='lesson')title=lmLibrary?.materials?.find(row=>row.id===id)?.title||title;
+  if(type==='exam')title=examFind(id)?.title||title;
+  if(type==='exam-block')for(const exam of examLoad()){const block=exam.blocks?.find(row=>row.id===id);if(block)title=block.doc?.title||block.title||title;}
+  if(type==='material'){const block=lmState?.blocks?.find(row=>row.id===id);title=block?.title||lmSummary(block||{})||title;}
+  const job=stageCopyJob={source,trigger,actor:authUser.id,generation:viewGen,busy:false};
+  const dialog=document.getElementById('contentCopyDialog');dialog.hidden=false;
+  document.getElementById('contentCopySource').textContent=title;
+  document.getElementById('contentCopyName').value=(title+' - copy').slice(0,120);
+  document.getElementById('contentCopyStatus').textContent='Loading destinations…';
+  document.getElementById('contentCopySubmit').disabled=true;
+  document.getElementById('contentCopyFields').disabled=true;
+  try{
+    await Promise.all([classGroupsReady?Promise.resolve():groupPull(),examReady?Promise.resolve():examPull()]);
+    if(stageCopyJob!==job||job.actor!==authUser?.id||job.generation!==viewGen){if(stageCopyJob===job)stageCloseCopy();return;}
+    const kinds=type==='material'?[{id:'lesson',title:'Lesson'},{id:'exam-block',title:'Examination block'}]:type==='exam'?[{id:'new-exam',title:'Exams - new exam'},{id:'group',title:'Group - new lessons'}]:[{id:'group',title:'Group - new lesson'},{id:'exam',title:'Exam - new examination block'}];
+    stageCopyOptions(document.getElementById('contentCopyKind'),kinds);
+    document.getElementById('contentCopyTab').value=type==='material'?(lmState?.blocks?.find(row=>row.id===id)?.tab||'overview'):'overview';
+    stageCopyDestinations();document.getElementById('contentCopyName').focus();
+  }catch(error){document.getElementById('contentCopyStatus').textContent=error.message;}
+  finally{if(stageCopyJob===job)document.getElementById('contentCopyFields').disabled=false;}
+}
+async function stageRefreshCopies(detail){
+  if(detail.actorId!==authUser?.id)return;
+  const generation=viewGen,target=viewAccount?.id||'';
+  for(const key of ['account:bootstrap','lesson:','block:','library:summary'])window.ContentCache?.invalidate?.(key);
+  const destinationLesson=(detail.ids||[]).find(row=>row.type==='lesson')?.id;
+  const destinationBlock=(detail.ids||[]).find(row=>row.type==='block')?.id;
+  await Promise.all([stagePullLessons().then(()=>groupPull(true)),examPull(true)]);
+  if(detail.actorId!==authUser?.id||generation!==viewGen||target!==(viewAccount?.id||''))return;
+  if(detail.destination==='lesson'&&lmState?.id===destinationLesson&&!lmState.examOwned){
+    const data=await accountFetch('/api/lessons?id='+destinationLesson),fresh=data.materials?.find(row=>row.id===destinationLesson);
+    if(fresh){lmState=fresh;lmKeepLesson();paintMaterial();}
+  }
+  if(detail.destination==='exam-block'&&lmState?.examOwned&&lmState.id===destinationBlock)examOpenBlock(destinationBlock);
+  stageLibrarySummary().catch(()=>{});
+}
+document.addEventListener('turso-content-copied',event=>{event.detail.refresh=stageRefreshCopies(event.detail);});
+document.addEventListener('click',event=>{
+  const copy=event.target.closest('[data-content-copy]');
+  if(copy){event.preventDefault();event.stopImmediatePropagation();void stageOpenCopy(copy.dataset.contentCopy,copy);return;}
+  if(event.target.closest('[data-copy-close]'))stageCloseCopy();
+},true);
+document.addEventListener('change',event=>{
+  if(['contentCopyKind','contentCopyContainer'].includes(event.target.id))stageCopyDestinations();
+  if(event.target.id==='contentCopyItem')document.getElementById('contentCopySubmit').disabled=!event.target.value;
+});
+document.addEventListener('keydown',event=>{
+  const dialog=document.getElementById('contentCopyDialog');if(!dialog||dialog.hidden)return;
+  if(event.key==='Escape'){event.preventDefault();stageCloseCopy();}
+  if(event.key==='Tab'){
+    const controls=[...dialog.querySelectorAll('button,input,select')].filter(el=>!el.disabled&&el.getClientRects().length);
+    const first=controls[0],last=controls.at(-1);
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+    if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+  }
+});
+document.addEventListener('submit',async event=>{
+  if(event.target.id!=='contentCopyForm')return;
+  event.preventDefault();const job=stageCopyJob;
+  if(!job||job.busy||!canEditLessons()||!accountReady||viewSwitching||job.actor!==authUser?.id||job.generation!==viewGen)return;
+  const kind=document.getElementById('contentCopyKind').value;
+  const container=Number(document.getElementById('contentCopyContainer').value),item=Number(document.getElementById('contentCopyItem').value);
+  const destination={type:kind==='new-exam'?'exam':kind,...(kind==='new-exam'?{}:{id:['lesson','exam-block'].includes(kind)?item:container}),...(kind==='lesson'?{tab:document.getElementById('contentCopyTab').value}:{})};
+  const title=document.getElementById('contentCopyName').value.trim();if(!title)return;
+  job.busy=true;document.getElementById('contentCopyFields').disabled=true;document.getElementById('contentCopySubmit').disabled=true;
+  document.getElementById('contentCopyStatus').textContent='Creating copy…';
+  try{
+    await examSaveQueue;
+    await window.TursoMain.copyContent({source:job.source,destination,title});
+    job.busy=false;stageCloseCopy();
+  }catch(error){document.getElementById('contentCopyStatus').textContent=error.message;job.busy=false;document.getElementById('contentCopySubmit').disabled=false;}
+  finally{document.getElementById('contentCopyFields').disabled=false;}
+});
 let stageTenseLoading=null;
 function stageEnsureTenseBank(){
   if(tenseBankReady)return Promise.resolve(tenseBank);
@@ -18,6 +134,8 @@ let stagePdfModule=null,stagePdfTask=null,stagePdfJob=0;
 function stageExternalKind(value){
   let url;try{url=new URL(String(value||''));}catch{return {kind:'',href:''};}
   if(url.protocol!=='https:'||url.username||url.password||url.port)return {kind:'',href:''};
+  const file=stageMediaSource(url.href);
+  if(file)return {kind:/\.(mp4|webm)$/i.test(url.pathname)?'video-file':'audio-file',href:file,src:file};
   const src=stageEmbedSource(url.href);
   return src?{kind:'video-embed',href:url.href,src}:{kind:'page',href:url.href,src:url.href};
 }
@@ -25,9 +143,11 @@ function stageExternalPlayer(value,label){
   const media=stageExternalKind(value);if(!media.href)return '';
   if(!media.src||media.kind!=='video-embed')return openLink('Open '+label.toLowerCase(),media.href);
   let src=media.src;
+  const spotify=/^https:\/\/open\.spotify\.com\/embed\/(track|episode|album|playlist)\//.exec(src);
+  const height=spotify?(['track','episode'].includes(spotify[1])?152:352):null;
   const youtube=/youtube(?:-nocookie)?\.com/i.test(src);
   if(youtube)src+=(src.includes('?')?'&':'?')+'origin='+encodeURIComponent(location.origin);
-  const frame='<iframe class="player tall"'+(youtube?' id="'+esc('yt'+embedSerial())+'"':'')+' src="'+esc(src)+'" title="'+esc(label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>';
+  const frame='<iframe class="player'+(spotify?'':' tall')+'"'+(height?' data-spotify-height="'+height+'" style="height:'+height+'px"':'')+(youtube?' id="'+esc('yt'+embedSerial())+'"':'')+' src="'+esc(src)+'" title="'+esc(label)+'" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>';
   return songPlayerHtml(label==='Music'?'music':'video','<p class="label">'+esc(label)+'</p>'+frame);
 }
 let stageDictionaryToken=0;
@@ -37,6 +157,7 @@ function stageShowCard(id){
   if(typeof show==='function')show(id);
 }
 async function stageHydrateCatalogWord(card){
+  if(!cardVisible(card)){stageShowCard('library');return;}
   current=card;const token=++stageDictionaryToken,generation=viewGen;
   const box=document.getElementById('wordView');
   stageShowCard('word');
@@ -55,6 +176,7 @@ async function stageHydrateCatalogWord(card){
   }catch(error){if(still()){card.stageDataDeferred=false;try{renderWord(card);}catch(e){if(box)box.textContent=error.message;}window.TursoMain.notice(error.message,true);}}
 }
 async function stageHydrateMade(item){
+  if(!cardVisible(item)){stageShowCard('add');return;}
   const token=++stageDictionaryToken,generation=viewGen,target=(typeof viewAccount!=='undefined'&&viewAccount?.id)||'',actor=authUser?.id||'';
   const box=document.getElementById('madeView');
   stageShowCard('made');
@@ -245,7 +367,7 @@ function stageCanManageAdded(card){
   return !!(card&&viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
 }
 function stageAddedActions(item){
-  return typeof editActions==='function'?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit"></button><button class="icon-btn" type="button" data-card-delete aria-label="Delete"></button></span>';
+  return typeof editActions==='function'?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit"></button>'+(!viewAccount||authUser?.role==='DEVELOPER'?'<button class="icon-btn" type="button" data-card-delete aria-label="Delete"></button>':'')+'</span>';
 }
 function stageAddedEditHtml(item){
   const index=addedIndexOf(item);
@@ -568,7 +690,7 @@ function stageManagedSongReady(){return !!(viewAccount&&authUser?.role==='DEVELO
 function stageCanManageLibrary(item,kind){
   if(!item?.stageId||item.stageScope!=='profile')return false;
   if(!viewAccount)return stageOwnReady();
-  return !!(authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching&&(kind==='text'||authUser.role==='DEVELOPER'));
+  return !!(authUser?.role==='DEVELOPER'&&accountReady&&!viewSwitching);
 }
 function stageLibraryTools(item,kind){
   if(!stageCanManageLibrary(item,kind))return '';
@@ -578,15 +700,16 @@ function stageLibraryTools(item,kind){
     :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
   const trash='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
   const attrs=' data-library-kind="'+kind+'" data-library-id="'+esc(item.id)+'"';
-  return '<div class="day-tools"><button class="day-hide'+(hidden?' is-on':'')+'" type="button" data-stage-library-action="toggle"'+attrs+' aria-label="'+(hidden?'Show':'Hide')+'" title="'+(hidden?'Show':'Hide')+'">'+eye+'</button><button class="day-del" type="button" data-stage-library-action="delete"'+attrs+' aria-label="Delete" title="Delete">'+trash+'</button></div>';
+  return '<div class="day-tools"><button class="day-hide'+(hidden?' is-on':'')+'" type="button" data-stage-library-action="toggle"'+attrs+' aria-label="'+(hidden?'Show':'Hide')+'" title="'+(hidden?'Show':'Hide')+'">'+eye+'</button>'+(!viewAccount||authUser?.role==='DEVELOPER'?'<button class="day-del" type="button" data-stage-library-action="delete"'+attrs+' aria-label="Delete" title="Delete">'+trash+'</button>':'')+'</div>';
 }
 function stagePaintLibraryList(kind){
+  if(hideStudentSongs())return;
   const song=kind==='song',list=song?loadSongs():loadTexts(),visible=list.filter(item=>!item.archived);
   const count=document.getElementById(song?'lyricCount':'textCount');if(count)count.textContent=String(visible.length);
   if(song){const title=document.querySelector('#music h1');if(title)title.textContent='Song lyrics · '+visible.length;}
   const box=document.getElementById(song?'lyricList':'textList');if(!box)return;
   if(!list.length){box.innerHTML='<p class="hint">No '+(song?'songs':'texts')+' yet.</p>';return;}
-  box.innerHTML=list.map((item,index)=>{
+  box.innerHTML=(authUser?.role==='USER'&&!viewAccount?visible:list).map((item,index)=>{
     let about='Hidden';
     if(!item.archived){
       if(song){try{about=statsLine(songStat(Object.keys(item.marks||{}),item.marks||{}));}catch{about='';}}
@@ -608,6 +731,7 @@ function stageRemoveLibrary(item,kind){
 }
 function stageLibraryAction(action,kind,rawId){
   if(!['song','text'].includes(kind)||!['toggle','delete'].includes(action))return;
+  if(action==='delete'&&viewAccount&&authUser?.role!=='DEVELOPER')return;
   const item=(kind==='song'?loadSongs():loadTexts()).find(row=>row.id===stageDomId(rawId));if(!stageCanManageLibrary(item,kind))return;
   if(action==='delete'&&!confirm('Move this '+kind+' to Archive?'))return;
   const managed=!!viewAccount,accountId=viewAccount?.id||'',generation=viewGen;
@@ -627,11 +751,11 @@ function stageMountTextArchive(id){
   const item=loadTexts().find(row=>row.id===id),host=document.getElementById('textEdit')?.parentNode;if(!host)return;
   let button=host.querySelector('[data-stage-text-archive]');
   if(!button){button=document.createElement('button');button.type='button';button.className='btn';button.dataset.stageTextArchive='';button.textContent='Delete text';host.append(button);}
-  button.hidden=!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching&&item?.stageScope==='profile'&&item.stageId);
+  button.hidden=!(viewAccount&&authUser?.role==='DEVELOPER'&&accountReady&&!viewSwitching&&item?.stageScope==='profile'&&item.stageId);
   button.onclick=()=>stageArchiveText(id);
 }
 function stageArchiveText(id){
-  if(!viewAccount||!authUser||!['ADMIN','DEVELOPER'].includes(authUser.role)||!accountReady||viewSwitching)return;
+  if(!viewAccount||authUser?.role!=='DEVELOPER'||!accountReady||viewSwitching)return;
   const item=loadTexts().find(row=>row.id===id);if(!item?.stageId||item.stageScope!=='profile')return;
   if(!confirm('Move this text to Archive?'))return;
   const accountId=viewAccount.id,generation=viewGen;
@@ -690,6 +814,7 @@ function stageSaveTranslation(host){
 }
 function stageDeleteDefinition(host){
   if(viewSwitching)return;
+  if(viewAccount&&authUser?.role!=='DEVELOPER')return;
   const card=stageHostCard(host);if(!card)return;
   const personal=['added','made'].includes(host.dataset.editKind)&&addedIndexOf(card)>=0;
   if(typeof confirm==='function'&&!confirm(card.stageScope==='profile'?'Move this card to Archive?':'Remove this card?'))return;
@@ -796,7 +921,7 @@ function stageSaveLesson(published){
     window.TursoMain.notice('Open the examination block again before saving.',true);return Promise.resolve();
   }
   if(lmState&&lmState.examOwned){
-    if(!canEditLessons()||viewAccount||viewSwitching)return Promise.resolve();
+    if(!canEditLessons()||viewSwitching)return Promise.resolve();
     const current=lmState,generation=viewGen;
     clearTimeout(lmSaveTimer);
     if(published!==undefined){current.published=!!published;current.mode=published?'preview':'edit';}
@@ -815,20 +940,21 @@ function stageSaveLesson(published){
     if(!found){window.TursoMain.notice('This editor is no longer attached to its lesson. Open the lesson again.',true);return Promise.resolve();}
     lmState=found;
   }
-  if(!canEditLessons()||viewAccount||viewSwitching||!lmState){
+  if(!canEditLessons()||viewSwitching||!lmState){
     window.TursoMain.notice('Урок не отправлен: дождитесь загрузки собственного профиля учителя и откройте редактор.',true);return Promise.resolve();
   }
   if(lmState.stageLessonDeferred){
     window.TursoMain.notice('The lesson is still opening. Wait, then click Publish again.',true);return Promise.resolve();
   }
   clearTimeout(lmSaveTimer);
-  const current=lmState;
+  const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.TursoMain.perform(async()=>{
     const draft=JSON.parse(JSON.stringify(current));
     const baseline=stageServerBaseline(draft);
     if(baseline)await baseline;
     if(published!==undefined){draft.published=published;draft.mode=published?'preview':'edit';}
     await window.TursoMain.saveLesson(draft);
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||lmState!==current)return;
     window.ContentCache?.drop(':'+current.id+':');
     window.ContentCache?.drop('lesson:');
     Object.assign(current,draft,stageLessonCounts(draft.blocks));lmState=current;lmKeepLesson();lmPersist();
@@ -846,7 +972,7 @@ function stageServerBaseline(material){
   });
 }
 async function stageLookupLessonWord(){
-  if(!canEditLessons()||!accountReady||viewAccount||viewSwitching||!lmState)return;
+  if(!canEditLessons()||!accountReady||viewSwitching||!lmState)return;
   const input=document.getElementById('lmWordInput'),status=document.getElementById('lmWordStatus'),button=document.getElementById('lmWordGo');
   const word=input?.value.trim(),current=lmState,tab=lmTab(),generation=viewGen;
   if(!word||!['words','phrases'].includes(tab))return;
@@ -885,9 +1011,9 @@ function stageUploadLessonFile(id,file){
     if(typeof lmRenderEditor==='function')lmRenderEditor();
     return;
   }
-  if(!canEditLessons()||viewAccount||viewSwitching||!file)return;
+  if(!canEditLessons()||viewSwitching||!file)return;
   const block=lmBlock(id);if(!block)return;
-  const current=lmState,generation=viewGen;
+  const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.TursoMain.perform(async()=>{
     await stageServerBaseline(current);
     const dirty=typeof window.TursoMain.lessonDirty==='function'?window.TursoMain.lessonDirty(current):!current.stageLessonBaseline;
@@ -895,12 +1021,12 @@ function stageUploadLessonFile(id,file){
       const draft=JSON.parse(JSON.stringify(current));
       await stageServerBaseline(draft);
       await window.TursoMain.saveLesson(draft);
-      if(lmState!==current||viewGen!==generation||viewAccount)return;
+      if(lmState!==current||viewGen!==generation||target!==(viewAccount?.id||''))return;
       Object.assign(current,draft);
     }
     const saved=(current.blocks||[]).find(row=>row.id===id)||block;
     await window.TursoMain.uploadLessonFile(current,saved,file);
-    if(lmState!==current||viewGen!==generation||viewAccount)return;
+    if(lmState!==current||viewGen!==generation||target!==(viewAccount?.id||''))return;
     if(lmFiles[id]){URL.revokeObjectURL(lmFiles[id]);delete lmFiles[id];}
     lmKeepLesson();lmPersist();lmRenderEditor();lmNote('Файл сохранён в изолированном тестовом хранилище; ссылка — в тестовой Turso.');
   },document.getElementById('lmNote'));
@@ -909,24 +1035,25 @@ function stageClearLessonFile(id){
   if(lmState&&lmState.examOwned){
     const block=lmBlock(id);if(!block)return;
     block.name='';block.size='';block.sample=false;block.hasFile=false;block.fileType='';
+    for(const key of ['fileId','localMediaKey','remoteUrl'])delete block[key];
     if(lmFiles[id]){URL.revokeObjectURL(lmFiles[id]);delete lmFiles[id];}
     if(typeof examSync==='function')examSync();
     if(typeof lmRenderEditor==='function')lmRenderEditor();
     return;
   }
-  if(!canEditLessons()||viewAccount||viewSwitching)return;
+  if(!canEditLessons()||viewSwitching)return;
   const block=lmBlock(id);if(!block)return;
-  const current=lmState,generation=viewGen;
+  const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.TursoMain.perform(async()=>{
     await window.TursoMain.detachLessonFile(current,block);
-    if(lmState!==current||viewGen!==generation||viewAccount)return;
+    if(lmState!==current||viewGen!==generation||target!==(viewAccount?.id||''))return;
     if(lmFiles[id]){URL.revokeObjectURL(lmFiles[id]);delete lmFiles[id];}
     lmKeepLesson();lmPersist();lmRenderEditor();lmNote('Ссылка снята на тестовом сервере. Сам файл не удалён.');
   },document.getElementById('lmNote'));
 }
 function stageDeleteLesson(id){
   id=stageDomId(id);
-  if(!canEditLessons()||viewAccount||viewSwitching)return;
+  if(!canEditLessons()||viewSwitching)return;
   const current=lmLibrary?.materials.find(row=>row.id===id)||(lmState?.id===id?lmState:null);
   if(!current)return;
   if(!confirm('Move this lesson to Archive?'))return;
@@ -949,6 +1076,7 @@ function stageDeleteLesson(id){
 }
 globalThis.lmDeleteLesson=stageDeleteLesson;
 function stageHideLesson(id){
+  id=stageDomId(id);
   if(viewSwitching||!accountReady)return;
   if(viewAccount){
     if(!canTuneStudentLessons())return;
@@ -959,7 +1087,7 @@ function stageHideLesson(id){
     return window.TursoMain.perform(async()=>{
       await window.TursoMain.setManagedLessonAccess(accountId,id,expected,changes);
       if(viewAccount?.id!==accountId||viewGen!==generation)return;
-      const update=(list,flag)=>flag?[...new Set([...list,id])]:list.filter(value=>value!==id);
+      const update=(list,flag)=>flag?[...new Set([...list,String(id)])]:list.filter(value=>String(value)!==String(id));
       installAllowedLessons(update(loadAllowedLessons(),changes.allowHidden));
       installHiddenLessons(update(loadHiddenLessons(),changes.personalHidden));paintLmDays();
     });
@@ -967,6 +1095,13 @@ function stageHideLesson(id){
   if(!canEditLessons())return;
   const current=lmLibrary?.materials.find(row=>row.id===id);if(!current)return;
   return window.TursoMain.perform(async()=>{
+    if(!current.stageRevision){
+      if(!Number.isSafeInteger(current.id))throw new Error('Save this lesson before changing its visibility.');
+      const data=await accountFetch('/api/lessons?id='+encodeURIComponent(current.id));
+      const saved=data.materials?.find(row=>row.id===current.id);
+      if(!saved)throw new Error('Lesson not found. Refresh Groups.');
+      Object.assign(current,saved);
+    }
     await window.TursoMain.hideLesson(current,!current.hiddenFromStudents);paintLmDays();
   });
 }
@@ -1109,10 +1244,10 @@ function stageWordsPending(){
 function stageLiveCounts(){
   const data=window.LESSON_DATA||{};
   const mine=typeof loadAdded==='function'?loadAdded().filter(item=>(item.place||'mine')==='mine'&&!item.fromText).length:0;
-  const phrases=(data.phrasalWords||[]).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='phrasal'&&!item.fromText).length:0);
-  const idioms=(data.idiomWords||[]).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='idioms'&&!item.fromText).length:0);
+  const phrases=(data.phrasalWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='phrasal'&&!item.fromText).length:0);
+  const idioms=(data.idiomWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='idioms'&&!item.fromText).length:0);
   const words=typeof allRows==='function'?allRows().length:((data.words||[]).length+(data.extraWords||[]).length+(data.lines21||[]).length+(data.ask07||[]).length+(data.phrases09||[]).length+(data.adverbs14||[]).length+(data.talk16||[]).length+(data.likes23||[]).length+mine+phrases+idioms);
-  return {words,mine,phrases,idioms,verbs:(window.IRREGULAR||[]).length,songs:typeof loadSongs==='function'?loadSongs().filter(row=>!row.archived).length:0,texts:typeof loadTexts==='function'?loadTexts().filter(row=>!row.archived).length:0};
+  return {words,mine,phrases,idioms,verbs:(window.IRREGULAR||[]).filter(cardVisible).length,songs:typeof loadSongs==='function'?loadSongs().filter(row=>!row.archived).length:0,texts:typeof loadTexts==='function'?loadTexts().filter(row=>!row.archived).length:0};
 }
 function stagePaintCounts(counts){
   const live=stageLiveCounts();
@@ -1120,6 +1255,11 @@ function stagePaintCounts(counts){
   for(const [key,value] of Object.entries(live))if(value||stageSettled[key])merged[key]=value;
   const set=(id,value)=>{const node=typeof document!=='undefined'&&document.getElementById?document.getElementById(id):null;if(node&&value!=null)node.textContent=String(value);};
   set('allWordCount',merged.words);set('myWordCount',merged.mine);set('phrasalCount',merged.phrases);set('idiomCount',merged.idioms);set('verbCount',merged.verbs);set('lyricCount',merged.songs);set('textCount',merged.texts);
+  if(hideStudentSongs()){
+    const data=window.LESSON_DATA||{},personal=typeof loadAdded==='function'?loadAdded():[];
+    const pools=[['myWordCount',personal.filter(row=>(row.place||'mine')==='mine'),merged.mine],['phrasalCount',[...(data.phrasalWords||[]),...personal.filter(row=>row.place==='phrasal')],merged.phrases],['idiomCount',[...(data.idiomWords||[]),...personal.filter(row=>row.place==='idioms')],merged.idioms],['allWordCount',[...Object.values(data).filter(Array.isArray).flat(),...personal],merged.words]];
+    for(const [id,rows,total] of pools){const count=new Set(rows.filter(row=>hiddenCardIds.has(String(row.stageId||row.cardId||''))).map(row=>String(row.stageId||row.cardId))).size;if(count&&total){set(id,count+' / '+total);const node=document.getElementById(id);if(node)node.title=count+' hidden of '+total+' materials';}}
+  }
 }
 var stageSettled={};
 const stagePersonalPlaces=['mine','phrasal','idioms','text','music','tenses','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
@@ -1148,7 +1288,8 @@ function stageLibrarySummary(){
   const cached=window.ContentCache?.get('account:bootstrap');
   if(cached?.counts){stagePaintCounts(cached.counts);return Promise.resolve(cached.counts);}
   if(typeof authUser==='undefined'||!authUser)return Promise.resolve(null);
-  return window.ContentCache.load('library:summary',()=>accountFetch('/api/me/state?summary=1')).then(state=>{window.ContentCache.set('account:bootstrap',state);stagePaintCounts(state.counts);return state.counts;});
+  const generation=viewGen,target=viewAccount?.id||'';
+  return window.ContentCache.load('library:summary',()=>accountFetch(stageAccountBase()+'/state?summary=1')).then(state=>{if(generation!==viewGen||target!==(viewAccount?.id||''))return;window.ContentCache.set('account:bootstrap',state);stagePaintCounts(state.counts);return state.counts;});
 }
 function stageRepaint(section){
   if(section==='allwords'&&typeof paintAllWords==='function')paintAllWords();
@@ -1293,6 +1434,7 @@ function stageLoadSpeak(view,level,unit,lesson,quiet){
   }).catch(error=>{if(list)list.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="speak">Retry</button></p>';});
 }
 function stagePaintTexts(after){
+  if(hideStudentSongs())return Promise.resolve({texts:[],next:null});
   const box=document.getElementById('textList');
   const cursor=after||window.ContentCache.get('texts:after')||'';
   if(box&&!loadTexts().length)box.innerHTML='<p class="hint">Loading…</p>';
@@ -1477,6 +1619,7 @@ function stageDictionaryGap(card){
   return true;
 }
 function stageMissingLibrary(){
+  if(hideStudentSongs())return [];
   const rows=[];
   if(typeof loadSongs==='function')for(const song of loadSongs())if(song&&!song.archived&&stageLibraryGap(song,'song'))rows.push({id:song.stageId,kind:'song'});
   if(typeof loadTexts==='function')for(const text of loadTexts())if(text&&stageLibraryGap(text,'text'))rows.push({id:text.stageId,kind:'text'});
@@ -1709,6 +1852,8 @@ let stageCacheAudience='';
 function stageApplyBootstrap(state){
   const audience=(authUser?.id||'')+':'+(viewAccount?.id||'');
   if(stageCacheAudience&&stageCacheAudience!==audience){
+    groupReset();examResetAccount();
+    localStorage.removeItem('enquiz-exams');
     for(const prefix of ['account:','cards:personal:','progress:','quizzes:','songs:','texts:','lesson:','library:summary','block:'])window.ContentCache?.invalidate(prefix);
     for(const key of Object.keys(stageListEpoch))stageListEpoch[key]++;
     stageProgressEpoch++;stageLessonOpenToken++;stageSettled={};stageCycles.clear();stagePreloadOn=false;
@@ -1719,6 +1864,7 @@ function stageApplyBootstrap(state){
   window.__archiveRevision=Number(state.archiveRevision)||0;
   stageSetActivity(state.stageActivity);
   if(state.stats){
+    hiddenCardIds=new Set((state.stats.hiddenCardIds||[]).map(String));
     if(!viewAccount)applyAccountThemes({theme:state.stats.theme,themes:state.stats.customThemes});
     if(state.stats.lyricSize)localStorage.setItem('enquiz-lyric-size',String(state.stats.lyricSize));
     if(typeof installHiddenLessons==='function')installHiddenLessons(state.stats.hiddenLessons);
@@ -1739,9 +1885,11 @@ function stageStartPreload(){
   const later=typeof setTimeout==='function'?setTimeout:(fn)=>fn();
   later(()=>stageDemand(here),0);
   if(window.PreloadQueue){
-    window.PreloadQueue.add({id:'archive:preload',priority:4,run:()=>window.TursoMain.archiveList()});
-    window.PreloadQueue.add({id:'songs:preload',priority:5,run:()=>stageSongPage('')});
-    window.PreloadQueue.add({id:'texts:preload',priority:5,run:()=>stagePaintTexts('')});
+    if(!viewAccount)window.PreloadQueue.add({id:'archive:preload',priority:4,run:()=>!viewAccount?window.TursoMain.archiveList():Promise.resolve()});
+    if(!hideStudentSongs()){
+      window.PreloadQueue.add({id:'songs:preload',priority:5,run:()=>stageSongPage('')});
+      window.PreloadQueue.add({id:'texts:preload',priority:5,run:()=>stagePaintTexts('')});
+    }
     window.PreloadQueue.add({id:'irregular:page',priority:6,run:()=>stageEnsureStatic('IRREGULAR')});
   }
 }
@@ -1814,6 +1962,7 @@ function stageQueueLessons(){
   });
 }
 function stagePersonalPage(place,after,follow=true){
+  if(hideStudentSongs()&&['text','music'].includes(place))return Promise.resolve({cards:[],next:null});
   const epoch=stageListEpoch.cards,cursor=after||'',prefix='cards:personal:'+place+':after:';
   const generation=viewGen,target=viewAccount?.id||'',actor=authUser?.id;
   return window.ContentCache.load(prefix+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/cards?place='+encodeURIComponent(place)+'&limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
@@ -1887,6 +2036,7 @@ function stageProgressPage(after){
   });
 }
 function stageSongPage(after){
+  if(hideStudentSongs())return Promise.resolve({songs:[],next:null});
   const epoch=stageListEpoch.songs,cursor=after||'';
   const generation=viewGen,target=viewAccount?.id||'',actor=authUser?.id;
   return window.ContentCache.load('songs:list:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/songs?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{

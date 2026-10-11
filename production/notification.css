@@ -10,3 +10,4 @@ html[data-turso-compact-notices="true"] #turso-main-banner{
 html[data-turso-compact-notices="true"] #turso-main-banner[hidden]{display:none}
 html[data-turso-compact-notices="true"] #turso-main-status{margin:0;min-height:0;overflow-wrap:anywhere}
 html[data-turso-compact-notices="true"] #turso-main-banner button[hidden]{display:none}
+#turso-main-dismiss{align-self:flex-end;flex-shrink:0;width:36px;min-height:36px;padding:0;font-size:24px}

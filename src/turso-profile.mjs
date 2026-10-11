@@ -6,7 +6,19 @@ export async function ensureStudyProfile(db,actor,pairAccountId=''){
   if(!actor||!accountId(actor.id)||actor.revoked||!['USER','ADMIN','DEVELOPER'].includes(actor.role))
     throw new StudyError(401,'Live authenticated account required.');
   const existing=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
-  if(existing.length===1)return existing[0].profile_id; // Preserve retained/pair IDs.
+  if(existing.length===1){
+    if(accountId(pairAccountId)&&pairAccountId!==actor.id){
+      const twin=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[pairAccountId]);
+      if(twin.length>1)throw new StudyError(409,'Ambiguous profile membership.');
+      if(!twin.length)await db.atomic([
+        s('INSERT OR IGNORE INTO account_refs(id) VALUES(?)',[pairAccountId]),
+        s('INSERT OR IGNORE INTO profile_members(account_id,profile_id) VALUES(?,?)',[pairAccountId,existing[0].profile_id])
+      ]);
+      // Existing populated profiles are never silently replaced or discarded.
+      if(twin.length&&twin[0].profile_id!==existing[0].profile_id)throw new StudyError(409,'Paired learning profiles differ. A data-preserving merge is required.');
+    }
+    return existing[0].profile_id;
+  }
   if(existing.length)throw new StudyError(409,'Ambiguous profile membership.');
   if(accountId(pairAccountId)&&pairAccountId!==actor.id){
     const twin=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[pairAccountId]);

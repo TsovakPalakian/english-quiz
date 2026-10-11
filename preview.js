@@ -9,6 +9,7 @@
     let stashOwned = false;
     let authSyncLock = false;
     let accountReady = false;
+    let hiddenCardIds = new Set();
     let syncTimer = 0;
     let accountPullTimer = 0;
     let accountPulling = false;
@@ -53,7 +54,7 @@
       });
     })();
     function show(id) {
-      if (hideStudentSongs() && (id === "music" || id === "song" || id === "lyricadd" || id === "musicword")) id = "library";
+      if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Administration is teacher-only chrome; never open it while viewing another account.
       if (id === "admin" && viewAccount) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
@@ -95,6 +96,7 @@
       const shown = document.getElementById(id);
       if (shown) applyCardSearch(shown);
       paintPagePath(id);
+      paintSongGate();
     }
     function pagePathItems(id, seen = new Set()) {
       if (!id || id === "home" || seen.has(id)) return [];
@@ -299,8 +301,12 @@
     }
     function capture() {
       const on = document.querySelector("section.on");
+      const focused = on?.contains(document.activeElement) ? document.activeElement : null;
       return {
         id: on ? on.id : "home",
+        scrollY: window.scrollY,
+        focusKey: focused?.getAttribute("data-return-focus") || "",
+        focusAttrs: focused ? [...focused.attributes].filter(attr => attr.name === 'id' || attr.name === 'href' || attr.name.startsWith('data-') && attr.name !== 'data-return-focus').map(attr => [attr.name, attr.value]) : [],
         view: grammarView,
         area: grammarArea,
         kind: tenseKind,
@@ -384,7 +390,25 @@
         return;
       }
       restore(prev);
+      requestAnimationFrame(() => restorePosition(prev));
     }
+    let returnFocusSerial = 0;
+    let externalReturn = null;
+    function restorePosition(place) {
+      if (document.querySelector("section.on")?.id !== place.id) return;
+      const root = document.getElementById(place.id);
+      const node = place.focusKey && root?.querySelector('[data-return-focus="' + CSS.escape(place.focusKey) + '"]') || (place.focusAttrs?.length ? [...root.querySelectorAll('button, a, input')].find(el => place.focusAttrs.every(([key,value]) => el.getAttribute(key) === value)) : null);
+      node?.focus({ preventScroll: true });
+      window.scrollTo(0, place.scrollY || 0);
+    }
+    document.addEventListener("click", (event) => {
+      const node = event.target.closest("a, button");
+      if (!node || !node.closest("section.on")) return;
+      if (!node.dataset.returnFocus) node.dataset.returnFocus = "return-" + (++returnFocusSerial);
+      node.focus({ preventScroll: true });
+      if (node.matches("a[href]") && !node.getAttribute("href").startsWith("#")) externalReturn = capture();
+    }, true);
+    window.addEventListener("focus", () => { if (externalReturn) { const place = externalReturn; externalReturn = null; requestAnimationFrame(() => restorePosition(place)); } });
     const tenseGroups = [
       { group: "Present", items: ["ps", "pc", "pp", "ppc"] },
       { group: "Past", items: ["pasts", "pastc", "pastp", "pastpc"] },
@@ -1185,7 +1209,7 @@
     }
     function saveCustomThemes(list) {
       if (viewAccount) return;
-      const next = list.slice(0, 8);
+      const next = list.slice(0, 16);
       try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
       catch (e) {
         try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: keptThemePhoto(row) })))); }
@@ -1213,6 +1237,7 @@
       return "";
     }
     function visibleCustomThemes() {
+      if (hideStudentSongs()) return [];
       const login = viewAccount && viewAccount.login ? viewAccount.login : (authUser && authUser.login ? authUser.login : "");
       return loadCustomThemes().filter((row) => {
         const owner = row.owner ? String(row.owner) : "";
@@ -1229,7 +1254,7 @@
       catch (e) { return DEFAULT_THEME; }
     }
     function installCustomThemes(list) {
-      const next = (Array.isArray(list) ? list : []).filter(customThemeOk).slice(0, 8);
+      const next = (Array.isArray(list) ? list : []).filter(customThemeOk).slice(0, 16);
       try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next)); }
       catch (e) {
         try { localStorage.setItem(CUSTOM_THEME_KEY, JSON.stringify(next.map((row) => Object.assign({}, row, { photo: keptThemePhoto(row) })))); }
@@ -1349,6 +1374,7 @@
     }
     function applyTheme(name, options) {
       const opts = options || {};
+      if (hideStudentSongs()) { name = DEFAULT_THEME; opts.keepPainted = false; }
       const root = document.documentElement;
       let chosen;
       if (opts.keepPainted && !viewAccount && root.dataset.paintedTheme) {
@@ -1387,7 +1413,7 @@
     }
     function paintThemeSegs() {
       const mine = visibleCustomThemes().map((row) => {
-        const tools = canEditLessons() ? '<button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button>' : "";
+        const tools = canManageOwnThemes() ? '<button type="button" class="theme-edit" data-theme-edit="' + esc(row.id) + '" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="theme-x" data-theme-remove="' + esc(row.id) + '" aria-label="Remove">×</button>' : "";
         const bg = /^#[0-9A-Fa-f]{6}$/.test(row.bg) ? row.bg : "#CCCCCC";
         const card = /^#[0-9A-Fa-f]{6}$/.test(row.card) ? row.card : "#FFFFFF";
         const acc = /^#[0-9A-Fa-f]{6}$/.test(row.acc) ? row.acc : "#333333";
@@ -1399,7 +1425,7 @@
       const builtIn = first.concat(rest).map((row) => '<button type="button" data-th="' + row[0] + '"><span class="sw" style="background:' + row[2] + '"><i style="background:' + row[3] + '"></i><b style="background:' + row[4] + '"></b></span><span class="theme-name">' + themeNameHtml(row[1]) + "</span></button>");
       document.querySelectorAll("[data-theme-seg]").forEach((box) => { box.innerHTML = builtIn.slice(0, 1).join("") + mine + builtIn.slice(1).join(""); });
       const themeOpen = document.getElementById("customThemeOpen");
-      if (themeOpen) themeOpen.hidden = !authUser || !accountReady;
+      if (themeOpen) themeOpen.hidden = !canManageOwnThemes();
       const themeSaveNote = document.getElementById("themeSaveNote");
       if (themeSaveNote) themeSaveNote.textContent = authUser ? "Your choice is saved to your account." : "Your choice is saved in this browser.";
       const shown = document.documentElement.getAttribute("data-theme");
@@ -1413,6 +1439,7 @@
     let beginThemeEdit = function () {};
     let endThemeEdit = function () {};
     function removeCustomTheme(id) {
+      if (!canManageOwnThemes() || !visibleCustomThemes().some(row => row.id === id)) return;
       const editing = editingThemeId === id;
       const active = currentTheme() === id;
       saveCustomThemes(loadCustomThemes().filter((row) => row.id !== id));
@@ -1474,13 +1501,13 @@
         const edit = e.target.closest("[data-theme-edit]");
         if (edit) {
           e.preventDefault();
-          if (!canEditLessons()) return;
+          if (!canManageOwnThemes()) return;
           beginThemeEdit(edit.getAttribute("data-theme-edit"));
           return;
         }
         const remove = e.target.closest("[data-theme-remove]");
         if (remove) {
-          if (!canEditLessons()) return;
+          if (!canManageOwnThemes()) return;
           e.preventDefault();
           removeCustomTheme(remove.getAttribute("data-theme-remove"));
           return;
@@ -1587,7 +1614,7 @@
             const at = kept.findIndex((row) => row && row.id === theme.id);
             if (at >= 0) kept[at] = theme;
             else kept.unshift(theme);
-            snap[CUSTOM_THEME_KEY] = JSON.stringify(kept.slice(0, 8));
+            snap[CUSTOM_THEME_KEY] = JSON.stringify(kept.slice(0, 16));
             return idbPutStash(snap);
           }).catch(() => {});
           clearThemeDraft();
@@ -1620,6 +1647,7 @@
         });
       }
       beginThemeEdit = function (id) {
+        if (!canManageOwnThemes() || !visibleCustomThemes().some(row => row.id === id)) return;
         const theme = loadCustomThemes().find((row) => row.id === id);
         if (!theme) return;
         if (!editingThemeId) themeBeforeEdit = currentTheme();
@@ -2299,6 +2327,7 @@
       const view = document.getElementById("clipFrameView");
       if (view) view.src = "about:blank";
       if (frame) frame.hidden = true;
+      if (externalReturn) { const place = externalReturn; externalReturn = null; requestAnimationFrame(() => restorePosition(place)); }
     }
     const CLIP_QUERY = {
       "what/how about you?": "What about you",
@@ -2386,7 +2415,7 @@
         (w.deck
           ? '<button class="btn primary" type="button" data-deck-study="' + esc(w.deck) + '">Study</button>'
           : '<button class="btn primary" type="button" data-day-quiz="' + esc((w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21")) + '">This day\'s quiz</button>') +
-        '</div>' + cardQuizHtml(w.en, w.en, w.ru);
+        '</div>' + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
       if (wordBack) wordBack.dataset.fallback = w.deck || "lesson";
@@ -2496,13 +2525,13 @@
     function hideStudentSongs() {
       return !!(viewAccount && authUser && authUser.role === "ADMIN");
     }
+    function canManageOwnThemes() { return !!(authUser && accountReady && !viewAccount && !viewSwitching); }
     function isTeacher() {
       if (viewAccount) return viewAccount.role === "ADMIN";
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canEditLessons() {
-      // Shared lesson catalog edits are blocked while viewing another account.
-      if (viewAccount) return false;
+      if (viewAccount) return sessionIsDeveloper();
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canTuneStudentLessons() {
@@ -2522,28 +2551,34 @@
       const box = document.getElementById('guideContent');
       if (!box) return;
       const ru = document.getElementById('guide').dataset.lang === 'ru';
-      const role = !authUser ? 'GUEST' : authUser.role;
+      const role = (viewAccount || authUser)?.role || 'GUEST';
       const t = (en, russian) => ru ? russian : en;
       let html = '';
       if (role === 'GUEST') {
         html += guideBlock(t('Sign in or create an account', 'Вход и регистрация'), t('Open Account to sign in or register. Registration creates a student account; access may wait for teacher approval.', 'Откройте Account, чтобы войти или зарегистрироваться. Создаётся аккаунт ученика; доступ может ожидать подтверждения учителя.'), 'account', t('Open Account', 'Открыть Account'), guideShot(t('Account', 'Аккаунт'), [[t('Sign in', 'Войти'), 'account'], [t('Register', 'Регистрация'), 'account']]));
-        html += guideBlock(t('Choose a theme', 'Выбор темы'), t('Open Theme to select Van Gogh or another theme. Your choice is restored on the next visit.', 'Откройте Theme и выберите Van Gogh или другую тему. Выбор восстановится при следующем посещении.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [['Van Gogh', 'themes'], [t('Add theme', 'Добавить тему'), 'themes']]));
+        html += guideBlock(t('Choose a theme', 'Выбор темы'), t('Open Account then Theme to select Van Gogh or another available theme. Guests can switch themes; creating, editing and removing personal themes requires signing in.', 'Откройте Account, затем Theme и выберите Van Gogh или другую доступную тему. Гость может менять темы; создание, редактирование и удаление своих тем доступны после входа.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [['Van Gogh', 'themes'], [t('Choose theme', 'Выбрать тему'), 'themes']]));
       } else {
         html += guideBlock(t('Learn from your classes', 'Обучение по занятиям'), t('Open a group, choose a lesson, then study its cards, rules and tasks. Exams are listed separately and results remain in your account.', 'Откройте группу, выберите занятие и изучайте его карточки, правила и задания. Экзамены находятся отдельно, результаты сохраняются в аккаунте.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Study', 'Обучение'), [['Groups', 'groups'], ['Exams', 'exams'], ['Study', 'groups']]));
         html += guideBlock(t('Cards: read, listen and practise', 'Карточки: смотреть, слушать и тренировать'), t('A card contains translation, part of speech, UK/US pronunciation and audio, examples and dictionary links. Study offers choice, typing, gaps, matching, listening and more.', 'Карточка содержит перевод, часть речи, британское и американское произношение и аудио, примеры и ссылки на словари. Есть выбор, ввод, пропуски, пары, аудирование и другие проверки.'), 'allwords', t('Open cards', 'Открыть карточки'), guideShot(t('Word card', 'Карточка слова'), [[t('Pronunciation', 'Произношение'), 'allwords'], [t('Examples', 'Примеры'), 'allwords'], [t('Study', 'Учить'), 'setup']]));
         html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Library you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Library можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Library', 'Открыть Library'), guideShot(t('Library', 'Библиотека'), [[t('My words', 'Мои слова'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
-        html += guideBlock(t('Archive and account', 'Архив и аккаунт'), t('Archive holds removed materials without immediately erasing them. Restore your items or remove your own archived item. Profile contains statistics and sign-out.', 'Archive хранит убранные материалы без немедленного стирания. Свои материалы можно восстановить или удалить из архива. В Profile находятся статистика и выход.'), 'archive', t('Open Archive', 'Открыть Archive'), guideShot(t('Account tools', 'Управление'), [['Archive', 'archive'], [t('Profile', 'Профиль'), 'profile'], [t('Statistics', 'Статистика'), 'stats']]));
+        html += guideBlock(t('Archive and account', 'Архив и аккаунт'), role === 'USER' ? t('Removing your material first moves it to Archive after confirmation. Restore brings it back. Remove from archive hides your own archived item without a password; it does not erase it permanently. Account contains statistics, details, password changes and sign-out.', 'Удаление своего материала сначала перемещает его в Archive после подтверждения. Restore возвращает его обратно. Remove from archive скрывает свой архивный материал без пароля, но не стирает окончательно. В Account находятся статистика, данные аккаунта, смена пароля и выход.') : t('Archive groups removed materials by type and shows who archived them. Restore returns material to its original section. Remove from archive hides an entry; teachers confirm this with their password. Account contains details, password changes and sign-out.', 'Archive группирует убранные материалы по типам и показывает, кто их перенёс. Restore возвращает материал в исходный раздел. Remove from archive скрывает запись; учитель подтверждает это паролем. В Account находятся данные аккаунта, смена пароля и выход.'), 'archive', t('Open Archive', 'Открыть Archive'), guideShot(t('Account tools', 'Управление'), [['Archive', 'archive'], [t('Account', 'Аккаунт'), 'profile'], [t('Statistics', 'Статистика'), 'stats']]));
         html += guideBlock(t('Statistics and progress', 'Статистика и прогресс'), t('Choose a period to see answers, accuracy, learned checks, study time, exams and added materials. Keep comparison enabled to compare the selected period with the previous period.', 'Выберите период, чтобы увидеть ответы, точность, выученные проверки, время, экзамены и добавленные материалы. Оставьте сравнение включённым, чтобы сопоставить выбранный период с предыдущим.'), 'stats', t('Open Statistics', 'Открыть статистику'), guideShot(t('Progress', 'Прогресс'), [[t('Period', 'Период'), 'stats'], [t('Learning', 'Обучение'), 'stats'], [t('Materials', 'Материалы'), 'stats']]));
+        if (!viewAccount) html += guideBlock(t('Personal themes', 'Личные темы'), t('Open Account then Theme. Select a theme or use Add theme to choose its name, colours and background image. Edit or remove your own themes there. Your themes and selected theme are saved to your account and restored after signing in, including on another device.', 'Откройте Account, затем Theme. Выберите тему или нажмите Add theme: задайте название, цвета и фоновую картинку. Там же можно редактировать и удалять свои темы. Темы и выбранное оформление сохраняются в аккаунте и восстанавливаются после входа, в том числе на другом устройстве.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [[t('Choose theme', 'Выбрать тему'), 'themes'], [t('Add theme', 'Добавить тему'), 'themes'], [t('Edit themes', 'Изменить темы'), 'themes']]));
       }
       if (role === 'ADMIN' || role === 'DEVELOPER') {
+        html += '<div class="guide-note"><b>' + t('Archive preview', 'Просмотр архива') + '</b><p>' + t('Click an archived row to inspect its contents without restoring it. Restore and archive removal are icons on the right; their labels appear on hover.', 'Нажмите на строку архива, чтобы посмотреть содержимое без восстановления. Значки восстановления и удаления находятся справа; названия видны при наведении.') + '</p></div>';
+        html += guideBlock(t('Copy learning material', 'Копирование материалов'), t('Use the Copy icon beside Hide and Delete, or inside a saved lesson or examination block. Choose a destination and a name, then press Create copy. Selecting a group does not move the original. Lessons, exams, blocks and individual materials can be copied to compatible locations; copies have independent content and files, without student answers, grades or progress. Save draft or Publish your edits before copying.', 'Нажмите значок Copy рядом с Hide и Delete или внутри сохранённого занятия либо экзаменационного блока. Выберите назначение и название, затем Create copy. Выбор группы не переносит оригинал. Занятия, экзамены, блоки и отдельные материалы копируются в подходящие места; содержимое и файлы копии независимы, ответы учеников, оценки и прогресс не копируются. Перед копированием изменений нажмите Save draft или Publish.'), 'groups', t('Open Groups', 'Открыть Groups'));
         html += guideBlock(t('Create and manage learning', 'Создание и управление обучением'), t('Create groups, lessons, blocks and exams; edit names and dates; publish or hide material. Open a student in Administration to inspect progress, answers and exam work, and configure lesson access.', 'Создавайте группы, занятия, блоки и экзамены; редактируйте названия и даты; публикуйте или скрывайте материалы. Откройте ученика в Administration, чтобы посмотреть прогресс, ответы и экзамены и настроить доступ к занятиям.'), 'admin', t('Open Administration', 'Открыть Administration'), guideShot(t('Teacher tools', 'Инструменты учителя'), [[t('Students', 'Ученики'), 'admin'], ['Groups', 'groups'], ['Exams', 'exams']]));
-        html += '<div class="guide-note"><b>' + t('Teacher boundary', 'Граница роли учителя') + '</b><p>' + t('A teacher administers students only. Teacher and developer accounts cannot be managed by a teacher.', 'Учитель администрирует только учеников. Учитель не может управлять аккаунтами учителей и разработчиков.') + '</p></div>';
+        html += '<div class="guide-note"><b>' + t('Student administration', 'Администрирование учеников') + '</b><p>' + t('A teacher administers students only: review progress, correct translations and control material visibility. Hide and Show change access without deleting student data. Student data cannot be removed here.', 'Учитель администрирует только учеников: смотрит прогресс, исправляет переводы и управляет видимостью материалов. Hide и Show меняют доступ, не удаляя данные ученика. Удаление данных ученика здесь недоступно.') + '</p></div>';
         html += '<div class="guide-note"><b>' + t('Student statistics', 'Статистика ученика') + '</b><p>' + t('Open a student in Administration, then open Statistics to compare that student’s words, practice, materials, exams and study time for the selected period.', 'Откройте ученика в Administration, затем Statistics, чтобы сравнить его слова, практику, материалы, экзамены и время обучения за выбранный период.') + '</p></div>';
       }
+      if (role === 'USER') html += guideBlock(t('Taking an exam', 'Прохождение экзамена'), t('Exam materials are read-only. Translation, word lookup, adding words, selection, copying, pasting and immediate answer checks are unavailable. You can type your answers and use the assigned audio and video. Submitted answers cannot be changed. In Archive, click a row to preview it; the icons on the right restore or remove it.', 'Экзаменационные материалы доступны только для чтения. Перевод, словари, добавление слов, выделение, копирование, вставка и мгновенная проверка ответов недоступны. Можно вводить ответы и использовать аудио и видео задания. После сдачи ответы изменить нельзя. В архиве нажмите на строку для просмотра, а значки справа восстанавливают или убирают материал.'), 'exams', t('Open Exams', 'Открыть Exams'));
       if (role === 'DEVELOPER') {
         html += guideBlock(t('Developer control', 'Управление разработчика'), t('Manage students, teachers, roles and account states. Review every archive state and decide on permanent deletion. Bugs contains diagnostics and reports; sign-in errors are not added as bugs.', 'Управляйте учениками, учителями, ролями и состояниями аккаунтов. Просматривайте все состояния архива и принимайте решение об окончательном удалении. Bugs содержит диагностику и отчёты; ошибки входа туда не добавляются.'), 'admin', t('Open developer tools', 'Открыть управление'), guideShot(t('Developer', 'Разработчик'), [[t('Accounts', 'Аккаунты'), 'admin'], ['Archive', 'archive'], ['Bugs', 'bugs']]));
         html += '<div class="guide-note danger"><b>' + t('Permanent actions', 'Необратимые действия') + '</b><p>' + t('Permanent deletion is developer-only and cannot be undone. Check the material, owner and archive status before confirming.', 'Окончательное удаление доступно только разработчику и не отменяется. Перед подтверждением проверьте материал, владельца и состояние архива.') + '</p></div>';
       }
+      if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
+      html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
     function faceUser() {
@@ -2572,7 +2607,7 @@
       return [words, lines21, phrases09, adverbs14, talk16, likes23, ask07, extraWords, phrasalWords, idiomWords];
     }
     function cardVisible(card) {
-      return !!(card && !card.deleted);
+      return !!(card && !card.deleted && !(!viewAccount && authUser?.role === "USER" && hiddenCardIds.has(String(card.stageId || card.cardId || ""))));
     }
     function applyEditToCard(card, edit) {
       if (!card) return;
@@ -2643,7 +2678,7 @@
     function editActions() {
       const pencil = actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
       const trash = actionIcon('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/>');
-      return '<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">' + pencil + '</button><button class="icon-btn" type="button" data-card-delete aria-label="Delete">' + trash + "</button></span>";
+      return '<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">' + pencil + '</button>' + (!viewAccount || sessionIsDeveloper() ? '<button class="icon-btn" type="button" data-card-delete aria-label="Delete">' + trash + '</button>' : '') + '</span>';
     }
     function editHost(kind, id, corner) {
       return '<div data-edit-host' + (corner ? ' class="card-edit"' : "") + ' data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
@@ -3599,7 +3634,7 @@
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
-        cardQuizHtml(w.en, w.en, w.ru);
+        cardQuizHtml(cardQuizKey(w), w.en, w.ru);
     }
     function applySongEdits() {
       const map = loadEdits();
@@ -3680,8 +3715,8 @@
         });
         addedCache = list;
         if (moved) rememberAdded(list);
-        return list;
-      } catch (e) { return addedCache || []; }
+        return list.filter(cardVisible);
+      } catch (e) { return (addedCache || []).filter(cardVisible); }
     }
     function saveAdded(list, change) {
       rememberAdded(list);
@@ -4898,7 +4933,7 @@
         html += '<div class="gen"><h2>Phrases</h2><p class="hint">Wooordhunt has no phrases for this word.</p></div>';
       }
       html += usageQuizzes(usages);
-      html += cardQuizHtml(item.word, item.word, item.ru || note || "");
+      html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
       document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
@@ -4994,20 +5029,20 @@
         line.hidden = !line.hidden;
       }
     });
-    async function openUsages(word, lessonRu) {
+    async function openUsages(word, lessonRu, quizKey) {
       const btn = document.activeElement;
       if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Looking up…";
       try {
         const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
         const data = await res.json();
         if (res.ok && data.found) {
-          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data });
+          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data, quizKey });
           return;
         }
       } catch (err) {
         if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Usages";
       }
-      renderMade({ word: word, ru: lessonRu || "", data: {} });
+      renderMade({ word: word, ru: lessonRu || "", data: {}, quizKey });
     }
     document.body.addEventListener("click", (e) => {
       const statSongBtn = e.target.closest("[data-stat-song]");
@@ -5248,9 +5283,9 @@
       if (lmWord) {
         const block = lmBlock(lmWord.dataset.lmWord);
         if (!block || block.type !== "wordcard") return;
-        const item = { word: block.word, ru: block.ru || "", data: block.data || {} };
+        const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey };
         if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
-        else openUsages(item.word, item.ru);
+        else openUsages(item.word, item.ru, item.quizKey);
         return;
       }
       const openAdd = e.target.closest("[data-add-open]");
@@ -5901,7 +5936,7 @@
       if (kindAt < 0 || !parts[kindAt + 1]) return "";
       const kind = parts[kindAt];
       const id = parts[kindAt + 1].split("?")[0];
-      const height = kind === "track" || kind === "episode" ? 152 : 232;
+      const height = kind === "track" || kind === "episode" ? 152 : 352;
       return '<iframe class="player" style="height:' + height + 'px" src="https://open.spotify.com/embed/' + kind + "/" + encodeURIComponent(id) + '" title="Music" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>';
     }
     function isDirectAudio(url) {
@@ -6107,7 +6142,7 @@
       }
       if (!uri) return;
       iframe.dataset.spotifyOn = "1";
-      const height = uri.indexOf(":track:") >= 0 || uri.indexOf(":episode:") >= 0 ? 152 : 232;
+      const height = uri.indexOf(":track:") >= 0 || uri.indexOf(":episode:") >= 0 ? 152 : 352;
       const size = (node) => {
         if (!node || !node.style) return;
         node.dataset.spotifyHeight = String(height);
@@ -7405,7 +7440,7 @@
     }
     function cardsFromSavedQuizzes() {
       const map = loadCardQuizzes();
-      return Object.keys(map).map((key) => cardFromQuizWord(key, map[key])).filter((card) => card.en);
+      return Object.keys(map).filter((key) => !key.startsWith('copy-card:')).map((key) => cardFromQuizWord(key, map[key])).filter((card) => card.en);
     }
     function mergeCardQuizCards(cards) {
       const base = Array.isArray(cards) ? cards.slice() : [];
@@ -7814,7 +7849,7 @@
       return text;
     }
     function cardQuizKey(card) {
-      return String((card && (card.en || card.qid || card.word)) || "").toLowerCase();
+      return String((card && (card.quizKey || card.en || card.qid || card.word)) || "").toLowerCase();
     }
     function customQuizzesFor(card, type) {
       return cardQuizzesOf(cardQuizKey(card)).filter((quiz) => (quiz.type || "Flip") === type);
@@ -9369,6 +9404,7 @@
     }
     function selectionBlocked(node) {
       const section = document.querySelector("section.on");
+      if (examStudentRestricted()) return true;
       if (!section || quizScreens[section.id]) return true;
       if (!node || !node.closest) return false;
       if (node.closest("#selpop, input, textarea, select")) return true;
@@ -9404,6 +9440,7 @@
       body.innerHTML = html;
     }
     async function loadSelpop(word) {
+      if (examStudentRestricted()) { hideSelpop(); return; }
       const token = ++selToken;
       document.getElementById("selpopBody").innerHTML = '<p class="hint">Looking up…</p>';
       try {
@@ -9453,6 +9490,7 @@
     document.getElementById("selpopAdd").addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (examStudentRestricted()) return;
       const button = e.currentTarget;
       const word = document.getElementById("selpopWord").textContent.trim();
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
@@ -9708,7 +9746,7 @@
       else localStorage.removeItem(EDIT_KEY);
       installCardQuizzes(state.stats && state.stats.cardQuizzes);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
-      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installCustomThemes(!hideStudentSongs() && state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
       installAllowedLessons(state.stats && state.stats.allowedLessons);
       settleThemeAudience();
@@ -9811,7 +9849,7 @@
     function paintHomeHello() {
       const hello = document.querySelector("#home .hello");
       if (!hello) return;
-      hello.textContent = authUser ? "Welcome back" : signedOutHello ? "See you soon" : "Hello!";
+      hello.textContent = authUser ? (authUser.firstLogin ? "Welcome! Let's get started" : "Welcome back") : signedOutHello ? "See you soon" : "Hello!";
       hello.style.visibility = accountChecked ? "" : "hidden";
       const guestActions = document.getElementById("homeAuth");
       if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
@@ -9921,7 +9959,7 @@
       }
       const change = data.change && data.change.status === "pending" ? data.change : null;
       slot.hidden = false;
-      slot.innerHTML = '<form id="ownAccountForm"><p class="hint">A teacher or developer approves the change. The request shows the current value and the new one.</p>' +
+      slot.innerHTML = '<form id="ownAccountForm"><p class="hint">Account changes require approval. The request shows the current value and the new one.</p>' +
         '<p class="label">Login</p><input name="login" type="text" autocomplete="username" required />' +
         '<p class="label">Email</p><input name="email" type="email" autocomplete="email" required />' +
         '<p class="label">Name</p><input name="name" type="text" autocomplete="name" />' +
@@ -10172,9 +10210,15 @@
     function paintSongGate() {
       const hide = hideStudentSongs();
       document.querySelectorAll('[data-jump="music"]').forEach((el) => { el.hidden = hide; });
+      document.querySelectorAll('[data-jump="texts"], [data-jump="themes"], [data-theme-cycle], [data-page-study], [data-all-study], [data-deck-study], [data-add-study], [data-verb-study], [data-song-study], #homeStudy, #homeStudyAlt').forEach(el => {
+        if (hide) { if (!Object.hasOwn(el.dataset, "teacherViewHidden")) el.dataset.teacherViewHidden = el.hidden ? "1" : "0"; el.hidden = true; }
+        else if (Object.hasOwn(el.dataset, "teacherViewHidden")) { el.hidden = el.dataset.teacherViewHidden === "1"; delete el.dataset.teacherViewHidden; }
+      });
+      if (hide) applyTheme(DEFAULT_THEME, { sync: false, persist: false });
       paintDeveloperChrome();
     }
     function paintDeveloperChrome() {
+      if (archivePreviewContext && (archivePreviewContext.actor !== authUser?.id || archivePreviewContext.generation !== viewGen || viewAccount)) closeArchivePreview();
       const allow = isDeveloper();
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
@@ -10196,7 +10240,11 @@
         box.innerHTML = Object.keys(groups).map((type) => '<div class="archive-group"><h2 class="lib-h">' + esc(archiveLabel(type)) + '</h2>' + groups[type].map((item) => {
           const when = item.archivedAt ? new Date(item.archivedAt * 1000).toLocaleString() : "";
           const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
-          return '<div class="archive-row"><div><b>' + esc(item.title || "Untitled") + '</b><span class="label">Deleted by ' + esc(item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + esc(when) : "") + esc(hidden) + '</span></div><div class="row"><button class="btn" type="button" data-archive-restore="' + esc(type + ":" + item.id) + '">Restore</button><button class="btn stop" type="button" data-archive-remove="' + esc(type + ":" + item.id) + '">' + (isDeveloper() ? "Delete permanently" : "Remove from archive") + '</button></div></div>';
+          const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Remove from archive";
+          const icon = (path) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
+          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '" aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
+          const label = 'Deleted by ' + (item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + when : "") + hidden;
+          return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
         }).join("") + "</div>").join("");
       };
       const cached = window.TursoMain.archiveSnapshot?.();
@@ -10222,9 +10270,58 @@
       });
     }
     document.addEventListener("click", (event) => {
+      const open = event.target.closest("[data-archive-open]");
+      if (open) { void openArchivePreview(open.dataset.archiveOpen, open); return; }
+      if (event.target.closest("[data-archive-close]")) closeArchivePreview();
       const restore = event.target.closest("[data-archive-restore]"), remove = event.target.closest("[data-archive-remove]");
       if (restore) archiveAction("restore", restore.dataset.archiveRestore);
       if (remove) archiveAction("remove", remove.dataset.archiveRemove);
+    });
+    let archivePreviewContext = null;
+    function closeArchivePreview() {
+      const trigger = archivePreviewContext?.trigger; archivePreviewContext = null;
+      const dialog = document.getElementById("archivePreviewDialog"); if (dialog) dialog.hidden = true;
+      const body = document.getElementById("archivePreviewBody"); if (body) body.innerHTML = "";
+      if (trigger?.isConnected) trigger.focus();
+    }
+    async function openArchivePreview(raw, trigger) {
+      if (!authUser || viewAccount || !window.TursoMain) return;
+      const [type, id] = String(raw).split(":"), job = archivePreviewContext = { actor: authUser.id, generation: viewGen, trigger, raw };
+      const dialog = document.getElementById("archivePreviewDialog"), body = document.getElementById("archivePreviewBody");
+      document.getElementById("archivePreviewTitle").textContent = trigger.querySelector("b:not(.date b)")?.textContent || "Archived material";
+      dialog.hidden = false; body.innerHTML = '<p class="hint">Loading…</p>'; dialog.querySelector('[aria-label="Close"]').focus();
+      try {
+        const data = await window.TursoMain.archivePreview(type, id);
+        if (archivePreviewContext !== job || authUser?.id !== job.actor || viewGen !== job.generation || viewAccount) return;
+        const media = '/api/archive/media?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
+        document.getElementById("archivePreviewTitle").textContent = data.title || "Archived material";
+        body.innerHTML = (data.documents || []).map(doc => '<article class="lm-read"><h3>' + esc(doc.title || "") + '</h3><p>' + esc(doc.description || "") + '</p>' + (doc.blocks || []).map(part => {
+          const block = { ...part };
+          if (part.fileId || part.localMediaKey || !part.remoteUrl && !part.sample && (part.hasFile || part.name) && ['image','audio','pronunciation','pdf','file'].includes(part.type)) { block.archiveMediaUrl = new URL(media + '&fileId=' + encodeURIComponent(part.fileId || part.id), location.origin).href; delete block.fileId; }
+          return '<div class="lm-panel">' + lmPreviewBlock(block) + '</div>';
+        }).join("") + '</article>').join("");
+        if (data.content) {
+          const content = data.content;
+          body.innerHTML += '<article class="lm-read"><p>' + esc(content.artist || "") + '</p>' + (data.hasMedia ? '<audio controls src="' + esc(media) + '"></audio>' : '') + (content.video ? videoHtml(content.video) : '') + (content.music ? musicHtml(content.music) : '') + '<div class="lm-copy">' + (type === "song" ? '<pre class="archive-text">' + esc(content.lyrics || "") + '</pre>' : lmClean(content.html || content.text || "")) + '</div></article>';
+        }
+        if (!body.innerHTML) body.innerHTML = '<p class="hint">No materials in this archived item.</p>';
+        body.querySelectorAll('input,textarea,select').forEach(el => { el.disabled = true; });
+        body.querySelectorAll('button').forEach(button => {
+          if (button.matches('[data-ex-check],[data-quiz-check]')) { button.remove(); return; }
+          const replacement = document.createElement('div'); replacement.className = button.className; replacement.innerHTML = button.innerHTML; button.replaceWith(replacement);
+        });
+        body.querySelectorAll('[data-read],[data-quiz-score],[data-response]').forEach(el => { delete el.dataset.read; delete el.dataset.quizScore; delete el.dataset.response; });
+      } catch (error) { if (archivePreviewContext === job) body.innerHTML = '<p class="hint bad">' + esc(error.message) + '</p>'; }
+    }
+    document.addEventListener('turso-archive-changed', () => closeArchivePreview());
+    document.addEventListener('keydown', event => {
+      const dialog = document.getElementById('archivePreviewDialog'); if (!dialog || dialog.hidden) return;
+      if (event.key === 'Escape') { event.preventDefault(); closeArchivePreview(); }
+      if (event.key === 'Tab') {
+        const controls = [...dialog.querySelectorAll('button,a[href],audio,video,input,textarea')].filter(el => !el.disabled && el.getClientRects().length), first = controls[0], last = controls.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
     });
     function bugWhen(ms, zone) {
       const time = Number(ms);
@@ -10379,7 +10476,7 @@
       installCardQuizzes(state.stats && state.stats.cardQuizzes);
       if (state.stats && state.stats.dayLinks) localStorage.setItem(LINK_KEY, JSON.stringify(state.stats.dayLinks));
       else localStorage.removeItem(LINK_KEY);
-      installCustomThemes(state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
+      installCustomThemes(!hideStudentSongs() && state.stats && Array.isArray(state.stats.customThemes) ? state.stats.customThemes : []);
       installHiddenLessons(state.stats && state.stats.hiddenLessons);
       installAllowedLessons(state.stats && state.stats.allowedLessons);
       const viewTheme = state.stats && typeof state.stats.theme === "string" ? state.stats.theme : "";
@@ -10626,7 +10723,7 @@
       if (dialog && !dialog.hidden) dialog.querySelector("[data-display-size].on")?.focus();
     }
     function setDisplaySize(size) {
-      if (!["compact", "comfortable", "large"].includes(size)) return;
+      if (!["small", "compact", "comfortable", "large", "extra-large"].includes(size)) return;
       document.documentElement.setAttribute("data-display-size", size);
       localStorage.setItem("enquiz-display-size", size);
       paintDisplaySettings();
@@ -12008,13 +12105,14 @@
       if (!authUser || (!force && (classGroupsPulling || classGroupsReady)) || typeof accountFetch !== "function") return Promise.resolve();
       const token = ++groupPullToken, actor = authUser.id, generation = viewGen;
       classGroupsPulling = true;
-      return accountFetch("/api/groups").then((data) => {
+      return accountFetch("/api/groups" + (viewAccount ? "?for=" + encodeURIComponent(viewAccount.id) : "")).then((data) => {
         if (token !== groupPullToken || actor !== authUser?.id || generation !== viewGen) return;
         classGroups = Array.isArray(data && data.groups) ? data.groups.map((group) => ({
           id: group.id,
           title: group.title || "Untitled group",
           date: group.date || lmToday(),
           hidden: !!group.hidden,
+          personalHidden: !!group.personalHidden,
           lessonIds: Array.isArray(group.lessonIds) ? group.lessonIds.slice() : []
         })) : [];
         classGroupsReady = true;
@@ -12026,7 +12124,7 @@
     function groupSave() {
       classGroupsDirty = true;
       const version = ++classGroupsSaveVersion;
-      if (!classGroupsReady || !lmServerReady || !canEditLessons() || viewAccount || viewSwitching || typeof accountFetch !== "function") return Promise.resolve();
+      if (!classGroupsReady || !lmServerReady || !canEditLessons() || viewSwitching || typeof accountFetch !== "function") return Promise.resolve();
       groupNormalize();
       const saved = new Set((lmLibrary && lmLibrary.materials || []).filter((row) => row && row.stageRevision).map((row) => row.id));
       const groups = classGroups.map((group) => ({
@@ -12050,17 +12148,20 @@
       if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
       groupNormalize();
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
-      const rows = classGroups.filter((group) => canEditLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+      const rows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       box.innerHTML = rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
+        const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
-        const eye = group.hidden
+        const hidden = viewAccount ? group.personalHidden : group.hidden;
+        const about = hidden ? (viewAccount ? "Hidden for this student" : "Hidden") : (viewAccount && hiddenCount ? "Hidden " + hiddenCount + " / " + group.lessonIds.length + " lessons" : count + " lessons");
+        const eye = hidden
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
           : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
-        const tools = canEditLessons() ? '<div class="day-tools"><button class="day-hide' + (group.hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (group.hidden ? "Show" : "Hide") + '">' + eye + '</button><button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + "</button></div>" : "";
-        return '<div class="day-row' + (group.hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + esc(group.hidden ? "Hidden" : count + " classes") + "</span></button>" + tools + "</div>";
+        const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {
@@ -12093,9 +12194,10 @@
     }
     function groupHide(id) {
       id = domEntityId(id);
-      if (!canEditLessons()) return;
       const group = classGroups.find((row) => row.id === id);
       if (!group) return;
+      if (viewAccount) return toggleManagedVisibility(group, 'group');
+      if (!canEditLessons()) return;
       group.hidden = !group.hidden;
       paintGroups();
       groupSave();
@@ -12748,14 +12850,23 @@
     function lmFileUrl(id) {
       return "/api/lesson-file?id=" + encodeURIComponent(id);
     }
+    function lmExternalFile(block) {
+      if (block && block.hasFile) return "";
+      try {
+        const url = new URL(block && block.remoteUrl);
+        return url.protocol === "https:" && !url.username && !url.password ? url.href : "";
+      } catch (e) { return ""; }
+    }
     function lmSrc(block) {
+      if (block?.archiveMediaUrl) return block.archiveMediaUrl;
       if (!block || !block.id) return "";
       if (lmFiles[block.id]) return lmFiles[block.id];
+      if (lmExternalFile(block)) return lmExternalFile(block);
       if (block.hasFile || (block.name && !block.sample)) return lmFileUrl(block.id);
       return "";
     }
     function lmUploadFile(id, file) {
-      if (!authUser || !canEditLessons() || viewAccount || !id || !file) return Promise.resolve(false);
+      if (!authUser || !canEditLessons() || !id || !file) return Promise.resolve(false);
       return new Promise((resolve) => {
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", lmFileUrl(id));
@@ -12767,7 +12878,7 @@
       });
     }
     function lmDeleteRemoteFile(id) {
-      if (!authUser || !canEditLessons() || viewAccount || !id) return Promise.resolve();
+      if (!authUser || !canEditLessons() || !id) return Promise.resolve();
       return fetch(lmFileUrl(id), { method: "DELETE", credentials: "include" }).catch(() => {});
     }
     function lmMedia(id, kind) {
@@ -12873,8 +12984,14 @@
       ).join("");
       return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
     }
+    function contentCopyButton(type, id, parent, parentId, className) {
+      if (!canEditLessons() || !Number.isSafeInteger(id) || id < 1 || (parent && !Number.isSafeInteger(parentId))) return "";
+      const source = [type, id, parent, parentId].filter(value => value !== undefined).join(":");
+      return '<button class="' + (className || 'day-edit') + ' content-copy-icon" type="button" data-content-copy="' + esc(source) + '" aria-label="Copy" title="Copy"><span aria-hidden="true">&#10697;</span></button>';
+    }
     function lmHead(block, label) {
-      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span><div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down">↓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button><button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+      const copy = contentCopyButton('material', block.id, lmState.examOwned ? 'exam-block' : 'lesson', lmState.id, 'lm-icon');
+      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span><div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down">↓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
@@ -12974,6 +13091,8 @@
       lmPaintTabTools();
     }
     function lmPreviewFile(block, label, action, attr) {
+      const external = lmExternalFile(block);
+      if (external) return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + '</b><span>' + esc(block.name || '') + '</span><div style="margin-top:8px"><a class="lm-btn lm-btn-primary" href="' + esc(external) + '" target="_blank" rel="noopener noreferrer">' + esc(action) + '</a></div></div>';
       return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + "</b><span>" + esc([block.name && block.title ? block.name : "", block.size || ""].filter(Boolean).join(" · ")) + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
     }
     function lmPreviewChoices(block, index, question) {
@@ -13094,10 +13213,14 @@
         cards = [];
       };
       blocks.forEach((block) => {
-        if (block.type === "wordcard") cards.push(lmWordCardHtml(block));
+        if (block.type === "wordcard") {
+          const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
+          cards.push(copy ? '<div class="lm-copy-word"><div class="lm-copy-tools">' + copy + '</div>' + lmWordCardHtml(block) + '</div>' : lmWordCardHtml(block));
+        }
         else {
           flush();
-          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + lmPreviewBlock(block) + "</div>";
+          const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
+          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + (copy ? '<div class="lm-copy-tools">' + copy + '</div>' : '') + lmPreviewBlock(block) + "</div>";
         }
       });
       flush();
@@ -13146,6 +13269,7 @@
         const camEx = Array.isArray(cam.examples) ? cam.examples.find((row) => row) : "";
         const ex = String(usageEn || (typeof camEx === "string" ? camEx : (camEx && camEx.en)) || looked.ex || "").trim();
         cards.push({
+          quizKey: block.quizKey,
           en: looked.en || en,
           ru: block.ru || looked.ru || "",
           pos: block.pos || cam.pos || looked.pos || "",
@@ -13351,6 +13475,11 @@
       document.getElementById("lmEditBack").hidden = editing || !canEditLessons();
       document.getElementById("lmSave").hidden = !editing;
       document.getElementById("lmPublish").hidden = !editing;
+      const copy = document.getElementById("lmCopy");
+      if (copy) {
+        copy.hidden = !canEditLessons() || !Number.isSafeInteger(lmState.id) || lmState.id < 1;
+        copy.dataset.contentCopy = (lmState.examOwned ? "exam-block" : "lesson") + ":" + lmState.id;
+      }
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
       lmPaintChrome();
@@ -13535,17 +13664,14 @@
           if (globalHidden) hideLabel = personalAllowed ? "Remove access for this student" : "Allow for this student";
           else hideLabel = personalHidden ? "Show to this student" : "Hide for this student";
         }
-        const move = canEditLessons() && !viewAccount && classGroups.length > 1
-          ? '<select class="group-move" data-group-move="' + esc(material.id) + '" aria-label="Move lesson to group">' + classGroups.map((row) => '<option value="' + esc(row.id) + '"' + (row.id === group.id ? " selected" : "") + ">" + esc(row.title) + "</option>").join("") + "</select>"
-          : "";
         const tools = (canEditLessons() || canTuneStudentLessons())
           ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-lm-hide="' + material.id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + '</button>' +
-            (canEditLessons() ? '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "") +
+            (canEditLessons() ? contentCopyButton('lesson',material.id) + '<button class="day-del" type="button" data-lm-delete="' + material.id + '" aria-label="Delete lesson">' + trash + "</button>" : "") +
             "</div>"
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + move + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {
@@ -13570,7 +13696,7 @@
     }
     function lmDeleteLesson(id) {
       id = domEntityId(id);
-      if (!canEditLessons() || viewAccount) return;
+      if (!canEditLessons()) return;
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       const unsaved = !found && lmState && lmState.id === id;
@@ -13965,6 +14091,8 @@
           const id = openPdfBtn.dataset.pdfOpen || openPdfBtn.dataset.fileOpen;
           const block = lmBlock(id);
           const title = block && (block.title || block.name);
+          const external = lmExternalFile(block);
+          if (external) { window.open(external, "_blank", "noopener,noreferrer"); return; }
           const openStored = async () => {
             const href = await lmResolveFile(id);
             if (!href) {
@@ -14063,18 +14191,6 @@
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
       const groupNew = document.getElementById("groupNew");
       if (groupNew) groupNew.addEventListener("click", groupCreate);
-      const lmDayList = document.getElementById("lmDayList");
-      if (lmDayList) lmDayList.addEventListener("change", (event) => {
-        const select = event.target.closest("[data-group-move]");
-        if (!select || !canEditLessons() || viewAccount) return;
-        const lessonId = domEntityId(select.dataset.groupMove);
-        classGroups.forEach((group) => { group.lessonIds = group.lessonIds.filter((id) => id !== lessonId); });
-        const target = classGroups.find((group) => group.id === domEntityId(select.value));
-        if (target) target.lessonIds.push(lessonId);
-        paintLmDays();
-        paintGroups();
-        groupSave();
-      });
       paintLmDays();
     }
 
@@ -14098,6 +14214,7 @@
       examResetWork();
     }
     function examLoad() {
+      if (authUser?.role === "USER" && !examReady) return [];
       try {
         const list = JSON.parse(localStorage.getItem("enquiz-exams") || "[]");
         return Array.isArray(list) ? list : [];
@@ -14135,10 +14252,12 @@
         date: row.date || "",
         published: !!row.published,
         hidden: !!row.hidden,
+        personalHidden: !!row.personalHidden,
         created: row.created || Date.now(),
         blocks: (row.blocks || []).map((block) => ({
           id: block.id,
           hidden: !!block.hidden,
+          personalHidden: !!block.personalHidden,
           doc: {
             id: block.id,
             title: block.title || "Examination block",
@@ -14219,8 +14338,9 @@
       examPulling = true;
       const session = examSession;
       const actorId = authUser.id;
-      examFlight = accountFetch("/api/exams").then((data) => {
-        if (session !== examSession || !authUser || authUser.id !== actorId) return;
+      const target = viewAccount?.id || '', generation = viewGen;
+      examFlight = accountFetch("/api/exams" + (target ? "?for=" + encodeURIComponent(target) : "")).then((data) => {
+        if (session !== examSession || !authUser || authUser.id !== actorId || generation !== viewGen || target !== (viewAccount?.id || '')) return;
         const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
         examKnown = new Set(remote.map((row) => row.id));
         examReady = true;
@@ -14318,6 +14438,7 @@
         const answers = row.answers || {};
         (block.doc.blocks || []).forEach((part) => {
           const given = answers[part.id] || {};
+          if (part.type === "task") part.response = given[0] || "";
           (part.items || []).forEach((item, index) => { if (item && given[index] != null) item.given = given[index]; });
         });
       });
@@ -14341,8 +14462,9 @@
     function examCollectAnswers(doc) {
       const answers = {};
       (doc.blocks || []).forEach((part) => {
-        if (!part || part.type !== "quiz") return;
+        if (!part || !["quiz", "exercise", "task"].includes(part.type)) return;
         const row = {};
+        if (part.type === "task" && part.response) row[0] = part.response;
         (part.items || []).forEach((item, index) => { if (item && item.given != null && item.given !== "") row[index] = item.given; });
         if (Object.keys(row).length) answers[part.id] = row;
       });
@@ -14393,6 +14515,8 @@
       const root = document.getElementById("material");
       if (root) {
         root.classList.remove("is-exam-locked");
+        root.classList.remove("is-exam-restricted", "notranslate");
+        root.removeAttribute("translate");
         const back = root.querySelector("[data-nav-back]");
         if (back) {
           back.dataset.fallback = "days";
@@ -14406,6 +14530,20 @@
       const save = document.getElementById("examSave");
       if (save) save.hidden = true;
     }
+    function examStudentRestricted() {
+      return authUser?.role === "USER" && !viewAccount && lmState?.examOwned && document.querySelector("section.on")?.id === "material";
+    }
+    document.addEventListener("click", (event) => {
+      if (!examStudentRestricted() || !event.target.closest("#material")) return;
+      if (event.target.closest("[data-read], [data-lm-word], [data-rule-open], [data-content-copy], [data-ex-check], [data-quiz-check], [data-usages]")) {
+        event.preventDefault(); event.stopImmediatePropagation(); hideSelpop();
+      }
+    }, true);
+    for (const type of ["copy", "cut", "paste", "contextmenu", "selectstart", "dragstart", "drop"]) document.addEventListener(type, (event) => {
+      if (!examStudentRestricted() || !event.target.closest?.("#material")) return;
+      if (type === "selectstart" && event.target.closest("input, textarea")) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+    }, true);
     function examDress() {
       const root = document.getElementById("material");
       const owned = !!(lmState && lmState.examOwned);
@@ -14413,6 +14551,13 @@
       const taking = owned && !canEditLessons() && !reviewer;
       const locked = taking && !!lmState.studentSaved;
       if (root) root.classList.toggle("is-exam-locked", locked);
+      if (root) {
+        const restricted = owned && authUser?.role === "USER" && !viewAccount;
+        root.classList.toggle("is-exam-restricted", restricted);
+        root.classList.toggle("notranslate", restricted);
+        if (restricted) { root.setAttribute("translate", "no"); hideSelpop(); }
+        else root.removeAttribute("translate");
+      }
       const save = document.getElementById("examSave");
       if (save) save.hidden = reviewer ? false : (!taking || locked);
       document.querySelectorAll("[data-exam-quiz]").forEach((btn) => { btn.hidden = !owned || !canEditLessons(); });
@@ -14484,7 +14629,7 @@
       const reviewer = canTuneStudentLessons();
       const lock = reviewer || lmState.studentSaved ? " disabled" : "";
       const items = block.items || [];
-      const tail = (index) => reviewer ? examPointInput(block, index) : "";
+      const tail = (index) => reviewer ? (["Choice", "Odd one out", "Select all", "True / false"].includes(kind) ? examFixInput(block, index) : "") + examPointInput(block, index) : "";
       if (kind === "Choice" || kind === "Odd one out") {
         return title + items.map((item, index) => {
           const given = Number(item.given);
@@ -14509,7 +14654,7 @@
         }).join("");
       }
       if (kind === "Match" || kind === "Memory") {
-        const rights = items.map((item) => item.right || "").filter(Boolean);
+        const rights = block.answerOptions || items.map((item) => item.right || "").filter(Boolean);
         return title + items.map((item, index) => {
           if (reviewer) {
             const ok = examSame(item.given, item.right);
@@ -14532,9 +14677,16 @@
     }
     function examFillAnswers() {
       (lmState.blocks || []).forEach((block) => {
-        if (block.type !== "quiz") return;
+        if (!["quiz", "exercise", "task"].includes(block.type)) return;
         const panel = document.querySelector('#lmPreview [data-lm-panel="' + block.id + '"]');
-        if (panel) panel.innerHTML = examAnswerHtml(block);
+        if (!panel) return;
+        if (block.type === "quiz") panel.innerHTML = examAnswerHtml(block);
+        else if (block.type === "task") {
+          const reviewer = canTuneStudentLessons(), given = block.response || "";
+          panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : "");
+        } else {
+          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll(block.id + ":0", block.id + ":" + index).replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
+        }
       });
     }
     function examRemember(input) {
@@ -14555,6 +14707,12 @@
         return;
       }
       const source = input.closest("[data-exam-given]");
+      const response = input.closest("[data-exam-response]");
+      if (response && !reviewer) {
+        const block = lmState.blocks.find(row => String(row.id) === response.dataset.examResponse);
+        if (block) { block.response = response.value; examWorkPut(lmState.examId, lmState.blockId, { answers: examCollectAnswers(lmState) }); }
+        return;
+      }
       if (!source || reviewer) return;
       const bits = source.dataset.examGiven.split(":");
       const block = (lmState.blocks || []).find((row) => row.id === domEntityId(bits[0]));
@@ -14576,14 +14734,14 @@
       return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
     }
     function examTools(kind, id, hidden) {
-      if (!canEditLessons()) return "";
+      if (!canEditLessons() && !canTuneStudentLessons()) return "";
       const eye = hidden
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></svg>';
       const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
-      const pencil = kind === "exam" ? '<button class="day-edit" type="button" data-exam-edit="' + id + '" aria-label="Edit exam" title="Edit exam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg></button>' : "";
+      const pencil = kind === "exam" && canEditLessons() ? '<button class="day-edit" type="button" data-exam-edit="' + id + '" aria-label="Edit exam" title="Edit exam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M12 6l4 4"/></svg></button>' : "";
       const hideLabel = hidden ? "Show" : "Hide";
-      return '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-exam-hide="' + kind + ":" + id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + "</button>" + pencil + '<button class="day-del" type="button" data-exam-del="' + kind + ":" + id + '" aria-label="Delete">' + trash + "</button></div>";
+      return '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-exam-hide="' + kind + ":" + id + '" aria-label="' + hideLabel + '" title="' + hideLabel + '">' + eye + "</button>" + pencil + (canEditLessons() ? contentCopyButton(kind==='exam'?'exam':'exam-block',id) + '<button class="day-del" type="button" data-exam-del="' + kind + ":" + id + '" aria-label="Delete">' + trash + '</button>' : '') + '</div>';
     }
     function examStudentSees(exam) {
       if (!exam || exam.hidden) return false;
@@ -14602,7 +14760,7 @@
       stored.forEach((exam) => { if (examStamp(exam)) dirty = true; });
       if (dirty) examSave(stored);
       const exams = examShown();
-      const rows = exams.filter((exam) => canEditLessons() || examStudentSees(exam)).slice().sort((a, b) => {
+      const rows = exams.filter((exam) => canEditLessons() || canTuneStudentLessons() || examStudentSees(exam)).slice().sort((a, b) => {
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
       });
@@ -14613,7 +14771,10 @@
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
         let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
         if (mine) about += " · " + sum;
-        return examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, !!exam.hidden, examTools("exam", exam.id, !!exam.hidden));
+        const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
+        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
+        if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
+        return examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, hidden, examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -14628,17 +14789,25 @@
       paintPagePath("examblocks");
       if (!box || !exam) return;
       box.innerHTML = (exam.blocks || []).map((block, index) => {
-        if (!canEditLessons() && (!(block.doc && block.doc.published) || block.hidden)) return "";
+        if (!canEditLessons() && !canTuneStudentLessons() && (!(block.doc && block.doc.published) || block.hidden)) return "";
         const saved = !canEditLessons() && block.doc && block.doc.studentSaved;
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
         let about = block.hidden ? "Hidden" : (saved ? "Saved" : (block.doc && block.doc.published ? "Published" : "Draft"));
         if (mine) about += " · " + sum;
-        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, !!block.hidden, examTools("block", block.id, !!block.hidden));
+        const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
+        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
+        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, examTools("block", block.id, hidden));
       }).join("");
     }
     function examHide(kind, id) {
       id = domEntityId(id);
+      if (viewAccount) {
+        const exam = examFind(kind === 'exam' ? id : examCurrentId);
+        const row = kind === 'exam' ? exam : exam?.blocks?.find(block => block.id === id);
+        if (row) return toggleManagedVisibility(row, kind === 'exam' ? 'exam' : 'exam-block');
+        return;
+      }
       if (!canEditLessons()) return;
       const exams = examLoad();
       if (kind === "exam") {
@@ -14654,6 +14823,17 @@
       examSave(exams);
       if (kind === "exam") examPaintList();
       else examPaintBlocks();
+    }
+    function toggleManagedVisibility(row, type) {
+      if (!canTuneStudentLessons() || !accountReady || viewSwitching) return;
+      const target = viewAccount.id, generation = viewGen;
+      return window.TursoMain.perform(async () => {
+        await window.TursoMain.setManagedVisibility(target, type, row.id, !!row.personalHidden, !row.personalHidden);
+        if (generation !== viewGen || viewAccount?.id !== target) return;
+        window.ContentCache?.drop('account:');
+        if (type === 'group') await groupPull(true);
+        else await examPull(true);
+      });
     }
     function examDelete(kind, id) {
       id = domEntityId(id);

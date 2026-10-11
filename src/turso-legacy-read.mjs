@@ -1,7 +1,8 @@
 // Read-only compatibility projection for the isolated original interface.
 // No legacy write-through, D1 study queries, or production R2 fallbacks.
 import {statement as s,lessonAccess,cardAccess,accessArgs,StudyError} from './turso-study.mjs';
-import {libraryDto} from './turso-personal.mjs';
+import {libraryDto,libraryVisibility} from './turso-personal.mjs';
+import {themeAccount} from './turso-paired-themes.mjs';
 const banks=['LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT'];
 // Detail fields are deferred, never deleted from SQL. Quiz data remains synchronous.
 export const dictionaryDetailPaths=['links','longman','merriam','oxford','wikdict','wiktionary','collins','englishAtHome','englishClub','openRussian',
@@ -11,6 +12,28 @@ export function legacyCard(row){
   const extra=JSON.parse(row.extra_json);
   return {...extra,en:row.en,ru:row.ru,pos:row.part_of_speech,...(extra.past!==undefined?{base:row.en}:{}),
     stageId:row.id,stageRevision:row.revision,stageScope:row.scope,deleted:row.deleted_at!==null};
+}
+export async function projectStudentCatalog(db,actor,value){
+  if(!actor||actor.role!=='USER')return value;
+  const ids=new Set();
+  const collect=item=>{
+    if(Array.isArray(item)){for(const row of item)collect(row);return;}
+    if(!item||typeof item!=='object')return;
+    if(item.stageId||item.cardId)ids.add(Number(item.stageId||item.cardId));
+    for(const row of Object.values(item))collect(row);
+  };
+  collect(value);
+  const keys=[...ids].filter(id=>Number.isSafeInteger(id)&&id>0);
+  if(!keys.length)return value;
+  const rows=await db.read(`SELECT c.id FROM cards c WHERE c.id IN (${keys.map(()=>'?').join(',')}) AND ${cardAccess}`,[...keys,...accessArgs(actor)]);
+  const allowed=new Set(rows.map(row=>String(row.id)));
+  const filter=item=>{
+    if(Array.isArray(item))return item.map(filter).filter(row=>row!==null);
+    if(!item||typeof item!=='object')return item;
+    if((item.stageId||item.cardId)&&!allowed.has(String(item.stageId||item.cardId)))return null;
+    return Object.fromEntries(Object.entries(item).map(([key,row])=>[key,filter(row)]));
+  };
+  return filter(value);
 }
 export async function publicCatalogs(db,keys=null){
   if(keys&&(!Array.isArray(keys)||!keys.length||keys.some(key=>![...banks,'VERB_IPA','VERB_IPA_CASE'].includes(key))))throw new StudyError(400,'Invalid catalog keys.');
@@ -100,14 +123,14 @@ export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={})
   if(!summary){
     const rows=await db.read(`SELECT l.* FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id
       JOIN library_items l ON l.id=p.item_id WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL
-      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) ORDER BY p.position,l.id`,[actor.id]);
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} ORDER BY p.position,l.id`,[actor.id]);
     return {texts:rows.map(row=>libraryDto(row))};
   }
   const size=pageLimit(limit),cursor=cardCursor(after);
   const rows=await db.read(`SELECT l.id,l.scope,l.revision,json_extract(l.content_json,'$.title') title,json_extract(l.content_json,'$.level') level,
     substr(COALESCE(json_extract(l.content_json,'$.text'),''),1,140) preview,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id
     FROM profile_members m JOIN profile_library_items p ON p.profile_id=m.profile_id JOIN library_items l ON l.id=p.item_id
-    WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=m.profile_id) AND l.id>?
+    WHERE m.account_id=? AND l.kind='text' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} AND l.id>?
     ORDER BY l.id LIMIT ?`,[actor.id,cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
   return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
@@ -219,7 +242,8 @@ function slicePage(ids,cursor,size){
   return {page,next:start+size<ids.length?page.at(-1)||null:null};
 }
 export async function accountThemes(db,actor){
-  const rows=await db.read("SELECT key,value_json,revision,length(value_json) bytes FROM account_settings WHERE account_id=? AND key IN ('theme','customThemes')",[actor.id]);
+  const owner=await themeAccount(db,actor);
+  const rows=await db.read("SELECT key,value_json,revision,length(value_json) bytes FROM account_settings WHERE account_id=? AND key IN ('theme','customThemes')",[owner]);
   let theme='',themes=[];
   for(const row of rows){
     let value;
@@ -231,20 +255,22 @@ export async function accountThemes(db,actor){
 }
 export async function accountBootstrap(db,actor){
   const profile=await profileOf(db,actor);
-  const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
+  const themeOwner=await themeAccount(db,actor);
+  const hiddenCards=review(actor)?[]:await db.read(`SELECT c.id FROM cards c WHERE (c.scope='shared' OR c.owner_profile_id=?) AND NOT (${cardAccess})`,[profile,...accessArgs(actor)]);
+  const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN visible_cards c ON c.id=link.card_id WHERE link.collection_id=q.id)`;
   const [counts,settings,access,links,activity,catalogs,lessonCount]=await db.readMany([
-    s(`SELECT
-      (SELECT COUNT(*) FROM profile_cards WHERE profile_id=?) cards,
-      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL) songs,
-      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL) texts,
+    s(`SELECT * FROM (WITH visible_cards AS MATERIALIZED (SELECT c.id FROM cards c WHERE ${cardAccess}) SELECT
+      (SELECT COUNT(*) FROM profile_cards p JOIN visible_cards c ON c.id=p.card_id WHERE p.profile_id=?) cards,
+      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL${libraryVisibility(actor)}) songs,
+      (SELECT COUNT(*) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL${libraryVisibility(actor)}) texts,
       (SELECT COUNT(*) FROM card_progress WHERE profile_id=?) progress,
       (SELECT COUNT(*) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizzes,
       (SELECT COALESCE(SUM(l.revision),0) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL) songRevision,
       (SELECT COALESCE(SUM(l.revision),0) FROM profile_library_items p JOIN library_items l ON l.id=p.item_id WHERE p.profile_id=? AND l.kind='text' AND l.deleted_at IS NULL) textRevision,
       (SELECT COALESCE(SUM(revision),0) FROM card_progress WHERE profile_id=?) progressRevision,
-      (SELECT COALESCE(SUM(z.revision),0) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizRevision`,
-      [profile,profile,profile,profile,...accessArgs(actor),profile,profile,profile,...accessArgs(actor)]),
-    s('SELECT key,value_json,revision,length(value_json) bytes,\'account\' origin FROM account_settings WHERE account_id=? UNION ALL SELECT key,value_json,revision,length(value_json) bytes,\'profile\' origin FROM profile_settings WHERE profile_id=? AND key NOT LIKE \'activity:%\' AND key!=\'tursoCardLinks\'',[actor.id,profile]),
+      (SELECT COALESCE(SUM(z.revision),0) FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id WHERE z.deleted_at IS NULL AND ${visibleCollection}) quizRevision)`,
+      [...accessArgs(actor),profile,profile,profile,profile,profile,profile,profile]),
+    s("SELECT key,value_json,revision,length(value_json) bytes,'account' origin FROM account_settings WHERE (account_id=? AND key NOT IN ('theme','customThemes','pairedThemeBackup','pairedThemeAccount')) OR (account_id=? AND key IN ('theme','customThemes')) UNION ALL SELECT key,value_json,revision,length(value_json) bytes,'profile' origin FROM profile_settings WHERE profile_id=? AND key NOT LIKE 'activity:%' AND key!='tursoCardLinks'",[actor.id,themeOwner,profile]),
     s('SELECT lesson_id,allow_hidden,personal_hidden FROM lesson_access WHERE account_id=?',[actor.id]),
     s("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]),
     s("SELECT value_json FROM profile_settings WHERE profile_id=? AND key LIKE 'activity:%'",[profile]),
@@ -262,6 +288,7 @@ export async function accountBootstrap(db,actor){
     stats[row.key]=JSON.parse(row.value_json);
   }
   stats.hiddenLessons=access.filter(row=>row.personal_hidden).map(row=>row.lesson_id);
+  stats.hiddenCardIds=hiddenCards.map(row=>row.id);
   stats.allowedLessons=access.filter(row=>row.allow_hidden).map(row=>row.lesson_id);
   const theme=settings.find(row=>row.key==='theme'&&row.origin==='account');
   const custom=settings.find(row=>row.key==='customThemes'&&row.origin==='account');
@@ -280,11 +307,13 @@ function cardRow(row){
   return {...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stagePublicCatalog:row.stage_public||false};
 }
 const personalCardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
-export async function accountCards(db,actor,{after='',limit=50,place=''}={}){
+export async function accountCards(db,actor,{after='',limit=50,place='',excludePlaces=[]}={}){
   if(place&&!personalCardPlaces.includes(place))throw new StudyError(400,'Invalid personal card destination.');
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after),placeSql=place?' AND p.place=?':'';
+  const excluded=excludePlaces.filter(value=>personalCardPlaces.includes(value));
+  const excludeSql=excluded.length?` AND p.place NOT IN (${excluded.map(()=>'?').join(',')})`:'';
   const rows=await db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision,c.deleted_at,${compactExtra('c')} extra_json,json_type(c.extra_json,'$.data')='object' stage_dictionary_deferred,p.place
-    FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=?${placeSql} AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...(place?[place]:[]),...accessArgs(actor),cursor,size+1]);
+    FROM profile_cards p JOIN cards c ON c.id=p.card_id WHERE p.profile_id=?${placeSql}${excludeSql} AND ${cardAccess} AND c.id>? ORDER BY c.id LIMIT ?`,[profile,...(place?[place]:[]),...excluded,...accessArgs(actor),cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
   const links=await db.read("SELECT revision FROM profile_settings WHERE profile_id=? AND key='tursoCardLinks'",[profile]);
   const revision=links[0]?.revision||0;
@@ -320,7 +349,7 @@ export async function accountSongs(db,actor,{after='',limit=50}={}){
     json_extract(l.content_json,'$.level') level,json_extract(l.content_json,'$.archived') archived,json_extract(l.content_json,'$.id') client_id,
     json_extract(l.content_json,'$.fileName') file_name,json_extract(l.content_json,'$.fileType') file_type
     FROM profile_library_items p JOIN library_items l ON l.id=p.item_id
-    WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?) AND l.id>?
+    WHERE p.profile_id=? AND l.kind='song' AND l.deleted_at IS NULL AND (l.scope='shared' OR l.owner_profile_id=?)${libraryVisibility(actor)} AND l.id>?
     ORDER BY l.id LIMIT ?`,[profile,profile,cursor,size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
   return {songs:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',artist:row.artist||'',level:row.level||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageLyricsDeferred:true,fileName:row.file_name||'',fileType:row.file_type||'',stageLocalMedia:String(row.media_key||'').startsWith('stage-local/')})),next:more?page.at(-1).id:null};

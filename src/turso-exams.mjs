@@ -1,9 +1,20 @@
 import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
 import {ArchiveService} from './turso-archive.mjs';
+import {materialVisibility} from './turso-visibility.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
+export function studentExamContent(content,type){
+  const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['answer','answers','write','back','hint','correct','marked','score','response','given','picked','typed','examCorrections','examPoints'].includes(key)).map(([key,item])=>[key,clean(item)])):value;
+  if(type==='quiz'&&['Match','Memory'].includes(content.quizType)){
+    const answerOptions=[...new Set((content.items||[]).map(item=>item.right||'').filter(Boolean))].sort();
+    const projected=clean(content);projected.answerOptions=answerOptions;
+    for(const item of projected.items||[])delete item.right;
+    return projected;
+  }
+  return ['quiz','exercise','task'].includes(type)?clean(content):content;
+}
 const fail = (status, message) => { throw new StudyError(status, message); };
 const schema = [
   `CREATE TABLE IF NOT EXISTS exams (
@@ -83,21 +94,24 @@ export class ExamService {
       ORDER BY position`, [...ids, teacher ? 1 : 0]);
     const materials = await this.db.read(`SELECT exam_id, block_id, id, position, type, tab, content_json FROM exam_materials
       WHERE deleted_at IS NULL AND exam_id IN (${marks}) ORDER BY position`, ids);
-    return exams.map(exam => ({
+    const hidden=await materialVisibility(this.db,actor.id);
+    return exams.filter(exam=>teacher||!hidden.has('exam:'+exam.id)).map(exam => ({
       id: exam.id,
       title: exam.title || 'Exam',
       date: exam.lesson_date || '',
       published: !!exam.published,
       hidden: !!exam.hidden_from_students,
+      personalHidden: hidden.has('exam:'+exam.id),
       created: Number(exam.created_at) || 0,
-      blocks: blocks.filter(block => block.exam_id === exam.id).map(block => ({
+      blocks: blocks.filter(block => block.exam_id === exam.id&&(teacher||!hidden.has('exam-block:'+block.id))).map(block => ({
         id: block.id,
         title: block.title || '',
         published: !!block.published,
         hidden: !!block.hidden_from_students,
+        personalHidden: hidden.has('exam-block:'+block.id),
         materials: materials.filter(part => part.exam_id === exam.id && part.block_id === block.id).map(part => {
           const content = JSON.parse(part.content_json || '{}');
-          return { ...content, id: part.id, type: part.type, tab: part.tab || '' };
+          return { ...(teacher?content:studentExamContent(content,part.type)), id: part.id, type: part.type, tab: part.tab || '' };
         })
       }))
     }));
@@ -203,8 +217,12 @@ export class ExamService {
     signedIn(actor);
     await this.ensure();
     const account = this.workAccount(actor, studentId);
-    const rows = await this.db.read('SELECT exam_id, block_id, saved, answers_json, corrections_json, points_json FROM exam_work WHERE account_id=?', [account]);
-    return rows.map(row => ({
+    const rows = await this.db.read(`SELECT w.exam_id,w.block_id,w.saved,w.answers_json,w.corrections_json,w.points_json FROM exam_work w
+      JOIN exams e ON e.id=w.exam_id JOIN exam_blocks b ON b.id=w.block_id AND b.exam_id=e.id
+      WHERE w.account_id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
+        AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0))`,[account,+reviewer(actor)]);
+    const hidden=await materialVisibility(this.db,account);
+    return rows.filter(row=>reviewer(actor)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(row => ({
       examId: row.exam_id,
       blockId: row.block_id,
       saved: !!row.saved,
@@ -228,8 +246,17 @@ export class ExamService {
     recordId(examId);recordId(blockId);
     const account = this.workAccount(actor, body.studentId);
     const own = account === actor.id;
+    const [block]=await this.db.read(`SELECT b.id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id
+      WHERE e.id=? AND b.id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
+        AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0))`,[examId,blockId,+reviewer(actor)]);
+    const hidden=await materialVisibility(this.db,account);
+    if(!block||!reviewer(actor)&&(hidden.has('exam:'+examId)||hidden.has('exam-block:'+blockId)))fail(404,'Exam not found.');
     const current = await this.db.read('SELECT saved, answers_json, corrections_json, points_json FROM exam_work WHERE account_id=? AND exam_id=? AND block_id=?', [account, examId, blockId]);
     const prev = current[0] || {};
+    if(own&&actor.role==='USER'&&prev.saved){
+      if(body.saved&&JSON.stringify(body.answers||{})===prev.answers_json)return {saved:true};
+      fail(409,'This examination block has already been submitted.');
+    }
     const pack = (value, limit) => {
       const json = JSON.stringify(value && typeof value === 'object' && !Array.isArray(value) ? value : {});
       if (json.length > limit) fail(413, 'Exam work is too large.');
@@ -241,9 +268,15 @@ export class ExamService {
     const points = own ? (prev.points_json || '{}') : pack(body.points, 8000);
     await this.db.atomic([stmt(`INSERT INTO exam_work(account_id, exam_id, block_id, saved, answers_json, corrections_json, points_json)
       VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id, exam_id, block_id) DO UPDATE SET
-      saved=excluded.saved, answers_json=excluded.answers_json, corrections_json=excluded.corrections_json,
-      points_json=excluded.points_json, updated_at=unixepoch()`,
-      [account, examId, blockId, saved, answers, corrections, points])]);
+      saved=max(exam_work.saved,excluded.saved), answers_json=CASE WHEN ?=1 THEN excluded.answers_json ELSE exam_work.answers_json END,
+      corrections_json=CASE WHEN ?=1 THEN exam_work.corrections_json ELSE excluded.corrections_json END,
+      points_json=CASE WHEN ?=1 THEN exam_work.points_json ELSE excluded.points_json END, updated_at=unixepoch()
+      WHERE exam_work.saved=0 OR ?=1`,
+      [account, examId, blockId, saved, answers, corrections, points,+own,+own,+own,+(actor.role!=='USER')])]);
+    if(own&&actor.role==='USER'){
+      const [written]=await this.db.read('SELECT answers_json FROM exam_work WHERE account_id=? AND exam_id=? AND block_id=?',[account,examId,blockId]);
+      if(written?.answers_json!==answers)fail(409,'This examination block has already been submitted.');
+    }
     return { saved: true };
   }
 }

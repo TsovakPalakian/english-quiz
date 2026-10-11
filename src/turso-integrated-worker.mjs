@@ -2,8 +2,12 @@
 // implementation; ONLY explicitly migrated educational routes go to Turso.
 import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied} from './worker.js';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './turso-stage-worker.mjs';
-import {StudyError,StudyService} from './turso-study.mjs';
+import {StudyError,StudyService,statement as s} from './turso-study.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
+import {ensurePairedThemes} from './turso-paired-themes.mjs';
+import {VisibilityService} from './turso-visibility.mjs';
+import {GroupService} from './turso-groups.mjs';
+import {ExamService} from './turso-exams.mjs';
 import {TursoStudyClient} from './turso-study.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './turso-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './turso-media.mjs';
@@ -117,7 +121,10 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(path==='/api/archive'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const archive=new ArchiveService(studyDatabase(env));
-        if(method==='GET')return json(await archive.list(actor));
+        if(method==='GET'){
+          const params=new URL(request.url).searchParams;
+          return json(params.has('type')||params.has('id')?await archive.preview(actor,{type:params.get('type'),id:params.get('id')}):await archive.list(actor));
+        }
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const raw=await boundedText(request,JSON_BODY_LIMIT,'Archive request too large.');let value;
         try{value=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
@@ -144,7 +151,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(path==='/api/bugs/resolve'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
-        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>200)throw new StudyError(413,'Bug request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!await resolveBug(studyDatabase(env),body.id))throw new StudyError(404,'Bug not found.');
@@ -152,7 +159,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(path==='/api/bugs'&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
-        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'You cannot do that.');
         const db=studyDatabase(env);
         if(url.searchParams.get('heads')==='1'){
           if(url.searchParams.has('ids'))throw new StudyError(400,'Invalid bug ids.');
@@ -196,7 +203,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>(managedLink[2]?64000:4096))throw new StudyError(413,'Card request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
-        if(!found.songs&&body.place==='music')throw new StudyError(403,'Teacher cannot manage student songs.');
+        if(!found.songs&&['music','text'].includes(body.place||body.card?.place))throw new StudyError(403,'This material is unavailable.');
         const db=studyDatabase(env);
         return json(managedLink[2]?await new PersonalService(db).createManagedCard(actor,found.row.id,body):await new StudyService(db).linkManagedCard(actor,found.row.id,body));
       }
@@ -204,6 +211,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(managedCard&&['PATCH','DELETE'].includes(method)){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(method==='DELETE'&&actor.role!=='DEVELOPER')throw new StudyError(403,'You cannot remove another account\'s data.');
         const found=await authorizeManaged(accountEnv,actor,managedCard[1]);if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const raw=await request.text();if(raw.length>12000)throw new StudyError(413,'Card request too large.');
@@ -220,23 +228,41 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const found=await authorizeManaged(accountEnv,actor,managedText[1]);if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
         const kind=managedText[2]==='texts'?'text':'song';
-        if(kind==='song'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song inspection only.');
-        const target={id:found.row.id,role:found.row.role};
+        if(actor.role!=='DEVELOPER'||kind==='song'&&!found.songs)throw new StudyError(403,'This material is unavailable.');
+        const target={id:found.row.id,role:actor.role};
         return json({item:await new PersonalService(studyDatabase(env)).libraryItem(target,cardKey(managedText[3]))});
       }
       if(managedText&&(managedText[3]?['PATCH','DELETE'].includes(method):method==='POST')){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(method==='DELETE'&&actor.role!=='DEVELOPER')throw new StudyError(403,'You cannot remove another account\'s data.');
         const found=await authorizeManaged(accountEnv,actor,managedText[1]);if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'study'))throw new StudyError(403,'You cannot do that.');
         const kind=managedText[2]==='texts'?'text':'song';
-        if(kind==='song'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song management only.');
+        if(actor.role!=='DEVELOPER'||kind==='song'&&!found.songs)throw new StudyError(403,'This material is unavailable.');
         const raw=await boundedText(request,kind==='text'?LIBRARY_BODY_LIMIT:JSON_BODY_LIMIT,'Text request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         const service=new PersonalService(studyDatabase(env));
         return json(method==='POST'?await service.createManagedLibrary(actor,found.row.id,kind,body):await service.editManagedLibrary(actor,found.row.id,cardKey(managedText[3]),kind,body,method==='DELETE'));
       }
       const managedAccess=path.match(new RegExp('^/api/admin/users/('+identity+')/lessons/([1-9]\\d{0,15})/access$'));
+      const managedVisibility=path.match(new RegExp('^/api/admin/users/('+identity+')/visibility$'));
+      if(managedVisibility&&method==='PATCH'){
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const found=await authorizeManaged(accountEnv,actor,managedVisibility[1]);if(found.error)return found.error;
+        if(pairManageDenied(actor,found.row.login,'restrict'))throw new StudyError(403,'You cannot do that.');
+        let body;try{body=JSON.parse(await boundedText(request,4096,'Visibility request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid JSON.');}
+        return json(await new VisibilityService(studyDatabase(env)).set(actor,found.row.id,body));
+      }
+      if(['/api/groups','/api/exams'].includes(path)&&method==='GET'&&url.searchParams.has('for')){
+        if([...url.searchParams.keys()].some(key=>key!=='for')||url.searchParams.getAll('for').length!==1)throw new StudyError(400,'Invalid account filter.');
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const found=await authorizeManaged(accountEnv,actor,url.searchParams.get('for'));if(found.error)return found.error;
+        if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
+        const target={id:found.row.id,role:actor.role},db=studyDatabase(env);
+        return json(path==='/api/groups'?{groups:await new GroupService(db).list(target)}:{exams:await new ExamService(db).list(target)});
+      }
       if(managedAccess&&method==='PATCH'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -252,8 +278,8 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,params.get('for'));if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,path==='/api/lesson-file'?'read':'study'))throw new StudyError(403,'You cannot do that.');
-        if(path==='/api/song-file'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'Developer song inspection only.');
-        const target={id:found.row.id,role:found.row.role},key=await mediaKey(studyDatabase(env),target,path==='/api/song-file'?'song':'lesson',params.get('id')||'');
+        if(path==='/api/song-file'&&(actor.role!=='DEVELOPER'||!found.songs))throw new StudyError(403,'This material is unavailable.');
+        const target={id:found.row.id,role:actor.role},key=await mediaKey(studyDatabase(env),target,path==='/api/song-file'?'song':'lesson',params.get('id')||'');
         return key.startsWith('stage-local/')?await stageR2Media(env).response(key,method,request.headers.get('range')||''):await storedMediaResponse(env.MEDIA,key,request);
       }
       const managedDictionaries=path.match(new RegExp('^/api/admin/users/('+identity+')/cards/dictionary$'));
@@ -291,9 +317,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           const params=new URL(request.url).searchParams;
           if([...params.keys()].some(key=>!['from','to'].includes(key)||params.getAll(key).length!==1))throw new StudyError(400,'Only date filters are allowed.');
           const value=await new ActivityService(db).stats(target,Object.fromEntries(params));
-          if(!found.songs){for(const key of ['songs','archives','previousSongs','previousArchives'])delete value.activity[key];
-            for(const row of value.activity.series){delete row.songs;delete row.archives;if(row.cardAreas){delete row.cardAreas.music;delete row.cardAreas.lyrics;}}
-            delete value.activity.cardAreas.music;delete value.activity.cardAreas.lyrics;}
+          if(!found.songs){for(const key of ['songs','texts','archives','previousSongs','previousTexts','previousArchives'])delete value.activity[key];
+            for(const row of value.activity.series){delete row.songs;delete row.texts;delete row.archives;if(row.cardAreas){delete row.cardAreas.music;delete row.cardAreas.lyrics;delete row.cardAreas.text;}}
+            delete value.activity.cardAreas.music;delete value.activity.cardAreas.lyrics;delete value.activity.cardAreas.text;}
           return json({...value,hideSongs:!found.songs,statisticsSource:'turso-activity',targetAccountId:target.id});
         }
         // Teacher may inspect definitions; responses belong strictly to target.
@@ -302,13 +328,17 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:params.get('summary')==='1',lessonId:lessonId?cardKey(lessonId):''})));
         }
         const params=new URL(request.url).searchParams,query={after:params.get('after')||'',limit:pageLimit(params.get('limit')),place:params.get('place')||''};
-        if(managedRead[2]==='texts')return json(await legacyTexts(db,target,{summary:params.get('summary')!=='0',...query}));
-        if(managedRead[2]==='cards')return json(await accountCards(db,target,query));
+        if(managedRead[2]==='texts'){if(actor.role!=='DEVELOPER')throw new StudyError(403,'This material is unavailable.');return json(await legacyTexts(db,{...target,role:actor.role},{summary:params.get('summary')!=='0',...query}));}
+        if(managedRead[2]==='cards')return json(await accountCards(db,{...target,role:actor.role},{...query,excludePlaces:actor.role==='ADMIN'?['music','text']:[]}));
         if(managedRead[2]==='quizzes')return json(await accountQuizzes(db,target,query));
         if(managedRead[2]==='progress')return json(await accountProgress(db,target,query));
-        if(managedRead[2]==='songs'){if(actor.role!=='DEVELOPER'||!found.songs)throw new StudyError(403,'Developer song inspection only.');return json(await accountSongs(db,target,query));}
+        if(managedRead[2]==='songs'){if(actor.role!=='DEVELOPER'||!found.songs)throw new StudyError(403,'This material is unavailable.');return json(await accountSongs(db,{...target,role:actor.role},query));}
         const value=await accountBootstrap(db,target);
-        if(!found.songs&&value.counts)value.counts.songs=0;
+        if(actor.role==='ADMIN'){
+          if(value.counts){value.counts.songs=0;value.counts.texts=0;}
+          if(value.stats){delete value.stats.theme;delete value.stats.customThemes;}
+          delete value.stageThemeRevision;delete value.stageCustomRevision;
+        }
         // Inspection does not provision accounts or permit whole-state writes.
         return json(value);
       }
@@ -316,7 +346,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const target=new URL(request.url);target.pathname='/api/stats';
         const all=target.searchParams.get('scope')==='all';
-        if(all&&actor.role!=='DEVELOPER')throw new StudyError(403,'Developer archive report only.');
+        if(all&&actor.role!=='DEVELOPER')throw new StudyError(403,'You cannot do that.');
         target.searchParams.delete('scope');target.searchParams.delete('role');
         if(all){target.searchParams.delete('user');target.searchParams.delete('as');}
         else{target.searchParams.set('user',actor.id);target.searchParams.set('as','user');}
@@ -326,13 +356,31 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(accountRoute(path,method)){
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
-        const response=await accountWorker.fetch(request,accountEnv,ctx);
-        // Only the trusted original login response can provision an empty profile.
-        if(path==='/api/login'&&method==='POST'&&response.ok&&env.STAGE_WRITES==='true'){
+        let response=await accountWorker.fetch(request,accountEnv,ctx);
+        // Only a trusted authentication response may attach the reserved pair.
+        if((path==='/api/login'&&method==='POST'||path==='/api/me'&&method==='GET')&&response.ok&&env.STAGE_WRITES==='true'){
           const value=await response.clone().json();
-          if(value.user){
+          let newStudyAccount=false;
+          if(value.user&&(path==='/api/login'||['TsovakDev','Tsovak'].includes(value.user.login))){
             const twinId=await twinStudyAccountId(accountEnv.DB,value.user.login);
-            await ensureStudyProfile(studyClient(env),value.user,twinId);
+            const db=studyClient(env);
+            if(path==='/api/login')newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[value.user.id])).length;
+            await ensurePairedThemes(db,value.user,twinId);
+            try{await ensureStudyProfile(db,value.user,twinId);}
+            catch(error){
+              if(!(error instanceof StudyError)||error.status!==409)throw error;
+              // Keep authentication usable if existing profiles need an explicit merge.
+              const headers=new Headers(response.headers);headers.delete('Content-Length');
+              return Response.json({...value,studyPairNeedsMerge:true},{status:response.status,headers});
+            }
+          }
+          if(value.user&&path==='/api/login'){
+            const db=studyClient(env),[seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[value.user.id]);
+            const recent=Number(value.user.createdAt)>Date.now()/1000-30*86400;
+            await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[value.user.id])]);
+            value.user.firstLogin=!seen&&recent&&newStudyAccount;
+            const headers=new Headers(response.headers);headers.delete('Content-Length');
+            response=Response.json(value,{status:response.status,headers});
           }
         }
         if(response.ok&&['/api/me','/api/login'].includes(path)){

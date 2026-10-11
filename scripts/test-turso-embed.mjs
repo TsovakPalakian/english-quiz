@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {embedSource,stageContentPolicy,previewImage} from '../src/turso-embed.mjs';
+import {embedSource,stageContentPolicy,previewImage,mediaSource} from '../src/turso-embed.mjs';
 test('R5 embeds recognize exact HTTPS hosts and discard unrelated URL parameters',()=>{
   const id='abcdefghijk';
   assert.equal(embedSource('https://youtu.be/'+id+'?secret=ignored'),'https://www.youtube-nocookie.com/embed/'+id+'?enablejsapi=1');
@@ -15,6 +15,11 @@ test('Preview images use only same-origin and the exact HTTPS Wordwall screensho
   const origin='https://test.invalid',cdn='https://screens.cdn.wordwall.net/800/example_1';
   assert.equal(previewImage(cdn,origin),cdn);assert.equal(previewImage('/api/lesson-file?id=known',origin),origin+'/api/lesson-file?id=known');
   for(const url of ['', 'http://screens.cdn.wordwall.net/image','https://screens.cdn.wordwall.net.evil.invalid/image','https://wordwall.net/image','https://evil.invalid/image','https://user:password@screens.cdn.wordwall.net/image','https://screens.cdn.wordwall.net:444/image','data:image/png;base64,eA==','javascript:alert(1)'])assert.equal(previewImage(url,origin),'');
-  assert.match(stageContentPolicy,/img-src 'self' data: blob: https:\/\/screens\.cdn\.wordwall\.net;/);
+  assert.match(stageContentPolicy,/img-src 'self' data: blob: https:\/\/screens\.cdn\.wordwall\.net https:\/\/upload\.wikimedia\.org;/);
   assert.match(stageContentPolicy,/connect-src 'self';/);assert.match(stageContentPolicy,/script-src 'self';/);
+});
+test('Open media allow only exact Wikimedia and selected Internet Archive HTTPS origins',()=>{
+  for(const url of ['https://upload.wikimedia.org/wikipedia/commons/a/ab/film.webm','https://dn710305.ca.archive.org/0/items/book/chapter.mp3'])assert.equal(mediaSource(url),url);
+  for(const url of ['https://upload.wikimedia.org.evil.invalid/film.webm','http://upload.wikimedia.org/film.webm','https://user@upload.wikimedia.org/film.webm','https://upload.wikimedia.org:444/film.webm','https://upload.wikimedia.org/page.html','https://unknown.invalid/chapter.mp3'])assert.equal(mediaSource(url),'');
+  assert.match(stageContentPolicy,/media-src 'self' blob: https:\/\/upload.wikimedia.org https:\/\/dn710305.ca.archive.org;/);
 });
