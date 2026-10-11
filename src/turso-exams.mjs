@@ -2,6 +2,7 @@ import {statement as stmt, StudyError, recordId,validateAssessmentContent} from 
 import {ArchiveService} from './turso-archive.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
+import {GroupService} from './turso-groups.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -83,8 +84,9 @@ export class ExamService {
   async list(actor) {
     signedIn(actor);
     await this.ensure();
+    await new GroupService(this.db).ensure();
     const teacher = reviewer(actor);
-    const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at FROM exams
+    const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at,(SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL) AS group_id FROM exams
       WHERE deleted_at IS NULL AND (?=1 OR (published=1 AND hidden_from_students=0))
       ORDER BY lesson_date DESC, created_at DESC`, [teacher ? 1 : 0]);
     if (!exams.length) return [];
@@ -98,6 +100,7 @@ export class ExamService {
     const hidden=await materialVisibility(this.db,actor.id);
     return exams.filter(exam=>teacher||!hidden.has('exam:'+exam.id)).map(exam => ({
       id: exam.id,
+      groupId:exam.group_id||null,
       title: exam.title || 'Exam',
       date: exam.lesson_date || '',
       published: !!exam.published,

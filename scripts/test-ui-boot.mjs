@@ -31,6 +31,8 @@ try{
   const targetId='b'.repeat(32),hiddenMaterials=new Set();
   let lesson={id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-10',blocks:[{id:32,type:'text',tab:'overview',html:'<p>Fixture lesson</p>'}],mode:'preview'};
   const copiedLessons=[];let copyWrites=0;
+  const managedGroups=[],members=[];
+  const fixtureGroups=()=>[{id:41,title:'Fixture group',date:'2026-10-10',revision:1,examIds:[],lessonIds:[31],personalHidden:hiddenMaterials.has('group:41')},{id:42,title:'Copy destination',date:'2026-10-10',revision:1,examIds:[],lessonIds:copiedLessons.map(row=>row.id)},...managedGroups];
   const assessmentRecords=new Map();let failSubmit=false;
   let holdLessonSummary=false,releaseLessons;
   page.on('dialog',dialog=>dialog.accept());
@@ -62,13 +64,26 @@ try{
         assert.equal(body.expectedRevision,record.revision);
         record={...record,revision:record.revision+1};
         if(['draft','submit'].includes(body.action)){record.answers=body.answers;record.state=body.action==='submit'?'submitted':'draft';}
-        else if(['review','publish'].includes(body.action)){record.points=body.points;record.corrections=body.corrections;record.errors=body.errors;record.state=body.action==='publish'?'published':'reviewing';}
+        else if(['review','publish'].includes(body.action)){record.points=body.points;record.corrections=body.corrections;record.errors=body.errors;record.reviewText=body.reviewText;record.state=body.action==='publish'?'published':'reviewing';}
         else record.state=body.action==='reopen'?'draft':'reviewing';
         record.saved=record.state!=='draft';assessmentRecords.set(key,record);
       }
       data=record;
     }
-    if(path==='/api/groups')data={groups:[{id:41,title:'Fixture group',date:'2026-10-10',lessonIds:[31],personalHidden:hiddenMaterials.has('group:41')},{id:42,title:'Copy destination',date:'2026-10-10',lessonIds:copiedLessons.map(row=>row.id)}]};
+    if(path==='/api/groups')data={groups:fixtureGroups()};
+    if(path==='/api/admin/users')data={users:[user,{id:targetId,login:'Fixture student',email:'student@example.invalid',role:'USER'}]};
+    if(path==='/api/admin/users/'+targetId)data={user:{id:targetId,login:'Fixture student',email:'student@example.invalid',role:'USER'}};
+    if(path==='/api/groups/members'){
+      if(method==='POST'){const body=JSON.parse(route.request().postData());members.splice(0,members.length,{accountId:body.accountId,groupId:body.groupId});}
+      data={members};
+    }
+    if(path==='/api/groups/manage'){
+      const body=JSON.parse(route.request().postData());
+      if(body.action==='create')managedGroups.push({id:73,title:body.title,revision:1,date:'2026-10-10',lessonIds:[],examIds:[]});
+      else if(body.action==='rename'){managedGroups[0].title=body.title;managedGroups[0].revision++;}
+      else if(body.action==='archive')managedGroups.splice(0);
+      data={groups:fixtureGroups()};
+    }
     if(path==='/api/content/copy'){
       const body=JSON.parse(route.request().postData());copyWrites++;
       assert.equal(body.source.type,'exam-block');assert.equal(body.source.id,90);
@@ -120,6 +135,24 @@ try{
   assert.equal(await page.locator('#ownPasswordForm').isVisible(),true);
   await page.locator('[data-account="edit-details"]').click();
   assert.equal(await page.locator('#ownAccountForm').isVisible(),true);
+  assert.equal(await page.locator('[data-jump="account"]:visible').first().innerText(),'My account');
+  await page.locator('[data-jump="admin"]:visible').first().click();
+  await page.locator('[data-account="user"][data-id="'+targetId+'"]').click();
+  await page.locator('[data-student-group]').selectOption('41');
+  await page.locator('[data-account="assign-group"]').click();
+  await page.waitForFunction(()=>document.querySelector('#adminBody')?.textContent.includes('Fixture group · 1'));
+  assert.deepEqual(members,[{accountId:targetId,groupId:41}]);
+  await page.locator('[data-admin-tab="groups"]').click();
+  await page.locator('#accountGroupName').fill('Test group');
+  await page.locator('[data-account-group="create"]').click();
+  await page.locator('[data-admin-group="73"]').click();
+  await page.locator('#accountGroupTitle').fill('Renamed group');
+  await page.locator('[data-account-group="rename"]').click();
+  await page.locator('[data-admin-group="73"]').filter({hasText:'Renamed group'}).waitFor();
+  await page.locator('[data-account-group="archive"]').click();
+  await page.locator('[data-admin-group="73"]').waitFor({state:'detached'});
+  assert.equal(managedGroups.length,0);
+  await page.locator('[data-jump="account"]:visible').first().click();
   await page.locator('[data-display-open]:visible').click();
   assert.equal(await page.locator('button[data-display-size]').count(),5);
   for(const size of ['small','extra-large']){
@@ -145,7 +178,7 @@ try{
   }
   await page.screenshot({path:'/private/tmp/english-quiz-statistics-desktop.png'});
   await page.setViewportSize({width:390,height:844});
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(el).position!=='fixed';}).slice(-12).map(el=>({tag:el.tagName,id:el.id,cls:el.className,width:el.getBoundingClientRect().width,right:el.getBoundingClientRect().right})))));
   await page.screenshot({path:'/private/tmp/english-quiz-statistics-mobile.png'});
   await page.setViewportSize({width:1280,height:900});
   await page.locator('[data-jump="archive"]:visible').click();
@@ -398,17 +431,38 @@ try{
   await page.evaluate(()=>{authUser.role='ADMIN';viewAccount={id:'b'.repeat(32),role:'USER'};lmState.assessmentReady=false;lmShow('preview');});
   await page.waitForFunction(()=>lmState.assessmentReady);
   assert.equal(await page.locator('#examSave').innerText(),'Save review');
+  const reviewField=page.locator('#lmPreview .review-edit[contenteditable="true"]').first();
+  await reviewField.fill('Teacher correction');
+  await reviewField.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);});
+  await page.locator('#lmPreview [data-review-command="underline"]').first().click();
+  await page.locator('#lmPreview [data-review-command="strikeThrough"]').first().click();
+  await page.locator('#lmPreview [data-review-color]').first().fill('#c62828');
+  await page.locator('#lmPreview [data-review-color]').first().dispatchEvent('change');
+  await page.locator('#lmPreview [data-review-size]').first().fill('24');
+  await page.locator('#lmPreview [data-review-size]').first().dispatchEvent('change');
   await page.locator('#lmPreview [data-exam-points]').first().fill('1');
   await page.locator('#examSave').click();await page.waitForFunction(()=>lmState.assessmentState==='reviewing'&&!lmState.assessmentBusy);
+  assert.equal(await page.locator('#lmPreview .review-edit').first().innerText(),'Teacher correction');
+  assert.equal(await page.evaluate(()=>Object.values(lmState.examReviewText).some(items=>Object.values(items).some(value=>value.runs.some(run=>run.marks.underline)))),true);
+  const formatting=await page.evaluate(()=>lmState.examReviewText);
+  assert.equal(Object.values(formatting).some(items=>Object.values(items).some(value=>value.runs.some(run=>run.marks.strike&&run.marks.color==='#c62828'&&run.marks.size===24))),true,JSON.stringify(formatting));
+  await page.locator('#turso-main-dismiss').click();
+  await page.locator('#lmPreview .review-edit').first().scrollIntoViewIfNeeded();
+  await page.screenshot({path:'/private/tmp/english-quiz-review-cards.png'});
   await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);
   assert.equal(await page.locator('#lmPreview [data-exam-points]').first().isEnabled(),false);
   assert.equal(await page.locator('#assessmentAmend').isVisible(),true);
   await page.evaluate(()=>{authUser.role='USER';viewAccount=null;lmState.assessmentReady=false;lmShow('preview');});
   await page.waitForFunction(()=>lmState.assessmentReady);
   assert.equal(await page.locator('#lmPreview .assessment-feedback').count()>0,true);
+  assert.equal(await page.locator('#lmPreview .review-published').first().innerText(),'Teacher review\nTeacher correction');
   await page.evaluate(()=>window.enquizVisit('groups'));await page.locator('[data-group-open="42"]').click();await page.locator('[data-lm-open="51"]').click();
   assert.equal(await page.locator('#material').getAttribute('translate'),null);
   assert.equal(await page.locator('#lmPreview').evaluate(el=>el.dispatchEvent(new Event('copy',{bubbles:true,cancelable:true}))),true);
+  const card=page.locator('#lmPreview details.lm-study-card').first();
+  await card.locator('summary').click();assert.equal(await card.getAttribute('open')!==null,true);
+  await page.evaluate(()=>{const media=document.createElement('audio');window.mediaPaused=false;media.pause=()=>{window.mediaPaused=true;};document.querySelector('#material').append(media);});
+  await page.evaluate(()=>window.enquizVisit('groups'));assert.equal(await page.evaluate(()=>window.mediaPaused),true);
   assert.deepEqual(errors,[]);
   console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal, theme switching/reload/empty cache/relogin and logout passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

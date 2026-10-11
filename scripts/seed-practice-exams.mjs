@@ -1,5 +1,5 @@
 import {createInterface} from 'node:readline';
-import {allMaterialsBlock} from './practice-all-materials.mjs';
+import {allMaterialsBlock,groupDemonstrationMaterials} from './practice-all-materials.mjs';
 
 const origin='https://learn-english.east-tarsal.workers.dev';
 const choice=(title,items)=>({type:'quiz',tab:'overview',quizType:'Choice',title,items});
@@ -81,10 +81,33 @@ if(process.argv[1]===new URL(import.meta.url).pathname){
   const signed=await login.json();
   if(!login.ok||signed.user?.role!=='DEVELOPER')throw new Error('A successful authorized account login is required.');
   const cookie=login.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
-  const api=async(path,body)=>{
-    const response=await fetch(origin+path,{method:body?'POST':'GET',headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+  const api=async(path,body,method=body?'POST':'GET')=>{
+    const response=await fetch(origin+path,{method,headers:{Cookie:cookie,Origin:origin,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
     const value=await response.json();if(!response.ok)throw new Error(`${path}: ${response.status} ${value.error||'Request failed'}`);return value;
   };
+  if(process.argv.includes('--demo-lesson')){
+    const {exams}=await api('/api/exams'),exam=exams.find(row=>row.blocks.some(b=>b.title===allMaterialsBlock.title));
+    if(!exam)throw new Error('The original showcase is missing.');
+    const source=exam.blocks.find(b=>b.title===allMaterialsBlock.title);
+    const prepared={...exam,blocks:exam.blocks.map(b=>b.id===source.id?{...b,materials:groupDemonstrationMaterials(b.materials)}:b)};
+    await api('/api/exams',{exam:prepared});
+    const {groups}=await api('/api/groups'),group=groups.find(g=>g.title==='Group A1');if(!group)throw new Error('Group A1 is missing.');
+    const title=allMaterialsBlock.title,{materials}=await api('/api/lessons?summary=1');
+    let lesson=materials.find(row=>row.title===title&&group.lessonIds.includes(row.id));
+    if(!lesson){
+      const result=await api('/api/content/copy',{mutationId:crypto.randomUUID(),source:{type:'exam-block',id:source.id},destination:{type:'group',id:group.id},title});
+      lesson={id:result.ids.find(row=>row.type==='lesson').id};
+    }
+    let full=(await api('/api/lessons?id='+lesson.id)).materials[0];
+    const upserts=full.blocks.filter(part=>['vocab','cards','wordcard','word','phrase','rule'].includes(part.type)).map(part=>{
+      const content={...part.stageDefinition.content};for(const key of ['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision'])delete content[key];
+      return {...part.stageDefinition,content,id:part.id,expectedRevision:part.stageBlockRevision,tab:['vocab','cards','wordcard','word'].includes(part.type)?'words':part.type==='phrase'?'phrases':'rules'};
+    });
+    if(upserts.length){await api('/api/lessons/'+lesson.id,{mutationId:crypto.randomUUID(),expectedRevision:full.stageRevision,changes:{},upserts,deletes:[]},'PATCH');full=(await api('/api/lessons?id='+lesson.id)).materials[0];}
+    if(new Set(full.blocks.map(p=>p.type)).size!==22)throw new Error('The demonstration lesson is incomplete.');
+    console.log(JSON.stringify({status:'demonstration-created',lessonId:full.id,group:group.title,title:full.title,materials:full.blocks.length,types:22,videoAssignment:full.blocks.find(p=>p.type==='video')?.assignmentKey}));
+    process.exit(0);
+  }
   if(process.argv.includes('--verify-copy')){
     const {default:assert}=await import('node:assert/strict');
     const before=await api('/api/exams'),exam=before.exams.find(row=>row.title==='Practice A2 - Travel and Experiences');

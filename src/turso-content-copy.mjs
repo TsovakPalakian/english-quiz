@@ -6,7 +6,7 @@ import {lessonMediaMetadata} from './turso-lesson-media.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const own=(value,keys)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(key=>keys.includes(key));
 const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(b=>b.toString(16).padStart(2,'0')).join('');
-const personalFields=new Set(['response','score','given','picked','typed','marked','correct','studentSaved','examAnswers','examCorrections','examPoints','marks']);
+const personalFields=new Set(['response','score','given','picked','typed','marked','correct','studentSaved','examAnswers','examCorrections','examPoints','examReviewText','marks']);
 export function copyDefinition(value){
   if(Array.isArray(value))return value.map(copyDefinition);
   if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value)
@@ -83,6 +83,9 @@ export class ContentCopyService extends StudyService {
       const cards=new Map();
       const prepare=async(part)=>{
         const raw=JSON.parse(part.content_json),content=copyDefinition(raw);
+        if(content.assignmentId)content.assignmentId=mediaNamespace+'-'+content.assignmentId;
+        if(content.assignmentKey)content.assignmentKey=mediaNamespace+'-'+content.assignmentKey;
+        if(source.type==='material')delete content.assignmentKey;
         let card=null,cardKey=part.card_id||null,linkedQuizzes=[];
         if(cardKey){
           const [row]=await this.db.read('SELECT * FROM cards WHERE id=? AND deleted_at IS NULL',[cardKey]);

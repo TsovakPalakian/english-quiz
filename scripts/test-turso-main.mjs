@@ -14,7 +14,7 @@ import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
-import {AssessmentService} from '../src/turso-assessment.mjs';
+import {AssessmentService,gradingQuestions} from '../src/turso-assessment.mjs';
 import {GroupService} from '../src/turso-groups.mjs';
 import {VisibilityService,materialVisibility} from '../src/turso-visibility.mjs';
 import {ensureStudyProfile} from '../src/turso-profile.mjs';
@@ -209,14 +209,58 @@ test('Assessment drafts, locking, rubric bounds, publication, revision conflicts
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_history').get().n,0);
   }finally{f.sqlite.close();}
 });
-test('Every lesson has opening section cards with counts, including zero and older lessons',()=>{
+test('Accounts groups seed levels once, assign students and exams, reject stale edits and archive only empty groups',async()=>{
+  const f=fixture();try{
+    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'};
+    const first=await service.list(teacher);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2']);
+    assert.equal((await service.list(teacher)).length,9);
+    await assert.rejects(service.manage(student,{action:'create',title:'Denied'}),e=>e.status===403);
+    const created=await service.manage(teacher,{action:'create',title:'Practice group'}),group=created.groups.find(g=>g.title==='Practice group');
+    await service.assignStudent(teacher,student.id,group.id);assert.deepEqual((await service.members(teacher)).map(row=>({...row})),[{accountId:'student',groupId:group.id}]);
+    let current=await service.activeGroup(group.id);
+    await assert.rejects(service.manage(teacher,{action:'archive',id:group.id,expectedRevision:current.revision}),e=>e.status===409);
+    await service.assignStudent(teacher,student.id,null);
+    await service.manage(teacher,{action:'rename',id:group.id,expectedRevision:current.revision,title:'Renamed group'});
+    await assert.rejects(service.manage(teacher,{action:'rename',id:group.id,expectedRevision:current.revision,title:'Stale'}),e=>e.status===409);
+    current=await service.activeGroup(group.id);await service.manage(teacher,{action:'archive',id:group.id,expectedRevision:current.revision});
+    assert.equal((await service.list(teacher)).some(g=>g.id===group.id),false);
+    const examService=new ExamService(f.db);await examService.ensure();f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Grouped exam',1)");
+    const level=await service.activeGroup(first[0].id);await service.manage({...teacher,role:'DEVELOPER'},{action:'exam',id:level.id,expectedRevision:level.revision,examId:10});
+    assert.equal((await examService.list(teacher))[0].groupId,level.id);
+    assert.deepEqual((await service.list(teacher)).find(g=>g.id===level.id).examIds,[10]);
+    const archive=new ArchiveService(f.db),developer={...teacher,role:'DEVELOPER'};
+    await archive.archive(developer,{type:'exam',id:10});await archive.remove(developer,{type:'exam',id:10});
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM class_group_exams WHERE exam_id=10').get().n,0);
+  }finally{f.sqlite.close();}
+});
+test('Assignment grading uses one decimal maximum per group independent of material order',()=>{
+  const child={id:10,type:'quiz',gradeMode:'assignment',assignmentKey:'reading',maxPoints:99,items:[{},{}]},leader={id:11,type:'task',gradeMode:'assignment',assignmentId:'reading',maxPoints:'10,1'};
+  assert.deepEqual(gradingQuestions([child,leader]).map(q=>[q.part.id,q.index,q.max]),[[11,0,10.1]]);
+  assert.equal(gradingQuestions([{...leader,criteria:'Content | 0,1\nLanguage | 10'}])[0].max,10.1);
+  assert.equal(gradingQuestions([{id:12,type:'quiz',gradeMode:'assignment',maxPoints:5,items:[{},{}]}]).length,1);
+});
+test('Rich text review preserves original answers, hides drafts and validates formatting',async()=>{
+  const f=fixture();try{
+    const service=new AssessmentService(f.db),student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'},base={kind:'lesson',id:1},target={...base,studentId:'student'};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(10,1,1,'task',?)").run(JSON.stringify({assessed:true,gradeMode:'assignment',text:'Describe Alice',maxPoints:'10,1'}));
+    await service.write(student,{...base,action:'submit',answers:{10:{0:'Original student answer'}}});
+    const value={runs:[{text:'Corrected answer',marks:{underline:true,strike:true,color:'#c62828',size:24}}]},review={points:{10:{0:'9,1'}},reviewText:{10:{0:value}}};
+    await service.write(teacher,{...target,action:'review',...review});
+    assert.deepEqual((await service.get(student,base)).reviewText,{});
+    await assert.rejects(service.write(teacher,{...target,action:'review',...review,reviewText:{10:{0:{runs:[{text:'x',marks:{onclick:'alert(1)'}}]}}}}),e=>e.status===400);
+    await service.write(teacher,{...target,action:'publish',...review});
+    const shown=await service.get(student,base);assert.equal(shown.answers[10][0],'Original student answer');assert.equal(shown.points[10][0],9.1);assert.deepEqual(shown.reviewText[10][0],value);
+    await assert.rejects(service.write(student,{...base,action:'draft',answers:{10:{0:'Changed'}}}),e=>e.status===409);
+  }finally{f.sqlite.close();}
+});
+test('Lesson navigation keeps its original buttons and shows counts including zero and older lessons',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
   const code=source.slice(source.indexOf('    function lmChromeHtml()'),source.indexOf('    function lmQuizCards()'));
   const scope={lmState:{id:1},lmTab:()=> 'phrases',lmBlockCounts:()=>({words:0,phrases:1,rules:1})};
   runInNewContext(code,scope);const html=scope.lmChromeHtml();
-  for(const label of ['Words · 0','Phrases · 1','Rules · 1'])assert.ok(html.includes('<b>'+label+'</b>'));
-  assert.equal((html.match(/class="lm-section-card(?: on)?"/g)||[]).length,3);
-  assert.match(html,/data-lm-tab="phrases" class="lm-section-card on" role="tab" aria-selected="true"/);
+  for(const label of ['Words · 0','Phrases · 1','Rules · 1'])assert.ok(html.includes(label));
+  assert.ok(html.includes('class="seg"'));
+  assert.match(html,/data-lm-tab="phrases" class="on" role="tab" aria-selected="true"/);
   for(const tab of ['overview','words','phrases','rules','classwork','homework','pdf'])assert.ok(html.includes('data-lm-tab="'+tab+'"'));
   assert.ok(html.includes('data-lm-tool="quiz"'));
 });
@@ -256,7 +300,7 @@ test('Personal group/exam visibility is scoped, persistent, reversible and prote
       await assert.rejects(visibility.set(teacher,student.id,{...body,mutationId:'visibility-stale-'+type}),error=>error.status===409);
     }
     assert.equal((await materialVisibility(f.db,student.id)).size,3);
-    assert.equal((await new GroupService(f.db).list(student)).length,0);
+    assert.equal((await new GroupService(f.db).list(student)).some(row=>row.id===group.id),false);
     assert.equal((await new ExamService(f.db).list(student)).length,0);
     assert.equal((await materialVisibility(f.db,'student2')).size,0);
     await visibility.set(teacher,student.id,{mutationId:'visibility-show-exam',type:'exam',id:exam.id,expected:true,hidden:false});
@@ -1953,18 +1997,18 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
 test('Administration ignores older page and user responses',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
-  const scope={authUser:{id:'developer'},viewGen:1,document:{getElementById:id=>id==='adminBody'?box:slot},
+  const scope={authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:slot,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
     accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
   runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
   scope.paintAdmin();scope.paintAdmin();
-  for(const item of pending.slice(3,6))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(5,10))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   box.innerHTML='Selected user';
-  for(const item of pending.slice(0,3))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(0,5))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(box.innerHTML,'Selected user');
   scope.paintAdminUser('one');scope.paintAdminUser('two');
-  pending[7].resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
-  pending[6].resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending[11].resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending[10].resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
   assert.match(slot.innerHTML,/Second/);assert.doesNotMatch(slot.innerHTML,/First/);
 });
 test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{

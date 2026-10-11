@@ -4,8 +4,35 @@ import {studentExamContent,ExamService} from './turso-exams.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const ready=new WeakMap();
-export function rubric(value){return String(value||'').split('\n').map(line=>{const [label,points]=line.split('|');return {label:label.trim(),max:Number(points)};}).filter(row=>row.label&&Number.isFinite(row.max)&&row.max>0&&row.max<=10000).slice(0,20);}
+export function rubric(value){return String(value||'').split('\n').map(line=>{const [label,points]=line.split('|');return {label:label.trim(),max:Number(String(points).replace(',','.'))};}).filter(row=>row.label&&Number.isFinite(row.max)&&row.max>0&&row.max<=1e12).slice(0,20);}
 export function assessmentQuestions(parts){return parts.filter(p=>['quiz','exercise','task'].includes(p.type)).flatMap(part=>(part.type==='task'?[part]:part.items||[]).map((item,index)=>({part,index,item,max:rubric(item.criteria).length?rubric(item.criteria).reduce((n,c)=>n+c.max,0):Number(item.maxPoints??part.maxPoints??1)})));}
+const decimal=value=>Number(String(value).replace(',','.'));
+export function gradingQuestions(parts){
+  const result=[],seen=new Set();
+  for(const part of parts.filter(p=>['quiz','exercise','task'].includes(p.type))){
+    if(part.gradeMode!=='assignment'){result.push(...assessmentQuestions([part]));continue;}
+    const key=part.assignmentKey||part.assignmentId||('part-'+part.id);if(seen.has(key))continue;seen.add(key);
+    const leader=parts.find(p=>p.assignmentId===key&&p.gradeMode==='assignment'&&['quiz','exercise','task'].includes(p.type))||part;
+    const criteria=rubric(leader.criteria),max=criteria.length?criteria.reduce((n,c)=>n+c.max,0):decimal(leader.maxPoints??1);
+    result.push({part:leader,index:0,item:leader,max});
+  }
+  return result;
+}
+function reviewDocument(value){
+  if(!value||typeof value!=='object'||Array.isArray(value)||!Array.isArray(value.runs)||value.runs.length>2000||Object.keys(value).some(key=>key!=='runs'))fail(400,'Invalid reviewed text.');
+  const allowed=['bold','italic','underline','strike','color','size'];
+  let length=0;
+  for(const run of value.runs){
+    if(!run||typeof run.text!=='string'||Object.keys(run).some(key=>!['text','marks'].includes(key)))fail(400,'Invalid reviewed text.');
+    length+=run.text.length;const marks=run.marks||{};
+    if(typeof marks!=='object'||Array.isArray(marks)||Object.keys(marks).some(key=>!allowed.includes(key)))fail(400,'Invalid text formatting.');
+    for(const key of ['bold','italic','underline','strike'])if(marks[key]!=null&&typeof marks[key]!=='boolean')fail(400,'Invalid text formatting.');
+    if(marks.color!=null&&!/^#[a-f0-9]{6}$/i.test(marks.color))fail(400,'Invalid text color.');
+    if(marks.size!=null&&(!Number.isFinite(marks.size)||marks.size<10||marks.size>96))fail(400,'Invalid text size.');
+  }
+  if(length>50000)fail(413,'Reviewed text is too large.');
+  return value;
+}
 export class AssessmentService{
   constructor(db){this.db=db;}
   ensure(){if(!ready.has(this.db))ready.set(this.db,this.db.atomic([
@@ -35,7 +62,7 @@ export class AssessmentService{
   async legacy(account,id){return (await this.db.read('SELECT * FROM exam_work WHERE account_id=? AND block_id=?',[account,id]))[0];}
   project(row,actor){
     const grading=JSON.parse(row.grading_json||'{}'),published=row.state==='published',show=reviewer(actor)||published;
-    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:JSON.parse(row.answers_json||'{}'),corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
+    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:JSON.parse(row.answers_json||'{}'),corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
   }
   async get(actor,{kind,id,studentId}){
     const account=this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
@@ -50,15 +77,15 @@ export class AssessmentService{
     const previous=await this.get(actor,{kind,id,studentId}),row=await this.row(account,kind,id),revision=row?.revision||0;
     if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,'This work changed. Reload before saving.');
     const teaching=account!==actor.id&&reviewer(actor),parts=row&&previous.saved?JSON.parse(row.snapshot_json):document.parts;
-    const questions=assessmentQuestions(parts),max=questions.reduce((sum,q)=>sum+q.max,0);
-    if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>10000)||max>100000)fail(400,'Invalid maximum points.');
+    const questions=gradingQuestions(parts),answerQuestions=assessmentQuestions(parts),max=questions.reduce((sum,q)=>sum+q.max,0);
+    if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>1e12)||max>1e14)fail(400,'Invalid maximum points.');
     let state=previous.state,answers=previous.answers,grading=row?JSON.parse(row.grading_json):{points:previous.points,comments:previous.corrections},snapshot=parts;
     if(['draft','submit'].includes(action)){
       if(teaching)fail(403,'Only the student can submit answers.');
       if(previous.saved){if(action==='submit'&&JSON.stringify(body.answers||{})===JSON.stringify(answers))return previous;fail(409,'This material has already been submitted.');}
       answers=body.answers||{};
       if(!answers||typeof answers!=='object'||Array.isArray(answers)||JSON.stringify(answers).length>50000)fail(400,'Invalid answers.');
-      const keys=new Set(questions.map(q=>q.part.id+':'+q.index));
+      const keys=new Set(answerQuestions.map(q=>q.part.id+':'+q.index));
       for(const [part,items] of Object.entries(answers)){
         if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer.');
         for(const [index,value] of Object.entries(items))if(!keys.has(part+':'+index)||!(typeof value==='string'||typeof value==='number'||Array.isArray(value)&&value.every(Number.isSafeInteger)))fail(400,'Invalid answer.');
@@ -75,19 +102,36 @@ export class AssessmentService{
       }else{
         if(!previous.saved)fail(409,'Wait for the student to submit.');
         if(previous.state==='published')fail(409,'Reopen the review before changing published grades.');
-        grading={points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{}};
-        if(JSON.stringify(grading).length>50000)fail(413,'Review is too large.');
+        grading={points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{},reviewText:body.reviewText||{}};
+        if(JSON.stringify(grading).length>90000)fail(413,'Review is too large.');
         const keys=new Set(questions.map(q=>q.part.id+':'+q.index));
-        for(const map of Object.values(grading)){
+        for(const map of [grading.points,grading.comments,grading.errors,grading.criteriaPoints]){
           if(!map||typeof map!=='object'||Array.isArray(map))fail(400,'Invalid review.');
           for(const [part,items] of Object.entries(map)){
             if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid review.');
-            for(const index of Object.keys(items))if(!keys.has(part+':'+index))fail(400,'Unknown review question.');
+            const validKeys=map===grading.comments||map===grading.errors?new Set(answerQuestions.map(q=>q.part.id+':'+q.index)):keys;
+            for(const index of Object.keys(items))if(!validKeys.has(part+':'+index))fail(400,'Unknown review question.');
           }
+        }
+        if(!grading.reviewText||typeof grading.reviewText!=='object'||Array.isArray(grading.reviewText))fail(400,'Invalid reviewed text.');
+        const answerKeys=new Set(answerQuestions.map(q=>q.part.id+':'+q.index));
+        for(const [part,items] of Object.entries(grading.reviewText)){
+          if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid reviewed text.');
+          for(const [index,value] of Object.entries(items)){
+            const q=answerQuestions.find(q=>q.part.id+':'+q.index===part+':'+index);
+            const text=q&&(q.part.type==='task'||q.part.type==='exercise'&&q.item.kind==='write'||q.part.type==='quiz'&&!['Choice','Odd one out','Select all','True / false','Match','Memory'].includes(q.part.quizType||'Choice'));
+            if(!answerKeys.has(part+':'+index)||!text)fail(400,'Only text answers can be edited.');
+            reviewDocument(value);
+          }
+        }
+        for(const q of answerQuestions){
+          const comment=grading.comments[q.part.id]?.[q.index];if(comment!=null&&(typeof comment!=='string'||comment.length>3000))fail(400,'Invalid feedback.');
+          const error=grading.errors[q.part.id]?.[q.index];if(error!=null&&!['','correct','needs-work'].includes(error))fail(400,'Invalid error mark.');
         }
         for(const q of questions){
           const value=grading.points[q.part.id]?.[q.index];
-          if(value!=null&&value!==''&&(!Number.isFinite(Number(value))||Number(value)<0||Number(value)>q.max))fail(400,'Points must be between zero and the maximum.');
+          if(value!=null&&value!==''&&(!Number.isFinite(decimal(value))||decimal(value)<0||decimal(value)>q.max))fail(400,'Points must be between zero and the maximum.');
+          if(value!=null&&value!=='')grading.points[q.part.id][q.index]=decimal(value);
           if(action==='publish'&&(value==null||value===''))fail(400,'Grade every question before publishing.');
           const criteria=rubric(q.item.criteria),scores=grading.criteriaPoints[q.part.id]?.[q.index];
           if(criteria.length&&scores){
@@ -95,9 +139,9 @@ export class AssessmentService{
             let sum=0,complete=true;
             for(const [i,c] of criteria.entries()){
               if(scores[i]==null||scores[i]===''){complete=false;if(action==='publish')fail(400,'Complete every criterion.');continue;}
-              const score=Number(scores[i]);if(!Number.isFinite(score)||score<0||score>c.max)fail(400,'Invalid criterion points.');sum+=score;
+              const score=decimal(scores[i]);if(!Number.isFinite(score)||score<0||score>c.max)fail(400,'Invalid criterion points.');sum+=score;
             }
-            if(complete&&value!=null&&value!==''&&Math.abs(sum-Number(value))>1e-8)fail(400,'Criterion points must equal the question score.');
+            if(complete&&value!=null&&value!==''&&Math.abs(sum-decimal(value))>1e-8)fail(400,'Criterion points must equal the question score.');
           }
           const comment=grading.comments[q.part.id]?.[q.index];if(comment!=null&&(typeof comment!=='string'||comment.length>3000))fail(400,'Invalid feedback.');
           const error=grading.errors[q.part.id]?.[q.index];if(error!=null&&!['','correct','needs-work'].includes(error))fail(400,'Invalid error mark.');

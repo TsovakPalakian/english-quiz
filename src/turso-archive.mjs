@@ -124,6 +124,11 @@ export class ArchiveService{
     const rows=await this.db.read(`SELECT ${item.title} title FROM ${item.table} WHERE CAST(id AS TEXT)=?${item.kind?' AND kind=?':''}${owner} AND deleted_at IS NULL`,args);
     if(rows.length!==1)fail(404,'Material not found.');
     const commands=[];
+    if(['group','exam'].includes(value.type)){
+      const tables=new Set((await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('class_group_students','class_group_exams')")).map(row=>row.name));
+      if(value.type==='group'&&tables.has('class_group_students'))commands.push(stmt('DELETE FROM class_group_students WHERE CAST(group_id AS TEXT)=?',[key]));
+      if(tables.has('class_group_exams'))commands.push(stmt(`DELETE FROM class_group_exams WHERE CAST(${value.type==='group'?'group_id':'exam_id'} AS TEXT)=?`,[key]));
+    }
     if(['lesson','exam','exam-block'].includes(value.type)){
       const tables=await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('assessment_work','assessment_history')");
       const predicate=value.type==='exam'?"kind='exam-block' AND material_id IN (SELECT id FROM exam_blocks WHERE CAST(exam_id AS TEXT)=?)":"kind=? AND CAST(material_id AS TEXT)=?";

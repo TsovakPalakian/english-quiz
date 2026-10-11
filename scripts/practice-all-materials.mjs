@@ -66,3 +66,16 @@ export const allMaterialsBlock={title:'All Materials - Alice in Wonderland',publ
     ['Project Gutenberg / GWDG mirror - PDF edition',sources.pdf]
   ].map(([label,url])=>'<li><a href="'+url+'" target="_blank" rel="noreferrer">'+label+'</a></li>').join('')+'</ul><p>Exercises, definitions and role-play are original adaptations of the cited story. The complete book includes the Project Gutenberg license.</p>'})
 ]};
+export function groupDemonstrationMaterials(materials){
+  const parts=structuredClone(materials);
+  for(const [index,part] of parts.entries()){
+    if(['quiz','exercise','task'].includes(part.type))Object.assign(part,{assignmentId:part.assignmentId||'alice-task-'+index,gradeMode:'assignment',maxPoints:part.maxPoints??10.1});
+  }
+  const reading=parts.find(p=>p.type==='exercise'),listening=parts.find(p=>p.quizType==='Listen');
+  for(const part of parts)if(['text','reading','image'].includes(part.type)&&!String(part.html||'').includes('Sources and credits'))part.assignmentKey=reading.assignmentId;
+  const audio=parts.find(p=>p.type==='audio');if(audio)audio.assignmentKey=listening.assignmentId;
+  let filmTask=parts.find(p=>p.assignmentId==='alice-film-task');
+  if(!filmTask){filmTask={type:'task',tab:'overview',title:'Watch and describe the silent film',text:'Watch the opening two minutes. Write 40-60 words describing Alice, the White Rabbit and two actions you can see. Use the past continuous for one action.',assignmentId:'alice-film-task',gradeMode:'assignment',maxPoints:10.1};parts.push(filmTask);}
+  const video=parts.find(p=>p.type==='video');if(video)video.assignmentKey=filmTask.assignmentId;
+  return parts;
+}

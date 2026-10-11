@@ -98,7 +98,8 @@ test('Groups seed existing lessons, persist membership and keep student visibili
   const {db,personas,sqlite}=fixture(),[teacher,,student]=personas;
   const groups=new GroupService(db);
   const seeded=await groups.list(teacher);
-  assert.equal(seeded.length,1);
+  assert.equal(seeded.length,9);
+  assert.equal(seeded[0].title,'A1');
   assert.deepEqual(new Set(seeded[0].lessonIds),new Set([1,2,3]));
   await groups.save(teacher,{groups:[
     {id:seeded[0].id,title:'First group',date:'2026-10-08',hidden:true,lessonIds:[2,3]},

@@ -119,6 +119,24 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+        if(method==='GET'){
+          if(path!=='/api/groups/members')throw new StudyError(405,'Use POST.');
+          const target=new URL(request.url);target.pathname='/api/admin/users';target.search='';
+          const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);if(!response.ok)return response;
+          const users=await response.json(),ids=new Set((users.users||[]).filter(user=>user.role==='USER').map(user=>user.id));
+          return json({members:(await new GroupService(studyDatabase(env)).members(actor)).filter(member=>ids.has(member.accountId))});
+        }
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,4096,'Group request too large.'));}catch{throw new StudyError(400,'Invalid group request.');}
+        if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid group request.');
+        if(path==='/api/groups/manage')return json(await new GroupService(studyDatabase(env)).manage(actor,value));
+        const found=await authorizeManaged(accountEnv,actor,value.accountId);if(found.error)return found.error;
+        if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
+        return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId));
+      }
       if(path==='/api/exams/work'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         let value={studentId:url.searchParams.get('student')||''};
@@ -378,7 +396,22 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(accountRoute(path,method)){
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
+        let approvalGroup=null,approvalActor=null;
+        if(method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
+          const body=await request.clone().json();
+          if(body.groupId!=null){
+            if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+            approvalActor=await identify(accountEnv,request);if(!approvalActor||!['ADMIN','DEVELOPER'].includes(approvalActor.role))throw new StudyError(403,'Teachers only.');
+            await new GroupService(studyDatabase(env)).activeGroup(body.groupId);approvalGroup=body.groupId;
+          }
+        }
         let response=await accountWorker.fetch(request,accountEnv,ctx);
+        if(response.ok&&approvalGroup!=null){
+          const result=await response.clone().json();
+          if(!result.userId)throw new StudyError(500,'Account approved. Assign its group in Accounts.');
+          try{await new GroupService(studyDatabase(env)).assignStudent(approvalActor,result.userId,approvalGroup);}
+          catch{throw new StudyError(503,'Account approved, but its group could not be saved. Assign the group in Accounts.');}
+        }
         // Only a trusted authentication response may attach the reserved pair.
         if((path==='/api/login'&&method==='POST'||path==='/api/me'&&method==='GET')&&response.ok&&env.STAGE_WRITES==='true'){
           const value=await response.clone().json();

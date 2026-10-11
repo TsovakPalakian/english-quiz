@@ -3739,7 +3739,7 @@ async function decide(env, actor, regId, action) {
   }
   await rememberUser(env, { id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });
   await rememberRegistration(env, { id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "approved", role: role, user_id: userId, created_at: reg.created_at, decided_at: decided });
-  return json({ ok: true });
+  return json({ ok: true, userId });
 }
 
 function tidyQuery(word) {

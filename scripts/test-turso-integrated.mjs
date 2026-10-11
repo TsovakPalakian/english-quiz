@@ -4,6 +4,14 @@ import {accountRoute,accountDatabase,integratedWorker} from '../src/turso-integr
 import {ACCOUNT_AUTH} from '../src/turso-stage-worker.mjs';
 import {managedAccount} from '../src/worker.js';
 const id='a'.repeat(32);
+test('Accounts groups reject students and unauthorized targets before study access',async()=>{
+  let reads=0,role='USER';
+  const worker=integratedWorker({authenticate:async()=>({id,role}),authorizeManaged:async()=>({error:Response.json({error:'denied'},{status:403})}),studyDatabase:()=>{reads++;throw Error('Must not read');}});
+  const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',STAGE_WRITES:'true'};
+  const post=path=>worker.fetch(new Request('https://test.invalid'+path,{method:'POST',headers:{Origin:'https://test.invalid'},body:JSON.stringify({action:'create',title:'Hidden',accountId:'b'.repeat(32),groupId:1})}),env);
+  assert.equal((await post('/api/groups/manage')).status,403);assert.equal((await post('/api/groups/members')).status,403);
+  role='ADMIN';assert.equal((await post('/api/groups/members')).status,403);assert.equal(reads,0);
+});
 test('Assessment and legacy exam-work routes authorize the target before any study access',async()=>{
   let reads=0;
   const worker=integratedWorker({authenticate:async()=>({id,role:'ADMIN'}),authorizeManaged:async()=>({error:Response.json({error:'denied'},{status:403})}),studyDatabase:()=>{reads++;throw Error('Must not read');}});

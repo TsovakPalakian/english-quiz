@@ -36,7 +36,7 @@
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home",
-      account: "account", profile: "account", admin: "account", themes: "account"
+      account: "account", profile: "account", admin: "admin", themes: "account"
     };
     (function holdPlace() {
       let place = null;
@@ -54,9 +54,11 @@
       });
     })();
     function show(id) {
+      const previous = document.querySelector('section.on');
+      if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
-      // Administration is teacher-only chrome; never open it while viewing another account.
-      if (id === "admin" && viewAccount) id = "home";
+      // Accounts is teacher-only chrome; never open it while viewing another account.
+      if (id === "admin" && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
@@ -94,6 +96,7 @@
       hideSelpop();
       rememberPlace();
       const shown = document.getElementById(id);
+      restorePageMedia(shown);
       if (shown) applyCardSearch(shown);
       paintPagePath(id);
       paintSongGate();
@@ -2544,7 +2547,7 @@
     function guideShot(title, items) {
       return '<div class="guide-shot" aria-label="' + esc(title) + '"><div class="guide-shot-top"><span>English</span><b>' + esc(title) + '</b><i></i></div><div class="guide-shot-body">' + items.map((item) => '<button type="button" class="guide-hotspot" data-jump="' + esc(item[1]) + '">' + esc(item[0]) + '</button>').join('') + '</div></div>';
     }
-    function guideBlock(title, text, jump, label, shot) {
+    function guideBlock(title, text, jump, label, shot = '') {
       return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
     }
     function paintGuide() {
@@ -2568,9 +2571,10 @@
       if (role === 'ADMIN' || role === 'DEVELOPER') {
         html += '<div class="guide-note"><b>' + t('Archive preview', 'Просмотр архива') + '</b><p>' + t('Click an archived row to inspect its contents without restoring it. Restore and archive removal are icons on the right; their labels appear on hover.', 'Нажмите на строку архива, чтобы посмотреть содержимое без восстановления. Значки восстановления и удаления находятся справа; названия видны при наведении.') + '</p></div>';
         html += guideBlock(t('Copy learning material', 'Копирование материалов'), t('Use the Copy icon beside Hide and Delete, or inside a saved lesson or examination block. Choose a destination and a name, then press Create copy. Selecting a group does not move the original. Lessons, exams, blocks and individual materials can be copied to compatible locations; copies have independent content and files, without student answers, grades or progress. Save draft or Publish your edits before copying.', 'Нажмите значок Copy рядом с Hide и Delete или внутри сохранённого занятия либо экзаменационного блока. Выберите назначение и название, затем Create copy. Выбор группы не переносит оригинал. Занятия, экзамены, блоки и отдельные материалы копируются в подходящие места; содержимое и файлы копии независимы, ответы учеников, оценки и прогресс не копируются. Перед копированием изменений нажмите Save draft или Publish.'), 'groups', t('Open Groups', 'Открыть Groups'));
-        html += guideBlock(t('Create and manage learning', 'Создание и управление обучением'), t('Create groups, lessons, blocks and exams; edit names and dates; publish or hide material. Open a student in Administration to inspect progress, answers and exam work, and configure lesson access.', 'Создавайте группы, занятия, блоки и экзамены; редактируйте названия и даты; публикуйте или скрывайте материалы. Откройте ученика в Administration, чтобы посмотреть прогресс, ответы и экзамены и настроить доступ к занятиям.'), 'admin', t('Open Administration', 'Открыть Administration'), guideShot(t('Teacher tools', 'Инструменты учителя'), [[t('Students', 'Ученики'), 'admin'], ['Groups', 'groups'], ['Exams', 'exams']]));
+        html += guideBlock(t('Create and manage learning', 'Создание и управление обучением'), t('Create groups, lessons, blocks and exams; edit names and dates; publish or hide material. Open a student in Accounts to inspect progress, answers and exam work, and configure lesson access.', 'Создавайте группы, занятия, блоки и экзамены; редактируйте названия и даты; публикуйте или скрывайте материалы. Откройте ученика в Accounts, чтобы посмотреть прогресс, ответы и экзамены и настроить доступ к занятиям.'), 'admin', t('Open Accounts', 'Открыть Accounts'), guideShot(t('Teacher tools', 'Инструменты учителя'), [[t('Students', 'Ученики'), 'admin'], ['Groups', 'groups'], ['Exams', 'exams']]));
+        html += guideBlock(t('Accounts and groups','Аккаунты и группы'),t('Accounts is next to Exams. Choose a student group when approving registration, or open an existing student and press Save group. In Accounts → Groups, create and rename groups, view their students, lessons and exams, and explicitly assign an exam. Only empty groups can be archived. My account contains your own account settings.', 'Accounts находится после Exams. Выберите группу при одобрении регистрации либо откройте ученика и нажмите Save group. Во вкладке Accounts → Groups создавайте и переименовывайте группы, просматривайте учеников, занятия и экзамены и назначайте экзамены явной кнопкой. В архив можно убрать только пустую группу. Личные настройки находятся в My account.'),'admin',t('Open Accounts','Открыть Accounts'));
         html += '<div class="guide-note"><b>' + t('Student administration', 'Администрирование учеников') + '</b><p>' + t('A teacher administers students only: review progress, correct translations and control material visibility. Hide and Show change access without deleting student data. Student data cannot be removed here.', 'Учитель администрирует только учеников: смотрит прогресс, исправляет переводы и управляет видимостью материалов. Hide и Show меняют доступ, не удаляя данные ученика. Удаление данных ученика здесь недоступно.') + '</p></div>';
-        html += '<div class="guide-note"><b>' + t('Student statistics', 'Статистика ученика') + '</b><p>' + t('Open a student in Administration, then open Statistics to compare that student’s words, practice, materials, exams and study time for the selected period.', 'Откройте ученика в Administration, затем Statistics, чтобы сравнить его слова, практику, материалы, экзамены и время обучения за выбранный период.') + '</p></div>';
+        html += '<div class="guide-note"><b>' + t('Student statistics', 'Статистика ученика') + '</b><p>' + t('Open a student in Accounts, then open Statistics to compare that student’s words, practice, materials, exams and study time for the selected period.', 'Откройте ученика в Accounts, затем Statistics, чтобы сравнить его слова, практику, материалы, экзамены и время обучения за выбранный период.') + '</p></div>';
       }
       if (role === 'USER') html += guideBlock(t('Taking an exam', 'Прохождение экзамена'), t('Exam materials are read-only. Translation, word lookup, adding words, selection, copying, pasting and immediate answer checks are unavailable. You can type your answers and use the assigned audio and video. Submitted answers cannot be changed. In Archive, click a row to preview it; the icons on the right restore or remove it.', 'Экзаменационные материалы доступны только для чтения. Перевод, словари, добавление слов, выделение, копирование, вставка и мгновенная проверка ответов недоступны. Можно вводить ответы и использовать аудио и видео задания. После сдачи ответы изменить нельзя. В архиве нажмите на строку для просмотра, а значки справа восстанавливают или убирают материал.'), 'exams', t('Open Exams', 'Открыть Exams'));
       if (role === 'DEVELOPER') {
@@ -2579,7 +2583,7 @@
       }
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
       if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Only your teacher can reopen a submission. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Повторно открыть работу может только учитель. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
-      if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Administration','Открыть Administration'));
+      if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Accounts','Открыть Accounts'));
       html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
@@ -6050,6 +6054,23 @@
       }
       releaseSongPlayer(box);
     }
+    function stopPageMedia(root) {
+      if (!root) return;
+      stopSongPlayer(root);
+      root.querySelectorAll('iframe').forEach(frame => {
+        const src = frame.getAttribute('src');
+        if (!src || !/youtube|vimeo|spotify|soundcloud|archive\.org/.test(src)) return;
+        frame.dataset.pausedSrc = src; frame.removeAttribute('src');
+      });
+    }
+    function restorePageMedia(root) {
+      root?.querySelectorAll('iframe[data-paused-src]').forEach(frame => {
+        const url = new URL(frame.dataset.pausedSrc,location.href); url.searchParams.set('autoplay','0'); frame.src = url.href; delete frame.dataset.pausedSrc;
+      });
+    }
+    document.addEventListener('visibilitychange',() => { if (document.hidden) stopPageMedia(document.querySelector('section.on')); else restorePageMedia(document.querySelector('section.on')); });
+    window.addEventListener('pagehide',() => stopPageMedia(document.querySelector('section.on')));
+    window.addEventListener('pageshow',() => restorePageMedia(document.querySelector('section.on')));
     function playerStickTop() {
       const bar = document.querySelector(".top");
       const meta = document.querySelector("#song.on .meta") || document.querySelector("section.on .meta");
@@ -9914,7 +9935,6 @@
       box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (isTeacher() && !viewAccount ? '<button class="btn" type="button" data-jump="admin">Administration</button>' : "") +
         (viewAccount ? "" : '<button class="btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
         (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
@@ -10028,6 +10048,45 @@
     }
     let adminPaintToken = 0;
     let adminUserPaintToken = 0;
+    let adminTab = 'accounts', adminGroups = [], adminMembers = [], adminAccounts = [], adminGroupId = null;
+    function adminGroupOptions(selected) {
+      return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
+    }
+    function adminAccountRows(accounts) {
+      const members = new Map(adminMembers.map(member => [member.accountId,member.groupId])), groups = new Map();
+      for (const user of accounts) { const name = user.role === 'USER' ? adminGroups.find(g => g.id === members.get(user.id))?.title || 'Unassigned' : 'Teachers and staff'; if (!groups.has(name)) groups.set(name,[]); groups.get(name).push(user); }
+      return [...groups].map(([name,users]) => '<h3>' + esc(name) + ' · ' + users.length + '</h3>' + recentRows(users,(row,n) => '<button class="path" type="button" data-account="user" data-id="' + esc(row.id) + '"><span><b>' + n + '. ' + esc(row.login) + '</b><br><span class="label">' + esc(row.email) + ' · ' + roleLabel(row.role) + accountMark(row) + '</span></span></button>')).join('');
+    }
+    function paintAdminGroups() {
+      const box = document.getElementById('adminBody'); if (!box || !isTeacher() || viewAccount) return;
+      const selected = adminGroups.find(group => group.id === adminGroupId);
+      box.innerHTML = '<div class="row accounts-group-create"><input id="accountGroupName" aria-label="New group name" maxlength="120"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>' + adminGroups.map(group => '<button class="path" type="button" data-admin-group="' + group.id + '"><span><b>' + esc(group.title) + '</b><br><span class="label">' + adminMembers.filter(m => m.groupId === group.id).length + ' students · ' + group.lessonIds.length + ' lessons · ' + (group.examIds || []).length + ' exams</span></span></button>').join('') + '<div id="adminGroupDetail"></div><div id="adminUser"></div>';
+      if (!selected) return;
+      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
+      const exams = examLoad(), lessons = lmLibrary?.materials || [];
+      document.getElementById('adminGroupDetail').innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Save name</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button><button class="btn" type="button" data-group-open="' + selected.id + '">Open lessons</button></div><h3>Students · ' + students.length + '</h3>' + adminAccountRows(students) + '<h3>Lessons · ' + selected.lessonIds.length + '</h3>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '<h3>Exams · ' + (selected.examIds || []).length + '</h3>' + exams.filter(exam => (selected.examIds || []).includes(exam.id)).map(exam => '<button class="path" type="button" data-exam-open="' + exam.id + '">' + esc(exam.title) + '</button>').join('') + '<div class="row"><select id="accountGroupExam" aria-label="Exam to assign"><option value="">Choose exam</option>' + exams.map(exam => '<option value="' + exam.id + '">' + esc(exam.title) + '</option>').join('') + '</select><button class="btn" type="button" data-account-group="exam">Assign exam</button></div>';
+    }
+    async function saveAccountGroup(body) {
+      const actor = authUser?.id, generation = viewGen;
+      const data = await accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify(body)});
+      if (actor !== authUser?.id || generation !== viewGen || viewAccount) return;
+      classGroups = data.groups; classGroupsReady = true; adminGroups = data.groups;
+      window.ContentCache?.drop('account:');
+      if (body.action === 'archive') paintArchive();
+      await examPull(true); paintGroups(); paintAdminGroups();
+    }
+    document.addEventListener('click',event => {
+      const tab = event.target.closest('[data-admin-tab]'), group = event.target.closest('[data-admin-group]'), action = event.target.closest('[data-account-group]');
+      if (!tab && !group && !action || !isTeacher() || viewAccount) return;
+      if (tab) { adminTab = tab.dataset.adminTab; paintAdmin(); return; }
+      if (group) { adminGroupId = domEntityId(group.dataset.adminGroup); classGroupId = adminGroupId; paintAdminGroups(); return; }
+      const kind = action.dataset.accountGroup, selected = adminGroups.find(g => g.id === adminGroupId);
+      const body = kind === 'create' ? {action:kind,title:document.getElementById('accountGroupName').value} : {action:kind,id:selected?.id,expectedRevision:selected?.revision};
+      if (kind === 'rename') body.title = document.getElementById('accountGroupTitle').value;
+      if (kind === 'exam') { body.examId = Number(document.getElementById('accountGroupExam').value); if (!body.examId) return; }
+      if (kind === 'archive' && !confirm('Move this group to Archive?')) return;
+      action.disabled = true; saveAccountGroup(body).catch(error => { window.TursoMain?.notice(error.message,true); }).finally(() => { action.disabled = false; });
+    });
     function paintAdmin() {
       const token = ++adminPaintToken, actor = authUser?.id, generation = viewGen;
       const still = () => token === adminPaintToken && actor === authUser?.id && generation === viewGen;
@@ -10037,15 +10096,19 @@
         box.innerHTML = '<div class="card"><p>Teachers only.</p></div>';
         return;
       }
+      document.querySelectorAll('[data-admin-tab]').forEach(tab => { const on = tab.dataset.adminTab === adminTab; tab.classList.toggle('on',on); tab.setAttribute('aria-selected',String(on)); });
       box.innerHTML = '<p class="hint">Loading…</p>';
       Promise.all([
         accountFetch("/api/admin/registrations"),
         accountFetch("/api/admin/users"),
-        accountFetch("/api/admin/changes")
-      ]).then(([regs, users, changes]) => {
+        accountFetch("/api/admin/changes"), accountFetch('/api/groups'), accountFetch('/api/groups/members')
+      ]).then(([regs, users, changes, groups, membership]) => {
         if (!still()) return;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
         const accounts = (users.users || []).filter(accountVisible);
+        adminGroups = groups.groups || []; adminMembers = membership.members || []; adminAccounts = accounts;
+        if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
+        if (adminTab === 'groups') { paintAdminGroups(); return; }
         const accountIds = new Set(accounts.map((row) => row.id));
         const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
         const changeRows = (changes.changes || []).filter((row) => accountVisible(row) && accountIds.has(row.user_id));
@@ -10071,13 +10134,11 @@
           '</div><div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
             '<div class="row" style="margin:8px 0"><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
-            '<button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
+            '<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1')?.id) + '</select><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
           '</div><div class="card"><p class="label">Accounts</p>' +
-          recentRows((accounts || []).slice().sort((a, b) => (a && !a.revoked && a.active !== false ? 0 : 1) - (b && !b.revoked && b.active !== false ? 0 : 1)), (row, n) =>
-            '<button class="path" type="button" data-account="user" data-id="' + esc(row.id) + '"><span><b>' + n + ". " + esc(row.login) + '</b><br><span class="label">' + esc(row.email) + ' · ' + roleLabel(row.role) + accountMark(row) + '</span></span></button>'
-          ) +
+          adminAccountRows(accounts) +
           '</div><div class="card"><p class="label">Registration history</p>' +
           (history.length ? recentRows(history, (row, n) =>
             '<p><b>' + n + ". " + esc(row.login) + '</b> · ' + esc(row.email) + '<br><span class="hint">' + statusLabel(row.status) + ' · ' + esc(when(row.created_at)) + '</span></p>'
@@ -10102,6 +10163,7 @@
           : "";
         slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
           '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
+          (user.role === 'USER' ? '<label>Group<select data-student-group>' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '">Save group</button>' : '') +
           (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
             '<p class="label">Login</p><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off" />' +
             '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +
@@ -10223,6 +10285,7 @@
       if (archivePreviewContext && (archivePreviewContext.actor !== authUser?.id || archivePreviewContext.generation !== viewGen || viewAccount)) closeArchivePreview();
       const allow = isDeveloper();
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
+      document.querySelectorAll('[data-teacher-only]').forEach(el => { el.hidden = !isTeacher() || !!viewAccount; });
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
     }
     function archiveLabel(type) {
@@ -11252,10 +11315,19 @@
       }
       if (action === "approve" || action === "reject") {
         if (!isTeacher() || viewAccount) return;
-        accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: "{}" })
+        const picker = document.querySelector('[data-registration-group="' + button.dataset.id + '"]');
+        accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: JSON.stringify(action === 'approve' && picker?.value ? {groupId:Number(picker.value)} : {}) })
           .then(() => paintAdmin())
-          .catch((err) => alert(err.message));
+          .catch((err) => { paintAdmin(); alert(err.message); });
         return;
+      }
+      if (action === 'assign-group') {
+        if (!isTeacher() || viewAccount) return;
+        const picker = button.closest('.card').querySelector('[data-student-group]');button.disabled = true;
+        accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
+          adminMembers = (await accountFetch('/api/groups/members')).members || [];
+          if (adminTab === 'groups') paintAdminGroups(); else { paintAdmin(); }
+        }).catch(error => alert(error.message)).finally(() => { button.disabled = false; });return;
       }
       if (action === "save-profile") {
         if (!sessionIsDeveloper() || viewAccount) return;
@@ -12115,6 +12187,7 @@
           date: group.date || lmToday(),
           hidden: !!group.hidden,
           personalHidden: !!group.personalHidden,
+          revision: group.revision, examIds: group.examIds || [],
           lessonIds: Array.isArray(group.lessonIds) ? group.lessonIds.slice() : []
         })) : [];
         classGroupsReady = true;
@@ -12377,6 +12450,8 @@
             if ((block.tab || "") === "phrases") phrases += 1;
             else if ((block.tab || "") === "words") words += 1;
           } else if (block.type === "phrase") phrases += 1;
+          else if (block.type === 'vocab' && block.tab === 'words') words += (block.items || []).filter(item => item.word).length;
+          else if (block.type === 'cards' && block.tab === 'words') words += (block.items || []).filter(item => item.front || item.back || item.example).length;
           else if (block.type === "rule") rules += 1;
         }
         return { words, phrases, rules };
@@ -12688,6 +12763,7 @@
     }
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
+      if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
       return '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
     }
     function lmRuleCardHtml(block, link) {
@@ -12721,6 +12797,7 @@
     function lmBlank(type, quizType) {
       const id = lmId();
       const base = { id: id, type: type, collapsed: false, tab: lmTab() };
+      if (['quiz','exercise','task'].includes(type)) Object.assign(base,{gradeMode:'assignment',maxPoints:1,assignmentId:'a-' + crypto.randomUUID()});
       if (type === "heading") return Object.assign(base, { level: "h2", text: "New heading" });
       if (type === "text" || type === "reading") return Object.assign(base, type === "text" ? { html: "<p></p>" } : { title: "Reading", text: "", marks: [] });
       if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "", title: "" });
@@ -12982,7 +13059,7 @@
       const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : "+ Add card";
       const memory = kind === "Memory" ? '<label>Pairs in one set<input type="number" min="2" data-field="memorySize" data-block="' + block.id + '" value="' + esc(String(block.memorySize || 4)) + '" /></label>' : "";
       const rows = (block.items || []).map((item, index) =>
-        '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + assessmentEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
+        '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
       ).join("");
       return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
     }
@@ -13000,7 +13077,7 @@
         const write = block.type === "exercise" && question.kind === "write";
         const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (write ? "" : " selected") + '>Choices</option><option value="write"' + (write ? " selected" : "") + ">Type the answer</option></select></label>" : "";
         const body = write ? '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>' : lmChoiceEditor(block, index);
-        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + assessmentEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
+        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
       }).join("");
     }
     function lmBody(block) {
@@ -13088,7 +13165,9 @@
         const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
-        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + lmHead(block, label) + '<div class="lm-body">' + assessed + lmBody(block) + (block.type === 'task' ? assessmentEditor(block) : '') + "</div></article>";
+        const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '" value="' + esc(String(assessmentUnitMax(block))) + '"></label>' : '';
+        const head = lmHead(block,label).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
+        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + assessed + assessmentGroupEditor(block) + lmBody(block) + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
       dressWords(box);
       lmPaintChrome();
@@ -13162,8 +13241,9 @@
         return "<table><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>";
       }
       if (block.type === "vocab") {
-        const rows = (block.items || []).map((row) => "<tr><td><b>" + esc(row.word || "") + "</b></td><td>" + esc(row.translation || "") + "</td><td>" + esc(row.ipa || "") + "</td><td>" + esc(row.example || "") + "</td></tr>").join("");
-        return "<h3>" + esc(block.title || "Vocabulary") + "</h3><table><thead><tr><th>Word</th><th>Translation</th><th>Transcription</th><th>Example</th></tr></thead><tbody>" + rows + "</tbody></table>";
+        const restricted = authUser?.role === 'USER' && !viewAccount && lmState.examOwned;
+        const rows = (block.items || []).map(row => '<details class="lm-study-card"><summary><b>' + esc(row.word || 'Word') + '</b></summary><div>' + (row.ipa ? '<p>' + esc(row.ipa) + '</p>' : '') + (!restricted ? '<p>' + esc(row.translation || '') + '</p><p>' + esc(row.example || '') + '</p>' : '') + '</div></details>').join('');
+        return '<h3>' + esc(block.title || 'Vocabulary') + '</h3><div class="lm-read-cards">' + rows + '</div>';
       }
       if (block.type === "dialogue") {
         const lines = (block.lines || []).map((line) => '<p class="lm-line"><b>' + esc(line.speaker || "") + "</b> " + esc(line.text || "") + "</p>").join("");
@@ -13209,6 +13289,19 @@
       return "<h3>" + esc(block.title || "Vocabulary") + '</h3><div class="lm-read-cards">' + cards + "</div>";
     }
     function lmPreviewParts(blocks) {
+      const grouped = new Map();
+      for (const part of blocks) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (!grouped.has(key)) grouped.set(key,[]); grouped.get(key).push(part); }
+      const assignments = new Map();
+      const taskKeys = new Set((lmState.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type)).map(part => part.assignmentKey || part.assignmentId || ('part-' + part.id)));
+      for (const part of lmState.blocks || []) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (taskKeys.has(key) && !assignments.has(key)) assignments.set(key,assignments.size + 1); }
+      return [...grouped].map(([key,parts]) => {
+        const content = lmPreviewPartsFlat(parts), number = assignments.get(key);
+        if (!number) return content;
+        const leader = parts.find(p => p.assignmentId === key && ['quiz','exercise','task'].includes(p.type)) || parts.find(p => ['quiz','exercise','task'].includes(p.type));
+        return '<div class="lm-assignment lm-assignment-tone-' + ((number - 1) % 4) + '" data-assignment="' + esc(key) + '"><header><h3>Task ' + number + (leader?.title ? ' · ' + esc(leader.title) : '') + '</h3></header>' + content + '</div>';
+      }).join('');
+    }
+    function lmPreviewPartsFlat(blocks) {
       let html = "";
       let cards = [];
       const flush = () => {
@@ -13237,21 +13330,26 @@
       const when = lmLongDate(lmState.date);
       box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + lmChromeHtml() + parts + "</article>";
       dressWords(box);
+      box.querySelectorAll('.lm-read-card').forEach(card => {
+        const title = card.querySelector('b'), details = document.createElement('details'); details.className = 'lm-study-card';
+        const summary = document.createElement('summary'); if (title) summary.append(title); else summary.textContent = 'Card';
+        details.append(summary); while (card.firstChild) details.append(card.firstChild); card.replaceWith(details);
+      });
       lmHydrateLinkPreviews(box);
     }
     function lmChromeHtml() {
       const tab = lmTab();
       const counts = lmBlockCounts(lmState);
-      const tabs = [["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
+      const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["quiz", "Day quiz", false], ["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
-      const tabBtns = tabs.map((pair) => '<button type="button" data-lm-tab="' + pair[0] + '" class="lm-section-card' + (pair[0] === tab ? " on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '"><b>' + pair[1] + "</b></button>").join("");
+      const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
           return '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div role="tablist" aria-label="This lesson"><button class="lm-btn" type="button" data-lm-tab="overview" role="tab" aria-selected="' + (tab === 'overview' ? 'true' : 'false') + '">Overview</button><div class="lm-section-cards">' + tabBtns + '</div></div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + "</div></div>";
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];
@@ -13359,6 +13457,7 @@
     function lmSelectTab(id) {
       if (!lmState || !id) return;
       if (lmTab() === id && lmState.tab) return;
+      stopPageMedia(document.getElementById('material'));
       lmState.tab = id;
       if (id !== "rules") lmGrammarArea = "";
       const status = document.getElementById("lmWordStatus");
@@ -13373,7 +13472,7 @@
           btn.setAttribute("aria-selected", on ? "true" : "false");
         });
         lmRenderEditor();
-      } else lmRenderPreview();
+      } else { lmRenderPreview(); examDress(); }
     }
     function lmMoveTabBlock(id, dir) {
       id = domEntityId(id);
@@ -13793,6 +13892,11 @@
           if (block) {
             if (field.dataset.field === "memorySize") block.memorySize = Math.max(2, Number(field.value) || 4);
             else block[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value;
+            if (['maxPoints','criteria'].includes(field.dataset.field)) block.gradeMode = 'assignment';
+            if (field.dataset.field === 'assignmentKey' && field.value) {
+              const leader = lesson.blocks.find(part => part.assignmentId === field.value);
+              if (leader) { block.tab = leader.tab || 'overview'; if (['quiz','exercise','task'].includes(block.type)) block.gradeMode = 'assignment'; leader.gradeMode = 'assignment'; }
+            }
           }
           if (field.tagName === "SELECT") lmRenderEditor();
           lmSchedule();
@@ -14254,6 +14358,7 @@
     function examFromWire(row) {
       return {
         id: row.id,
+        groupId: row.groupId || null,
         title: row.title || "Exam",
         date: row.date || "",
         published: !!row.published,
@@ -14393,13 +14498,13 @@
     }
     function assessmentActive(doc) { return !!doc && (!!doc.examOwned || (doc.blocks || []).some(part => part.assessed)); }
     function assessmentRubric(item) {
-      return String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(points)}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 10000).slice(0,20);
+      return String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(String(points).replace(',','.'))}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 1e12).slice(0,20);
     }
     function assessmentMax(part, index) {
       const item = part.type === 'task' ? part : (part.items || [])[index] || {}, criteria = assessmentRubric(item);
-      return criteria.length ? criteria.reduce((n,c) => n + c.max,0) : Number(item.maxPoints ?? part.maxPoints ?? 1);
+      return criteria.length ? criteria.reduce((n,c) => n + c.max,0) : Number(String(item.maxPoints ?? part.maxPoints ?? 1).replace(',','.'));
     }
-    function assessmentQuestions(doc) {
+    function assessmentAnswerQuestions(doc) {
       return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
     }
     function assessmentEditor(block,index) {
@@ -14407,10 +14512,33 @@
       const field = name => attr + '"' + name + '" data-block="' + block.id + '"';
       return '<label>Maximum points<input type="number" min="0" max="10000" step="any" ' + field('maxPoints') + ' value="' + esc(String(item.maxPoints ?? 1)) + '"></label><label>Criteria<textarea ' + field('criteria') + ' placeholder="Content | 3&#10;Grammar | 2">' + esc(item.criteria || '') + '</textarea></label>';
     }
+    function assessmentUnitMax(part) {
+      const criteria = assessmentRubric(part);
+      if (criteria.length) return criteria.reduce((n,c) => n + c.max,0);
+      if (part.gradeMode === 'assignment') return Number(String(part.maxPoints ?? 1).replace(',','.'));
+      return part.type === 'task' ? assessmentMax(part,0) : (part.items || []).reduce((n,_,i) => n + assessmentMax(part,i),0);
+    }
+    function assessmentQuestions(doc) {
+      const seen = new Set(), result = [];
+      for (const part of (doc.blocks || []).filter(p => ['quiz','exercise','task'].includes(p.type) && (doc.examOwned || p.assessed))) {
+        if (part.gradeMode !== 'assignment') { result.push(...assessmentAnswerQuestions({...doc,blocks:[part]})); continue; }
+        const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (seen.has(key)) continue; seen.add(key);
+        const leader = (doc.blocks || []).find(p => p.assignmentId === key && p.gradeMode === 'assignment' && ['quiz','exercise','task'].includes(p.type)) || part;
+        result.push({part:leader,index:0,max:assessmentUnitMax(leader)});
+      }
+      return result;
+    }
+    function assessmentGroupEditor(block) {
+      const tasks = (lmState.blocks || []).filter(p => ['quiz','exercise','task'].includes(p.type));
+      if (!tasks.length) return '';
+      tasks.forEach(p => { p.assignmentId ||= 'a-' + crypto.randomUUID(); });
+      return '<label>Assignment<select data-field="assignmentKey" data-block="' + block.id + '"><option value="">Standalone</option>' + tasks.filter(p => p.id !== block.id && !p.assignmentKey).map(p => '<option value="' + esc(p.assignmentId) + '"' + (block.assignmentKey === p.assignmentId ? ' selected' : '') + '>' + esc(p.title || lmSummary(p) || 'Task') + '</option>').join('') + '</select></label>';
+    }
     function assessmentKey(doc) { return (doc.examOwned ? doc.examId : 'lesson') + '/' + (doc.examOwned ? doc.blockId : doc.id); }
     function assessmentApply(doc,row) {
       doc.studentSaved = !!row.saved; doc.assessmentState = row.state || (row.saved ? 'submitted' : 'draft'); doc.assessmentRevision = row.revision || 0;
       doc.examCorrections = row.corrections || {}; doc.examPoints = row.points || {}; doc.examErrors = row.errors || {}; doc.examCriteriaPoints = row.criteriaPoints || {};
+      doc.examReviewText = row.reviewText || {};
       if (row.saved && row.materials?.length) {
         if (doc.examOwned) doc.blocks = row.materials;
         else doc.blocks = (doc.blocks || []).map(part => row.materials.find(p => String(p.id) === String(part.id)) || part);
@@ -14429,8 +14557,8 @@
       if (!box) { box = document.createElement('div'); box.id = 'assessmentSummary'; box.className = 'assessment-summary'; document.querySelector('#material .lm-meta')?.after(box); }
       box.hidden = !assessmentActive(doc);
       if (box.hidden) return;
-      const qs = assessmentQuestions(doc), max = qs.reduce((n,q) => n + q.max,0), graded = qs.filter(q => doc.examPoints?.[q.part.id]?.[q.index] != null && doc.examPoints[q.part.id][q.index] !== '');
-      const earned = graded.reduce((n,q) => n + Number(doc.examPoints[q.part.id][q.index]),0);
+      const qs = assessmentQuestions(doc), max = Math.round(qs.reduce((n,q) => n + q.max,0)*1e8)/1e8, graded = qs.filter(q => doc.examPoints?.[q.part.id]?.[q.index] != null && doc.examPoints[q.part.id][q.index] !== '');
+      const earned = Math.round(graded.reduce((n,q) => n + Number(String(doc.examPoints[q.part.id][q.index]).replace(',','.')),0)*1e8)/1e8;
       const states = {draft:'Draft',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'};
       box.innerHTML = '<strong>' + esc(states[doc.assessmentState] || 'Draft') + '</strong><span>Maximum: ' + esc(String(max)) + ' points</span>' + (canTuneStudentLessons() || doc.assessmentState === 'published' ? '<span>' + esc(String(earned)) + ' / ' + esc(String(max)) + ' · ' + graded.length + ' / ' + qs.length + ' graded</span>' : '') + '<span role="status" aria-live="polite">' + esc(message || doc.assessmentMessage || '') + '</span>';
       if (doc.assessmentError) box.innerHTML += '<button class="lm-btn" type="button" id="assessmentRetry">Retry saving</button>';
@@ -14462,6 +14590,7 @@
       const account = examWorkAccount(), actor = authUser?.id, target = viewAccount?.id;
       const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
       if (target) payload.studentId = target;
+      payload.reviewText = JSON.parse(JSON.stringify(doc.examReviewText || {}));
       const task = assessmentQueue.catch(() => {}).then(async () => {
         if (actor !== authUser?.id || account !== examWorkAccount()) throw new Error('Account changed. Reopen the material.');
         if (!doc.assessmentReady) throw new Error('Load answers before saving.');
@@ -14706,22 +14835,91 @@
       if (examSame(given, value)) return " exam-miss";
       return "";
     }
-    function examPointInput(block, index) {
+    function examPointInput(block, index, whole=false) {
       if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
+      if (block.gradeMode === 'assignment' && !whole) return '';
       const value = ((lmState.examPoints || {})[block.id] || {})[index];
       const shown = value == null || value === "" ? "" : String(value);
       const mark = ((lmState.examErrors || {})[block.id] || {})[index] || '';
-      const item = block.type === 'task' ? block : (block.items || [])[index] || {}, criteria = assessmentRubric(item);
+      const item = whole || block.type === 'task' ? block : (block.items || [])[index] || {}, criteria = assessmentRubric(item);
+      const maximum = whole ? assessmentUnitMax(block) : assessmentMax(block,index);
       const criteriaHtml = criteria.map((criterion,i) => '<label>' + esc(criterion.label) + ' / ' + criterion.max + '<input type="number" min="0" max="' + criterion.max + '" step="any" data-exam-criterion="' + block.id + ':' + index + ':' + i + '" value="' + esc(String(lmState.examCriteriaPoints?.[block.id]?.[index]?.[i] ?? '')) + '"></label>').join('');
-      return '<div class="assessment-grading">' + criteriaHtml + '<label class="exam-point">Points / ' + assessmentMax(block,index) + ' <input class="exam-points" type="number" min="0" max="' + assessmentMax(block,index) + '" step="any" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label><label>Review<select data-exam-error="' + block.id + ':' + index + '"><option value="">Unmarked</option><option value="correct"' + (mark === 'correct' ? ' selected' : '') + '>Correct</option><option value="needs-work"' + (mark === 'needs-work' ? ' selected' : '') + '>Needs work</option></select></label></div>';
+      return '<div class="assessment-grading">' + criteriaHtml + '<label class="exam-point">Points / ' + maximum + ' <input class="exam-points" type="text" inputmode="decimal" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label><label>Review<select data-exam-error="' + block.id + ':' + index + '"><option value="">Unmarked</option><option value="correct"' + (mark === 'correct' ? ' selected' : '') + '>Correct</option><option value="needs-work"' + (mark === 'needs-work' ? ' selected' : '') + '>Needs work</option></select></label></div>';
     }
     function examFixInput(block, index) {
       if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
       const value = ((lmState.examCorrections || {})[block.id] || {})[index] || "";
       return '<label>Feedback<textarea maxlength="3000" data-exam-fix="' + block.id + ":" + index + '">' + esc(value) + '</textarea></label>';
     }
+    function reviewHtml(value) {
+      return (value?.runs || []).map(run => {
+        const m = run.marks || {}, style = [];
+        if (m.color && /^#[a-f0-9]{6}$/i.test(m.color)) style.push('color:' + m.color);
+        if (m.size >= 10 && m.size <= 96) style.push('font-size:' + m.size + 'px');
+        if (m.bold) style.push('font-weight:bold'); if (m.italic) style.push('font-style:italic');
+        const decoration = [m.underline ? 'underline' : '',m.strike ? 'line-through' : ''].filter(Boolean).join(' ');
+        if (decoration) style.push('text-decoration:' + decoration);
+        return '<span style="' + esc(style.join(';')) + '">' + esc(run.text) + '</span>';
+      }).join('');
+    }
+    function reviewRuns(editor) {
+      const runs = [];
+      function visit(node,inherited={}) {
+        if (node.nodeType === 3) { if (node.textContent) runs.push({text:node.textContent,marks:inherited}); return; }
+        if (node.nodeType !== 1) return;
+        if (node.tagName === 'BR') { runs.push({text:'\n',marks:inherited}); return; }
+        const marks = {...inherited}, style = node.style;
+        if (['B','STRONG'].includes(node.tagName) || style.fontWeight === 'bold') marks.bold = true;
+        if (['I','EM'].includes(node.tagName) || style.fontStyle === 'italic') marks.italic = true;
+        if (node.tagName === 'U' || style.textDecoration.includes('underline')) marks.underline = true;
+        if (['S','STRIKE','DEL'].includes(node.tagName) || style.textDecoration.includes('line-through')) marks.strike = true;
+        const color = style.color || node.getAttribute('color') || '', rgb = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+        if (/^#[a-f0-9]{6}$/i.test(color)) marks.color = color;
+        else if (rgb) marks.color = '#' + rgb.slice(1).map(n => Math.min(255,Number(n)).toString(16).padStart(2,'0')).join('');
+        const size = parseFloat(style.fontSize); if (size >= 10 && size <= 96) marks.size = size;
+        node.childNodes.forEach(child => visit(child,marks));
+        if (node !== editor && ['P','DIV','LI'].includes(node.tagName)) runs.push({text:'\n',marks:inherited});
+      }
+      editor.childNodes.forEach(child => visit(child)); return {runs};
+    }
+    function reviewEditor(part,index,original) {
+      const key = part.id + ':' + index, saved = lmState.examReviewText?.[part.id]?.[index] || {runs:[{text:String(original || ''),marks:{}}]};
+      const published = lmState.assessmentState === 'published' || !lmState.studentSaved || lmState.assessmentBusy;
+      return '<div class="review-answer"><details><summary>Original answer</summary><p>' + esc(String(original || 'Not answered')) + '</p></details>' + (!published ? '<div class="review-toolbar" data-review-toolbar="' + key + '"><button type="button" data-review-command="bold" title="Bold"><b>B</b></button><button type="button" data-review-command="italic" title="Italic"><i>I</i></button><button type="button" data-review-command="underline" title="Underline"><u>U</u></button><button type="button" data-review-command="strikeThrough" title="Strike through"><s>S</s></button><input type="color" data-review-color aria-label="Text color" value="#c62828"><input type="number" data-review-size min="10" max="96" value="18" aria-label="Text size"></div>' : '') + '<div class="review-edit" role="textbox" aria-multiline="true" aria-label="Reviewed answer" contenteditable="' + (!published) + '" data-review-text="' + key + '">' + reviewHtml(saved) + '</div></div>';
+    }
+    let reviewSelection;
+    document.addEventListener('selectionchange',() => {
+      const selection = window.getSelection(), node = selection?.anchorNode, element = node?.nodeType === 1 ? node : node?.parentElement;
+      if (selection?.rangeCount && element?.closest('.review-edit')) reviewSelection = selection.getRangeAt(0).cloneRange();
+    });
+    document.addEventListener('mousedown',event => { if (event.target.closest('[data-review-command]')) event.preventDefault(); });
+    document.addEventListener('paste',event => {
+      const editor = event.target.closest?.('.review-edit[contenteditable="true"]');
+      if (!editor) return;
+      event.preventDefault(); document.execCommand('insertText',false,event.clipboardData?.getData('text/plain') || ''); examRemember(editor);
+    });
+    function reviewFormat(control) {
+      if (!canTuneStudentLessons() || !lmState.studentSaved || lmState.assessmentState === 'published') return;
+      const toolbar = control.closest('[data-review-toolbar]'), editor = toolbar?.nextElementSibling;
+      if (!editor) return;
+      editor.focus(); const selection = window.getSelection();
+      if (reviewSelection && editor.contains(reviewSelection.commonAncestorContainer)) { selection.removeAllRanges(); selection.addRange(reviewSelection); }
+      if (control.dataset.reviewCommand) document.execCommand(control.dataset.reviewCommand,false,null);
+      else if (control.matches('[data-review-color]')) document.execCommand('foreColor',false,control.value);
+      else if (control.matches('[data-review-size]')) {
+        const size = Math.max(10,Math.min(96,Number(control.value) || 18));
+        if (selection.rangeCount && !selection.isCollapsed && editor.contains(selection.anchorNode)) {
+          const range = selection.getRangeAt(0), span = document.createElement('span'); span.style.fontSize = size + 'px'; span.append(range.extractContents()); range.insertNode(span); range.selectNodeContents(span); selection.removeAllRanges(); selection.addRange(range); reviewSelection = range.cloneRange();
+        } else { editor.querySelectorAll('span').forEach(span => { span.style.fontSize = size + 'px'; }); }
+      }
+      if (selection.rangeCount && editor.contains(selection.anchorNode)) reviewSelection = selection.getRangeAt(0).cloneRange();
+      examRemember(editor);
+    }
+    document.addEventListener('click',event => { const control = event.target.closest('[data-review-command]'); if (control) reviewFormat(control); });
+    document.addEventListener('change',event => { if (event.target.matches('[data-review-color],[data-review-size]')) reviewFormat(event.target); });
     function assessmentFeedback(block,index) {
       if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
+      if (block.gradeMode === 'assignment') return '';
       let html = '<p class="assessment-question-score">Maximum: ' + assessmentMax(block,index) + ' points</p>';
       if (lmState.assessmentState !== 'published') return html;
       const points = lmState.examPoints?.[block.id]?.[index], feedback = lmState.examCorrections?.[block.id]?.[index], mark = lmState.examErrors?.[block.id]?.[index];
@@ -14737,7 +14935,8 @@
       if (!known) html = '<p class="exam-miss exam-strike">' + esc(given || "—") + "</p>";
       else if (same) html = '<p class="exam-hit">' + esc(given || right) + "</p>";
       else html = '<p class="exam-miss exam-strike">' + esc(given || "—") + '</p><p class="exam-hit">' + esc(right) + "</p>";
-      return html + examFixInput(block, index) + examPointInput(block, index);
+      const source = block.assessmentSource || block, sourceIndex = block.assessmentIndex ?? index;
+      return html + reviewEditor(source,sourceIndex,given) + examFixInput(block, index) + examPointInput(block, index);
     }
     function examAnswerHtml(block) {
       const kind = lmQuizType(block);
@@ -14792,6 +14991,7 @@
       }).join("");
     }
     function examFillAnswers() {
+      document.querySelectorAll('#lmPreview .assignment-score').forEach(node => node.remove());
       (lmState.blocks || []).forEach((block) => {
         if (!["quiz", "exercise", "task"].includes(block.type) || !lmState.examOwned && !block.assessed) return;
         const panel = document.querySelector('#lmPreview [data-lm-panel="' + block.id + '"]');
@@ -14804,6 +15004,33 @@
           panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
         }
       });
+      if (canTuneStudentLessons()) {
+        document.querySelectorAll('#lmPreview [data-exam-response],#lmPreview input[type="text"][data-exam-given]').forEach(field => {
+          const key = field.dataset.examGiven || field.dataset.examResponse + ':0', [id,index] = key.split(':'), part = lmState.blocks.find(p => String(p.id) === id);
+          if (!part) return;
+          const original = field.value; field.hidden = true;
+          field.insertAdjacentHTML('afterend',reviewEditor(part,Number(index),original));
+        });
+      } else if (lmState.assessmentState === 'published') {
+        for (const [id,items] of Object.entries(lmState.examReviewText || {})) for (const [index,value] of Object.entries(items)) {
+          const field = document.querySelector('[data-exam-given="' + id + ':' + index + '"],[data-exam-response="' + id + '"]');
+          field?.insertAdjacentHTML('afterend','<div class="review-edit review-published"><b>Teacher review</b><div>' + reviewHtml(value) + '</div></div>');
+        }
+      }
+      const leaders = assessmentQuestions(lmState).filter(q => q.part.gradeMode === 'assignment');
+      for (const q of leaders) {
+        const panel = document.querySelector('#lmPreview [data-lm-panel="' + q.part.id + '"]'); if (!panel) continue;
+        const target = panel.closest('.lm-assignment')?.querySelector('header') || panel;
+        let html = '<div class="assignment-score"><strong>Maximum: ' + q.max + ' points</strong>';
+        if (canTuneStudentLessons()) html += examPointInput(q.part,0,true);
+        else if (lmState.assessmentState === 'published') html += '<p>Score: ' + esc(String(lmState.examPoints?.[q.part.id]?.[0] ?? 'Not graded')) + ' / ' + q.max + '</p>';
+        target.insertAdjacentHTML('beforeend',html + '</div>');
+      }
+      document.querySelectorAll('#lmPreview .lm-q').forEach(question => {
+        const details = document.createElement('details'), summary = document.createElement('summary'); details.className = 'lm-study-card exam-question-card'; details.open = true;
+        const title = question.querySelector('b'); if (title) summary.append(title); else summary.textContent = 'Question';
+        question.before(details); details.append(summary,question);
+      });
       if (!canTuneStudentLessons()) (lmState.blocks || []).filter(part => ['quiz','exercise'].includes(part.type) && (lmState.examOwned || part.assessed)).forEach(part => {
         document.querySelectorAll('#lmPreview [data-lm-panel="' + part.id + '"] .lm-q').forEach((question,index) => { if (!question.querySelector('.assessment-question-score')) question.insertAdjacentHTML('beforeend',assessmentFeedback(part,index)); });
       });
@@ -14813,13 +15040,17 @@
       const reviewer = canTuneStudentLessons();
       if (!reviewer && lmState.studentSaved) return;
       if (reviewer && lmState.assessmentState === 'published') return;
+      const reviewed = input.closest('[data-review-text]');
+      if (reviewed && reviewer) {
+        const [id,index] = reviewed.dataset.reviewText.split(':'); lmState.examReviewText ||= {}; (lmState.examReviewText[id] ||= {})[index] = reviewRuns(reviewed); assessmentStatus('Unsaved review'); return;
+      }
       const errorMark = input.closest('[data-exam-error]'), criterion = input.closest('[data-exam-criterion]');
       if ((errorMark || criterion) && reviewer) {
         const source = errorMark || criterion, bits = (source.dataset.examError || source.dataset.examCriterion).split(':');
         if (errorMark) { lmState.examErrors ||= {}; (lmState.examErrors[bits[0]] ||= {})[bits[1]] = source.value; }
         else {
           lmState.examCriteriaPoints ||= {}; const scores = ((lmState.examCriteriaPoints[bits[0]] ||= {})[bits[1]] ||= {}); scores[bits[2]] = source.value;
-          const part = lmState.blocks.find(p => String(p.id) === bits[0]), item = part.type === 'task' ? part : part.items[Number(bits[1])];
+          const part = lmState.blocks.find(p => String(p.id) === bits[0]), item = part.type === 'task' || part.gradeMode === 'assignment' ? part : part.items[Number(bits[1])];
           const rows = assessmentRubric(item), complete = rows.every((_,i) => scores[i] != null && scores[i] !== '');
           const total = complete ? rows.reduce((n,_,i) => n + Number(scores[i]),0) : '';
           (lmState.examPoints[bits[0]] ||= {})[bits[1]] = total;
@@ -14891,23 +15122,27 @@
       if (dirty) examSave(stored);
       const exams = examShown();
       const rows = exams.filter((exam) => canEditLessons() || canTuneStudentLessons() || examStudentSees(exam)).slice().sort((a, b) => {
+        const groups = String(classGroups.find(g => g.id === a.groupId)?.title || 'Unassigned').localeCompare(String(classGroups.find(g => g.id === b.groupId)?.title || 'Unassigned'));
+        if (groups) return groups;
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
       });
+      let previousGroup;
       box.innerHTML = rows.map((exam) => {
         const chip = lmDateChip(exam.date);
         const mine = !canEditLessons();
         const ready = mine && examReadyForReview(exam);
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
         let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
-        const visible = examVisibleBlocks(exam), maximum = visible.reduce((n,b) => n + assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q) => m + q.max,0),0);
+        const visible = examVisibleBlocks(exam), maximum = Math.round(visible.reduce((n,b) => n + assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q) => m + q.max,0),0)*1e8)/1e8;
         const reviewed = visible.filter(b => b.doc?.assessmentState === 'published').length;
         about += ' · Maximum ' + maximum;
         if (mine && (canTuneStudentLessons() || reviewed)) about += ' · ' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed';
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
         if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
-        return examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, hidden, examTools("exam", exam.id, hidden));
+        const groupName = classGroups.find(g => g.id === exam.groupId)?.title || 'Unassigned', heading = previousGroup !== groupName ? '<h2 class="lib-h">' + esc(groupName) + '</h2>' : ''; previousGroup = groupName;
+        return heading + examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, hidden, examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -14927,7 +15162,7 @@
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
         let about = block.hidden ? "Hidden" : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? "Submitted" : (block.doc && block.doc.published ? "Published" : "Draft"));
-        const maximum = assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0);
+        const maximum = Math.round(assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0)*1e8)/1e8;
         about += ' · Maximum ' + maximum;
         if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
         const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
@@ -15231,7 +15466,7 @@
         if (!assessmentActive(lmState) || canEditLessons() && !canTuneStudentLessons()) return;
         if (canTuneStudentLessons()) return assessmentAction('review');
         if (lmState.studentSaved) return;
-        const answers = examCollectAnswers(lmState), missing = assessmentQuestions(lmState).filter(q => answers[q.part.id]?.[q.index] == null || answers[q.part.id][q.index] === '' || Array.isArray(answers[q.part.id][q.index]) && !answers[q.part.id][q.index].length).length;
+        const answers = examCollectAnswers(lmState), missing = assessmentAnswerQuestions(lmState).filter(q => answers[q.part.id]?.[q.index] == null || answers[q.part.id][q.index] === '' || Array.isArray(answers[q.part.id][q.index]) && !answers[q.part.id][q.index].length).length;
         if (!confirm((missing ? missing + ' unanswered question(s). ' : '') + 'Submit your answers? You cannot change them unless your teacher reopens the submission.')) return;
         await assessmentAction('submit');
       });
