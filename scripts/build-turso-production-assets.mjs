@@ -22,8 +22,9 @@ for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstra
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
-copyFileSync(resolve(root,'staging/messages-test.js'),resolve(target,'messages.js'));
-copyFileSync(resolve(root,'staging/messages-test.css'),resolve(target,'messages.css'));
+copyFileSync(resolve(root,'production/chat.js'),resolve(target,'messages.js'));
+copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
+for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
 const anchor="const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);";
 assert.equal(bridge.split(anchor).length,2);
@@ -39,11 +40,11 @@ preview=preview.replace('    function show(id) {',"    function show(id) {\n    
 writeFileSync(resolve(target,'preview.js'),preview);
 const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
 const loader=readFileSync(resolve(root,'production/catalog-loader.js'),'utf8').replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
-  .replace('document.body.append(script);',"script.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(script);");
+  .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 assert.equal(html.split('<section id="account">').length,2);
-html=html.replace('<section id="account">',readFileSync(resolve(root,'staging/messages-test.html'),'utf8')+'\n<section id="account">')
+html=html.replace('<section id="account">',readFileSync(resolve(root,'production/chat.html'),'utf8')+'\n<section id="account">')
   .replace('</head>','<link rel="stylesheet" href="/messages.css?v='+version('messages.css')+'"></head>');
 const banner='TEST Turso — отдельный Worker. Рабочий сайт не переключён.';
 assert.equal(html.split(banner).length,2);

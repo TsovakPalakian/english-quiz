@@ -29,6 +29,7 @@ export class MessageService {
     if (!ready.has(this.db)) ready.set(this.db,(async () => {
       await new ExamService(this.db).ensure(); await new GroupService(this.db).ensure();
       await this.db.atomic(schema.map(sql => s(sql)));
+      await this.db.atomic([s('CREATE TABLE IF NOT EXISTS chat_delivery_outbox(message_id INTEGER PRIMARY KEY REFERENCES chat_messages(id) ON DELETE CASCADE)'),s("CREATE TRIGGER IF NOT EXISTS chat_notice_outbox AFTER INSERT ON chat_messages WHEN NEW.category='learning' BEGIN INSERT OR IGNORE INTO chat_delivery_outbox(message_id) VALUES(NEW.id); END")]);
       const columns = await this.db.read('PRAGMA table_info(chat_messages)');
       if(!columns.some(column=>column.name==='exam_instance_id')){
         try{await this.db.atomic([s('ALTER TABLE chat_messages ADD COLUMN exam_instance_id INTEGER')]);}catch(error){if(!(await this.db.read('PRAGMA table_info(chat_messages)')).some(column=>column.name==='exam_instance_id'))throw error;}

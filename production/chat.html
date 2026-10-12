@@ -1,0 +1,62 @@
+<section id="messages" aria-label="Messages">
+  <div class="chat-shell">
+    <nav class="chat-rail" aria-label="Chat navigation">
+      <button type="button" id="msgProfile" class="chat-avatar" title="Settings" aria-label="Settings">Me</button>
+      <button type="button" id="msgChats" class="chat-rail-item selected" title="Chats"><i data-lucide="message-circle"></i><span>Chats</span></button>
+      <button type="button" id="msgContacts" class="chat-rail-item" title="Contacts"><i data-lucide="users-round"></i><span>Contacts</span></button>
+      <div class="chat-rail-bottom">
+        <button type="button" id="msgSettings" class="chat-icon" title="Settings" aria-label="Settings"><i data-lucide="settings"></i></button>
+        <button type="button" id="msgExit" class="chat-icon" title="Back to site" aria-label="Back to site"><i data-lucide="panel-left-close"></i></button>
+      </div>
+    </nav>
+    <aside class="chat-list" aria-label="Conversations">
+      <header class="chat-panel-head"><h2 id="msgListTitle">Chats</h2><button type="button" id="msgUnread" class="chat-icon" title="Unread conversations" aria-label="Unread conversations" aria-pressed="false"><i data-lucide="list-filter"></i></button><button type="button" id="msgNew" class="chat-icon primary" title="New chat" aria-label="New chat"><i data-lucide="plus"></i></button><button type="button" id="msgHideList" class="chat-icon" title="Hide conversations" aria-label="Hide conversations"><i data-lucide="panel-left-close"></i></button></header>
+      <label class="chat-search"><i data-lucide="search"></i><input id="msgRoomSearch" type="search" placeholder="Chats, contacts" aria-label="Search chats"></label>
+      <button id="msgLookup" type="button" class="chat-link" hidden>Find by email or login</button>
+      <div class="chat-categories" role="tablist"><button type="button" role="tab" data-msg-category="personal">Personal</button><button type="button" role="tab" data-msg-category="learning">Study alerts</button><button type="button" role="tab" id="msgContactsTab" aria-selected="false">Contacts</button></div>
+      <div id="msgRooms" class="chat-room-list"></div>
+    </aside>
+    <div id="msgResizeLeft" class="chat-resizer" role="separator" aria-label="Conversation panel width" aria-orientation="vertical" tabindex="0"></div>
+    <main class="chat-center">
+      <header class="chat-panel-head chat-room-head">
+        <button type="button" id="msgListBack" class="chat-icon" title="Show conversations" aria-label="Show conversations"><i data-lucide="panel-left"></i></button>
+        <button type="button" id="msgRoomInfo" class="chat-room-heading" title="Chat info"><span id="msgRoomAvatar" class="chat-avatar"><i data-lucide="users-round"></i></span><span><strong id="msgRoomTitle">Messages</strong><small id="msgRoomSubtitle">Choose a conversation</small></span></button>
+        <button type="button" id="msgAssign" class="chat-icon" title="Assign exam" aria-label="Assign exam" hidden><i data-lucide="clipboard-plus"></i></button>
+        <button type="button" id="msgSearch" class="chat-icon" title="Search messages" aria-label="Search messages"><i data-lucide="search"></i></button>
+        <button type="button" id="msgInfo" class="chat-icon" title="Chat info" aria-label="Chat info"><i data-lucide="panel-right"></i></button>
+      </header>
+      <div id="msgStatus" class="chat-status" role="status" hidden></div>
+      <div id="msgAccess" class="chat-access" hidden></div>
+      <button id="msgPinned" class="chat-pinned" type="button" hidden></button>
+      <div id="msgSelection" class="chat-selection" hidden></div>
+      <div id="msgTimeline" class="chat-timeline" role="log" aria-label="Conversation" aria-live="polite"></div>
+      <button type="button" id="msgLatest" class="chat-latest" title="Latest messages" aria-label="Latest messages" hidden><i data-lucide="arrow-down"></i></button>
+      <form id="msgCompose" class="chat-composer" hidden>
+        <div id="msgReply" class="chat-reply" hidden></div>
+        <div id="msgAttachments" class="chat-attachments"></div>
+        <textarea id="msgText" maxlength="4000" rows="2" placeholder="Enter message" aria-label="Message" enterkeyhint="send"></textarea>
+        <div id="msgEmojiPicker" class="chat-emoji-picker" hidden></div>
+        <div class="chat-compose-tools">
+          <button type="button" id="msgAttach" class="chat-icon" title="Attach file" aria-label="Attach file"><i data-lucide="paperclip"></i></button>
+          <input id="msgFile" type="file" multiple hidden>
+          <button type="button" id="msgEmoji" class="chat-icon" title="Smileys" aria-label="Smileys" aria-expanded="false"><i data-lucide="smile"></i></button>
+          <button type="button" id="msgStickers" class="chat-icon" title="Emoji" aria-label="Emoji" aria-expanded="false"><i data-lucide="grid-2x2"></i></button>
+          <span id="msgSendState" role="status"></span>
+          <button type="button" id="msgMic" class="chat-icon" title="Record voice message" aria-label="Record voice message"><i data-lucide="mic"></i></button>
+          <button type="button" id="msgCancelRecording" class="chat-icon danger" title="Cancel recording" aria-label="Cancel recording" hidden><i data-lucide="x"></i></button>
+          <button type="submit" id="msgSend" class="chat-icon chat-send" title="Send" aria-label="Send"><i data-lucide="send-horizontal"></i></button>
+        </div>
+      </form>
+    </main>
+    <div id="msgResizeRight" class="chat-resizer" role="separator" aria-label="Information panel width" aria-orientation="vertical" tabindex="0" hidden></div>
+    <aside id="msgRight" class="chat-info" aria-label="Chat info" hidden>
+      <header class="chat-panel-head"><h2 id="msgRightTitle">Chat info</h2><button type="button" id="msgHideInfo" class="chat-icon" title="Close panel" aria-label="Close panel"><i data-lucide="x"></i></button></header>
+      <div id="msgInfoContent" class="chat-info-content"></div>
+      <div id="msgSearchContent" class="chat-info-content" hidden>
+        <label class="chat-search"><i data-lucide="search"></i><input id="msgTextSearch" type="search" placeholder="Search messages" aria-label="Search messages"></label>
+        <div id="msgSearchResults"></div><button id="msgSearchMore" class="chat-link" type="button" hidden>More results</button>
+      </div>
+    </aside>
+  </div>
+  <div id="msgContext" class="chat-context" role="menu" aria-label="Message actions" hidden></div>
+</section>

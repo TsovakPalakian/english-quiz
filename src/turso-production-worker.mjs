@@ -3,6 +3,8 @@ import integrated,{StageAuthBudget} from './turso-integrated-worker.mjs';
 import {studyClient} from './turso-stage-worker.mjs';
 import {stageR2Media,PRODUCTION_MEDIA_BUCKET} from './turso-r2-media.mjs';
 import {messagesWorker} from './turso-messages-worker.mjs';
+import {durableChatWorker} from './chat-worker.mjs';
+export {ChatRoom,ChatInbox,ChatBridge} from './chat-worker.mjs';
 export {StageAuthBudget};
 const unavailable=()=>Response.json({error:'Production content not activated.'},{status:503,headers:{'Cache-Control':'no-store'}});
 export function productionEnvironment(env){
@@ -15,10 +17,10 @@ export function productionEnvironment(env){
   try{studyClient(configured);stageR2Media(configured);}catch{return null;}
   return configured;
 }
-export function productionWorker(application=integrated){return {async fetch(request,env,ctx){
+export function productionWorker(application=integrated){return {async scheduled(event,env,ctx){const configured=productionEnvironment(env);if(configured&&application.scheduled)await application.scheduled(event,configured,ctx);},async fetch(request,env,ctx){
   if(env.CONTENT_ENABLED!=='true')return unavailable();
   const configured=productionEnvironment(env);
   if(!configured)return unavailable();
   return application.fetch(request,configured,ctx);
 }};}
-export default productionWorker(messagesWorker({mode:'production'}));
+export default productionWorker(durableChatWorker(messagesWorker({mode:'production'})));
