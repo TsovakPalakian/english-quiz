@@ -38,12 +38,21 @@
       made: "add", allwords: "home", cardstat: "home",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingroup: "admin", themes: "account"
     };
+    function guestRestrictedPage(id) {
+      return ['groups','exams','library','stats','profile','speakouteditor'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+    }
+    function paintGuestAccess() {
+      document.querySelectorAll('[data-jump]').forEach(button=>{
+        if(['groups','exams','library','stats','profile'].includes(button.dataset.jump)||button.id==='homeStudy')button.hidden=!authUser;
+      });
+    }
+    paintGuestAccess();
     (function holdPlace() {
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
       const id = place && place.id;
-      if (!id || id === "home" || !document.getElementById(id)) return;
+      if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
       const mark = dayScreens[id] || id;
       chromeButtons.forEach((b) => {
@@ -54,6 +63,7 @@
       });
     })();
     function show(id) {
+      if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
@@ -2600,7 +2610,7 @@
         html += '<div class="guide-note danger"><b>' + t('Permanent actions', 'Необратимые действия') + '</b><p>' + t('Permanent deletion is developer-only and cannot be undone. Check the material, owner and archive status before confirming.', 'Окончательное удаление доступно только разработчику и не отменяется. Перед подтверждением проверьте материал, владельца и состояние архива.') + '</p></div>';
       }
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
-      if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Only your teacher can reopen a submission. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Повторно открыть работу может только учитель. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
+      if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Submitted exams cannot be reopened; a new assignment creates a separate exam. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Сданный экзамен нельзя разблокировать; новое назначение создаёт отдельный экзамен. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
       if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Accounts','Открыть Accounts'));
       html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
@@ -2699,10 +2709,10 @@
     function actionIcon(paths) {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + "</svg>";
     }
-    function editActions() {
+    function editActions(sidebar = false) {
       const pencil = actionIcon('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>');
       const trash = actionIcon('<path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/>');
-      return '<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit">' + pencil + '</button>' + (!viewAccount || sessionIsDeveloper() ? '<button class="icon-btn" type="button" data-card-delete aria-label="Delete">' + trash + '</button>' : '') + '</span>';
+      return '<span class="'+(sidebar?'day-tools card-row-tools':'edit-actions')+'"><button class="'+(sidebar?'day-edit':'icon-btn')+'" type="button" data-edit-toggle aria-label="Edit" title="Edit">' + pencil + '</button>' + (!viewAccount || sessionIsDeveloper() ? '<button class="'+(sidebar?'day-del':'icon-btn')+'" type="button" data-card-delete aria-label="Delete" title="Delete">' + trash + '</button>' : '') + '</span>';
     }
     function editHost(kind, id, corner) {
       return '<div data-edit-host' + (corner ? ' class="card-edit"' : "") + ' data-edit-kind="' + esc(kind) + '" data-edit-id="' + esc(id) + '">' + editActions() + '</div>';
@@ -3556,7 +3566,7 @@
     function addedRow(item, index) {
       const main = '<button class="path" type="button" data-added="' + index + '"><b>' + esc(item.word) + '</b><span class="to">' + esc(item.ru) + "</span></button>";
       if (!canEditAdded(item)) return main;
-      return '<div data-edit-host data-edit-kind="added" data-edit-id="' + index + '"><div class="edit-line">' + main + editActions() + '</div></div>';
+      return '<div data-edit-host data-edit-kind="added" data-edit-id="' + index + '"><div class="edit-line">' + main + editActions(true) + '</div></div>';
     }
     applyLessonEdits();
     paintWordGrid();
@@ -5265,7 +5275,7 @@
         if (cardDelete.dataset.cardDelete !== "yes") {
           cardDelete.dataset.cardDelete = "yes";
           cardDelete.classList.add("is-confirm");
-          cardDelete.textContent = "Delete?";
+          if(cardDelete.closest('.card-row-tools')){cardDelete.innerHTML=actionIcon('<path d="m5 12 4 4L19 6"/>');cardDelete.title='Confirm deletion';}else cardDelete.textContent = "Delete?";
           cardDelete.setAttribute("aria-label", "Delete?");
           return;
         }
@@ -6560,6 +6570,8 @@
       refreshEditMedia();
       const draft = user.querySelector("[data-lyric-draft]");
       if (draft) draft.value = song.lyrics;
+      if(draft){window.TextColors?.mount(draft,{format:song.colorText});window.TextColors?.sync(draft,song.colorText);}
+      window.TextColors?.paintValue(user.querySelector('.lyric-text'),song.lyrics||'',song.colorText);
       applyLyricSize(user);
     }
     async function saveSongMeta() {
@@ -9933,6 +9945,7 @@
       paintHomeHello();
       paintHomeStats();
       paintHomeStudy();
+      paintGuestAccess();
       refreshAccountsCount();
     }
     let accountsCountActor = '', accountsCountAt = 0, accountsCountFlight = null;
@@ -10163,7 +10176,7 @@
       const detail = document.getElementById('adminGroupDetail');
       const examsOpen = detail.dataset.groupId === String(selected.id) && !!detail.querySelector('[data-group-exams]')?.open;
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
-      const exams = examLoad(), lessons = lmLibrary?.materials || [];
+      const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
         const assigned = (selected.examIds || []).includes(exam.id), owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
         const label = assigned ? 'Unassign' : 'Assign';
@@ -11983,6 +11996,7 @@
       document.getElementById("textEditTitle").textContent = openTextId ? "Edit text" : "Add a text";
       document.getElementById("textTitle").value = item && item.title ? item.title : "";
       document.getElementById("textBody").value = item && item.text ? item.text : "";
+      window.TextColors?.mount(document.getElementById('textBody'));window.TextColors?.sync(document.getElementById('textBody'),item?.colorText);
       document.getElementById("textStatus").textContent = "";
       show("textedit");
     }
@@ -12024,6 +12038,7 @@
       openTextId = id;
       document.getElementById("textReadTitle").textContent = item.title;
       paintTextBody(item.text);
+      window.TextColors?.paintValue(document.getElementById('textReadBody'),item.text,item.colorText);
       const count = item.analysis && item.analysis.expressions ? item.analysis.expressions.length : 0;
       document.getElementById("textReadStatus").textContent = item.analysis ? count + " expressions. The whole text was checked." : "";
       paintExpressions(item);
@@ -12767,12 +12782,14 @@
         if (tag === "SPAN") {
           const px = /^(\d+(?:\.\d+)?)px$/.exec(String(node.style.fontSize || ""));
           const familyKey = lmFontKey(node.style.fontFamily);
+          const color=node.style.color;
           while (node.attributes.length) node.removeAttribute(node.attributes[0].name);
           if (px) {
             const size = Math.min(96, Math.max(10, Math.round(Number(px[1]))));
             node.style.fontSize = size + "px";
           }
           if (familyKey) node.style.fontFamily = LM_FONTS[familyKey];
+          if(color)node.style.color=color;
           if (!node.getAttribute("style")) {
             const parent = node.parentNode;
             while (node.firstChild) parent.insertBefore(node.firstChild, node);
@@ -12816,6 +12833,7 @@
       const size = Math.round(Number(block && block.fontSize));
       if (size >= 10 && size <= 96) bits.push("font-size:" + size + "px");
       const family = lmFontFamily(block && block.fontFamily);
+      if(/^#[a-f0-9]{6}$/i.test(block?.textColor||''))bits.push('color:'+block.textColor);
       if (family) bits.push("font-family:" + family);
       return bits.length ? ' style="' + esc(bits.join(";")) + '"' : "";
     }
@@ -12823,7 +12841,7 @@
       const size = block.fontSize >= 10 && block.fontSize <= 96 ? block.fontSize : 17;
       const fonts = [["", "Font"], ["serif", "Serif"], ["sans", "Sans"], ["mono", "Mono"], ["georgia", "Georgia"], ["verdana", "Verdana"], ["palatino", "Palatino"], ["trebuchet", "Trebuchet"], ["courier", "Courier"]];
       const options = fonts.map((pair) => '<option value="' + pair[0] + '"' + (block.fontFamily === pair[0] ? " selected" : "") + ">" + pair[1] + "</option>").join("");
-      return '<div class="lm-tools"><select data-font-family="' + block.id + '" aria-label="Font">' + options + '</select><button type="button" data-font="up" aria-label="Larger text">A+</button><button type="button" data-font="down" aria-label="Smaller text">A−</button><input class="lm-font-size" type="number" min="10" max="96" step="1" data-font-size="' + block.id + '" value="' + size + '" aria-label="Font size" /><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="insertUnorderedList">List</button><button type="button" data-cmd="link">Link</button></div>';
+      return '<div class="lm-tools"><select data-font-family="' + block.id + '" aria-label="Font">' + options + '</select><button type="button" data-font="up" aria-label="Larger text">A+</button><button type="button" data-font="down" aria-label="Smaller text">A−</button><input class="lm-font-size" type="number" min="10" max="96" step="1" data-font-size="' + block.id + '" value="' + size + '" aria-label="Font size" /><button type="button" data-cmd="bold"><b>B</b></button><button type="button" data-cmd="italic"><i>I</i></button><button type="button" data-cmd="underline"><u>U</u></button><button type="button" data-cmd="insertUnorderedList">List</button><button type="button" data-cmd="link">Link</button><input type="color" data-lm-color="' + block.id + '" value="' + esc(block.textColor || '#173832') + '" title="Text color" aria-label="Text color" /></div>';
     }
     function lmActiveFontRange(rich) {
       const sel = window.getSelection();
@@ -12926,7 +12944,7 @@
     function lmBlank(type, quizType) {
       const id = lmId();
       const base = { id: id, type: type, collapsed: false, tab: lmTab() };
-      if (['quiz','exercise','task'].includes(type)) Object.assign(base,{gradeMode:'assignment',maxPoints:1,assignmentId:'a-' + crypto.randomUUID()});
+      if (['quiz','exercise','task'].includes(type)) Object.assign(base,{gradeMode:'assignment',maxPoints:lmState?.examOwned?'':1,assignmentId:'a-' + crypto.randomUUID(),...(lmState?.examOwned?{scoringVersion:2}:{})});
       if (type === "heading") return Object.assign(base, { level: "h2", text: "New heading" });
       if (type === "text" || type === "reading") return Object.assign(base, type === "text" ? { html: "<p></p>" } : { title: "Reading", text: "", marks: [] });
       if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "", title: "" });
@@ -13279,6 +13297,11 @@
       lmBindEditor();
       document.getElementById("lmTitle").value = lmState.title || "";
       document.getElementById("lmDescription").value = lmState.description || "";
+      if(!lmState.descriptionFormatting)lmState.descriptionFormatting=lmState.blocks?.find(block=>block.documentFormatting)?.documentFormatting?.description;
+      if(lmState.descriptionFormatting&&lmState.blocks[0]){lmState.blocks[0].documentFormatting||={};lmState.blocks[0].documentFormatting.description=lmState.descriptionFormatting;}
+      const descriptionField=document.getElementById('lmDescription');
+      window.TextColors?.mount(descriptionField,{format:lmState.descriptionFormatting,onChange:format=>{lmState.descriptionFormatting=format;if(lmState.blocks[0]){lmState.blocks[0].documentFormatting||={};lmState.blocks[0].documentFormatting.description=format;}lmSchedule();}});
+      window.TextColors?.sync(descriptionField,lmState.descriptionFormatting);
       document.getElementById("lmDate").value = lmState.date || "";
       document.getElementById("lmClass").value = lmState.className || "";
       document.getElementById("lmUnit").value = lmState.unit || "";
@@ -13294,10 +13317,16 @@
         const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
-        const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '" value="' + esc(String(assessmentUnitMax(block))) + '"></label>' : '';
+        const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
+        const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
         const head = lmHead(block,label).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + assessed + assessmentGroupEditor(block) + lmBody(block) + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
+      box.querySelectorAll('textarea[data-field],input[type=text][data-field],textarea[data-item-field],input[type=text][data-item-field],input[type=text][data-card-field]').forEach(field=>{
+        const name=field.dataset.field||field.dataset.itemField||field.dataset.cardField;if(['criteria','url','remoteUrl','ipa','maxPoints','memorySize','answer','write'].includes(name))return;
+        const part=lmBlock(field.dataset.block);if(!part)return;const key=[name,field.dataset.item??field.dataset.card??''].join(':');
+        window.TextColors?.mount(field,{format:part.textFormatting?.[key],onChange:format=>{part.textFormatting||={};part.textFormatting[key]=format;lmSchedule();}});
+      });
       dressWords(box);
       lmPaintChrome();
       lmPaintTabTools();
@@ -13458,7 +13487,7 @@
       if (!box || !lmState) return;
       const parts = lmPreviewParts(lmBlocksFor());
       const when = lmLongDate(lmState.date);
-      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + esc(lmState.description || "") + "</p>" + lmChromeHtml() + parts + "</article>";
+      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + "</p>" + lmChromeHtml() + parts + "</article>";
       dressWords(box);
       box.querySelectorAll('.lm-read-card').forEach(card => {
         const title = card.querySelector('b'), details = document.createElement('details'); details.className = 'lm-study-card';
@@ -13466,6 +13495,7 @@
         details.append(summary); while (card.firstChild) details.append(card.firstChild); card.replaceWith(details);
       });
       lmHydrateLinkPreviews(box);
+      box.querySelectorAll('[data-lm-panel]').forEach(panel=>{const part=lmState.blocks.find(part=>String(part.id)===panel.dataset.lmPanel);if(part)window.TextColors?.paint(panel,part);});
     }
     function lmChromeHtml() {
       const tab = lmTab();
@@ -14001,7 +14031,7 @@
     const lmRoot = document.getElementById("material");
     if (lmRoot) {
       lmRoot.addEventListener("mousedown", (event) => {
-        const tool = event.target.closest("[data-cmd], [data-font], [data-font-size], [data-font-family]");
+        const tool = event.target.closest("[data-cmd], [data-font], [data-font-size], [data-font-family], [data-lm-color]");
         if (!tool) return;
         const tools = tool.closest(".lm-tools");
         const rich = tools && tools.nextElementSibling;
@@ -14022,7 +14052,7 @@
           if (block) {
             if (field.dataset.field === "memorySize") block.memorySize = Math.max(2, Number(field.value) || 4);
             else block[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value;
-            if (['maxPoints','criteria'].includes(field.dataset.field)) block.gradeMode = 'assignment';
+            if (['maxPoints','criteria'].includes(field.dataset.field)) {block.gradeMode = 'assignment';if(lmState.examOwned)block.scoringVersion=2;}
             if (field.dataset.field === 'assignmentKey' && field.value) {
               const leader = lesson.blocks.find(part => part.assignmentId === field.value);
               if (leader) { block.tab = leader.tab || 'overview'; if (['quiz','exercise','task'].includes(block.type)) block.gradeMode = 'assignment'; leader.gradeMode = 'assignment'; }
@@ -14091,6 +14121,13 @@
         if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
       });
       lmRoot.addEventListener("change", (event) => {
+        const palette=event.target.closest('[data-lm-color]');
+        if(palette){
+          const rich=palette.closest('.lm-tools').nextElementSibling,block=lmBlock(palette.dataset.lmColor),range=lmActiveFontRange(rich);
+          rich.focus();if(range){const span=document.createElement('span');span.style.color=palette.value;span.append(range.extractContents());range.insertNode(span);range.selectNodeContents(span);const selected=getSelection();selected.removeAllRanges();selected.addRange(range);}
+          else{block.textColor=palette.value;rich.style.color=palette.value;}
+          block.html=rich.innerHTML;lmSchedule();return;
+        }
         const fontSize = event.target.closest("[data-font-size]");
         if (fontSize) {
           const rich = fontSize.closest(".lm-tools") && fontSize.closest(".lm-tools").nextElementSibling;
@@ -14446,6 +14483,7 @@
       examPullWork();
     }
     function examResetAccount() {
+      examSection='active';
       examSession += 1;
       examKnown = null;
       examReady = false;
@@ -14490,6 +14528,13 @@
         id: row.id,
         stageRevision: row.revision || 0,
         groupId: row.groupId || null,
+        instanceStatus:row.instanceStatus||null,
+        groupTitle:row.groupTitle||'',
+        completedAt:row.completedAt||null,
+        studentId:row.studentId||null,
+        studentName:row.studentName||'',
+        maximumPoints:row.maximumPoints,
+        earnedPoints:row.earnedPoints,
         title: row.title || "Exam",
         date: row.date || "",
         published: !!row.published,
@@ -14503,7 +14548,7 @@
           doc: {
             id: block.id,
             title: block.title || "Examination block",
-            description: "",
+            description: block.materials?.find(part=>part.documentFormatting)?.documentFormatting?.description?.runs?.map(run=>run.text).join('')||"",
             className: "",
             unit: "",
             lesson: "",
@@ -14555,9 +14600,10 @@
     }
     function examPush(list) {
       if (!examReady || !canEditLessons() || typeof accountFetch !== "function") return Promise.resolve();
-      const rows = Array.isArray(list) ? list : [];
+      const rows = Array.isArray(list) ? list.filter(row=>!row.instanceStatus) : [];
       const ids = new Set(rows.map((row) => row && row.id).filter(Boolean));
-      const gone = examKnown ? [...examKnown].filter((id) => !ids.has(id)) : [];
+      const instanceIds=new Set((list||[]).filter(row=>row.instanceStatus).map(row=>row.id));
+      const gone = examKnown ? [...examKnown].filter((id) => !ids.has(id)&&!instanceIds.has(id)) : [];
       examKnown = ids;
       return Promise.all(gone.map(examRemoteDrop).concat(rows.map(examRemoteSave)));
     }
@@ -14584,7 +14630,7 @@
       examFlight = accountFetch("/api/exams" + (target ? "?for=" + encodeURIComponent(target) : "")).then((data) => {
         if (session !== examSession || !authUser || authUser.id !== actorId || generation !== viewGen || target !== (viewAccount?.id || '')) return;
         const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
-        examKnown = new Set(remote.map((row) => row.id));
+        examKnown = new Set(remote.filter(row=>!row.instanceStatus).map((row) => row.id));
         examReady = true;
         examPulling = false;
         try { localStorage.setItem("enquiz-exams", JSON.stringify(remote)); } catch (e) {}
@@ -14636,7 +14682,7 @@
       return criteria.length ? criteria.reduce((n,c) => n + c.max,0) : Number(String(item.maxPoints ?? part.maxPoints ?? 1).replace(',','.'));
     }
     function assessmentAnswerQuestions(doc) {
-      return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
+      return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)&&(!doc.examOwned||!doc.blocks.some(p=>p.scoringVersion===2)||!examScoringChildren(doc.blocks,part).length)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
     }
     function assessmentEditor(block,index) {
       const item = index == null ? block : block.items[index], attr = index == null ? 'data-field=' : 'data-item-list="items" data-item="' + index + '" data-item-field=';
@@ -14644,12 +14690,14 @@
       return '<label>Maximum points<input type="number" min="0" max="10000" step="any" ' + field('maxPoints') + ' value="' + esc(String(item.maxPoints ?? 1)) + '"></label><label>Criteria<textarea ' + field('criteria') + ' placeholder="Content | 3&#10;Grammar | 2">' + esc(item.criteria || '') + '</textarea></label>';
     }
     function assessmentUnitMax(part) {
+      if(lmState?.examOwned&&lmState.blocks?.some(p=>p.scoringVersion===2))return examScoringMax(lmState.blocks,part);
       const criteria = assessmentRubric(part);
       if (criteria.length) return criteria.reduce((n,c) => n + c.max,0);
       if (part.gradeMode === 'assignment') return Number(String(part.maxPoints ?? 1).replace(',','.'));
       return part.type === 'task' ? assessmentMax(part,0) : (part.items || []).reduce((n,_,i) => n + assessmentMax(part,i),0);
     }
     function assessmentQuestions(doc) {
+      if(doc.examOwned&&doc.blocks.some(part=>part.scoringVersion===2))return doc.blocks.filter(part=>['quiz','exercise','task'].includes(part.type)&&!examScoringChildren(doc.blocks,part).length).map(part=>({part,index:0,max:examScoringMax(doc.blocks,part)}));
       const seen = new Set(), result = [];
       for (const part of (doc.blocks || []).filter(p => ['quiz','exercise','task'].includes(p.type) && (doc.examOwned || p.assessed))) {
         if (part.gradeMode !== 'assignment') { result.push(...assessmentAnswerQuestions({...doc,blocks:[part]})); continue; }
@@ -14658,6 +14706,12 @@
         result.push({part:leader,index:0,max:assessmentUnitMax(leader)});
       }
       return result;
+    }
+    function examScoringChildren(parts,part){return parts.filter(child=>child!==part&&['task','quiz','exercise'].includes(child.type)&&child.assignmentKey&&child.assignmentKey===(part.assignmentId||('part-'+part.id)));}
+    function examScoringMax(parts,part,seen=new Set()){
+      if(seen.has(part))return 0;seen.add(part);const children=examScoringChildren(parts,part);
+      if(children.length)return Number(children.reduce((sum,child)=>sum+examScoringMax(parts,child,new Set(seen)),0).toFixed(10));
+      const criteria=assessmentRubric(part);return criteria.length?criteria.reduce((sum,row)=>sum+row.max,0):Number(String(part.maxPoints??1).replace(',','.'));
     }
     function assessmentGroupEditor(block) {
       const tasks = (lmState.blocks || []).filter(p => ['quiz','exercise','task'].includes(p.type));
@@ -14670,6 +14724,7 @@
       doc.studentSaved = !!row.saved; doc.assessmentState = row.state || (row.saved ? 'submitted' : 'draft'); doc.assessmentRevision = row.revision || 0;
       doc.examCorrections = row.corrections || {}; doc.examPoints = row.points || {}; doc.examErrors = row.errors || {}; doc.examCriteriaPoints = row.criteriaPoints || {};
       doc.examReviewText = row.reviewText || {};
+      doc.examAnswerText=row.answerText||{};doc.examCommentFormatting=row.commentFormatting||{};
       if (row.saved && row.materials?.length) {
         if (doc.examOwned) doc.blocks = row.materials;
         else doc.blocks = (doc.blocks || []).map(part => row.materials.find(p => String(p.id) === String(part.id)) || part);
@@ -14722,6 +14777,7 @@
       const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
       if (target) payload.studentId = target;
       payload.reviewText = JSON.parse(JSON.stringify(doc.examReviewText || {}));
+      payload.answerText=JSON.parse(JSON.stringify(doc.examAnswerText||{}));payload.commentFormatting=JSON.parse(JSON.stringify(doc.examCommentFormatting||{}));
       const task = assessmentQueue.catch(() => {}).then(async () => {
         if (actor !== authUser?.id || account !== examWorkAccount()) throw new Error('Account changed. Reopen the material.');
         if (!doc.assessmentReady) throw new Error('Load answers before saving.');
@@ -14737,6 +14793,7 @@
           if (doc === lmState) { lmRenderPreview(); examDress(); }
         }
         assessmentStatus(doc.assessmentMessage,doc); examPaintList(); if (examCurrentId) examPaintBlocks();
+        if(doc.examOwned&&['submit','publish'].includes(action))await examPull(true);
         return row;
       }).catch(error => { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Not saved. Retry.'; assessmentStatus(doc.assessmentMessage,doc); throw error; });
       assessmentQueue = task; return task;
@@ -14832,7 +14889,7 @@
       let sum = 0;
       Object.keys(map).forEach((partId) => {
         const row = map[partId] || {};
-        Object.keys(row).forEach((index) => { sum += Number(row[index]) || 0; });
+        Object.keys(row).forEach((index) => { sum += Number(String(row[index]).replace(',','.')) || 0; });
       });
       return sum;
     }
@@ -14845,6 +14902,7 @@
     }
     function examStamp(exam) {
       if (!exam) return false;
+      if(exam.instanceStatus)return false;
       const published = (exam.blocks || []).some((block) => block.doc && block.doc.published);
       if (!!exam.published === published) return false;
       exam.published = published;
@@ -14917,7 +14975,7 @@
       }
       const save = document.getElementById("examSave");
       if (save) { save.hidden = reviewer ? !lmState.studentSaved || lmState.assessmentState === 'published' : (!taking || locked); save.textContent = reviewer ? 'Save review' : 'Submit'; save.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
-      for (const [id,visible] of [['assessmentPublish',reviewer && lmState.studentSaved && lmState.assessmentState !== 'published'],['assessmentReopen',reviewer && lmState.studentSaved],['assessmentAmend',reviewer && lmState.assessmentState === 'published'],['assessmentHistory',reviewer]]) {
+      for (const [id,visible] of [['assessmentPublish',reviewer && lmState.studentSaved && lmState.assessmentState !== 'published'],['assessmentReopen',reviewer && lmState.studentSaved && !lmState.examOwned],['assessmentAmend',reviewer && lmState.assessmentState === 'published' && !lmState.examOwned],['assessmentHistory',reviewer]]) {
         const button = document.getElementById(id); if (button) { button.hidden = !visible; button.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
       }
       assessmentStatus();
@@ -14968,12 +15026,14 @@
     }
     function examPointInput(block, index, whole=false) {
       if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
-      if (block.gradeMode === 'assignment' && !whole) return '';
+      const individual=lmState.examOwned&&lmState.blocks.some(part=>part.scoringVersion===2);
+      if(individual&&!whole){const mark=lmState.examErrors?.[block.id]?.[index]||'';return '<label>Review<select data-exam-error="'+block.id+':'+index+'"><option value="">Unmarked</option><option value="correct"'+(mark==='correct'?' selected':'')+'>Correct</option><option value="needs-work"'+(mark==='needs-work'?' selected':'')+'>Needs work</option></select></label>';}
+      if (!individual&&block.gradeMode === 'assignment' && !whole) return '';
       const value = ((lmState.examPoints || {})[block.id] || {})[index];
       const shown = value == null || value === "" ? "" : String(value);
       const mark = ((lmState.examErrors || {})[block.id] || {})[index] || '';
-      const item = whole || block.type === 'task' ? block : (block.items || [])[index] || {}, criteria = assessmentRubric(item);
-      const maximum = whole ? assessmentUnitMax(block) : assessmentMax(block,index);
+      const item = individual||whole || block.type === 'task' ? block : (block.items || [])[index] || {}, criteria = assessmentRubric(item);
+      const maximum = individual||whole ? assessmentUnitMax(block) : assessmentMax(block,index);
       const criteriaHtml = criteria.map((criterion,i) => '<label>' + esc(criterion.label) + ' / ' + criterion.max + '<input type="number" min="0" max="' + criterion.max + '" step="any" data-exam-criterion="' + block.id + ':' + index + ':' + i + '" value="' + esc(String(lmState.examCriteriaPoints?.[block.id]?.[index]?.[i] ?? '')) + '"></label>').join('');
       return '<div class="assessment-grading">' + criteriaHtml + '<label class="exam-point">Points / ' + maximum + ' <input class="exam-points" type="text" inputmode="decimal" data-exam-points="' + block.id + ":" + index + '" value="' + esc(shown) + '" /></label><label>Review<select data-exam-error="' + block.id + ':' + index + '"><option value="">Unmarked</option><option value="correct"' + (mark === 'correct' ? ' selected' : '') + '>Correct</option><option value="needs-work"' + (mark === 'needs-work' ? ' selected' : '') + '>Needs work</option></select></label></div>';
     }
@@ -15050,6 +15110,11 @@
     document.addEventListener('change',event => { if (event.target.matches('[data-review-color],[data-review-size]')) reviewFormat(event.target); });
     function assessmentFeedback(block,index) {
       if (block.assessmentSource) { index = block.assessmentIndex; block = block.assessmentSource; }
+      if(lmState.examOwned&&lmState.blocks.some(part=>part.scoringVersion===2)){
+        if(lmState.assessmentState!=='published')return '';
+        const comment=lmState.examCorrections?.[block.id]?.[index]||'',mark=lmState.examErrors?.[block.id]?.[index]||'';
+        return '<div class="assessment-feedback">'+(mark?'<span>'+esc(mark==='correct'?'Correct':'Needs work')+'</span>':'')+(comment?'<p>'+window.TextColors.html(comment,lmState.examCommentFormatting?.[block.id]?.[index])+'</p>':'')+'</div>';
+      }
       if (block.gradeMode === 'assignment') return '';
       let html = '<p class="assessment-question-score">Maximum: ' + assessmentMax(block,index) + ' points</p>';
       if (lmState.assessmentState !== 'published') return html;
@@ -15129,6 +15194,7 @@
         if (!panel) return;
         if (block.type === "quiz") panel.innerHTML = examAnswerHtml(block);
         else if (block.type === "task") {
+          if(lmState.blocks.some(p=>p.scoringVersion===2)&&examScoringChildren(lmState.blocks,block).length){panel.innerHTML='<h3>'+esc(block.title||'Task')+'</h3><p>'+esc(block.text||'')+'</p>';return;}
           const reviewer = canTuneStudentLessons(), given = block.response || "";
           panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : assessmentFeedback(block,0));
         } else {
@@ -15148,7 +15214,8 @@
           field?.insertAdjacentHTML('afterend','<div class="review-edit review-published"><b>Teacher review</b><div>' + reviewHtml(value) + '</div></div>');
         }
       }
-      const leaders = assessmentQuestions(lmState).filter(q => q.part.gradeMode === 'assignment');
+      const individualScoring=lmState.examOwned&&lmState.blocks.some(part=>part.scoringVersion===2);
+      const leaders = individualScoring?[]:assessmentQuestions(lmState).filter(q => q.part.gradeMode === 'assignment');
       for (const q of leaders) {
         const panel = document.querySelector('#lmPreview [data-lm-panel="' + q.part.id + '"]'); if (!panel) continue;
         const target = panel.closest('.lm-assignment')?.querySelector('header') || panel;
@@ -15156,6 +15223,24 @@
         if (canTuneStudentLessons()) html += examPointInput(q.part,0,true);
         else if (lmState.assessmentState === 'published') html += '<p>Score: ' + esc(String(lmState.examPoints?.[q.part.id]?.[0] ?? 'Not graded')) + ' / ' + q.max + '</p>';
         target.insertAdjacentHTML('beforeend',html + '</div>');
+      }
+      if(individualScoring){
+        const parts=lmState.blocks,earned=part=>{const children=examScoringChildren(parts,part);return children.length?Number(children.reduce((sum,child)=>sum+earned(child),0).toFixed(10)):(Number(String(lmState.examPoints?.[part.id]?.[0]||0).replace(',','.'))||0);};
+        if(canTuneStudentLessons())for(const {part} of assessmentQuestions(lmState)){
+          const panel=document.querySelector('#lmPreview [data-lm-panel="'+part.id+'"]');if(!panel)continue;
+          const grading=document.createElement('div');grading.className='exam-element-grading';grading.innerHTML=examPointInput(part,0,true);grading.querySelector('[data-exam-error]')?.closest('label')?.remove();panel.prepend(grading);
+        }
+        for(const part of parts.filter(part=>['task','quiz','exercise'].includes(part.type))){
+          if(examScoringChildren(parts,part).length||part.type==='task'&&!part.assignmentKey)continue;
+          const panel=document.querySelector('#lmPreview [data-lm-panel="'+part.id+'"]');if(!panel)continue;
+          panel.classList.add('exam-scored-element');panel.insertAdjacentHTML('afterbegin','<div class="exam-element-maximum">Maximum '+assessmentUnitMax(part)+(lmState.assessmentState==='published'?' · Score '+earned(part):'')+'</div>');
+        }
+        document.querySelectorAll('#lmPreview .lm-assignment').forEach(group=>{
+          const key=group.dataset.assignment,partsInGroup=parts.filter(part=>(part.assignmentKey||part.assignmentId||('part-'+part.id))===key&&['task','quiz','exercise'].includes(part.type));
+          const roots=partsInGroup.filter(part=>!part.assignmentKey),graded=roots.length?roots:partsInGroup;
+          const max=graded.reduce((sum,part)=>sum+examScoringMax(parts,part),0),score=graded.reduce((sum,part)=>sum+earned(part),0);
+          group.querySelector('header')?.insertAdjacentHTML('beforeend','<div class="assignment-score">Maximum '+Number(max.toFixed(10))+((canTuneStudentLessons()||lmState.assessmentState==='published')?' · Score <span data-exam-task-earned="'+esc(key)+'">'+Number(score.toFixed(10))+'</span>':'')+'</div>');
+        });
       }
       document.querySelectorAll('#lmPreview .lm-q').forEach(question => {
         const details = document.createElement('details'), summary = document.createElement('summary'); details.className = 'lm-study-card exam-question-card'; details.open = true;
@@ -15165,6 +15250,14 @@
       if (!canTuneStudentLessons()) (lmState.blocks || []).filter(part => ['quiz','exercise'].includes(part.type) && (lmState.examOwned || part.assessed)).forEach(part => {
         document.querySelectorAll('#lmPreview [data-lm-panel="' + part.id + '"] .lm-q').forEach((question,index) => { if (!question.querySelector('.assessment-question-score')) question.insertAdjacentHTML('beforeend',assessmentFeedback(part,index)); });
       });
+      const preview=document.getElementById('lmPreview');
+      preview.querySelectorAll('textarea[data-exam-response],input[type=text][data-exam-given],textarea[data-exam-fix]').forEach(field=>{
+        const feedback=field.dataset.examFix,key=feedback||field.dataset.examGiven||field.dataset.examResponse+':0',[id,index]=key.split(':');
+        const map=feedback?(lmState.examCommentFormatting||={}):(lmState.examAnswerText||={}),format=map[id]?.[index];
+        if(field.disabled&&format){field.hidden=true;field.insertAdjacentHTML('afterend','<div class="text-color-rich">'+window.TextColors.html(field.value,format)+'</div>');return;}
+        window.TextColors?.mount(field,{format,onChange:value=>{if(!value.runs.map(run=>run.text).join(''))delete map[id]?.[index];else (map[id]||={})[index]=value;}});
+      });
+      preview.querySelectorAll('[data-lm-panel]').forEach(panel=>{const part=lmState.blocks.find(part=>String(part.id)===panel.dataset.lmPanel);if(part)window.TextColors?.paint(panel,part);});
     }
     function examRemember(input) {
       if (!assessmentActive(lmState) || canEditLessons() && !canTuneStudentLessons() || !lmState.assessmentReady) return;
@@ -15187,7 +15280,7 @@
           (lmState.examPoints[bits[0]] ||= {})[bits[1]] = total;
           const field = document.querySelector('[data-exam-points="' + bits[0] + ':' + bits[1] + '"]'); if (field) field.value = total;
         }
-        assessmentStatus('Unsaved review'); return;
+        assessmentStatus('Unsaved review');examRefreshTaskScores(); return;
       }
       const points = input.closest("[data-exam-points]");
       const fix = input.closest("[data-exam-fix]");
@@ -15201,6 +15294,7 @@
         if (!lmState[bucket][partId]) lmState[bucket][partId] = {};
         lmState[bucket][partId][index] = points ? source.value : source.value;
         assessmentStatus('Unsaved review');
+        examRefreshTaskScores();
         return;
       }
       const source = input.closest("[data-exam-given]");
@@ -15222,6 +15316,11 @@
       } else item.given = source.value;
       assessmentAutosave(lmState);
     }
+    function examRefreshTaskScores(){
+      if(!lmState?.examOwned||!lmState.blocks.some(part=>part.scoringVersion===2))return;
+      const questions=assessmentQuestions(lmState);
+      document.querySelectorAll('[data-exam-task-earned]').forEach(node=>{const key=node.dataset.examTaskEarned,total=questions.filter(q=>(q.part.assignmentKey||q.part.assignmentId||('part-'+q.part.id))===key).reduce((sum,q)=>sum+(Number(String(lmState.examPoints?.[q.part.id]?.[0]||0).replace(',','.'))||0),0);node.textContent=String(Number(total.toFixed(10)));});
+    }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
       return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
     }
@@ -15239,6 +15338,7 @@
       if (!exam || exam.hidden) return false;
       return (exam.blocks || []).some((block) => block.doc && block.doc.published && !block.hidden);
     }
+    let examSection='active';
     function examPaintList() {
       const box = document.getElementById("examList");
       const newer = document.getElementById("examNew");
@@ -15252,8 +15352,9 @@
       stored.forEach((exam) => { if (examStamp(exam)) dirty = true; });
       if (dirty) examSave(stored);
       const exams = examShown();
-      const rows = exams.filter((exam) => canEditLessons() || canTuneStudentLessons() || examStudentSees(exam)).slice().sort((a, b) => {
-        const groups = String(classGroups.find(g => g.id === a.groupId)?.title || 'Unassigned').localeCompare(String(classGroups.find(g => g.id === b.groupId)?.title || 'Unassigned'));
+      document.querySelectorAll('[data-exam-section]').forEach(button=>button.classList.toggle('primary',button.dataset.examSection===examSection));
+      const rows = exams.filter(exam=>(exam.instanceStatus==='completed')===(examSection==='completed')).filter((exam) => canEditLessons() || canTuneStudentLessons() || examStudentSees(exam)).slice().sort((a, b) => {
+        const groups = String(a.groupTitle || classGroups.find(g => g.id === a.groupId)?.title || 'Unassigned').localeCompare(String(b.groupTitle || classGroups.find(g => g.id === b.groupId)?.title || 'Unassigned'));
         if (groups) return groups;
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
@@ -15272,8 +15373,9 @@
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
         if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
-        const groupName = classGroups.find(g => g.id === exam.groupId)?.title || 'Unassigned', heading = previousGroup !== groupName ? '<h2 class="lib-h">' + esc(groupName) + '</h2>' : ''; previousGroup = groupName;
-        return heading + examRow(chip, exam.title || "Exam", about, 'data-exam-open="' + exam.id + '"', ready, hidden, examTools("exam", exam.id, hidden));
+        const groupName = exam.groupTitle || classGroups.find(g => g.id === exam.groupId)?.title || 'Unassigned', heading = previousGroup !== groupName ? '<h2 class="lib-h">' + esc(groupName) + '</h2>' : ''; previousGroup = groupName;
+        if(exam.instanceStatus==='completed')about='Completed · Maximum '+exam.maximumPoints+' · '+exam.earnedPoints+' points';
+        return heading + examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), about, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -15298,7 +15400,7 @@
         if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
         const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
-        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, examTools("block", block.id, hidden));
+        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, exam.instanceStatus==='completed' ? '' : examTools("block", block.id, hidden));
       }).join("");
     }
     function examHide(kind, id) {
@@ -15576,10 +15678,16 @@
         if (!open || !isTeacher() || viewAccount) return;
         examCurrentId = domEntityId(open.dataset.examOpen); visit('examblocks');
       });
-      if (list) list.addEventListener("click", (event) => {
+      document.getElementById('examSections')?.addEventListener('click',event=>{const button=event.target.closest('[data-exam-section]');if(button){examSection=button.dataset.examSection;examPaintList();}});
+      if (list) list.addEventListener("click", async (event) => {
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
         if (!open) return;
+        const instance=examFind(open.dataset.examOpen);
+        if(instance?.studentId&&canEditLessons()){
+          await openStudentPages({id:instance.studentId,name:instance.studentName,role:'USER'});
+          await examPull(true);
+        }
         examCurrentId = domEntityId(open.dataset.examOpen);
         visit("examblocks");
       });
@@ -15603,7 +15711,7 @@
         if (canTuneStudentLessons()) return assessmentAction('review');
         if (lmState.studentSaved) return;
         const answers = examCollectAnswers(lmState), missing = assessmentAnswerQuestions(lmState).filter(q => answers[q.part.id]?.[q.index] == null || answers[q.part.id][q.index] === '' || Array.isArray(answers[q.part.id][q.index]) && !answers[q.part.id][q.index].length).length;
-        if (!confirm((missing ? missing + ' unanswered question(s). ' : '') + 'Submit your answers? You cannot change them unless your teacher reopens the submission.')) return;
+        if (!confirm((missing ? missing + ' unanswered question(s). ' : '') + 'Submit your answers?'+(lmState.examOwned?' Your answers will be permanently locked.':' You cannot change them unless your teacher reopens the submission.'))) return;
         await assessmentAction('submit');
       });
       document.getElementById('assessmentPublish')?.addEventListener('click',() => { if (confirm('Publish scores and feedback for this student?')) assessmentAction('publish'); });

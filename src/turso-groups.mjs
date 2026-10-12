@@ -78,6 +78,10 @@ export class GroupService{
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
     const hidden=await materialVisibility(this.db,actor.id);
     const exams=await this.db.read('SELECT group_id,exam_id FROM class_group_exams');
+    if((!teacher||actor.managedStudent)&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length){
+      const copies=await this.db.read("SELECT exam_id,source_exam_id,status FROM exam_instances WHERE account_id=? AND active=1",[actor.id]);
+      for(let index=exams.length-1;index>=0;index--){const link=exams[index],own=copies.filter(copy=>copy.source_exam_id===link.exam_id);if(own.length)exams.splice(index,1,...own.filter(copy=>copy.status!=='completed').map(copy=>({...link,exam_id:copy.exam_id})));}
+    }
     return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,
       lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id)}));
   }

@@ -1,4 +1,5 @@
 import {StudyError,lessonAccess} from './turso-study.mjs';
+import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 export function mediaRange(value=''){
   if(!value)return '';
   const match=/^bytes=(\d*)-(\d*)$/.exec(value);
@@ -91,11 +92,13 @@ export async function mediaKey(db,actor,kind,id){
        AND (json_extract(b.content_json,'$.hasFile')=1 OR length(trim(COALESCE(json_extract(b.content_json,'$.name'),'')))>0)))
     AND ${lessonAccess} LIMIT 2`,[id,id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,actor.id]);
   if(!rows.length){
+    const instances=(await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length>0;
+    const assigned=await assignedExamIds(db,actor.id);
     const exams=await db.read(`SELECT m.content_json FROM exam_materials m JOIN exam_blocks b ON b.id=m.block_id JOIN exams e ON e.id=b.exam_id
       WHERE m.deleted_at IS NULL AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND json_extract(m.content_json,'$.fileId')=?
-      AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0
+      AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0
         AND NOT EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=? AND a.value_json='true'
-          AND a.key IN ('visibility:exam:'||e.id,'visibility:exam-block:'||b.id)))) LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id]);
+          AND a.key IN ('visibility:exam:'||e.id,'visibility:exam-block:'||b.id))))${instances?' AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=e.id AND (i.account_id<>? OR i.active=0))':''})) LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,...(instances?[actor.id]:[])]);
     if(exams.length!==1)throw new StudyError(404,'Lesson file not found.');
     rows.push(exams[0]);
   }

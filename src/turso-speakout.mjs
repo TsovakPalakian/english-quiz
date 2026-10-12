@@ -1,6 +1,7 @@
 import {StudyError,StudyService,statement as s} from './turso-study.mjs';
 import {legacyLessons} from './turso-legacy-read.mjs';
 import {lessonMediaMetadata} from './turso-lesson-media.mjs';
+import {validateColorDocument} from './text-formatting.mjs';
 const ready=new WeakMap(),staff=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const types=new Set(['text','heading','pdf','link','cards','image','audio','video','vocab','exercise','note','dialogue','reading','pronunciation','table','task','file','divider','phrase','quiz','wordcard','word','rule']);
 const hash=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?new TextEncoder().encode(value):value)),byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -40,7 +41,8 @@ export async function speakoutLesson(db,actor,location,_mutationId,store,summary
   return {cacheRevision,materials:[{...content,id:location.level+':'+location.unit+':'+location.lesson,revision:row?.revision||0,published:!!row?.published,answers:answers?JSON.parse(answers.answers_json):{}}]};
 }
 function content(value){
-  if(!value||Object.keys(value).some(key=>!['title','description','date','className','unit','lesson','blocks'].includes(key))||typeof value.title!=='string'||!value.title.trim()||value.title.length>300||typeof value.description!=='string'||value.description.length>5000||!Array.isArray(value.blocks)||value.blocks.length>200)throw new StudyError(400,'Invalid Speakout content.');
+  if(!value||Object.keys(value).some(key=>!['title','description','descriptionFormatting','date','className','unit','lesson','blocks'].includes(key))||typeof value.title!=='string'||!value.title.trim()||value.title.length>300||typeof value.description!=='string'||value.description.length>5000||!Array.isArray(value.blocks)||value.blocks.length>200)throw new StudyError(400,'Invalid Speakout content.');
+  if(value.descriptionFormatting)validateColorDocument(value.descriptionFormatting,value.description);
   for(const key of ['date','className','unit','lesson'])if(value[key]!==undefined&&(typeof value[key]!=='string'||value[key].length>40))throw new StudyError(400,'Invalid Speakout information.');
   if(value.date&&!/^\d{4}-\d{2}-\d{2}$/.test(value.date))throw new StudyError(400,'Use YYYY-MM-DD for the date.');
   const ids=new Set();for(const block of value.blocks){if(!block||!types.has(block.type)||typeof block.id!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(block.id)||ids.has(block.id)||JSON.stringify(block).length>32000||Object.keys(block).some(key=>key.startsWith('stage')||['response','score','fileId'].includes(key)))throw new StudyError(400,'Invalid independent Speakout block.');ids.add(block.id);}return value;
@@ -67,6 +69,7 @@ export async function speakoutMedia(db,actor,location,store,request){
 }
 export async function answerSpeakout(db,actor,body,store){
   const {row,args}=await document(db,body,store);if(!row?.published||row.revision!==body.expectedRevision||!body.answers||typeof body.answers!=='object'||Array.isArray(body.answers)||JSON.stringify(body.answers).length>32000)throw new StudyError(409,'Speakout changed. Reopen the lesson.');
-  const ids=new Set(JSON.parse(row.content_json).blocks.filter(block=>['task','quiz','exercise'].includes(block.type)).map(block=>block.id));if(Object.keys(body.answers).some(id=>!ids.has(id)))throw new StudyError(400,'Invalid task.');
+  const ids=new Set(JSON.parse(row.content_json).blocks.filter(block=>['task','quiz','exercise'].includes(block.type)).map(block=>block.id));if(Object.keys(body.answers).some(id=>id!=='_formatting'&&!ids.has(id)))throw new StudyError(400,'Invalid task.');
+  for(const [id,items] of Object.entries(body.answers._formatting||{})){if(!ids.has(id))throw new StudyError(400,'Invalid task.');for(const [index,format] of Object.entries(items))validateColorDocument(format,typeof body.answers[id]==='string'?body.answers[id]:body.answers[id]?.[index]);}
   await db.atomic([s('INSERT INTO speakout_answers(account_id,level,unit_index,lesson_index,definition_revision,answers_json) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,level,unit_index,lesson_index) DO UPDATE SET definition_revision=excluded.definition_revision,answers_json=excluded.answers_json',[actor.id,...args,row.revision,JSON.stringify(body.answers)])]);return {saved:true};
 }

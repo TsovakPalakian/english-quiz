@@ -32,6 +32,7 @@ for(const path of pdfAssetPaths()){
 }
 // Explicit allowlist: never copy .dev.vars, configurations, backups or accounts.
 for(const name of ['preview.css','almond-blossom.jpg','theme-init.js'])copyFileSync(resolve(root,name),resolve(dir,name));
+for(const name of ['text-colors.js','speakout-editor.js','speakout-editor.css'])copyFileSync(resolve(root,'production',name),resolve(dir,name));
 writeFileSync(resolve(dir,'preview.js'),mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')));
 for(const [name,source] of [['main-bridge.js','staging/main-bridge.js'],['main-stage.css','staging/main-stage.css']])copyFileSync(resolve(root,source),resolve(dir,name));
 copyFileSync(resolve(defaultSnapshot,'local-catalogs/demonstratives.js'),resolve(dir,'demonstratives.js'));

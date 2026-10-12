@@ -367,8 +367,8 @@ function stageCanEditTranslation(card){
 function stageCanManageAdded(card){
   return !!(card&&viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
 }
-function stageAddedActions(item){
-  return typeof editActions==='function'?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit"></button>'+(!viewAccount||authUser?.role==='DEVELOPER'?'<button class="icon-btn" type="button" data-card-delete aria-label="Delete"></button>':'')+'</span>';
+function stageAddedActions(item,sidebar=false){
+  return typeof editActions==='function'?editActions(sidebar):'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle aria-label="Edit"></button>'+(!viewAccount||authUser?.role==='DEVELOPER'?'<button class="icon-btn" type="button" data-card-delete aria-label="Delete"></button>':'')+'</span>';
 }
 function stageAddedEditHtml(item){
   const index=addedIndexOf(item);
@@ -377,7 +377,7 @@ function stageAddedEditHtml(item){
 }
 function stageAddedRow(item,index){
   const main='<button class="path" type="button" data-added="'+index+'"><b>'+esc(item.word)+'</b><span class="to">'+esc(item.ru)+'</span></button>';
-  return canEditAdded(item)?'<div data-edit-host data-edit-kind="added" data-edit-id="'+index+'"><div class="edit-line">'+main+stageAddedActions(item)+'</div></div>':main;
+  return canEditAdded(item)?'<div data-edit-host data-edit-kind="added" data-edit-id="'+index+'"><div class="edit-line">'+main+stageAddedActions(item,true)+'</div></div>':main;
 }
 function stageStampLinks(list,revision){stageListEpoch.cards++;for(const item of list)item.stageLinksRevision=revision;stageSettled.mine=true;rememberAdded(list);window.ContentCache?.drop('cards:personal');paintAdded();paintAllWords();stagePaintCounts();if(typeof paintHomeStats==='function')paintHomeStats();}
 function stageEnsureAddGroup(){
@@ -499,9 +499,10 @@ function stageStoreText(analyze){
   const accountId=viewAccount?.id||'',generation=viewGen;
   const title=document.getElementById('textTitle').value.trim(),text=document.getElementById('textBody').value.replace(/\r\n/g,'\n').trim();
   const item=loadTexts().find(row=>row.id===openTextId)|| (stageTextDraft ||= {});
+  const format=window.TextColors?.trim(window.TextColors.format(document.getElementById('textBody')),document.getElementById('textBody').value)||null;
   if(managed&&item.stageId&&item.stageScope!=='profile'){window.TursoMain.notice('Общие тексты нельзя менять в личном профиле.',true);return;}
   return window.TursoMain.perform(async()=>{
-    const result=managed?await window.TursoMain.saveManagedText(accountId,item,{title,text}):await window.TursoMain.saveLibrary(item,'text',{title,text});
+    const result=managed?await window.TursoMain.saveManagedText(accountId,item,{title,text,colorText:format}):await window.TursoMain.saveLibrary(item,'text',{title,text,colorText:format});
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
     stageInstallLibrary(result.item,'text');openTextId=result.item.id;stageTextDraft=null;showText(openTextId);
     if(analyze)await stageRunTextAnalysis(result.item,document.getElementById('textReadStatus'));
@@ -516,6 +517,7 @@ function stageStoreSong(existingId){
   const changes=existingId?{lyrics:document.querySelector('#songUser [data-lyric-draft]').value}
     :{title:document.getElementById('lyricTitle').value.trim(),artist:document.getElementById('lyricArtist').value.trim(),lyrics:document.getElementById('lyricText').value,
       videoUrl:document.getElementById('lyricVideo').value.trim(),musicUrl:document.getElementById('lyricMusic').value.trim()};
+  changes.colorText=window.TextColors?.format(existingId?document.querySelector('#songUser [data-lyric-draft]'):document.getElementById('lyricText'))||null;
   const file=!managed&&(existingId?pendingEditFile:pendingLyricFile);
   return window.TursoMain.perform(async()=>{
     const result=managed?await window.TursoMain.saveManagedLibrary(accountId,item,'song',changes):await window.TursoMain.saveLibrary(item,'song',changes);
@@ -532,6 +534,7 @@ function stageStoreSong(existingId){
     if(typeof accountFetch==='function')await stageAnalyzeSong(saved,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
 }
+if(typeof window!=='undefined'&&typeof document!=='undefined')window.TextColors?.mount(document.getElementById('lyricText'));
 async function stageKeepExpression(card,managed=stageManagedSongReady()){
   const word=String(card.word||'').trim();
   const place=card.fromText&&(!card.place||card.place==='mine')?'text':(['phrasal','idioms','mine','music','text'].includes(card.place)?card.place:'mine');
@@ -1453,7 +1456,7 @@ function stageResumeSpeakEditor(place){
   stageSpeakEditorRestore=key;speakLevel=level;speakUnit=unit;speakLesson=lesson;speakView='lesson';
   stageSpeakEditorModule().then(async()=>{
     if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;
-    await window.SpeakoutEditor.open({level:name,unit,lesson},{actor,editor:canEditLessons(),read:accountFetch,active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
+    await window.SpeakoutEditor.open({level:name,unit,lesson},{actor,editor:canEditLessons(),read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
     if(actor===authUser?.id&&generation===viewGen&&!viewAccount)show('speakouteditor');
   }).catch(error=>window.TursoMain.notice(error.message,true)).finally(()=>{if(stageSpeakEditorRestore===key)stageSpeakEditorRestore=null;});
 }
@@ -1465,7 +1468,7 @@ async function stageOpenSpeakMaterial(event,lesson){
     const location={level:name,unit,lesson};
     await stageSpeakEditorModule();
     if(actor!==authUser?.id||generation!==viewGen||viewAccount||speakLevel!==level||speakUnit!==unit||!document.getElementById('speakout')?.classList.contains('on'))return;
-    await window.SpeakoutEditor.open(location,{actor,editor,read:accountFetch,active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
+    await window.SpeakoutEditor.open(location,{actor,editor,read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
     if(actor===authUser?.id&&generation===viewGen&&!viewAccount){button.disabled=false;button.focus({preventScroll:true});pushHistory();speakLesson=lesson;speakView='lesson';show('speakouteditor');}
   }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
 }

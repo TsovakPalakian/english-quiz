@@ -1,6 +1,10 @@
 import {StudyError,statement as s,recordId,lessonAccess} from './turso-study.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {studentExamContent,ExamService} from './turso-exams.mjs';
+import {examGrading,examChildren} from './exam-scoring.mjs';
+import {instanceAccess} from './turso-exam-instances.mjs';
+import {examLifecycleCommands} from './turso-exam-lifecycle.mjs';
+import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const ready=new WeakMap();
@@ -8,6 +12,7 @@ export function rubric(value){return String(value||'').split('\n').map(line=>{co
 export function assessmentQuestions(parts){return parts.filter(p=>['quiz','exercise','task'].includes(p.type)).flatMap(part=>(part.type==='task'?[part]:part.items||[]).map((item,index)=>({part,index,item,max:rubric(item.criteria).length?rubric(item.criteria).reduce((n,c)=>n+c.max,0):Number(item.maxPoints??part.maxPoints??1)})));}
 const decimal=value=>Number(String(value).replace(',','.'));
 export function gradingQuestions(parts){
+  if(parts.some(part=>part.scoringVersion===2))return examGrading(parts);
   const result=[],seen=new Set();
   for(const part of parts.filter(p=>['quiz','exercise','task'].includes(p.type))){
     if(part.gradeMode!=='assignment'){result.push(...assessmentQuestions([part]));continue;}
@@ -43,9 +48,11 @@ export class AssessmentService{
     recordId(id);let rows;
     if(kind==='exam-block'){
       await new ExamService(this.db).ensure();
-      const [found]=await this.db.read(`SELECT b.exam_id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND e.hidden_from_students=0 AND b.hidden_from_students=0))`,[id,+reviewer(actor)]);
+      const assigned=await assignedExamIds(this.db,account);
+      const [found]=await this.db.read(`SELECT b.exam_id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[id,+reviewer(actor)]);
       const hidden=await materialVisibility(this.db,account);
-      if(!found||!reviewer(actor)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
+      if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
+      await instanceAccess(this.db,found.exam_id,account);
       rows=await this.db.read('SELECT id,type,content_json FROM exam_materials WHERE block_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
       return {examId:found.exam_id,parts:rows.map(row=>({...JSON.parse(row.content_json),id:row.id,type:row.type}))};
     }
@@ -62,7 +69,8 @@ export class AssessmentService{
   async legacy(account,id){return (await this.db.read('SELECT * FROM exam_work WHERE account_id=? AND block_id=?',[account,id]))[0];}
   project(row,actor){
     const grading=JSON.parse(row.grading_json||'{}'),published=row.state==='published',show=reviewer(actor)||published;
-    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:JSON.parse(row.answers_json||'{}'),corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
+    const answerData=JSON.parse(row.answers_json||'{}'),answerText=answerData._formatting||{};delete answerData._formatting;
+    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:answerData,answerText,commentFormatting:show?grading.commentFormatting||{}:{},corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
   }
   async get(actor,{kind,id,studentId}){
     const account=this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
@@ -73,13 +81,14 @@ export class AssessmentService{
   async write(actor,body){
     if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Invalid assessment.');
     const {kind,id,studentId,action='draft'}=body,account=this.account(actor,studentId),document=await this.document(actor,kind,id,account);
+    if(kind==='exam-block'&&['reopen','amend'].includes(action))fail(409,'Submitted exams cannot be reopened. Assign a new exam instead.');
     if(kind==='exam-block'&&body.examId!=null&&body.examId!==document.examId)fail(404,'Exam not found.');
     const previous=await this.get(actor,{kind,id,studentId}),row=await this.row(account,kind,id),revision=row?.revision||0;
     if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,'This work changed. Reload before saving.');
-    const teaching=account!==actor.id&&reviewer(actor),parts=row&&previous.saved?JSON.parse(row.snapshot_json):document.parts;
-    const questions=gradingQuestions(parts),answerQuestions=assessmentQuestions(parts),max=questions.reduce((sum,q)=>sum+q.max,0);
+    const teaching=account!==actor.id&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
+    const questions=gradingQuestions(parts),answerQuestions=assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
     if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>1e12)||max>1e14)fail(400,'Invalid maximum points.');
-    let state=previous.state,answers=previous.answers,grading=row?JSON.parse(row.grading_json):{points:previous.points,comments:previous.corrections},snapshot=parts;
+    let state=previous.state,answers=previous.answers,answerText=previous.answerText||{},grading=row?JSON.parse(row.grading_json):{points:previous.points,comments:previous.corrections},snapshot=parts;
     if(['draft','submit'].includes(action)){
       if(teaching)fail(403,'Only the student can submit answers.');
       if(previous.saved){if(action==='submit'&&JSON.stringify(body.answers||{})===JSON.stringify(answers))return previous;fail(409,'This material has already been submitted.');}
@@ -90,7 +99,13 @@ export class AssessmentService{
         if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer.');
         for(const [index,value] of Object.entries(items))if(!keys.has(part+':'+index)||!(typeof value==='string'||typeof value==='number'||Array.isArray(value)&&value.every(Number.isSafeInteger)))fail(400,'Invalid answer.');
       }
-      state=action==='submit'?'submitted':'draft';grading={};snapshot=document.parts;
+      state=action==='submit'?'submitted':'draft';grading={};snapshot=parts;
+      answerText=body.answerText||answerText;
+      if(!answerText||typeof answerText!=='object'||Array.isArray(answerText)||JSON.stringify(answerText).length>50000)fail(400,'Invalid answer formatting.');
+      for(const [part,items] of Object.entries(answerText)){if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer formatting.');for(const [index,format] of Object.entries(items)){
+        if(!keys.has(part+':'+index)||typeof answers[part]?.[index]!=='string')fail(400,'Only text answers can be formatted.');reviewDocument(format);
+        if(format.runs.map(run=>run.text).join('')!==answers[part][index])fail(400,'Answer formatting does not match the text.');
+      }}
     }else{
       if(!teaching)fail(403,'Only a teacher can review or reopen student work.');
       if(!['review','publish','reopen','amend'].includes(action))fail(400,'Invalid review action.');
@@ -102,7 +117,9 @@ export class AssessmentService{
       }else{
         if(!previous.saved)fail(409,'Wait for the student to submit.');
         if(previous.state==='published')fail(409,'Reopen the review before changing published grades.');
-        grading={points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{},reviewText:body.reviewText||{}};
+        grading={points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{},reviewText:body.reviewText||{},commentFormatting:body.commentFormatting||{}};
+        if(!grading.commentFormatting||typeof grading.commentFormatting!=='object'||Array.isArray(grading.commentFormatting))fail(400,'Invalid feedback formatting.');
+        for(const [part,items] of Object.entries(grading.commentFormatting)){if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid feedback formatting.');for(const [index,format] of Object.entries(items)){reviewDocument(format);if(format.runs.map(run=>run.text).join('')!==grading.comments[part]?.[index])fail(400,'Feedback formatting does not match the text.');}}
         if(JSON.stringify(grading).length>90000)fail(413,'Review is too large.');
         const keys=new Set(questions.map(q=>q.part.id+':'+q.index));
         for(const map of [grading.points,grading.comments,grading.errors,grading.criteriaPoints]){
@@ -149,11 +166,13 @@ export class AssessmentService{
         state=action==='publish'?'published':'reviewing';
       }
     }
+    const savedAnswers={...answers,...(Object.keys(answerText).length?{_formatting:answerText}:{})};
     // The revision guard and history snapshot commit together, including legacy mirrors.
     const commands=[s('DROP TABLE IF EXISTS temp.assessment_guard'),s('CREATE TEMP TABLE assessment_guard(ok INTEGER NOT NULL CHECK(ok=1))'),s('INSERT INTO assessment_guard SELECT ?=COALESCE((SELECT revision FROM assessment_work WHERE account_id=? AND kind=? AND material_id=?),0)',[revision,account,kind,id]),
       s('INSERT INTO assessment_history(account_id,kind,material_id,actor_id,action,reason,snapshot_json) VALUES(?,?,?,?,?,?,?)',[account,kind,id,actor.id,action,body.reason||'',JSON.stringify(row||previous)]),
-      s(`INSERT INTO assessment_work(account_id,kind,material_id,exam_id,revision,state,answers_json,grading_json,snapshot_json) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(account_id,kind,material_id) DO UPDATE SET revision=excluded.revision,state=excluded.state,answers_json=excluded.answers_json,grading_json=excluded.grading_json,snapshot_json=excluded.snapshot_json,updated_at=unixepoch()`,[account,kind,id,document.examId,revision+1,state,JSON.stringify(answers),JSON.stringify(grading),JSON.stringify(snapshot)])];
-    if(kind==='exam-block')commands.push(s(`INSERT INTO exam_work(account_id,exam_id,block_id,saved,answers_json,corrections_json,points_json) VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,exam_id,block_id) DO UPDATE SET saved=excluded.saved,answers_json=excluded.answers_json,corrections_json=excluded.corrections_json,points_json=excluded.points_json,updated_at=unixepoch()`,[account,document.examId,id,+(state!=='draft'),JSON.stringify(answers),JSON.stringify(grading.comments||{}),JSON.stringify(grading.points||{})]));
+      s(`INSERT INTO assessment_work(account_id,kind,material_id,exam_id,revision,state,answers_json,grading_json,snapshot_json) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(account_id,kind,material_id) DO UPDATE SET revision=excluded.revision,state=excluded.state,answers_json=excluded.answers_json,grading_json=excluded.grading_json,snapshot_json=excluded.snapshot_json,updated_at=unixepoch()`,[account,kind,id,document.examId,revision+1,state,JSON.stringify(savedAnswers),JSON.stringify(grading),JSON.stringify(snapshot)])];
+    if(kind==='exam-block')commands.push(s(`INSERT INTO exam_work(account_id,exam_id,block_id,saved,answers_json,corrections_json,points_json) VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,exam_id,block_id) DO UPDATE SET saved=excluded.saved,answers_json=excluded.answers_json,corrections_json=excluded.corrections_json,points_json=excluded.points_json,updated_at=unixepoch()`,[account,document.examId,id,+(state!=='draft'),JSON.stringify(savedAnswers),JSON.stringify(grading.comments||{}),JSON.stringify(grading.points||{})]));
+    if(kind==='exam-block'&&['submit','publish'].includes(action))commands.push(...await examLifecycleCommands(this.db,document.examId,account,actor,id,state,grading));
     try{await this.db.atomic(commands);}catch(error){if(/constraint|check/i.test(error.message))fail(409,'This work changed. Reload before saving.');throw error;}
     return this.get(actor,{kind,id,studentId});
   }

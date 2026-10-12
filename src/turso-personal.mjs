@@ -130,9 +130,14 @@ export class PersonalService extends StudyService {
   }
   validateLibrary(kind,changes){
     if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
-    only(changes,kind==='text'?['title','text','analysis','archived']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks']);
+    only(changes,kind==='text'?['title','text','analysis','archived','colorText']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks','colorText']);
     if(!Object.keys(changes).length)bad(400,'Send changed fields only.');
     for(const [key,value] of Object.entries(changes)){
+      if(key==='colorText'){
+        if(value===null)continue;
+        if(!value||!Array.isArray(value.runs)||value.runs.length>2000||value.runs.some(run=>typeof run.text!=='string'||run.marks?.color&&!/^#[a-f0-9]{6}$/i.test(run.marks.color)))bad(400,'Invalid text color.');
+        const field=kind==='text'?'text':'lyrics';if(field in changes&&value.runs.map(run=>run.text).join('')!==changes[field])bad(400,'Text formatting does not match the content.');continue;
+      }
       if(key==='marks'||key==='analysis'){
         const raw=JSON.stringify(value);
         if(!value||typeof value!=='object'||Array.isArray(value)||raw.length>(key==='analysis'?2_000_000:50000))bad(400,key==='analysis'?'Invalid analysis.':'Invalid marks.');

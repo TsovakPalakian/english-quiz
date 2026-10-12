@@ -300,7 +300,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const found=await authorizeManaged(accountEnv,actor,url.searchParams.get('for'));if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
-        const target={id:found.row.id,role:actor.role},db=studyDatabase(env);
+        const target={id:found.row.id,role:actor.role,managedStudent:found.row.role==='USER'},db=studyDatabase(env);
         return json(path==='/api/groups'?{groups:await new GroupService(db).list(target)}:{exams:await new ExamService(db).list(target)});
       }
       if(managedAccess&&method==='PATCH'){

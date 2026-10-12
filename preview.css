@@ -2128,7 +2128,7 @@ button.stat-link { color: inherit; font: inherit; cursor: pointer; }
 .btn.variant-open svg { width: 16px; height: 16px; flex: none; }
 .btn.variant-open:hover { background: var(--acc); color: var(--on-acc); box-shadow: none; }
 textarea { min-height: 140px; resize: vertical; white-space: pre-wrap; }
-#textList { width: min(720px, 100%); }
+#texts > .list-search, #textList { width: min(720px, 100%); }
 #textList .day { padding-top: 8px; padding-bottom: 8px; }
 .text-read { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; margin: 0 0 12px; font-size: 16px; }
 .text-read.collapsed { max-height: calc(1.6em * 10); overflow: hidden; }
@@ -2273,10 +2273,12 @@ button:disabled { opacity: .45; }
   text-decoration: none;
   padding: 0;
 }
-.edit-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; margin-bottom: 8px; }
-.edit-line .path { grid-column: 1 / -1; grid-row: 1; width: 100%; margin-bottom: 0; flex-direction: column; align-items: stretch; justify-content: center; text-align: left; gap: 2px; }
-.edit-line .path b { display: block; width: 100%; min-height: 0; padding-right: 116px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
-.edit-line .path .to { display: block; width: 100%; padding-right: 116px; box-sizing: border-box; text-align: right; }
+.edit-line { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+.edit-line .path { flex: 1; min-width: 0; width: auto; margin-bottom: 0; flex-direction: column; align-items: stretch; justify-content: center; text-align: left; gap: 2px; }
+.edit-line .path b { display: block; width: 100%; min-height: 0; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.edit-line .path .to { display: block; width: 100%; box-sizing: border-box; text-align: right; overflow-wrap: anywhere; }
+.card-row-tools .day-edit { border-top: 0; }
+.card-row-tools .is-confirm { background: var(--bad-s); }
 .edit-line .edit-actions { grid-column: 2; grid-row: 1; align-self: center; margin: 0 14px 0 0; position: relative; z-index: 1; }
 .edit-actions { display: inline-flex; gap: 12px; align-items: center; flex: 0 0 auto; }
 .icon-btn {
@@ -2389,6 +2391,17 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-assignment-tone-2 { --assignment-accent:#b34f86; --assignment-bg:color-mix(in srgb,var(--card) 90%,#e493ba); }
 .lm-assignment-tone-3 { --assignment-accent:#817623; --assignment-bg:color-mix(in srgb,var(--card) 90%,#cfc768); }
 .assignment-score { margin-left:auto; max-width:100%; }
+.exam-scored-element { position:relative; padding-top:44px!important; }
+.exam-element-maximum { position:absolute; right:12px; top:10px; font-weight:800; color:var(--acc); max-width:calc(100% - 24px); overflow-wrap:anywhere; }
+.exam-element-grading { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+.exam-element-grading .assessment-grading { max-width:100%; }
+.text-color-input { min-width:0; width:100%; }
+.text-color-tools { display:flex; justify-content:flex-end; gap:6px; margin:4px 0; }
+.text-color-tools input[type=color] { width:36px!important; min-height:32px; padding:3px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+.text-color-rich { min-height:88px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; }
+.text-color-rich:focus { outline:3px solid var(--acc-s); }
+.text-color-rich.is-single-line { min-height:42px; }
+#material.is-exam .text-color-rich { user-select:text; -webkit-user-select:text; }
 .lm-max-score { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-left:auto; font-size:14px; }
 .lm-max-score input { width:100px; min-width:0; }
 .lm-block-head,.lm-head-actions { flex-wrap:wrap; }
@@ -2623,6 +2636,7 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-tools .lm-font-size,
 .lm-tools select { width: auto; min-height: 32px; margin: 0; padding: 0 8px; border: 1px solid var(--lm-line); border-radius: 8px; background: var(--card); color: var(--lm-ink); font-weight: 700; }
 .lm-tools .lm-font-size { width: 4.4em; }
+.lm-tools input[type=color] { width:36px; height:32px; padding:3px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
 .lm-tools button i { font-style: italic; font-family: Georgia, "Times New Roman", serif; }
 .lm-rich { min-height: 96px; border: 1px solid var(--lm-line); border-radius: 12px; padding: 12px; background: var(--card); }
 .lm-rich:focus { outline: 3px solid var(--lm-soft); }

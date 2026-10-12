@@ -113,7 +113,7 @@ export async function legacyState(db,actor,{compact=false,summary=false}={}){
   const custom=accountSettings.find(row=>row.key==='customThemes');
   if(theme)stats.theme=JSON.parse(theme.value_json); // Own theme overrides a legacy shared-profile setting.
   if(custom)stats.customThemes=JSON.parse(custom.value_json);
-  const songItem=row=>{const item=libraryDto(row);if(!summary)return item;const {lyrics,...rest}=item;return {...rest,stageLyricsDeferred:true};};
+  const songItem=row=>{const item=libraryDto(row);if(!summary)return item;const {lyrics,colorText,...rest}=item;return {...rest,stageLyricsDeferred:true};};
   return {stageThemeRevision:theme?.revision||0,stageCustomRevision:custom?.revision||0,added:added.map(row=>({...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stageLinksRevision:linksRevision})),stageAddedRevision:linksRevision,stageActivity,songs:library.filter(l=>l.kind==='song').map(songItem),
     learned:progress.filter(p=>p.learned).map(p=>p.en.toLowerCase()),variants:Object.fromEntries(progress.map(p=>[p.en.toLowerCase(),JSON.parse(p.variants_json)])),stats,
     stageCollections:collections,stageProfile:profile,

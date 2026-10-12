@@ -1,6 +1,8 @@
 import {StudyError,statement as s,recordId} from './turso-study.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {ExamService} from './turso-exams.mjs';
+import {instanceCommands} from './turso-exam-instances.mjs';
+import {validateColorDocument} from './text-formatting.mjs';
 
 const staff = actor => ['ADMIN','DEVELOPER'].includes(actor?.role);
 const fail = (status,message) => { throw new StudyError(status,message); };
@@ -22,12 +24,18 @@ function category(value) { if (!['personal','learning'].includes(value)) fail(40
 function directId(a,b) { return 'direct:' + [a,b].sort().join(':'); }
 
 export class MessageService {
-  constructor(db,directory) { this.db = db; this.directory = directory; }
+  constructor(db,directory,storage) { this.db = db; this.directory = directory;this.storage=storage; }
   ensure() {
     if (!ready.has(this.db)) ready.set(this.db,(async () => {
       await new ExamService(this.db).ensure(); await new GroupService(this.db).ensure();
       await this.db.atomic(schema.map(sql => s(sql)));
       const columns = await this.db.read('PRAGMA table_info(chat_messages)');
+      if(!columns.some(column=>column.name==='exam_instance_id')){
+        try{await this.db.atomic([s('ALTER TABLE chat_messages ADD COLUMN exam_instance_id INTEGER')]);}catch(error){if(!(await this.db.read('PRAGMA table_info(chat_messages)')).some(column=>column.name==='exam_instance_id'))throw error;}
+      }
+      if(!columns.some(column=>column.name==='format_json')){
+        try{await this.db.atomic([s('ALTER TABLE chat_messages ADD COLUMN format_json TEXT')]);}catch(error){if(!(await this.db.read('PRAGMA table_info(chat_messages)')).some(column=>column.name==='format_json'))throw error;}
+      }
       if (!columns.some(column => column.name === 'created_ms')) {
         try { await this.db.atomic([s('ALTER TABLE chat_messages ADD COLUMN created_ms INTEGER')]); }
         catch (error) {
@@ -113,13 +121,13 @@ export class MessageService {
       const last = latest.find(message => message.room_id===row.id);
       rooms.push({id:row.id,kind:row.kind,groupId:row.group_id,title:row.kind === 'group' ? groups.find(g => g.id === row.group_id)?.title || 'Group' : name(users.find(u => u.id === row.peer)||{name:'Unavailable account'}),unread:counts,has,lastId:row.last_id||0,muted:!!row.muted,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.sender_name}:null});
     }
-    const [exams] = staff(actor) ? await this.db.read('SELECT COUNT(*) n,COALESCE(SUM(revision),0) revision FROM exams WHERE deleted_at IS NULL') : [];
+    const [exams] = staff(actor) ? await this.db.read('SELECT COUNT(*) n,COALESCE(SUM(revision),0) revision FROM exams WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id)') : [];
     return {rooms,groups,contacts,examRevision:exams?exams.n+':'+exams.revision:null,unread:totals,total:totals.personal+totals.learning,revision:rooms.map(row => [row.id,row.lastId,row.unread.personal,row.unread.learning].join(':')).join('|')};
   }
   async history(actor,roomId,{before=0,after=0,category:kind='personal',query=''}={}) {
     category(kind); const {member} = await this.member(actor,roomId);
     if (![before,after].every(n => Number.isSafeInteger(n) && n>=0) || before && after || typeof query !== 'string' || query.length>120) fail(400,'Invalid message search.');
-    const rows = await this.db.read(`SELECT m.*,a.active assignment_active,a.exam_id,
+    const rows = await this.db.read(`SELECT m.*,CASE WHEN m.exam_instance_id IS NOT NULL THEN 1 ELSE a.active END assignment_active,COALESCE(m.exam_instance_id,a.exam_id) exam_id,
       (SELECT body FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_body,
       (SELECT sender_name FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_name,
       (SELECT category FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_category,
@@ -130,7 +138,7 @@ export class MessageService {
       ORDER BY m.id ${after?'ASC':'DESC'} LIMIT 51`,[member.joined_seq,member.joined_seq,member.joined_seq,actor.id,roomId,kind,member.joined_seq,before,before,after,after,query,query]);
     const more = rows.length>50, page = rows.slice(0,50); if (!after) page.reverse();
     const [receipt] = await this.db.read(`SELECT MIN(${kind==='learning'?'read_learning':'read_personal'}) through FROM chat_members WHERE room_id=? AND account_id<>?`,[roomId,actor.id]);
-    return {messages:page.map(row => ({id:row.id,senderId:row.sender_id,sender:row.sender_name,category:row.category,text:row.body,created:row.created_at,createdMs:row.created_ms,replyTo:row.reply_to,replyText:row.reply_body,replySender:row.reply_name,replyCategory:row.reply_category,examId:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:row.peer_read>=row.id})),more,readThrough:kind==='learning'?member.read_learning:member.read_personal,peerReadThrough:Number(receipt?.through)||0};
+    return {messages:page.map(row => ({id:row.id,senderId:row.sender_id,sender:row.sender_name,category:row.category,text:row.body,format:row.format_json?JSON.parse(row.format_json):null,created:row.created_at,createdMs:row.created_ms,replyTo:row.reply_to,replyText:row.reply_body,replySender:row.reply_name,replyCategory:row.reply_category,examId:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:row.peer_read>=row.id})),more,readThrough:kind==='learning'?member.read_learning:member.read_personal,peerReadThrough:Number(receipt?.through)||0};
   }
   async send(actor,body) {
     signed(actor); const {member,room} = await this.member(actor,body.roomId);
@@ -138,12 +146,13 @@ export class MessageService {
     if (kind === 'learning' && !staff(actor)) fail(403,'Only a teacher can send announcements.');
     if (typeof body.text !== 'string' || !body.text.trim() || body.text.length>4000) fail(400,'Enter a message of up to 4000 characters.');
     const text = body.text.trim(), reply = body.replyTo == null ? null : recordId(body.replyTo);
+    const format=body.format?validateColorDocument(body.format,text):null;
     if (reply) {
       const [parent] = await this.db.read("SELECT id FROM chat_messages WHERE id=? AND room_id=? AND (id>? OR category='learning')",[reply,body.roomId,member.joined_seq]);
       if (!parent) fail(404,'The original message is unavailable.');
     }
-    const [previous] = await this.db.read('SELECT id,room_id,body,category,reply_to FROM chat_messages WHERE sender_id=? AND client_key=?',[actor.id,body.clientKey]);
-    if (previous) { if (previous.room_id!==body.roomId || previous.body!==text || previous.category!==kind || previous.reply_to!==reply) fail(409,'This message was already sent with different contents.'); return {id:previous.id,sent:true}; }
+    const [previous] = await this.db.read('SELECT id,room_id,body,category,reply_to,format_json FROM chat_messages WHERE sender_id=? AND client_key=?',[actor.id,body.clientKey]);
+    if (previous) { if (previous.room_id!==body.roomId || previous.body!==text || previous.category!==kind || previous.reply_to!==reply || (previous.format_json||null)!==(format?JSON.stringify(format):null)) fail(409,'This message was already sent with different contents.'); return {id:previous.id,sent:true}; }
     const [budget] = await this.db.read('SELECT n,window_start FROM chat_send_budget WHERE account_id=?',[actor.id]);
     if (budget?.window_start>Math.floor(Date.now()/1000)-60 && budget.n>=30) fail(429,'Please wait a moment before sending more messages.');
     const result = await this.db.atomic([
@@ -152,7 +161,7 @@ export class MessageService {
       ...(room.kind==='group' ? [this.groupMemberCommand(room.id,room.group_id)] : []),
       s(`INSERT INTO chat_send_budget(account_id,window_start,n) VALUES(?,unixepoch(),1) ON CONFLICT(account_id) DO UPDATE SET n=CASE WHEN window_start<=unixepoch()-60 THEN 1 ELSE n+1 END,window_start=CASE WHEN window_start<=unixepoch()-60 THEN unixepoch() ELSE window_start END`,[actor.id]),
       s('INSERT INTO chat_guard SELECT n<=30 FROM chat_send_budget WHERE account_id=?',[actor.id]),
-      s('INSERT INTO chat_messages(room_id,sender_id,sender_name,category,body,reply_to,client_key,created_ms) VALUES(?,?,?,?,?,?,?,?)',[body.roomId,actor.id,name(actor),kind,text,reply,body.clientKey,Date.now()]),
+      s('INSERT INTO chat_messages(room_id,sender_id,sender_name,category,body,reply_to,client_key,created_ms,format_json) VALUES(?,?,?,?,?,?,?,?,?)',[body.roomId,actor.id,name(actor),kind,text,reply,body.clientKey,Date.now(),format?JSON.stringify(format):null]),
       s('SELECT last_insert_rowid() id'),s('DROP TABLE temp.chat_guard')]);
     return {id:Number(result.at(-2)?.rows?.[0]?.[0]?.value),sent:true};
   }
@@ -198,8 +207,9 @@ export class MessageService {
     const payload = JSON.stringify([body.targetKind,targetId,body.examId,body.action]);
     const [done] = await this.db.read('SELECT result_json,payload_json FROM chat_mutations WHERE actor_id=? AND client_key=?',[actor.id,body.clientKey]);
     if (done) { if (done.payload_json!==payload) fail(409,'Assignment request changed.'); return JSON.parse(done.result_json); }
-    const [exam] = await this.db.read('SELECT id,title,published,hidden_from_students,lesson_date FROM exams WHERE id=? AND deleted_at IS NULL',[body.examId]);
+    const [exam] = await this.db.read('SELECT id,title,published,hidden_from_students,lesson_date,revision FROM exams WHERE id=? AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id)',[body.examId]);
     if (!exam) fail(404,'Exam not found.');
+    if(body.action==='assign'&&!exam.published)fail(409,'Publish the exam before assigning it.');
     let recipients, group;
     if (body.targetKind === 'group') {
       recordId(Number(targetId)); group = await new GroupService(this.db).activeGroup(Number(targetId));
@@ -214,9 +224,11 @@ export class MessageService {
     const same = body.action==='assign' && (body.targetKind==='group' ? link?.group_id===group.id && current : current);
     const absent = body.action==='unassign' && !current && (body.targetKind==='student' || link?.group_id!==group.id);
     if (same || absent) return {saved:true,unchanged:true};
-    const assignment = current?.id || crypto.randomUUID(), title = exam.published && !exam.hidden_from_students ? exam.title : 'Exam';
+    const assignment = current?.id || crypto.randomUUID(), title = exam.published ? exam.title : 'Exam';
     const message = (body.action==='assign' ? 'Exam assigned: ' : 'Exam assignment cancelled: ') + title + (exam.lesson_date ? '\nDate: '+exam.lesson_date : '') + (group ? '\nGroup: '+group.title : '');
     const commands = [s('DROP TABLE IF EXISTS temp.chat_guard'),s('CREATE TEMP TABLE chat_guard(ok INTEGER NOT NULL CHECK(ok=1))')];
+    commands.push(s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM exams WHERE id=? AND revision=? AND deleted_at IS NULL)',[exam.id,exam.revision]));
+    if(body.action==='assign'&&!current)commands.push(...await instanceCommands(this.db,exam,assignment,recipients,this.storage,{reviewer:{id:actor.id,name:name(actor)},students:await this.directory()}));
     commands.push(s("INSERT INTO chat_guard SELECT COALESCE((SELECT id FROM chat_assignments WHERE exam_id=? AND target_kind=? AND target_id=? AND active=1),'')=?",[exam.id,body.targetKind,targetId,current?.id||'']));
     if (group) {
       commands.push(s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND revision=? AND deleted_at IS NULL)',[group.id,group.revision]));
@@ -227,7 +239,7 @@ export class MessageService {
         if (link && link.group_id!==group.id) {
           const old = await this.db.read("SELECT id FROM chat_assignments WHERE exam_id=? AND target_kind='group' AND target_id=? AND active=1",[exam.id,String(link.group_id)]);
           const oldMembers = await this.db.read('SELECT account_id FROM class_group_students WHERE group_id=?',[link.group_id]);
-          for (const row of old) commands.push(s('UPDATE chat_assignments SET active=0 WHERE id=?',[row.id]),...this.noticeCommands(actor,oldMembers.map(m => m.account_id),row.id,'Exam assignment cancelled: '+title,body.clientKey+':cancel'));
+          for (const row of old) commands.push(s('UPDATE chat_assignments SET active=0 WHERE id=?',[row.id]),s("UPDATE exam_instances SET active=0 WHERE assignment_id=? AND status<>'completed'",[row.id]),...this.noticeCommands(actor,oldMembers.map(m => m.account_id),row.id,'Exam assignment cancelled: '+title,body.clientKey+':cancel'));
         }
         commands.push(s('INSERT INTO class_group_exams(group_id,exam_id) VALUES(?,?) ON CONFLICT(exam_id) DO UPDATE SET group_id=excluded.group_id',[group.id,exam.id]));
       } else commands.push(s('DELETE FROM class_group_exams WHERE group_id=? AND exam_id=?',[group.id,exam.id]));
@@ -235,6 +247,7 @@ export class MessageService {
     }
     if (body.action==='assign' && !current) commands.push(s('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES(?,?,?,?)',[assignment,exam.id,body.targetKind,targetId]));
     if (body.action==='unassign') {
+      commands.push(s("UPDATE exam_instances SET active=0 WHERE assignment_id=? AND status<>'completed'",[assignment]));
       if (!current) commands.push(s('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id,active) VALUES(?,?,?,?,0)',[assignment,exam.id,body.targetKind,targetId]));
       else commands.push(s('UPDATE chat_assignments SET active=0 WHERE id=?',[assignment]));
     }
@@ -248,7 +261,17 @@ export class MessageService {
     return {assignments:await this.db.read(`SELECT a.id,a.exam_id AS examId,a.target_kind AS targetKind,a.target_id AS targetId FROM chat_assignments a WHERE a.active=1 AND (?=1 OR (a.target_kind='student' AND a.target_id=?) OR (a.target_kind='group' AND EXISTS(SELECT 1 FROM class_group_students c WHERE c.account_id=? AND CAST(c.group_id AS TEXT)=a.target_id)))`,[+staff(actor),actor.id,actor.id])};
   }
   async examLink(actor,id) {
-    recordId(id); const shown = await new ExamService(this.db).list(actor);
+    recordId(id);await this.ensure();
+    const [exact]=await this.db.read('SELECT i.account_id,i.active FROM exam_instances i JOIN exams e ON e.id=i.exam_id WHERE i.exam_id=? AND e.deleted_at IS NULL',[id]);
+    if(exact){
+      if(!exact.active||!staff(actor)&&exact.account_id!==actor.id)fail(404,'This exam is not currently available.');
+      return {examId:id,...(staff(actor)?{studentId:exact.account_id}:{})};
+    }
+    if(!staff(actor)){
+      const [instance]=await this.db.read('SELECT exam_id FROM exam_instances WHERE (source_exam_id=? OR exam_id=?) AND account_id=? AND active=1 ORDER BY exam_id DESC LIMIT 1',[id,id,actor.id]);
+      if(instance){const shown=await new ExamService(this.db).list(actor);if(!shown.some(exam=>exam.id===instance.exam_id))fail(404,'This exam is not currently available.');return {examId:instance.exam_id};}
+    }
+    const shown = await new ExamService(this.db).list(actor);
     if (!shown.some(exam => exam.id===id)) fail(404,'This exam is not currently available.');
     if (!staff(actor)) {
       const {assignments} = await this.assignments(actor);

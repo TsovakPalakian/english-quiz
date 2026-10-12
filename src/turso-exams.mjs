@@ -3,6 +3,8 @@ import {ArchiveService} from './turso-archive.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
 import {GroupService} from './turso-groups.mjs';
+import {validateExamScoring} from './exam-scoring.mjs';
+import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -61,7 +63,8 @@ const schema = [
     points_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(points_json) AND json_type(points_json) = 'object'),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
     PRIMARY KEY (account_id, exam_id, block_id)
-  )`
+  )`,
+  `CREATE TABLE IF NOT EXISTS exam_instances(exam_id INTEGER PRIMARY KEY REFERENCES exams(id),source_exam_id INTEGER NOT NULL,account_id TEXT NOT NULL,assignment_id TEXT NOT NULL,active INTEGER NOT NULL DEFAULT 1,UNIQUE(assignment_id,account_id))`
 ];
 const ready = new WeakMap();
 
@@ -78,6 +81,12 @@ export class ExamService {
       if (!columns.some(column => column.name === 'title')) {
         await this.db.atomic([stmt("ALTER TABLE exams ADD COLUMN title TEXT NOT NULL DEFAULT 'Exam'")]);
       }
+      const additions={status:"TEXT NOT NULL DEFAULT 'active'",group_id:'INTEGER',group_title:"TEXT NOT NULL DEFAULT ''",reviewer_id:"TEXT NOT NULL DEFAULT ''",reviewer_name:"TEXT NOT NULL DEFAULT 'Teacher'",student_name:"TEXT NOT NULL DEFAULT ''",assigned_at:'INTEGER NOT NULL DEFAULT 0',completed_at:'INTEGER',max_points:'REAL',earned_points:'REAL'};
+      for(const [name,type] of Object.entries(additions)){
+        if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name)){
+          try{await this.db.atomic([stmt('ALTER TABLE exam_instances ADD COLUMN '+name+' '+type)]);}catch(error){if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name))throw error;}
+        }
+      }
     })().catch((error) => { ready.delete(this.db); throw error; }));
     return ready.get(this.db);
   }
@@ -86,34 +95,53 @@ export class ExamService {
     await this.ensure();
     await new GroupService(this.db).ensure();
     const teacher = reviewer(actor);
-    const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at,revision,(SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL) AS group_id FROM exams
-      WHERE deleted_at IS NULL AND (?=1 OR (published=1 AND hidden_from_students=0))
-      ORDER BY lesson_date DESC, created_at DESC`, [teacher ? 1 : 0]);
+    const catalogView=teacher&&!actor.managedStudent;
+    const assigned=await assignedExamIds(this.db,actor.id);
+    const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at,revision,
+      (SELECT i.status FROM exam_instances i WHERE i.exam_id=exams.id) instance_status,
+      (SELECT i.group_title FROM exam_instances i WHERE i.exam_id=exams.id) instance_group_title,
+      (SELECT i.completed_at FROM exam_instances i WHERE i.exam_id=exams.id) completed_at,
+      (SELECT i.account_id FROM exam_instances i WHERE i.exam_id=exams.id) instance_account,
+      (SELECT i.student_name FROM exam_instances i WHERE i.exam_id=exams.id) instance_student,
+      (SELECT i.max_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_max,
+      (SELECT i.earned_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_earned,
+      COALESCE((SELECT i.group_id FROM exam_instances i WHERE i.exam_id=exams.id),(SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL)) AS group_id FROM exams
+      WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id AND ((?=1 AND i.status<>'completed') OR (?=0 AND i.account_id<>?) OR i.active=0))
+      AND (?=1 OR (published=1 AND (hidden_from_students=0 OR ${assignedExamSql('exams.id',assigned)})))
+      AND (?=1 OR NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.source_exam_id=exams.id AND i.account_id=? AND i.active=1))
+      ORDER BY lesson_date DESC, created_at DESC`, [+catalogView,+catalogView,actor.id,+teacher,+catalogView,actor.id]);
     if (!exams.length) return [];
     const ids = exams.map(row => row.id);
     const marks = ids.map(() => '?').join(',');
     const blocks = await this.db.read(`SELECT exam_id, id, position, title, published, hidden_from_students FROM exam_blocks
-      WHERE deleted_at IS NULL AND exam_id IN (${marks}) AND (?=1 OR (published=1 AND hidden_from_students=0))
+      WHERE deleted_at IS NULL AND exam_id IN (${marks}) AND (?=1 OR (published=1 AND (hidden_from_students=0 OR ${assignedExamSql('exam_id',assigned)})))
       ORDER BY position`, [...ids, teacher ? 1 : 0]);
     const materials = await this.db.read(`SELECT exam_id, block_id, id, position, type, tab, content_json FROM exam_materials
       WHERE deleted_at IS NULL AND exam_id IN (${marks}) ORDER BY position`, ids);
     const hidden=await materialVisibility(this.db,actor.id);
-    return exams.filter(exam=>teacher||!hidden.has('exam:'+exam.id)).map(exam => ({
+    return exams.filter(exam=>teacher||assigned.has(exam.id)||!hidden.has('exam:'+exam.id)).map(exam => ({
       id: exam.id,
       revision: exam.revision,
       groupId:exam.group_id||null,
+      instanceStatus:exam.instance_status||null,
+      groupTitle:exam.instance_group_title||'',
+      completedAt:exam.completed_at||null,
+      studentId:exam.instance_account||null,
+      studentName:exam.instance_student||'',
+      maximumPoints:exam.instance_max,
+      earnedPoints:exam.instance_earned,
       title: exam.title || 'Exam',
       date: exam.lesson_date || '',
       published: !!exam.published,
-      hidden: !!exam.hidden_from_students,
-      personalHidden: hidden.has('exam:'+exam.id),
+      hidden: !!exam.hidden_from_students&&(catalogView||!assigned.has(exam.id)),
+      personalHidden: hidden.has('exam:'+exam.id)&&(catalogView||!assigned.has(exam.id)),
       created: Number(exam.created_at) || 0,
-      blocks: blocks.filter(block => block.exam_id === exam.id&&(teacher||!hidden.has('exam-block:'+block.id))).map(block => ({
+      blocks: blocks.filter(block => block.exam_id === exam.id&&(teacher||assigned.has(exam.id)||!hidden.has('exam-block:'+block.id))).map(block => ({
         id: block.id,
         title: block.title || '',
         published: !!block.published,
-        hidden: !!block.hidden_from_students,
-        personalHidden: hidden.has('exam-block:'+block.id),
+        hidden: !!block.hidden_from_students&&(catalogView||!assigned.has(exam.id)),
+        personalHidden: hidden.has('exam-block:'+block.id)&&(catalogView||!assigned.has(exam.id)),
         materials: materials.filter(part => part.exam_id === exam.id && part.block_id === block.id).map(part => {
           const content = JSON.parse(part.content_json || '{}');
           return { ...(teacher?content:studentExamContent(content,part.type)), id: part.id, type: part.type, tab: part.tab || '' };
@@ -135,6 +163,7 @@ export class ExamService {
     if (blocks.length > 100) fail(400, 'Too many examination blocks.');
     const archive=new ArchiveService(this.db);await archive.ensure();
     if(examId!=null){
+      if((await this.db.read('SELECT exam_id FROM exam_instances WHERE exam_id=?',[examId])).length)fail(403,'Assigned exam materials are a frozen student copy.');
       const active=await this.db.read('SELECT id FROM exams WHERE id=? AND deleted_at IS NULL',[examId]);
       if(!active.length)fail(409,'This exam is archived. Refresh the exam list.');
       const ids=blocks.map(block=>optionalId(block?.id)).filter(id=>id!=null);
@@ -159,6 +188,7 @@ export class ExamService {
       if (!block || typeof block !== 'object') fail(400, 'Invalid examination block.');
       const blockId = optionalId(block.id);
       const materials = Array.isArray(block.materials) ? block.materials : [];
+      try{validateExamScoring(materials);}catch(error){fail(400,error.message);}
       const firstMaterialSeq=materialSeq;
       if (materials.length > 200) fail(400, 'Too many materials in one block.');
       if (blockId == null) commands.push(
@@ -224,13 +254,14 @@ export class ExamService {
     signedIn(actor);
     await this.ensure();
     const account = this.workAccount(actor, studentId);
+    const assigned=await assignedExamIds(this.db,account);
     const rows = await this.db.read(`SELECT w.exam_id,w.block_id,w.saved,w.answers_json,w.corrections_json,w.points_json FROM exam_work w
       JOIN exams e ON e.id=w.exam_id JOIN exam_blocks b ON b.id=w.block_id AND b.exam_id=e.id
       WHERE w.account_id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
-        AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0))`,[account,+reviewer(actor)]);
+        AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[account,+reviewer(actor)]);
     const hidden=await materialVisibility(this.db,account);
     const service=new AssessmentService(this.db);await service.ensure();
-    return Promise.all(rows.filter(row=>reviewer(actor)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(async row => {
+    return Promise.all(rows.filter(row=>reviewer(actor)||assigned.has(row.exam_id)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(async row => {
       const tracked=await service.row(account,'exam-block',row.block_id);if(tracked)return service.project(tracked,actor);
       return ({
       examId: row.exam_id,
@@ -261,11 +292,12 @@ export class ExamService {
     recordId(examId);recordId(blockId);
     const account = this.workAccount(actor, body.studentId);
     const own = account === actor.id;
+    const assigned=await assignedExamIds(this.db,account);
     const [block]=await this.db.read(`SELECT b.id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id
       WHERE e.id=? AND b.id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
-        AND (?=1 OR (e.published=1 AND e.hidden_from_students=0 AND b.published=1 AND b.hidden_from_students=0))`,[examId,blockId,+reviewer(actor)]);
+        AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[examId,blockId,+reviewer(actor)]);
     const hidden=await materialVisibility(this.db,account);
-    if(!block||!reviewer(actor)&&(hidden.has('exam:'+examId)||hidden.has('exam-block:'+blockId)))fail(404,'Exam not found.');
+    if(!block||!reviewer(actor)&&!assigned.has(examId)&&(hidden.has('exam:'+examId)||hidden.has('exam-block:'+blockId)))fail(404,'Exam not found.');
     const current = await this.db.read('SELECT saved, answers_json, corrections_json, points_json FROM exam_work WHERE account_id=? AND exam_id=? AND block_id=?', [account, examId, blockId]);
     const prev = current[0] || {};
     if(own&&actor.role==='USER'&&prev.saved){

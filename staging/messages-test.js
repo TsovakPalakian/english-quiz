@@ -7,6 +7,8 @@
   const current = () => typeof authUser !== 'undefined' && authUser && !viewAccount ? authUser : null;
   const reviewer = () => ['ADMIN','DEVELOPER'].includes(current()?.role);
   let account = '', generation = 0, data = null, room = '', kind = 'personal', messages = [], reply = null, pending = null;
+  let draftFormat=null;
+  window.TextColors?.mount(el('msgText'),{onChange:format=>{draftFormat=format;}});
   let busy = false, refreshing = false, historyToken = 0, more = false, queryTimer, restoreRoom = true, readThrough = 0, lastPoll = 0;
   const timeline = el('msgTimeline');
   const atBottom = () => timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 64;
@@ -23,12 +25,13 @@
   function status(text) { el('msgStatus').textContent = text; el('msgStatus').hidden = !text; }
   function remember() {
     if (!account || !room) return;
-    try { localStorage.setItem(draftKey(),JSON.stringify({text:el('msgText').value,pending,reply})); } catch {}
+    try { localStorage.setItem(draftKey(),JSON.stringify({text:el('msgText').value,format:draftFormat,pending,reply})); } catch {}
   }
   function loadDraft() {
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(draftKey()) || '{}'); } catch {}
     el('msgText').value = saved.text || ''; pending = saved.pending || null; reply = saved.reply || null; paintReply();
+    draftFormat=saved.format||null;window.TextColors?.sync(el('msgText'),draftFormat);
   }
   function paintReply() {
     el('msgReply').hidden = !reply;
@@ -69,7 +72,7 @@
       const own = message.senderId===account;
       const unread = !unreadHeading && !own && message.id>readThrough; if(unread)unreadHeading=true;
       return heading + (unread?'<p class="msg-day">Unread messages</p>':'') + '<article class="msg-message'+(own?' is-own':'')+(message.category==='learning'?' is-learning':'')+'" data-msg-id="'+message.id+'" tabindex="-1"><header><strong>'+escape(message.sender)+'</strong><time datetime="'+when.toISOString()+'">'+escape(stamp)+'</time></header>' +
-        (message.replyText?'<button class="msg-quote" type="button" data-msg-quote="'+message.replyTo+'"><b>'+escape(message.replySender)+'</b><br>'+escape(message.replyText.slice(0,240))+'</button>':'') + '<p>'+escape(message.text)+'</p>' +
+        (message.replyText?'<button class="msg-quote" type="button" data-msg-quote="'+message.replyTo+'"><b>'+escape(message.replySender)+'</b><br>'+escape(message.replyText.slice(0,240))+'</button>':'') + '<p>'+(window.TextColors?window.TextColors.html(message.text,message.format):escape(message.text))+'</p>' +
         (message.examId?'<button class="btn" type="button" data-msg-exam="'+message.examId+'"'+(message.assignmentActive?'':' disabled')+'>'+(message.assignmentActive?'Open exam':'Assignment cancelled')+'</button>':'') +
         '<div class="msg-compose-actions"><button class="btn ghost" type="button" data-msg-reply="'+message.id+'">Reply</button>'+(own?'<span class="msg-receipt'+(message.read?' is-read':'')+'" role="img" aria-label="'+(message.read?'Read':'Delivered')+'" title="'+(message.read?(data?.rooms.find(row=>row.id===room)?.kind==='group'?'Read by everyone':'Read'):'Delivered, not yet read')+'"><svg class="lucide lucide-check-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 7 17l-5-5"/><path d="m22 10-7.5 7.5L13 16"/></svg></span>':'')+'</div></article>';
     }).join('') : '<p class="hint">No messages yet.</p>';
@@ -144,9 +147,9 @@
   el('msgAssign').onclick=async()=>{
     try {
       if(!data)await refresh(); if(!data)return;
-      const cachedExams=examLoad(),cachedRevision=cachedExams.length+':'+cachedExams.reduce((sum,row)=>sum+(row.stageRevision||0),0);
+      const cachedExams=examLoad().filter(exam=>!exam.instanceStatus),cachedRevision=cachedExams.length+':'+cachedExams.reduce((sum,row)=>sum+(row.stageRevision||0),0);
       await examPull(data.examRevision!=null&&cachedRevision!==data.examRevision);
-      const exams=examLoad();
+      const exams=examLoad().filter(exam=>!exam.instanceStatus);
       dialog('Assign exam','<label>Exam<select name="exam" required>'+exams.map(exam=>'<option value="'+exam.id+'">'+escape(exam.title)+'</option>').join('')+'</select></label><label>Recipient<select name="target" required><optgroup label="Groups">'+data.groups.map(group=>'<option value="group:'+group.id+'">'+escape(group.title)+'</option>').join('')+'</optgroup><optgroup label="Students">'+data.contacts.filter(user=>user.role==='Student').map(user=>'<option value="student:'+escape(user.id)+'">'+escape(user.name)+'</option>').join('')+'</optgroup></select></label><label>Action<select name="action"><option value="assign">Assign</option><option value="unassign">Unassign</option></select></label>',async form=>{
         const value=form.get('target'),split=value.indexOf(':'),targetKind=value.slice(0,split),targetId=value.slice(split+1),examId=Number(form.get('exam'));
         const result=await api('/assignment',{targetKind,targetId,examId,action:form.get('action'),clientKey:crypto.randomUUID()});
@@ -158,13 +161,16 @@
   el('msgCompose').onsubmit=async event=>{
     event.preventDefault(); if(busy || !room || !el('msgText').value.trim())return;
     const text=el('msgText').value.trim(),category=reviewer()&&el('msgAnnouncement').checked?'learning':'personal';
-    if(!pending || pending.text!==text || pending.category!==category || pending.replyTo!==(reply?.id||null))pending={roomId:room,text,category,replyTo:reply?.id||null,clientKey:crypto.randomUUID()};
+    const format=window.TextColors?.trim(draftFormat,el('msgText').value)||null;
+    if(!pending || pending.text!==text || pending.category!==category || pending.replyTo!==(reply?.id||null)||JSON.stringify(pending.format||null)!==JSON.stringify(format))pending={roomId:room,text,category,replyTo:reply?.id||null,clientKey:crypto.randomUUID()};
+    pending.format=format;
     remember(); busy=true; el('msgSend').disabled=true; el('msgSendState').textContent='Sending…';
     const sentRoom=room,gen=generation;
     try {
       await api('/send',pending);
       if(sentRoom!==room || gen!==generation)return;
       pending=null; reply=null; el('msgText').value=''; paintReply(); remember(); el('msgSendState').textContent='Sent';
+      draftFormat=null;window.TextColors?.sync(el('msgText'),null);
       if(category!==kind)kind=category; await history(); await refresh();
     } catch(error) { el('msgSendState').textContent=error.message; el('msgSend').textContent='Retry'; }
     finally { busy=false; el('msgSend').disabled=false; if(!pending)el('msgSend').textContent='Send'; }
@@ -192,7 +198,7 @@
     const button=event.target.closest('[data-msg-emoji]');if(!button)return;
     const emoji=button.dataset.msgEmoji;
     if(composer.value.length-(composer.selectionEnd-composer.selectionStart)+emoji.length>composer.maxLength)return;
-    composer.setRangeText(emoji,composer.selectionStart,composer.selectionEnd,'end');remember();composer.focus();
+    if(!window.TextColors?.insert(composer,emoji))composer.setRangeText(emoji,composer.selectionStart,composer.selectionEnd,'end');remember();composer.focus();
     el('msgEmojiPicker').hidden=true;el('msgEmoji').setAttribute('aria-expanded','false');
   });
   el('msgRoomSearch').addEventListener('input',paintRooms); el('msgUnreadOnly').onchange=paintRooms;
@@ -212,7 +218,7 @@
       else if(target.dataset.msgReply) { reply=messages.find(row=>row.id===Number(target.dataset.msgReply));paintReply();remember();el('msgText').focus(); }
       else if(target.hasAttribute('data-msg-cancel-reply')) {reply=null;paintReply();remember();}
       else if(target.dataset.msgQuote) { const id=Number(target.dataset.msgQuote);let node=timeline.querySelector('[data-msg-id="'+id+'"]');if(!node){const parent=messages.find(row=>row.replyTo===id);kind=parent?.replyCategory||kind;el('msgTextSearch').value='';await history({before:id+1});badge();paintRooms();node=timeline.querySelector('[data-msg-id="'+id+'"]');}if(node){timeline.querySelectorAll('.is-focused').forEach(row=>row.classList.remove('is-focused'));node.classList.add('is-focused');node.scrollIntoView({block:'center'});node.focus({preventScroll:true});}else status('The original message is unavailable in this view.'); }
-      else if(target.dataset.msgExam) { const result=await api('/exam?id='+target.dataset.msgExam);await examPull();examCurrentId=result.examId;window.enquizVisit('examblocks'); }
+      else if(target.dataset.msgExam) { const result=await api('/exam?id='+target.dataset.msgExam);if(result.studentId){await openStudentPages({id:result.studentId,role:'USER'});if(viewAccount?.id!==result.studentId)throw new Error('Exit the current student pages first.');}await examPull(true);examCurrentId=result.examId;window.enquizVisit('examblocks'); }
     } catch(error) {status(error.message);}
   });
   // Add controls without replacing the existing navigation or account handlers.

@@ -69,6 +69,8 @@ export class ContentCopyService extends StudyService {
       let destination;
       if(target.id!=null)destination=await read({group:'class_groups',exam:'exams',lesson:'lessons','exam-block':'exam_blocks'}[target.type],target.id);
       if(target.type==='exam-block')await read('exams',destination.exam_id);
+      const destinationExam=target.type==='exam'?destination?.id:target.type==='exam-block'?destination.exam_id:null;
+      if(destinationExam&&(await this.db.read('SELECT exam_id FROM exam_instances WHERE exam_id=?',[destinationExam])).length)fail(403,'Assigned exam materials are a frozen student copy.');
       const newLesson=target.type==='group',newExam=target.type==='exam'&&target.id==null;
       const lessonTarget=newLesson||target.type==='lesson';
       let next=0;

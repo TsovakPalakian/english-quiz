@@ -5,6 +5,8 @@ import {studyClient} from './turso-stage-worker.mjs';
 import {StudyError} from './turso-study.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {MessageService} from './turso-messages.mjs';
+import {stageR2Media} from './turso-r2-media.mjs';
+import {lessonMediaMetadata} from './turso-lesson-media.mjs';
 export {StageAuthBudget};
 const json = (value,status=200) => Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const databases = new WeakMap();
@@ -48,7 +50,14 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
       if (path==='/api/groups/manage' && !['exam','unassign-exam'].includes(value.action)) return baseWorker.fetch(request,env,ctx);
       const actor = await authenticate(env,request); if (!actor) throw new StudyError(401,'Sign in to open messages.');
       const users = directory || (async () => (await env.DB.prepare("SELECT id,login,name,role FROM users WHERE COALESCE(active,1)=1 AND is_personal_data_revoked=0 AND (COALESCE(hidden,0)=0 OR ?='DEVELOPER')").bind(actor.role).all()).results || []);
-      const db = studyDatabase(env), service = new MessageService(db,users);
+      const db = studyDatabase(env), service = new MessageService(db,users,()=>{
+        const store=stageR2Media(env);
+        store.readLegacy=async(key,name)=>{
+          if(!/^lessons\/files\/[A-Za-z0-9_-]{1,100}$/.test(key))throw new StudyError(404,'Attachment unavailable.');
+          const object=await env.MEDIA?.get(key);if(!object)throw new StudyError(404,'Original attachment unavailable.');
+          const bytes=new Uint8Array(await object.arrayBuffer()),metadata=await lessonMediaMetadata(bytes,object.httpMetadata?.contentType||'',name);return {bytes,metadata};
+        };return store;
+      });
       if (path==='/api/groups/members') return json(await service.assignStudent(actor,value.accountId,value.groupId));
       if (path==='/api/groups/manage') {
         if(Object.keys(value).some(key=>!['action','id','expectedRevision','title','examId'].includes(key)))throw new StudyError(400,'Invalid group request.');

@@ -10,7 +10,7 @@
   const caption=value=>labels[value]||value[0].toUpperCase()+value.slice(1);
   const itemLabel={ipa:'Transcription',prompt:'Question',write:'Correct answer',answer:'Correct answer',text:'Line'};
   const sizeOf=block=>Math.min(96,Math.max(10,Number(block.fontSize)||17));
-  let root,location,api,authorized,owner='',editing=false,canEdit=false,doc,answers={},busy=false,token=0,tab='overview',dirty=false,pending=null,selection;
+  let root,location,api,authorized,navigate,owner='',editing=false,canEdit=false,doc,answers={},busy=false,token=0,tab='overview',dirty=false,pending=null,selection;
   const drafts=new Map();
   const draftKey=()=>owner+':'+JSON.stringify(location);
   const cacheKey=()=> 'speakout-lesson:'+owner+':'+(canEdit?'staff':'student')+':'+JSON.stringify(location);
@@ -44,7 +44,7 @@
     if(root)return;
     const css=document.createElement('link');css.rel='stylesheet';css.href='/speakout-editor.css?v=20261012-independent';document.head.append(css);
     root=document.getElementById('speakouteditor');
-    root.innerHTML='<div class="lm"><div class="meta lm-meta"><button class="btn ghost" type="button" data-nav-back data-fallback="speakout">Back</button><h1 id="seName">Learning material</h1><div class="lm-actions"><button class="lm-btn" id="seEdit" type="button">Editor</button><button class="lm-btn" id="seSave" type="button">Save draft</button><button class="lm-btn lm-btn-primary" id="sePublish" type="button">Publish</button></div></div><p id="sePath" class="sub"></p><div id="seIntro"><p class="lm-kicker">Create learning material</p><p class="lm-lead">Build a complete lesson from reusable content blocks.</p></div><p id="seStatus" class="lm-note" role="status"></p><div id="seFields" class="lm-sheet"><h2>Basic information</h2><label>Description<textarea id="seDescription" maxlength="5000"></textarea></label></div><div class="lm-content-head"><h2 id="sePageTitle">Overview</h2><span id="sePublished" class="lm-status">Draft</span></div><div id="seBlocks"></div><div id="seAddRow" class="lm-add-wrap"><select id="seType" aria-label="Content type" hidden>'+types.map(type=>'<option value="'+type+'">'+(labels[type]||type[0].toUpperCase()+type.slice(1))+'</option>').join('')+'</select><button class="lm-add" type="button" id="seAdd">+ Add content</button><div class="lm-picker" id="sePicker" hidden><p>Add content</p><div class="lm-picker-grid">'+types.map(type=>'<button type="button" data-se-add="'+type+'">'+(labels[type]||type[0].toUpperCase()+type.slice(1))+'</button>').join('')+'</div></div></div><button class="lm-preview-btn" id="sePreview" type="button">Preview</button><button class="lm-btn lm-btn-primary" type="button" id="seAnswers">Save answers</button></div>';
+    root.innerHTML='<div class="lm"><div class="meta lm-meta"><button class="btn ghost" type="button" data-nav-back data-fallback="speakout">Back</button><h1 id="seName">Learning material</h1><div class="lm-actions"><button class="lm-btn" id="seEdit" type="button">Editor</button><button class="lm-btn" id="seSave" type="button">Save draft</button><button class="lm-btn lm-btn-primary" id="sePublish" type="button">Publish</button></div></div><nav id="sePath" class="page-path" aria-label="Breadcrumb"></nav><div id="seIntro"><p class="lm-kicker">Create learning material</p><p class="lm-lead">Build a complete lesson from reusable content blocks.</p></div><p id="seStatus" class="lm-note" role="status"></p><div id="seFields" class="lm-sheet"><h2>Basic information</h2><label>Description<textarea id="seDescription" maxlength="5000"></textarea></label></div><div class="lm-content-head"><h2 id="sePageTitle">Overview</h2><span id="sePublished" class="lm-status">Draft</span></div><div id="seBlocks"></div><div id="seAddRow" class="lm-add-wrap"><select id="seType" aria-label="Content type" hidden>'+types.map(type=>'<option value="'+type+'">'+(labels[type]||type[0].toUpperCase()+type.slice(1))+'</option>').join('')+'</select><button class="lm-add" type="button" id="seAdd">+ Add content</button><div class="lm-picker" id="sePicker" hidden><p>Add content</p><div class="lm-picker-grid">'+types.map(type=>'<button type="button" data-se-add="'+type+'">'+(labels[type]||type[0].toUpperCase()+type.slice(1))+'</button>').join('')+'</div></div></div><button class="lm-preview-btn" id="sePreview" type="button">Preview</button><button class="lm-btn lm-btn-primary" type="button" id="seAnswers">Save answers</button></div>';
     window.enquizMountCrumbs?.(root);
     root.addEventListener('input',input);root.addEventListener('change',input);root.addEventListener('click',click);
     root.addEventListener('mousedown',event=>{if(event.target.closest('[data-se-format],[data-se-font-step]'))event.preventDefault();});
@@ -65,7 +65,7 @@
   function field(block,key,multiline=false){const value=Array.isArray(block[key])?block[key].join('\n'):block[key]||'';return '<label>'+escape(key[0].toUpperCase()+key.slice(1))+(multiline?'<textarea':'<input')+' data-se-field="'+key+'"'+(Array.isArray(block[key])?' data-se-array':'')+'>'+(multiline?escape(value)+'</textarea>':'')+(multiline?'':'</input>')+'</label>';}
   function inputField(block,key,multiline=false){if(multiline)return field(block,key,true);return '<label>'+escape(key[0].toUpperCase()+key.slice(1))+'<input type="text" data-se-field="'+key+'" value="'+escape(block[key]||'')+'"></label>';}
   function textStyle(block){return 'font-size:'+sizeOf(block)+'px;'+(fonts[block.fontFamily]?'font-family:'+fonts[block.fontFamily]+';':'');}
-  function rich(block){return '<div class="lm-tools"><select data-se-font-family aria-label="Font">'+Object.keys(fonts).map(key=>'<option value="'+key+'"'+(key===(block.fontFamily||'')?' selected':'')+'>'+({sans:'Sans',mono:'Mono',trebuchet:'Trebuchet',courier:'Courier'}[key]|| (key?caption(key):'Font'))+'</option>').join('')+'</select><button type="button" data-se-font-step="1" title="Larger text" aria-label="Larger text">A+</button><button type="button" data-se-font-step="-1" title="Smaller text" aria-label="Smaller text">A&#8722;</button><input class="lm-font-size" type="number" min="10" max="96" step="1" data-se-font-size value="'+sizeOf(block)+'" aria-label="Font size"><button type="button" data-se-format="bold" title="Bold"><b>B</b></button><button type="button" data-se-format="italic" title="Italic"><i>I</i></button><button type="button" data-se-format="underline" title="Underline"><u>U</u></button><button type="button" data-se-format="insertUnorderedList">List</button><button type="button" data-se-format="link">Link</button></div><div class="lm-rich" style="'+escape(textStyle(block))+'" contenteditable="true" role="textbox" aria-label="Text" data-se-rich>'+clean(block.html)+'</div>';}
+  function rich(block){return '<div class="lm-tools"><select data-se-font-family aria-label="Font">'+Object.keys(fonts).map(key=>'<option value="'+key+'"'+(key===(block.fontFamily||'')?' selected':'')+'>'+({sans:'Sans',mono:'Mono',trebuchet:'Trebuchet',courier:'Courier'}[key]|| (key?caption(key):'Font'))+'</option>').join('')+'</select><button type="button" data-se-font-step="1" title="Larger text" aria-label="Larger text">A+</button><button type="button" data-se-font-step="-1" title="Smaller text" aria-label="Smaller text">A&#8722;</button><input class="lm-font-size" type="number" min="10" max="96" step="1" data-se-font-size value="'+sizeOf(block)+'" aria-label="Font size"><button type="button" data-se-format="bold" title="Bold"><b>B</b></button><button type="button" data-se-format="italic" title="Italic"><i>I</i></button><button type="button" data-se-format="underline" title="Underline"><u>U</u></button><button type="button" data-se-format="insertUnorderedList">List</button><button type="button" data-se-format="link">Link</button><input type="color" data-se-color title="Text color" aria-label="Text color"></div><div class="lm-rich" style="'+escape(textStyle(block))+'" contenteditable="true" role="textbox" aria-label="Text" data-se-rich>'+clean(block.html)+'</div>';}
   function rows(block){
     const key=block.type==='dialogue'?'lines':'items',schema=lists[block.type];
     return '<div class="lm-card-list'+(block.type==='dialogue'?' lm-lines':'')+'">'+(block[key]||[]).map((item,index)=>'<div class="lm-card-row" data-se-item="'+index+'"><div class="lm-card-fields">'+schema.map(name=>name==='options'?'<label>Options<textarea data-se-item-field="options">'+escape((item.options||[]).join('\n'))+'</textarea></label>':'<label>'+escape(itemLabel[name]||caption(name))+'<input type="text" data-se-item-field="'+name+'" value="'+escape(item[name]??'')+'"></label>').join('')+'</div><div class="lm-card-actions"><button class="lm-icon" type="button" data-se-item-move="-1" title="Move up" aria-label="Move item up">&#8593;</button><button class="lm-icon" type="button" data-se-item-move="1" title="Move down" aria-label="Move item down">&#8595;</button><button class="lm-icon danger" type="button" data-se-remove-item="'+index+'" title="Delete" aria-label="Delete item">&#215;</button></div></div>').join('')+'</div><button class="lm-add-card" type="button" data-se-add-item>+ Add '+({cards:'card',vocab:'word',phrase:'phrase',dialogue:'line',quiz:'question',exercise:'question'}[block.type]||'item')+'</button>';
@@ -115,8 +115,9 @@
     selection=null;
     stopMedia();$('seName').textContent=doc.title;
     root.querySelector('.lm-content-head').hidden=false;
-    $('sePath').className='page-path';$('sePath').innerHTML='<span>Speakout</span> / <span>'+escape(location.level)+'</span> / <span>Unit '+(location.unit+1)+'</span> / <span>'+escape(doc.title)+'</span>'+(editing?' / <strong>Edit</strong>':'');
+    $('sePath').className='page-path';$('sePath').innerHTML='<ol>'+[['levels','Speakout'],['level',location.level],['unit','Unit '+(location.unit+1)],['lesson',doc.title]].map(([view,title])=>'<li><button type="button" data-se-path="'+view+'">'+escape(title)+'</button></li>').join('')+(editing?'<li><strong>Edit</strong></li>':'')+'</ol>';
     $('seDescription').value=doc.description||'';
+    window.TextColors?.mount($('seDescription'),{format:doc.descriptionFormatting,onChange:format=>{doc.descriptionFormatting=format;remember();}});window.TextColors?.sync($('seDescription'),doc.descriptionFormatting);
     for(const id of ['seIntro','seFields','seAddRow','seSave','sePublish','sePreview'])$(id).hidden=!editing;
     $('sePicker').hidden=true;
     $('sePageTitle').textContent='Overview';$('sePublished').textContent=doc.published?'Published':'Draft';$('sePublished').classList.toggle('is-live',!!doc.published);
@@ -124,12 +125,22 @@
     $('seAnswers').hidden=editing||!doc.published||!doc.blocks.some(block=>['quiz','exercise','task'].includes(block.type));
     $('seBlocks').innerHTML=editing?doc.blocks.map(block=>'<article class="se-block lm-block'+(block.collapsed?' is-shut':'')+'" data-se-block="'+escape(block.id)+'">'+head(block)+'<div class="lm-body">'+assignment(block)+editor(block)+'</div></article>').join(''):readBlocks();
     if(!doc.blocks.length)$('seBlocks').innerHTML='<p class="lm-lead">Nothing on this page yet.</p>';
+    if(editing)root.querySelectorAll('[data-se-field], [data-se-item-field]').forEach(field=>{
+      if(!field.matches('textarea,input[type=text]'))return;const name=field.dataset.seField||field.dataset.seItemField;if(['criteria','url','remoteUrl','ipa','answer','write'].includes(name))return;
+      const part=doc.blocks.find(part=>part.id===field.closest('[data-se-block]').dataset.seBlock),key=name+':'+(field.closest('[data-se-item]')?.dataset.seItem??'');
+      window.TextColors?.mount(field,{format:part.textFormatting?.[key],onChange:format=>{part.textFormatting||={};part.textFormatting[key]=format;remember();}});
+    });
+    else root.querySelectorAll('[data-se-block]').forEach(panel=>{const part=doc.blocks.find(part=>part.id===panel.dataset.seBlock);if(part)window.TextColors?.paint(panel,part);});
+    if(!editing)root.querySelectorAll('[data-se-answer],[data-se-question]').forEach(field=>{
+      const id=field.closest('[data-se-block]').dataset.seBlock,index=field.dataset.seQuestion??'0';
+      window.TextColors?.mount(field,{format:answers._formatting?.[id]?.[index],onChange:format=>{answers._formatting||={};(answers._formatting[id]||={})[index]=format;changeSerial++;}});
+    });
   }
   function remember(){changeSerial++;dirty=true;pending=null;if(location&&doc)drafts.set(draftKey(),structuredClone(doc));}
   async function save(published){
     if(!canEdit||!authorized())throw new Error('Access changed. Reopen Speakout.');
     changeSerial++;doc.description=$('seDescription').value;
-    const metadata=Object.fromEntries(['date','className','unit','lesson'].filter(key=>doc[key]!==undefined).map(key=>[key,doc[key]]));
+    const metadata=Object.fromEntries(['date','className','unit','lesson','descriptionFormatting'].filter(key=>doc[key]!==undefined).map(key=>[key,doc[key]]));
     const body={...location,action:'save',expectedRevision:doc.revision||0,published,content:{title:doc.title,description:doc.description,...metadata,blocks:doc.blocks}};
     const signature=JSON.stringify(body);if(!pending||pending.signature!==signature)pending={signature,mutationId:crypto.randomUUID()};
     const result=await api('/api/speakout/lesson',{method:'POST',body:JSON.stringify({...body,mutationId:pending.mutationId})});
@@ -174,6 +185,7 @@
   function lock(value){root.querySelectorAll('button,input,textarea,select,[contenteditable]').forEach(node=>{if(node.hasAttribute('data-nav-back'))return;if(node.hasAttribute('contenteditable'))node.contentEditable=String(!value);else node.disabled=value;});}
   async function click(event){
     const button=event.target.closest('button');if(!button||busy||!authorized())return;
+    if(button.dataset.sePath){if(button.dataset.sePath==='lesson'){editing=false;render();}else navigate?.(button.dataset.sePath);return;}
     if(button.id==='seAnswers'){changeSerial++;busy=true;lock(true);try{await api('/api/speakout/answers',{method:'POST',body:JSON.stringify({...location,expectedRevision:doc.revision,answers})});cacheCurrent();note('Answers saved.');}catch(error){note(error.message);}finally{busy=false;lock(false);}return;}
     if(!canEdit)return;
     if(button.id==='seEdit'){editing=true;render();return;}
@@ -213,7 +225,7 @@
   }
   window.SpeakoutEditor={async open(where,options){
     if(busy)throw new Error('Wait until Speakout finishes saving.');
-    init();const seq=++token;location={...where};owner=options.actor;api=options.read;authorized=options.active;canEdit=options.editor;editing=false;tab='overview';pending=null;selection=null;
+    init();const seq=++token;location={...where};owner=options.actor;api=options.read;authorized=options.active;navigate=options.navigate;canEdit=options.editor;editing=false;tab='overview';pending=null;selection=null;
     root.dataset.speakLocation=JSON.stringify(where);dirty=false;
     const path='/api/speakout/lesson?'+new URLSearchParams(where);
     const key=cacheKey(),cached=window.ContentCache.get(key),serial=changeSerial;

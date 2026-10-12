@@ -66,7 +66,7 @@ try{
         if(body.action==='submit'&&failSubmit){failSubmit=false;await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic submission failure'})});return;}
         assert.equal(body.expectedRevision,record.revision);
         record={...record,revision:record.revision+1};
-        if(['draft','submit'].includes(body.action)){record.answers=body.answers;record.state=body.action==='submit'?'submitted':'draft';}
+        if(['draft','submit'].includes(body.action)){record.answers=body.answers;record.answerText=body.answerText;record.state=body.action==='submit'?'submitted':'draft';}
         else if(['review','publish'].includes(body.action)){record.points=body.points;record.corrections=body.corrections;record.errors=body.errors;record.reviewText=body.reviewText;record.state=body.action==='publish'?'published':'reviewing';}
         else record.state=body.action==='reopen'?'draft':'reviewing';
         record.saved=record.state!=='draft';assessmentRecords.set(key,record);
@@ -380,12 +380,20 @@ try{
   await page.getByText('See you soon',{exact:true}).waitFor();
   assert.equal(await page.locator('section.on').getAttribute('id'),'home');
   assert.equal(signedIn,false);
+  assert.equal(await page.locator('[data-jump="groups"]:visible,[data-jump="exams"]:visible,[data-jump="library"]:visible,[data-jump="stats"]:visible').count(),0);
+  for(const destination of ['groups','exams','library','stats','profile','speakouteditor']){
+    await page.evaluate(id=>window.enquizVisit(id),destination);
+    assert.equal(await page.locator('section.on').getAttribute('id'),'account');
+  }
   await page.locator('[data-jump="account"]:visible').first().click();
   await page.locator('#loginForm [name="login"]').fill(user.login);
   await page.locator('#loginForm [name="password"]').fill('fixture-only');
   await page.locator('#loginForm button[type="submit"]').click();
   await page.waitForFunction(()=>accountReady&&document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
   assert.equal(signedIn,true);assert.equal(selectedTheme,'user-second');
+  assert.equal(await page.locator('.side nav [data-jump="groups"]').isVisible(),true);
+  assert.equal(await page.locator('.side nav [data-jump="exams"]').isVisible(),true);
+  assert.equal(await page.locator('.side nav [data-jump="library"]').isVisible(),true);
   signedIn=true;holdLessonSummary=true;
   exam.blocks[0].published=false;exam.published=false;lesson={...lesson,id:12};
   const racePage=await browser.newPage();
@@ -528,7 +536,19 @@ try{
   await page.locator('#speakoutList [data-speak-lesson]').first().click();
   const originalLesson=await page.evaluate(()=>JSON.stringify(lmState));
   await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
+  assert.equal(await page.locator('#sePath [data-se-path]').count(),4);
+  for(const view of ['unit','level','levels']){
+    await page.locator('#sePath [data-se-path="'+view+'"]').click();
+    await page.locator('#speakout.on').waitFor();
+    if(view==='levels')await page.locator('#speakoutList [data-speak-level]').first().click();
+    if(view!=='unit')await page.locator('#speakoutList [data-speak-unit]').first().click();
+    await page.locator('#speakoutList [data-speak-lesson]').first().click();
+    await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
+  }
   assert.equal(await page.locator('[data-speak-material]').count(),0);
+  assert.equal(await page.locator('#seFields').isVisible(),false);
+  await page.locator('#seEdit').click();
+  await page.locator('#sePath [data-se-path="lesson"]').click();
   assert.equal(await page.locator('#seFields').isVisible(),false);
   await page.locator('#seEdit').click();
   assert.equal(await page.locator('#seName').innerText(),'1A Fixture lesson');
@@ -659,6 +679,10 @@ try{
   for(const type of ['copy','contextmenu'])assert.equal(await page.locator('#lmPreview').evaluate((el,type)=>el.dispatchEvent(new Event(type,{bubbles:true,cancelable:true})),type),false);
   assert.equal(await page.locator('#lmPreview [data-exam-given]').first().isEnabled(),true);
   const taskField=page.locator('#lmPreview [data-exam-response]').first();await taskField.fill('My exam response');
+  await taskField.evaluate(field=>field.setSelectionRange(0,2));
+  await taskField.locator('..').locator('input[type=color]').evaluate(palette=>{palette.dispatchEvent(new PointerEvent('pointerdown'));palette.value='#ff0000';palette.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await taskField.locator('..').locator('.text-color-rich').isVisible(),true);
+  assert.ok(await taskField.locator('..').locator('.text-color-rich span').evaluateAll(nodes=>nodes.some(node=>node.style.color==='rgb(255, 0, 0)')));
   assert.equal(await page.evaluate(()=>Object.values(examCollectAnswers(lmState)).some(row=>row[0]==='My exam response')),true);
   assert.equal(await taskField.evaluate(el=>el.dispatchEvent(new Event('paste',{bubbles:true,cancelable:true}))),false);
   await page.locator('#lmPreview [data-read]').first().click({force:true});assert.equal(await page.locator('#selpop').isVisible(),false);
@@ -694,7 +718,8 @@ try{
   await page.screenshot({path:'/private/tmp/english-quiz-review-cards.png'});
   await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);
   assert.equal(await page.locator('#lmPreview [data-exam-points]').first().isEnabled(),false);
-  assert.equal(await page.locator('#assessmentAmend').isVisible(),true);
+  assert.equal(await page.locator('#assessmentAmend').isVisible(),false);
+  assert.equal(await page.locator('#assessmentReopen').isVisible(),false);
   await page.evaluate(()=>{authUser.role='USER';viewAccount=null;lmState.assessmentReady=false;lmShow('preview');});
   await page.waitForFunction(()=>lmState.assessmentReady);
   assert.equal(await page.locator('#lmPreview .assessment-feedback').count()>0,true);
@@ -706,6 +731,17 @@ try{
   await card.locator('summary').click();assert.equal(await card.getAttribute('open')!==null,true);
   await page.evaluate(()=>{const media=document.createElement('audio');window.mediaPaused=false;media.pause=()=>{window.mediaPaused=true;};document.querySelector('#material').append(media);});
   await page.evaluate(()=>window.enquizVisit('groups'));assert.equal(await page.evaluate(()=>window.mediaPaused),true);
+  await page.evaluate(()=>{
+    const make=(id,status)=>examFromWire({id,title:'Independent exam '+id,published:true,instanceStatus:status,groupId:42,groupTitle:'Original group',maximumPoints:1.1,earnedPoints:0.6,blocks:[{id:id+10,published:true,title:'Task',materials:[{id:id+20,type:'task',maxPoints:1.1,text:'Answer'}]}]});
+    localStorage.setItem('enquiz-exams',JSON.stringify([make(900,'active'),make(901,'completed')]));examReady=true;examWorkLoadedFor=examWorkAccount();window.enquizVisit('exams');
+  });
+  assert.equal(await page.locator('#examList [data-exam-open="900"]').count(),1);
+  assert.equal(await page.locator('#examList [data-exam-open="901"]').count(),0);
+  await page.locator('[data-exam-section="completed"]').click();
+  assert.equal(await page.locator('#examList [data-exam-open="900"]').count(),0);
+  assert.equal(await page.locator('#examList [data-exam-open="901"]').count(),1);
+  assert.match(await page.locator('#examList').innerText(),/Original group/);
+  assert.match(await page.locator('#examList').innerText(),/Completed · Maximum 1.1 · 0.6 points/);
   assert.deepEqual(errors,[]);
   console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal, theme switching/reload/empty cache/relogin and logout passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
