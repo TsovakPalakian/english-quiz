@@ -6,7 +6,7 @@ import {ExamService} from './turso-exams.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {ArchiveService} from './turso-archive.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './turso-legacy-read.mjs';
-import {speakoutLesson,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout} from './turso-speakout.mjs';
+import {speakoutLesson,speakoutRevisions,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout} from './turso-speakout.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './turso-media.mjs';
 import {SongMediaService} from './turso-song-media.mjs';
 import {ThemeMediaService} from './turso-theme-media.mjs';
@@ -144,7 +144,7 @@ export default {async fetch(request,env){
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&path==='/api/speakout/media'
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
@@ -168,7 +168,10 @@ export default {async fetch(request,env){
         }
         if(params.get('slice')==='1')return await catalogJson(await staticSlice(db,catalogPage[1],{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
         if(params.get('document')==='1'&&!params.get('after'))return await catalogJson(await staticDocument(db,catalogPage[1]));
-        if(catalogPage[1]==='SPEAKOUT'&&params.get('level'))return await catalogJson(await speakoutLevel(db,params.get('level')));
+        if(catalogPage[1]==='SPEAKOUT'&&params.get('level')){
+          const value=await speakoutLevel(db,params.get('level')),projected=await projectStudentCatalog(db,viewer,value);
+          return json(projected,200,{'Cache-Control':'private, max-age=300','Vary':'Cookie, Authorization'});
+        }
         if(catalogPage[1]==='LESSON_DATA'&&params.get('section'))return await catalogJson(await catalogSection(db,params.get('section'),{after:params.get('after')||'',limit:pageLimit(params.get('limit'))}));
         const raw=params.get('limit');const limit=raw==null?60:Number(raw);return await catalogJson(await publicCatalogPage(db,catalogPage[1],{after:params.get('after')||'',limit}));
       }
@@ -184,6 +187,7 @@ export default {async fetch(request,env){
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
     if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
     if(path.startsWith('/api/speakout/')){
+      if(path==='/api/speakout/revisions')return json(await speakoutRevisions(db,actor));
       const location={level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson')),block:url.searchParams.get('block')};
       const store=stageR2Media(env);
       if(path==='/api/speakout/media')return method==='POST'?json(await uploadSpeakout(db,actor,{...location,expectedRevision:Number(url.searchParams.get('expectedRevision')),mutationId:url.searchParams.get('mutationId')},await boundedMediaBytes(request),request.headers.get('content-type')?.split(';')[0],url.searchParams.get('name'),store)):await speakoutMedia(db,actor,location,store,request);

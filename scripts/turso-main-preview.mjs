@@ -1,6 +1,7 @@
 // Inject hooks only into the served staging copy. Production preview.js stays
 // byte-for-byte unchanged. Exact anchors fail closed if the main source changes.
 import {embedSource,previewImage,mediaSource} from '../src/turso-embed.mjs';
+import {readFileSync} from 'node:fs';
 export function mainPreview(source,hooks){
   const insert=(anchor,text)=>{
     if(source.split(anchor).length!==2)throw new Error('Main preview hook anchor changed: '+anchor);
@@ -109,5 +110,5 @@ export function mainPreview(source,hooks){
   insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.TursoMain.unsupported("Добавление личных карточек");');
   insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
   insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
-  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+mediaSource.toString().replace('function mediaSource','function stageMediaSource')+'\n'+source+'\n'+hooks;
+  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+mediaSource.toString().replace('function mediaSource','function stageMediaSource')+'\n'+source+'\n'+hooks+'\n'+readFileSync(new URL('../staging/material-upgrades.js',import.meta.url),'utf8');
 }

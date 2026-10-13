@@ -903,8 +903,8 @@ if(typeof homeBuckets==='function')homeBuckets=function(rows){
   const buckets=stageHomeBuckets(rows);stagePaintWeakCount(buckets);return buckets;
 };
 function stageResponseValue(block,checked=false){
-  if(block.type==='task')return block.response||'';
-  return {items:(block.items||[]).map(item=>({...('picked' in item?{picked:item.picked}:{}),...('typed' in item?{typed:item.typed}:{})})),...(checked?{checked:true}:{})};
+  if(block.type==='task'||block.type==='text'&&block.answerEnabled)return block.responseFormatting?{text:block.response||'',format:block.responseFormatting}:block.response||'';
+  return {items:(block.items||[]).map(item=>({...('picked' in item?{picked:item.picked}:{}),...('typed' in item?{typed:item.typed}:{}),...(item.typedFormatting?{format:item.typedFormatting}:{})})),...(checked?{checked:true}:{})};
 }
 function stageLessonCounts(blocks){
   let words=0,phrases=0,rules=0;
@@ -1428,19 +1428,29 @@ function stageSpeakIncomplete(){return stageLevels().some((_,index)=>!(window.SP
 const stageSpeakVersions=new Map();
 let stageSpeakRevisionJob;
 function stageSpeakVersion(){return (window.ContentCache.get('account:bootstrap')||{}).versions?.speakout||'';}
+function stageSpeakAudience(){return (authUser?.id||'guest')+':'+(authUser?.role||'guest');}
 function stageSpeakNeedsLoad(level){
-  return !window.SPEAKOUT?.[level]?.level || stageSpeakVersions.get(level)!==(stageSpeakVersion()||stageSpeakVersions.get('public'));
+  return !window.SPEAKOUT?.[level]?.level || stageSpeakVersions.get(level)!==stageSpeakAudience()+':'+(stageSpeakVersion()||stageSpeakVersions.get('public'));
 }
 async function stageSpeakCatalog(level){
   const name=(stageLevels()[level]||[])[0];if(!name)return;
+  const audience=stageSpeakAudience(),generation=viewGen;
   let version=stageSpeakVersion();
   if(!version){
     stageSpeakRevisionJob ||= fetch('/api/catalogs/SPEAKOUT?revision=1',{cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('Unable to load Speakout.');return (await response.json()).revision;}).catch(error=>{stageSpeakRevisionJob=null;throw error;});
     version=await stageSpeakRevisionJob;stageSpeakVersions.set('public',version);
   }
-  const owner=authUser?.id||'guest';
-  const data=await window.ContentCache.load('speakout:'+owner+':'+name+':'+version,()=>fetch('/api/catalogs/SPEAKOUT?level='+encodeURIComponent(name),{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('Unable to load this level.');return response.json();}));
-  window.SPEAKOUT[level]=data.content;stageSpeakVersions.set(level,version);return data;
+  const data=await window.ContentCache.load('speakout:'+audience+':'+name+':'+version,()=>fetch('/api/catalogs/SPEAKOUT?level='+encodeURIComponent(name)+'&v='+encodeURIComponent(version)+'&audience='+encodeURIComponent(audience),{cache:'default'}).then(response=>{if(!response.ok)throw new Error('Unable to load this level.');return response.json();}));
+  if(audience===stageSpeakAudience()&&generation===viewGen){window.SPEAKOUT[level]=data.content;stageSpeakVersions.set(level,audience+':'+version);}return data;
+}
+function stageSpeakCacheOptions(){
+  const actor=authUser?.id,role=authUser?.role,generation=viewGen;
+  return {actor,role,read:accountFetch,active:()=>authUser?.id===actor&&authUser?.role===role&&!viewAccount&&viewGen===generation,catalog:revision=>{
+    if(!revision||stageSpeakVersion()===revision)return;
+    const bootstrap=window.ContentCache.get('account:bootstrap');
+    if(bootstrap){bootstrap.versions={...bootstrap.versions,speakout:revision};window.ContentCache.set('account:bootstrap',bootstrap);}
+    stageSpeakVersions.clear();stageSpeakVersions.set('public',revision);stageSpeakRevisionJob=Promise.resolve(revision);window.SPEAKOUT=[];
+  }};
 }
 let stageSpeakEditorLoad,stageSpeakEditorRestore;
 function stageSpeakEditorModule(){
@@ -1456,7 +1466,7 @@ function stageResumeSpeakEditor(place){
   stageSpeakEditorRestore=key;speakLevel=level;speakUnit=unit;speakLesson=lesson;speakView='lesson';
   stageSpeakEditorModule().then(async()=>{
     if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;
-    await window.SpeakoutEditor.open({level:name,unit,lesson},{actor,editor:canEditLessons(),read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
+    await window.SpeakoutEditor.open({level:name,unit,lesson},{actor,editor:canEditLessons(),cache:stageSpeakCacheOptions(),read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
     if(actor===authUser?.id&&generation===viewGen&&!viewAccount)show('speakouteditor');
   }).catch(error=>window.TursoMain.notice(error.message,true)).finally(()=>{if(stageSpeakEditorRestore===key)stageSpeakEditorRestore=null;});
 }
@@ -1468,19 +1478,19 @@ async function stageOpenSpeakMaterial(event,lesson){
     const location={level:name,unit,lesson};
     await stageSpeakEditorModule();
     if(actor!==authUser?.id||generation!==viewGen||viewAccount||speakLevel!==level||speakUnit!==unit||!document.getElementById('speakout')?.classList.contains('on'))return;
-    await window.SpeakoutEditor.open(location,{actor,editor,read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
+    await window.SpeakoutEditor.open(location,{actor,editor,cache:stageSpeakCacheOptions(),read:accountFetch,navigate:view=>openSpeak(view,view==='levels'?-1:level,view==='unit'?unit:-1,-1),active:()=>authUser?.id===actor&&!viewAccount&&viewGen===generation});
     if(actor===authUser?.id&&generation===viewGen&&!viewAccount){button.disabled=false;button.focus({preventScroll:true});pushHistory();speakLesson=lesson;speakView='lesson';show('speakouteditor');}
   }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
 }
 function stageLoadSpeak(view,level,unit,lesson,quiet){
   const name=(stageLevels()[level]||[])[0];
+  const audience=stageSpeakAudience(),generation=viewGen;
   const list=document.getElementById('speakoutList');
   if(!name)return;
   if(list&&view!=='levels')list.innerHTML='<p class="hint">Loading level…</p>';
   return stageSpeakCatalog(level).then(data=>{
-    if(!Array.isArray(window.SPEAKOUT))window.SPEAKOUT=[];
-    window.SPEAKOUT[level]=data.content;
-    openSpeak(view,level,unit,lesson,quiet);
+    if(audience===stageSpeakAudience()&&generation===viewGen)openSpeak(view,level,unit,lesson,quiet);
+    return data;
   }).catch(error=>{if(list)list.innerHTML='<p class="hint">'+esc(error.message)+' <button class="btn" type="button" data-stage-retry="speak">Retry</button></p>';});
 }
 function stagePaintTexts(after){
@@ -1911,6 +1921,7 @@ function stageApplyBootstrap(state){
   stageCacheAudience=audience;
   stageDropStale(window.ContentCache?.get('account:bootstrap'),state);
   window.ContentCache?.set('account:bootstrap',state);
+  if(authUser&&!viewAccount)window.SpeakoutCache?.configure(stageSpeakCacheOptions());
   window.__archiveRevision=Number(state.archiveRevision)||0;
   stageSetActivity(state.stageActivity);
   if(state.stats){
@@ -1941,6 +1952,11 @@ function stageStartPreload(){
       window.PreloadQueue.add({id:'texts:preload',priority:5,run:()=>stagePaintTexts('')});
     }
     window.PreloadQueue.add({id:'irregular:page',priority:6,run:()=>stageEnsureStatic('IRREGULAR')});
+    if(authUser&&!viewAccount){
+      const options=stageSpeakCacheOptions();
+      window.PreloadQueue.add({id:'speakout:manifest:'+stageSpeakAudience(),priority:9,run:()=>options.active()?window.SpeakoutCache?.refresh():Promise.resolve()});
+      window.PreloadQueue.add({id:'speakout:catalogs:'+stageSpeakAudience(),priority:10,run:()=>stageFetchSpeak(0,options.active)});
+    }
   }
 }
 async function stageRefreshArchiveSources(detail){
@@ -2118,13 +2134,11 @@ function stageSongPage(after){
     return page;
   });
 }
-function stageFetchSpeak(index){
+function stageFetchSpeak(index,active=()=>true){
   const name=(stageLevels()[index]||[])[0];
-  if(!name)return Promise.resolve();
+  if(!name||!active())return Promise.resolve();
   return stageSpeakCatalog(index).then(data=>{
-    if(!Array.isArray(window.SPEAKOUT))window.SPEAKOUT=[];
-    window.SPEAKOUT[index]=data.content;
-    if(index+1<stageLevels().length)window.PreloadQueue.add({id:'speakout:'+stageLevels()[index+1][0],priority:6,run:()=>stageFetchSpeak(index+1)});
+    if(active()&&index+1<stageLevels().length)window.PreloadQueue.add({id:'speakout:'+stageSpeakAudience()+':'+stageLevels()[index+1][0],priority:10,run:()=>stageFetchSpeak(index+1,active)});
     return data;
   });
 }

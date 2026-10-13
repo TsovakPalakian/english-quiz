@@ -3,7 +3,7 @@ import {ArchiveService} from './turso-archive.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
 import {GroupService} from './turso-groups.mjs';
-import {validateExamScoring} from './exam-scoring.mjs';
+import {validateExamScoring,memoryDeck} from './exam-scoring.mjs';
 import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
@@ -11,12 +11,17 @@ const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
 export function studentExamContent(content,type){
   const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['answer','answers','write','back','hint','correct','marked','score','response','given','picked','typed','examCorrections','examPoints'].includes(key)).map(([key,item])=>[key,clean(item)])):value;
+  if(type==='quiz'&&content.scoringVersion>=3&&content.quizType==='Memory'){const projected=clean(content);for(const item of projected.items||[])delete item.right;return {...projected,memoryFaces:memoryDeck(content)};}
+  if(type==='quiz'&&content.scoringVersion>=3&&content.quizType==='Letters'){const projected=clean(content);for(const [i,item] of (projected.items||[]).entries()){item.letterOptions=String(content.items[i].word||'').split('').sort();delete item.word;}return projected;}
   if(type==='quiz'&&['Match','Memory'].includes(content.quizType)){
     const answerOptions=[...new Set((content.items||[]).map(item=>item.right||'').filter(Boolean))].sort();
     const projected=clean(content);projected.answerOptions=answerOptions;
     for(const item of projected.items||[])delete item.right;
     return projected;
   }
+  if(content.scoringVersion>=3&&type==='vocab'){const projected=clean(content);for(const item of projected.items||[])delete item.translation;return projected;}
+  if(content.scoringVersion>=3&&type==='cards')return clean(content);
+  if(content.scoringVersion>=3&&content.quizType==='Hangman'){const projected=clean(content);for(const item of projected.items||[])delete item.word;return projected;}
   return ['quiz','exercise','task'].includes(type)?clean(content):content;
 }
 const fail = (status, message) => { throw new StudyError(status, message); };
@@ -81,7 +86,8 @@ export class ExamService {
       if (!columns.some(column => column.name === 'title')) {
         await this.db.atomic([stmt("ALTER TABLE exams ADD COLUMN title TEXT NOT NULL DEFAULT 'Exam'")]);
       }
-      const additions={status:"TEXT NOT NULL DEFAULT 'active'",group_id:'INTEGER',group_title:"TEXT NOT NULL DEFAULT ''",reviewer_id:"TEXT NOT NULL DEFAULT ''",reviewer_name:"TEXT NOT NULL DEFAULT 'Teacher'",student_name:"TEXT NOT NULL DEFAULT ''",assigned_at:'INTEGER NOT NULL DEFAULT 0',completed_at:'INTEGER',max_points:'REAL',earned_points:'REAL'};
+      const additions={status:"TEXT NOT NULL DEFAULT 'active'",group_id:'INTEGER',group_title:"TEXT NOT NULL DEFAULT ''",reviewer_id:"TEXT NOT NULL DEFAULT ''",reviewer_name:"TEXT NOT NULL DEFAULT 'Teacher'",student_name:"TEXT NOT NULL DEFAULT ''",student_email:"TEXT NOT NULL DEFAULT ''",assigned_at:'INTEGER NOT NULL DEFAULT 0',completed_at:'INTEGER',max_points:'REAL',earned_points:'REAL'};
+      await this.db.atomic([stmt('CREATE TABLE IF NOT EXISTS exam_reviewer_hides(account_id TEXT NOT NULL,exam_id INTEGER NOT NULL,PRIMARY KEY(account_id,exam_id))')]);
       for(const [name,type] of Object.entries(additions)){
         if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name)){
           try{await this.db.atomic([stmt('ALTER TABLE exam_instances ADD COLUMN '+name+' '+type)]);}catch(error){if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name))throw error;}
@@ -103,13 +109,16 @@ export class ExamService {
       (SELECT i.completed_at FROM exam_instances i WHERE i.exam_id=exams.id) completed_at,
       (SELECT i.account_id FROM exam_instances i WHERE i.exam_id=exams.id) instance_account,
       (SELECT i.student_name FROM exam_instances i WHERE i.exam_id=exams.id) instance_student,
+      (SELECT i.student_email FROM exam_instances i WHERE i.exam_id=exams.id) instance_email,
       (SELECT i.max_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_max,
       (SELECT i.earned_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_earned,
       COALESCE((SELECT i.group_id FROM exam_instances i WHERE i.exam_id=exams.id),(SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL)) AS group_id FROM exams
-      WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id AND ((?=1 AND i.status<>'completed') OR (?=0 AND i.account_id<>?) OR i.active=0))
+      WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id AND ((?=1 AND i.status='active') OR (?=0 AND i.account_id<>?) OR i.active=0))
+      AND (?=0 OR NOT EXISTS(SELECT 1 FROM exam_reviewer_hides h WHERE h.exam_id=exams.id AND h.account_id=?))
+      AND (?=1 OR ${assignedExamSql('exams.id',assigned)})
       AND (?=1 OR (published=1 AND (hidden_from_students=0 OR ${assignedExamSql('exams.id',assigned)})))
       AND (?=1 OR NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.source_exam_id=exams.id AND i.account_id=? AND i.active=1))
-      ORDER BY lesson_date DESC, created_at DESC`, [+catalogView,+catalogView,actor.id,+teacher,+catalogView,actor.id]);
+      ORDER BY lesson_date DESC, created_at DESC`, [+catalogView,+catalogView,actor.id,+catalogView,actor.id,+catalogView,+teacher,+catalogView,actor.id]);
     if (!exams.length) return [];
     const ids = exams.map(row => row.id);
     const marks = ids.map(() => '?').join(',');
@@ -128,6 +137,7 @@ export class ExamService {
       completedAt:exam.completed_at||null,
       studentId:exam.instance_account||null,
       studentName:exam.instance_student||'',
+      studentEmail:exam.instance_email||'',
       maximumPoints:exam.instance_max,
       earnedPoints:exam.instance_earned,
       title: exam.title || 'Exam',
@@ -188,7 +198,7 @@ export class ExamService {
       if (!block || typeof block !== 'object') fail(400, 'Invalid examination block.');
       const blockId = optionalId(block.id);
       const materials = Array.isArray(block.materials) ? block.materials : [];
-      try{validateExamScoring(materials);}catch(error){fail(400,error.message);}
+      try{validateExamScoring(materials,!block.published);}catch(error){fail(400,error.message);}
       const firstMaterialSeq=materialSeq;
       if (materials.length > 200) fail(400, 'Too many materials in one block.');
       if (blockId == null) commands.push(
@@ -244,6 +254,15 @@ export class ExamService {
     return exams.find(row => row.id === savedId) || { id: savedId, saved: true };
   }
   async remove(actor, id) {
+    await this.ensure();
+    if(reviewer(actor)){
+      const [instance]=await this.db.read('SELECT status FROM exam_instances WHERE exam_id=?',[id]);
+      if(instance){
+        if(instance.status!=='completed')fail(409,'Only completed work can be removed from your list.');
+        await this.db.atomic([stmt('INSERT OR IGNORE INTO exam_reviewer_hides(account_id,exam_id) VALUES(?,?)',[actor.id,id])]);
+        return {removed:true,examId:id,referenceOnly:true};
+      }
+    }
     signedIn(actor);
     if (!reviewer(actor)) fail(403, 'Only a teacher can delete an exam.');
     recordId(id);

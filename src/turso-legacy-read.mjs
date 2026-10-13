@@ -171,23 +171,24 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
     const definition={type:b.type,tab:b.tab,cardId:b.card_id,content:JSON.parse(b.content_json)};
     delete definition.content.response;delete definition.content.score;
     if(['quiz','exercise'].includes(b.type))for(const item of definition.content.items||[]){delete item.picked;delete item.typed;delete item.marked;delete item.correct;}
-    if(actor.role==='USER'&&definition.content.assessed)definition.content=studentExamContent(definition.content,b.type);
     const block={...JSON.parse(JSON.stringify(definition.content)),id:b.id,type:b.type,tab:b.tab,stageDefinition:definition,stageBlockRevision:b.revision,stageResponseRevision:b.response_revision||0};
     // Shared definitions are never a source of a learner's previous answers.
     delete block.response;delete block.score;
     if(['quiz','exercise'].includes(b.type))for(const item of block.items||[]){delete item.picked;delete item.typed;delete item.marked;delete item.correct;}
     if(b.card_id)Object.assign(block,JSON.parse(b.card_extra),{word:b.en,ru:b.ru,pos:b.part_of_speech,stageId:b.card_id,stageRevision:b.card_revision,stageScope:'shared'});
-    if(b.response_json!==null&&!block.assessed){
+    if(b.response_json!==null){
       const saved=JSON.parse(b.response_json),wrapped=saved && typeof saved==='object' && Number.isSafeInteger(saved.definitionRevision) && Object.hasOwn(saved,'value');
       const response=(wrapped?saved.definitionRevision===b.revision:b.revision===1)?(wrapped?saved.value:saved):null;
       if(['quiz','exercise'].includes(b.type) && response && typeof response==='object'){
         for(const [i,answer] of (response.items||[]).entries())if(block.items?.[i]){
           if(answer.picked!==undefined)block.items[i].picked=answer.picked;
           if(answer.typed!==undefined)block.items[i].typed=answer.typed;
+          if(answer.format)block.items[i].typedFormatting=answer.format;
           if(answer.marked===true){block.items[i].marked=true;block.items[i].correct=answer.correct===true;}
         }
         if(typeof response.score==='string')block.score=response.score;
       }else if(typeof response==='string')block.response=response;
+      else if(response&&typeof response.text==='string'){block.response=response.text;block.responseFormatting=response.format;}
     }
     byId.get(b.lesson_id)?.blocks.push(block);
   }
@@ -230,7 +231,9 @@ const parsedCatalogs=new Map();
 async function readCatalog(db,key){
   const [doc]=await db.read("SELECT value_json,length(value_json) bytes FROM catalog_documents WHERE namespace='static' AND key=?",[key]);
   if(!doc)return null;
-  const version=Number(doc.bytes)||0,cacheKey=key+':'+version,hit=parsedCatalogs.get(cacheKey);
+  const version=Number(doc.bytes)||0;
+  const cacheRevision=key==='SPEAKOUT'?Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(doc.value_json))),byte=>byte.toString(16).padStart(2,'0')).join(''):version;
+  const cacheKey=key+':'+cacheRevision,hit=parsedCatalogs.get(cacheKey);
   if(hit)return hit;
   const entry={version,parsed:JSON.parse(doc.value_json)};
   parsedCatalogs.set(cacheKey,entry);

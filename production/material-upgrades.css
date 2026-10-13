@@ -1,0 +1,39 @@
+.color-picker-button{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;min-width:40px;padding:8px!important;border:1px solid var(--line);border-radius:8px;background:var(--card);vertical-align:middle}
+.color-picker-sample{display:block;width:22px;height:22px;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent);border-radius:0;pointer-events:none}
+.color-picker-popup{position:fixed;z-index:10000;width:232px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);box-shadow:0 8px 24px #0003}
+.color-picker-swatches{display:grid;grid-template-columns:repeat(6,28px);gap:8px;margin-bottom:12px}
+.color-picker-swatches button{width:28px;height:28px;min-width:0;padding:0;border:1px solid var(--line);border-radius:0}
+.color-picker-popup label{display:flex;align-items:center;gap:10px;font-size:14px}.color-picker-popup input{width:130px;min-width:0;height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.text-color-input.has-rich-tools .text-color-tools{position:static;display:flex;flex-wrap:wrap;justify-content:flex-start;gap:6px;margin-bottom:8px}.text-color-input.has-rich-tools .text-color-rich{padding:12px;min-height:120px}
+:is(#material,#speakouteditor) .review-toolbar :is(button,input,select){box-sizing:border-box;height:40px;min-height:40px;max-height:40px;margin:0;line-height:1.2;border-radius:8px}.review-toolbar input[type=number]{width:64px;min-width:64px}
+:is(#material,#speakouteditor) .lm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+:is(#material,#speakouteditor) .lm-tools :is(button,select,input:not([type=color])){box-sizing:border-box;height:40px;min-height:40px;max-height:40px;margin:0;padding:6px 10px;line-height:1.2;border-radius:8px;font-size:15px}
+:is(#material,#speakouteditor) .lm-tools select{width:120px;max-width:100%}
+:is(#material,#speakouteditor) .lm-tools .lm-font-size{width:64px;min-width:64px}
+:is(#material,#speakouteditor) .lm-body label{display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;margin-bottom:10px;text-align:left}
+:is(#material,#speakouteditor) .lm-body label>:is(input,select,textarea,.text-color-input){flex:1 1 180px;min-width:0;margin:0}
+:is(#material,#speakouteditor) .lm-body label>input[type=radio],:is(#material,#speakouteditor) .lm-body label>input[type=checkbox]{flex:none;width:18px;height:18px;min-height:0;max-width:18px;margin:0}
+:is(#material,#speakouteditor) .lm-card-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+:is(#material,#speakouteditor) .lm-card-fields>.lm-span{grid-column:1/-1}
+:is(#material,#speakouteditor) .lm-body label.lm-drop{position:relative;display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:140px;gap:8px;text-align:center}
+:is(#material,#speakouteditor) .lm-drop input[type=file]{display:block!important;position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+:is(#material,#speakouteditor) .lm-max-score,:is(#material,#speakouteditor) .material-item-max{display:flex;flex-direction:row;align-items:center;gap:6px;margin:0;font-size:13px;white-space:nowrap}
+:is(#material,#speakouteditor) :is(.lm-max-score,.material-item-max)>input{width:72px;min-width:72px;max-width:72px;flex:none;height:40px;min-height:40px;padding:6px 8px;border-radius:8px}
+:is(#material,#speakouteditor) .material-item-max{grid-column:1/-1;justify-content:flex-end}
+:is(#material,#speakouteditor) .lm-body label.material-item-max>input{flex:0 0 72px}
+:is(#material,#speakouteditor) .lm-head-actions{align-items:center;flex-wrap:wrap;gap:6px}
+:is(#material,#speakouteditor) .lm-head-actions>.lm-icon{width:40px;min-width:40px;height:40px;min-height:40px;border-radius:8px}
+:is(#material,#speakouteditor) .lm-opts{grid-column:1/-1}.lm-opt .material-option-remove{flex:none;width:32px;height:32px;padding:4px;min-height:32px;min-width:32px;border-radius:6px}
+:is(#material,#speakouteditor) .content-group{background:transparent;border-left:3px solid var(--acc);padding:16px;margin:16px 0;border-radius:0}
+:is(#material,#speakouteditor) .content-group>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.content-group>header h3{margin:0;font-size:20px}
+:is(#material,#speakouteditor) .content-group>.lm-panel{background:transparent;box-shadow:none;border:0;border-radius:0;padding:16px 0}
+:is(#material,#speakouteditor) .material-question{position:relative;border-top:1px solid var(--line);padding:16px 0;min-width:0}
+.material-question-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}.material-question-head b{overflow-wrap:anywhere}.material-question-head .material-maximum{font-size:13px;white-space:nowrap}
+:is(#material,#speakouteditor) .lm-assignment>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}.lm-assignment>header .material-maximum{margin-left:auto;font-size:13px}
+.material-memory{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}.material-memory button{min-height:70px;max-height:none;padding:12px;font-size:16px;overflow-wrap:anywhere;border-radius:8px}.material-memory button.is-matched{opacity:.55}
+.material-tokens{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.material-tokens button{min-height:36px;padding:6px 10px;border-radius:6px}.material-token-answer{min-height:42px;white-space:pre-wrap;overflow-wrap:anywhere}
+.material-voice{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0}.material-voice audio{max-width:100%;height:40px}
+:is(#word,#song,#setup,#daysetup,#study) .chip-mem,.chip-mem:has([data-exam-pass]),.chip-mem:has([data-memory-size]){display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:6px 12px}
+.chip-mem :is([data-exam-pass],[data-memory-size]){box-sizing:border-box;width:48px;min-width:48px;max-width:48px;height:30px;min-height:30px;margin:0;padding:4px;line-height:1;border-radius:6px;flex:none}
+#examSections{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}#examList .exam-student{display:block;font-size:14px;font-weight:400;overflow-wrap:anywhere}
+@media(max-width:600px){:is(#material,#speakouteditor) .lm-card-fields{grid-template-columns:1fr}:is(#material,#speakouteditor) .lm-head-actions{justify-content:flex-end}.material-question-head{flex-wrap:wrap}.material-question-head .material-maximum{margin-left:auto}.content-group{padding:12px!important}}

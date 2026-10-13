@@ -14760,7 +14760,8 @@
           await assessmentWrite(pendingDoc,'draft').catch(() => {});
         }
         await assessmentQueue.catch(() => {});
-        const row = await accountFetch('/api/assessment?kind=' + kind + '&id=' + id + (viewAccount?.id ? '&student=' + encodeURIComponent(viewAccount.id) : ''),{signal:AbortSignal.timeout(20000)});
+        const target=doc.reviewStudentId||viewAccount?.id;
+        const row = await accountFetch('/api/assessment?kind=' + kind + '&id=' + id + (target ? '&student=' + encodeURIComponent(target) : ''),{signal:AbortSignal.timeout(20000)});
         if (account !== examWorkAccount()) return;
         const pending = examWorkBag()[assessmentKey(doc)]?.pendingAnswers;
         const recovered = pending && !row.saved ? {...row,answers:pending,pendingAnswers:pending} : row;
@@ -14773,7 +14774,7 @@
     }
     let assessmentQueue = Promise.resolve(), assessmentTimer, assessmentPendingDoc;
     function assessmentWrite(doc,action,extra={}) {
-      const account = examWorkAccount(), actor = authUser?.id, target = viewAccount?.id;
+      const account = examWorkAccount(), actor = authUser?.id, target = doc.reviewStudentId||viewAccount?.id;
       const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
       if (target) payload.studentId = target;
       payload.reviewText = JSON.parse(JSON.stringify(doc.examReviewText || {}));
@@ -14813,7 +14814,8 @@
       examWorkLoadedFor = account;
       const session = examSession;
       const workSession = examWorkSession;
-      const path = "/api/exams/work" + (viewAccount && viewAccount.id ? "?student=" + encodeURIComponent(viewAccount.id) : "");
+      const reviewTarget=viewAccount?.id||(typeof materialReviewStudent!=='undefined'&&materialReviewStudent?.id);
+      const path = "/api/exams/work" + (reviewTarget ? "?student=" + encodeURIComponent(reviewTarget) : "");
       accountFetch(path).then((data) => {
         if (session !== examSession || workSession !== examWorkSession || account !== examWorkAccount()) return;
         const cached = examWorkBag(), bag = {};
@@ -15274,7 +15276,7 @@
         if (errorMark) { lmState.examErrors ||= {}; (lmState.examErrors[bits[0]] ||= {})[bits[1]] = source.value; }
         else {
           lmState.examCriteriaPoints ||= {}; const scores = ((lmState.examCriteriaPoints[bits[0]] ||= {})[bits[1]] ||= {}); scores[bits[2]] = source.value;
-          const part = lmState.blocks.find(p => String(p.id) === bits[0]), item = part.type === 'task' || part.gradeMode === 'assignment' ? part : part.items[Number(bits[1])];
+          const part = lmState.blocks.find(p => String(p.id) === bits[0]), item = ['task','text'].includes(part.type) || part.gradeMode === 'assignment' ? part : part.items[Number(bits[1])];
           const rows = assessmentRubric(item), complete = rows.every((_,i) => scores[i] != null && scores[i] !== '');
           const total = complete ? rows.reduce((n,_,i) => n + Number(scores[i]),0) : '';
           (lmState.examPoints[bits[0]] ||= {})[bits[1]] = total;
@@ -15634,6 +15636,7 @@
       lmState.examOwned = true;
       lmState.examId = exam.id;
       lmState.blockId = block.id;
+      if(typeof materialReviewStudent!=='undefined'&&materialReviewStudent&&!viewAccount)lmState.reviewStudentId=materialReviewStudent.id;
       if (!canEditLessons()) lmState.mode = "preview";
       visit("material");
     }

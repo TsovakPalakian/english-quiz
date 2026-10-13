@@ -7,7 +7,8 @@ export async function instanceCommands(db,source,assignment,recipients,storage,m
   const commands=[];
   for(const account of recipients){
     const [group]=await db.read('SELECT g.id,g.title FROM class_group_students c JOIN class_groups g ON g.id=c.group_id WHERE c.account_id=?',[account]);
-    const copy=id();commands.push(s('INSERT INTO exams(id,title,lesson_date,published,hidden_from_students) VALUES(?,?,?,?,0)',[copy,source.title,source.lesson_date,source.published]),s('INSERT INTO exam_instances(exam_id,source_exam_id,account_id,assignment_id,group_id,group_title,reviewer_id,reviewer_name,student_name,assigned_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[copy,source.id,account,assignment,group?.id||null,group?.title||'',metadata.reviewer?.id||'',metadata.reviewer?.name||'Teacher',metadata.students?.find(u=>u.id===account)?.name||account,Date.now()]));
+    const student=metadata.students?.find(u=>u.id===account);
+    const copy=id();commands.push(s('INSERT INTO exams(id,title,lesson_date,published,hidden_from_students) VALUES(?,?,?,?,0)',[copy,source.title,source.lesson_date,source.published]),s('INSERT INTO exam_instances(exam_id,source_exam_id,account_id,assignment_id,group_id,group_title,reviewer_id,reviewer_name,student_name,student_email,assigned_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[copy,source.id,account,assignment,group?.id||null,group?.title||'',metadata.reviewer?.id||'',metadata.reviewer?.name||'Teacher',student?.name||account,student?.email||'',Date.now()]));
     const materialIds=new Map(parts.map(part=>[part.id,id()]));
     const mediaNamespace='copy-'+crypto.randomUUID();
     const assignmentKeys=new Map(parts.map(part=>{const content=JSON.parse(part.content_json);return [content.assignmentId||('part-'+part.id),'a-'+copy+'-'+materialIds.get(part.id)];}));
@@ -22,7 +23,7 @@ export async function instanceCommands(db,source,assignment,recipients,storage,m
           const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(key)))].map(byte=>byte.toString(16).padStart(2,'0')).join('');content.localMediaKey=key;content.fileId='sf_'+hash;
         }
         for(const item of content.items||[])for(const key of ['given','picked','typed','marked','correct'])delete item[key];
-        content.scoringVersion=2;
+        content.scoringVersion=content.scoringVersion>=3?3:2;
         if(['task','quiz','exercise'].includes(part.type))content.assignmentId=assignmentKeys.get(content.assignmentId||('part-'+part.id));
         if(content.assignmentKey)content.assignmentKey=assignmentKeys.get(content.assignmentKey)||content.assignmentKey;
         if(['task','quiz','exercise'].includes(part.type)&&content.maxPoints==null){

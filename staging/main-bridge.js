@@ -26,14 +26,14 @@
       if(cardId && block.stageDefinition)content={...clone(block.stageDefinition.content),...(block.collapsed!==undefined?{collapsed:block.collapsed}:{})};
       else if(cardId && ['word','wordcard'].includes(block.type))content={}; // Link the definition; never copy its dictionary into the lesson.
       else content=Object.fromEntries(Object.entries(clone(block)).filter(([key])=>!key.startsWith('stage')&&!['id','type','tab','response','score'].includes(key)));
-      delete content.response;delete content.score;
+      delete content.response;delete content.responseFormatting;delete content.score;
       if(block.documentFormatting)content.documentFormatting=clone(block.documentFormatting);
       // Expanding a block is local UI state, not an edit to its definition.
       if(block.stageDefinition){
         if(Object.hasOwn(block.stageDefinition.content,'collapsed'))content.collapsed=block.stageDefinition.content.collapsed;
         else delete content.collapsed;
       }
-      for(const item of content.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','marked','correct'])delete item[key];
+      for(const item of content.items||[])if(item && typeof item==='object')for(const key of ['picked','typed','typedFormatting','given','marked','correct'])delete item[key];
       return {...(Number.isSafeInteger(block.id)&&block.id>0?{id:block.id}:{}),expectedRevision:block.stageBlockRevision||0,type:block.type,tab:block.tab||'',cardId,content};
     });
     const visible=blocks.map(b=>b.id);

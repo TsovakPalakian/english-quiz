@@ -26,7 +26,13 @@ import {practiceExams} from './seed-practice-exams.mjs';
 import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
 import {ContentCopyService,copyDefinition} from '../src/turso-content-copy.mjs';
 import {mediaKey} from '../src/turso-media.mjs';
-import {speakoutLesson,saveSpeakout,answerSpeakout} from '../src/turso-speakout.mjs';
+import {speakoutLesson,speakoutRevisions,saveSpeakout,answerSpeakout} from '../src/turso-speakout.mjs';
+import {MessageService} from '../src/turso-messages.mjs';
+import {memoryScore,examGrading,examTaskMax,validateExamScoring} from '../src/exam-scoring.mjs';
+async function assignLegacyExam(f,id,account='student'){
+  await new MessageService(f.db,async()=>[]).ensure();
+  f.sqlite.prepare('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES(?,?,?,?)').run('fixture-assignment-'+id+'-'+account,id,'student',account);
+}
 function runInNewContext(code,scope){
   scope.viewAccount??=null;
   scope.hiddenCardIds??=new Set();
@@ -136,6 +142,7 @@ test('Practice exams publish seven visible blocks with forty questions in a supp
       return [{rows:/^SELECT\b/.test(last.sql)?f.sqlite.prepare(last.sql).all().map(row=>Object.values(row).map(value=>({value:String(value)}))):[]}];
     }});
     for(const exam of practiceExams)await service.save({id:'teacher',role:'ADMIN'},{exam});
+    for(const exam of await service.list({id:'teacher',role:'ADMIN'}))await assignLegacyExam(f,exam.id);
     const exams=await service.list({id:'student',role:'USER'}),blocks=exams.flatMap(e=>e.blocks);
     assert.equal(exams.length,3);assert.equal(blocks.length,7);
     assert.ok(blocks.every(b=>b.published&&b.materials.every(p=>p.tab==='overview')));
@@ -151,6 +158,7 @@ test('Student exam reads omit solution keys and submitted work cannot be changed
       {id:32,type:'quiz',quizType:'Match',items:[{left:'one',right:'z'},{left:'two',right:'a'}]}];
     for(const item of items)f.sqlite.prepare('INSERT INTO exam_materials(id,exam_id,block_id,position,type,content_json) VALUES(?,10,20,?,?,?)').run(item.id,item.id-30,item.type,JSON.stringify(item));
     const student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'};
+    await assignLegacyExam(f,10);
     const parts=(await service.list(student))[0].blocks[0].materials;
     assert.equal(parts[0].items[0].answer,undefined);assert.equal(parts[0].items[0].hint,undefined);assert.equal(parts[0].items[0].given,undefined);
     assert.equal(parts[1].items[0].write,undefined);assert.equal(parts[2].items[0].right,undefined);assert.deepEqual(parts[2].answerOptions,['a','z']);
@@ -204,7 +212,8 @@ test('Assessment drafts, locking, rubric bounds, publication, revision conflicts
     assert.equal(row.materials[0].text,'New question');
     const history=await service.history(teacher,review);assert.equal(history.filter(h=>h.action==='submit').length,2);assert.equal(history.find(h=>h.action==='reopen').reason,'Allow one revision');
     await assert.rejects(service.history(student,base),e=>e.status===403);
-    await assert.rejects(new StudyService(f.db).saveLessonResponse(student,1,10,{mutationId:'assessed-old-write',expectedRevision:0,expectedBlockRevision:1,response:'Bypass'}),e=>e.status===409);
+    await new StudyService(f.db).saveLessonResponse(student,1,10,{mutationId:'ungraded-lesson-practice',expectedRevision:0,expectedBlockRevision:1,response:'Practice answer'});
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_history').get().n,history.length,'Practice does not change historical reviews');
     const archive=new ArchiveService(f.db);await archive.archive(teacher,{type:'lesson',id:1});await archive.remove({...teacher,role:'DEVELOPER'},{type:'lesson',id:1});
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_work').get().n,0);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_history').get().n,0);
@@ -245,6 +254,78 @@ test('Assignment grading uses one decimal maximum per group independent of mater
   assert.deepEqual(gradingQuestions([child,leader]).map(q=>[q.part.id,q.index,q.max]),[[11,0,10.1]]);
   assert.equal(gradingQuestions([{...leader,criteria:'Content | 0,1\nLanguage | 10'}])[0].max,10.1);
   assert.equal(gradingQuestions([{id:12,type:'quiz',gradeMode:'assignment',maxPoints:5,items:[{},{}]}]).length,1);
+});
+test('V3 scores Answer instead of Text, groups sum items, and empty Tasks require an explicit maximum',()=>{
+  const parts=[
+    {id:1,type:'task',assignmentId:'task',scoringVersion:3,maxPoints:''},
+    {id:2,type:'task',contentGroup:true,assignmentId:'group',assignmentKey:'task'},
+    {id:3,type:'text',assignmentKey:'group',scoringVersion:3,html:'Condition',maxPoints:50},
+    {id:4,type:'text',assignmentKey:'group',scoringVersion:3,answerEnabled:true,maxPoints:'1,1'},
+    {id:5,type:'cards',assignmentKey:'task',scoringVersion:3,items:[{front:'first',maxPoints:2},{front:'second',maxPoints:3}]},
+    {id:6,type:'vocab',scoringVersion:3,items:[{word:'word',maxPoints:4}]},
+    {id:7,type:'quiz',quizType:'Match',scoringVersion:3,maxPoints:5,items:[{left:'a',right:'b'},{left:'c',right:'d'}]},
+  ];
+  validateExamScoring(parts);assert.equal(examTaskMax(parts,parts[0]),6.1);
+  assert.deepEqual(examGrading(parts).map(q=>[q.part.id,q.index,q.max]),[[4,0,1.1],[5,0,2],[5,1,3],[6,0,4],[7,0,5]]);
+  const empty=[parts[0],parts[1],parts[2]];
+  assert.throws(()=>validateExamScoring(empty),/explicitly/);empty[0]={...empty[0],maxPoints:8};validateExamScoring(empty);assert.equal(examTaskMax(empty,empty[0]),8);
+  assert.throws(()=>validateExamScoring([{...parts[1],assignmentKey:'group'}]),/cycle/);
+  assert.throws(()=>validateExamScoring([{id:10,type:'quiz',scoringVersion:3,quizType:'Flip',items:[]}]),/Flip/);
+  assert.throws(()=>validateExamScoring([{id:10,type:'quiz',scoringVersion:3,quizType:'Choice',items:[{options:['a'],maxPoints:1}]}]),/two options/);
+});
+test('Memory penalizes only previously exposed pairs, once per turn, persists history and never scores below zero',()=>{
+  const part={id:9,type:'quiz',quizType:'Memory',scoringVersion:3,maxPoints:10,items:Array.from({length:5},(_,i)=>({left:'L'+i,right:'R'+i}))};
+  const exploring=[['l0','r1'],['r0','l1']];
+  assert.equal(memoryScore(part,{turns:exploring}).errors,0);
+  const turns=[...exploring,['l0','r1'],['l1','r0'],...part.items.map((_,i)=>['l'+i,'r'+i])];
+  const result=memoryScore(part,{turns});assert.equal(result.errors,2);assert.equal(result.points,9.2);assert.equal(result.completed,true);
+  assert.equal(memoryScore(part,{turns:part.items.map((_,i)=>['l'+i,'r'+i])}).points,10);
+  assert.throws(()=>memoryScore(part,{turns:[]},JSON.stringify({turns:exploring})),/reset/);
+  assert.throws(()=>memoryScore(part,{turns:[['l0','r0'],['l0','r1']]}),/Invalid Memory turn/);
+  const zero=[...exploring,...Array.from({length:30},()=>['l0','r1']),...part.items.map((_,i)=>['l'+i,'r'+i])];assert.equal(memoryScore(part,{turns:zero}).points,0);
+  const twenty={...part,items:Array.from({length:20},(_,i)=>({left:'L'+i,right:'R'+i}))};assert.equal(memoryScore(twenty,{turns:[...exploring,...Array.from({length:100},()=>['l0','r1']),...twenty.items.map((_,i)=>['l'+i,'r'+i])]}).points,0);
+});
+test('Formatted practice answers round-trip independently and Content groups reject answers',async()=>{
+  const f=fixture();try{
+    const teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},service=new StudyService(f.db),format={runs:[{text:'An answer',marks:{bold:true,color:'#c62828',family:'serif',size:23}}]};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(10,1,1,'text',?)").run(JSON.stringify({answerEnabled:true,html:'Condition'}));
+    await service.saveLessonResponse(student,1,10,{mutationId:'formatted-answer',expectedRevision:0,expectedBlockRevision:1,response:{text:'An answer',format}});
+    const doc=(await legacyLessons(f.db,student,{lessonId:1})).materials[0],answer=doc.blocks.find(p=>p.id===10);assert.equal(answer.response,'An answer');assert.deepEqual(answer.responseFormatting,format);assert.equal(answer.stageDefinition.content.responseFormatting,undefined);
+    const book=[{level:'A1',units:[{lessons:[{letter:'A',title:'Hello'}]}]}];f.sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT',?)").run(JSON.stringify(book));
+    const where={level:'A1',unit:0,lesson:0};await saveSpeakout(f.db,teacher,{...where,action:'save',mutationId:'independent-answer',expectedRevision:0,published:true,content:{title:'1A Hello',description:'',blocks:[{id:'group',type:'task',contentGroup:true,title:'Group'},{id:'answer',type:'text',answerEnabled:true,assignmentKey:'group',html:''}]}});
+    await answerSpeakout(f.db,student,{...where,expectedRevision:1,answers:{answer:'An answer',_formatting:{answer:{0:format}}}});assert.deepEqual((await speakoutLesson(f.db,student,where)).materials[0].answers._formatting.answer[0],format);
+    await assert.rejects(answerSpeakout(f.db,student,{...where,expectedRevision:1,answers:{group:'Not an answer'}}),e=>e.status===400);
+    assert.equal((await legacyLessons(f.db,student,{lessonId:1})).materials[0].blocks.find(p=>p.id===10).response,'An answer');
+  }finally{f.sqlite.close();}
+});
+test('V3 Answer and Memory are graded privately, recordings belong to the student, and submitted work is locked',async()=>{
+  const f=fixture();try{
+    const exams=new ExamService(f.db);await exams.ensure();
+    f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Independent answers',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(20,10,0,'Block',1)");
+    await assignLegacyExam(f,10);
+    const parts=[{id:30,type:'text',scoringVersion:3,html:'Condition'},
+      {id:31,type:'text',scoringVersion:3,answerEnabled:true,maxPoints:2},
+      {id:32,type:'quiz',quizType:'Memory',scoringVersion:3,maxPoints:10,items:[{left:'a',right:'b'},{left:'c',right:'d'}]},
+      {id:33,type:'quiz',quizType:'Spell',scoringVersion:3,items:[{word:'hello',prompt:'Say hello',maxPoints:3}]}];
+    for(const [position,part] of parts.entries())f.sqlite.prepare('INSERT INTO exam_materials(id,exam_id,block_id,position,type,content_json) VALUES(?,10,20,?,?,?)').run(part.id,position,part.type,JSON.stringify(part));
+    const service=new AssessmentService(f.db),student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'},base={kind:'exam-block',id:20};
+    const answers={31:{0:'My answer'},32:{0:JSON.stringify({turns:[['l0','r0'],['l1','r1']]})},33:{0:'hello'}};
+    const row=await service.write(student,{...base,answers,action:'draft',expectedRevision:0});assert.deepEqual(row.suggestedPoints,{});assert.equal((await service.get(teacher,{...base,studentId:'student'})).suggestedPoints[32][0],10);
+    await assert.rejects(service.write(student,{...base,answers:{31:answers[31]},action:'draft',expectedRevision:1}),/Memory/);
+    const files=new Map(),store={async putImmutable(key,bytes,metadata){files.set(key,{bytes,metadata});},async response(key){const file=files.get(key);return new Response(file.bytes,{headers:{'Content-Type':file.metadata.mime}});}};
+    const wav=new Uint8Array(44);wav.set(new TextEncoder().encode('RIFF'));wav.set(new TextEncoder().encode('WAVE'),8);
+    const query={...base,part:33,index:0,expectedRevision:1},request=()=>new Request('https://fixture.invalid/api/assessment/recording',{method:'POST',body:wav,headers:{'Content-Type':'audio/wav'}});
+    await service.recording(student,query,request(),store);assert.equal((await service.get(student,base)).recordings[33][0].mime,'audio/wav');
+    const read=await service.recording(teacher,{...query,studentId:'student'},new Request('https://fixture.invalid/audio'),store);assert.equal((await read.arrayBuffer()).byteLength,44);
+    await assert.rejects(service.recording({id:'student2',role:'USER'},query,new Request('https://fixture.invalid/audio'),store),e=>e.status===404);
+    await assert.rejects(service.recording(teacher,{...query,studentId:'student'},request(),store),e=>e.status===403);
+    await service.write(student,{...base,answers,action:'submit',expectedRevision:1});
+    await assert.rejects(service.recording(student,query,request(),store),e=>e.status===409);
+    await assert.rejects(service.write(student,{...base,answers,action:'draft'}),e=>e.status===409);
+    const points={31:{0:1.5},33:{0:2}};await service.write(teacher,{...base,studentId:'student',action:'review',points});assert.deepEqual((await service.get(student,base)).points,{});assert.equal((await service.get(teacher,{...base,studentId:'student'})).points[32][0],10);
+    await service.write(teacher,{...base,studentId:'student',action:'publish',points});assert.equal((await service.get(student,base)).points[31][0],1.5);
+    assert.equal(files.size,1);
+  }finally{f.sqlite.close();}
 });
 test('Rich text review preserves original answers, hides drafts and validates formatting',async()=>{
   const f=fixture();try{
@@ -311,8 +392,10 @@ test('Personal group/exam visibility is scoped, persistent, reversible and prote
     assert.equal((await new ExamService(f.db).list(student)).length,0);
     assert.equal((await materialVisibility(f.db,'student2')).size,0);
     await visibility.set(teacher,student.id,{mutationId:'visibility-show-exam',type:'exam',id:exam.id,expected:true,hidden:false});
-    const shown=await new ExamService(f.db).list(student);assert.equal(shown.length,1);assert.equal(shown[0].blocks.length,0);
+    const shown=await new ExamService(f.db).list(student);assert.equal(shown.length,0,'Unassigned exams remain invisible even after unhiding');
     await visibility.set(teacher,student.id,{mutationId:'visibility-show-block',type:'exam-block',id:exam.blocks[0].id,expected:true,hidden:false});
+    assert.equal((await new ExamService(f.db).list(student)).length,0);
+    await assignLegacyExam(f,exam.id,student.id);
     assert.equal((await new ExamService(f.db).list(student))[0].blocks.length,1);
   }finally{f.sqlite.close();}
 });
@@ -353,7 +436,7 @@ test('Speakout owns its documents and answers and never changes Lessons',async()
     const book=[{level:'A1',units:[{title:'First unit',lessons:[{letter:'A',title:'Hello'}]}]}];
     f.sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('static','SPEAKOUT',?)").run(JSON.stringify(book));
     const teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},where={level:'A1',unit:0,lesson:0};
-    assert.deepEqual(await speakoutLesson(f.db,student,where),{materials:[]});
+    assert.deepEqual(await speakoutLesson(f.db,student,where),{cacheRevision:'hidden:0',materials:[]});
     const beforeLessons=f.sqlite.prepare('SELECT * FROM lessons').all(),beforeBlocks=f.sqlite.prepare('SELECT * FROM lesson_blocks').all();
     const draft=(await speakoutLesson(f.db,teacher,where,'speakout-create-1')).materials[0];
     assert.equal(draft.title,'1A Hello');assert.equal(draft.published,false);
@@ -367,11 +450,20 @@ test('Speakout owns its documents and answers and never changes Lessons',async()
     await assert.rejects(saveSpeakout(f.db,teacher,{...body,mutationId:'speakout-stale-2'}),error=>error.status===409);
     await answerSpeakout(f.db,student,{...where,expectedRevision:1,answers:{'own-task':'My answer'}});
     assert.equal((await speakoutLesson(f.db,student,where)).materials[0].answers['own-task'],'My answer');
+    const manifest=await speakoutRevisions(f.db,student);
+    assert.equal(manifest.lessons['A1:0:0'],(await speakoutLesson(f.db,student,where)).cacheRevision);
+    assert.notEqual((await speakoutRevisions(f.db,teacher)).lessons['A1:0:0'],manifest.lessons['A1:0:0'],'Answer revisions belong to the account');
+    assert.equal(JSON.stringify(manifest).includes('My answer'),false,'Manifest contains hashes, not answers');
     assert.deepEqual(f.sqlite.prepare('SELECT * FROM lessons').all(),beforeLessons);assert.deepEqual(f.sqlite.prepare('SELECT * FROM lesson_blocks').all(),beforeBlocks);
     const before=(await accountBootstrap(f.db,student)).versions.speakout;
+    assert.equal((await speakoutLevel(f.db,'A1')).content.units[0].lessons[0].title,'Hello');
     book[0].units[0].lessons[0].title='Hallo';
     f.sqlite.prepare("UPDATE catalog_documents SET value_json=? WHERE key='SPEAKOUT'").run(JSON.stringify(book));
     assert.notEqual((await accountBootstrap(f.db,student)).versions.speakout,before,'Same-length catalog edits change revision');
+    assert.equal((await speakoutLevel(f.db,'A1')).content.units[0].lessons[0].title,'Hallo','Server cache also refreshes after a same-length edit');
+    await saveSpeakout(f.db,teacher,{...body,mutationId:'speakout-hide-2',expectedRevision:1,published:false});
+    assert.equal((await speakoutRevisions(f.db,student)).lessons['A1:0:0'],'hidden:2','Unpublishing invalidates student caches');
+    assert.equal((await speakoutLesson(f.db,student,where)).materials.length,0);
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM speakout_documents').get().n,1);
   }finally{f.sqlite.close();}
 });
@@ -2139,15 +2231,16 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   hooks.stageApplyBootstrap({bootstrap:true,stageAddedRevision:2,versions:{lessonData:4,irregular:2},counts:{songs:1,texts:1,quizzes:0,progress:0,lessons:1}});
   assert.equal(window.ContentCache.get('cards:words:after:start').cards[0].en,'day');
 });
-test('Irregular verbs join the background queue and grammar does not',()=>{
+test('Speakout joins the end of the background queue, without loading its lessons or media',()=>{
   const queued=[];
-  const scope={authUser:{id:'student'},setTimeout:fn=>fn(),
+  const scope={authUser:{id:'student',role:'USER'},viewGen:0,accountFetch(){},setTimeout:fn=>fn(),
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{PreloadQueue:{add(task){queued.push(task.id);}},ContentCache:{has:()=>false,get:()=>null}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stageStartPreload();
   assert.ok(queued.includes('irregular:page'));
-  assert.equal(queued.some(id=>String(id).startsWith('grammar')||String(id).startsWith('speakout')),false);
+  assert.ok(queued.includes('speakout:catalogs:student:USER'));
+  assert.equal(queued.some(id=>String(id).startsWith('grammar')),false);
 });
 test('Library phrase sorting and song back keep the list in history',()=>{
   const stack=[],shown=[];

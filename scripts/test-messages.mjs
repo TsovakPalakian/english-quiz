@@ -19,7 +19,7 @@ function fixture() {
     try {const result=commands.map(command=>{const query=sqlite.prepare(command.sql),values=args(command);if(query.columns().length){const rows=query.all(...values);return {rows:rows.map(row=>Object.values(row).map(value=>({value:String(value)})))};}query.run(...values);return {rows:[]};});sqlite.exec('COMMIT');return result;}
     catch(error){sqlite.exec('ROLLBACK');throw new StudyError(/constraint/i.test(error.message)?409:503,error.message);}
   }};
-  const users=[{id:'teacher',name:'Teacher',role:'ADMIN'},{id:'developer',name:'Private role',role:'DEVELOPER'},{id:'student',name:'Alice',role:'USER'},{id:'mate',name:'Bob',role:'USER'},{id:'other',name:'Other group',role:'USER'}];
+  const users=[{id:'teacher',name:'Teacher',role:'ADMIN'},{id:'developer',name:'Private role',role:'DEVELOPER'},{id:'student',name:'Alice',email:'alice@example.invalid',role:'USER'},{id:'mate',name:'Bob',role:'USER'},{id:'other',name:'Other group',role:'USER'}];
   const service=new MessageService(db,async()=>users);
   const by=id=>users.find(user=>user.id===id);
   const boot=async()=>{await service.ensure();sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'B1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',1,'teacher'),('mate',1,'teacher'),('other',2,'teacher');INSERT INTO exams(id,title,published) VALUES(1,'Published exam',1),(2,'Draft exam',0);");};
@@ -66,7 +66,7 @@ test('Assignments and notifications commit together, retry once and preserve can
     assert.equal(notice.examId,1);assert.equal(notice.assignmentActive,true);
     await s.assign(by('teacher'),{...request,action:'unassign',clientKey:'cancel'});
     assert.equal((await s.history(by('student'),room.id,{category:'learning'})).messages[0].assignmentActive,false);
-    await assert.rejects(s.examLink(by('student'),1),error=>error.status===403);
+    await assert.rejects(s.examLink(by('student'),1),error=>error.status===404);
     await s.assign(by('teacher'),{targetKind:'student',targetId:'student',examId:1,action:'assign',clientKey:'personal-assignment'});
     assert.notEqual((await s.examLink(by('student'),1)).examId,instance);
     await assert.rejects(s.assign(by('teacher'),{targetKind:'student',targetId:'student',examId:2,action:'assign',clientKey:'draft'}),error=>error.status===409);
@@ -129,6 +129,7 @@ test('Each student gets frozen definitions, separate grades and published colore
     const answerText={[answer.id]:{0:{runs:[{text:'My answer',marks:{color:'#ff0000'}}]}}};
     const submitted=await assessment.write(by('student'),{kind:'exam-block',id:block.id,action:'submit',answers:{[answer.id]:{0:'My answer'},[quiz.id]:{0:1}},answerText});
     assert.deepEqual(submitted.answerText,answerText);assert.deepEqual(submitted.points,{});
+    const ready=(await exams.list(by('teacher'))).find(e=>e.id===a.id);assert.equal(ready.instanceStatus,'ready');assert.equal(ready.studentEmail,by('student').email);assert.equal(ready.groupTitle,'A1');
     await assert.rejects(assessment.write(by('student'),{kind:'exam-block',id:block.id,action:'draft',answers:{}}),error=>error.status===409);
     const reviewed=await assessment.write(by('teacher'),{kind:'exam-block',id:block.id,studentId:'student',action:'review',points:{[answer.id]:{0:'0,6'},[quiz.id]:{0:1.5}}});
     assert.equal(reviewed.points[answer.id][0],0.6);assert.deepEqual((await assessment.get(by('student'),{kind:'exam-block',id:block.id})).points,{});
@@ -153,6 +154,13 @@ test('Each student gets frozen definitions, separate grades and published colore
     const next=attempts.find(e=>e.id!==a.id);assert.equal(next.groupTitle,'B1');assert.notEqual(next.blocks[0].id,block.id);
     assert.equal((await assessment.get(by('student'),{kind:'exam-block',id:next.blocks[0].id})).saved,false);
     assert.equal((await assessment.get(by('student'),{kind:'exam-block',id:block.id})).state,'published');
+    const histories=sqlite.prepare('SELECT COUNT(*) n FROM assessment_history').get().n;
+    assert.equal((await exams.remove(by('teacher'),a.id)).referenceOnly,true);
+    assert.equal((await exams.list(by('teacher'))).some(e=>e.id===a.id),false);
+    assert.equal((await exams.list(by('developer'))).some(e=>e.id===a.id),true);
+    assert.equal((await exams.list(by('student'))).some(e=>e.id===a.id),true);
+    assert.equal((await assessment.get(by('student'),{kind:'exam-block',id:block.id})).state,'published');
+    assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM assessment_history').get().n,histories);
   }finally{f.close();}
 });
 test('All required blocks must be submitted and published; a completed group assignment can be assigned anew',async()=>{

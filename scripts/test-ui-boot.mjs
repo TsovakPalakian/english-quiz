@@ -35,6 +35,7 @@ try{
   const managedGroups=[],members=[];
   const fixtureGroups=()=>[{id:41,title:'Fixture group',date:'2026-10-10',revision:1,examIds:[],lessonIds:[31],personalHidden:hiddenMaterials.has('group:41')},{id:42,title:'Copy destination',date:'2026-10-10',revision:1,examIds:[],lessonIds:copiedLessons.map(row=>row.id)},...managedGroups];
   const assessmentRecords=new Map();let failSubmit=false;
+  let pronunciation=null;
   let speakoutMaterial={id:'A1:0:0',title:'1A Fixture lesson',description:'',published:false,revision:0,blocks:[]};
   let holdSpeakSummary=false,releaseSpeakSummary,speakFullReads=0;
   let holdLessonSummary=false,releaseLessons;
@@ -57,6 +58,11 @@ try{
       else data={exams:[{...exam,personalHidden:hiddenMaterials.has('exam:11'),blocks:exam.blocks.map(block=>({...block,personalHidden:hiddenMaterials.has('exam-block:'+block.id)}))}]};
     }
     if(path==='/api/exams/work')data={work:[]};
+    if(path==='/api/assessment/recording'){
+      const key='exam-block/'+url.searchParams.get('id'),part=url.searchParams.get('part'),index=url.searchParams.get('index');
+      if(method==='POST'){pronunciation={bytes:route.request().postDataBuffer(),mime:route.request().headers()['content-type']};const record=assessmentRecords.get(key);assert.equal(Number(url.searchParams.get('expectedRevision')),record.revision);(record.recordings||={})[part]={[index]:{mime:pronunciation.mime,bytes:pronunciation.bytes.length}};data=record.recordings[part][index];}
+      else {await route.fulfill({contentType:pronunciation.mime,body:pronunciation.bytes});return;}
+    }
     if(path==='/api/assessment'){
       const body=method==='POST'?JSON.parse(route.request().postData()):{kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id'))};
       const key=body.kind+'/'+body.id;
@@ -110,10 +116,13 @@ try{
       const rows=[lesson,...copiedLessons];data={materials:url.searchParams.has('id')?rows.filter(row=>row.id===Number(url.searchParams.get('id'))):rows.map(row=>({...row,blocks:[],stageLessonDeferred:true}))};
     }
     if(path==='/api/speakout/lesson'){
-      if(method==='GET'&&url.searchParams.get('revision')==='1'&&holdSpeakSummary)await new Promise(resolve=>{releaseSpeakSummary=resolve;});
       if(method==='GET'&&!url.searchParams.has('revision'))speakFullReads++;
-      if(method==='POST'){const body=JSON.parse(route.request().postData());speakoutMaterial={...speakoutMaterial,...body.content,published:body.published,revision:speakoutMaterial.revision+1};data={revision:speakoutMaterial.revision,published:speakoutMaterial.published};}
-      else data=url.searchParams.get('revision')==='1'?{available:true,cacheRevision:String(speakoutMaterial.revision)}:{materials:user.role==='DEVELOPER'||speakoutMaterial.published?[speakoutMaterial]:[]};
+      if(method==='POST'){const body=JSON.parse(route.request().postData());speakoutMaterial={...speakoutMaterial,...body.content,published:body.published,revision:speakoutMaterial.revision+1};data={revision:speakoutMaterial.revision,published:speakoutMaterial.published,cacheRevision:String(speakoutMaterial.revision)};}
+      else data={cacheRevision:String(speakoutMaterial.revision),materials:user.role==='DEVELOPER'||speakoutMaterial.published?[speakoutMaterial]:[]};
+    }
+    if(path==='/api/speakout/revisions'){
+      if(holdSpeakSummary)await new Promise(resolve=>{releaseSpeakSummary=resolve;});
+      data={catalogRevision:'fixture-revision',defaultRevision:'0',lessons:{'A1:0:0':String(speakoutMaterial.revision)}};
     }
     if(path==='/api/me/songs')data={songs:songActive?[song]:[],next:null};
     if(path==='/api/archive'){
@@ -136,7 +145,7 @@ try{
     }
     if(path==='/api/bugs')data={heads:[]};
     if(path==='/api/messages')data={rooms:[],groups:[],contacts:[],unread:{personal:0,learning:0},total:0,revision:''};
-    if(path.includes('catalogs'))data=path.includes('SPEAKOUT')?(url.searchParams.get('revision')==='1'?{revision:'fixture-revision'}:{content:{level:'A1',units:[{title:'Fixture unit',lessons:[{letter:'A',title:'Fixture lesson'}]}]}}):{documents:{},cards:[],next:null};
+    if(path.includes('catalogs'))data=path.includes('SPEAKOUT')?(url.searchParams.get('revision')==='1'?{revision:'fixture-revision'}:{content:{level:url.searchParams.get('level')||'A1',units:[{title:'Fixture unit',lessons:[{letter:'A',title:'Fixture lesson'}]}]}}):{documents:{},cards:[],next:null};
     return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(data)});
   };
   await page.context().route('**/api/**',handleApi);
@@ -475,6 +484,7 @@ try{
   assert.equal(await page.locator('[data-exam-del]').count(),0);
   await page.locator('[data-exam-hide="exam:11"]').click();await page.waitForFunction(()=>document.querySelector('[data-exam-hide="exam:11"]')?.classList.contains('is-on'));
   assert.ok(hiddenMaterials.has('exam:11'));
+  await page.waitForFunction(()=>!localStorage.getItem('turso-main-pending-v3'));
   exam.blocks.push({...allMaterialsBlock,id:90,materials:allMaterialsBlock.materials.map((p,i)=>({...p,id:100+i}))});
   user.role='DEVELOPER';
   await page.reload();await page.waitForFunction(()=>accountReady&&!viewSwitching);
@@ -505,7 +515,7 @@ try{
   assert.equal(await page.locator('.content-copy-panel').evaluate(el=>{const rect=el.getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth&&el.scrollWidth<=el.clientWidth;}),true);
   await page.setViewportSize({width:1280,height:900});
   await page.locator('#contentCopySubmit').click();
-  await page.locator('#contentCopyDialog').waitFor({state:'hidden'});
+  await page.locator('#contentCopyDialog').waitFor({state:'hidden',timeout:8000}).catch(async error=>{console.log('COPY STATUS:',await page.locator('#contentCopyStatus').innerText());throw error;});
   assert.equal(copyWrites,1);assert.equal(JSON.stringify(exam.blocks.find(row=>row.id===90)),originalBlock);
   await page.evaluate(()=>window.enquizVisit('groups'));
   await page.locator('[data-group-open="42"]').click();
@@ -608,14 +618,13 @@ try{
   assert.equal(await page.evaluate(()=>JSON.stringify(lmState)),originalLesson);
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();
   await page.waitForFunction(()=>document.querySelector('#speakoutList [data-speak-lesson]')===document.activeElement);
-  const readsBeforeCachedOpen=speakFullReads;holdSpeakSummary=true;
+  const readsBeforeCachedOpen=speakFullReads,requestsBeforeCachedOpen=requests.filter(path=>path.startsWith('/api/speakout/')).length;
   await page.locator('#speakoutList [data-speak-lesson]').first().click();
   await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
-  assert.equal(speakFullReads,readsBeforeCachedOpen,'Cached Speakout opens before the revision request finishes');
+  assert.equal(speakFullReads,readsBeforeCachedOpen,'Cached Speakout opens without a material request');
   await page.locator('#seBlocks summary').first().click();
   assert.match(await page.locator('#seBlocks').innerText(),/Speakout reading fixture/);
-  while(!releaseSpeakSummary)await new Promise(resolve=>setTimeout(resolve,10));
-  holdSpeakSummary=false;releaseSpeakSummary();
+  assert.equal(requests.filter(path=>path.startsWith('/api/speakout/')).length,requestsBeforeCachedOpen,'Cached navigation sends no Speakout request');
   await page.waitForFunction(()=>Object.values(JSON.parse(localStorage.getItem('english-speakout-materials-v1'))).some(row=>row.cacheRevision==='1'));
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();
   const unchangedReads=speakFullReads;
@@ -624,6 +633,7 @@ try{
   assert.equal(speakFullReads,unchangedReads,'Unchanged revision never reloads the full material');
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();
   speakoutMaterial={...speakoutMaterial,revision:2,description:'Updated on server'};
+  await page.evaluate(()=>window.SpeakoutCache.refresh(true));
   await page.locator('#speakoutList [data-speak-lesson]').first().click();await page.locator('#speakouteditor.on').waitFor();
   await page.waitForFunction(()=>document.getElementById('seDescription').value==='Updated on server');
   assert.equal(speakFullReads,unchangedReads+1,'Changed revision refreshes the cached material');
@@ -631,6 +641,7 @@ try{
   holdSpeakSummary=true;releaseSpeakSummary=null;
   await page.locator('#speakoutList [data-speak-lesson]').first().click();await page.locator('#speakouteditor.on').waitFor();
   await page.locator('#seEdit').click();await page.locator('#seDescription').fill('Unsaved local description');
+  await page.evaluate(()=>{void window.SpeakoutCache.refresh(true);});
   speakoutMaterial={...speakoutMaterial,revision:3,description:'Another server update'};
   while(!releaseSpeakSummary)await new Promise(resolve=>setTimeout(resolve,10));
   holdSpeakSummary=false;releaseSpeakSummary();await page.waitForTimeout(150);
@@ -668,7 +679,7 @@ try{
   assert.ok(await page.locator('.text-search-bar').evaluate(el=>el.scrollWidth<=el.clientWidth),'Text search fits mobile');
   await page.setViewportSize({width:1280,height:900});
   assert.deepEqual(errors,[]);
-  user.role='USER';await page.reload();await page.waitForFunction(()=>accountReady);
+  user.role='USER';exam={...exam,studentId:user.id,studentName:user.name,studentEmail:user.email,instanceStatus:'active'};await page.reload();await page.waitForFunction(()=>accountReady);
   await page.evaluate(()=>window.enquizVisit('exams'));await page.locator('[data-exam-open="11"]').click();await page.locator('[data-exam-block="90"]').click();
   await page.locator('#material.is-exam-restricted').waitFor();
   await page.waitForFunction(()=>lmState.assessmentReady);
@@ -703,8 +714,9 @@ try{
   await reviewField.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);});
   await page.locator('#lmPreview [data-review-command="underline"]').first().click();
   await page.locator('#lmPreview [data-review-command="strikeThrough"]').first().click();
-  await page.locator('#lmPreview [data-review-color]').first().fill('#c62828');
-  await page.locator('#lmPreview [data-review-color]').first().dispatchEvent('change');
+  await page.locator('#lmPreview [data-review-color]').first().locator('xpath=preceding-sibling::button[1]').click();
+  await page.getByRole('textbox',{name:'HEX color',exact:true}).fill('#c62828');
+  await page.getByRole('textbox',{name:'HEX color',exact:true}).press('Enter');
   await page.locator('#lmPreview [data-review-size]').first().fill('24');
   await page.locator('#lmPreview [data-review-size]').first().dispatchEvent('change');
   await page.locator('#lmPreview [data-exam-points]').first().fill('1');
@@ -732,7 +744,7 @@ try{
   await page.evaluate(()=>{const media=document.createElement('audio');window.mediaPaused=false;media.pause=()=>{window.mediaPaused=true;};document.querySelector('#material').append(media);});
   await page.evaluate(()=>window.enquizVisit('groups'));assert.equal(await page.evaluate(()=>window.mediaPaused),true);
   await page.evaluate(()=>{
-    const make=(id,status)=>examFromWire({id,title:'Independent exam '+id,published:true,instanceStatus:status,groupId:42,groupTitle:'Original group',maximumPoints:1.1,earnedPoints:0.6,blocks:[{id:id+10,published:true,title:'Task',materials:[{id:id+20,type:'task',maxPoints:1.1,text:'Answer'}]}]});
+    const make=(id,status)=>examFromWire({id,title:'Independent exam '+id,published:true,instanceStatus:status,studentId:authUser.id,groupId:42,groupTitle:'Original group',maximumPoints:1.1,earnedPoints:0.6,blocks:[{id:id+10,published:true,title:'Task',materials:[{id:id+20,type:'task',maxPoints:1.1,text:'Answer'}]}]});
     localStorage.setItem('enquiz-exams',JSON.stringify([make(900,'active'),make(901,'completed')]));examReady=true;examWorkLoadedFor=examWorkAccount();window.enquizVisit('exams');
   });
   assert.equal(await page.locator('#examList [data-exam-open="900"]').count(),1);
@@ -742,6 +754,66 @@ try{
   assert.equal(await page.locator('#examList [data-exam-open="901"]').count(),1);
   assert.match(await page.locator('#examList').innerText(),/Original group/);
   assert.match(await page.locator('#examList').innerText(),/Completed · Maximum 1.1 · 0.6 points/);
+  // New editors are checked separately from the immutable legacy attempt above.
+  await page.evaluate(()=>{
+    authUser.role='DEVELOPER';viewAccount=null;materialReviewStudent=null;
+    lmState={id:700,title:'Upgrade fixture',description:'',blocks:[],mode:'edit',examOwned:true,examId:700,blockId:700,tab:'overview'};show('material');lmShow('edit');
+  });
+  await page.locator('#lmAdd').click();
+  assert.equal(await page.locator('#lmPicker button').first().innerText(),'Text');
+  await page.locator('[data-material-quiz-menu]').click();
+  assert.equal(await page.locator('[data-material-quiz-types] button').count(),16);
+  assert.equal(await page.locator('[data-material-quiz-types] button').getByText('Flip',{exact:true}).count(),0);
+  await page.locator('[data-add-block="text"]').click();
+  assert.equal(await page.locator('#lmBlocks .lm-max-score').count(),0);
+  const rich=page.locator('#lmBlocks .lm-rich');await rich.fill('Condition only');
+  const color=page.locator('#lmBlocks .lm-tools .color-picker-button');await color.click();
+  await page.getByRole('textbox',{name:'HEX color',exact:true}).fill('#c62828');await page.getByRole('textbox',{name:'HEX color',exact:true}).press('Enter');
+  await color.click();await color.click();assert.equal(await page.locator('.color-picker-popup').count(),0);await rich.fill('Editing still works');
+  await color.click();await rich.click();assert.equal(await page.locator('.color-picker-popup').count(),0);
+  await color.click();await page.keyboard.press('Escape');assert.equal(await page.locator('.color-picker-popup').count(),0);
+  const toolHeights=await page.locator('#lmBlocks .lm-tools').evaluate(el=>[...el.children].filter(node=>getComputedStyle(node).display!=='none').map(node=>Math.round(node.getBoundingClientRect().height)));assert.ok(toolHeights.every(height=>height===40),JSON.stringify(toolHeights));
+  await page.locator('#lmAdd').click();await page.locator('[data-material-answer]').click();
+  assert.equal(await page.locator('#lmBlocks .lm-type').last().innerText(),'Answer');assert.equal(await page.locator('#lmBlocks .lm-max-score').count(),1);
+  await page.locator('#lmAdd').click();await page.locator('[data-material-group]').click();
+  const group=page.locator('#lmBlocks [data-block-id]').last();assert.equal(await group.locator('[data-field="title"]').count(),1);assert.equal(await group.locator('[data-field="assignmentKey"]').count(),1);assert.equal(await group.locator('[data-field="maxPoints"],textarea').count(),0);
+  await page.locator('#lmAdd').click();await page.locator('[data-material-quiz-menu]').click();await page.locator('[data-quiz="Choice"]').click();
+  let choices=page.locator('#lmBlocks [data-block-id]').last();assert.equal(await choices.locator('.material-item-max').count(),1);
+  await choices.locator('[data-opt-add]').click();choices=page.locator('#lmBlocks [data-block-id]').last();
+  await choices.locator('[data-material-option-remove]').last().click();choices=page.locator('#lmBlocks [data-block-id]').last();
+  while(await choices.locator('[data-opt]').count()>2){await choices.locator('[data-material-option-remove]').last().click();choices=page.locator('#lmBlocks [data-block-id]').last();}
+  assert.equal(await choices.locator('[data-material-option-remove]:disabled').count(),2);
+  await choices.locator('[data-item-add]').click();assert.equal(await page.locator('#lmBlocks .material-item-max').count(),2);
+  assert.ok(await page.locator('#lmBlocks .material-item-max input').evaluateAll(fields=>fields.every(field=>field.getBoundingClientRect().height===40)),'Each item maximum is compact');
+  assert.ok(await page.locator('#lmBlocks [data-field=assignmentKey]').evaluateAll(fields=>fields.every(field=>field.getBoundingClientRect().height<=50)),'Assignment fields are not stretched');
+  await page.screenshot({path:'/private/tmp/english-quiz-material-upgrades-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.locator('#lmBlocks').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Material authoring fits mobile');
+  await page.screenshot({path:'/private/tmp/english-quiz-material-upgrades-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1280,height:900});
+  await page.evaluate(()=>{lmState={id:701,title:'Practice only',description:'',tab:'overview',mode:'edit',blocks:[{id:'old-task',type:'task',title:'Task',assessed:true,maxPoints:9},{id:'old-exercise',type:'exercise',items:[{prompt:'Practice',kind:'choice',options:['a','b']}],assessed:true,maxPoints:5}]};lmShow('edit');});
+  assert.equal(await page.locator('#lmBlocks [data-field="assessed"],#lmBlocks [data-field="maxPoints"],#lmBlocks .material-item-max').count(),0);
+  await page.locator('#lmAdd').click();await page.locator('[data-material-quiz-menu]').click();assert.equal(await page.locator('[data-material-quiz-types] button').count(),17);
+  user.role='USER';exam={id:800,title:'Pronunciation exam',published:true,instanceStatus:'active',studentId:user.id,studentName:user.name,groupTitle:'Original group',blocks:[{id:810,title:'Pronunciation',published:true,materials:[{id:812,type:'quiz',quizType:'Spell',scoringVersion:3,items:[{word:'hello',prompt:'Say hello',maxPoints:3}]}]}]};
+  assessmentRecords.set('exam-block/810',{kind:'exam-block',examId:800,blockId:810,state:'draft',saved:false,revision:0,answers:{},points:{},materials:structuredClone(exam.blocks[0].materials)});
+  await page.reload();await page.waitForFunction(()=>accountReady);await page.evaluate(()=>window.enquizVisit('exams'));await page.locator('[data-exam-section="active"]').click();await page.locator('[data-exam-open="800"]').click();await page.locator('[data-exam-block="810"]').click();await page.waitForFunction(()=>lmState.assessmentReady);
+  await page.evaluate(()=>{const audio=new AudioContext(),destination=audio.createMediaStreamDestination(),tone=audio.createOscillator();tone.connect(destination);tone.start();window.fixtureAudio=audio;Object.defineProperty(navigator.mediaDevices,'getUserMedia',{value:async()=>destination.stream});});
+  await page.locator('[data-material-record]').click();await page.locator('[data-material-record-status]').getByText('Recording...',{exact:true}).waitFor();
+  await page.waitForTimeout(200);await page.locator('[data-material-record]').click();await page.locator('.material-voice audio').waitFor();
+  assert.ok(pronunciation.bytes.length>0);await page.locator('.material-voice audio').evaluate(async audio=>audio.play());await page.waitForFunction(()=>document.querySelector('.material-voice audio').currentTime>0);await page.locator('.material-voice audio').evaluate(audio=>audio.pause());await page.evaluate(()=>fixtureAudio.close());
+  assert.equal(await page.locator('#lmPreview [data-exam-points],[data-mq-check]').count(),0);
+  // Staff can open a Ready card directly, without entering the student's Groups.
+  user.role='DEVELOPER';exam={id:800,title:'Ready exam',published:true,instanceStatus:'ready',studentId:targetId,studentName:'Student Full Name',studentEmail:'student@example.invalid',groupTitle:'Original group',maximumPoints:4,blocks:[{id:810,title:'Ready block',published:true,materials:[{id:811,type:'text',html:'<p>Read this condition</p>',scoringVersion:3},{id:812,type:'text',answerEnabled:true,title:'Answer',scoringVersion:3,maxPoints:4}]}]};
+  assessmentRecords.set('exam-block/810',{kind:'exam-block',examId:800,blockId:810,state:'submitted',saved:true,revision:1,answers:{812:{0:'Student answer'}},points:{},materials:structuredClone(exam.blocks[0].materials)});
+  await page.reload();await page.waitForFunction(()=>accountReady);await page.evaluate(()=>window.enquizVisit('exams'));await page.locator('[data-exam-section="ready"]').click();
+  await page.locator('[data-exam-open="800"]').waitFor();assert.match(await page.locator('#examList').innerText(),/Student Full Name · student@example.invalid/);
+  const groupRequests=requests.filter(path=>path==='/api/groups').length;
+  await page.locator('[data-exam-open="800"]').click();await page.locator('[data-exam-block="810"]').click();await page.waitForFunction(()=>lmState.assessmentReady);
+  assert.equal(await page.evaluate(()=>lmState.reviewStudentId),'b'.repeat(32));assert.equal(await page.locator('#examSave').innerText(),'Save review');
+  assert.equal(await page.locator('#lmPreview [data-exam-response]').count(),1,'Text has no answer field');assert.equal(await page.locator('#lmPreview [data-exam-points]').count(),1);
+  await page.locator('#lmPreview [data-exam-points]').fill('3');await page.locator('#examSave').click();await page.waitForFunction(()=>lmState.assessmentState==='reviewing'&&!lmState.assessmentBusy);
+  await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);
+  assert.equal(requests.filter(path=>path==='/api/groups').length,groupRequests,'Direct review does not fetch Groups');
   assert.deepEqual(errors,[]);
   console.log('UI boot, account, statistics, groups, publication, archive/restore/permanent removal, theme switching/reload/empty cache/relogin and logout passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

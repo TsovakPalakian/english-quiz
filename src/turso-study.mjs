@@ -1,5 +1,7 @@
 // Isolated study-data adapter. Not imported by the production Worker.
 // Actors MUST be supplied by a trusted authentication layer, never a request body.
+import {validateContentGroups} from './exam-scoring.mjs';
+import {validateColorDocument} from './text-formatting.mjs';
 export class StudyError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -141,9 +143,11 @@ function lessonChanges(value){
   return value;
 }
 export function validateAssessmentContent(content,type){
-  if(!['quiz','exercise','task'].includes(type))return;
+  if(!['quiz','exercise','task','text','cards','vocab'].includes(type))return;
+  if(content.contentGroup!=null&&(type!=='task'||typeof content.contentGroup!=='boolean'))fail(400,'Invalid Content group.');
   if(content.assessed!=null&&typeof content.assessed!=='boolean')fail(400,'Invalid assessment setting.');
-  const items=type==='task'?[content]:[content,...(content.items||[])];
+  if(content.answerEnabled!=null&&(type!=='text'||typeof content.answerEnabled!=='boolean'))fail(400,'Invalid Answer block.');
+  const items=['task','text'].includes(type)?[content]:[content,...(content.items||[])];
   for(const item of items){
     if(item.maxPoints!=null&&(!['number','string'].includes(typeof item.maxPoints)||!Number.isFinite(Number(String(item.maxPoints).replace(',','.')))||Number(String(item.maxPoints).replace(',','.'))<0||Number(String(item.maxPoints).replace(',','.'))>1e12))fail(400,'Invalid maximum points.');
     if(item.criteria!=null){
@@ -325,6 +329,7 @@ export class StudyService {
     if(!changes.title.trim())fail(400,'Enter a lesson title before saving.');
     if(!Array.isArray(body.blocks)||body.blocks.length>200)fail(400,'Invalid lesson blocks.');
     const blocks=body.blocks.map(lessonBlock);
+    try{validateContentGroups(blocks.map(block=>({...block.content,type:block.type,id:block.id})));}catch(error){fail(400,error.message);}
     if(blocks.some(b=>b.expectedRevision!==0))fail(400,'New blocks must have revision 0.');
     return this.createdCardMutation(actor,body,['create-lesson'],async()=>{
       const columns=Object.values(lessonColumns),args=Object.keys(lessonColumns).map(k=>typeof changes[k]==='boolean'?+changes[k]:changes[k]);
@@ -366,7 +371,10 @@ export class StudyService {
       if(!lesson)fail(404,'Lesson not found.');
       if(lesson.revision!==expected)fail(409,'The lesson changed. Reload before saving.');
       if('title' in changes && !changes.title.trim())fail(400,'Enter a lesson title before saving.');
-      const current=await this.db.read('SELECT id,revision,position FROM lesson_blocks WHERE lesson_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
+      const current=await this.db.read('SELECT id,revision,position,type,content_json FROM lesson_blocks WHERE lesson_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
+      const next=current.filter(block=>!deletes.some(row=>row.id===block.id)&&!upserts.some(row=>row.id===block.id)).map(block=>({...JSON.parse(block.content_json),id:block.id,type:block.type}));
+      next.push(...upserts.map(block=>({...block.content,id:block.id,type:block.type})));
+      try{validateContentGroups(next);}catch(error){fail(400,error.message);}
       const active=new Set(current.map(b=>b.id));
       for(const b of deletes)active.delete(b.id);
       for(const b of upserts)if(b.id!=null)active.add(b.id);
@@ -497,20 +505,23 @@ export class StudyService {
       const [block]=await this.db.read(`SELECT b.type,b.content_json FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
         WHERE b.lesson_id=? AND b.id=? AND b.deleted_at IS NULL AND ${lessonAccess}`,[lessonId,blockId,+reviewer(actor),actor.id,actor.id]);
       if(!block)fail(404,'Task not found.');
-      if(JSON.parse(block.content_json).assessed)fail(409,'Use the assessment submission for this task.');
+      // Lesson practice is ungraded; existing assessment history is retained.
       let response=body.response;
-      if(block.type==='task'){
-        if(typeof response!=='string'||response.length>10_000)fail(400,'Invalid task response.');
+      const definition=JSON.parse(block.content_json);
+      if(block.type==='task'&&!definition.contentGroup||block.type==='text'&&definition.answerEnabled===true){
+        if(typeof response==='object'&&response&&!Array.isArray(response)&&Object.keys(response).every(key=>['text','format'].includes(key))){if(typeof response.text!=='string'||response.text.length>10_000)fail(400,'Invalid task response.');validateColorDocument(response.format,response.text,definition.answerEnabled===true);}
+        else if(typeof response!=='string'||response.length>10_000)fail(400,'Invalid task response.');
       }else if(['quiz','exercise'].includes(block.type)){
         const content=JSON.parse(block.content_json),items=content.items||[];
         if(!response || Object.keys(response).some(key=>!['items','checked'].includes(key)) || (response.checked!==undefined && typeof response.checked!=='boolean')
           || !Array.isArray(response.items)||response.items.length!==items.length||items.length>100)fail(400,'Invalid exercise response.');
         const checked=response.checked===true;
         const answers=response.items.map((answer,i)=>{
-          if(!answer || Object.keys(answer).some(key=>!['picked','typed'].includes(key))
+          if(!answer || Object.keys(answer).some(key=>!['picked','typed','format'].includes(key))
             || (answer.picked!=null && (!Number.isSafeInteger(answer.picked)||answer.picked<0||answer.picked>=(items[i].options||[]).length))
-            || (answer.typed!==undefined && (typeof answer.typed!=='string'||answer.typed.length>2000)))fail(400,'Send only selected options or typed answers.');
-          return {...(answer.picked!=null?{picked:answer.picked}:{}),...(answer.typed!==undefined?{typed:answer.typed}:{})};
+            || (answer.typed!==undefined && (typeof answer.typed!=='string'||answer.typed.length>(['Match','Memory'].includes(content.quizType)?32000:2000))))fail(400,'Send only selected options or typed answers.');
+          if(answer.format)validateColorDocument(answer.format,answer.typed);
+          return {...(answer.picked!=null?{picked:answer.picked}:{}),...(answer.typed!==undefined?{typed:answer.typed}:{}),...(answer.format?{format:answer.format}:{})};
         });
         response={items:answers,...(checked?{checked:true}:{})};
         if(checked && block.type==='exercise')for(const [i,answer] of answers.entries()){

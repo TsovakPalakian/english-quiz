@@ -3,20 +3,22 @@
   const mounted=new WeakMap();
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const valid=color=>/^#[a-f0-9]{6}$/i.test(color||'');
+  const families={serif:'Georgia, serif',sans:'Arial, sans-serif',mono:'monospace',georgia:'Georgia',verdana:'Verdana',palatino:'Palatino',trebuchet:'Trebuchet MS',courier:'Courier New'};
   function html(text,format){
     if(!format?.runs||format.runs.map(run=>run.text).join('')!==text)return escape(text);
-    return format.runs.map(run=>'<span'+(valid(run.marks?.color)?' style="color:'+run.marks.color+'"':'')+'>'+escape(run.text)+'</span>').join('');
+    return format.runs.map(run=>{const marks=run.marks||{},style=[];if(valid(marks.color))style.push('color:'+marks.color);if(marks.bold)style.push('font-weight:700');if(marks.italic)style.push('font-style:italic');if(marks.underline||marks.strike)style.push('text-decoration:'+[marks.underline?'underline':'',marks.strike?'line-through':''].filter(Boolean).join(' '));if(Number.isFinite(marks.size)&&marks.size>=10&&marks.size<=96)style.push('font-size:'+marks.size+'px');if(families[marks.family])style.push('font-family:'+families[marks.family]);return '<span'+(style.length?' style="'+escape(style.join(';'))+'"':'')+'>'+escape(run.text)+'</span>';}).join('');
   }
-  function read(rich){
+  function read(rich,full=false){
     const runs=[];
-    function walk(node,color){
-      if(node.nodeType===3){runs.push({text:node.textContent,marks:color?{color}:{}});return;}
+    function walk(node,color,inherited={}){
+      if(node.nodeType===3){runs.push({text:node.textContent,marks:{...inherited,...(color?{color}:{})}});return;}
       if(node.nodeType!==1)return;
       if(node.tagName==='BR'){runs.push({text:'\n',marks:{}});return;}
       if(node.style.color){const match=/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(node.style.color);color=match?'#'+match.slice(1).map(n=>Number(n).toString(16).padStart(2,'0')).join(''):valid(node.style.color)?node.style.color:color;}
       if(node.tagName==='FONT'&&valid(node.getAttribute('color')))color=node.getAttribute('color');
+      const marks={...inherited};if(full){if(['B','STRONG'].includes(node.tagName)||Number(node.style.fontWeight)>=600)marks.bold=true;if(['I','EM'].includes(node.tagName)||node.style.fontStyle==='italic')marks.italic=true;if(node.tagName==='U'||node.style.textDecoration.includes('underline'))marks.underline=true;if(['S','STRIKE'].includes(node.tagName)||node.style.textDecoration.includes('line-through'))marks.strike=true;const size=parseFloat(node.style.fontSize);if(size>=10&&size<=96)marks.size=size;const family=(node.style.fontFamily||node.getAttribute('face')||'').replace(/["']/g,'');const key=Object.keys(families).find(key=>families[key]===family);if(key)marks.family=key;}
       if(['DIV','P','LI'].includes(node.tagName)&&runs.length&&!runs.at(-1).text.endsWith('\n'))runs.push({text:'\n',marks:{}});
-      node.childNodes.forEach(child=>walk(child,color));
+      node.childNodes.forEach(child=>walk(child,color,marks));
     }
     rich.childNodes.forEach(node=>walk(node,''));return {runs};
   }
@@ -29,12 +31,20 @@
     const rich=document.createElement('div');rich.className='text-color-rich'+(single?' is-single-line':'');rich.contentEditable='true';rich.setAttribute('role','textbox');rich.setAttribute('aria-multiline',String(!single));rich.setAttribute('aria-label',field.getAttribute('aria-label')||'Formatted text');
     rich.hidden=true;field.before(wrap);wrap.append(tools,field,rich);tools.append(palette);
     const state={field,rich,options,format:options.format,active:false};mounted.set(field,state);
-    function update(){if(field.disabled||field.readOnly)return;const format=read(rich);field.value=format.runs.map(run=>run.text).join('');state.format=format;options.onChange?.(format);field.dispatchEvent(new Event('input',{bubbles:true}));}
+    function update(){if(field.disabled||field.readOnly)return;const format=read(rich,!!options.richTools);field.value=format.runs.map(run=>run.text).join('');state.format=format;options.onChange?.(format);field.dispatchEvent(new Event('input',{bubbles:true}));}
     function activate(){
       if(state.active)return;rich.innerHTML=html(field.value,state.format);field.hidden=true;rich.hidden=false;state.active=true;
     }
     if(options.format?.runs&&options.format.runs.some(run=>valid(run.marks?.color))){activate();}
     let start=0,end=0,range;
+    if(options.richTools){
+      activate();wrap.classList.add('has-rich-tools');tools.classList.add('lm-tools');
+      const capture=()=>{const selection=getSelection();if(selection.rangeCount&&rich.contains(selection.anchorNode))range=selection.getRangeAt(0).cloneRange();};
+      const apply=(command,value)=>{rich.focus();if(range&&rich.contains(range.commonAncestorContainer)){const selection=getSelection();selection.removeAllRanges();selection.addRange(range);}document.execCommand(command,false,value);capture();update();};
+      const font=document.createElement('select');font.setAttribute('aria-label','Font');font.innerHTML='<option value="">Font</option>'+Object.keys(families).map(key=>'<option value="'+key+'">'+key[0].toUpperCase()+key.slice(1)+'</option>').join('');font.addEventListener('pointerdown',capture);font.addEventListener('change',()=>apply('fontName',families[font.value]||'Arial'));tools.prepend(font);
+      const size=document.createElement('input');size.type='number';size.min='10';size.max='96';size.value='17';size.className='lm-font-size';size.setAttribute('aria-label','Font size');size.addEventListener('pointerdown',capture);size.addEventListener('change',()=>{rich.focus();if(range&&rich.contains(range.commonAncestorContainer)){const span=document.createElement('span');span.style.fontSize=Math.min(96,Math.max(10,Number(size.value)||17))+'px';span.append(range.extractContents());range.insertNode(span);range.selectNodeContents(span);const selected=getSelection();selected.removeAllRanges();selected.addRange(range);capture();update();}});tools.insertBefore(size,palette);
+      for(const [label,command] of [['B','bold'],['I','italic'],['U','underline'],['List','insertUnorderedList']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.title=command;button.setAttribute('aria-label',command);button.addEventListener('pointerdown',event=>{capture();event.preventDefault();});button.addEventListener('click',()=>apply(command));tools.insertBefore(button,palette);}
+    }
     palette.addEventListener('pointerdown',()=>{if(!state.active){start=field.selectionStart||0;end=field.selectionEnd||0;}else{const selected=getSelection();if(selected.rangeCount&&rich.contains(selected.anchorNode))range=selected.getRangeAt(0).cloneRange();}});
     palette.addEventListener('input',()=>{
       if(field.disabled||field.readOnly)return;

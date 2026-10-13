@@ -19,7 +19,7 @@ const presentation=text=>Object.entries(english).sort(([a],[b])=>b.length-a.leng
   .replaceAll('разрешённого тестового стенда','разрешённого сайта').replaceAll('разрешённом тестовом стенде','разрешённом сайте');
 for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstratives.js','main-stage.css','favicon.svg','favicon.png','favicon.ico'])
   copyFileSync(resolve(accepted,name),resolve(target,name));
-writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8'));
+writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 copyFileSync(resolve(root,'production/chat.js'),resolve(target,'messages.js'));
@@ -39,7 +39,8 @@ assert.equal(preview.split('    function show(id) {').length,2);
 preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';");
 writeFileSync(resolve(target,'preview.js'),preview);
 const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
-const loader=readFileSync(resolve(root,'production/catalog-loader.js'),'utf8').replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
+const scoring='(()=>{\n'+readFileSync(resolve(root,'src/exam-scoring.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.MaterialScoring={examAnswered,examChildren,examAnswerQuestions,examElementMax,examTaskMax,examGrading,validateExamScoring,memoryDeck,memoryScore};})();';
+const loader=(scoring+'\n'+readFileSync(resolve(root,'production/color-picker.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-quiz.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8')).replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');

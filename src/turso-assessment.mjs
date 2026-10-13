@@ -1,10 +1,12 @@
 import {StudyError,statement as s,recordId,lessonAccess} from './turso-study.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {studentExamContent,ExamService} from './turso-exams.mjs';
-import {examGrading,examChildren} from './exam-scoring.mjs';
+import {examGrading,examChildren,examAnswerQuestions,memoryScore} from './exam-scoring.mjs';
 import {instanceAccess} from './turso-exam-instances.mjs';
 import {examLifecycleCommands} from './turso-exam-lifecycle.mjs';
 import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
+import {boundedMediaBytes} from './turso-r2-media.mjs';
+import {chatFileMetadata} from './chat-attachments.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const ready=new WeakMap();
@@ -12,7 +14,7 @@ export function rubric(value){return String(value||'').split('\n').map(line=>{co
 export function assessmentQuestions(parts){return parts.filter(p=>['quiz','exercise','task'].includes(p.type)).flatMap(part=>(part.type==='task'?[part]:part.items||[]).map((item,index)=>({part,index,item,max:rubric(item.criteria).length?rubric(item.criteria).reduce((n,c)=>n+c.max,0):Number(item.maxPoints??part.maxPoints??1)})));}
 const decimal=value=>Number(String(value).replace(',','.'));
 export function gradingQuestions(parts){
-  if(parts.some(part=>part.scoringVersion===2))return examGrading(parts);
+  if(parts.some(part=>part.scoringVersion>=2))return examGrading(parts);
   const result=[],seen=new Set();
   for(const part of parts.filter(p=>['quiz','exercise','task'].includes(p.type))){
     if(part.gradeMode!=='assignment'){result.push(...assessmentQuestions([part]));continue;}
@@ -25,7 +27,7 @@ export function gradingQuestions(parts){
 }
 function reviewDocument(value){
   if(!value||typeof value!=='object'||Array.isArray(value)||!Array.isArray(value.runs)||value.runs.length>2000||Object.keys(value).some(key=>key!=='runs'))fail(400,'Invalid reviewed text.');
-  const allowed=['bold','italic','underline','strike','color','size'];
+  const allowed=['bold','italic','underline','strike','color','size','family'];
   let length=0;
   for(const run of value.runs){
     if(!run||typeof run.text!=='string'||Object.keys(run).some(key=>!['text','marks'].includes(key)))fail(400,'Invalid reviewed text.');
@@ -34,6 +36,7 @@ function reviewDocument(value){
     for(const key of ['bold','italic','underline','strike'])if(marks[key]!=null&&typeof marks[key]!=='boolean')fail(400,'Invalid text formatting.');
     if(marks.color!=null&&!/^#[a-f0-9]{6}$/i.test(marks.color))fail(400,'Invalid text color.');
     if(marks.size!=null&&(!Number.isFinite(marks.size)||marks.size<10||marks.size>96))fail(400,'Invalid text size.');
+    if(marks.family!=null&&!['serif','sans','mono','georgia','verdana','palatino','trebuchet','courier'].includes(marks.family))fail(400,'Invalid text font.');
   }
   if(length>50000)fail(413,'Reviewed text is too large.');
   return value;
@@ -42,14 +45,15 @@ export class AssessmentService{
   constructor(db){this.db=db;}
   ensure(){if(!ready.has(this.db))ready.set(this.db,this.db.atomic([
     s(`CREATE TABLE IF NOT EXISTS assessment_work(account_id TEXT NOT NULL,kind TEXT NOT NULL,material_id INTEGER NOT NULL,exam_id INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,state TEXT NOT NULL DEFAULT 'draft',answers_json TEXT NOT NULL DEFAULT '{}',grading_json TEXT NOT NULL DEFAULT '{}',snapshot_json TEXT NOT NULL DEFAULT '[]',updated_at INTEGER NOT NULL DEFAULT(unixepoch()),PRIMARY KEY(account_id,kind,material_id))`),
-    s(`CREATE TABLE IF NOT EXISTS assessment_history(id INTEGER PRIMARY KEY,account_id TEXT NOT NULL,kind TEXT NOT NULL,material_id INTEGER NOT NULL,actor_id TEXT NOT NULL,action TEXT NOT NULL,reason TEXT NOT NULL DEFAULT '',snapshot_json TEXT NOT NULL,created_at INTEGER NOT NULL DEFAULT(unixepoch()))`)
+    s(`CREATE TABLE IF NOT EXISTS assessment_history(id INTEGER PRIMARY KEY,account_id TEXT NOT NULL,kind TEXT NOT NULL,material_id INTEGER NOT NULL,actor_id TEXT NOT NULL,action TEXT NOT NULL,reason TEXT NOT NULL DEFAULT '',snapshot_json TEXT NOT NULL,created_at INTEGER NOT NULL DEFAULT(unixepoch()))`),
+    s(`CREATE TABLE IF NOT EXISTS assessment_recordings(account_id TEXT NOT NULL,kind TEXT NOT NULL,material_id INTEGER NOT NULL,part_id INTEGER NOT NULL,question_index INTEGER NOT NULL,object_key TEXT NOT NULL,mime TEXT NOT NULL,bytes INTEGER NOT NULL,PRIMARY KEY(account_id,kind,material_id,part_id,question_index))`)
   ]).catch(error=>{ready.delete(this.db);throw error;}));return ready.get(this.db);}
   async document(actor,kind,id,account){
     recordId(id);let rows;
     if(kind==='exam-block'){
       await new ExamService(this.db).ensure();
       const assigned=await assignedExamIds(this.db,account);
-      const [found]=await this.db.read(`SELECT b.exam_id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[id,+reviewer(actor)]);
+      const [found]=await this.db.read(`SELECT b.exam_id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND ${assignedExamSql('e.id',assigned)}))`,[id,+reviewer(actor)]);
       const hidden=await materialVisibility(this.db,account);
       if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
       await instanceAccess(this.db,found.exam_id,account);
@@ -70,13 +74,35 @@ export class AssessmentService{
   project(row,actor){
     const grading=JSON.parse(row.grading_json||'{}'),published=row.state==='published',show=reviewer(actor)||published;
     const answerData=JSON.parse(row.answers_json||'{}'),answerText=answerData._formatting||{};delete answerData._formatting;
-    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:answerData,answerText,commentFormatting:show?grading.commentFormatting||{}:{},corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
+    return {kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:answerData,answerText,commentFormatting:show?grading.commentFormatting||{}:{},corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},suggestedPoints:reviewer(actor)?grading.suggestedPoints||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type))};
   }
   async get(actor,{kind,id,studentId}){
     const account=this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
-    if(row)return this.project(row,actor);
+    const recordings={};for(const recording of await this.db.read('SELECT part_id,question_index,mime,bytes FROM assessment_recordings WHERE account_id=? AND kind=? AND material_id=?',[account,kind,id]))(recordings[recording.part_id]||={})[recording.question_index]={mime:recording.mime,bytes:recording.bytes};
+    if(row)return {...this.project(row,actor),recordings};
     const legacy=kind==='exam-block'?await this.legacy(account,id):null;
-    return this.project({account_id:account,kind,material_id:id,exam_id:document.examId,revision:0,state:legacy?.saved?'submitted':'draft',answers_json:legacy?.answers_json||'{}',grading_json:JSON.stringify({points:JSON.parse(legacy?.points_json||'{}'),comments:JSON.parse(legacy?.corrections_json||'{}')}),snapshot_json:JSON.stringify(document.parts)},actor);
+    return {...this.project({account_id:account,kind,material_id:id,exam_id:document.examId,revision:0,state:legacy?.saved?'submitted':'draft',answers_json:legacy?.answers_json||'{}',grading_json:JSON.stringify({points:JSON.parse(legacy?.points_json||'{}'),comments:JSON.parse(legacy?.corrections_json||'{}')}),snapshot_json:JSON.stringify(document.parts)},actor),recordings};
+  }
+  async recording(actor,query,request,store){
+    const {kind,id,studentId,part,index,expectedRevision}=query,account=this.account(actor,studentId);
+    const document=await this.document(actor,kind,id,account);await this.ensure();
+    if(kind!=='exam-block'||!Number.isSafeInteger(part)||!Number.isInteger(index)||index<0)fail(400,'Invalid pronunciation recording.');
+    const item=document.parts.find(p=>p.id===part);
+    if(!item||item.quizType!=='Spell'||!item.items?.[index])fail(404,'Pronunciation question not found.');
+    if(request.method!=='POST'){
+      const [file]=await this.db.read('SELECT object_key FROM assessment_recordings WHERE account_id=? AND kind=? AND material_id=? AND part_id=? AND question_index=?',[account,kind,id,part,index]);
+      if(!file)fail(404,'Recording not found.');return store.response(file.object_key,request.method,request.headers.get('range')||'');
+    }
+    if(account!==actor.id)fail(403,'Only the student can record their answer.');
+    const previous=await this.get(actor,{kind,id});if(previous.saved)fail(409,'Submitted recordings cannot be changed.');
+    if(expectedRevision!==previous.revision)fail(409,'Answers changed. Retry the recording.');
+    const bytes=await boundedMediaBytes(request),metadata=await chatFileMetadata(bytes,request.headers.get('content-type')||'');
+    if(!['audio/webm','audio/mp4','audio/ogg','audio/wav','audio/mpeg'].includes(metadata.mime))fail(415,'A valid audio recording is required.');
+    const namespace=[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(account+':'+kind+':'+id)))].map(n=>n.toString(16).padStart(2,'0')).join('');
+    const key='stage-local/recordings/'+namespace+'/'+crypto.randomUUID()+'/'+metadata.sha256;
+    await store.putImmutable(key,bytes,{...metadata,bytes:bytes.length,name:'pronunciation'});
+    await this.db.atomic([s('DROP TABLE IF EXISTS temp.recording_guard'),s('CREATE TEMP TABLE recording_guard(ok INTEGER NOT NULL CHECK(ok=1))'),s("INSERT INTO recording_guard SELECT ?=COALESCE((SELECT revision FROM assessment_work WHERE account_id=? AND kind=? AND material_id=?),0) AND NOT EXISTS(SELECT 1 FROM assessment_work WHERE account_id=? AND kind=? AND material_id=? AND state<>'draft')",[previous.revision,account,kind,id,account,kind,id]),s('INSERT INTO assessment_recordings(account_id,kind,material_id,part_id,question_index,object_key,mime,bytes) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(account_id,kind,material_id,part_id,question_index) DO UPDATE SET object_key=excluded.object_key,mime=excluded.mime,bytes=excluded.bytes',[account,kind,id,part,index,key,metadata.mime,bytes.length])]);
+    return {mime:metadata.mime,bytes:bytes.length};
   }
   async write(actor,body){
     if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Invalid assessment.');
@@ -86,20 +112,26 @@ export class AssessmentService{
     const previous=await this.get(actor,{kind,id,studentId}),row=await this.row(account,kind,id),revision=row?.revision||0;
     if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,'This work changed. Reload before saving.');
     const teaching=account!==actor.id&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
-    const questions=gradingQuestions(parts),answerQuestions=assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
+    const questions=gradingQuestions(parts),answerQuestions=parts.some(part=>part.scoringVersion>=3)?examAnswerQuestions(parts):assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
     if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>1e12)||max>1e14)fail(400,'Invalid maximum points.');
     let state=previous.state,answers=previous.answers,answerText=previous.answerText||{},grading=row?JSON.parse(row.grading_json):{points:previous.points,comments:previous.corrections},snapshot=parts;
     if(['draft','submit'].includes(action)){
       if(teaching)fail(403,'Only the student can submit answers.');
       if(previous.saved){if(action==='submit'&&JSON.stringify(body.answers||{})===JSON.stringify(answers))return previous;fail(409,'This material has already been submitted.');}
-      answers=body.answers||{};
+      const previousAnswers=answers;answers=body.answers||{};
       if(!answers||typeof answers!=='object'||Array.isArray(answers)||JSON.stringify(answers).length>50000)fail(400,'Invalid answers.');
       const keys=new Set(answerQuestions.map(q=>q.part.id+':'+q.index));
       for(const [part,items] of Object.entries(answers)){
         if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer.');
         for(const [index,value] of Object.entries(items))if(!keys.has(part+':'+index)||!(typeof value==='string'||typeof value==='number'||Array.isArray(value)&&value.every(Number.isSafeInteger)))fail(400,'Invalid answer.');
       }
-      state=action==='submit'?'submitted':'draft';grading={};snapshot=parts;
+      const suggestedPoints={};
+      for(const part of parts.filter(part=>part.scoringVersion>=3&&part.quizType==='Memory')){
+        const value=answers[part.id]?.[0]??(previousAnswers[part.id]?.[0]?undefined:{turns:[]});
+        let result;try{result=memoryScore(part,value,previousAnswers[part.id]?.[0]);}catch(error){fail(400,error.message);}
+        suggestedPoints[part.id]={0:result.points};
+      }
+      state=action==='submit'?'submitted':'draft';grading={suggestedPoints};snapshot=parts;
       answerText=body.answerText||answerText;
       if(!answerText||typeof answerText!=='object'||Array.isArray(answerText)||JSON.stringify(answerText).length>50000)fail(400,'Invalid answer formatting.');
       for(const [part,items] of Object.entries(answerText)){if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer formatting.');for(const [index,format] of Object.entries(items)){
@@ -117,7 +149,9 @@ export class AssessmentService{
       }else{
         if(!previous.saved)fail(409,'Wait for the student to submit.');
         if(previous.state==='published')fail(409,'Reopen the review before changing published grades.');
-        grading={points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{},reviewText:body.reviewText||{},commentFormatting:body.commentFormatting||{}};
+        grading={suggestedPoints:grading.suggestedPoints||{},points:body.points||{},comments:body.corrections||{},errors:body.errors||{},criteriaPoints:body.criteriaPoints||{},reviewText:body.reviewText||{},commentFormatting:body.commentFormatting||{}};
+        if(!grading.points||typeof grading.points!=='object'||Array.isArray(grading.points))fail(400,'Invalid review.');
+        for(const q of questions)if(q.part.quizType==='Memory'&&q.part.scoringVersion>=3&&grading.suggestedPoints[q.part.id]?.[0]!=null&&grading.points[q.part.id]?.[0]==null)(grading.points[q.part.id]||={})[0]=grading.suggestedPoints[q.part.id][0];
         if(!grading.commentFormatting||typeof grading.commentFormatting!=='object'||Array.isArray(grading.commentFormatting))fail(400,'Invalid feedback formatting.');
         for(const [part,items] of Object.entries(grading.commentFormatting)){if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid feedback formatting.');for(const [index,format] of Object.entries(items)){reviewDocument(format);if(format.runs.map(run=>run.text).join('')!==grading.comments[part]?.[index])fail(400,'Feedback formatting does not match the text.');}}
         if(JSON.stringify(grading).length>90000)fail(413,'Review is too large.');
@@ -136,7 +170,7 @@ export class AssessmentService{
           if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid reviewed text.');
           for(const [index,value] of Object.entries(items)){
             const q=answerQuestions.find(q=>q.part.id+':'+q.index===part+':'+index);
-            const text=q&&(q.part.type==='task'||q.part.type==='exercise'&&q.item.kind==='write'||q.part.type==='quiz'&&!['Choice','Odd one out','Select all','True / false','Match','Memory'].includes(q.part.quizType||'Choice'));
+            const text=q&&(['task','text','cards','vocab'].includes(q.part.type)||q.part.type==='exercise'&&q.item.kind==='write'||q.part.type==='quiz'&&!['Choice','Odd one out','Select all','True / false','Match','Memory'].includes(q.part.quizType||'Choice'));
             if(!answerKeys.has(part+':'+index)||!text)fail(400,'Only text answers can be edited.');
             reviewDocument(value);
           }

@@ -149,6 +149,14 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const service=new ExamService(studyDatabase(env));
         return json(method==='GET'?{work:await service.listWork(actor,value.studentId)}:await service.saveWork(actor,value));
       }
+      if(path==='/api/assessment/recording'&&['GET','HEAD','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(method==='POST'&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        const query={kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id')),part:Number(url.searchParams.get('part')),index:Number(url.searchParams.get('index')),studentId:url.searchParams.get('student')||'',expectedRevision:Number(url.searchParams.get('expectedRevision'))};
+        if(query.studentId&&query.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,query.studentId);if(found.error)return found.error;}
+        const value=await new AssessmentService(studyDatabase(env)).recording(actor,query,request,stageR2Media(env));
+        return value instanceof Response?value:json(value);
+      }
       if(path==='/api/assessment'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         let value;if(method==='GET')value={kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id')),studentId:url.searchParams.get('student')||'',history:url.searchParams.get('history')==='1'};
