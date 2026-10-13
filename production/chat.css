@@ -10,7 +10,7 @@ body.chat-active{overflow:hidden}
 #messages h2,.chat-dialog h2{font-size:20px;font-weight:600;margin:0;line-height:1.3;letter-spacing:0}
 #messages p{font-size:14px;line-height:1.45;margin:0;letter-spacing:0}
 #messages svg,.chat-dialog svg{width:22px;height:22px;stroke-width:1.7;flex-shrink:0}
-.chat-shell{display:flex;height:100%;min-height:0;border:1px solid var(--chat-line);border-bottom:0;background:transparent;overflow:hidden}
+.chat-shell{display:flex;height:100%;min-height:0;border:0;background:transparent;overflow:hidden}
 .chat-rail{width:80px;flex:0 0 80px;display:flex;flex-direction:column;align-items:center;background:var(--bg);padding:4px 6px 12px;gap:10px}
 #messages .chat-avatar,.chat-dialog .chat-avatar{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:var(--acc);color:var(--on-acc,var(--card));font-size:18px;font-weight:500;flex-shrink:0}
 #messages .chat-rail-item{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;padding:13px 0;border-radius:8px;color:var(--mute);font-size:12px}
@@ -21,8 +21,9 @@ body.chat-active{overflow:hidden}
 #messages .chat-icon.primary,.chat-dialog .primary{background:var(--acc);color:var(--on-acc,var(--card));border-radius:8px}
 #messages .danger,.chat-dialog .danger{color:var(--bad)}
 .chat-list{width:400px;flex:0 0 400px;display:flex;flex-direction:column;border-right:1px solid var(--chat-line);min-width:0;background:var(--card)}
-.chat-panel-head{height:60px;flex:0 0 60px;display:flex;align-items:center;gap:6px;padding:0 14px;border-bottom:1px solid var(--chat-line);background:var(--card);min-width:0}
+.chat-panel-head{height:60px;flex:0 0 60px;display:flex;align-items:center;gap:6px;padding:0 14px;border-bottom:1px solid var(--chat-line);background:transparent;backdrop-filter:none;min-width:0}
 .chat-panel-head h2{flex:1;min-width:0}
+#messages .chat-room-head{border-bottom:0}
 .chat-search{display:flex;align-items:center;gap:8px;background:var(--acc-s);border-radius:8px;padding:10px 12px;margin:12px;color:var(--mute);min-width:0}
 #messages .chat-search input{flex:1;width:100%;line-height:24px;padding:0}
 .chat-categories{display:flex;border-bottom:1px solid var(--chat-line)}
@@ -39,13 +40,14 @@ body.chat-active{overflow:hidden}
 .chat-room-preview{color:var(--mute);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .chat-counter{float:right;background:var(--acc);color:var(--on-acc,var(--card));border-radius:12px;padding:1px 6px;font-size:12px;margin-left:5px}
 .chat-empty{color:var(--mute);padding:24px;text-align:center}
-.chat-center{position:relative;flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:transparent}
+.chat-center{position:relative;flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:transparent;overflow:hidden}
+.chat-center> :not(.chat-timeline){flex-shrink:0}
 #messages .chat-room-heading{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left}
 .chat-room-heading>span:last-child{min-width:0}
 .chat-room-heading strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .chat-room-heading small{display:block;color:var(--mute);font-size:12px;margin-top:3px}
 .chat-status{padding:8px 12px;background:var(--bad-s);color:var(--ink);border-bottom:1px solid var(--line)}
-.chat-timeline{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 20px;overscroll-behavior:contain;overflow-anchor:none}
+.chat-timeline{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 20px 24px;overscroll-behavior:contain;overflow-anchor:none;contain:paint;scroll-padding-bottom:24px}
 #messages .msg-message{width:fit-content;max-width:85%;min-width:110px;margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--card);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 8%,transparent);overflow-wrap:anywhere;position:relative}
 #messages .msg-message.is-own{margin-left:auto;background:var(--acc-s)}
 #messages .msg-message.is-learning{border-left:3px solid var(--acc)}
@@ -80,7 +82,8 @@ body.chat-active{overflow:hidden}
 #messages .chat-emoji-picker button{width:36px;height:36px;font-size:24px}
 #messages .chat-emoji-picker button:hover{background:var(--acc-s);border-radius:4px}
 #messages .text-color-input{display:flex;flex-direction:column;min-height:0;position:relative}
-#messages .text-color-tools{position:absolute;bottom:-36px;left:108px;display:flex;padding:6px 0;z-index:1;margin:0}
+#messages .text-color-tools{position:static;display:flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;padding:0;z-index:1;margin:0}
+#messages .text-color-tools .color-picker-button{width:36px;height:36px;min-width:36px;min-height:36px;flex:0 0 36px;padding:7px!important;border:0;background:transparent}
 #messages .text-color-tools input[type=color]{width:22px;height:22px;border:0;padding:0;background:none;cursor:pointer}
 #messages .text-color-rich{border:0;min-height:58px;max-height:130px;overflow:auto;padding:12px 2px;background:var(--card);color:var(--ink);font:16px Manrope,system-ui,sans-serif;white-space:pre-wrap;outline:0;border-radius:0}
 .chat-info{width:400px;flex:0 0 400px;border-left:1px solid var(--chat-line);display:flex;flex-direction:column;min-height:0;background:var(--card)}
@@ -210,12 +213,32 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-reactions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
 #messages .chat-reactions button{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:13px;background:var(--card)}
 #messages .chat-reactions button[aria-pressed=true]{border-color:var(--acc);background:var(--acc-s)}
+.chat-list.is-compact{min-width:80px!important;background:color-mix(in srgb,var(--card) 82%,transparent)}
+.chat-list.is-compact .chat-panel-head h2,.chat-list.is-compact .chat-panel-head button:not(#msgHideList),.chat-list.is-compact .chat-search,.chat-list.is-compact .chat-categories,.chat-list.is-compact .chat-room-copy,.chat-list.is-compact .chat-contact>span:not(.chat-avatar){display:none}
+.chat-list.is-compact .chat-panel-head{justify-content:center;padding:0 6px}
+.chat-list.is-compact .chat-panel-head #msgHideList{display:inline-flex}
+.chat-list.is-compact .msg-room,.chat-list.is-compact .chat-contact{justify-content:center;padding:12px 4px}
+.chat-list.is-compact .chat-avatar{width:46px;height:46px}
 #messages .chat-study-reference{margin:6px 0;padding:8px;border-left:2px solid var(--acc);background:var(--card);font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto}
 .chat-dialog .chat-forward-summary{max-height:200px;overflow:auto}
 .chat-dialog .chat-forward-summary p{white-space:pre-wrap;font-size:13px}
 .chat-blocked-user{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 #messages .chat-emoji-picker{width:min(340px,calc(100vw - 78px));max-height:320px}
 .chat-emoji-tabs{overflow-x:auto;scrollbar-width:none}
+#messages .msg-message.is-emoji-only{background:transparent;box-shadow:none;border-left:0}
+#messages .emoji-big-wrap{display:flex;flex-wrap:wrap;gap:4px;max-width:220px;line-height:1.2}
+#messages .emoji-big{display:inline-block;font-size:32px;line-height:1.2;cursor:pointer;transform-origin:bottom center;transition:transform .15s ease;font-family:'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif}
+#messages .emoji-count-1 .emoji-big{font-size:64px}
+#messages .emoji-count-2 .emoji-big{font-size:52px}
+#messages .emoji-count-3 .emoji-big{font-size:44px}
+#messages .emoji-big:hover{transform:scale(1.1)}
+@keyframes chatEmojiAppear{0%{opacity:0;transform:scale(.3)}60%{opacity:1;transform:scale(1.2)}100%{opacity:1;transform:scale(1)}}
+@keyframes chatEmojiAppearMany{0%{opacity:0;transform:scale(.5)}100%{opacity:1;transform:scale(1)}}
+@keyframes chatEmojiBounce{0%,100%{transform:scale(1)}35%{transform:scale(1.3)}65%{transform:scale(.9)}}
+#messages .emoji-big.appear{animation:chatEmojiAppear .4s ease both}
+#messages .emoji-count-many .emoji-big.appear{animation-name:chatEmojiAppearMany;animation-duration:.3s}
+#messages .emoji-big.bounce{animation:chatEmojiBounce .4s ease}
+@media(prefers-reduced-motion:reduce){#messages .emoji-big{transition:none}#messages .emoji-big.appear,#messages .emoji-big.bounce{animation:none}#messages .emoji-big:hover{transform:none}}
 #messages .chat-emoji-tabs button{flex:0 0 32px;width:32px}
 #messages .chat-emoji-tabs svg{width:19px;height:19px}
 .chat-emoji-search{display:block;padding:4px 6px;margin-bottom:6px;background:var(--acc-s);border-radius:6px}
