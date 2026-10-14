@@ -256,7 +256,7 @@ try{
     if(path==='/api/groups')data={groups:accountGroups};
     else if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'A1 Fixture exam',groupId:71,published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
     else if(path==='/api/groups/members')data={members:[{accountId:student.id,groupId:71}]};
-    else if(path==='/api/groups/manage'){const body=route.request().postDataJSON();createdTitle=body.title;accountGroups.push({id:73,title:body.title,revision:1,lessonIds:[],examIds:[]});data={groups:accountGroups};}
+    else if(path==='/api/groups/manage'){const body=route.request().postDataJSON();createdTitle=body.title;accountGroups.push({id:71+accountGroups.length,title:body.title,revision:1,lessonIds:[],examIds:[]});data={groups:accountGroups};}
     else if(path==='/api/admin/users')data={users:[student]};
     else if(path==='/api/admin/registrations')data={registrations:[]};
     else if(path==='/api/admin/changes')data={changes:[]};
@@ -278,12 +278,14 @@ try{
   await page.locator('#admingroup [data-nav-back]').click();await page.locator('#admingrouplevel.on').waitFor();
   await page.screenshot({path:'/private/tmp/account-group-level.png'});
   await page.evaluate(async()=>{await groupPull(true);window.enquizVisit('groups');});
-  assert.equal(await page.locator('#groups .page-path').isVisible(),false);assert.equal(await page.locator('#groups input[type=search],#groups #groupNew,#groups .sub').count(),0);
+  assert.equal(await page.locator('#groups .page-path').isVisible(),false);assert.equal(await page.locator('#groups input[type=search]:visible,#groups #groupNew:visible').count(),0);assert.match(await page.locator('#groupOverview').innerText(),/groups · \d+ students · \d+ lessons/);
   await page.locator('#groupList [data-group-level="A1"]').click();assert.equal(await page.locator('#groupList [data-group-open]').count(),2);
   assert.equal(await page.locator('#groups .meta h1').innerText(),'A1');assert.deepEqual(await page.locator('#groups .page-path button').allTextContents(),['Groups','A1']);
   assert.equal(await page.locator('#groupList [data-group-level]').count(),0);
   await page.locator('#groups .page-path [data-path-level=""]').click();await page.locator('#groupList [data-group-level="A1"]').click();
   assert.match(await page.locator('#groupList').innerText(),/A1 Open/);
+  await page.locator('#groupSearch').fill('Practice');assert.equal(await page.locator('#groupList [data-group-open]').count(),1);await page.locator('#groupSearch').fill('');assert.equal(await page.locator('#groupList [data-group-open]').count(),2);assert.equal(await page.locator('#groupNew').isVisible(),true);
+  await page.locator('#groupNew').click();await page.locator('#itemEditPop [name=title]').fill('A1 UI group');await page.locator('#itemEditPop [name=date]').fill('2026-10-15');await page.locator('#itemEditPop [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#groupList')?.textContent.includes('A1 UI group'));assert.equal(createdTitle,'A1 UI group');assert.equal(await page.locator('#groupList [data-group-open]').count(),3);
   await page.evaluate(()=>{classGroupId=71;lmState={...lmBlankMaterial(),id:1,title:'New lesson',mode:'preview',tab:'overview'};paintPagePath('material');});
   assert.deepEqual(await page.locator('#material .page-path button').allTextContents(),['Groups','A1','A1 Open','New lesson']);
   await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});

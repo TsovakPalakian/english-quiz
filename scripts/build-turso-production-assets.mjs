@@ -46,6 +46,7 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categor
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 html=html.replace(/<section id="groups">[\s\S]*?<\/section>/,section=>section.replace('<p class="sub">In date order.</p>','').replace('<button class="btn primary" type="button" id="groupNew">+ New group</button>',''));
+html=html.replace('<div id="groupList"></div>','<p class="sub" id="groupOverview"></p><div class="row" id="groupControls" hidden><input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups"><button class="btn primary" type="button" id="groupNew"><i data-lucide="plus"></i>Add subgroup</button></div><div id="groupList"></div>');
 html=html.replace('<section id="admingroup">','<section id="admingrouplevel"><div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="admin">Back</button><h1 id="adminLevelTitle">Groups</h1></div><div id="adminLevelBody"></div></section>\n<section id="admingroup">');
 const everydayAnchor='      <h2 class="lib-h">Words</h2>\n      <div class="decks">';
 assert.equal(html.split(everydayAnchor).length,2);

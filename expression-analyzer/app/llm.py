@@ -57,11 +57,13 @@ def valid_item(row):
 
 
 def classify(candidates):
+    if not candidates:
+        return {"status": "ok", "items": []}
+    originals = {item["exactText"].lower(): item for item in candidates}
     prompt = {
         "task": (
-            "You help an English learner. Keep a candidate only if the learner can reuse the pattern in new sentences. "
-            "Prefer reusable patterns such as 'look forward to + V-ing' over ordinary combinations such as 'open the door'. "
-            "Use the sentence to choose the meaning. Do not invent a second expression for each grammatical form. Return JSON only."
+            "Judge each English expression in context. Keep reusable expressions, not ordinary word combinations. "
+            "Copy exactText unchanged. Give a concise English meaning (at most eight words) and confidence from 0 to 1."
         ),
         "items": [
             {
@@ -72,31 +74,35 @@ def classify(candidates):
             }
             for item in candidates
         ],
-        "schema": {
-            "items": [
-                {
-                    "isExpression": True,
-                    "type": "PHRASAL_VERB",
-                    "exactText": "",
-                    "canonicalForm": "",
-                    "meaning": "",
-                    "usefulnessScore": 0.0,
-                    "idiomaticityScore": 0.0,
-                    "reusabilityScore": 0.0,
-                    "confidence": 0.0,
-                }
-            ]
-        },
+    }
+    schema = {
+        "type": "object",
+        "properties": {"items": {
+            "type": "array", "minItems": len(candidates), "maxItems": len(candidates),
+            "items": {
+                "type": "object",
+                "properties": {
+                    "exactText": {"type": "string", "enum": [item["exactText"] for item in candidates]},
+                    "isExpression": {"type": "boolean"},
+                    "meaning": {"type": "string", "maxLength": 100},
+                    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                },
+                "required": ["exactText", "isExpression", "meaning", "confidence"],
+                "additionalProperties": False,
+            },
+        }},
+        "required": ["items"],
+        "additionalProperties": False,
     }
     url = settings.llm_base_url + "/api/chat"
     body = {
         "model": settings.llm_model,
         "stream": False,
-        "format": "json",
+        "format": schema,
         "keep_alive": "30m",
-        "options": {"temperature": 0, "num_predict": 512, "num_ctx": 4096, "num_thread": 1},
+        "options": {"temperature": 0, "num_predict": 220, "num_ctx": 2048, "num_thread": 1},
         "messages": [
-            {"role": "system", "content": "You return a JSON object with an items array. Judge learning value, not just whether the English is grammatical. No prose."},
+            {"role": "system", "content": "Return JSON with an items array, one judgment per candidate. No prose."},
             {"role": "user", "content": json.dumps(prompt)},
         ],
     }
@@ -118,13 +124,22 @@ def classify(candidates):
             print("llm response discarded: items array missing")
             return {"status": "invalid", "items": []}
         items = []
+        seen = set()
         for row in rows[:500]:
+            if not isinstance(row, dict) or not isinstance(row.get("exactText"), str):
+                continue
+            exact = row["exactText"].lower()
+            original = originals.get(exact)
+            if not original or exact in seen:
+                continue
+            row = {"type": original["type"], "canonicalForm": original["canonicalForm"], **row}
             clean = valid_item(row)
             if clean:
                 items.append(clean)
+                seen.add(exact)
             else:
                 print("llm item discarded")
-        return {"status": "ok", "items": items}
+        return {"status": "ok" if seen == set(originals) else "invalid", "items": items}
     except Exception as error:
         print("llm unavailable: %s" % type(error).__name__)
         return {"status": "unavailable", "items": []}

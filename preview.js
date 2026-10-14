@@ -12494,7 +12494,7 @@
           date: group.date || lmToday(),
           hidden: !!group.hidden,
           personalHidden: !!group.personalHidden,
-          revision: group.revision, examIds: group.examIds || [],
+          revision: group.revision, studentCount: Number(group.studentCount)||0, examIds: group.examIds || [],
           lessonIds: Array.isArray(group.lessonIds) ? group.lessonIds.slice() : []
         })) : [];
         classGroupsReady = true;
@@ -12524,13 +12524,14 @@
         }).catch(() => {});
     }
     let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
+    document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
     function levelButtons(rows,attribute) {
       const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
-      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>'<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+rows.filter(row=>accountGroupLevel(row)===level).length+' groups</span></button>').join('')+'</div>';
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),count=groups.length,extra=attribute==='data-group-level'?' · '+groups.reduce((sum,g)=>sum+(g.studentCount||0),0)+' students · '+groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)+' lessons':'';return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+count+' '+(count===1?'group':'groups')+extra+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
       const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
-      if(group){pushHistory();groupViewLevel=group.dataset.groupLevel;paintGroups();rememberPlace();}
+      if(group){pushHistory();groupViewLevel=group.dataset.groupLevel;const search=document.getElementById('groupSearch');if(search)search.value='';paintGroups();rememberPlace();}
       if(level){pushHistory();examViewLevel=level.dataset.examLevel;examViewGroup=null;examPaintList();rememberPlace();}
       if(subgroup){pushHistory();examViewGroup=subgroup.dataset.examGroupView;examPaintList();rememberPlace();}
     });
@@ -12545,8 +12546,12 @@
       document.querySelector('#groups .meta h1').textContent=groupViewLevel?(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel):'Groups';
       paintPagePath('groups');
       const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+      const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
+      const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
+      const overview=document.getElementById('groupOverview');if(overview)overview.textContent=levelRows.length+' '+(levelRows.length===1?'group':'groups')+' · '+levelRows.reduce((sum,g)=>sum+(g.studentCount||0),0)+' students · '+levelRows.reduce((sum,g)=>sum+g.lessonIds.length,0)+' lessons';
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
-      const rows=allRows.filter(group=>accountGroupLevel(group)===groupViewLevel);
+      const query=document.getElementById('groupSearch')?.value.trim().toLocaleLowerCase()||'';
+      const rows=levelRows.filter(group=>group.title.toLocaleLowerCase().includes(query));
       box.innerHTML = rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
@@ -12572,11 +12577,8 @@
       if (!canEditLessons()) return;
       openItemEditor(document.getElementById("groupNew"), { title: (adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' Group', date: lmToday(), label: "Group name" }, (value) => {
         if(accountGroupLevel({title:value.title})==='unassigned')value.title=(adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' '+value.title;
-        const group = { id: groupId(), title: value.title, date: value.date, hidden: false, lessonIds: [] };
-        classGroups.push(group);
-        classGroupId = group.id;
-        paintGroups();
-        groupSave();
+        const actor=authUser?.id,generation=viewGen;
+        accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify({action:'create',title:value.title,date:value.date})}).then(()=>{if(actor===authUser?.id&&generation===viewGen){const search=document.getElementById('groupSearch');if(search)search.value='';return groupPull(true);}}).catch(error=>{if(actor===authUser?.id&&generation===viewGen)window.TursoMain?.notice(error.message,true);});
       });
     }
     function groupEdit(id, button) {

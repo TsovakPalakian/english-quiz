@@ -262,8 +262,10 @@ test('Accounts groups seed levels once, assign students and exams, reject stale 
     const first=await service.list(teacher);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'].map(level=>level+' Group'));
     assert.equal((await service.list(teacher)).length,9);
     await assert.rejects(service.manage(student,{action:'create',title:'Denied'}),e=>e.status===403);
-    const created=await service.manage(teacher,{action:'create',title:'Practice group'}),group=created.groups.find(g=>g.title==='Practice group');
+    const created=await service.manage(teacher,{action:'create',title:'Practice group',date:'2026-10-15'}),group=created.groups.find(g=>g.title==='Practice group');
+    assert.equal(group.date,'2026-10-15');assert.equal(group.studentCount,0);
     await service.assignStudent(teacher,student.id,group.id);assert.deepEqual((await service.members(teacher)).map(row=>({...row})),[{accountId:'student',groupId:group.id}]);
+    assert.equal((await service.list(teacher)).find(row=>row.id===group.id).studentCount,1);
     let current=await service.activeGroup(group.id);
     await assert.rejects(service.manage(teacher,{action:'archive',id:group.id,expectedRevision:current.revision}),e=>e.status===409);
     await service.assignStudent(teacher,student.id,null);

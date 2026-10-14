@@ -88,12 +88,13 @@ export class GroupService{
         AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
     const hidden=await materialVisibility(this.db,actor.id);
+    const studentCounts=await this.db.read('SELECT group_id,COUNT(*) AS total FROM class_group_students GROUP BY group_id');
     const exams=await this.db.read('SELECT group_id,exam_id FROM class_group_exams');
     if((!teacher||actor.managedStudent)&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length){
       const copies=await this.db.read("SELECT exam_id,source_exam_id,status FROM exam_instances WHERE account_id=? AND active=1",[actor.id]);
       for(let index=exams.length-1;index>=0;index--){const link=exams[index],own=copies.filter(copy=>copy.source_exam_id===link.exam_id);if(own.length)exams.splice(index,1,...own.filter(copy=>copy.status!=='completed').map(copy=>({...link,exam_id:copy.exam_id})));}
     }
-    return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,
+    return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,studentCount:Number(studentCounts.find(row=>row.group_id===group.id)?.total||0),
       lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id)}));
   }
   async members(actor){
@@ -126,10 +127,12 @@ export class GroupService{
   }
   async manage(actor,body){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
-    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(key=>!['action','id','expectedRevision','title','examId'].includes(key)))fail(400,'Invalid group request.');
+    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(key=>!['action','id','expectedRevision','title','examId','date'].includes(key)))fail(400,'Invalid group request.');
     if(body.action==='create'){
       if(typeof body.title!=='string'||!body.title.trim()||body.title.length>120)fail(400,'Enter a group name.');
-      await this.db.atomic([stmt("INSERT INTO class_groups(title,lesson_date,position) VALUES(?,date('now'),(SELECT COALESCE(MAX(position)+1,0) FROM class_groups))",[normalizedGroupTitle(body.title)])]);
+      const date=body.date??new Date().toISOString().slice(0,10);
+      if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))fail(400,'Enter a valid group date.');
+      await this.db.atomic([stmt("INSERT INTO class_groups(title,lesson_date,position) VALUES(?,?,(SELECT COALESCE(MAX(position)+1,0) FROM class_groups))",[normalizedGroupTitle(body.title),date])]);
     }else{
       const group=await this.activeGroup(body.id);
       if(body.expectedRevision!==group.revision)fail(409,'The group changed. Reload Accounts.');

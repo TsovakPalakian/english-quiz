@@ -23,3 +23,6 @@
 #registerForm .signup-field-error[hidden]{display:none}
 #homeDemo.guest-progress .overview>div{opacity:.45}
 #adminBody select[data-registration-group]{width:220px;max-width:100%;min-width:0;flex:0 1 220px;min-height:36px;padding:6px 12px;margin:0}
+#groupControls{gap:12px;margin-bottom:16px;flex-wrap:wrap}
+#groupControls[hidden]{display:none}
+#groupSearch{width:320px;max-width:100%;min-width:0;flex:1 1 200px}
