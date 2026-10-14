@@ -200,8 +200,7 @@ function canReview(user) {
 }
 
 function signupRole(body) {
-  // Registration is always a student request. Teacher promotion is a separate admin action.
-  return "USER";
+  return body.role === 'ADMIN' ? 'ADMIN' : 'USER';
 }
 
 function cookieHeader(token, secure) {
@@ -1847,11 +1846,18 @@ async function login(env, request, body, secure) {
   const row = await db.prepare(
     "SELECT * FROM users WHERE is_personal_data_revoked = 0 AND (login = ? OR email = ?)"
   ).bind(key, key.toLowerCase()).first();
+  if (!row) {
+    const pending = await db.prepare("SELECT * FROM registrations WHERE status='pending' AND (login=? OR email=?)").bind(key,key.toLowerCase()).first();
+    if(pending&&timingSafeEqual(await pbkdf2(password,pending.password_salt),pending.password_hash)){
+      await clearLoginFailures(env,ip);
+      return json({error:'Your account is awaiting approval.'},403);
+    }
+  }
   if (!row || !timingSafeEqual(await pbkdf2(password, row.password_salt), row.password_hash)) {
     if (!(await noteLoginFailure(env, ip))) {
       return json({ error: "Sign-in is temporarily unavailable. Please try again shortly." }, 503);
     }
-    // Same body for pending / deleted / wrong — avoid account-existence oracle.
+    // Pending status is disclosed only after checking the applicant's password.
     return json({ error: "Wrong login or password." }, 401);
   }
   if (row.active === 0) return json({ error: "This account is deactivated." }, 403);
@@ -3738,6 +3744,7 @@ async function decide(env, actor, regId, action) {
   const directory = await readDirectory(env);
   const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
   if (!visible.length) return json({ error: "No such account." }, 404);
+  if(action==='approve'&&reg.role==='ADMIN'&&actor.role!=='DEVELOPER')return json({error:'Only a developer can approve a teacher account.'},403);
   const decided = now();
   if (action === "reject") {
     await db.prepare("UPDATE registrations SET status = 'rejected', decided_at = ? WHERE id = ? AND status = 'pending'").bind(decided, regId).run();
@@ -3752,8 +3759,7 @@ async function decide(env, actor, regId, action) {
   ).bind(reg.email).first();
   if (taken) return json({ error: "That email is already in use." }, 409);
   const userId = randomId();
-  // Approvals always create students. Promoting to teacher is a separate developer action.
-  const role = "USER";
+  const role = reg.role === 'ADMIN' ? 'ADMIN' : 'USER';
   try {
     await provisionSignupUsername(env,'activate',reg.login,regId,userId);
     await db.batch([
@@ -3771,7 +3777,7 @@ async function decide(env, actor, regId, action) {
   }
   await rememberUser(env, { id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });
   await rememberRegistration(env, { id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "approved", role: role, user_id: userId, created_at: reg.created_at, decided_at: decided });
-  return json({ ok: true, userId });
+  return json({ ok: true, userId, role });
 }
 
 function tidyQuery(word) {

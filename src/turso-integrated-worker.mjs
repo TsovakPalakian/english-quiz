@@ -422,16 +422,19 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
           const body=await request.clone().json();
           if(body.groupId!=null){
-            if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
             approvalActor=await identify(accountEnv,request);if(!approvalActor||!['ADMIN','DEVELOPER'].includes(approvalActor.role))throw new StudyError(403,'Teachers only.');
-            await new GroupService(studyDatabase(env)).activeGroup(body.groupId);approvalGroup=body.groupId;
+            const pending=await accountEnv.DB.prepare('SELECT role FROM registrations WHERE id=?').bind(path.split('/')[4]).first();
+            if(pending?.role!=='ADMIN'){
+              if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+              await new GroupService(studyDatabase(env)).activeGroup(body.groupId);approvalGroup=body.groupId;
+            }
           }
         }
         let response=await accountWorker.fetch(request,accountEnv,ctx);
         if(response.ok&&approvalGroup!=null){
           const result=await response.clone().json();
           if(!result.userId)throw new StudyError(500,'Account approved. Assign its group in Accounts.');
-          try{await new GroupService(studyDatabase(env)).assignStudent(approvalActor,result.userId,approvalGroup);}
+          try{if(result.role==='USER')await new GroupService(studyDatabase(env)).assignStudent(approvalActor,result.userId,approvalGroup);}
           catch{throw new StudyError(503,'Account approved, but its group could not be saved. Assign the group in Accounts.');}
         }
         // Only a trusted authentication response may attach the reserved pair.

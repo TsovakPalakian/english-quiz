@@ -61,6 +61,23 @@ test('Signup rejects spaces and non-Latin symbols and assigns @login after teach
     assert.equal(names.get('username-owner:@123_student'),approved.value.userId);
   }finally{f.close();}
 });
+test('Pending teacher login checks the password and only a developer can approve the requested role',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';const applicant=f.client(),dev=f.client();
+    const registration=await applicant.call('/api/register','POST',{login:'New_Teacher',email:'teacher@example.invalid',password,role:'ADMIN'});assert.equal(registration.status,200);
+    const reg=f.sqlite.prepare("SELECT id,role FROM registrations WHERE login='New_Teacher'").get();assert.equal(reg.role,'ADMIN');
+    const pending=await applicant.call('/api/login','POST',{login:'New_Teacher',password});assert.equal(pending.status,403);assert.equal(pending.value.error,'Your account is awaiting approval.');
+    const wrong=await applicant.call('/api/login','POST',{login:'teacher@example.invalid',password:'wrong'});assert.equal(wrong.status,401);assert.equal(wrong.value.error,'Wrong login or password.');
+    assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
+    const approved=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{groupId:999});assert.equal(approved.status,200);assert.equal(approved.value.role,'ADMIN');
+    assert.equal(f.sqlite.prepare('SELECT role FROM users WHERE id=?').get(approved.value.userId).role,'ADMIN');
+    const teacher=f.client();assert.equal((await teacher.call('/api/login','POST',{login:'New_Teacher',password})).status,200);
+    const next=await applicant.call('/api/register','POST',{login:'Another_Teacher',email:'another_teacher@example.invalid',password,role:'ADMIN'});assert.equal(next.status,200);
+    const nextId=f.sqlite.prepare("SELECT id FROM registrations WHERE login='Another_Teacher'").get().id;
+    assert.equal((await teacher.call('/api/admin/registrations/'+nextId+'/approve','POST',{})).status,403);
+    assert.equal(f.sqlite.prepare('SELECT status FROM registrations WHERE id=?').get(nextId).status,'pending');
+  }finally{f.close();}
+});
 test('Registration is not blocked by failed logins and retains its separate flood limit',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';

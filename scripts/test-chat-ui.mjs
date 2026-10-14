@@ -264,8 +264,14 @@ try{
   await page.locator('#admingroup [data-nav-back]').click();await page.locator('#admingrouplevel.on').waitFor();
   await page.screenshot({path:'/private/tmp/account-group-level.png'});
   await page.evaluate(async()=>{await groupPull(true);window.enquizVisit('groups');});
+  assert.equal(await page.locator('#groups .page-path').isVisible(),false);assert.equal(await page.locator('#groups input[type=search],#groups #groupNew,#groups .sub').count(),0);
   await page.locator('#groupList [data-group-level="A1"]').click();assert.equal(await page.locator('#groupList [data-group-open]').count(),2);
+  assert.equal(await page.locator('#groups .meta h1').innerText(),'A1');assert.deepEqual(await page.locator('#groups .page-path button').allTextContents(),['Groups','A1']);
+  assert.equal(await page.locator('#groupList [data-group-level]').count(),0);
+  await page.locator('#groups .page-path [data-path-level=""]').click();await page.locator('#groupList [data-group-level="A1"]').click();
   assert.match(await page.locator('#groupList').innerText(),/A1 Open/);
+  await page.evaluate(()=>{classGroupId=71;lmState={...lmBlankMaterial(),id:1,title:'New lesson',mode:'preview',tab:'overview'};paintPagePath('material');});
+  assert.deepEqual(await page.locator('#material .page-path button').allTextContents(),['Groups','A1','A1 Open','New lesson']);
   await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});
   assert.ok(await page.locator('#examList [data-exam-level="A1"]').count(),JSON.stringify(await page.evaluate(()=>({html:document.querySelector('#examList').innerHTML,groups:classGroups,exams:examLoad(),auth:authUser?.role})))+' '+errors.join(';'));
   await page.locator('#examList [data-exam-level="A1"]').click();await page.locator('#examList [data-exam-group-view="71"]').click();
@@ -279,10 +285,12 @@ try{
   assert.equal(await page.locator('#admingroup').isVisible(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-auth-on')),null);
   await page.waitForFunction(()=>[...document.querySelectorAll('[data-msg-open]')].every(button=>button.hidden));
   assert.equal(await page.locator('#home [data-stat]:not([disabled])').count(),0);
+  assert.deepEqual(await page.locator('#homeDemo .overview>div').evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).opacity)),['0.45','0.45']);
   await page.locator('#home [data-stat="weak"]').evaluate(button=>button.click());assert.equal(await page.locator('#home.on').count(),1);
   await page.evaluate(()=>window.enquizVisit('profile'));assert.equal(await page.locator('#profile [data-msg-open]:visible').count(),0);
   await page.evaluate(()=>{window.enquizVisit('account');paintAccountForm(true);});
-  const signupLogin=page.locator('#registerForm [name=login]');await signupLogin.fill('alex smith');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),false);await signupLogin.fill('123_alex');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),true);
+  const signupLogin=page.locator('#registerForm [name=login]');await signupLogin.fill('alex smith');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),false);assert.equal(await signupLogin.getAttribute('aria-invalid'),'true');assert.equal(await page.locator('#signup-login-error').isVisible(),true);await signupLogin.fill('123_alex');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),true);assert.equal(await page.locator('#signup-login-error').isVisible(),false);
+  const signupEmail=page.locator('#registerForm [name=email]');await signupEmail.fill('bad@address');assert.equal(await signupEmail.getAttribute('aria-invalid'),'true');await signupEmail.fill('valid@example.com');assert.equal(await signupEmail.getAttribute('aria-invalid'),'false');assert.equal(await page.locator('#signup-email-error').isVisible(),false);
   assert.deepEqual(errors,[]);
   console.log('Chat UI, account group levels/create/back/mobile and idle expiry/reload passed.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

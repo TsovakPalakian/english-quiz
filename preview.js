@@ -124,13 +124,15 @@
       const root = document.getElementById(id);
       if (!root) return [];
       const group = classGroups.find((row) => row.id === classGroupId);
-      if (id === "days") return [{ id: "groups", label: "Groups" }, { id: "days", label: group?.title || "Lessons" }];
+      const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
+      if (id === "days") return groupPath(group);
       if (id === "examblocks") return [{ id: "exams", label: "Exams" }, { id: "examblocks", label: examFind(examCurrentId)?.title || "Exam" }];
       if (id === "material" && lmState) {
         const owner = lmState.examOwned ? examFind(lmState.examId) : classGroups.find((row) => row.lessonIds.includes(lmState.id));
         const path = lmState.examOwned
           ? [{ id: "exams", label: "Exams" }, { id: "examblocks", label: owner?.title || "Exam" }]
-          : [{ id: "groups", label: "Groups" }, { id: "days", label: owner?.title || group?.title || "Lessons" }];
+          : groupPath(owner||group);
         path.push({ id: "material", tab: "overview", label: lmState.title || (lmState.examOwned ? "Examination block" : "Lesson") });
         if (!lmState.examOwned && lmTab() !== "overview") {
           const names = { words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF" };
@@ -158,13 +160,16 @@
         meta.insertAdjacentElement("afterend", path);
       }
       const items = pagePathItems(id);
+      path.hidden=id==='groups'&&!groupViewLevel;
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
-        ? '<span aria-current="page">' + esc(item.label) + "</span>"
-        : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
+        && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
+        : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
     }
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-page-path]");
       if (!target) return;
+      if(target.dataset.pathLevel!==undefined){pushHistory();groupViewLevel=target.dataset.pathLevel;show('groups');return;}
+      if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show('days');return;}
       if (target.dataset.pagePath === "material") {
         pushHistory();
         lmState.tab = target.dataset.pageTab || "overview";
@@ -10014,6 +10019,7 @@
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
       if (!who || !demo) return;
+      demo.classList.toggle('guest-progress', !authUser);
       who.hidden = true;
       who.innerHTML = "";
       demo.hidden = false;
@@ -10071,7 +10077,7 @@
         box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' +
           '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>' +
           '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
-          '<input name="email" type="email" autocomplete="email" placeholder="Email" required />' +
+          '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
           '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>' +
           '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
@@ -10242,6 +10248,17 @@
       const slot = document.getElementById('adminUser'); if (slot) slot.innerHTML = '';
       paintAdminAccounts();
     });
+    function validateSignupInput(input) {
+      if(!input?.closest('#registerForm')||!['login','email'].includes(input.name))return;
+      const valid=input.name==='login'?/^[A-Za-z0-9_]{3,32}$/.test(input.value):/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)&&input.value.length<=120&&!input.validity.typeMismatch;
+      const message=input.name==='login'?'Use 3 to 32 Latin letters, digits or underscores. No spaces.':'Enter a valid email, e.g. name@example.com.';
+      const id='signup-'+input.name+'-error';let error=document.getElementById(id);
+      if(!error){error=document.createElement('small');error.id=id;error.className='signup-field-error';error.setAttribute('role','status');input.after(error);input.setAttribute('aria-describedby',id);}
+      error.hidden=valid;error.textContent=valid?'':message;
+      input.setAttribute('aria-invalid',String(!valid));input.setCustomValidity(valid?'':message);
+    }
+    document.addEventListener('input',event=>validateSignupInput(event.target));
+    document.addEventListener('focusout',event=>validateSignupInput(event.target));
     function adminGroupOptions(selected) {
       return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
     }
@@ -10356,7 +10373,7 @@
         const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
             '<div class="row" data-list-row style="margin:8px 0"><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
-            '<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1 Group')?.id) + '</select><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
+            (row.role==='ADMIN'?'<span class="hint">Teachers and staff</span>':'<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1 Group')?.id) + '</select>')+'<button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '"'+(row.role==='ADMIN'&&!sessionIsDeveloper()?' disabled title="Only a developer can approve teachers"':'')+'>Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
           '</div>';
@@ -12525,10 +12542,12 @@
       if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
       groupNormalize();
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
+      document.querySelector('#groups .meta h1').textContent=groupViewLevel?(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel):'Groups';
+      paintPagePath('groups');
       const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
       const rows=allRows.filter(group=>accountGroupLevel(group)===groupViewLevel);
-      box.innerHTML = '<button class="btn ghost" type="button" data-group-level="">Back</button><h2>'+esc(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel)+'</h2>' + rows.map((group) => {
+      box.innerHTML = rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
@@ -14062,9 +14081,9 @@
       groupNormalize();
       const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
       const title = document.getElementById("lmGroupTitle");
-      if (title) title.textContent = "Lessons";
+      if (title) title.textContent = group?.title || "Lessons";
       const name = document.getElementById("lmGroupName");
-      if (name) name.textContent = group ? group.title : "";
+      if (name) name.textContent = "";
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
@@ -15967,7 +15986,6 @@
       apply();
     }
     for (const [id, label, selector, scope] of [
-      ['groupList', 'Search groups', '.day-row'],
       ['lmDayList', 'Search lessons', '.day-row', () => classGroupId],
       ['examList', 'Search exams', '.day-row'],
       ['examBlocks', 'Search examination blocks', '.day-row', () => examCurrentId],
