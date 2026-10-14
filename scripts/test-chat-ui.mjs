@@ -67,7 +67,9 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>document.querySelector('.side-foot [data-msg-open]')?.textContent==='Messages \u00b7 2');
   await page.locator('.side-foot [data-msg-open]').click();await page.locator('[data-msg-room]').click();
-  await page.waitForFunction(()=>document.querySelector('.side-foot [data-jump="account"]')?.textContent==='My account \u00b7 1');
+  await page.waitForFunction(()=>document.querySelector('.mobile-tools [data-jump="account"]')?.textContent==='My account \u00b7 1');
+  assert.equal(await page.locator('.side-foot [data-jump="account"]').count(),0);
+  assert.equal(await page.locator('.brand-account [data-avatar-subject]').count(),1);
   assert.equal(await page.locator('#msgAssign').isVisible(),false);
   await page.locator('#msgSettings').click();await page.locator('.chat-edit-profile input[name=birthday]').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=birthday]').inputValue(),'25.04.1990');await page.locator('dialog[open] [data-msg-close]').click();
   await page.locator('#msgRoomAvatar .chat-presence.is-online').waitFor();

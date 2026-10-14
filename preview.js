@@ -9483,7 +9483,26 @@
     const quizScreens = { choice: 1, flip: 1, type: 1, gap: 1, build: 1, judge: 1, tap: 1, multi: 1, pairs: 1, exam: 1, errors: 1, dayq: 1, daychoice: 1, dayflip: 1, dayjudge: 1 };
     let selToken = 0;
     let selTimer = 0;
+    let dismissedSelection = null;
+    function selectionSnapshot() {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+      const range = selection.getRangeAt(0);
+      return [range.startContainer, range.startOffset, range.endContainer, range.endOffset, selection.toString()];
+    }
+    function sameSelection(a, b) { return !!(a && b && a.every((value, index) => value === b[index])); }
+    function dismissSelectionTranslation() {
+      dismissedSelection = selectionSnapshot();
+      hideSelpop();
+    }
+    document.addEventListener('selectionchange', () => {
+      if (dismissedSelection && !sameSelection(dismissedSelection, selectionSnapshot())) dismissedSelection = null;
+    });
+    document.addEventListener('contextmenu', event => {
+      if (event.target.closest('#messages')) dismissSelectionTranslation();
+    }, true);
     function hideSelpop() {
+      clearTimeout(selTimer);
       const pop = document.getElementById("selpop");
       if (pop) pop.hidden = true;
       selToken += 1;
@@ -9561,6 +9580,7 @@
       const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);trackEvent('card',cardArea(place),'add');
     }
     function showSelectionTranslation() {
+      if (sameSelection(dismissedSelection, selectionSnapshot()) || document.querySelector('#messages.on #msgContext:not([hidden])')) { hideSelpop(); return; }
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) { hideSelpop(); return; }
       const text = String(sel.toString() || "").replace(/\s+/g, " ").trim();
@@ -9587,7 +9607,7 @@
     document.getElementById("selpopClose").addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      hideSelpop();
+      dismissSelectionTranslation();
     });
     document.getElementById("selpopAdd").addEventListener("click", async (e) => {
       e.preventDefault();
@@ -9611,8 +9631,9 @@
     document.addEventListener("mousedown", (e) => {
       if (!e.target.closest("#selpop")) hideSelpop();
     });
-    document.addEventListener("mouseup", () => {
+    document.addEventListener("mouseup", (event) => {
       clearTimeout(selTimer);
+      if (event.button !== 0 || event.target.closest('#selpop, #msgContext')) return;
       selTimer = setTimeout(showSelectionTranslation, 220);
     });
     document.addEventListener("keyup", (e) => {
