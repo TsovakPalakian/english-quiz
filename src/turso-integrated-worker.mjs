@@ -4,6 +4,7 @@ import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied}
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './turso-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './turso-study.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
+import {everydayCatalog} from './essential-catalog.mjs';
 import {ensurePairedThemes} from './turso-paired-themes.mjs';
 import {VisibilityService} from './turso-visibility.mjs';
 import {GroupService} from './turso-groups.mjs';
@@ -119,6 +120,12 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/everyday'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        let viewer=actor;const accountId=url.searchParams.get('accountId');
+        if(accountId){const found=await authorizeManaged(accountEnv,actor,accountId);if(found.error)return found.error;if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');viewer={id:found.row.id,role:found.row.role};}
+        return json(await everydayCatalog(studyDatabase(env),viewer));
+      }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');

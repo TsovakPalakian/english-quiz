@@ -19,7 +19,7 @@ const presentation=text=>Object.entries(english).sort(([a],[b])=>b.length-a.leng
   .replaceAll('разрешённого тестового стенда','разрешённого сайта').replaceAll('разрешённом тестовом стенде','разрешённом сайте');
 for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstratives.js','main-stage.css','favicon.svg','favicon.png','favicon.ico'])
   copyFileSync(resolve(accepted,name),resolve(target,name));
-writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8'));
+writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/essential.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
@@ -45,6 +45,10 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/color-picker.js
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+const everydayAnchor='      <h2 class="lib-h">Words</h2>\n      <div class="decks">';
+assert.equal(html.split(everydayAnchor).length,2);
+html=html.replace(everydayAnchor,everydayAnchor+'\n        <button class="file-card" type="button" data-jump="everyday"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>');
+html=html.replace('<section id="library">',readFileSync(resolve(root,'production/essential.html'),'utf8')+'\n<section id="library">');
 const brandRow=readFileSync(resolve(root,'preview.html'),'utf8').match(/^    <div class="brand-row">.*<\/div>$/m)?.[0];
 assert.ok(brandRow,'Account avatar header missing');
 const oldBrand='    <button class="brand" type="button" data-jump="home">English</button>';

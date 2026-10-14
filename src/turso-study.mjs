@@ -98,7 +98,7 @@ const cardAccess = `c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM (SELECT ? acco
     SELECT 1 FROM profile_members p WHERE c.scope='profile' AND p.account_id=viewer.account_id AND p.profile_id=c.owner_profile_id
     UNION ALL SELECT 1 WHERE c.scope='shared' AND viewer.reviewer=1
     UNION ALL SELECT 1 FROM legacy_ids x WHERE c.scope='shared' AND x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id
-      AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT')
+      AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT','EVERYDAY')
     UNION ALL SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE c.scope='shared' AND b.card_id=c.id AND b.deleted_at IS NULL AND ${lessonVisibleForViewer}))`;
 function accessArgs(actor) { return [actor.id,+reviewer(actor)]; }
 function cardDto(row) {

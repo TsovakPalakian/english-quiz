@@ -4,6 +4,7 @@ import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {stageContentPolicy} from '../src/turso-embed.mjs';
+import {everydayGroups} from '../src/essential-data.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root=resolve('rollback/turso-production-assets');
 const server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':file.endsWith('.png')?'image/png':'application/octet-stream','Content-Security-Policy':stageContentPolicy+"; worker-src 'self' blob:"});res.end(readFileSync(file));});
@@ -44,6 +45,7 @@ try{
   });});
   await page.route('**/api/**',async route=>{const url=new URL(route.request().url()),path=url.pathname;http.push(path);let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
     if(path==='/api/me'||path==='/api/me/account')data={user:student};
+    if(path==='/api/everyday'){let id=20000;data={version:1,groups:everydayGroups.map(group=>({...group,topics:group.topics.map(topic=>({...topic,entries:topic.entries.map(entry=>({...entry,cardId:++id,card:{en:entry.en,word:entry.en,ru:entry.ru,stageId:id,stageRevision:1,stageScope:'shared'}}))}))}))};}
     if(path==='/api/me/state')data={learned:[],added:dictionaryCards,stats:{},stageThemeRevision:0,stageCustomRevision:0};
     if(path==='/api/me/cards/new'){const body=JSON.parse(route.request().postData()),card={...body.card,word:body.card.en,stageId:10000+dictionaryCards.length,stageRevision:1,stageLinksRevision:dictionaryCards.length+1,stageScope:'profile'};dictionaryCards.push(card);data={card,revision:dictionaryCards.length};}
     if(path==='/api/me/cards')data={cards:dictionaryCards.filter(c=>!url.searchParams.get('place')||c.place===url.searchParams.get('place')),next:null,stageAddedRevision:dictionaryCards.length};
@@ -66,6 +68,13 @@ try{
   await page.route('**/lookup?*',route=>{const word=new URL(route.request().url()).searchParams.get('word');return route.fulfill({contentType:'application/json',body:JSON.stringify({ru:'Hello translation',expressionType:word==='give away'?'PHRASAL_VERB':word==='spill the beans'?'IDIOM':'Word'})});});
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>document.querySelector('.side-foot [data-msg-open]')?.textContent==='Messages \u00b7 2');
+  await page.evaluate(()=>window.enquizVisit('library'));await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();assert.equal(await page.locator('[data-everyday-group]').count(),3);
+  await page.locator('[data-everyday-group="speech"]').click();assert.equal(await page.locator('[data-everyday-topic]').count(),16);
+  await page.locator('#everydayGroupSearch').fill('pronouns');assert.equal(await page.locator('[data-everyday-topic]').count(),3);await page.locator('#everydayGroupSearch').fill('');
+  await page.locator('[data-everyday-topic="basic-16"]').click();assert.equal(await page.locator('[data-everyday-card]').count(),7);assert.equal(await page.locator('#everydayWordSearch').isVisible(),false);
+  await page.locator('[data-everyday-card]').first().click();await page.locator('#made.on').waitFor();assert.match(await page.locator('#madeView').innerText(),/I am ready/);assert.match(await page.locator('#madeView').innerText(),/Я готов/);await page.locator('#made [data-nav-back]').click();await page.locator('#everydaytopic.on').waitFor();
+  await page.evaluate(()=>window.enquizVisit('everyday'));await page.locator('[data-everyday-group="basics"]').click();await page.locator('[data-everyday-topic="basic-1"]').click();assert.equal(await page.locator('[data-everyday-card]').count(),7);
+  await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('#everydaytopic').evaluate(node=>node.scrollWidth<=node.clientWidth));await page.screenshot({path:'/private/tmp/essential-english-mobile.png'});await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('home'));
   await page.locator('.side-foot [data-msg-open]').click();await page.locator('[data-msg-room]').click();
   await page.waitForFunction(()=>document.querySelector('.mobile-tools [data-jump="account"]')?.textContent==='My account \u00b7 1');
   assert.equal(await page.locator('.side-foot [data-jump="account"]').count(),0);

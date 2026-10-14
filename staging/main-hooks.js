@@ -1386,6 +1386,7 @@ function stageCardFirstWave(){
 }
 function stageDemand(id){
   try{
+    if(['everyday','everydaygroup','everydaytopic'].includes(id))stageEverydayLoad();
     if(id==='library'){stageLibrarySummary().catch(error=>window.TursoMain.notice(error.message,true));if(typeof authUser!=='undefined'&&authUser)stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.TursoMain.notice(error.message,true)));
     if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.TursoMain.notice(error.message,true)));
@@ -2142,3 +2143,67 @@ function stageFetchSpeak(index,active=()=>true){
     return data;
   });
 }
+
+let stageEverydayState={group:'speech',topic:'',groupSearch:'',wordSearch:''};
+let stageEverydayData=null,stageEverydayAudience='',stageEverydayFlight=null;
+function stageEverydayAudienceKey(){return [authUser?.id||'',authUser?.role||'',viewAccount?.id||'',viewGen].join(':');}
+function stageEverydayCount(group){return group.topics.reduce((count,topic)=>count+topic.entries.length,0);}
+function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
+function stageEverydayPaint(){
+  if(!stageEverydayData)return;
+  const groups=stageEverydayData.groups||[];
+  document.getElementById('everydayGroups').innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title,stageEverydayCount(group),'data-everyday-group',group.topics.length+' subgroups')).join('')||'<p class="hint">No words yet.</p>';
+  const group=groups.find(item=>item.id===stageEverydayState.group)||groups[0];if(!group)return;
+  stageEverydayState.group=group.id;
+  document.getElementById('everydayGroupTitle').textContent=group.title;
+  const groupSearch=document.getElementById('everydayGroupSearch');groupSearch.value=stageEverydayState.groupSearch;
+  const query=stageEverydayState.groupSearch.trim().toLocaleLowerCase();
+  const matches=entry=>[entry.card.en,entry.card.ru,entry.example,entry.exampleRu].join(' ').toLocaleLowerCase().includes(query);
+  const topics=group.topics.filter(topic=>!query||topic.title.toLocaleLowerCase().includes(query)||topic.entries.some(matches));
+  document.getElementById('everydayTopics').innerHTML=topics.map(topic=>stageEverydayButton(topic.id,topic.title,topic.entries.length,'data-everyday-topic',topic.entries.length?'words':'Coming soon')).join('')||'<p class="hint">No results.</p>';
+  const topic=group.topics.find(item=>item.id===stageEverydayState.topic);if(!topic)return;
+  document.getElementById('everydayTopicTitle').textContent=topic.title;
+  const wordSearch=document.getElementById('everydayWordSearch');wordSearch.hidden=topic.entries.length<20;wordSearch.value=stageEverydayState.wordSearch;
+  const wordQuery=stageEverydayState.wordSearch.trim().toLocaleLowerCase();
+  const entries=topic.entries.filter(entry=>!wordQuery||[entry.card.en,entry.card.ru,entry.example,entry.exampleRu].join(' ').toLocaleLowerCase().includes(wordQuery));
+  document.getElementById('everydayWords').innerHTML=entries.map(entry=>'<button class="everyday-word" type="button" data-everyday-card="'+entry.card.stageId+'"><strong>'+esc(entry.card.en)+'</strong><span>'+esc(entry.card.ru)+'</span><span class="everyday-example">'+esc(entry.example)+'</span><span class="label">'+esc(entry.exampleRu)+'</span></button>').join('')||'<p class="hint">'+(wordQuery?'No results.':'No words yet.')+'</p>';
+  const active=document.querySelector('section.on')?.id;if(active?.startsWith('everyday'))paintPagePath(active);
+}
+async function stageEverydayLoad(){
+  const audience=stageEverydayAudienceKey();
+  if(stageEverydayAudience!==audience){stageEverydayAudience=audience;stageEverydayData=null;stageEverydayFlight=null;}
+  if(stageEverydayData){stageEverydayPaint();return;}
+  if(stageEverydayFlight)return stageEverydayFlight;
+  const activeId=document.querySelector('section.on')?.id,host=document.getElementById(activeId==='everydaygroup'?'everydayTopics':activeId==='everydaytopic'?'everydayWords':'everydayGroups');
+  if(host)host.innerHTML='<p class="hint">Loading…</p>';
+  const flight=accountFetch('/api/everyday'+(viewAccount?'?accountId='+encodeURIComponent(viewAccount.id):'')).then(data=>{
+    if(audience!==stageEverydayAudienceKey())return;
+    stageEverydayData=data;window.TursoMain.register(data.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>entry.card))));stageEverydayPaint();
+  }).catch(error=>{if(audience===stageEverydayAudienceKey()&&host)host.textContent=error.message;}).finally(()=>{if(stageEverydayFlight===flight)stageEverydayFlight=null;});
+  stageEverydayFlight=flight;return flight;
+}
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-everyday-group],[data-everyday-topic],[data-everyday-card]');if(!button||!stageEverydayData)return;
+  if(button.dataset.everydayGroup){pushHistory();stageEverydayState={group:button.dataset.everydayGroup,topic:'',groupSearch:'',wordSearch:''};stageEverydayPaint();show('everydaygroup');return;}
+  if(button.dataset.everydayTopic){pushHistory();stageEverydayState.topic=button.dataset.everydayTopic;stageEverydayState.wordSearch='';stageEverydayPaint();show('everydaytopic');return;}
+  const group=stageEverydayData.groups.find(item=>item.id===stageEverydayState.group),topic=group?.topics.find(item=>item.id===stageEverydayState.topic),entry=topic?.entries.find(item=>String(item.card.stageId)===button.dataset.everydayCard);if(!entry)return;
+  const example={en:entry.example,ru:entry.exampleRu,kind:'simple',source:'Essential English'};
+  const card={...entry.card,place:'mine',data:{wooordhunt:{examples:[example]},usages:[example]},stageEverydayReference:true};
+  pushHistory();renderMade(card);show('made');
+});
+document.addEventListener('input',event=>{
+  if(event.target.id==='everydayGroupSearch'){stageEverydayState.groupSearch=event.target.value;stageEverydayPaint();}
+  if(event.target.id==='everydayWordSearch'){stageEverydayState.wordSearch=event.target.value;stageEverydayPaint();}
+});
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-dict-add]');if(!button||!madeItem?.stageEverydayReference)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(!authUser||viewAccount||!accountReady)return;
+  const actor=authUser.id,card=madeItem;button.disabled=true;
+  try{
+    await window.TursoMain.flushPersonal();if(authUser?.id!==actor||viewAccount)return;
+    const result=await window.TursoMain.linkCard({id:card.stageId,revision:card.stageRevision},'mine');if(authUser?.id!==actor||viewAccount)return;
+    const rows=loadAdded();if(!rows.some(row=>row.stageId===result.card.stageId&&row.place==='mine'))rows.unshift(result.card);
+    stageStampLinks(rows,result.revision);button.hidden=true;
+  }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
+},true);

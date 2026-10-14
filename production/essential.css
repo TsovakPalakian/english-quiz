@@ -1,0 +1,6 @@
+#everydaygroup input,#everydaytopic input{margin-bottom:16px;width:100%}
+.everyday-word{display:flex;flex-direction:column;gap:8px;width:100%;padding:18px;text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.everyday-word strong{font-size:20px;color:var(--acc)}
+.everyday-word .everyday-example{font-size:14px}
+.everyday-word .label{font-size:14px}
+.everyday-word:focus-visible{outline:2px solid var(--acc);outline-offset:2px}

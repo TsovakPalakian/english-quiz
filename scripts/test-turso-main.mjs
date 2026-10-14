@@ -12,6 +12,7 @@ import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
 import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,accountThemes,catalogSection,speakoutLevel,projectStudentCatalog} from '../src/turso-legacy-read.mjs';
 import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
+import {everydayCatalog} from '../src/essential-catalog.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
 import {AssessmentService,gradingQuestions} from '../src/turso-assessment.mjs';
@@ -1560,9 +1561,29 @@ test('Personal exercise marks restored only from own response; stale shared answ
   assert.equal(f.sqlite.prepare('SELECT content_json FROM lesson_blocks WHERE id=?').get(blockId).content_json,JSON.stringify(content));
   f.sqlite.close();
 });
+test('Essential English references shared cards and respects hidden, deleted and private content',async()=>{
+  const f=fixture();
+  try{
+    f.sqlite.exec("INSERT INTO cards(id,scope,en,word_key,ru) VALUES(4,'shared','Monday','monday','понедельник'); INSERT INTO legacy_ids(entity_kind,source_namespace,source_key,target_id,migration_id) VALUES('card','EVERYDAY','basic-1:monday','4','run'),('card','EVERYDAY','reused','1','run'),('card','EVERYDAY','hidden','2','run');");
+    const catalog={version:1,groups:[{id:'basics',title:'Basic sets',topics:[{id:'basic-1',title:'Days',entries:[{cardId:4,example:'See you on Monday.',exampleRu:'Увидимся в понедельник.'},{cardId:1,example:'Reference'},{cardId:2},{cardId:3}]}]}]};
+    f.sqlite.prepare('UPDATE lessons SET hidden_from_students=1 WHERE id=2').run();
+    f.sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('everyday','v1',?)").run(JSON.stringify(catalog));
+    const before=f.sqlite.prepare('SELECT COUNT(*) count FROM cards').get().count;
+    const student=await everydayCatalog(f.db,{id:'student',role:'USER'});
+    assert.deepEqual(student.groups[0].topics[0].entries.map(entry=>entry.card.stageId),[4,1]);
+    assert.equal(student.groups[0].topics[0].entries[0].exampleRu,'Увидимся в понедельник.');
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) count FROM cards').get().count,before);
+    const teacher=await everydayCatalog(f.db,{id:'teacher',role:'ADMIN'});assert.deepEqual(teacher.groups[0].topics[0].entries.map(entry=>entry.card.stageId),[4,1,2]);
+    f.sqlite.exec("INSERT INTO cards(id,scope,owner_profile_id,en,word_key,ru) VALUES(5,'profile',1,'Monday','monday','понедельник');");
+    assert.equal((await everydayCatalog(f.db,{id:'student',role:'USER'})).groups[0].topics[0].entries[0].card.stageId,5);
+    assert.equal((await everydayCatalog(f.db,{id:'student2',role:'USER'})).groups[0].topics[0].entries[0].card.stageId,4);
+    f.sqlite.prepare('UPDATE cards SET deleted_at=1 WHERE id=4').run();
+    assert.deepEqual((await everydayCatalog(f.db,{id:'student',role:'USER'})).groups[0].topics[0].entries.map(entry=>entry.card.stageId),[1]);
+  }finally{f.sqlite.close();}
+});
 test('Main response hooks intercept the old lesson-wide save and submit only personal inputs',()=>{
   const sent=[],listeners=new Map(),blocks=[{id:1,type:'task',stageBlockRevision:1,stageResponseRevision:0},{id:2,type:'quiz',stageBlockRevision:1,items:[{answer:1,options:['no','yes'],picked:1}]}];
-  const context={document:{addEventListener:(type,fn)=>listeners.set(type,fn)},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
+  const context={document:{addEventListener:(type,fn)=>{if(fn.name==='stageResponseEvent'||!listeners.has(type))listeners.set(type,fn);}},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
     lmState:{id:'lesson',blocks},window:{TursoMain:{response:(...args)=>sent.push(args),notice:()=>assert.fail('Unexpected notice')}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
   let intercepted=0;

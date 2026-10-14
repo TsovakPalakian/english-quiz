@@ -35,7 +35,7 @@
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
-      made: "add", allwords: "home", cardstat: "home",
+      made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
@@ -318,6 +318,7 @@
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
+      if(place.id?.startsWith('everyday'))return [place.id,place.everyday?.group,place.everyday?.topic,place.everyday?.groupSearch,place.everyday?.wordSearch].join('|');
       return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson, place.workDay || "", place.workKind || ""].join("|");
     }
     function capture() {
@@ -347,6 +348,7 @@
         verbGroup: verbGroup,
         verbKey: verbKey,
         speakView: speakView,
+        everyday: typeof stageEverydayState==='undefined'?null:{...stageEverydayState},
         speakLevel: speakLevel,
         speakUnit: speakUnit,
         speakLesson: speakLesson
@@ -367,6 +369,7 @@
     }
     window.enquizVisit = visit;
     function restore(place) {
+      if(place.everyday&&typeof stageEverydayState!=='undefined')stageEverydayState={...place.everyday};
       if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
       if (['admin','adminuser','admingroup'].includes(place.id)) {
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
@@ -4841,6 +4844,7 @@
       return item;
     }
     function renderMade(item) {
+      const back=document.querySelector('#made [data-nav-back]');if(back)back.dataset.fallback=item?.stageEverydayReference?'everydaytopic':'add';
       madeItem = item;
       const data = item.data || {};
       const cam = data.cambridge || {};
