@@ -36,10 +36,11 @@ async def limit_analyze_body(request: Request, call_next):
             return JSONResponse({"detail": "Payload too large"}, status_code=413)
 
         received = 0
+        original_receive = request._receive
 
         async def limited_receive():
             nonlocal received
-            message = await request.receive()
+            message = await original_receive()
             body = message.get("body") or b""
             received += len(body)
             if received > MAX_ANALYZE_BYTES:

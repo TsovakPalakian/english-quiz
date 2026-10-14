@@ -4,7 +4,7 @@ import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied}
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './turso-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './turso-study.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
-import {everydayCatalog} from './essential-catalog.mjs';
+import {everydayCatalog,removeEssentialReference} from './essential-catalog.mjs';
 import {ensurePairedThemes} from './turso-paired-themes.mjs';
 import {VisibilityService} from './turso-visibility.mjs';
 import {GroupService} from './turso-groups.mjs';
@@ -125,6 +125,13 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let viewer=actor;const accountId=url.searchParams.get('accountId');
         if(accountId){const found=await authorizeManaged(accountEnv,actor,accountId);if(found.error)return found.error;if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');viewer={id:found.row.id,role:found.row.role};}
         return json(await everydayCatalog(studyDatabase(env),viewer));
+      }
+      if(path==='/api/everyday/reference'&&method==='DELETE'){
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const raw=await request.text();if(raw.length>1024)throw new StudyError(413,'Reference too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        return json(await removeEssentialReference(studyDatabase(env),actor,body));
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

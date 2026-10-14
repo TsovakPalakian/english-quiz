@@ -96,9 +96,11 @@ export async function mediaKey(db,actor,kind,id){
     const assigned=await assignedExamIds(db,actor.id);
     const exams=await db.read(`SELECT m.content_json FROM exam_materials m JOIN exam_blocks b ON b.id=m.block_id JOIN exams e ON e.id=b.exam_id
       WHERE m.deleted_at IS NULL AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND json_extract(m.content_json,'$.fileId')=?
+      AND (?=1 OR ${assignedExamSql('e.id',assigned)} OR NOT EXISTS(SELECT 1 FROM class_group_exams gx WHERE gx.exam_id=e.id
+        AND NOT EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=gx.group_id AND gs.account_id=?)))
       AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0
         AND NOT EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=? AND a.value_json='true'
-          AND a.key IN ('visibility:exam:'||e.id,'visibility:exam-block:'||b.id))))${instances?' AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=e.id AND (i.account_id<>? OR i.active=0))':''})) LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,...(instances?[actor.id]:[])]);
+          AND a.key IN ('visibility:exam:'||e.id,'visibility:exam-block:'||b.id))))${instances?' AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=e.id AND (i.account_id<>? OR i.active=0))':''})) LIMIT 2`,[id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,...(instances?[actor.id]:[])]);
     if(exams.length!==1)throw new StudyError(404,'Lesson file not found.');
     rows.push(exams[0]);
   }

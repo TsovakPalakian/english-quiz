@@ -1,8 +1,14 @@
 import { analyzerHeaders, analyzerOutcome, analyzerTimeoutMs } from "./analyzer-client.js";
+import {chatCall} from './chat-durable.mjs';
 
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 3 * 3600;
 const LOGIN_RE = /^[A-Za-z0-9._-]{3,32}$/;
+const SIGNUP_LOGIN_RE = /^[A-Za-z0-9_]{3,32}$/;
+function provisionSignupUsername(env,action,login,reservationId,userId) {
+  if(env.CHAT_V2_ENABLED!=='true'||!SIGNUP_LOGIN_RE.test(login))return Promise.resolve();
+  return chatCall(env,'CHAT_BRIDGE','global','/signup-username',{action,login,reservationId,userId});
+}
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function json(data, status, headers) {
@@ -433,11 +439,11 @@ export async function currentUser(env, request) {
 }
 
 function validateSignup(body) {
-  const login = String(body.login || "").trim();
+  const login = String(body.login || "");
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const name = String(body.name || "").trim().slice(0, 80);
-  if (!LOGIN_RE.test(login)) return { error: "Login needs 3 to 32 letters, numbers, dots, dashes or underscores." };
+  if (!SIGNUP_LOGIN_RE.test(login)) return { error: "Login needs 3 to 32 Latin letters, digits or underscores, with no spaces." };
   if (!EMAIL_RE.test(email) || email.length > 120) return { error: "Enter a valid email." };
   if (password.length < 8 || password.length > 32) return { error: "Password needs 8 to 32 characters." };
   return { login, email, password, name };
@@ -1764,6 +1770,7 @@ async function register(env, request, body, secure) {
   }
   const hashed = await hashPassword(fields.password);
   const created = now();
+  const regId = randomId();
   const liveTeacher = await db.prepare(
     "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND role IN ('ADMIN', 'DEVELOPER')"
   ).first();
@@ -1790,17 +1797,19 @@ async function register(env, request, body, secure) {
         created_at: created
       };
       try {
-        await db.prepare(
+        await provisionSignupUsername(env,'reserve',fields.login,regId);
+        await provisionSignupUsername(env,'activate',fields.login,regId,userId);
+        await db.batch([db.prepare(
           "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?)"
-        ).bind(userId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created).run();
-        const regId = randomId();
-        await db.prepare(
+        ).bind(userId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created),db.prepare(
           "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?)"
-        ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).run();
+        ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created)]);
         await rememberUser(env, user);
         await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
         return startSession(env, user, { status: "active", user: publicUser(user) }, secure);
       } catch (error) {
+        await provisionSignupUsername(env,'rollback',fields.login,regId,userId).catch(()=>{});
+        await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
         // Release the create-only lock so a failed D1 insert cannot brick first-admin signup forever.
         try { await env.MEDIA.delete("bootstrap/admin.lock"); } catch (e) {}
         return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
@@ -1808,12 +1817,14 @@ async function register(env, request, body, secure) {
     }
     return json({ error: "Registration is busy. Try again." }, 409);
   }
-  const regId = randomId();
   try {
+    await provisionSignupUsername(env,'reserve',fields.login,regId);
     await db.prepare(
       "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
     ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(body), created).run();
   } catch (error) {
+    await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
+    if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
   await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(body), user_id: "", created_at: created, decided_at: 0 });
@@ -3731,6 +3742,7 @@ async function decide(env, actor, regId, action) {
   if (action === "reject") {
     await db.prepare("UPDATE registrations SET status = 'rejected', decided_at = ? WHERE id = ? AND status = 'pending'").bind(decided, regId).run();
     await rememberRegistration(env, { id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "rejected", role: reg.role, user_id: reg.user_id, created_at: reg.created_at, decided_at: decided });
+    await provisionSignupUsername(env,'release',reg.login,regId).catch(()=>{});
     return json({ ok: true });
   }
   const reserved = await db.prepare("SELECT id FROM users WHERE login = ?").bind(reg.login).first();
@@ -3743,6 +3755,7 @@ async function decide(env, actor, regId, action) {
   // Approvals always create students. Promoting to teacher is a separate developer action.
   const role = "USER";
   try {
+    await provisionSignupUsername(env,'activate',reg.login,regId,userId);
     await db.batch([
       db.prepare(
         "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)"
@@ -3752,6 +3765,8 @@ async function decide(env, actor, regId, action) {
       ).bind(userId, decided, regId),
     ]);
   } catch (error) {
+    await provisionSignupUsername(env,'rollback',reg.login,regId,userId).catch(()=>{});
+    if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
   await rememberUser(env, { id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });

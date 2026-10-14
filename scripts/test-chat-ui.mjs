@@ -68,13 +68,17 @@ try{
   await page.route('**/lookup?*',route=>{const word=new URL(route.request().url()).searchParams.get('word');return route.fulfill({contentType:'application/json',body:JSON.stringify({ru:'Hello translation',expressionType:word==='give away'?'PHRASAL_VERB':word==='spill the beans'?'IDIOM':'Word'})});});
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>document.querySelector('.side-foot [data-msg-open]')?.textContent==='Messages \u00b7 2');
-  await page.evaluate(()=>window.enquizVisit('library'));await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();assert.equal(await page.locator('[data-everyday-group]').count(),3);
+  await page.evaluate(()=>window.enquizVisit('library'));assert.deepEqual(await page.locator('#library .decks').first().locator('[data-jump]').evaluateAll(nodes=>nodes.map(node=>node.dataset.jump)),['allwords','add','everyday','phrasal','idioms']);await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();assert.equal(await page.locator('[data-everyday-group]').count(),3);assert.equal(await page.locator('#everyday [data-essential-study]').count(),0);
   await page.locator('[data-everyday-group="speech"]').click();assert.equal(await page.locator('[data-everyday-topic]').count(),16);
   await page.locator('#everydayGroupSearch').fill('pronouns');assert.equal(await page.locator('[data-everyday-topic]').count(),3);await page.locator('#everydayGroupSearch').fill('');
   await page.locator('[data-everyday-topic="basic-16"]').click();assert.equal(await page.locator('[data-everyday-card]').count(),7);assert.equal(await page.locator('#everydayWordSearch').isVisible(),false);
-  await page.locator('[data-everyday-card]').first().click();await page.locator('#made.on').waitFor();assert.match(await page.locator('#madeView').innerText(),/I am ready/);assert.match(await page.locator('#madeView').innerText(),/Я готов/);await page.locator('#made [data-nav-back]').click();await page.locator('#everydaytopic.on').waitFor();
-  await page.evaluate(()=>window.enquizVisit('everyday'));await page.locator('[data-everyday-group="basics"]').click();await page.locator('[data-everyday-topic="basic-1"]').click();assert.equal(await page.locator('[data-everyday-card]').count(),7);
+  assert.deepEqual(await page.locator('#everydayWords .en').allTextContents(),['I','you','he','she','it','we','they']);await page.locator('[data-everyday-card="20001"]').click();await page.locator('#made.on').waitFor();assert.match(await page.locator('#madeView').innerText(),/I am ready/);assert.match(await page.locator('#madeView').innerText(),/Я готов/);assert.equal(await page.locator('#made [data-dict-add]').count(),0);assert.equal(await page.locator('#made [data-essential-study="card"]').count(),0);await page.locator('#made [data-nav-back]').click();await page.locator('#everydaytopic.on').waitFor();
+  await page.waitForFunction(()=>accountReady);await page.locator('[data-essential-study="topic"]').click();await page.locator('#daysetup.on').waitFor();assert.equal(await page.evaluate(()=>dayPoolOverride.length),7);await page.locator('#daysetup [data-nav-back]').click();await page.locator('#everydaytopic.on').waitFor();
+  await page.evaluate(()=>window.enquizVisit('everyday'));await page.locator('[data-everyday-group="basics"]').click();await page.locator('[data-everyday-topic="basic-1"]').click();assert.equal(await page.locator('[data-everyday-card]').count(),7);assert.deepEqual(await page.locator('#everydayWords .en').allTextContents(),['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']);
+  await page.evaluate(()=>{window.ContentCache.set('library:opened:allwords',true);allGroup='';paintAllWords();});assert.equal(await page.locator('[data-all-group="Essential English"] .date').textContent(),'8');await page.locator('[data-all-group="Essential English"]').evaluate(node=>node.click());assert.equal(await page.locator('#allWordGrid [data-all-kind]').count(),81);await page.evaluate(()=>window.enquizVisit('everydaytopic'));
   await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('#everydaytopic').evaluate(node=>node.scrollWidth<=node.clientWidth));await page.screenshot({path:'/private/tmp/essential-english-mobile.png'});await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('home'));
+  await page.evaluate(()=>window.enquizVisit('library'));await page.locator('[data-jump="grammarcategories"]').click();await page.locator('[data-grammar-group]').first().waitFor();assert.equal(await page.locator('[data-grammar-group]').count(),7);await page.locator('[data-grammar-group="classes"]').click();assert.equal(await page.locator('#grammarCategoryCards .wcard').count(),10);await page.locator('#grammarCategorySearch').fill('Noun');assert.ok(await page.locator('#grammarCategoryCards').innerText().then(text=>text.includes('Noun')));await page.evaluate(()=>window.enquizVisit('home'));
+  await page.evaluate(()=>window.enquizVisit('lyricadd'));const richLyrics=page.locator('#lyricText').locator('..').locator('.text-color-rich:not([hidden])');const lyricField=await richLyrics.count()?richLyrics:page.locator('#lyricText');await lyricField.fill('One line.');const shortHeight=await lyricField.evaluate(node=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(node.getBoundingClientRect().height)))));await lyricField.fill(Array(30).fill('Baker man is baking bread.').join('\n'));await page.waitForFunction(()=>{const input=document.querySelector('#lyricText'),field=input.parentElement.querySelector('.text-color-rich:not([hidden])')||input;return field.getBoundingClientRect().height>500;});await lyricField.fill('Short.');await page.waitForFunction(height=>{const input=document.querySelector('#lyricText'),field=input.parentElement.querySelector('.text-color-rich:not([hidden])')||input;return field.getBoundingClientRect().height<=height+10;},shortHeight);await page.evaluate(()=>window.enquizVisit('home'));
   await page.locator('.side-foot [data-msg-open]').click();await page.locator('[data-msg-room]').click();
   await page.waitForFunction(()=>document.querySelector('.mobile-tools [data-jump="account"]')?.textContent==='My account \u00b7 1');
   assert.equal(await page.locator('.side-foot [data-jump="account"]').count(),0);
@@ -231,5 +235,54 @@ try{
   await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#profileBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});await page.locator('.chat-photo-editor').waitFor();assert.ok(await page.locator('.chat-photo-editor').evaluate(n=>n.scrollWidth<=n.clientWidth));await page.screenshot({path:'/private/tmp/avatar-crop-mobile.png'});const beforeCancel=http.filter(p=>p==='/api/messages/avatar').length;await page.locator('[data-crop-cancel]').click();assert.equal(http.filter(p=>p==='/api/messages/avatar').length,beforeCancel);
   await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('messages'));await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('@TEACHER');await page.locator('[data-contact-id]').waitFor();await page.locator('#msgLookup').click();assert.equal(lastLookupQuery,'@TEACHER');assert.deepEqual(errors,[]);
   await page.clock.resume();await page.evaluate(()=>{window.ContentCache.set('library:opened:allwords',true);allGroup='';window.enquizVisit('allwords');paintAllWords();});await page.locator('[data-all-group="Chat"]').evaluate(n=>n.click());assert.match(await page.locator('#allWordGrid').innerText(),/From chat/);await page.screenshot({path:'/private/tmp/chat-dictionary.png'});await page.evaluate(()=>window.enquizVisit('phrasal'));assert.match(await page.locator('#phrasalAdded').innerText(),/From chat/);await page.evaluate(()=>window.enquizVisit('idioms'));assert.match(await page.locator('#idiomAdded').innerText(),/From chat/);assert.deepEqual(errors,[]);
-  console.log('Chat UI: send/retry, read receipts, cached history, reply, exam/back, search, emoji, IME, panel toggles, settings, responsive composer, draft/reload and idle polling passed.');
+  const accountGroups=[{id:71,title:'A1 Open',revision:1,lessonIds:[1],examIds:[]},{id:72,title:'B1 Group',revision:1,lessonIds:[],examIds:[]}];
+  let createdTitle='',idleLoggedOut=false;
+  await page.route('**/api/**',async route=>{
+    const path=new URL(route.request().url()).pathname;let data;
+    if(path==='/api/groups')data={groups:accountGroups};
+    else if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'A1 Fixture exam',groupId:71,published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
+    else if(path==='/api/groups/members')data={members:[{accountId:student.id,groupId:71}]};
+    else if(path==='/api/groups/manage'){const body=route.request().postDataJSON();createdTitle=body.title;accountGroups.push({id:73,title:body.title,revision:1,lessonIds:[],examIds:[]});data={groups:accountGroups};}
+    else if(path==='/api/admin/users')data={users:[student]};
+    else if(path==='/api/admin/registrations')data={registrations:[]};
+    else if(path==='/api/admin/changes')data={changes:[]};
+    else if(path==='/api/logout'){idleLoggedOut=true;data={ok:true};}
+    else if(path==='/api/me'&&idleLoggedOut)data={user:null};
+    else{await route.fallback();return;}
+    await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.evaluate(()=>{authUser.role='ADMIN';adminTab='groups';window.enquizVisit('admin');});
+  await page.locator('[data-admin-level="A1"]').waitFor();
+  assert.deepEqual(await page.locator('[data-admin-level]').evaluateAll(nodes=>nodes.map(n=>n.dataset.adminLevel)),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2']);
+  assert.equal(await page.locator('#adminBodySearch').isVisible(),false);
+  await page.locator('[data-admin-level="A1"]').click();await page.locator('#admingrouplevel.on').waitFor();
+  assert.match(await page.locator('#adminLevelBody').innerText(),/1\. A1 Open/);
+  assert.match(await page.locator('#adminLevelBody').innerText(),/1 students · 1 lessons · 0 exams/);
+  await page.locator('#accountGroupName').fill('Practice');await page.locator('[data-account-group="create"]').click();
+  await page.waitForFunction(()=>document.querySelector('#adminLevelBody').textContent.includes('A1 Practice'));assert.equal(createdTitle,'A1 Practice');
+  await page.locator('[data-admin-group="71"]').click();await page.locator('#admingroup.on').waitFor();
+  await page.locator('#admingroup [data-nav-back]').click();await page.locator('#admingrouplevel.on').waitFor();
+  await page.screenshot({path:'/private/tmp/account-group-level.png'});
+  await page.evaluate(async()=>{await groupPull(true);window.enquizVisit('groups');});
+  await page.locator('#groupList [data-group-level="A1"]').click();assert.equal(await page.locator('#groupList [data-group-open]').count(),2);
+  assert.match(await page.locator('#groupList').innerText(),/A1 Open/);
+  await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});
+  assert.ok(await page.locator('#examList [data-exam-level="A1"]').count(),JSON.stringify(await page.evaluate(()=>({html:document.querySelector('#examList').innerHTML,groups:classGroups,exams:examLoad(),auth:authUser?.role})))+' '+errors.join(';'));
+  await page.locator('#examList [data-exam-level="A1"]').click();await page.locator('#examList [data-exam-group-view="71"]').click();
+  assert.equal(await page.locator('#examList [data-exam-open="11"]').count(),1);assert.match(await page.locator('#examList').innerText(),/A1 Fixture exam/);
+  await page.screenshot({path:'/private/tmp/grouped-exams.png'});
+  await page.evaluate(()=>window.enquizVisit('admingrouplevel'));
+  await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('#adminLevelBody').evaluate(n=>n.scrollWidth<=n.clientWidth));await page.screenshot({path:'/private/tmp/account-group-level-mobile.png'});
+  const reloaded=page.waitForEvent('framenavigated',frame=>frame===page.mainFrame());
+  await page.evaluate(()=>{localStorage.setItem('enquiz-last-activity:'+authUser.id,String(Date.now()-3*60*60*1000-1));accountIdleCheck();});
+  await reloaded;await page.waitForFunction(()=>typeof accountChecked!=='undefined'&&accountChecked&&!authUser);assert.equal(idleLoggedOut,true);
+  assert.equal(await page.locator('#admingroup').isVisible(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-auth-on')),null);
+  await page.waitForFunction(()=>[...document.querySelectorAll('[data-msg-open]')].every(button=>button.hidden));
+  assert.equal(await page.locator('#home [data-stat]:not([disabled])').count(),0);
+  await page.locator('#home [data-stat="weak"]').evaluate(button=>button.click());assert.equal(await page.locator('#home.on').count(),1);
+  await page.evaluate(()=>window.enquizVisit('profile'));assert.equal(await page.locator('#profile [data-msg-open]:visible').count(),0);
+  await page.evaluate(()=>{window.enquizVisit('account');paintAccountForm(true);});
+  const signupLogin=page.locator('#registerForm [name=login]');await signupLogin.fill('alex smith');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),false);await signupLogin.fill('123_alex');assert.equal(await signupLogin.evaluate(input=>input.checkValidity()),true);
+  assert.deepEqual(errors,[]);
+  console.log('Chat UI, account group levels/create/back/mobile and idle expiry/reload passed.');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

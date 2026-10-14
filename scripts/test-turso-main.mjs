@@ -12,7 +12,7 @@ import {pdfAsset,PDF_JS_VERSION} from '../src/turso-pdf-assets.mjs';
 import {legacyState,legacyLessons,legacyTexts,publicCatalogs,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountCards,accountSongs,accountThemes,catalogSection,speakoutLevel,projectStudentCatalog} from '../src/turso-legacy-read.mjs';
 import {ThemeMediaService} from '../src/turso-theme-media.mjs';
 import {PersonalService} from '../src/turso-personal.mjs';
-import {everydayCatalog} from '../src/essential-catalog.mjs';
+import {everydayCatalog,removeEssentialReference} from '../src/essential-catalog.mjs';
 import {ArchiveService} from '../src/turso-archive.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
 import {AssessmentService,gradingQuestions} from '../src/turso-assessment.mjs';
@@ -220,10 +220,46 @@ test('Assessment drafts, locking, rubric bounds, publication, revision conflicts
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM assessment_history').get().n,0);
   }finally{f.sqlite.close();}
 });
+test('Group rename moves its existing students, lessons and exams without exposing them to another subgroup',async()=>{
+  const f=fixture();try{
+    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},other={id:'student2',role:'USER'};
+    await service.ensure();await new ExamService(f.db).ensure();
+    f.sqlite.exec("INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_groups(id,title) VALUES(101,'A1 Practice'),(102,'B1 Other'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',101,'teacher'),('student2',102,'teacher'); INSERT INTO class_group_lessons(group_id,lesson_id) VALUES(101,1); INSERT INTO exams(id,title,published) VALUES(111,'A1 Final test',1); INSERT INTO class_group_exams(group_id,exam_id) VALUES(101,111);");
+    await assignLegacyExam(f,111);
+    const revision=(await service.activeGroup(101)).revision;
+    await service.manage(teacher,{action:'rename',id:101,expectedRevision:revision,title:'B1 Practice'});
+    assert.deepEqual((await service.list(student)).map(g=>g.id),[101]);
+    assert.deepEqual((await service.list(other)).map(g=>g.id),[102]);
+    assert.equal((await legacyLessons(f.db,student)).materials[0].id,1);
+    assert.equal((await legacyLessons(f.db,other)).materials.length,0);
+    await assert.rejects(new StudyService(f.db).cards(other,{lessonId:1}),error=>error.status===404);
+    const exam=(await new ExamService(f.db).list(student)).find(e=>e.id===111);
+    assert.equal(exam.title,'B1 Final test');assert.equal(exam.groupId,101);
+    assert.equal((await new ExamService(f.db).list(other)).some(e=>e.id===111),false);
+    assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get('student').group_id,101);
+    assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_lessons WHERE lesson_id=1').get().group_id,101);
+    await assert.rejects(service.manage(teacher,{action:'rename',id:101,expectedRevision:(await service.activeGroup(101)).revision,title:'No level'}),error=>error.status===400);
+  }finally{f.sqlite.close();}
+});
+test('Group level migration renames in place without changing memberships or lesson/exam links',async()=>{
+  const f=fixture();try{
+    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'};
+    await service.ensure();
+    f.sqlite.exec("INSERT INTO class_group_setup(key) VALUES('levels-v1'); INSERT INTO class_groups(id,title) VALUES(101,'Open A1'),(102,'Group B1+'),(103,'Workshop'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',101,'teacher');");
+    const first=await service.list(teacher);
+    assert.equal(first.find(g=>g.id===101).title,'A1 Open');
+    assert.equal(first.find(g=>g.id===102).title,'B1+ Group');
+    assert.equal(first.find(g=>g.id===103).title,'Workshop');
+    assert.equal((await service.members(teacher))[0].groupId,101);
+    assert.deepEqual(await service.list(teacher),first,'Migration is idempotent');
+    const created=await service.manage(teacher,{action:'create',title:'Open A2+'});
+    assert.ok(created.groups.some(g=>g.title==='A2+ Open'));
+  }finally{f.sqlite.close();}
+});
 test('Accounts groups seed levels once, assign students and exams, reject stale edits and archive only empty groups',async()=>{
   const f=fixture();try{
     const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'};
-    const first=await service.list(teacher);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2']);
+    const first=await service.list(teacher);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'].map(level=>level+' Group'));
     assert.equal((await service.list(teacher)).length,9);
     await assert.rejects(service.manage(student,{action:'create',title:'Denied'}),e=>e.status===403);
     const created=await service.manage(teacher,{action:'create',title:'Practice group'}),group=created.groups.find(g=>g.title==='Practice group');
@@ -550,6 +586,7 @@ test('Copy exam, block and material across compatible destinations preserves def
 test('Copied attachments have different immutable keys and remain readable after archiving the original',async()=>{
   const f=fixture();try{
     f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');");
+    f.sqlite.exec("INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',1,'teacher')");
     const bytes=new TextEncoder().encode('%PDF-1.4\nfixture'),sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
     const key='stage-local/lessons/1/3/'+sha256,metadata={sha256,bytes:bytes.length,mime:'application/pdf',name:'paper.pdf'},files=new Map([[key,{bytes,metadata}]]);
     f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)").run(JSON.stringify({hasFile:true,localMediaKey:key,fileId:'sf_'+'a'.repeat(64),name:'paper.pdf'}));
@@ -1581,6 +1618,31 @@ test('Essential English references shared cards and respects hidden, deleted and
     assert.deepEqual((await everydayCatalog(f.db,{id:'student',role:'USER'})).groups[0].topics[0].entries.map(entry=>entry.card.stageId),[1]);
   }finally{f.sqlite.close();}
 });
+test('Removing an Essential reference preserves its original card and guards teacher access and concurrent edits',async()=>{
+  const f=fixture();
+  try{
+    const catalog={version:1,groups:[{id:'basics',topics:[{id:'basic-1',entries:[{cardId:1}]}]}]};
+    f.sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('everyday','v1',?)").run(JSON.stringify(catalog));
+    const body={topicId:'basic-1',cardId:1,expectedVersion:1};
+    await assert.rejects(removeEssentialReference(f.db,{id:'student',role:'USER'},body),error=>error.status===403);
+    await assert.rejects(removeEssentialReference(f.db,{id:'teacher',role:'ADMIN'},{...body,expectedVersion:0}),error=>error.status===409);
+    assert.deepEqual(await removeEssentialReference(f.db,{id:'teacher',role:'ADMIN'},body),{ok:true,version:2});
+    const saved=JSON.parse(f.sqlite.prepare("SELECT value_json FROM catalog_documents WHERE namespace='everyday'").get().value_json);
+    assert.deepEqual(saved.groups[0].topics[0].entries,[]);assert.deepEqual(saved.removedReferences,['basic-1:1']);
+    assert.equal(f.sqlite.prepare('SELECT deleted_at FROM cards WHERE id=1').get().deleted_at,null);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) count FROM lesson_blocks WHERE card_id=1').get().count,1);
+  }finally{f.sqlite.close();}
+});
+test('Lyrics recheck accepts a DOM string ID, saves the edited lyrics and analyzes the saved version',async()=>{
+  const song={id:8,stageId:8,stageScope:'profile',stageRevision:1,lyrics:'Old lyrics'},saved=[];
+  const status={textContent:''};
+  const context={document:{addEventListener(){},getElementById:()=>status,querySelector:()=>({value:'New lyrics with give up and spill the beans.'})},window:{TursoMain:{perform:fn=>fn(),saveLibrary:async(item,kind,changes)=>{saved.push({id:item.id,kind,changes});return {item:{...item,...changes,stageRevision:2}};},notice:message=>assert.fail(message)}},authUser:{id:'student',role:'USER'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:0,pendingEditFile:null,editFileSent:false,loadSongs:()=>[song],accountFetch:async()=>({})};
+  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  let analyzed;
+  context.stageInstallLibrary=()=>{};context.renderUserSong=()=>{};context.show=()=>{};context.stageAnalyzeSong=async song=>{analyzed=song;};
+  await context.stageStoreSong('8');
+  assert.equal(saved[0].id,8);assert.equal(saved[0].kind,'song');assert.equal(saved[0].changes.lyrics,'New lyrics with give up and spill the beans.');assert.equal(analyzed.stageRevision,2);assert.equal(analyzed.lyrics,saved[0].changes.lyrics);
+});
 test('Main response hooks intercept the old lesson-wide save and submit only personal inputs',()=>{
   const sent=[],listeners=new Map(),blocks=[{id:1,type:'task',stageBlockRevision:1,stageResponseRevision:0},{id:2,type:'quiz',stageBlockRevision:1,items:[{answer:1,options:['no','yes'],picked:1}]}];
   const context={document:{addEventListener:(type,fn)=>{if(fn.name==='stageResponseEvent'||!listeners.has(type))listeners.set(type,fn);}},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
@@ -1886,7 +1948,7 @@ test('Managed text UI waits for acknowledgement and ignores a response after lea
 test('A text expression uses the dedicated card route and updates the list only after acknowledgement',async()=>{
   let list=[],resolveWrite,written,marked=0;
   const status={},baseWindow={LESSON_DATA:{},IRREGULAR:[],ContentCache:{drop(){}}};
-  const scope={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:null,viewSwitching:false,
+  const scope={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:0,
     cardIndex:()=>new Map(),loadAdded:()=>list,rememberAdded:value=>list=value,loadSongs:()=>[],loadTexts:()=>[],
     expressionSaved:()=>false,expressionPlace:()=> 'phrasal',expressionDeckName:()=> 'Phrasal verbs',
     markExpressionButton:()=>marked++,paintAdded(){},paintAllWords(){},paintHomeStats(){},
@@ -2330,7 +2392,7 @@ test('Progress reload replaces learned words instead of putting cleared ones bac
 });
 test('A new lyric word keeps its song place',async()=>{
   const created=[];
-  const scope={cardIndex:()=>new Map(),viewAccount:null,authUser:null,accountReady:false,viewSwitching:false,
+  const scope={cardIndex:()=>new Map(),viewAccount:null,authUser:null,accountReady:false,viewSwitching:false,viewGen:0,
     rememberAdded(){},paintAdded(){},paintAllWords(){},paintHomeStats(){},loadAdded:()=>[],
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     crypto,

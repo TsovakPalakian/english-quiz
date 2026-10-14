@@ -39,13 +39,36 @@ export async function setAvatar(store,body){
 export async function setUsername(store,body){
   if(!body.actor?.id||body.actor.active===false)fail(403,'Account unavailable.');
   const username=String(body.username??'').trim().toLowerCase();
-  if(username&&!/^@[a-z][a-z0-9_]{2,31}$/.test(username))fail(400,'Username must start with @ and contain 3 to 32 letters, numbers or underscores, starting with a letter.');
+  if(username&&!/^@[a-z0-9_]{3,32}$/.test(username))fail(400,'Username must start with @ and contain 3 to 32 Latin letters, numbers or underscores.');
   const id=body.actor.id,previous=store.get('username:'+id)||'',owner=username?store.get('username-owner:'+username):null;
   if(owner&&owner!==id)fail(409,'That username is already in use.');
   if(body.expectedUsername!==undefined&&body.expectedUsername!==previous)fail(409,'Your username changed in another window. Reopen Profile.');
   if(previous===username)return {profile:record(store,id)};
   store.ctx.storage.transactionSync(()=>{if(previous)store.set('username-owner:'+previous,null);if(username)store.set('username-owner:'+username,id);store.set('username:'+id,username);});
   return publish(store,id);
+}
+export function signupUsername(store,body){
+  const username='@'+String(body.login||'').toLowerCase(),reservation='signup:'+body.reservationId;
+  if(!/^@[a-z0-9_]{3,32}$/.test(username)||! /^[A-Za-z0-9_-]{1,100}$/.test(body.reservationId||''))fail(400,'Invalid signup username.');
+  if(!['reserve','activate','release','rollback'].includes(body.action))fail(400,'Invalid signup action.');
+  if(['activate','rollback'].includes(body.action)&&! /^[A-Za-z0-9_-]{1,100}$/.test(body.userId||''))fail(400,'Invalid account.');
+  store.ctx.storage.transactionSync(()=>{
+    const owner=store.get('username-owner:'+username);
+    if(body.action==='reserve'){
+      if(owner&&owner!==reservation)fail(409,'That username is already in use.');
+      store.set('username-owner:'+username,reservation);
+    }else if(body.action==='activate'){
+      if(owner&&owner!==reservation&&owner!==body.userId)fail(409,'That username is already in use.');
+      const previous=store.get('username:'+body.userId);
+      if(previous&&previous!==username)fail(409,'This account already has a username.');
+      store.set('username-owner:'+username,body.userId);store.set('username:'+body.userId,username);
+    }else if(body.action==='release'){
+      if(owner===reservation)store.set('username-owner:'+username,null);
+    }else if(owner===body.userId){
+      store.set('username-owner:'+username,reservation);store.set('username:'+body.userId,null);
+    }
+  });
+  return {username};
 }
 export async function setProfileDetails(store,body){
   if(!body.actor?.id||body.actor.active===false)fail(403,'Account unavailable.');

@@ -5,7 +5,7 @@ import {chatCall,ChatRoom,ChatInbox} from './chat-durable.mjs';
 import {statement} from './turso-study.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from './chat-attachments.mjs';
 import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
-import {readProfiles,setPresence,setAvatar,setUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
+import {readProfiles,setPresence,setAvatar,setUsername,signupUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
 export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -106,6 +106,7 @@ export class ChatBridge{
   }
   async fetch(request){
     if(request.headers.get('X-Chat-Internal')!==(this.env.CONTENT_SESSION_SECRET||this.env.SESSION_SECRET))return json({error:'Unavailable.'},403);
+    if(new URL(request.url).pathname==='/signup-username'){try{return json(signupUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Signup username unavailable.'},error.status||503);}}
     if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}
     if(new URL(request.url).pathname==='/username'){try{return json(await setUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Username could not be saved.'},error.status||503);}}
     try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/profiles')return json(readProfiles(this,body));if(path==='/presence')return json(await setPresence(this,body));if(path==='/avatar')return json(await setAvatar(this,body));if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}

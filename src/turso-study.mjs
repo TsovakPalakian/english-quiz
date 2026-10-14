@@ -80,6 +80,8 @@ function signedIn(actor) {
   if (!actor?.id || !['USER','ADMIN','DEVELOPER'].includes(actor.role)) fail(401,'Select a test session first.');
 }
 const lessonHiddenForViewer = `EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.personal_hidden=1)
+  OR EXISTS(SELECT 1 FROM class_group_lessons gl WHERE gl.lesson_id=l.id
+    AND NOT EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=gl.group_id AND gs.account_id=viewer.account_id))
   OR EXISTS(SELECT 1 FROM class_group_lessons gl JOIN class_groups g ON g.id=gl.group_id
     WHERE gl.lesson_id=l.id AND (g.deleted_at IS NOT NULL OR g.hidden_from_students=1
       OR EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=viewer.account_id AND a.key='visibility:group:'||g.id AND a.value_json='true')))`;

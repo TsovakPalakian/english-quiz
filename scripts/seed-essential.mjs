@@ -5,6 +5,8 @@ import {createHash} from 'node:crypto';
 const [mode,file]=process.argv.slice(2);
 if(!['--plan','--apply'].includes(mode)||!file)throw new Error('Use --plan or --apply with the production credential file.');
 const db=new TursoStudyClient({...productionCredentials(file),mode:'production'});
+const [previousRow]=await db.read("SELECT value_json FROM catalog_documents WHERE namespace='everyday' AND key='v1'");
+const previous=previousRow?JSON.parse(previousRow.value_json):null;
 const entries=everydayGroups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>({...entry,key:topic.id+':'+entry.en.toLowerCase()}))));
 const words=[...new Set(entries.map(entry=>entry.en.toLowerCase()))];
 const existing=await db.read(`SELECT id,en,ru,part_of_speech FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en) IN (${words.map(()=>'?').join(',')}) ORDER BY id`,words);
@@ -32,5 +34,10 @@ const groups=everydayGroups.map(group=>({...group,topics:group.topics.map(topic=
   const cardId=ids.get(topic.id+':'+entry.en.toLowerCase());if(!cardId)throw new Error('Missing seeded card reference.');
   return {cardId,example:entry.example,exampleRu:entry.exampleRu};
 })}))}));
-await db.atomic([s("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('everyday','v1',?) ON CONFLICT(namespace,key) DO UPDATE SET value_json=excluded.value_json",[JSON.stringify({version:1,groups})])]);
+const removed=new Set(previous?.removedReferences||[]);
+for(const group of groups)for(const topic of group.topics)topic.entries=topic.entries.filter(entry=>!removed.has(topic.id+':'+entry.cardId));
+const document=JSON.stringify({version:(previous?.version||0)+1,groups,removedReferences:[...removed]});
+await db.atomic([s('CREATE TEMP TABLE essential_seed_guard(ok INTEGER NOT NULL CHECK(ok=1))'),
+  previous?s("UPDATE catalog_documents SET value_json=? WHERE namespace='everyday' AND key='v1' AND json_extract(value_json,'$.version')=?",[document,previous.version]):s("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('everyday','v1',?)",[document]),
+  s('INSERT INTO essential_seed_guard SELECT changes()=1'),s('DROP TABLE essential_seed_guard')]);
 console.log(JSON.stringify({status:'seeded',entries:entries.length,reused,groups:everydayGroups.length,populated:9}));

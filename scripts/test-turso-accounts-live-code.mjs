@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync} from 'node:crypto';
 import {integratedWorker,accountMedia} from '../src/turso-integrated-worker.mjs';
+import {signupUsername} from '../src/chat-profiles.mjs';
 const devId='a'.repeat(32),password='FixturePassword1';
 test('Account directory CAS uses raw ETag without removing the precondition or touching other keys',async()=>{
   const calls=[],bucket={put:async(...args)=>{calls.push(args);return true;},get(){return this===bucket;}};
@@ -42,6 +43,24 @@ function fixture(){
   }};};
   return {sqlite,env,client,get queries(){return queries;},close(){sqlite.close();}};
 }
+test('Signup rejects spaces and non-Latin symbols and assigns @login after teacher approval',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.CHAT_V2_ENABLED='true';
+    const names=new Map(),store={get:key=>names.get(key),set:(key,value)=>names.set(key,value),ctx:{storage:{transactionSync:fn=>fn()}}};
+    f.env.CHAT_BRIDGE={idFromName:id=>id,get:()=>({fetch:async request=>{try{return Response.json(signupUsername(store,await request.json()));}catch(error){return Response.json({error:error.message},{status:error.status||503});}}})};
+    const guest=f.client();
+    for(const login of ['has space','alex-smith','alex.smith','@alex',' alex'])assert.equal((await guest.call('/api/register','POST',{login,email:'invalid@example.invalid',password})).status,400);
+    names.set('username-owner:@taken_name','another-user');
+    assert.equal((await guest.call('/api/register','POST',{login:'taken_name',email:'taken@example.invalid',password})).status,409);
+    const registered=await guest.call('/api/register','POST',{login:'123_Student',email:'new@example.invalid',password});assert.equal(registered.status,200);
+    const reg=f.sqlite.prepare("SELECT id FROM registrations WHERE login='123_Student'").get();
+    assert.equal(names.get('username-owner:@123_student'),'signup:'+reg.id);
+    const dev=f.client();assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
+    const approved=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{});assert.equal(approved.status,200);
+    assert.equal(names.get('username:'+approved.value.userId),'@123_student');
+    assert.equal(names.get('username-owner:@123_student'),approved.value.userId);
+  }finally{f.close();}
+});
 test('Registration is not blocked by failed logins and retains its separate flood limit',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';

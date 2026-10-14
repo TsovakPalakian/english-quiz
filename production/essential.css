@@ -1,6 +1,20 @@
 #everydaygroup input,#everydaytopic input{margin-bottom:16px;width:100%}
+#everydaygroup>.row,#everydaytopic>.row{margin-bottom:16px}
+#everydayWords,#addedList,#verbList.words,#grammarCategoryCards{align-items:start}
+#add>.card.grow{background:transparent;border:0;box-shadow:none;padding:0}
+#phrasalAdded,#idiomAdded{margin-top:16px}
+#everydayWords .wcard-tools .wcard{width:100%}
+#grammarCategorySearch{width:100%;margin-bottom:16px}
+#grammarCategoryCards p{margin:6px 0}
+#verbList.verb-form-cards{grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));align-items:start}
+#verbList.verb-form-cards>.card-edit{grid-column:1/-1}
+#verbList.verb-form-cards .entry{font-size:22px;overflow-wrap:anywhere}
 .everyday-word{display:flex;flex-direction:column;gap:8px;width:100%;padding:18px;text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .everyday-word strong{font-size:20px;color:var(--acc)}
 .everyday-word .everyday-example{font-size:14px}
 .everyday-word .label{font-size:14px}
 .everyday-word:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#adminLevelBody .accounts-group-create{gap:12px;margin-bottom:16px;flex-wrap:wrap}
+#adminLevelBody #accountGroupName{width:220px;max-width:100%;flex:0 1 220px;min-width:0}
+.accounts-level-groups{padding-left:16px;display:grid;gap:12px}
+.accounts-level-groups .path{width:100%;text-align:left}

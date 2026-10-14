@@ -72,8 +72,10 @@ def test_malformed_llm_item_is_discarded():
     assert clean["exactText"] == "give up"
 
 
-def test_api_returns_expressions():
-    response = client.post("/api/v1/analyze", json={"text": "I can't help thinking about it.", "contentType": "TEXT"})
+def test_api_returns_expressions(monkeypatch):
+    monkeypatch.setattr(settings, 'api_key', 'fixture-key')
+    monkeypatch.setattr(settings, 'require_key', True)
+    response = client.post("/api/v1/analyze", headers={'X-Api-Key':'fixture-key'}, json={"text": "I can't help thinking about it.", "contentType": "TEXT"})
     assert response.status_code == 200
     body = response.json()
     assert body["expressions"][0]["canonicalForm"] == "can't help + V-ing"

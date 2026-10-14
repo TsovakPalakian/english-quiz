@@ -1,6 +1,7 @@
 import {statement as stmt, StudyError, recordId} from './turso-study.mjs';
 import {materialVisibility} from './turso-visibility.mjs';
 import {ArchiveService} from './turso-archive.mjs';
+import {normalizedGroupTitle,prefixedExamTitle,groupLevel} from './group-levels.mjs';
 
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
@@ -63,13 +64,23 @@ export class GroupService{
           AND NOT EXISTS(SELECT 1 FROM class_group_lessons x WHERE x.lesson_id=l.id)
         ON CONFLICT(lesson_id) DO NOTHING`)
     ]);
+    if (!(await this.db.read("SELECT key FROM class_group_setup WHERE key='level-names-v2'")).length) {
+      const groups = await this.db.read('SELECT id,title,revision FROM class_groups WHERE deleted_at IS NULL');
+      await this.groupTransaction([
+        ...groups.filter(group => normalizedGroupTitle(group.title) !== group.title).flatMap(group => [
+          stmt('UPDATE class_groups SET title=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=?',[normalizedGroupTitle(group.title),group.id,group.revision]),
+          stmt('INSERT INTO group_guard SELECT changes()=1')
+        ]),
+        stmt("INSERT OR IGNORE INTO class_group_setup(key) VALUES('level-names-v2')")
+      ]);
+    }
   }
   async list(actor){
     signedIn(actor);
     await this.seed();
     const teacher=reviewer(actor);
     const groups=await this.db.read(`SELECT id,title,lesson_date,hidden_from_students,position,revision FROM class_groups
-      WHERE deleted_at IS NULL AND (?=1 OR hidden_from_students=0) ORDER BY lesson_date DESC,position,created_at,id`,[teacher?1:0]);
+      WHERE deleted_at IS NULL AND (?=1 OR (hidden_from_students=0 AND EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=class_groups.id AND gs.account_id=?))) ORDER BY lesson_date DESC,position,created_at,id`,[teacher&&!actor.managedStudent?1:0,actor.id]);
     const links=await this.db.read(`SELECT x.group_id,x.lesson_id,x.position FROM class_group_lessons x
       JOIN lessons l ON l.id=x.lesson_id
       WHERE l.deleted_at IS NULL AND (?=1 OR (l.published=1
@@ -105,18 +116,28 @@ export class GroupService{
   async groupTransaction(commands){
     return this.db.atomic([stmt('DROP TABLE IF EXISTS temp.group_guard'),stmt('CREATE TEMP TABLE group_guard(ok INTEGER NOT NULL CHECK(ok=1))'),...commands,stmt('DROP TABLE temp.group_guard')]);
   }
+  async examNameCommands(groupId,title) {
+    const tables=new Set((await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('exams','exam_instances')")).map(row=>row.name));
+    if(!tables.has('exams'))return [];
+    const exams=await this.db.read(`SELECT id,title FROM exams WHERE deleted_at IS NULL AND (id IN (SELECT exam_id FROM class_group_exams WHERE group_id=?)${tables.has('exam_instances')?' OR id IN (SELECT exam_id FROM exam_instances WHERE group_id=?)':''})`,tables.has('exam_instances')?[groupId,groupId]:[groupId]);
+    const commands=exams.filter(exam=>prefixedExamTitle(exam.title,title)!==exam.title).map(exam=>stmt('UPDATE exams SET title=?,revision=revision+1 WHERE id=?',[prefixedExamTitle(exam.title,title),exam.id]));
+    if(tables.has('exam_instances')&&(await this.db.read('SELECT exam_id FROM exam_instances WHERE group_id=? AND group_title<>? LIMIT 1',[groupId,title])).length)commands.push(stmt('UPDATE exam_instances SET group_title=? WHERE group_id=?',[title,groupId]));
+    return commands;
+  }
   async manage(actor,body){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
     if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(key=>!['action','id','expectedRevision','title','examId'].includes(key)))fail(400,'Invalid group request.');
     if(body.action==='create'){
       if(typeof body.title!=='string'||!body.title.trim()||body.title.length>120)fail(400,'Enter a group name.');
-      await this.db.atomic([stmt("INSERT INTO class_groups(title,lesson_date,position) VALUES(?,date('now'),(SELECT COALESCE(MAX(position)+1,0) FROM class_groups))",[body.title.trim()])]);
+      await this.db.atomic([stmt("INSERT INTO class_groups(title,lesson_date,position) VALUES(?,date('now'),(SELECT COALESCE(MAX(position)+1,0) FROM class_groups))",[normalizedGroupTitle(body.title)])]);
     }else{
       const group=await this.activeGroup(body.id);
       if(body.expectedRevision!==group.revision)fail(409,'The group changed. Reload Accounts.');
       if(body.action==='rename'){
         if(typeof body.title!=='string'||!body.title.trim()||body.title.length>120)fail(400,'Enter a group name.');
-        await this.groupTransaction([stmt('UPDATE class_groups SET title=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[body.title.trim(),body.id,body.expectedRevision]),stmt('INSERT INTO group_guard SELECT changes()=1')]);
+        if(groupLevel(group.title)&&!groupLevel(body.title))fail(400,'Start the group name with a standard level and a space.');
+        const title=normalizedGroupTitle(body.title);
+        await this.groupTransaction([stmt('UPDATE class_groups SET title=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[title,body.id,body.expectedRevision]),stmt('INSERT INTO group_guard SELECT changes()=1'),...await this.examNameCommands(body.id,title)]);
       }else if(body.action==='archive'){
         const [count]=await this.db.read('SELECT (SELECT COUNT(*) FROM class_group_students WHERE group_id=?)+(SELECT COUNT(*) FROM class_group_lessons WHERE group_id=?)+(SELECT COUNT(*) FROM class_group_exams WHERE group_id=?) n',[body.id,body.id,body.id]);
         if(count.n)fail(409,'Reassign students, lessons and exams before archiving this group.');
@@ -160,11 +181,11 @@ export class GroupService{
     groups.forEach((group,position)=>{
       const groupId=optionalId(group.id);
       if(groupId==null)commands.push(
-        stmt('INSERT INTO class_groups(title,lesson_date,hidden_from_students,position) VALUES(?,?,?,?)',[group.title.trim(),group.date,group.hidden?1:0,position]),
+        stmt('INSERT INTO class_groups(title,lesson_date,hidden_from_students,position) VALUES(?,?,?,?)',[normalizedGroupTitle(group.title),group.date,group.hidden?1:0,position]),
         stmt('INSERT INTO saved_ids(id) VALUES(last_insert_rowid())'));
       else commands.push(
         stmt(`UPDATE class_groups SET title=?,lesson_date=?,hidden_from_students=?,position=?,deleted_at=NULL,revision=revision+1,updated_at=unixepoch() WHERE id=?`,
-          [group.title.trim(),group.date,group.hidden?1:0,position,groupId]),
+          [normalizedGroupTitle(group.title),group.date,group.hidden?1:0,position,groupId]),
         stmt('INSERT INTO saved_ids(id) SELECT id FROM class_groups WHERE id=? AND changes()=1',[groupId]));
     });
     commands.push(stmt(`UPDATE class_groups SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch()
@@ -172,6 +193,7 @@ export class GroupService{
     commands.push(stmt('DELETE FROM class_group_lessons'));
     groups.forEach((group,index)=>group.lessonIds.forEach((lessonId,position)=>
       commands.push(stmt('INSERT INTO class_group_lessons(group_id,lesson_id,position) SELECT id,?,? FROM saved_ids WHERE seq=?',[lessonId,position,index+1]))));
+    for(const group of groups)if(group.id)commands.push(...await this.examNameCommands(group.id,normalizedGroupTitle(group.title)));
     commands.push(stmt('SELECT id FROM saved_ids ORDER BY seq'));
     const results=await this.db.atomic(commands);
     const ids=(results.at(-1)?.rows||[]).map(row=>Number(row[0]?.value));

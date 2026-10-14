@@ -35,8 +35,8 @@
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
-      made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library",
-      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingroup: "admin", themes: "account"
+      made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library",
+      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
       return ['groups','exams','library','stats','profile','speakouteditor'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
@@ -68,7 +68,7 @@
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (["admin","adminuser","admingroup"].includes(id) && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup","admingrouplevel"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
@@ -91,6 +91,7 @@
       }
       if (id === "adminuser") { adminSelectedUser = null; if (!adminGroups.length) paintAdmin('adminuser'); else paintAdminUser(adminAccountId); }
       if (id === "admingroup") { if (!adminGroups.length) paintAdmin('admingroup'); else paintAdminGroup(); }
+      if (id === "admingrouplevel") { if (!adminGroups.length) paintAdmin('admingrouplevel'); else paintAdminGroupLevel(); }
       if (id === "bugs") paintBugs();
       if (id === "archive") paintArchive();
       if (id === "stats") paintStats();
@@ -318,6 +319,9 @@
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
+      if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
+      if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
+      if(place.id?.startsWith('grammarcategor'))return place.id+'|'+(place.grammarCategory||'');
       if(place.id?.startsWith('everyday'))return [place.id,place.everyday?.group,place.everyday?.topic,place.everyday?.groupSearch,place.everyday?.wordSearch].join('|');
       return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson, place.workDay || "", place.workKind || ""].join("|");
     }
@@ -330,6 +334,10 @@
         focusKey: focused?.getAttribute("data-return-focus") || "",
         adminAccountId: typeof adminAccountId === 'undefined' ? null : adminAccountId,
         adminGroupId: typeof adminGroupId === 'undefined' ? null : adminGroupId,
+        adminGroupLevel: typeof adminGroupLevel === 'undefined' ? null : adminGroupLevel,
+        groupViewLevel: typeof groupViewLevel === 'undefined' ? '' : groupViewLevel,
+        examViewLevel: typeof examViewLevel === 'undefined' ? '' : examViewLevel,
+        examViewGroup: typeof examViewGroup === 'undefined' ? null : examViewGroup,
         adminTab: typeof adminTab === 'undefined' ? null : adminTab,
         focusAttrs: focused ? [...focused.attributes].filter(attr => attr.name === 'id' || attr.name === 'href' || attr.name.startsWith('data-') && attr.name !== 'data-return-focus').map(attr => [attr.name, attr.value]) : [],
         view: grammarView,
@@ -349,6 +357,7 @@
         verbKey: verbKey,
         speakView: speakView,
         everyday: typeof stageEverydayState==='undefined'?null:{...stageEverydayState},
+        grammarCategory: typeof stageGrammarGroup==='undefined'?'':stageGrammarGroup,
         speakLevel: speakLevel,
         speakUnit: speakUnit,
         speakLesson: speakLesson
@@ -369,11 +378,15 @@
     }
     window.enquizVisit = visit;
     function restore(place) {
+      if(place.grammarCategory&&typeof stageGrammarGroup!=='undefined')stageGrammarGroup=place.grammarCategory;
       if(place.everyday&&typeof stageEverydayState!=='undefined')stageEverydayState={...place.everyday};
       if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
-      if (['admin','adminuser','admingroup'].includes(place.id)) {
+      if (['admin','adminuser','admingroup','admingrouplevel'].includes(place.id)) {
+        adminGroupLevel = place.adminGroupLevel || adminGroupLevel;
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
+      if (place.id === 'groups') groupViewLevel = place.groupViewLevel || '';
+      if (place.id === 'exams') { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; }
       if (place.id === "tenses" && place.view === "area") { openArea(place.area, true); return; }
       if (place.id === "tenses") { openHub(true); return; }
       if (place.id === "tense" && place.kind === "compare") { openCompare(place.compare, true); return; }
@@ -2489,7 +2502,7 @@
     function paintExampleGrid(id, list, attr) {
       const box = document.getElementById(id);
       if (!box) return;
-      box.innerHTML = list.map((w, i) => !cardVisible(w) ? "" :
+      box.innerHTML = list.map((w,i)=>({w,i})).sort((a,b)=>a.w.en.localeCompare(b.w.en,'en',{sensitivity:'base'})).map(({w,i}) => !cardVisible(w) ? "" :
         '<button class="wcard" type="button" data-' + attr + '="' + i + '"><div class="en">' + esc(w.en) + '</div><div class="pos">' + esc(w.pos) + '</div>' +
         ipaHtml(w) +
         '<div class="label">' + esc(w.ru) + "</div></button>"
@@ -3781,9 +3794,9 @@
       return item && item.data && item.data.grammar && item.data.grammar.note ? String(item.data.grammar.note) : "";
     }
     function addedCard(item, index) {
-      let pos = item.data && item.data.cambridge && item.data.cambridge.pos ? item.data.cambridge.pos : "added";
+      let pos = item.data && item.data.cambridge && item.data.cambridge.pos ? item.data.cambridge.pos : item.pos || "added";
       if (item.fromText) pos = item.expressionType === "PHRASAL_VERB" ? "phrasal verb" : item.expressionType === "IDIOM" ? "idiom" : "expression";
-      const origin = cardOrigin(item);
+      const origin = cardOrigin(item) || addedPlaceName(item);
       const label = item.ru || expressionNote(item);
       const card = '<button class="wcard" type="button" data-added="' + index + '">' + wordPic(item.word) + '<div class="en">' + esc(item.word) + '</div><div class="pos">' + esc(pos) + '</div>' + ipaHtml(item) + '<div class="label">' + esc(label) + "</div>" + (origin ? '<div class="label">' + esc(origin) + "</div>" : "") + "</button>";
       if (!canEditAdded(item)) return card;
@@ -3793,7 +3806,7 @@
       const box = document.getElementById(boxId);
       if (!box) return;
       const list = loadAdded();
-      const html = list.map((item, index) => (item.place || "mine") === place || item.place==='chat-'+place ? addedCard(item, index) : "").join("");
+      const html = list.map((item,index)=>({item,index})).filter(({item})=>(item.place||'mine')===place||item.place==='chat-'+place).sort((a,b)=>['phrasal','idioms'].includes(place)?a.item.word.localeCompare(b.item.word,'en',{sensitivity:'base'}):0).map(({item,index})=>addedCard(item,index)).join('');
       box.innerHTML = html;
       if (labelId) {
         const label = document.getElementById(labelId);
@@ -3936,6 +3949,7 @@
         add(item.word, item.ru, where, "added", item.word);
         if(place.startsWith('chat'))add(item.word,item.ru,'From chat','added',item.word);
       });
+      if(typeof stageEssentialCollect==='function')stageEssentialCollect(rows);
       rows.sort((a, b) => a.en.localeCompare(b.en));
       return rows;
     }
@@ -3968,6 +3982,7 @@
       if (name === "Idioms") return 8.4;
       if (name === "Irregular verbs") return 8.6;
       if(name==='Chat')return 10;
+      if(name==='Essential English')return 11;
       return 9;
     }
     function lessonOrder(row) {
@@ -4176,6 +4191,7 @@
         if (item.fromText || !homePlace[place]) return;
         add(item.word, item.ru, homePlace[place], "added", item.word);
       });
+      if(typeof stageEssentialCollect==='function')stageEssentialCollect(rows);
       return rows;
     }
     function paintAllWords() {
@@ -4196,16 +4212,18 @@
         });
         names.sort((a, b) => sourceRank(a) - sourceRank(b) || a.localeCompare(b));
         if(!map.Chat){map.Chat=[];names.push('Chat');names.sort((a,b)=>sourceRank(a)-sourceRank(b)||a.localeCompare(b));}
+        const essential=rows.filter(row=>row.where.includes('Essential English'));map['Essential English']=essential;
+        if(!names.includes('Essential English'))names.push('Essential English');
         if (title) title.textContent = "All words · " + rows.length;
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
           const n = map[name].length;
-          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (index + 1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
       }
-      const shown = rows.filter((row) => sourceName(row) === allGroup);
+      const shown = rows.filter((row) => allGroup==='Essential English'?row.where.includes(allGroup):sourceName(row) === allGroup);
       if (allGroup === "Song lyrics" && !allSong) {
         const grouped = songSlices(shown, rowInKeys);
         if (title) title.textContent = "Song lyrics · " + shown.length;
@@ -4228,7 +4246,7 @@
       }
       if (title) title.textContent = label + " · " + words.length;
       if (sub) sub.hidden = true;
-      box.innerHTML = words.map(statRow).join("");
+      box.innerHTML = words.map(row=>allGroup==='Essential English'?statRow({...row,kind:'essential',key:String(rowToCard(row)?.stageId)}):statRow(row)).join("");
       applyCardSearch(box.closest("section"));
     }
     function openAllGroup(name) {
@@ -4267,7 +4285,9 @@
         if (ownMine(item)) shown.push({ item: item, index: index });
       });
       if (title) title.textContent = shown.length ? "My words · " + shown.length : "My words";
-      box.innerHTML = shown.map(({ item, index }) => addedRow(item, index)).join("");
+      box.classList.add('words');box.classList.remove('paths');
+      shown.sort((a,b)=>a.item.word.localeCompare(b.item.word,'en',{sensitivity:'base'}));
+      box.innerHTML = shown.map(({ item, index }) => addedCard(item, index)).join("");
       applyCardSearch(box.closest("section"));
     }
     function openAddGroup(name) {
@@ -4647,6 +4667,7 @@
       const box = document.getElementById("verbList");
       if (!box) return;
       if (!verbGroup) {
+        box.className='decks';
         if (title) title.textContent = "Irregular verbs · " + list.length;
         if (sub) {
           sub.hidden = false;
@@ -4654,7 +4675,7 @@
         }
         box.innerHTML = VERB_LEVELS.map((pair, index) => {
           const n = list.filter((v) => v.level === pair[0] && cardVisible(v)).length;
-          return '<button class="day active" type="button" data-verb-level="' + pair[0] + '"><span class="date">' + (index + 1) + '</span><span class="song-line"><b>' + esc(pair[1]) + '</b></span><span class="label about">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
+          return '<button class="file-card" type="button" data-verb-level="' + pair[0] + '"><span class="num">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -4662,15 +4683,17 @@
       const level = VERB_LEVELS.find((pair) => pair[0] === verbGroup);
       const shown = list.filter((v) => v.level === verbGroup && cardVisible(v));
       if (!verbKey) {
+        box.className='words';
         if (title) title.textContent = (level ? level[1] : "Irregular verbs") + " · " + shown.length;
         if (sub) sub.hidden = true;
-        box.innerHTML = shown.map((v) =>
-          '<button class="path" type="button" data-verb="' + esc(v.base) + '"><span><b>' + esc(v.base) + '</b><br><span class="label">' + esc(v.past) + " · " + esc(v.pp) + '</span></span><span class="to">' + esc(verbMeaning(v)) + "</span></button>"
+        box.innerHTML = shown.slice().sort((a,b)=>a.base.localeCompare(b.base,'en')).map((v) =>
+          '<button class="wcard" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
         ).join("");
         applyCardSearch(box.closest("section"));
         return;
       }
       const v = shown.find((item) => item.base === verbKey) || (window.IRREGULAR || []).find((item) => item.base === verbKey);
+      box.className='words verb-form-cards';
       if (!v || !cardVisible(v)) { verbKey = ""; paintVerbs(); return; }
       if (title) title.textContent = v ? v.base : "Verb";
       if (sub) {
@@ -4829,6 +4852,7 @@
       return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
     }
     function dictionaryAddHtml(item) {
+      if(item?.stageEverydayReference)return '';
       if (!item || dictionaryOwned(item.word)) return "";
       return '<button class="btn primary dict-add" type="button" data-dict-add="' + dictionaryPlace(item) + '">Add word</button>';
     }
@@ -4908,6 +4932,7 @@
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
       html += madeEditHtml(item);
       html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + dictionaryAddHtml(item) + "</div></div>";
+      if(item.stageEverydayReference)html+='<p class="label">'+esc(item.essentialSource||'Essential English')+'</p>';
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
       html += ipa;
@@ -5161,6 +5186,7 @@
       }
       const stat = e.target.closest("[data-stat]");
       if (stat) {
+        if(stat.closest('#home')&&!authUser)return;
         openStat(stat.dataset.stat);
         return;
       }
@@ -7567,6 +7593,7 @@
       return card;
     }
     function rowToCard(row) {
+      if(row.kind==='essential')return stageEssentialCard(row.key);
       const key = String(row.en || "").toLowerCase();
       const lesson = extraWords.find((item) => String(item.en).toLowerCase() === key) || words.find((item) => String(item.en).toLowerCase() === key) || phrases09.find((item) => String(item.en).toLowerCase() === key) || adverbs14.find((item) => String(item.en).toLowerCase() === key) || talk16.find((item) => String(item.en).toLowerCase() === key) || likes23.find((item) => String(item.en).toLowerCase() === key) || ask07.find((item) => String(item.en).toLowerCase() === key) || lines21.find((item) => String(item.en).toLowerCase() === key);
       if (lesson) return withStage({ en: lesson.en, ru: lesson.ru, pos: lesson.pos || "", uk: lesson.uk || "", us: lesson.us || "", ex: lesson.ex || "", gloss: lesson.gloss || "" }, lesson);
@@ -8784,7 +8811,7 @@
     }
     function openAllStudy() {
       const rows = allRows();
-      let shown = allGroup ? rows.filter((row) => sourceName(row) === allGroup) : rows;
+      let shown = allGroup ? rows.filter((row) => allGroup==='Essential English'?row.where.includes(allGroup):sourceName(row) === allGroup) : rows;
       if (allGroup === "Song lyrics") shown = rowsForSong(shown, allSong, rowInKeys);
       const title = allGroup === "Song lyrics" ? songStudyTitle("Song lyrics", allSong) : (allGroup || "All words");
       openListedStudy(shown.map(rowToCard), title, "allwords");
@@ -9983,6 +10010,7 @@
       if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
     }
     function paintHomeAccount() {
+      document.querySelectorAll('#home [data-stat]').forEach(button=>button.disabled=!authUser);
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
       if (!who || !demo) return;
@@ -10042,7 +10070,7 @@
       if (register) {
         box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' +
           '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>' +
-          '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" required />' +
+          '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<input name="email" type="email" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
           '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>' +
@@ -10189,6 +10217,19 @@
     let adminTab = 'accounts', adminGroups = [], adminMembers = [], adminAccounts = [], adminGroupId = null;
     let adminSearch = '', adminSelectedUser = null;
     let adminAccountId = null;
+    const adminLevels = ['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'];
+    let adminGroupLevel = 'A1';
+    function accountGroupLevel(group) {
+      return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
+    }
+    function paintAdminGroupLevel() {
+      if (!isTeacher() || viewAccount) return;
+      const box = document.getElementById('adminLevelBody'); if (!box) return;
+      const level = adminGroupLevel;
+      document.getElementById('adminLevelTitle').textContent = level === 'unassigned' ? 'Unassigned groups' : level;
+      const groups = adminGroups.filter(group => accountGroupLevel(group) === level);
+      box.innerHTML = (level === 'unassigned' ? '' : '<div class="row accounts-group-create"><label for="accountGroupName">Create group</label><span>' + esc(level) + '</span><input id="accountGroupName" aria-label="New group name" placeholder="Group name" maxlength="110"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>') + '<div class="accounts-level-groups">' + groups.map((group,index) => '<button class="path" type="button" data-admin-group="' + group.id + '"><span><b>' + (index + 1) + '. ' + esc(group.title) + '</b><br><span class="label">' + adminMembers.filter(m => m.groupId === group.id).length + ' students · ' + group.lessonIds.length + ' lessons · ' + (group.examIds || []).length + ' exams</span></span></button>').join('') + '</div>';
+    }
     function paintAdminAccounts() {
       const list = document.getElementById('adminAccountList'); if (!list) return;
       const query = adminSearch.trim().toLocaleLowerCase();
@@ -10211,8 +10252,9 @@
     }
     function paintAdminGroups() {
       const box = document.getElementById('adminBody'); if (!box || !isTeacher() || viewAccount) return;
-      const expanded = new Set([...box.querySelectorAll('[data-admin-group-fold][open]')].map(fold => fold.dataset.adminGroupFold));
-      box.innerHTML = '<div class="row accounts-group-create"><input id="accountGroupName" aria-label="New group name" placeholder="Group name" maxlength="120"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>' + adminGroups.map(group => '<details class="accounts-fold" data-admin-group-fold="' + group.id + '"' + (expanded.has(String(group.id)) ? ' open' : '') + '><summary>' + esc(group.title) + '</summary><button class="path" type="button" data-admin-group="' + group.id + '"><span><b>Open ' + esc(group.title) + '</b><br><span class="label">' + adminMembers.filter(m => m.groupId === group.id).length + ' students · ' + group.lessonIds.length + ' lessons · ' + (group.examIds || []).length + ' exams</span></span></button></details>').join('');
+      const levels = adminGroups.some(group => accountGroupLevel(group) === 'unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
+      box.innerHTML = '<div class="decks">' + levels.map(level => '<button class="file-card" type="button" data-admin-level="' + level + '"><b>' + (level === 'unassigned' ? 'Unassigned groups' : level) + '</b><span class="label">' + adminGroups.filter(group => accountGroupLevel(group) === level).length + ' groups</span></button>').join('') + '</div>';
+      if (document.querySelector('section.on')?.id === 'admingrouplevel') paintAdminGroupLevel();
       if (document.querySelector('section.on')?.id === 'admingroup') paintAdminGroup();
     }
     function paintAdminGroup() {
@@ -10239,24 +10281,31 @@
       const data = await accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify(body)});
       if (actor !== authUser?.id || generation !== viewGen || viewAccount) return;
       classGroups = data.groups; classGroupsReady = true; adminGroups = data.groups;
+      if(body.action==='rename'){const renamed=adminGroups.find(group=>group.id===body.id);if(renamed)adminGroupLevel=accountGroupLevel(renamed);}
       window.ContentCache?.drop('account:');
       if (body.action === 'archive') paintArchive();
       await examPull(true); paintGroups(); paintAdminGroups();
     }
     document.addEventListener('click',event => {
-      const tab = event.target.closest('[data-admin-tab]'), group = event.target.closest('[data-admin-group]'), action = event.target.closest('[data-account-group]');
-      if (!tab && !group && !action || !isTeacher() || viewAccount) return;
+      const tab = event.target.closest('[data-admin-tab]'), group = event.target.closest('[data-admin-group]'), action = event.target.closest('[data-account-group]'), level = event.target.closest('[data-admin-level]');
+      if (!tab && !group && !action && !level || !isTeacher() || viewAccount) return;
+      if (level) { pushHistory(); adminGroupLevel = level.dataset.adminLevel; show('admingrouplevel'); return; }
       if (tab) { adminTab = tab.dataset.adminTab; paintAdmin(); return; }
       if (group) { adminGroupId = domEntityId(group.dataset.adminGroup); classGroupId = adminGroupId; visit('admingroup'); return; }
       const kind = action.dataset.accountGroup, selected = adminGroups.find(g => g.id === adminGroupId);
       const body = kind === 'create' ? {action:kind,title:document.getElementById('accountGroupName').value} : {action:kind,id:selected?.id,expectedRevision:selected?.revision};
+      if (kind === 'create') {
+        const name = body.title.trim();
+        if (!name || !adminLevels.includes(adminGroupLevel)) return;
+        body.title = name.startsWith(adminGroupLevel + ' ') ? name : adminGroupLevel + ' ' + name;
+      }
       if (kind === 'rename') body.title = document.getElementById('accountGroupTitle').value;
       if (kind === 'exam' || kind === 'unassign-exam') { body.examId = Number(action.dataset.examId); if (!body.examId) return; }
       if (kind === 'archive' && !confirm('Move this group to Archive?')) return;
       action.disabled = true; saveAccountGroup(body).catch(error => { window.TursoMain?.notice(error.message,true); }).finally(() => { action.disabled = false; });
     });
     function paintAdmin(detailPage = '') {
-      if (!detailPage) { const active = document.querySelector?.('section.on')?.id; if (['adminuser','admingroup'].includes(active)) detailPage = active; }
+      if (!detailPage) { const active = document.querySelector?.('section.on')?.id; if (['adminuser','admingroup','admingrouplevel'].includes(active)) detailPage = active; }
       const token = ++adminPaintToken, actor = authUser?.id, generation = viewGen;
       const still = () => token === adminPaintToken && actor === authUser?.id && generation === viewGen;
       const box = document.getElementById("adminBody");
@@ -10280,7 +10329,7 @@
         const accounts = (users.users || []).filter(accountVisible);
         adminGroups = groups.groups || []; adminMembers = membership.members || []; adminAccounts = accounts;
         if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
-        if (adminTab === 'groups') { paintAdminGroups(); if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup(); return; }
+        if (adminTab === 'groups') { paintAdminGroups(); if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup(); else if (detailPage === 'admingrouplevel') paintAdminGroupLevel(); return; }
         const accountIds = new Set(accounts.map((row) => row.id));
         const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
         const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(row.user_id));
@@ -10307,7 +10356,7 @@
         const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
             '<div class="row" data-list-row style="margin:8px 0"><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
-            '<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1')?.id) + '</select><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
+            '<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(adminGroups.find(g => g.title === 'A1 Group')?.id) + '</select><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '">Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
           '</div>';
@@ -11275,6 +11324,9 @@
       signedOutHello = false;
       accountChecked = true;
       authUser = user;
+      localStorage.removeItem('enquiz-idle-expired');
+      localStorage.setItem('enquiz-last-activity:' + user.id, String(Date.now()));
+      idleActor = user.id; idleRenewed = Date.now(); idleExpiring = false;
       ownAccountData = null;
       accountReady = false;
       paintDeveloperChrome();
@@ -11894,20 +11946,29 @@
       return accountFetch("/api/me/themes").then((pack) => pack).catch(() => null);
     }
     const idleLimit = 3 * 60 * 60 * 1000;
-    let idleActor = "", idleRenewed = 0, idleFlight = false;
+    let idleActor = "", idleRenewed = 0, idleFlight = false, idleExpiring = false;
+    function expireIdleAccount() {
+      if (idleExpiring) return;
+      idleExpiring = true;
+      localStorage.setItem('enquiz-idle-expired', '1');
+      // Hide the previous screen immediately, including while offline cleanup runs.
+      document.body.style.visibility = 'hidden';
+      const logout = fetch('/api/logout', {method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(5000)}).catch(() => null);
+      Promise.allSettled([logout, leaveAccount({signedOut:true})]).then(() => location.reload());
+    }
     function accountIdleCheck(activity = false) {
       if (!authUser) { idleActor = ""; return; }
+      if (idleExpiring) return;
+      if (localStorage.getItem('enquiz-idle-expired')) { expireIdleAccount(); return; }
       const key = "enquiz-last-activity:" + authUser.id;
       const time = Date.now();
       let last = Number(localStorage.getItem(key)) || time;
       if (idleActor !== authUser.id) {
         idleActor = authUser.id;
-        last = time;
-        localStorage.setItem(key, String(time));
+        if (!localStorage.getItem(key)) localStorage.setItem(key, String(time));
       }
       if (time - last >= idleLimit) {
-        fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
-        leaveAccount({ signedOut: true });
+        expireIdleAccount();
         return;
       }
       if (!activity) return;
@@ -11915,7 +11976,7 @@
       if (idleFlight || time - idleRenewed < 30000) return;
       idleFlight = true;
       fetch("/api/me/activity", { method: "POST", credentials: "same-origin" }).then(response => {
-        if (response.status === 401) leaveAccount({ signedOut: true });
+        if (response.status === 401) expireIdleAccount();
         else if (response.ok) idleRenewed = time;
       }).catch(() => {}).finally(() => { idleFlight = false; });
     }
@@ -11923,6 +11984,8 @@
       document.addEventListener(type, event => { if (event.isTrusted) accountIdleCheck(true); }, { passive: true, capture: true });
     });
     document.addEventListener("visibilitychange", () => { if (!document.hidden) accountIdleCheck(); });
+    window.addEventListener('pageshow', () => accountIdleCheck());
+    window.addEventListener('storage', event => { if (event.key === 'enquiz-idle-expired') accountIdleCheck(); });
     setInterval(() => accountIdleCheck(), 15000);
     function initAccount() {
       const pendingId = localStorage.getItem("enquiz-view-id");
@@ -11930,7 +11993,10 @@
       const pendingRole = localStorage.getItem("enquiz-view-role") || "";
       const pendingEmail = localStorage.getItem("enquiz-view-email") || "";
       const pendingName = localStorage.getItem("enquiz-view-name") || "";
-      const ready = pendingId ? restoreDeveloper().then(() => {
+      const ready = localStorage.getItem('enquiz-idle-expired') ? fetch('/api/logout', {method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(5000)}).then(response => {
+        if (!response.ok) throw new Error('Session logout pending.');
+        localStorage.removeItem('enquiz-idle-expired');
+      }) : pendingId ? restoreDeveloper().then(() => {
         forgetViewFlags();
         addedCache = null;
       }) : Promise.resolve();
@@ -11949,6 +12015,8 @@
         }
         signedOutHello = false;
         authUser = data.user;
+        const lastActivity = Number(localStorage.getItem('enquiz-last-activity:' + authUser.id));
+        if (lastActivity && Date.now() - lastActivity >= idleLimit) { expireIdleAccount(); return; }
         paintHomeHello();
         paintDeveloperChrome();
         localStorage.setItem("enquiz-auth-on", "1");
@@ -11970,7 +12038,7 @@
           finishPlace();
         });
       }).catch(() => { accountChecked = true; paintHomeAccount(); finishPlace(); });
-      });
+      }).catch(() => leaveAccount({signedOut:true}));
     }
     const TEXT_KEY = "enquiz-texts";
     let openTextId = "";
@@ -12416,6 +12484,7 @@
         groupNormalize();
         paintGroups();
         paintLmDays();
+        if(document.querySelector('section.on')?.id==='exams')examPaintList();
       }).catch((error) => window.TursoMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
     }
     function groupSave() {
@@ -12437,6 +12506,17 @@
           if (version === classGroupsSaveVersion) classGroupsDirty = false;
         }).catch(() => {});
     }
+    let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
+    function levelButtons(rows,attribute) {
+      const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>'<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+rows.filter(row=>accountGroupLevel(row)===level).length+' groups</span></button>').join('')+'</div>';
+    }
+    document.addEventListener('click',event=>{
+      const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
+      if(group){pushHistory();groupViewLevel=group.dataset.groupLevel;paintGroups();rememberPlace();}
+      if(level){pushHistory();examViewLevel=level.dataset.examLevel;examViewGroup=null;examPaintList();rememberPlace();}
+      if(subgroup){pushHistory();examViewGroup=subgroup.dataset.examGroupView;examPaintList();rememberPlace();}
+    });
     function paintGroups() {
       const box = document.getElementById("groupList");
       const newer = document.getElementById("groupNew");
@@ -12445,8 +12525,10 @@
       if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
       groupNormalize();
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
-      const rows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
-      box.innerHTML = rows.map((group) => {
+      const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+      if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
+      const rows=allRows.filter(group=>accountGroupLevel(group)===groupViewLevel);
+      box.innerHTML = '<button class="btn ghost" type="button" data-group-level="">Back</button><h2>'+esc(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel)+'</h2>' + rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
@@ -12469,7 +12551,8 @@
     }
     function groupCreate() {
       if (!canEditLessons()) return;
-      openItemEditor(document.getElementById("groupNew"), { title: "Group", date: lmToday(), label: "Group name" }, (value) => {
+      openItemEditor(document.getElementById("groupNew"), { title: (adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' Group', date: lmToday(), label: "Group name" }, (value) => {
+        if(accountGroupLevel({title:value.title})==='unassigned')value.title=(adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' '+value.title;
         const group = { id: groupId(), title: value.title, date: value.date, hidden: false, lessonIds: [] };
         classGroups.push(group);
         classGroupId = group.id;
@@ -12483,10 +12566,12 @@
       const group = classGroups.find((row) => row.id === id);
       if (!group || !button) return;
       openItemEditor(button, { title: group.title, date: group.date, label: "Group name" }, (value) => {
+        if(accountGroupLevel({title:value.title})==='unassigned'){window.TursoMain?.notice('Start the group name with a standard level and a space.',true);return;}
         group.title = value.title;
+        groupViewLevel = accountGroupLevel(group);
         group.date = value.date;
         paintGroups();
-        groupSave();
+        groupSave().then(()=>groupPull(true)).then(()=>examPull(true));
       });
     }
     function groupHide(id) {
@@ -14580,6 +14665,7 @@
       const numeric = (value) => Number.isSafeInteger(value) && value > 0;
       return {
         ...(numeric(exam.id) ? { id: exam.id } : {}),
+        ...(numeric(exam.groupId) ? {groupId:exam.groupId} : {}),
         title: exam.title || "Exam",
         date: exam.date || "",
         published: !!exam.published,
@@ -15422,7 +15508,7 @@
     function examPaintList() {
       const box = document.getElementById("examList");
       const newer = document.getElementById("examNew");
-      if (newer) newer.hidden = !canEditLessons();
+      if (newer) newer.hidden = !canEditLessons() || !classGroups.some(group=>String(group.id)===String(examViewGroup));
       if (!box) return;
       if (authUser && !examReady && !examPulling) examPull();
       const account = examWorkAccount();
@@ -15439,8 +15525,13 @@
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
       });
-      let previousGroup;
-      box.innerHTML = rows.map((exam) => {
+      const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
+      const groups=[...new Map(rows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})).values()];
+      if(!examViewLevel){box.innerHTML=levelButtons(groups,'data-exam-level');return;}
+      const back='<button class="btn ghost" type="button" data-exam-level="">Back</button><h2>'+esc(examViewLevel==='unassigned'?'Unassigned':examViewLevel)+'</h2>';
+      if(examViewGroup===null){box.innerHTML=back+'<div class="decks">'+groups.filter(group=>accountGroupLevel(group)===examViewLevel).map(group=>'<button class="file-card" type="button" data-exam-group-view="'+esc(group.id)+'"><b>'+esc(group.title)+'</b><span class="label">'+rows.filter(exam=>String(groupFor(exam).id)===String(group.id)).length+' exams</span></button>').join('')+'</div>';return;}
+      const selectedGroup=groups.find(group=>String(group.id)===String(examViewGroup));
+      box.innerHTML = '<button class="btn ghost" type="button" data-exam-level="'+esc(examViewLevel)+'">Back</button><h2>'+esc(selectedGroup?.title||'Unassigned')+'</h2>' + rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map((exam) => {
         const chip = lmDateChip(exam.date);
         const mine = !canEditLessons();
         const ready = mine && examReadyForReview(exam);
@@ -15453,9 +15544,8 @@
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
         if (hidden) about = viewAccount ? 'Hidden for this student' : about;
         if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
-        const groupName = exam.groupTitle || classGroups.find(g => g.id === exam.groupId)?.title || 'Unassigned', heading = previousGroup !== groupName ? '<h2 class="lib-h">' + esc(groupName) + '</h2>' : ''; previousGroup = groupName;
         if(exam.instanceStatus==='completed')about='Completed · Maximum '+exam.maximumPoints+' · '+exam.earnedPoints+' points';
-        return heading + examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), about, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
+        return examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), about, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -15665,12 +15755,19 @@
       if (!exam || !button) return;
       openItemEditor(button, { title: exam.title || "Exam", date: exam.date || "", label: "Exam name" }, (value) => examSetMeta(id, value));
     }
+    function examGroupName(title,groupId) {
+      const group=classGroups.find(group=>group.id===groupId),level=group&&accountGroupLevel(group);
+      if(!adminLevels.includes(level))return title;
+      const old=accountGroupLevel({title:title});
+      const suffix=old==='unassigned'?title:title===old?'Exam':title.startsWith(old+' ')?title.slice(old.length+1):title.slice(0,-old.length-1);
+      return (level+' '+(suffix||'Exam')).slice(0,120);
+    }
     function examSetMeta(id, value) {
       if (!canEditLessons() || !value.title || !/^\d{4}-\d{2}-\d{2}$/.test(value.date)) return;
       const exams = examLoad();
       const exam = exams.find((row) => row.id === id);
       if (!exam) return;
-      exam.title = value.title;
+      exam.title = examGroupName(value.title,exam.groupId);
       exam.date = value.date;
       (exam.blocks || []).forEach((block) => { if (block.doc) block.doc.date = value.date; });
       if (lmState && lmState.examOwned && lmState.examId === id) lmState.date = value.date;
@@ -15679,9 +15776,10 @@
     }
     function examAdd() {
       if (!canEditLessons()) return;
-      openItemEditor(document.getElementById("examNew"), { title: "Exam", date: lmToday(), label: "Exam name" }, (value) => {
+      openItemEditor(document.getElementById("examNew"), { title: (adminLevels.includes(examViewLevel)?examViewLevel+' ':'')+'Exam', date: lmToday(), label: "Exam name" }, (value) => {
         const exams = examLoad();
-        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: value.title, date: value.date, created: Date.now(), blocks: [] });
+        const groupId=classGroups.some(group=>String(group.id)===String(examViewGroup))?Number(examViewGroup):null;
+        exams.push({ id: "exam-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), groupId, title: examGroupName(value.title,groupId), date: value.date, created: Date.now(), blocks: [] });
         examSave(exams);
         examPaintList();
       });
@@ -15835,7 +15933,8 @@
         const query = input.value.trim().toLocaleLowerCase();
         const rows = [...list.querySelectorAll(selector)].filter(row => !row.parentElement.closest(selector) || !list.contains(row.parentElement.closest(selector)));
         if (id === 'adminBody') {
-          control.hidden = adminTab === 'accounts';
+          control.hidden = adminTab === 'accounts' || adminTab === 'groups';
+          if (adminTab === 'groups') input.value = '';
           input.placeholder = adminTab === 'groups' ? 'Search groups' : adminTab === 'requests' ? 'Search approval requests' : 'Search registration history';
           input.setAttribute('aria-label', input.placeholder);
         }

@@ -1,4 +1,17 @@
-import {statement as s,cardAccess,accessArgs} from './turso-study.mjs';
+import {statement as s,cardAccess,accessArgs,StudyError} from './turso-study.mjs';
+export async function removeEssentialReference(db,actor,body){
+  if(!['ADMIN','DEVELOPER'].includes(actor?.role))throw new StudyError(403,'Teachers only.');
+  if(!body||Object.keys(body).some(key=>!['topicId','cardId','expectedVersion'].includes(key))||typeof body.topicId!=='string'||!Number.isSafeInteger(body.cardId)||body.cardId<1||!Number.isSafeInteger(body.expectedVersion))throw new StudyError(400,'Invalid reference.');
+  const [row]=await db.read("SELECT value_json FROM catalog_documents WHERE namespace='everyday' AND key='v1'");
+  if(!row)throw new StudyError(404,'Catalog not found.');
+  const catalog=JSON.parse(row.value_json);if(catalog.version!==body.expectedVersion)throw new StudyError(409,'Catalog changed. Reload it before editing.');
+  const topic=catalog.groups.flatMap(group=>group.topics).find(topic=>topic.id===body.topicId);
+  if(!topic?.entries.some(entry=>entry.cardId===body.cardId))throw new StudyError(404,'Reference not found.');
+  topic.entries=topic.entries.filter(entry=>entry.cardId!==body.cardId);catalog.version++;
+  catalog.removedReferences=[...new Set([...(catalog.removedReferences||[]),body.topicId+':'+body.cardId])];
+  await db.atomic([s('CREATE TEMP TABLE essential_guard(ok INTEGER NOT NULL CHECK(ok=1))'),s("UPDATE catalog_documents SET value_json=? WHERE namespace='everyday' AND key='v1' AND json_extract(value_json,'$.version')=?",[JSON.stringify(catalog),body.expectedVersion]),s('INSERT INTO essential_guard SELECT changes()=1'),s('DROP TABLE essential_guard')]);
+  return {ok:true,version:catalog.version};
+}
 export async function everydayCatalog(db,actor){
   const [[document],rows,personal]=await db.readMany([
     s("SELECT value_json FROM catalog_documents WHERE namespace='everyday' AND key='v1'"),

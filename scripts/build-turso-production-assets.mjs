@@ -41,14 +41,21 @@ preview=preview.replace('    function show(id) {',"    function show(id) {\n    
 writeFileSync(resolve(target,'preview.js'),preview);
 const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
 const scoring='(()=>{\n'+readFileSync(resolve(root,'src/exam-scoring.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.MaterialScoring={examAnswered,examChildren,examAnswerQuestions,examElementMax,examTaskMax,examGrading,validateExamScoring,memoryDeck,memoryScore};})();';
-const loader=(scoring+'\n'+readFileSync(resolve(root,'production/color-picker.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-quiz.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8')).replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
+const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categories.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/color-picker.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-quiz.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8')).replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+html=html.replace('<section id="admingroup">','<section id="admingrouplevel"><div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="admin">Back</button><h1 id="adminLevelTitle">Groups</h1></div><div id="adminLevelBody"></div></section>\n<section id="admingroup">');
 const everydayAnchor='      <h2 class="lib-h">Words</h2>\n      <div class="decks">';
 assert.equal(html.split(everydayAnchor).length,2);
-html=html.replace(everydayAnchor,everydayAnchor+'\n        <button class="file-card" type="button" data-jump="everyday"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>');
+const myWordsAnchor='<button class="file-card" type="button" data-jump="add"><span class="num" id="myWordCount">0</span><b>My words</b><span class="label">one field · both directions</span></button>';
+assert.equal(html.split(myWordsAnchor).length,2);
+html=html.replace(myWordsAnchor,myWordsAnchor+'\n        <button class="file-card" type="button" data-jump="everyday"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>');
 html=html.replace('<section id="library">',readFileSync(resolve(root,'production/essential.html'),'utf8')+'\n<section id="library">');
+html=html.replace('<section id="library">',readFileSync(resolve(root,'production/grammar-categories.html'),'utf8')+'\n<section id="library">');
+const irregularAnchor='<button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>';
+assert.equal(html.split(irregularAnchor).length,2);
+html=html.replace(irregularAnchor,irregularAnchor+'\n        <button class="file-card" type="button" data-jump="grammarcategories"><span class="num">7</span><b>Grammatical Categories</b><span class="label">word classes · syntax · meaning</span></button>');
 const brandRow=readFileSync(resolve(root,'preview.html'),'utf8').match(/^    <div class="brand-row">.*<\/div>$/m)?.[0];
 assert.ok(brandRow,'Account avatar header missing');
 const oldBrand='    <button class="brand" type="button" data-jump="home">English</button>';

@@ -5,6 +5,7 @@ import {AssessmentService} from './turso-assessment.mjs';
 import {GroupService} from './turso-groups.mjs';
 import {validateExamScoring,memoryDeck} from './exam-scoring.mjs';
 import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
+import {prefixedExamTitle} from './group-levels.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -100,6 +101,17 @@ export class ExamService {
     signedIn(actor);
     await this.ensure();
     await new GroupService(this.db).ensure();
+    const groupNames=await this.db.read(`SELECT e.id,e.title,COALESCE(g.title,ig.title) AS group_title,i.group_title AS instance_title
+      FROM exams e LEFT JOIN class_group_exams gx ON gx.exam_id=e.id LEFT JOIN class_groups g ON g.id=gx.group_id AND g.deleted_at IS NULL
+      LEFT JOIN exam_instances i ON i.exam_id=e.id LEFT JOIN class_groups ig ON ig.id=i.group_id AND ig.deleted_at IS NULL
+      WHERE e.deleted_at IS NULL AND (g.id IS NOT NULL OR ig.id IS NOT NULL)`);
+    const nameCommands=[];
+    for(const exam of groupNames){
+      const title=prefixedExamTitle(exam.title,exam.group_title);
+      if(title!==exam.title)nameCommands.push(stmt('UPDATE exams SET title=?,revision=revision+1 WHERE id=? AND title=?',[title,exam.id,exam.title]));
+      if(exam.instance_title!=null&&exam.instance_title!==exam.group_title)nameCommands.push(stmt('UPDATE exam_instances SET group_title=? WHERE exam_id=?',[exam.group_title,exam.id]));
+    }
+    if(nameCommands.length)await this.db.atomic(nameCommands);
     const teacher = reviewer(actor);
     const catalogView=teacher&&!actor.managedStudent;
     const assigned=await assignedExamIds(this.db,actor.id);
@@ -167,7 +179,10 @@ export class ExamService {
     if (!exam || typeof exam !== 'object') fail(400, 'Invalid exam.');
     const examId = optionalId(exam.id);
     const date = String(exam.date || '');
-    const title = String(exam.title || 'Exam').trim().slice(0, 120) || 'Exam';
+    let title = String(exam.title || 'Exam').trim().slice(0, 120) || 'Exam';
+    await new GroupService(this.db).ensure();
+    const groupId=examId==null?optionalId(exam.groupId):(await this.db.read('SELECT group_id FROM class_group_exams WHERE exam_id=?',[examId]))[0]?.group_id;
+    if(groupId){const group=await new GroupService(this.db).activeGroup(groupId);title=prefixedExamTitle(title,group.title);}
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(400, 'Invalid exam date.');
     const blocks = Array.isArray(exam.blocks) ? exam.blocks : [];
     if (blocks.length > 100) fail(400, 'Too many examination blocks.');
@@ -194,6 +209,7 @@ export class ExamService {
       stmt(`UPDATE exams SET title=?, lesson_date=?, published=?, hidden_from_students=?, revision=revision+1, updated_at=unixepoch() WHERE id=? AND deleted_at IS NULL`, [title, date, exam.published ? 1 : 0, exam.hidden ? 1 : 0, examId]),
       stmt("INSERT INTO saved_ids(kind, seq, id) VALUES('exam',0,(SELECT id FROM exams WHERE id=? AND deleted_at IS NULL AND changes()=1))", [examId]));
     let materialSeq = 0;
+    if(examId==null&&groupId)commands.push(stmt("INSERT INTO class_group_exams(group_id,exam_id) SELECT ?,id FROM saved_ids WHERE kind='exam' AND seq=0",[groupId]));
     blocks.forEach((block, index) => {
       if (!block || typeof block !== 'object') fail(400, 'Invalid examination block.');
       const blockId = optionalId(block.id);

@@ -64,13 +64,32 @@ test('Usernames are case-insensitively unique, independent of login and searchab
     const claim=(actor,username,extra={})=>chatCall(env,'CHAT_BRIDGE','global','/username',{actor,username,...extra});
     assert.equal((await claim(bob,'@BoB_123')).profile.username,'@bob_123');
     await assert.rejects(claim(alice,'@BOB_123'),e=>e.status===409);
-    for(const invalid of ['missing_at','@ab','@1name','@has space','@hello-world'])await assert.rejects(claim(alice,invalid),e=>e.status===400);
+    for(const invalid of ['missing_at','@ab','@has space','@hello-world'])await assert.rejects(claim(alice,invalid),e=>e.status===400);
     assert.equal((await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'lookup',body:{query:'@BOB_123'}})).person.id,bob.id);
     await assert.rejects(claim(bob,'@new_bob',{expectedUsername:'@wrong'}),e=>e.status===409);
     await claim(bob,'@new_bob',{expectedUsername:'@bob_123'});assert.equal((await bridge.discover(alice,'@bob_123')).person,null);
     await claim(alice,'@bob_123');assert.equal((await bridge.discover(alice,'@bob_123')).person,null,'Cannot discover self');
     await claim({id:'hidden',role:'USER'},'@hidden');await claim({id:'inactive',role:'USER'},'@inactive');assert.equal((await bridge.discover(alice,'@hidden')).person,null);assert.equal((await bridge.discover(alice,'@inactive')).person,null);
     const concurrent=await Promise.allSettled([claim(alice,'@shared'),claim(bob,'@shared')]);assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1);assert.equal(concurrent.filter(r=>r.status==='rejected')[0].reason.status,409);
+  }finally{await f.drain();f.close();}
+});
+test('Signup reserves the exact @login until approval, preserves uniqueness and releases rejected registrations',async()=>{
+  const f=fixture({});try{
+    await f.boot();const {env,alice}=f;
+    const signup=body=>chatCall(env,'CHAT_BRIDGE','global','/signup-username',body);
+    const reservation={login:'123_Student',reservationId:'registration1'};
+    assert.equal((await signup({...reservation,action:'reserve'})).username,'@123_student');
+    await assert.rejects(chatCall(env,'CHAT_BRIDGE','global','/username',{actor:alice,username:'@123_student'}),e=>e.status===409);
+    await assert.rejects(signup({...reservation,reservationId:'registration2',action:'reserve'}),e=>e.status===409);
+    await signup({...reservation,action:'activate',userId:'new_student'});
+    assert.equal((await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor:alice,ids:['new_student']})).profiles[0].username,'@123_student');
+    await signup({...reservation,action:'rollback',userId:'new_student'});
+    await signup({...reservation,action:'activate',userId:'approved_student'});
+    await signup({...reservation,action:'release'});
+    await assert.rejects(signup({...reservation,reservationId:'different',action:'reserve'}),e=>e.status===409,'A stale release cannot remove an approved username');
+    await signup({login:'_new_student',reservationId:'rejected',action:'reserve'});
+    await signup({login:'_new_student',reservationId:'rejected',action:'release'});
+    await signup({login:'_new_student',reservationId:'retry',action:'reserve'});
   }finally{await f.drain();f.close();}
 });
 test('Phone and birthday are stored in separate columns and visibility toggles filter public profiles',async()=>{

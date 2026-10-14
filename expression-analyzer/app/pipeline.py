@@ -424,6 +424,9 @@ def apply_llm(items):
             "suggestedCanonical": extra.get("canonicalForm"),
             "applied": True,
         }
+        if not is_expr and item.get("source") == "dictionary":
+            item["llmDecision"]["applied"] = False
+            continue
         if item["meaningSource"] != "context" and extra.get("meaning"):
             item["meaning"] = extra["meaning"]
             for row in item["occurrences"]:
@@ -487,7 +490,7 @@ def analyze(text, content_type="TEXT"):
         llm_note = apply_llm(merged)
     accepted = []
     for item in merged:
-        if item.get("llmDecision", {}).get("isExpression") is False:
+        if (item.get("llmDecision") or {}).get("isExpression") is False and item.get("source") != "dictionary":
             rejected.append({
                 "exactText": item["exactText"],
                 "canonicalForm": item["canonicalForm"],

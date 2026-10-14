@@ -354,6 +354,7 @@ function stageQuizMap(value){
 }
 function stageHostCard(host){
   const kind=host.dataset.editKind,id=host.dataset.editId;
+  if(kind==='essential')return stageEssentialCard(id);
   if(kind==='added')return loadAdded()[Number(id)]||null;
   if(kind==='made')return madeItem||null;
   return findCatalog(id);
@@ -509,6 +510,7 @@ function stageStoreText(analyze){
   },document.getElementById('textStatus'));
 }
 function stageStoreSong(existingId){
+  if(existingId)existingId=stageDomId(existingId);
   const managed=stageManagedSongReady();
   if(!stageOwnReady()&&!managed){window.TursoMain.notice('Дождитесь загрузки разрешённого профиля.',true);return;}
   const accountId=viewAccount?.id||'',generation=viewGen;
@@ -535,20 +537,42 @@ function stageStoreSong(existingId){
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
 }
 if(typeof window!=='undefined'&&typeof document!=='undefined')window.TextColors?.mount(document.getElementById('lyricText'));
+let stageTextHeightFrame=0;
+function stageGrowTextEditors(){
+  if(stageTextHeightFrame)return;
+  stageTextHeightFrame=requestAnimationFrame(()=>{
+    stageTextHeightFrame=0;
+    document.querySelectorAll('#lyricText,#textBody,[data-lyric-draft]').forEach(input=>{
+      const rich=input.parentElement?.querySelector('.text-color-rich:not([hidden])'),field=rich||input;
+      if(!field.getClientRects().length)return;
+      const minimum=Math.max(100,parseFloat(getComputedStyle(field).minHeight)||0);
+      field.style.maxHeight='none';field.style.overflowY='hidden';field.style.height='auto';
+      field.style.height=Math.max(minimum,field.scrollHeight+2)+'px';
+    });
+  });
+}
+document.addEventListener('input',event=>{if(event.target.matches('#lyricText,#textBody,[data-lyric-draft]')||event.target.closest('.text-color-rich')?.parentElement.querySelector('#lyricText,#textBody,[data-lyric-draft]'))stageGrowTextEditors();});
+if(typeof MutationObserver!=='undefined'&&document.body){const observer=new MutationObserver(stageGrowTextEditors);document.querySelectorAll('#lyricadd,#songUser,#textedit').forEach(root=>observer.observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden']}));window.addEventListener('resize',stageGrowTextEditors);stageGrowTextEditors();}
 async function stageKeepExpression(card,managed=stageManagedSongReady()){
+  const generation=viewGen,actor=authUser?.id;
   const word=String(card.word||'').trim();
   const place=card.fromText&&(!card.place||card.place==='mine')?'text':(['phrasal','idioms','mine','music','text'].includes(card.place)?card.place:'mine');
-  if(!word||(!card.fromText&&cardIndex().has(word.toLowerCase())))return false;
+  if(!word||loadAdded().some(row=>String(row.word||row.en||'').toLowerCase()===word.toLowerCase()&&(row.place||'mine')===place))return false;
   const accountId=viewAccount?.id||'';
+  const current=()=>generation===viewGen&&actor===authUser?.id&&accountId===(viewAccount?.id||'');
   try{
     const found=await window.TursoMain.findCard(word);
+    if(!current())return false;
     if(loadAdded().some(row=>row.stageId===found.id&&(row.place||'mine')===place))return false;
     const linked=managed?await window.TursoMain.linkManagedCard(accountId,found,place):await window.TursoMain.linkCard(found,place);
+    if(!current())return false;
     const list=loadAdded();list.unshift(linked.card);stageStampLinks(list,linked.revision);return true;
   }catch{
+    if(!current())return false;
     const ru=String(card.ru||'').trim();
     if(!ru)return false;
     const created=managed?await window.TursoMain.newManagedCard(accountId,word,ru,place):await window.TursoMain.newCard(word,ru,place);
+    if(!current())return false;
     const list=loadAdded();list.unshift(created.card);stageStampLinks(list,created.revision);return true;
   }
 }
@@ -581,6 +605,8 @@ function stageLyricRu(data){
   return String((data&&data.ru)||cam.definition||wh.gloss||wh.verbGloss||(data&&data.englishClub&&data.englishClub.meaning)||(data&&data.englishAtHome&&data.englishAtHome.meaning)||'').trim();
 }
 async function stageMarkLyricWords(song,marks,write){
+  const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
+  const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
   const seen=new Set(),keys=[];
   (typeof lyricTokens==='function'?lyricTokens(song.lyrics||''):[]).forEach(key=>{
     if(!key||seen.has(key))return;
@@ -597,10 +623,12 @@ async function stageMarkLyricWords(song,marks,write){
   let cursor=0,done=0;
   async function worker(){
     while(cursor<todo.length){
+      if(!current())return;
       const key=todo[cursor++];
       write('Checked '+(++done)+' of '+todo.length+' new words…',false);
       try{
         const data=typeof lookupLyricWord==='function'?await lookupLyricWord(key,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):'',25000):null;
+        if(!current())return;
         const ru=stageLyricRu(data);
         if(!data||!ru){marks[key]={state:'miss'};continue;}
         const added=await stageKeepExpression({word:key,ru,place:'music'});
@@ -617,15 +645,21 @@ async function stageMarkLyricWords(song,marks,write){
   return keys;
 }
 async function stageAnalyzeSong(song,status){
+  const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
+  const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
   const write=(text,bad)=>{if(!status)return;status.textContent=text;status.classList.toggle('bad',!!bad);};
   const finish=(text,bad)=>setTimeout(()=>{
+    if(!current())return;
+    const visible=document.getElementById('songUser');if(visible&&String(visible.dataset.songId)!==String(song.id))return;
     const live=document.querySelector('#songUser [data-lyric-check]')||status;
     if(!live)return;live.textContent=text;live.classList.toggle('bad',!!bad);
   },0);
   write('Reading the lyrics…',false);
   const marks={...(song.marks||{})};
   const keys=await stageMarkLyricWords(song,marks,write);
+  if(!current())return;
   const storeMarks=async()=>{
+    if(!current())return;
     if(!song.stageId||!Object.keys(marks).length)return;
     const managed=stageManagedSongReady();
     const saved=managed?await window.TursoMain.saveManagedLibrary(viewAccount.id,song,'song',{marks}):await window.TursoMain.saveLibrary(song,'song',{marks});
@@ -636,22 +670,25 @@ async function stageAnalyzeSong(song,status){
   try{analyzed=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:song.lyrics,contentType:'LYRICS'})});}
   catch(error){await storeMarks();finish(error.message||'Analysis service temporarily unavailable.',true);return;}
   const expressions=typeof uniqueExpressions==='function'?uniqueExpressions(analyzed.expressions||[]):(analyzed.expressions||[]);
-  let added=0;
+  let added=0,failed=0;
   for(let i=0;i<expressions.length;i++){
+    if(!current())return;
     const expr=expressions[i];
     write('Looking up phrase '+(i+1)+' of '+expressions.length+'…',false);
     try{
       const built=await accountFetch('/api/phrase-card',{method:'POST',body:JSON.stringify({exactText:expr.exactText,canonicalForm:expr.canonicalForm,type:expr.type,meaning:expr.meaning,context:expr.context,source:'song'})});
       const card=built&&built.card;
-      if(card&&card.word&&await stageKeepExpression(card)){
-        added++;
-        marks[String(card.word).trim().toLowerCase()]={state:'new',word:card.word,deck:card.place||'mine'};
-      }
-    }catch{/* one missed phrase does not stop the rest */}
+      if(!current())return;
+      if(!card?.word){failed++;continue;}
+      const kept=await stageKeepExpression(card);
+      if(kept)added++;
+      const key=String(card.word).trim().toLowerCase();
+      marks[key]={state:kept?'new':cardIndex().has(key)?'have':'miss',word:card.word,deck:card.place||'mine'};
+    }catch{failed++;}
   }
   await storeMarks();
   const red=keys.filter(key=>!marks[key]||marks[key].state==='miss'||marks[key].state==='error').length;
-  finish((red?red+(red===1?' word is red. ':' words are red. '):'Checked the words. ')+(added?'Added '+added+' expressions.':''),false);
+  finish((red?red+(red===1?' word is red. ':' words are red. '):'Checked the words. ')+(added?'Added '+added+' expressions. ':'')+(failed?failed+' expressions could not be saved. Check the words again to retry.':''),!!failed);
 }
 function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
@@ -807,6 +844,11 @@ function stageSaveTranslation(host){
     const saved=accountId?await window.TursoMain.editManagedCard(accountId,card,ru):await window.TursoMain.editCard(card,ru);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
     card.ru=saved.ru;card.stageRevision=saved.revision;if(card.original)card.original.ru=saved.ru;
+    if(host.dataset.editKind==='essential'){
+      for(const entry of stageEssentialEntries())if(entry.card.stageId===card.stageId){entry.card.ru=saved.ru;entry.card.stageRevision=saved.revision;}
+      for(const group of stageEverydayData.groups)for(const topic of group.topics)for(const entry of topic.entries)if(entry.card.stageId===card.stageId)Object.assign(entry.card,{ru:saved.ru,stageRevision:saved.revision});
+      stageEverydayPaint();paintAllWords();return;
+    }
     if(host.dataset.editKind==='added' || (host.dataset.editKind==='made' && addedIndexOf(card)>=0)){
       rememberAdded(loadAdded());paintAdded();if(madeItem===card)renderMade(card);
     }else{
@@ -817,6 +859,7 @@ function stageSaveTranslation(host){
   },status);
 }
 function stageDeleteDefinition(host){
+  if(host.dataset.editKind==='essential'){stageRemoveEssential(host);return;}
   if(viewSwitching)return;
   if(viewAccount&&authUser?.role!=='DEVELOPER')return;
   const card=stageHostCard(host);if(!card)return;
@@ -1386,7 +1429,10 @@ function stageCardFirstWave(){
 }
 function stageDemand(id){
   try{
+    if(['lyricadd','song','textedit'].includes(id))stageGrowTextEditors();
+    if(['grammarcategories','grammarcategory'].includes(id))stageGrammarPaint();
     if(['everyday','everydaygroup','everydaytopic'].includes(id))stageEverydayLoad();
+    if(['library','allwords','home'].includes(id)&&authUser)stageEverydayLoad();
     if(id==='library'){stageLibrarySummary().catch(error=>window.TursoMain.notice(error.message,true));if(typeof authUser!=='undefined'&&authUser)stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.TursoMain.notice(error.message,true)));
     if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.TursoMain.notice(error.message,true)));
@@ -2145,9 +2191,56 @@ function stageFetchSpeak(index,active=()=>true){
 }
 
 let stageEverydayState={group:'speech',topic:'',groupSearch:'',wordSearch:''};
-let stageEverydayData=null,stageEverydayAudience='',stageEverydayFlight=null;
+var stageGrammarGroup='classes';
+function stageGrammarPaint(){
+  const groups=window.GrammarCategories||[];
+  const list=document.getElementById('grammarCategoryGroups');if(!list)return;
+  list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title,group.cards.length,'data-grammar-group','categories')).join('');
+  const group=groups.find(group=>group.id===stageGrammarGroup);if(!group)return;
+  document.getElementById('grammarCategoryTitle').textContent=group.title;
+  const query=document.getElementById('grammarCategorySearch').value.trim().toLocaleLowerCase();
+  document.getElementById('grammarCategoryCards').innerHTML=group.cards.filter(card=>!query||card.join(' ').toLocaleLowerCase().includes(query)).map(([title,meaning,example,translation])=>'<article class="wcard">'+wordPic(title)+'<div class="en">'+esc(title)+'</div><p class="label">'+esc(meaning)+'</p><p>'+esc(example)+'</p><p class="label">'+esc(translation)+'</p></article>').join('')||'<p class="hint">No results.</p>';
+}
+document.addEventListener('click',event=>{const button=event.target.closest('[data-grammar-group]');if(!button)return;pushHistory();stageGrammarGroup=button.dataset.grammarGroup;document.getElementById('grammarCategorySearch').value='';stageGrammarPaint();show('grammarcategory');});
+document.addEventListener('input',event=>{if(event.target.id==='grammarCategorySearch')stageGrammarPaint();});
+var stageEverydayData=null,stageEverydayAudience='',stageEverydayFlight=null;
 function stageEverydayAudienceKey(){return [authUser?.id||'',authUser?.role||'',viewAccount?.id||'',viewGen].join(':');}
 function stageEverydayCount(group){return group.topics.reduce((count,topic)=>count+topic.entries.length,0);}
+function stageEssentialEntries(){
+  if(!stageEverydayData||stageEverydayAudience!==stageEverydayAudienceKey())return [];
+  return stageEverydayData.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>({...entry,source:'Essential English · '+group.title+' · '+topic.title}))));
+}
+function stageEssentialCard(id){
+  const entry=stageEssentialEntries().find(item=>String(item.card.stageId)===String(id));if(!entry)return null;
+  const example={en:entry.example,ru:entry.exampleRu,kind:'simple',source:'Essential English'};
+  return {...entry.card,essentialSource:entry.source,ex:entry.example,data:{wooordhunt:{examples:[example]},usages:[example]},stageEverydayReference:true};
+}
+function stageEssentialCollect(rows){
+  if(!stageEverydayData)return;
+  const known=new Map(rows.map(row=>[rowToCard(row)?.stageId,row]).filter(([id])=>id));
+  for(const entry of stageEssentialEntries()){
+    let row=known.get(entry.card.stageId);
+    if(!row){row={en:entry.card.en,ru:entry.card.ru,where:[],kind:'essential',key:String(entry.card.stageId)};rows.push(row);known.set(entry.card.stageId,row);}
+    for(const source of ['Essential English',entry.source.slice('Essential English · '.length)])if(!row.where.includes(source))row.where.push(source);
+  }
+}
+function stageEssentialWord(entry,group,topic){
+  const card=entry.card;
+  const html='<button class="wcard" type="button" data-everyday-card="'+card.stageId+'">'+wordPic(card.en)+'<div class="en">'+esc(card.en)+'</div><div class="pos">'+esc(card.pos||'')+'</div>'+ipaHtml(card)+'<div class="label">'+esc(card.ru)+'</div><div class="label">'+esc(entry.example)+'</div><div class="label">'+esc(entry.exampleRu)+'</div><div class="label">'+esc('Essential English · '+group.title+' · '+topic.title)+'</div></button>';
+  if(!stageCanEditTranslation(card))return html;
+  const tools=canEditLessons()&&!viewAccount?editActions():'<span class="edit-actions"><button class="icon-btn" type="button" data-edit-toggle title="Edit" aria-label="Edit"><i data-lucide="pencil"></i></button></span>';
+  return '<div class="wcard-tools" data-edit-host data-edit-kind="essential" data-edit-id="'+card.stageId+'" data-essential-link="'+entry.cardId+'" data-essential-topic="'+topic.id+'">'+html+tools+'</div>';
+}
+async function stageRemoveEssential(host){
+  if(!canEditLessons()||viewAccount||!stageEverydayData)return;
+  if(!confirm('Remove this card from Essential English?'))return;
+  const generation=viewGen;
+  try{
+    await accountFetch('/api/everyday/reference',{method:'DELETE',body:JSON.stringify({topicId:host.dataset.essentialTopic,cardId:Number(host.dataset.essentialLink),expectedVersion:stageEverydayData.version})});
+    if(generation!==viewGen)return;
+    stageEverydayData=null;await stageEverydayLoad();paintAllWords();
+  }catch(error){window.TursoMain.notice(error.message,true);if(error.status===409){stageEverydayData=null;await stageEverydayLoad();}}
+}
 function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
 function stageEverydayPaint(){
   if(!stageEverydayData)return;
@@ -2161,12 +2254,17 @@ function stageEverydayPaint(){
   const matches=entry=>[entry.card.en,entry.card.ru,entry.example,entry.exampleRu].join(' ').toLocaleLowerCase().includes(query);
   const topics=group.topics.filter(topic=>!query||topic.title.toLocaleLowerCase().includes(query)||topic.entries.some(matches));
   document.getElementById('everydayTopics').innerHTML=topics.map(topic=>stageEverydayButton(topic.id,topic.title,topic.entries.length,'data-everyday-topic',topic.entries.length?'words':'Coming soon')).join('')||'<p class="hint">No results.</p>';
+  document.querySelector('[data-essential-study="group"]').disabled=!stageEverydayCount(group);
   const topic=group.topics.find(item=>item.id===stageEverydayState.topic);if(!topic)return;
   document.getElementById('everydayTopicTitle').textContent=topic.title;
   const wordSearch=document.getElementById('everydayWordSearch');wordSearch.hidden=topic.entries.length<20;wordSearch.value=stageEverydayState.wordSearch;
   const wordQuery=stageEverydayState.wordSearch.trim().toLocaleLowerCase();
   const entries=topic.entries.filter(entry=>!wordQuery||[entry.card.en,entry.card.ru,entry.example,entry.exampleRu].join(' ').toLocaleLowerCase().includes(wordQuery));
-  document.getElementById('everydayWords').innerHTML=entries.map(entry=>'<button class="everyday-word" type="button" data-everyday-card="'+entry.card.stageId+'"><strong>'+esc(entry.card.en)+'</strong><span>'+esc(entry.card.ru)+'</span><span class="everyday-example">'+esc(entry.example)+'</span><span class="label">'+esc(entry.exampleRu)+'</span></button>').join('')||'<p class="hint">'+(wordQuery?'No results.':'No words yet.')+'</p>';
+  const ordered=['basic-1','basic-2','basic-3','basic-4','basic-5','basic-6','basic-7','basic-8','basic-9','basic-15','basic-16','basic-17','basic-18'];
+  if(!ordered.includes(topic.id))entries.sort((a,b)=>a.card.en.localeCompare(b.card.en,'en',{sensitivity:'base'}));
+  document.getElementById('everydayWords').innerHTML=entries.map(entry=>stageEssentialWord(entry,group,topic)).join('')||'<p class="hint">'+(wordQuery?'No results.':'No words yet.')+'</p>';
+  window.lucide?.createIcons({root:document.getElementById('everydayWords')});
+  document.querySelector('[data-essential-study="topic"]').disabled=!topic.entries.length;
   const active=document.querySelector('section.on')?.id;if(active?.startsWith('everyday'))paintPagePath(active);
 }
 async function stageEverydayLoad(){
@@ -2176,9 +2274,13 @@ async function stageEverydayLoad(){
   if(stageEverydayFlight)return stageEverydayFlight;
   const activeId=document.querySelector('section.on')?.id,host=document.getElementById(activeId==='everydaygroup'?'everydayTopics':activeId==='everydaytopic'?'everydayWords':'everydayGroups');
   if(host)host.innerHTML='<p class="hint">Loading…</p>';
-  const flight=accountFetch('/api/everyday'+(viewAccount?'?accountId='+encodeURIComponent(viewAccount.id):'')).then(data=>{
+  const flight=Promise.resolve().then(()=>accountFetch('/api/everyday'+(viewAccount?'?accountId='+encodeURIComponent(viewAccount.id):''))).then(data=>{
     if(audience!==stageEverydayAudienceKey())return;
+    if(!Array.isArray(data?.groups))throw new Error('Unable to load Essential English.');
     stageEverydayData=data;window.TursoMain.register(data.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>entry.card))));stageEverydayPaint();
+    const count=document.getElementById('allWordCount');if(count)count.textContent=allRows().length;
+    if(document.querySelector('section.on')?.id==='allwords')paintAllWords();
+    if(document.querySelector('section.on')?.id==='home')paintHomeStats();
   }).catch(error=>{if(audience===stageEverydayAudienceKey()&&host)host.textContent=error.message;}).finally(()=>{if(stageEverydayFlight===flight)stageEverydayFlight=null;});
   stageEverydayFlight=flight;return flight;
 }
@@ -2187,23 +2289,21 @@ document.addEventListener('click',event=>{
   if(button.dataset.everydayGroup){pushHistory();stageEverydayState={group:button.dataset.everydayGroup,topic:'',groupSearch:'',wordSearch:''};stageEverydayPaint();show('everydaygroup');return;}
   if(button.dataset.everydayTopic){pushHistory();stageEverydayState.topic=button.dataset.everydayTopic;stageEverydayState.wordSearch='';stageEverydayPaint();show('everydaytopic');return;}
   const group=stageEverydayData.groups.find(item=>item.id===stageEverydayState.group),topic=group?.topics.find(item=>item.id===stageEverydayState.topic),entry=topic?.entries.find(item=>String(item.card.stageId)===button.dataset.everydayCard);if(!entry)return;
-  const example={en:entry.example,ru:entry.exampleRu,kind:'simple',source:'Essential English'};
-  const card={...entry.card,place:'mine',data:{wooordhunt:{examples:[example]},usages:[example]},stageEverydayReference:true};
+  const card=stageEssentialCard(entry.card.stageId);
   pushHistory();renderMade(card);show('made');
 });
 document.addEventListener('input',event=>{
   if(event.target.id==='everydayGroupSearch'){stageEverydayState.groupSearch=event.target.value;stageEverydayPaint();}
   if(event.target.id==='everydayWordSearch'){stageEverydayState.wordSearch=event.target.value;stageEverydayPaint();}
 });
-document.addEventListener('click',async event=>{
-  const button=event.target.closest('[data-dict-add]');if(!button||!madeItem?.stageEverydayReference)return;
+document.addEventListener('click',event=>{
+  const target=event.target.closest('[data-essential-study],[data-all-kind="essential"]');if(!target)return;
   event.preventDefault();event.stopImmediatePropagation();
+  if(target.dataset.allKind==='essential'){const card=stageEssentialCard(target.dataset.allKey);if(card){pushHistory();renderMade(card);show('made');}return;}
   if(!authUser||viewAccount||!accountReady)return;
-  const actor=authUser.id,card=madeItem;button.disabled=true;
-  try{
-    await window.TursoMain.flushPersonal();if(authUser?.id!==actor||viewAccount)return;
-    const result=await window.TursoMain.linkCard({id:card.stageId,revision:card.stageRevision},'mine');if(authUser?.id!==actor||viewAccount)return;
-    const rows=loadAdded();if(!rows.some(row=>row.stageId===result.card.stageId&&row.place==='mine'))rows.unshift(result.card);
-    stageStampLinks(rows,result.revision);button.hidden=true;
-  }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
+  const group=stageEverydayData?.groups.find(item=>item.id===stageEverydayState.group),topic=group?.topics.find(item=>item.id===stageEverydayState.topic);
+  const mode=target.dataset.essentialStudy;
+  const entries=mode==='group'?group?.topics.flatMap(item=>item.entries):mode==='topic'?topic?.entries:madeItem?[{card:madeItem}]:[];
+  const cards=[...new Map((entries||[]).map(entry=>[entry.card.stageId,stageEssentialCard(entry.card.stageId)])).values()].filter(Boolean);
+  if(cards.length)openListedStudy(cards,mode==='group'?group.title:mode==='topic'?topic.title:madeItem.word,mode==='group'?'everydaygroup':mode==='topic'?'everydaytopic':'made',{strict:true});
 },true);
