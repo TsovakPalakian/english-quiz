@@ -218,6 +218,8 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 #messages.is-file-drop::after{content:"Drop files to attach";position:absolute;inset:20px;display:flex;align-items:center;justify-content:center;border:2px dashed var(--acc);border-radius:8px;background:color-mix(in srgb,var(--card) 92%,transparent);color:var(--acc);font-size:20px;pointer-events:none;z-index:30}
 @media(max-width:700px){#messages .chat-upload{max-width:95%;min-width:0;padding:10px 12px}.chat-upload-body{gap:10px}#messages .chat-upload-cancel{width:44px;height:44px;flex-basis:44px}.chat-upload-copy strong{font-size:14px}#messages.is-file-drop::after{inset:8px;font-size:16px}}
 .chat-forwarded{display:flex;gap:4px;align-items:center;color:var(--acc);font-size:12px;margin:4px 0}
+#messages button.chat-forwarded{border:0;background:transparent;padding:0;text-align:left;cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+#messages button.chat-forwarded:hover{text-decoration:underline}
 #messages .chat-forwarded svg{width:14px;height:14px}
 .chat-message-actions{display:flex;gap:8px;margin-right:auto;flex-wrap:wrap}
 #messages .chat-message-foot{flex-wrap:wrap}

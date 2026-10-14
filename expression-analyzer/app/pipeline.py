@@ -4,6 +4,7 @@ import time
 from app.config import settings
 from app.lexicon import compiled
 from app import llm
+from app import linguistics
 
 ENTRIES = compiled()
 
@@ -98,12 +99,15 @@ def words_of(sentence):
     return re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?", clean)
 
 
-def pieces_of(words):
+def pieces_of(words, annotations=None):
     pieces = []
     for index, word in enumerate(words):
         parts = SPLITS.get(word.lower(), [word.lower()])
         for part in parts:
-            pieces.append({"norm": part, "surface": index})
+            piece = {"norm": part, "surface": index}
+            if annotations and index < len(annotations) and len(parts) == 1:
+                piece.update(annotations[index])
+            pieces.append(piece)
     return pieces
 
 
@@ -186,7 +190,7 @@ def match_sequence(pieces, start, token_sets, optional):
     index = start
     begin = None
     for pos, options in enumerate(token_sets):
-        if index < len(pieces) and pieces[index]["norm"] in options:
+        if index < len(pieces) and piece_matches(pieces[index], options):
             if begin is None:
                 begin = index
             index += 1
@@ -199,8 +203,12 @@ def match_sequence(pieces, start, token_sets, optional):
     return begin, index
 
 
+def piece_matches(piece, options):
+    return piece["norm"] in options or (piece.get("pos") in {"VERB", "AUX"} and piece.get("lemma") in options)
+
+
 def match_separable(pieces, start, verbs, particle):
-    if pieces[start]["norm"] not in verbs:
+    if not piece_matches(pieces[start], verbs):
         return None
     size = len(pieces)
     if start + 1 < size and pieces[start + 1]["norm"] == particle:
@@ -302,8 +310,8 @@ def build(entry, exact, meaning, meaning_source, sentence, sentence_index, start
     }
 
 
-def hits_in(words, sentence, sentence_index):
-    pieces = pieces_of(words)
+def hits_in(words, sentence, sentence_index, annotations=None):
+    pieces = pieces_of(words, annotations)
     found = []
     for entry in ENTRIES:
         separable = entry["separable"] and entry["particle"] and len(entry["tokens"]) == 2
@@ -402,7 +410,7 @@ def dedupe(items):
 
 def apply_llm(items):
     try:
-        judged = llm.classify(items[:12])
+        judged = llm.classify(items[:settings.llm_candidates])
     except Exception as error:
         print("llm unavailable: %s" % type(error).__name__)
         return "unavailable"
@@ -460,6 +468,7 @@ def ngram_count(words):
 
 
 def analyze(text, content_type="TEXT"):
+    linguistics.model()
     started = time.perf_counter()
     deadline = started + (ANALYZE_DEADLINE_MS / 1000.0)
     raw = []
@@ -476,7 +485,8 @@ def analyze(text, content_type="TEXT"):
         total_tokens += len(words)
         if total_tokens > MAX_TOTAL_TOKENS:
             break
-        raw.extend(hits_in(words, sentence, sentence_index))
+        annotations = linguistics.annotate(" ".join(words))
+        raw.extend(hits_in(words, sentence, sentence_index, annotations))
         grams += ngram_count(words)
         ordinary.extend(ordinary_phrases(words))
         if time.perf_counter() > deadline:
@@ -485,7 +495,8 @@ def analyze(text, content_type="TEXT"):
     kept, nested = link_nested(raw)
     rejected.extend(nested)
     merged = dedupe(kept)
-    llm_note = "skipped"
+    llm_enabled = bool(settings.llm_base_url and settings.llm_model)
+    llm_note = "not-needed" if llm_enabled else "disabled"
     if settings.llm_base_url and settings.llm_model and merged and time.perf_counter() <= deadline:
         llm_note = apply_llm(merged)
     accepted = []
@@ -522,6 +533,8 @@ def analyze(text, content_type="TEXT"):
             "rejectedCount": len(rejected),
             "acceptedCount": len(accepted),
             "llm": llm_note,
+            "llmEnabled": llm_enabled,
+            "spacy": linguistics.status(),
             "durationMs": duration,
             "candidates": [
                 {"exactText": item["exactText"], "canonicalForm": item["canonicalForm"], "type": item["type"]}

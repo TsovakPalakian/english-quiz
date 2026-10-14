@@ -21,4 +21,11 @@ function analyzerOutcome(status, payload) {
   return { status: 200, body: payload };
 }
 
-export { analyzerTimeoutMs, analyzerHeaders, analyzerOutcome };
+function analyzerAiIssue(payload) {
+  const stats=payload?.stats;
+  if(stats?.llmEnabled===false||stats?.llm==='disabled'||stats?.llm==='skipped'&&payload?.expressions?.length)return 'AI text analysis is disabled.';
+  if(['unavailable','invalid','timeout'].includes(stats?.llm))return 'AI text analysis is unavailable.';
+  return '';
+}
+
+export { analyzerTimeoutMs, analyzerHeaders, analyzerOutcome, analyzerAiIssue };

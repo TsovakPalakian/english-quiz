@@ -115,6 +115,7 @@
   const timelineResize=new ResizeObserver(()=>{if(stickBottom)timeline.scrollTop=timeline.scrollHeight;});
   timelineResize.observe(timeline);
   function status(text){el('msgStatus').textContent=text;el('msgStatus').hidden=!text;}
+  document.addEventListener('pointerdown',event=>{const notice=el('msgStatus');if(!notice.hidden&&!notice.contains(event.target))status('');},{capture:true,passive:true});
   function savePrefs(){try{localStorage.setItem('english-chat-settings:'+account,JSON.stringify(prefs));}catch{}}
   function remember(){scheduleInputFit();if(!account||!room)return;try{localStorage.setItem(draftKey(),JSON.stringify({text:composer.value,format,pending,reply,files}));}catch{}}
   function scheduleInputFit(){if(inputFrame)return;inputFrame=requestAnimationFrame(()=>{inputFrame=0;fitInput();});}
@@ -207,6 +208,21 @@
     const end=()=>{if(!drag)return;drag=null;section.classList.remove('is-resizing');savePrefs();};handle.onpointerup=end;handle.onpointercancel=end;handle.onlostpointercapture=end;
     handle.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const min=id==='msgResizeLeft'?80:240;prefs[name]=event.key==='Home'?min:event.key==='End'?640:Math.max(min,Math.min(640,Number(handle.getAttribute('aria-valuenow'))+(event.key==='ArrowRight'?1:-1)*side*(event.shiftKey?40:10)));fitPanels();savePrefs();};
   }
+  let alertAudio, lastAlert = 0;
+  const alertSeen = new Set();
+  function unlockAlertAudio(event){
+    if(!event.isTrusted||!current())return;
+    try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;alertAudio||=new Audio();if(alertAudio.state==='suspended')alertAudio.resume().catch(()=>{});}catch{}
+  }
+  document.addEventListener('pointerdown',unlockAlertAudio,{passive:true});
+  document.addEventListener('keydown',unlockAlertAudio,{passive:true});
+  function messageSound(event,isNew){
+    const id=event.room.id+':'+event.message.id;
+    if(alertSeen.has(id))return;alertSeen.add(id);if(alertSeen.size>500)alertSeen.delete(alertSeen.values().next().value);
+    if(!isNew||prefs.sound===false||event.room.muted||event.message.senderId===account||!current()||!alertAudio||alertAudio.state!=='running'||Date.now()-lastAlert<400)return;
+    lastAlert=Date.now();
+    try{const now=alertAudio.currentTime,oscillator=alertAudio.createOscillator(),gain=alertAudio.createGain();oscillator.type='sine';oscillator.frequency.setValueAtTime(660,now);oscillator.frequency.setValueAtTime(880,now+.09);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.06,now+.015);gain.gain.exponentialRampToValueAtTime(.0001,now+.22);oscillator.connect(gain);gain.connect(alertAudio.destination);oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};oscillator.start(now);oscillator.stop(now+.23);}catch{}
+  }
   function receive(event){
     if(event.profile){const changed=(profileViews[event.profile.id]?.username||'')!==(event.profile.username||'');profileViews[event.profile.id]=event.profile;if(changed)paintRooms();scheduleProfiles();return;}
     if(event.catalogVersion&&event.catalogVersion>catalogVersion){catalogVersion=event.catalogVersion;examDirty=true;}
@@ -214,6 +230,7 @@
     upsertRoom(event.room);
     if(event.message&&event.room){
       const cacheKey=event.room.id+':'+event.message.category,cache=historyCache.get(cacheKey);
+      if(event.type==='message')messageSound(event,!cache?.rows.some(message=>message.id===event.message.id));
       if(cache?.loaded){const existing=cache.rows.find(m=>m.id===event.message.id);if(existing)Object.assign(existing,event.message);else cache.rows.push(event.message);cache.rows.sort((a,b)=>a.id-b.id);}
       if(active()&&room===event.room.id&&kind===event.message.category){const wasBottom=bottom();if(cache?.loaded)mergeNode(event.message);else history().catch(error=>status(error.message));if(wasBottom||event.message.senderId===account)timeline.scrollTop=timeline.scrollHeight;else el('msgLatest').hidden=false;scheduleRead();}
       if(ready&&event.type==='message')ack('delivered',event.room.id,event.message.category,event.message.id);
@@ -246,7 +263,7 @@
   }
   function messageHTML(m){
     const own=m.senderId===account,date=new Date(m.createdMs||m.created*1000),receipt=m.pending?'Sending':m.failed?'Retry':m.read?'Read':m.delivered?'Delivered':'Sent';
-    return '<header><strong>'+escape(m.sender)+'</strong></header>'+(m.forwarded?'<div class="chat-forwarded">'+icon('forward')+' Forwarded from '+escape(m.forwarded.sender)+'</div>'+(m.forwarded.text&&m.forwarded.text!==m.text?'<blockquote class="chat-study-reference">'+escape(m.forwarded.text)+'</blockquote>':''):'')+(m.replyText&&!m.deleted?'<button type="button" class="msg-quote" data-msg-quote="'+m.replyTo+'"><b>'+escape(m.replySender)+'</b>'+escape(m.replyText.slice(0,240))+'</button>':'')+'<p class="chat-message-text">'+(window.TextColors?window.TextColors.html(m.text,m.format):escape(m.text))+'</p>'+(m.files||[]).map(attachment).join('')+(m.examId?'<button type="button" class="chat-link" data-msg-exam="'+m.examId+'"'+(m.assignmentActive===false?' disabled':'')+'>'+(m.assignmentActive===false?'Assignment cancelled':'Open exam')+'</button>':'')+((m.reactions||[]).length?'<div class="chat-reactions">'+m.reactions.map(r=>'<button type="button" data-reaction="'+escape(r.emoji)+'" data-reaction-id="'+m.id+'" aria-pressed="'+r.mine+'">'+escape(r.emoji)+' '+r.count+'</button>').join('')+'</div>':'')+'<div class="chat-message-foot">'+(m.editedMs?'<span>Edited</span>':'')+'<time datetime="'+date.toISOString()+'" title="'+escape(stamp(date.getTime()))+'">'+escape(time(date.getTime()))+'</time>'+(own?'<span class="msg-receipt'+(m.read?' is-read':'')+'" aria-label="'+receipt+'" title="'+(m.read?'Read by everyone':receipt)+'">'+icon(m.pending?'clock':m.failed?'circle-alert':m.delivered||m.read?'check-check':'check')+'</span>':'')+'</div>';
+    return (m.forwarded?'':'<header><strong>'+escape(m.sender)+'</strong></header>')+(m.forwarded?'<button type="button" class="chat-forwarded" data-msg-original="'+m.id+'" title="Go to original message">'+icon('forward')+' Forwarded from '+escape(m.forwarded.sender||'Unknown author')+'</button>'+(m.forwarded.text&&m.forwarded.text!==m.text?'<blockquote class="chat-study-reference">'+escape(m.forwarded.text)+'</blockquote>':''):'')+(m.replyTo&&!m.deleted?'<button type="button" class="msg-quote" data-msg-quote="'+m.replyTo+'"><b>'+escape(m.replySender||'Original message')+'</b>'+escape((m.replyText||'Attachment or unavailable message').slice(0,240))+'</button>':'')+'<p class="chat-message-text">'+(window.TextColors?window.TextColors.html(m.text,m.format):escape(m.text))+'</p>'+(m.files||[]).map(attachment).join('')+(m.examId?'<button type="button" class="chat-link" data-msg-exam="'+m.examId+'"'+(m.assignmentActive===false?' disabled':'')+'>'+(m.assignmentActive===false?'Assignment cancelled':'Open exam')+'</button>':'')+((m.reactions||[]).length?'<div class="chat-reactions">'+m.reactions.map(r=>'<button type="button" data-reaction="'+escape(r.emoji)+'" data-reaction-id="'+m.id+'" aria-pressed="'+r.mine+'">'+escape(r.emoji)+' '+r.count+'</button>').join('')+'</div>':'')+'<div class="chat-message-foot">'+(m.editedMs?'<span>Edited</span>':'')+'<time datetime="'+date.toISOString()+'" title="'+escape(stamp(date.getTime()))+'">'+escape(time(date.getTime()))+'</time>'+(own?'<span class="msg-receipt'+(m.read?' is-read':'')+'" aria-label="'+receipt+'" title="'+(m.read?'Read by everyone':receipt)+'">'+icon(m.pending?'clock':m.failed?'circle-alert':m.delivered||m.read?'check-check':'check')+'</span>':'')+'</div>';
   }
   const roundVideos=new WeakSet();
   const videoPosters=new Map();
@@ -661,7 +678,7 @@
         const saved=details.change||details.user,name=String(saved.name??profile.name??''),names=name.split(/\s+/),username=profileViews[profile.id]?.username||'';initialUsername=username;
         html='<form class="chat-edit-profile"><div class="chat-edit-identity"><button type="button" class="chat-photo-select" data-avatar-upload="'+escape(profile.id)+'" title="Change photo" aria-label="Change photo">'+avatar(profile.name,false,profile.id)+'<span class="chat-photo-camera">'+icon('camera')+'</span></button><div><label>First name<input name="firstName" maxlength="80" value="'+escape(names[0]||'')+'"'+(details.locked?' readonly':'')+'></label><label>Last name<input name="lastName" maxlength="80" value="'+escape(names.slice(1).join(' '))+'"'+(details.locked?' readonly':'')+'></label></div></div><label>Email<input name="email" type="email" required maxlength="120" autocomplete="email" value="'+escape(saved.email||profile.email||'')+'"'+(details.locked?' readonly':'')+'></label><label>Username<input name="username" maxlength="33" autocomplete="off" placeholder="@username" pattern="@[A-Za-z0-9_]{3,32}" value="'+escape(username)+'"></label><p role="status">'+(details.change?'Changes awaiting approval.':details.locked?'Name and email changes are currently locked.':'')+'</p><button type="submit" class="primary" data-profile-save>Done</button></form><button class="chat-link" type="button" data-profile-open>My account</button><button class="chat-link" type="button" data-chat-blocked>Blocked users</button>';
       }
-      if(id==='notifications')html='<label class="chat-setting-row"><span>Desktop notifications</span><input type="checkbox" data-pref="notifications" '+(prefs.notifications?'checked':'')+'></label><p>Notifications stay off for muted conversations.</p>';
+      if(id==='notifications')html='<label class="chat-setting-row"><span>Desktop notifications</span><input type="checkbox" data-pref="notifications" '+(prefs.notifications?'checked':'')+'></label><label class="chat-setting-row"><span>Message sound</span><input type="checkbox" data-pref="sound" '+(prefs.sound!==false?'checked':'')+'></label><p>Notifications stay off for muted conversations.</p>';
       if(id==='interface')html=[['left','Conversation list'],['right','Chat info'],['enter','Enter sends messages']].map(([p,label])=>'<label class="chat-setting-row"><span>'+label+'</span><input type="checkbox" data-pref="'+p+'" '+(prefs[p]!==false?'checked':'')+'></label>').join('');
       if(id==='security'){const result=await request('sessions');if(!node.open)return;html='<p>Connected sessions: '+result.sessions.length+'</p><p>Connections authenticate again when they reconnect.</p><button type="button" class="chat-link danger" data-logout>Close current session</button>';}
       if(id==='help')html='<p>Personal contains conversations. Study alerts contains important teacher announcements and exam notices.</p><p>Shift+Enter adds a new line. Search finds messages in the selected category. Your draft is saved on this device.</p><p>Grey checks show delivery; blue checks mean everyone in the conversation has read the message.</p>';
@@ -694,10 +711,11 @@
   el('msgHideList').onclick=()=>{panel('left',false);scheduleRead();};el('msgListBack').onclick=()=>panel('left',true);el('msgHideInfo').onclick=()=>{rightMode='';panel('right',false);scheduleRead();};el('msgSearch').onclick=showSearch;el('msgInfo').onclick=()=>showInfo().catch(error=>status(error.message));el('msgRoomInfo').onclick=el('msgInfo').onclick;
   el('msgRoomSearch').oninput=paintRooms;el('msgUnread').onclick=()=>{unreadOnly=!unreadOnly;el('msgUnread').setAttribute('aria-pressed',String(unreadOnly));paintRooms();};el('msgLatest').onclick=()=>{timeline.scrollTop=timeline.scrollHeight;el('msgLatest').hidden=true;scheduleRead();};
   document.addEventListener('click',async event=>{
-    const target=event.target.closest('[data-msg-open],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload]');if(!target)return;
+    const target=event.target.closest('[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload]');if(!target)return;
     try{
       if(target.hasAttribute('data-msg-open')){if(!current())return;window.enquizVisit('messages');checkAuth();if(!ready)connect();}
       else if(target.dataset.msgRoom)await openRoom(target.dataset.msgRoom);
+      else if(target.dataset.msgOriginal){const gen=generation,source=room,result=await request('original',{roomId:source,id:Number(target.dataset.msgOriginal)});if(gen!==generation||room!==source)return;kind=result.category;await openRoom(result.roomId);await focusMessage(result.messageId,result.category);}
       else if(target.dataset.msgCategory){closeEmoji();closeContext();clearSelection();listMode='chats';kind=target.dataset.msgCategory;badge();paintRooms();await history();}
       else if(target.dataset.contactId){const result=await request('open',{kind:'direct',accountId:target.dataset.contactId});upsertRoom(result.room);kind='personal';await openRoom(result.roomId);}
       else if(target.dataset.msgReply)await replyMessage(state()?.rows.find(m=>m.id===Number(target.dataset.msgReply)));
@@ -707,7 +725,7 @@
       else if(target.dataset.relation){const result=await request('relation',{roomId:room,action:target.dataset.relation});upsertRoom(result.room);paintRooms();}
       else if(target.hasAttribute('data-chat-blocked'))await blockedUsers();
       else if(target.hasAttribute('data-msg-cancel-reply')){reply=null;paintDraft();remember();}
-      else if(target.dataset.msgQuote){const parent=state()?.rows.find(m=>m.replyTo===Number(target.dataset.msgQuote));await focusMessage(Number(target.dataset.msgQuote),parent?.replyCategory||kind);}
+      else if(target.dataset.msgQuote){const parent=findMessage(Number(target.closest('[data-msg-id]')?.dataset.msgId));await focusMessage(Number(target.dataset.msgQuote),parent?.replyCategory||kind);}
       else if(target.dataset.msgExam){const result=await domain('/exam?id='+target.dataset.msgExam);if(result.studentId){await openStudentPages({id:result.studentId,role:'USER'});if(viewAccount?.id!==result.studentId)throw new Error('Exit the current student pages first.');}await examPull(true);examCurrentId=result.examId;window.enquizVisit('examblocks');}
       else if(target.dataset.removeFile){files=files.filter(f=>f.id!==target.dataset.removeFile);paintDraft();remember();}
       else if(target.dataset.cancelUpload){const id=target.dataset.cancelUpload;if(id.startsWith('file:')){if(busy)return;files=files.filter(file=>file.id!==id.slice(5));paintDraft();remember();}else cancelUploads(id);}

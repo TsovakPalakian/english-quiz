@@ -22,3 +22,4 @@
 #registerForm .signup-field-error{display:block;color:#d93643;margin:0 0 10px}
 #registerForm .signup-field-error[hidden]{display:none}
 #homeDemo.guest-progress .overview>div{opacity:.45}
+#adminBody select[data-registration-group]{width:220px;max-width:100%;min-width:0;flex:0 1 220px;min-height:36px;padding:6px 12px;margin:0}

@@ -93,6 +93,8 @@ def classify(candidates):
         "model": settings.llm_model,
         "stream": False,
         "format": "json",
+        "keep_alive": "30m",
+        "options": {"temperature": 0, "num_predict": 512, "num_ctx": 4096, "num_thread": 1},
         "messages": [
             {"role": "system", "content": "You return a JSON object with an items array. Judge learning value, not just whether the English is grammatical. No prose."},
             {"role": "user", "content": json.dumps(prompt)},

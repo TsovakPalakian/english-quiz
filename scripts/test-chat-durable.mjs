@@ -194,8 +194,18 @@ test('Forwarding preserves content and files, deduplicates retries and rejects s
     const body={sourceRoomId:source,messageId:original.message.id,targetRoomId:target,clientKey:'forward-retry'};
     const result=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'forward',body});await f.drain();assert.equal(result.message.forwarded.sender,'Alice');assert.equal(result.message.format.runs[0].marks.color,'#ff0000');assert.notEqual(result.message.files[0].id,'zip-file');
     assert.equal((await chatCall(env,'CHAT_INBOX','alice','/command',{action:'forward',body})).message.id,result.message.id);
+    const origin=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'original',body:{roomId:target,id:result.message.id}});
+    assert.deepEqual(origin,{roomId:source,messageId:original.message.id,category:'personal'});
+    await assert.rejects(chatCall(env,'CHAT_INBOX',teacher.id,'/command',{action:'original',body:{roomId:target,id:result.message.id}}),e=>[403,404].includes(e.status));
+    const back=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'forward',body:{sourceRoomId:target,messageId:result.message.id,targetRoomId:source,clientKey:'forward-chain'}});
+    assert.equal(back.message.forwarded.sender,'Alice');
+    assert.deepEqual(await chatCall(env,'CHAT_INBOX','alice','/command',{action:'original',body:{roomId:source,id:back.message.id}}),origin);
     assert.equal((await chatCall(env,'CHAT_ROOM',target,'/history',{actor:teacher,category:'personal'})).messages.length,1);
     assert.equal((await chatCall(env,'CHAT_ROOM',target,'/file',{actor:teacher,id:result.message.files[0].id})).storage_key,'chat/files/source-zip');
+    const foreign=await chatCall(env,'CHAT_ROOM',source,'/send',{actor:bob,text:'Written by Bob',category:'personal',clientKey:'foreign-original'});await f.drain();
+    const foreignCopy=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'forward',body:{sourceRoomId:source,messageId:foreign.message.id,targetRoomId:target,clientKey:'foreign-forward'}});
+    assert.equal(foreignCopy.message.senderId,alice.id,'The forwarding account remains the actual sender');
+    assert.equal(foreignCopy.message.forwarded.sender,'Bob');assert.equal(foreignCopy.message.forwarded.senderId,bob.id);
     await assert.rejects(chatCall(env,'CHAT_ROOM',source,'/file',{actor:teacher,id:'zip-file'}),e=>e.status===403);
     const alert=await chatCall(env,'CHAT_ROOM',target,'/send',{actor:teacher,text:'Study alert',category:'learning',clientKey:'alert-forward'});await f.drain();
     await assert.rejects(chatCall(env,'CHAT_INBOX','alice','/command',{action:'forward',body:{...body,sourceRoomId:target,targetRoomId:source,messageId:alert.message.id,clientKey:'blocked-forward'}}),e=>e.status===403);

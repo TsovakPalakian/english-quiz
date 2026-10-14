@@ -13,6 +13,8 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_TIMEOUT: ${LLM_TIMEOUT:-20}
+      LLM_MAX_CANDIDATES: ${LLM_MAX_CANDIDATES:-2}
+      SPACY_MODEL: ${SPACY_MODEL:-en_core_web_sm}
       ANALYZER_API_KEY: ${ANALYZER_API_KEY:-}
       ANALYZER_REQUIRE_KEY: ${ANALYZER_REQUIRE_KEY:-}
       MIN_OVERALL_SCORE: ${MIN_OVERALL_SCORE:-0.55}
@@ -21,7 +23,16 @@ services:
       RANK_REUSABILITY: ${RANK_REUSABILITY:-0.22}
       RANK_CONFIDENCE: ${RANK_CONFIDENCE:-0.22}
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.13.5
     profiles: ["llm"]
     ports:
       - "127.0.0.1:11434:11434"
+    restart: unless-stopped
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama-models:/root/.ollama
+    mem_limit: 3g
+volumes:
+  ollama-models:

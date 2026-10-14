@@ -70,6 +70,7 @@ export class ChatRoom extends Store{
     const peer=this.one('SELECT MIN(read_'+row.category+') read,MIN(delivered_'+row.category+') delivered FROM members WHERE active=1 AND id<>?',account);
     const member=this.one('SELECT joined FROM members WHERE id=?',account);
     const reply=row.reply?this.one("SELECT body,name,category,deleted FROM messages WHERE id=? AND (id>? OR category='learning')",row.reply,member?.joined||0):null;
+    if(reply&&!reply.deleted&&!reply.body)reply.body=this.get('files:'+row.reply,[]).map(file=>file.name).join(', ')||'Message';
     if(reply&&!reply.deleted){const quote=this.get('quote:'+row.id);if(quote)reply.body=quote;}
     const files=this.get('files:'+row.id,[]),forward=this.get('forward:'+row.id);
     const peers=this.rows('SELECT id,role FROM members WHERE active=1'),sender=peers.find(p=>p.id===row.sender);
@@ -155,7 +156,16 @@ export class ChatRoom extends Store{
     if(!row||row.deleted||row.category==='personal'&&row.id<=member.joined)fail(403,'Original message unavailable.');
     const sender=this.one('SELECT role FROM members WHERE id=? AND active=1',row.sender);
     if(study?row.category!=='learning'||row.sender===actor.id||!staff(sender):row.category!=='personal')fail(403,'Study alerts can only be sent back to their teacher.');
-    return {source:this.get('room').id+':'+row.id,recipientId:study?row.sender:this.get('forward:'+row.id)?.recipientId||null,text:row.body,format:row.format?JSON.parse(row.format):null,label:study?{sender:row.name,createdMs:row.created_ms,text:row.body,study:true}:this.get('forward:'+row.id)?.label||{sender:row.name,createdMs:row.created_ms},files:this.rows('SELECT * FROM files WHERE message_id=?',row.id)};
+    const previous=this.get('forward:'+row.id),origin=previous?.origin||{roomId:this.get('room').id,messageId:row.id,category:row.category};
+    return {source:this.get('room').id+':'+row.id,origin,recipientId:study?row.sender:previous?.recipientId||null,text:row.body,format:row.format?JSON.parse(row.format):null,label:study?{sender:row.name,senderId:row.sender,createdMs:row.created_ms,text:row.body,study:true}:previous?.label||{sender:row.name,senderId:row.sender,createdMs:row.created_ms},files:this.rows('SELECT * FROM files WHERE message_id=?',row.id)};
+  }
+  original(actor,id){
+    const member=this.member(actor),row=this.one('SELECT * FROM messages WHERE id=?',integer(id));
+    if(!row||row.deleted||row.category==='personal'&&row.id<=member.joined)fail(404,'Original message unavailable.');
+    const forwarded=this.get('forward:'+row.id);
+    if(forwarded?.origin)return {reference:forwarded.origin};
+    if(forwarded?.source){const split=forwarded.source.lastIndexOf(':');return {reference:{roomId:forwarded.source.slice(0,split),messageId:Number(forwarded.source.slice(split+1))}};}
+    return {roomId:this.get('room').id,messageId:row.id,category:row.category};
   }
   forward(actor,body){
     this.member(actor);const client=ref(body.clientKey),payload=body.payload,old=this.one('SELECT * FROM messages WHERE sender=? AND client_key=?',actor.id,client);
@@ -194,7 +204,7 @@ export class ChatRoom extends Store{
       this.sql.exec('INSERT INTO messages(sender,name,category,body,format,reply,client_key,created_ms) VALUES(?,?,?,?,?,?,?,?)',actor.id,publicName(actor),kind,text,format,reply,client,Date.now());
       const id=this.one('SELECT last_insert_rowid() id').id;
       if(quote!==null)this.set('quote:'+id,quote);
-      if(forwarded)this.set('forward:'+id,{source:forwarded.source,label:forwarded.label,recipientId:forwarded.recipientId||null});
+      if(forwarded)this.set('forward:'+id,{source:forwarded.source,origin:forwarded.origin||null,label:forwarded.label,recipientId:forwarded.recipientId||null});
       if(files.length){this.set('files:'+id,files);for(const file of files)this.sql.exec('UPDATE files SET message_id=? WHERE id=?',id,file.id);}
       this.sql.exec('UPDATE members SET unread_'+kind+'=unread_'+kind+'+1 WHERE active=1 AND id<>?',actor.id);
       const counts=this.get('counts',{personal:0,learning:0});counts[kind]++;this.set('counts',counts);
@@ -262,6 +272,7 @@ export class ChatRoom extends Store{
     if(path==='/history')return this.history(actor,body);
     if(path==='/send')return this.send(actor,body);
     if(path==='/forward/source')return this.forwardSource(actor,body.id,body.study===true);
+    if(path==='/original')return this.original(actor,body.id);
     if(path==='/forward')return this.forward(actor,body);
     if(['/edit','/delete','/pin','/react'].includes(path))return this.mutate(actor,path.slice(1),body);
     if(path==='/relation')return this.relation(actor,body);
@@ -309,7 +320,7 @@ export class ChatInbox extends Store{
   }
   async command(action,body){
     const actor=this.get('profile');if(!actor||actor.active===false)fail(403,'Account unavailable.');
-    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions','profiles'].includes(action))fail(403,'Chat writes are unavailable.');
+    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions','profiles','original'].includes(action))fail(403,'Chat writes are unavailable.');
     if(action==='snapshot')return this.snapshot();
     if(action==='profiles'){
       if(!Array.isArray(body.ids)||body.ids.length>100)fail(400,'Choose up to 100 profiles.');
@@ -326,6 +337,17 @@ export class ChatInbox extends Store{
     if(action==='blocked')return {users:this.snapshot().rooms.filter(r=>r.access?.blockedByMe).map(r=>({id:r.peerId,roomId:r.id,name:r.title}))};
     if(action==='preview-budget'){const budget=this.get('previews',{at:0,n:0});if(budget.at<Date.now()-60000){budget.at=Date.now();budget.n=0;}if(budget.n>=30)fail(429,'Please wait before loading more previews.');this.set('previews',{...budget,n:budget.n+1});return {allowed:true};}
     if(action==='sessions')return {sessions:this.ctx.getWebSockets().map(ws=>{const a=ws.deserializeAttachment();return {current:true,expires:a.expires};})};
+    if(action==='original'){
+      let roomId=ref(body.roomId),id=integer(body.id);const seen=new Set();
+      for(let depth=0;depth<8;depth++){
+        if(!this.one('SELECT id FROM rooms WHERE id=?',roomId)||seen.has(roomId+':'+id))fail(404,'Original message unavailable.');
+        seen.add(roomId+':'+id);
+        const original=await chatCall(this.env,'CHAT_ROOM',roomId,'/original',{actor,id});
+        if(!original.reference)return original;
+        roomId=ref(original.reference.roomId);id=integer(original.reference.messageId);
+      }
+      fail(404,'Original message unavailable.');
+    }
     if(action==='forward'){
       const source=ref(body.sourceRoomId),target=ref(body.targetRoomId);for(const id of [source,target])if(!this.one('SELECT id FROM rooms WHERE id=?',id))fail(403,'Conversation unavailable.');
       const payload=await chatCall(this.env,'CHAT_ROOM',source,'/forward/source',{actor,id:body.messageId});

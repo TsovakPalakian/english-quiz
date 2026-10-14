@@ -16,6 +16,8 @@ class Settings:
         self.llm_base_url = os.environ.get("LLM_BASE_URL", "").rstrip("/")
         self.llm_model = os.environ.get("LLM_MODEL", "")
         self.llm_timeout = num("LLM_TIMEOUT", 20)
+        self.llm_candidates = max(1, min(12, int(num("LLM_MAX_CANDIDATES", 2))))
+        self.spacy_model = os.environ.get("SPACY_MODEL", "en_core_web_sm")
         self.api_key = os.environ.get("ANALYZER_API_KEY", "")
         # Default closed: require a key unless explicitly disabled with ANALYZER_REQUIRE_KEY=0.
         req = os.environ.get("ANALYZER_REQUIRE_KEY", "1").lower()

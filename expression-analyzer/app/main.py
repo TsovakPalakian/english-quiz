@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 
 from app.config import settings
 from app.pipeline import analyze
+from app import linguistics
 
 app = FastAPI(title="Expression Analyzer", version="1")
 
@@ -53,7 +54,7 @@ async def limit_analyze_body(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "llm": bool(settings.llm_base_url and settings.llm_model)}
+    return {"status": "ok", "llm": bool(settings.llm_base_url and settings.llm_model), "spacy": linguistics.status()}
 
 
 def presented_key(x_api_key, authorization):

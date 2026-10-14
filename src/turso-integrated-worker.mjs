@@ -18,6 +18,7 @@ import {ActivityService} from './turso-activity.mjs';
 import {ArchiveService} from './turso-archive.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
+import {analyzerAiIssue} from './analyzer-client.js';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
@@ -470,6 +471,17 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         return response;
       }
       // These helpers return dictionary/preview results, not legacy study saves.
+      if(method==='POST'&&path==='/api/analyze'){
+        const response=await accountWorker.fetch(request,accountEnv,ctx);
+        if(response.ok){
+          const payload=await response.clone().json(),error=analyzerAiIssue(payload);
+          if(error){
+            const actor=await identify(accountEnv,request);
+            await saveBug(studyDatabase(env),{method:'POST',path:'/api/analyze',status:503,error,account:actor,request:{component:'expression-analyzer'},response:{llm:payload.stats?.llm}}).catch(()=>{});
+          }
+        }
+        return response;
+      }
       if(['GET /lookup','GET /translate','GET /api/link-preview','POST /api/analyze','POST /api/phrase-card'].includes(method+' '+path))return await accountWorker.fetch(request,accountEnv,ctx);
       return await studyWorker.fetch(request,{...env,[ACCOUNT_AUTH]:{current:request=>identify(accountEnv,request)}},ctx);
     }catch(error){return json({error:error instanceof StudyError?error.message:'Integrated test service unavailable.'},error instanceof StudyError?error.status:503);}
