@@ -118,6 +118,16 @@
       paintPagePath(id);
       paintSongGate();
     }
+    function examPagePath(exam) {
+      const groupId=exam?(exam.groupId??classGroups.find(row=>row.title===exam.groupTitle)?.id??'unassigned'):examViewGroup;
+      const group=classGroups.find(row=>String(row.id)===String(groupId));
+      const title=group?.title||exam?.groupTitle||'Unassigned';
+      const level=group?accountGroupLevel(group):exam?accountGroupLevel({title}):examViewLevel;
+      return [{id:'exams',label:'Exams',examLevel:''},
+        ...(level?[{id:'exams',label:level==='unassigned'?'Unassigned':level,examLevel:level}]:[]),
+        ...(groupId!==null&&groupId!==undefined?[{id:'exams',label:title,examLevel:level,examGroup:groupId}]:[]),
+        ...(exam?[{id:'examblocks',label:exam.title||'Exam'}]:[])];
+    }
     function pagePathItems(id, seen = new Set()) {
       if (!id || id === "home" || seen.has(id)) return [];
       seen.add(id);
@@ -127,11 +137,12 @@
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return groupPath(group);
-      if (id === "examblocks") return [{ id: "exams", label: "Exams" }, { id: "examblocks", label: examFind(examCurrentId)?.title || "Exam" }];
+      if (id === 'exams') return examPagePath();
+      if (id === "examblocks") return examPagePath(examFind(examCurrentId));
       if (id === "material" && lmState) {
         const owner = lmState.examOwned ? examFind(lmState.examId) : classGroups.find((row) => row.lessonIds.includes(lmState.id));
         const path = lmState.examOwned
-          ? [{ id: "exams", label: "Exams" }, { id: "examblocks", label: owner?.title || "Exam" }]
+          ? examPagePath(owner)
           : groupPath(owner||group);
         path.push({ id: "material", tab: "overview", label: lmState.title || (lmState.examOwned ? "Examination block" : "Lesson") });
         if (!lmState.examOwned && lmTab() !== "overview") {
@@ -163,11 +174,12 @@
       path.hidden=id==='groups'&&!groupViewLevel;
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
         && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
-        : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
+        : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
     }
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-page-path]");
       if (!target) return;
+      if(target.dataset.pathExamLevel!==undefined){pushHistory();examViewLevel=target.dataset.pathExamLevel;examViewGroup=target.dataset.pathExamGroup??null;show('exams');return;}
       if(target.dataset.pathLevel!==undefined){pushHistory();groupViewLevel=target.dataset.pathLevel;show('groups');return;}
       if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show('days');return;}
       if (target.dataset.pagePath === "material") {
@@ -15952,6 +15964,7 @@
           if (scope !== next) { input.value = ''; scope = next; }
         }
         const query = input.value.trim().toLocaleLowerCase();
+        if(id==='examList')control.hidden=!examViewLevel||examViewGroup===null;
         const rows = [...list.querySelectorAll(selector)].filter(row => !row.parentElement.closest(selector) || !list.contains(row.parentElement.closest(selector)));
         if (id === 'adminBody') {
           control.hidden = adminTab === 'accounts' || adminTab === 'groups';
@@ -15989,7 +16002,7 @@
     }
     for (const [id, label, selector, scope] of [
       ['lmDayList', 'Search lessons', '.day-row', () => classGroupId],
-      ['examList', 'Search exams', '.day-row'],
+      ['examList', 'Search exams', '.day-row', () => [examViewLevel,examViewGroup,examSection].join(':')],
       ['examBlocks', 'Search examination blocks', '.day-row', () => examCurrentId],
       ['textList', 'Search texts', '[data-text-open]'],
       ['textExpressions', 'Search expressions', '.expression-card', () => openTextId],

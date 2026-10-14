@@ -1,0 +1,15 @@
+/* Exam-only controls: keep focus rings inside their boxes. */
+#exams input,#exams select,#exams textarea,#examblocks input,#examblocks select,#material.is-exam input,#material.is-exam select,#material.is-exam textarea{box-sizing:border-box;min-width:0;max-width:100%;border-width:1px}
+#exams :is(input,select,textarea,button):focus-visible,#examblocks :is(input,select,textarea,button):focus-visible,#material.is-exam :is(input,select,textarea,button):focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+#exams input[type=search],#examblocks input[type=search]{min-height:42px;padding:8px 12px;margin:0}
+#exams .list-search,#examblocks .list-search{padding:2px;margin:12px 0 16px;min-width:0}
+#exams .file-card{min-width:0;height:auto;align-self:start}
+#exams .file-card .label{white-space:normal;overflow-wrap:anywhere}
+#exams .page-path{margin-bottom:16px}
+#exams.exam-group-list>.meta h1{display:none}
+#exams #examSections[hidden]{display:none}
+#exams #examNew{margin:0 0 12px}
+#material.is-exam .lm-picker-grid+[data-material-quiz-types]{margin-top:16px}
+#material.is-exam .lm-picker-grid{gap:12px}
+#exams .page-path ol,#examblocks .page-path ol,#material.is-exam .page-path ol{flex-wrap:wrap;overflow-wrap:anywhere}
+@media(max-width:480px){#exams .decks{grid-template-columns:minmax(0,1fr)}#exams .page-path button,#examblocks .page-path button,#material.is-exam .page-path button{max-width:100%;white-space:normal;overflow-wrap:anywhere}#exams #examSections .btn{min-width:0;white-space:normal}}
