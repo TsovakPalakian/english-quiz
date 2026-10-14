@@ -576,7 +576,7 @@
     async findCard(word){
       const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(word));
       const found=rows.filter(row=>row.en.trim().toLowerCase()===word.trim().toLowerCase());
-      if(found.length!==1)throw new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.');
+      if(found.length!==1)throw Object.assign(new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.'),{code:found.length?'CARD_AMBIGUOUS':'CARD_NOT_FOUND'});
       return found[0];
     },
     async lessonCards(word){

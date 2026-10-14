@@ -20,6 +20,7 @@ MAX_ANALYZE_BYTES = 8_000_000
 class AnalyzeRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000000)
     contentType: str = "TEXT"
+    reviewOffset: int = Field(default=0, ge=0, le=12000)
 
 
 @app.middleware("http")
@@ -89,6 +90,6 @@ def analyze_route(
         raise HTTPException(status_code=401, detail="Unauthorized")
     started = time.perf_counter()
     print("analysis started chars=%s type=%s" % (len(body.text), body.contentType))
-    result = analyze(body.text, body.contentType or "TEXT")
+    result = analyze(body.text, body.contentType or "TEXT", body.reviewOffset) if body.reviewOffset else analyze(body.text, body.contentType or "TEXT")
     result["stats"]["durationMs"] = round((time.perf_counter() - started) * 1000, 1)
     return result

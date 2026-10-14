@@ -5816,11 +5816,11 @@
         if (key && !map.has(key)) map.set(key, { kind: "idioms", en: item.en });
       });
       loadAdded().forEach((item) => {
-        const key = String(item.word || "").trim().toLowerCase();
+        const key = String(item.word || item.en || "").trim().toLowerCase();
         if (!key || map.has(key)) return;
         const place = item.place || "mine";
         const kind = place === "phrasal" || place === "idioms" ? place : "added";
-        map.set(key, { kind: kind, en: item.word });
+        map.set(key, { kind: kind, en: item.word || item.en });
       });
       (window.IRREGULAR || []).forEach((verb) => {
         if (!cardVisible(verb)) return;
@@ -5839,12 +5839,14 @@
       if (!raw) return null;
       if (map.has(raw)) return map.get(raw);
       const stems = [raw];
+      if(typeof lemmaVerb==='function')stems.push(lemmaVerb(raw));
       if (raw.endsWith("ies") && raw.length > 4) stems.push(raw.slice(0, -3) + "y");
       if (raw.endsWith("es") && raw.length > 3) stems.push(raw.slice(0, -2));
       if (raw.endsWith("s") && raw.length > 3) stems.push(raw.slice(0, -1));
       if (raw.endsWith("ing") && raw.length > 5) {
         stems.push(raw.slice(0, -3));
         stems.push(raw.slice(0, -3) + "e");
+        if(/([a-z])\1ing$/.test(raw))stems.push(raw.slice(0,-4));
       }
       if (raw.endsWith("ed") && raw.length > 4) {
         stems.push(raw.slice(0, -2));
@@ -6441,9 +6443,10 @@
         });
       });
     }
-    function lyricPieces(text) {
+    function lyricPieces(text, marks = {}) {
       const phrases = [];
       cardIndex().forEach((value, key) => { if (key.indexOf(" ") > 0) phrases.push(key); });
+      Object.entries(marks).forEach(([key,mark])=>{if(key.includes(' ')&&['new','have'].includes(mark?.state)&&!phrases.includes(key))phrases.push(key);});
       phrases.sort((a, b) => b.length - a.length);
       const raw = [];
       const re = /[A-Za-z]+(?:['’][A-Za-z]+)?/g;
@@ -6473,7 +6476,7 @@
             const from = wordAt[start + n];
             const to = wordAt[start + n + 1];
             for (let k = from + 1; k < to; k++) if (raw[k] && raw[k].gap != null) gap += raw[k].gap;
-            if (gap.indexOf("\n") >= 0) { crossed = true; break; }
+            if (/[\n.!?;]/.test(gap)) { crossed = true; break; }
           }
           if (crossed) return;
           for (let n = 0; n < bits.length; n++) grouped[wordAt[start + n]] = phrase;
@@ -6483,8 +6486,8 @@
       });
       return { raw: raw, grouped: grouped };
     }
-    function lyricKeys(text) {
-      const pieces = lyricPieces(text);
+    function lyricKeys(text, marks = {}) {
+      const pieces = lyricPieces(text,marks);
       const keys = [];
       const seen = {};
       pieces.raw.forEach((part) => {
@@ -6502,7 +6505,7 @@
       return keys;
     }
     function lyricHtml(text, marks) {
-      const pieces = lyricPieces(text);
+      const pieces = lyricPieces(text,marks);
       let html = "";
       for (let i = 0; i < pieces.raw.length; i++) {
         const part = pieces.raw[i];
@@ -6564,6 +6567,7 @@
       return '<button class="day active" type="button" ' + attrs + '><span class="date">' + number + '</span><span class="song-line"><b>' + esc(title) + "</b>" + who + '</span><span class="label about">' + esc(about) + "</span></button>";
     }
     function lyricMark(label, key, mark) {
+      if(mark&&(mark.state==='error'||mark.state==='untranslated'))return '<button class="word lyric-unchecked" type="button" title="'+esc(mark.state==='error'?'Check failed. Try again.':'No definition available yet.')+'" data-lyric-open="'+esc(key)+'">'+esc(label)+'</button>';
       if (!mark || mark.state === "error" || mark.state === "miss") return '<button class="word lyric-miss" type="button" data-lyric-open="' + esc(key) + '">' + esc(label) + "</button>";
       const openKey = mark.word ? String(mark.word).toLowerCase() : key;
       const learned = loadLearned().has(openKey) ? " learned" : "";
@@ -6939,7 +6943,7 @@
       }
       return "";
     }
-    function lookupLyricWord(word, context, waitMs) {
+    function lookupLyricWord(word, context, waitMs, strict = false) {
       const wait = waitMs || 25000;
       const controller = typeof AbortController === "function" ? new AbortController() : null;
       let timer = 0;
@@ -6949,21 +6953,23 @@
           if (context) url += "&context=" + encodeURIComponent(context);
           const res = await fetch(url, controller ? { signal: controller.signal } : undefined);
           const data = await res.json();
-          if (!res.ok || !data.found) return null;
+          if(res.status===404)return null;
+          if(!res.ok)throw Object.assign(new Error(data.error||'Dictionary lookup failed.'),{status:res.status});
+          if(!data.found)return null;
           return data;
         } catch (err) {
+          if(strict)throw err;
           return null;
         }
       })();
-      const limit = new Promise((resolve) => {
+      const limit = new Promise((resolve,reject) => {
         timer = setTimeout(() => {
           if (controller) controller.abort();
-          resolve(null);
+          if(strict)reject(new Error('Dictionary lookup timed out.'));else resolve(null);
         }, wait);
       });
-      return Promise.race([job, limit]).then((value) => {
+      return Promise.race([job, limit]).finally(() => {
         clearTimeout(timer);
-        return value;
       });
     }
     async function readLyrics(existingId) {

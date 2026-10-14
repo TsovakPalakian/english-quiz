@@ -467,7 +467,7 @@ def ngram_count(words):
     return count
 
 
-def analyze(text, content_type="TEXT"):
+def analyze(text, content_type="TEXT", review_offset=0):
     linguistics.model()
     started = time.perf_counter()
     deadline = started + (ANALYZE_DEADLINE_MS / 1000.0)
@@ -476,17 +476,27 @@ def analyze(text, content_type="TEXT"):
     ordinary = []
     grams = 0
     total_tokens = 0
-    for sentence_index, sentence in enumerate(sentences_of(text)):
+    sentences = sentences_of(text)
+    processed = 0
+    truncated = False
+    word_lemmas = {}
+    for sentence_index, sentence in enumerate(sentences):
         if sentence_index >= MAX_SENTENCES or time.perf_counter() > deadline:
             break
         words = words_of(sentence)
         if len(words) > MAX_TOKENS_PER_SENTENCE:
             words = words[:MAX_TOKENS_PER_SENTENCE]
+            truncated = True
         total_tokens += len(words)
         if total_tokens > MAX_TOTAL_TOKENS:
             break
         annotations = linguistics.annotate(" ".join(words))
+        for word, annotation in zip(words, annotations):
+            lemma = annotation.get("lemma", "")
+            if word.isalpha() and lemma.isalpha() and lemma != word.lower():
+                word_lemmas.setdefault(word.lower(), lemma)
         raw.extend(hits_in(words, sentence, sentence_index, annotations))
+        processed += 1
         grams += ngram_count(words)
         ordinary.extend(ordinary_phrases(words))
         if time.perf_counter() > deadline:
@@ -498,7 +508,7 @@ def analyze(text, content_type="TEXT"):
     llm_enabled = bool(settings.llm_base_url and settings.llm_model)
     llm_note = "not-needed" if llm_enabled else "disabled"
     if settings.llm_base_url and settings.llm_model and merged and time.perf_counter() <= deadline:
-        llm_note = apply_llm(merged)
+        llm_note = apply_llm(merged[review_offset:review_offset + settings.llm_candidates])
     accepted = []
     for item in merged:
         if (item.get("llmDecision") or {}).get("isExpression") is False and item.get("source") != "dictionary":
@@ -525,8 +535,17 @@ def analyze(text, content_type="TEXT"):
     )
     return {
         "contentType": content_type,
+        "wordLemmas": word_lemmas,
         "expressions": accepted,
         "stats": {
+            "partial": truncated or processed < len(sentences),
+            "processedSentences": processed,
+            "totalSentences": len(sentences),
+            "llmCandidates": len(merged),
+            "llmReviewed": sum(item.get("llmDecision") is not None for item in merged),
+            "llmPartial": llm_enabled and any(item.get("llmDecision") is None for item in merged),
+            "nextReviewOffset": review_offset + settings.llm_candidates if llm_note == "ok" and review_offset + settings.llm_candidates < len(merged) and not truncated and processed == len(sentences) else None,
+            "reviewedExpressions": [{"type": item["type"], "canonicalForm": item["canonicalForm"]} for item in merged if item.get("llmDecision") is not None],
             "candidateCount": len(raw),
             "ngramCount": grams,
             "junkDropped": len(set(ordinary)),

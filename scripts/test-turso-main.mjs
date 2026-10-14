@@ -1955,7 +1955,7 @@ test('A text expression uses the dedicated card route and updates the list only 
     expressionSaved:()=>false,expressionPlace:()=> 'phrasal',expressionDeckName:()=> 'Phrasal verbs',
     markExpressionButton:()=>marked++,paintAdded(){},paintAllWords(){},paintHomeStats(){},
     document:{addEventListener(){},getElementById:id=>id==='textReadStatus'?status:null,querySelector:()=>null},
-    window:{...baseWindow,TursoMain:{findCard:async()=>{throw new Error('missing');},
+    window:{...baseWindow,TursoMain:{findCard:async()=>{throw Object.assign(new Error('missing'),{code:'CARD_NOT_FOUND'});},
       newCard:(word,ru,place)=>new Promise(resolve=>{written={word,ru,place};resolveWrite=resolve;}),perform:action=>action()}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   const saving=scope.stageStoreTextExpression({type:'PHRASAL_VERB'}, {},{word:'give up',ru:'сдаться',place:'phrasal',fromText:true});
@@ -2048,8 +2048,8 @@ test('Adding a song asks the lyric analyzer and stores a new expression card',as
     lyricKeys:()=>['i','give','up'],lyricTokens:()=>['i','give','up'],lookupLyricWord:async word=>word==='give'?{word:'give',ru:'давать'}:null,
     uniqueExpressions:list=>list,setTimeout(){},accountFetch:async(path,options)=>{calls.push([path,JSON.parse(options.body)]);
       return path==='/api/analyze'?{expressions:[{exactText:'give up',canonicalForm:'give up',type:'PHRASAL_VERB',meaning:'stop',context:'I give up'}]}:{card:{word:'give up',ru:'сдаться',place:'phrasal'}};},
-    document:{addEventListener(){}},window:{TursoMain:{
-      findCard:async()=>{throw Error('missing');},
+    document:{addEventListener(){},getElementById(){return null;}},window:{TursoMain:{
+      findCard:async()=>{throw Object.assign(Error('missing'),{code:'CARD_NOT_FOUND'});},
       newCard:async(id,en,ru)=>({revision:1,card:{stageId:id,word:en,ru,place:'mine'}}),
       saveLibrary:async(item,kind,changes)=>({item:{...item,...changes,stageRevision:2},changes})
     }}};
@@ -2398,7 +2398,7 @@ test('A new lyric word keeps its song place',async()=>{
     rememberAdded(){},paintAdded(){},paintAllWords(){},paintHomeStats(){},loadAdded:()=>[],
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     crypto,
-    window:{TursoMain:{findCard:async()=>{throw new Error('missing');},newCard:(en,ru,place)=>{created.push(place);return {card:{word:en,ru,place},revision:1};}}}};
+    window:{TursoMain:{findCard:async()=>{throw Object.assign(new Error('missing'),{code:'CARD_NOT_FOUND'});},newCard:(en,ru,place)=>{created.push(place);return {card:{word:en,ru,place},revision:1};}}}};
   runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
   assert.equal(await scope.stageKeepExpression({word:'harbour',ru:'гавань',place:'music'}),true);
   assert.deepEqual(created,['music']);

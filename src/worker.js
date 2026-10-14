@@ -1677,6 +1677,8 @@ async function analyzeExpressions(env, request, body) {
   const text = String((body && body.text) || "").trim();
   if (!text) return json({ error: "Write a text first." }, 400);
   if (text.length > 2000000) return json({ error: "That text is too long. Limit is 2000000 characters." }, 413);
+  const reviewOffset=body.reviewOffset??0;
+  if(!Number.isSafeInteger(reviewOffset)||reviewOffset<0||reviewOffset>12000)return json({error:'Invalid analysis review offset.'},400);
   const base = String(env.EXPRESSION_ANALYZER_URL || "").replace(/\/$/, "");
   if (!base) return json({ error: "Analysis service temporarily unavailable." }, 503);
   const timeout = analyzerTimeoutMs(env.EXPRESSION_ANALYZER_TIMEOUT);
@@ -1687,7 +1689,7 @@ async function analyzeExpressions(env, request, body) {
     const response = await fetch(base + "/api/v1/analyze", {
       method: "POST",
       headers,
-      body: JSON.stringify({ text: text, contentType: body.contentType || "TEXT" }),
+      body: JSON.stringify({ text: text, contentType: body.contentType || "TEXT", reviewOffset }),
       signal: controller.signal
     });
     const payload = await response.json().catch(() => null);

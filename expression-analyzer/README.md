@@ -40,6 +40,11 @@ Pull the model once inside the Ollama container. If Ollama is down, analysis sti
 spaCy (`en_core_web_sm`) provides lemmas and grammatical annotations for both texts and lyrics.
 The dictionary and rules generate candidates; AI reviews up to `LLM_MAX_CANDIDATES` per request
 (default: two), returning contextual meanings and confidence in a constrained JSON response.
+The song/text UI follows `stats.nextReviewOffset` with `reviewOffset` requests until all
+candidates have been reviewed, merging prior decisions. This can take multiple HTTP requests.
+`wordLemmas` maps inflected words to spaCy lemmas for dictionary/card resolution.
+`stats.partial` explicitly reports token, sentence or time truncation; `stats.llmPartial`
+reports candidates not reviewed in the current request (the UI aggregates batch coverage).
 It does not discover arbitrary expressions outside the candidate set. Existing dictionary
 expressions survive a negative AI judgment. On the single-CPU production host, allow time
 for model warm-up; successful sample analysis takes about 18-29 seconds when warm.

@@ -6,6 +6,7 @@ COPULA = ["am", "is", "are", "was", "were", "be", "been", "being"]
 # verb + tail builds every listed inflection. senses pick a meaning from the sentence.
 
 PHRASAL_VERBS = [
+    {"expression": "cool down", "verb": "cool", "particle": "down", "separable": True, "meaning": "to become calmer or less hot", "frequency": 0.86},
     {"expression": "give up", "verb": "give", "particle": "up", "separable": True, "meaning": "to stop trying or stop doing something", "frequency": 0.95},
     {"expression": "find out", "verb": "find", "particle": "out", "separable": True, "meaning": "to discover a fact", "frequency": 0.9},
     {"expression": "look after", "verb": "look", "particle": "after", "meaning": "to take care of someone or something", "frequency": 0.88},
@@ -103,6 +104,7 @@ PHRASAL_VERBS = [
 ]
 
 IDIOMS = [
+    {"expression": "take it easy", "verb": "take", "tail": ["it", "easy"], "meaning": "to relax and avoid worry or effort", "frequency": 0.92},
     {"expression": "break the ice", "verb": "break", "tail": ["the", "ice"], "meaning": "to make people feel more comfortable", "frequency": 0.9},
     {"expression": "hit the road", "verb": "hit", "tail": ["the", "road"], "meaning": "to start a journey", "frequency": 0.82},
     {"expression": "a piece of cake", "tokens": ["a", "piece", "of", "cake"], "optional": [0], "meaning": "something very easy", "frequency": 0.9},

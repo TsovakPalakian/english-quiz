@@ -380,7 +380,14 @@ function stageAddedRow(item,index){
   const main='<button class="path" type="button" data-added="'+index+'"><b>'+esc(item.word)+'</b><span class="to">'+esc(item.ru)+'</span></button>';
   return canEditAdded(item)?'<div data-edit-host data-edit-kind="added" data-edit-id="'+index+'"><div class="edit-line">'+main+stageAddedActions(item,true)+'</div></div>':main;
 }
-function stageStampLinks(list,revision){stageListEpoch.cards++;for(const item of list)item.stageLinksRevision=revision;stageSettled.mine=true;rememberAdded(list);window.ContentCache?.drop('cards:personal');paintAdded();paintAllWords();stagePaintCounts();if(typeof paintHomeStats==='function')paintHomeStats();}
+function stageStampLinks(list,revision){stageListEpoch.cards++;for(const item of list)item.stageLinksRevision=revision;stageSettled.mine=true;rememberAdded(list);window.ContentCache?.drop('cards:personal');paintAdded();paintAllWords();stagePaintCounts();if(typeof paintHomeStats==='function')paintHomeStats();stageRefreshLyricMarks();}
+function stageRefreshLyricMarks(){
+  if(typeof document==='undefined'||!document.querySelector||typeof lyricHtml!=='function')return;
+  const user=document.getElementById('songUser'),body=user?.querySelector('.lyric-text');
+  if(!body)return;
+  const song=loadSongs().find(row=>String(row.id)===String(user.dataset.songId));
+  if(song&&!song.stageLyricsDeferred)body.innerHTML=lyricHtml(song.lyrics||'',song.marks||{});
+}
 function stageEnsureAddGroup(){
   // Selecting a local navigation group is safe before accountReady flips;
   // stageSaveWord still refuses writes until the server profile has loaded.
@@ -466,11 +473,33 @@ function stageInstallLibrary(item,kind){
   else{writeSongs(list);paintLyrics();}
   stagePaintCounts();
 }
+async function stageRequestAnalysis(text,contentType,write){
+  const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
+  const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
+  const key=item=>item.type+'|'+String(item.canonicalForm||item.exactText||'').toLowerCase();
+  let result=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType})});
+  const expressions=new Map((result.expressions||[]).map(item=>[key(item),item]));
+  const reviewed=new Set((result.stats?.reviewedExpressions||[]).map(key));
+  let offset=0;
+  while(current()&&Number.isSafeInteger(result.stats?.nextReviewOffset)&&result.stats.nextReviewOffset>offset){
+    offset=result.stats.nextReviewOffset;
+    if(write)write('Reviewing expressions '+reviewed.size+' of '+result.stats.llmCandidates+'…',false);
+    let next;
+    try{next=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType,reviewOffset:offset})});}
+    catch(error){result.error=error.message||'Expression review failed.';break;}
+    if(!current())throw new Error('Analysis cancelled after changing account.');
+    for(const item of next.stats?.reviewedExpressions||[]){reviewed.add(key(item));expressions.delete(key(item));}
+    for(const item of next.expressions||[]){const previous=expressions.get(key(item));if(!previous||item.llmDecision||!previous.llmDecision)expressions.set(key(item),item);}
+    result={...next,wordLemmas:{...result.wordLemmas,...next.wordLemmas}};
+  }
+  if(result.stats)result.stats={...result.stats,llmReviewed:reviewed.size||result.stats.llmReviewed||0,llmPartial:!!(result.stats.llmPartial&&reviewed.size<(result.stats.llmCandidates||0)||result.error)};
+  return {...result,expressions:[...expressions.values()]};
+}
 async function stageRunTextAnalysis(item,status){
   if(!item?.text)return;
   const generation=viewGen;
   let result;
-  try{result=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:item.text,contentType:'TEXT'})});}
+  try{result=await stageRequestAnalysis(item.text,'TEXT',text=>{if(status)status.textContent=text;});}
   catch(error){if(status)status.textContent=error.message||'Analysis service temporarily unavailable.';return;}
   if(generation!==viewGen)return;
   const analysis={expressions:(typeof uniqueExpressions==='function'?uniqueExpressions(result.expressions||[]):(result.expressions||[])),stats:result.stats||null,at:new Date().toISOString()};
@@ -490,7 +519,7 @@ async function stageRunTextAnalysis(item,status){
     saved.analysis=analysis;
     localStorage.setItem(TEXT_KEY,JSON.stringify(list));
     paintTextCount();
-    if(status)status.textContent=(result.expressions||[]).length+' expressions.';
+    if(status)status.textContent=(result.expressions||[]).length+' expressions.'+(result.stats?.partial||result.stats?.llmPartial?' Analysis was partial.':'');
     showText(saved.id);
   }catch(error){if(status)status.textContent=error.message||'Analysis service temporarily unavailable.';}
 }
@@ -531,9 +560,10 @@ function stageStoreSong(existingId){
       if(existingId){pendingEditFile=null;editFileSent=true;}
       else{pendingLyricFile=null;lyricFileSent=true;}
     }
-    stageInstallLibrary(saved,'song');stageSongDraft=null;if(!existingId&&!managed)trackEvent('song','lyrics','add');
+    stageInstallLibrary(saved,'song');stageSongDraft=null;
     renderUserSong(saved);show('song');
-    if(typeof accountFetch==='function')await stageAnalyzeSong(saved,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
+    try{if(typeof accountFetch==='function')await stageAnalyzeSong(saved,existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));}
+    finally{if(!existingId&&!managed)trackEvent('song','lyrics','add');}
   },existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus'));
 }
 if(typeof window!=='undefined'&&typeof document!=='undefined')window.TextColors?.mount(document.getElementById('lyricText'));
@@ -553,21 +583,25 @@ function stageGrowTextEditors(){
 }
 document.addEventListener('input',event=>{if(event.target.matches('#lyricText,#textBody,[data-lyric-draft]')||event.target.closest('.text-color-rich')?.parentElement.querySelector('#lyricText,#textBody,[data-lyric-draft]'))stageGrowTextEditors();});
 if(typeof MutationObserver!=='undefined'&&document.body){const observer=new MutationObserver(stageGrowTextEditors);document.querySelectorAll('#lyricadd,#songUser,#textedit').forEach(root=>observer.observe(root,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['hidden']}));window.addEventListener('resize',stageGrowTextEditors);stageGrowTextEditors();}
-async function stageKeepExpression(card,managed=stageManagedSongReady()){
+async function stageKeepExpression(card,managed=stageManagedSongReady(),resolved){
   const generation=viewGen,actor=authUser?.id;
   const word=String(card.word||'').trim();
   const place=card.fromText&&(!card.place||card.place==='mine')?'text':(['phrasal','idioms','mine','music','text'].includes(card.place)?card.place:'mine');
   if(!word||loadAdded().some(row=>String(row.word||row.en||'').toLowerCase()===word.toLowerCase()&&(row.place||'mine')===place))return false;
   const accountId=viewAccount?.id||'';
   const current=()=>generation===viewGen&&actor===authUser?.id&&accountId===(viewAccount?.id||'');
-  try{
-    const found=await window.TursoMain.findCard(word);
+  let found=resolved;
+  if(found===undefined){
+    try{found=await window.TursoMain.findCard(word);}
+    catch(error){if(error.code!=='CARD_NOT_FOUND')throw error;found=null;}
+  }
+  if(found){
     if(!current())return false;
     if(loadAdded().some(row=>row.stageId===found.id&&(row.place||'mine')===place))return false;
     const linked=managed?await window.TursoMain.linkManagedCard(accountId,found,place):await window.TursoMain.linkCard(found,place);
     if(!current())return false;
     const list=loadAdded();list.unshift(linked.card);stageStampLinks(list,linked.revision);return true;
-  }catch{
+  }else{
     if(!current())return false;
     const ru=String(card.ru||'').trim();
     if(!ru)return false;
@@ -602,20 +636,23 @@ function stageStoreTextExpression(expr,button,item){
 }
 function stageLyricRu(data){
   const cam=data&&data.cambridge||{},wh=data&&data.wooordhunt||{};
-  return String((data&&data.ru)||cam.definition||wh.gloss||wh.verbGloss||(data&&data.englishClub&&data.englishClub.meaning)||(data&&data.englishAtHome&&data.englishAtHome.meaning)||'').trim();
+  return String((data&&data.ru)||wh.gloss||wh.verbGloss||cam.definition||data?.oxford?.definition||data?.longman?.definition||data?.collins?.definition||data?.merriam?.definition||data?.wiktionary?.definition||data?.englishClub?.meaning||data?.englishAtHome?.meaning||'').trim();
 }
-async function stageMarkLyricWords(song,marks,write){
+async function stageMarkLyricWords(song,marks,write,lemmas={}){
   const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
   const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
   const seen=new Set(),keys=[];
+  const baseOf=key=>Object.hasOwn(lemmas,key)&&typeof lemmas[key]==='string'?lemmas[key]:key;
   (typeof lyricTokens==='function'?lyricTokens(song.lyrics||''):[]).forEach(key=>{
     if(!key||seen.has(key))return;
     seen.add(key);keys.push(key);
   });
   const todo=[];
   keys.forEach(key=>{
-    if(typeof cardIndex==='function'&&cardIndex().has(key)){
-      if(!marks[key]||marks[key].state==='miss'||marks[key].state==='error')marks[key]={state:'have',word:key};
+    const known=typeof lyricCard==='function'?lyricCard(baseOf(key)):typeof cardIndex==='function'?cardIndex().get(key):null;
+    if(known){
+      if(!marks[key]||!['new','have'].includes(marks[key].state))marks[key]={state:'have',word:known.en||key};
+      else {delete marks[key].needsRetry;delete marks[key].lastError;}
       return;
     }
     todo.push(key);
@@ -626,28 +663,47 @@ async function stageMarkLyricWords(song,marks,write){
       if(!current())return;
       const key=todo[cursor++];
       write('Checked '+(++done)+' of '+todo.length+' new words…',false);
+      const previous=marks[key];
       try{
-        const data=typeof lookupLyricWord==='function'?await lookupLyricWord(key,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):'',25000):null;
+        const candidates=[...new Set([key,baseOf(key)])];
+        let found=null;
+        for(const candidate of candidates){
+          try{found=await window.TursoMain.findCard(candidate);break;}
+          catch(error){if(error.code!=='CARD_NOT_FOUND')throw error;}
+        }
+        if(!current())return;
+        if(found){
+          await stageKeepExpression({word:found.en||key,place:'music'},stageManagedSongReady(),found);
+          if(!current())return;
+          marks[key]={state:'have',word:found.en||key,cardId:found.id};continue;
+        }
+        const query=baseOf(key);
+        const data=typeof lookupLyricWord==='function'?await lookupLyricWord(query,typeof lyricLine==='function'?lyricLine(song.lyrics||'',key):'',25000,true):null;
         if(!current())return;
         const ru=stageLyricRu(data);
-        if(!data||!ru){marks[key]={state:'miss'};continue;}
-        const added=await stageKeepExpression({word:key,ru,place:'music'});
-        if(added)marks[key]={state:'new',word:key};
-        else if(typeof cardIndex==='function'&&cardIndex().has(key))marks[key]={state:'have',word:key};
-        else marks[key]={state:'miss'};
-      }catch{marks[key]={state:'error'};}
+        if(!data){marks[key]={state:'miss'};continue;}
+        if(!ru){marks[key]={state:'untranslated'};continue;}
+        const word=data.base||query;
+        const added=await stageKeepExpression({word,ru,place:'music'},stageManagedSongReady(),null);
+        if(!current())return;
+        marks[key]={state:added?'new':'have',word};
+      }catch(error){
+        if(!current())return;
+        marks[key]=previous&&['new','have'].includes(previous.state)?{...previous,lastError:String(error.message||'Check failed').slice(0,120),needsRetry:true}:{state:'error',reason:String(error.message||'Check failed').slice(0,120)};
+        if(Number(error.status)===0&&error.reported)throw error;
+      }
     }
   }
   if(todo.length){
     write('Looking up '+todo.length+' new words…',false);
-    await Promise.all(Array.from({length:Math.min(3,todo.length)},worker));
+    await worker();
   }
   return keys;
 }
 async function stageAnalyzeSong(song,status){
   const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
   const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
-  const write=(text,bad)=>{if(!status)return;status.textContent=text;status.classList.toggle('bad',!!bad);};
+  const write=(text,bad)=>{if(!current())return;const visible=document.getElementById('songUser'),live=visible&&String(visible.dataset.songId)===String(song.id)?visible.querySelector('[data-lyric-check]'):status;if(!live)return;live.textContent=text;live.classList.toggle('bad',!!bad);};
   const finish=(text,bad)=>setTimeout(()=>{
     if(!current())return;
     const visible=document.getElementById('songUser');if(visible&&String(visible.dataset.songId)!==String(song.id))return;
@@ -656,19 +712,23 @@ async function stageAnalyzeSong(song,status){
   },0);
   write('Reading the lyrics…',false);
   const marks={...(song.marks||{})};
-  const keys=await stageMarkLyricWords(song,marks,write);
-  if(!current())return;
+  let keys=[];
   const storeMarks=async()=>{
     if(!current())return;
     if(!song.stageId||!Object.keys(marks).length)return;
     const managed=stageManagedSongReady();
     const saved=managed?await window.TursoMain.saveManagedLibrary(viewAccount.id,song,'song',{marks}):await window.TursoMain.saveLibrary(song,'song',{marks});
     const next=saved&&saved.item?saved.item:{...song,marks};
-    stageInstallLibrary(next,'song');renderUserSong(next);
+    stageInstallLibrary(next,'song');
+    const visible=document.getElementById('songUser');if(!visible||String(visible.dataset.songId)===String(song.id))renderUserSong(next);
   };
   let analyzed;
-  try{analyzed=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:song.lyrics,contentType:'LYRICS'})});}
-  catch(error){await storeMarks();finish(error.message||'Analysis service temporarily unavailable.',true);return;}
+  try{analyzed=await stageRequestAnalysis(song.lyrics,'LYRICS',write);}
+  catch(error){analyzed={expressions:[],stats:{partial:true},error:error.message||'Analysis service temporarily unavailable.'};}
+  if(!current())return;
+  const lemmas=analyzed.wordLemmas||{};
+  keys=await stageMarkLyricWords(song,marks,write,lemmas);
+  if(!current())return;
   const expressions=typeof uniqueExpressions==='function'?uniqueExpressions(analyzed.expressions||[]):(analyzed.expressions||[]);
   let added=0,failed=0;
   for(let i=0;i<expressions.length;i++){
@@ -683,12 +743,18 @@ async function stageAnalyzeSong(song,status){
       const kept=await stageKeepExpression(card);
       if(kept)added++;
       const key=String(card.word).trim().toLowerCase();
-      marks[key]={state:kept?'new':cardIndex().has(key)?'have':'miss',word:card.word,deck:card.place||'mine'};
+      const mark={state:kept?'new':'have',word:card.word,deck:card.place||'mine'};
+      marks[key]=mark;
+      const surface=String(expr.exactText||'').trim().toLowerCase().replace(/\u2019/g,"'");
+      if(surface)marks[surface]=mark;
     }catch{failed++;}
   }
-  await storeMarks();
-  const red=keys.filter(key=>!marks[key]||marks[key].state==='miss'||marks[key].state==='error').length;
-  finish((red?red+(red===1?' word is red. ':' words are red. '):'Checked the words. ')+(added?'Added '+added+' expressions. ':'')+(failed?failed+' expressions could not be saved. Check the words again to retry.':''),!!failed);
+  try{await storeMarks();}catch(error){finish(error.message||'Could not save the analysis. Try again.',true);throw error;}
+  const displayed=typeof lyricKeys==='function'?lyricKeys(song.lyrics||'',marks):keys;
+  const missing=displayed.filter(key=>marks[key]?.state==='miss').length;
+  const errors=displayed.filter(key=>marks[key]?.state==='error'||marks[key]?.state==='untranslated'||marks[key]?.needsRetry).length;
+  const partial=analyzed.stats?.partial||analyzed.stats?.llmPartial;
+  finish((missing?missing+(missing===1?' word not found. ':' words not found. '):'Checked the words. ')+(added?'Added '+added+' expressions. ':'')+(errors?errors+(errors===1?' word needs another check. ':' words need another check. '):'')+(failed?failed+' expressions could not be saved. ':'')+(partial?'Expression analysis was partial. ':'')+(analyzed.error||''),!!(failed||errors||partial||analyzed.error));
 }
 function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
@@ -1339,6 +1405,7 @@ function stageLibrarySummary(){
   return window.ContentCache.load('library:summary',()=>accountFetch(stageAccountBase()+'/state?summary=1')).then(state=>{if(generation!==viewGen||target!==(viewAccount?.id||''))return;window.ContentCache.set('account:bootstrap',state);stagePaintCounts(state.counts);return state.counts;});
 }
 function stageRepaint(section){
+  stageRefreshLyricMarks();
   if(section==='allwords'&&typeof paintAllWords==='function')paintAllWords();
   if(section==='phrasal'||section==='idioms')paintDeckGrids(section);
   const host=document.getElementById(section==='allwords'?'allWordGrid':section==='phrasal'?'phrasalGrid':'idiomGrid');

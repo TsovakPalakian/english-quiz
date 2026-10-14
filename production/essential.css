@@ -14,6 +14,7 @@
 .everyday-word .everyday-example{font-size:14px}
 .everyday-word .label{font-size:14px}
 .everyday-word:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#songUser .word.lyric-unchecked{color:var(--muted);text-decoration-style:dotted}
 #adminLevelBody .accounts-group-create{gap:12px;margin-bottom:16px;flex-wrap:wrap}
 #adminLevelBody #accountGroupName{width:220px;max-width:100%;flex:0 1 220px;min-width:0}
 .accounts-level-groups{padding-left:16px;display:grid;gap:12px}
