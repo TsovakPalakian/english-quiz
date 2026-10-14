@@ -1,7 +1,7 @@
 import { analyzerHeaders, analyzerOutcome, analyzerTimeoutMs } from "./analyzer-client.js";
 
 const ITERATIONS = 100000;
-const SESSION_SECONDS = 180 * 24 * 3600;
+const SESSION_SECONDS = 3 * 3600;
 const LOGIN_RE = /^[A-Za-z0-9._-]{3,32}$/;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -347,6 +347,7 @@ async function signSession(env, user) {
     // Bind cookie to password hash so changePassword / reset invalidates other sessions.
     pwdv: String(user.password_hash || "").slice(0, 24),
     createdAt: user.created_at || user.createdAt || 0,
+    idleSession: 1,
     exp: now() + SESSION_SECONDS
   };
   const body = bytesToB64url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -370,7 +371,7 @@ async function verifySession(env, token) {
   if (!ok) return null;
   let payload = null;
   try { payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(body))); } catch (e) { return null; }
-  if (!payload || !payload.id || !payload.exp || payload.exp <= now()) return null;
+  if (!payload || !payload.id || !payload.exp || payload.exp <= now() || payload.idleSession !== 1) return null;
   return {
     id: payload.id,
     login: payload.login,
@@ -1283,6 +1284,13 @@ async function handleApi(request, env, ctx) {
   if (method === "POST" && path === "/api/register") return register(env, request, body, secure);
   if (method === "POST" && path === "/api/login") return login(env, request, body, secure);
   if (method === "POST" && path === "/api/logout") return logout(env, request, secure);
+  if (method === "POST" && path === "/api/me/activity") {
+    const user = await currentUser(env, request);
+    if (!user) return json({ error: "Sign in again." }, 401);
+    const row = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
+    if (!row) return json({ error: "Sign in again." }, 401);
+    return startSession(env, row, { ok: true }, secure);
+  }
   if (method === "GET" && path === "/api/me") return me(env, request);
   if (method === "GET" && path === "/api/me/account") return myAccount(env, request);
   if (method === "POST" && path === "/api/me/account") return requestAccountChange(env, request, body);

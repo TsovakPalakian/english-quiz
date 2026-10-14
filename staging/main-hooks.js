@@ -1248,8 +1248,8 @@ function stageWordsPending(){
 function stageLiveCounts(){
   const data=window.LESSON_DATA||{};
   const mine=typeof loadAdded==='function'?loadAdded().filter(item=>(item.place||'mine')==='mine'&&!item.fromText).length:0;
-  const phrases=(data.phrasalWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='phrasal'&&!item.fromText).length:0);
-  const idioms=(data.idiomWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>item.place==='idioms'&&!item.fromText).length:0);
+  const phrases=(data.phrasalWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>['phrasal','chat-phrasal'].includes(item.place)&&!item.fromText).length:0);
+  const idioms=(data.idiomWords||[]).filter(cardVisible).length+(typeof loadAdded==='function'?loadAdded().filter(item=>['idioms','chat-idioms'].includes(item.place)&&!item.fromText).length:0);
   const words=typeof allRows==='function'?allRows().length:((data.words||[]).length+(data.extraWords||[]).length+(data.lines21||[]).length+(data.ask07||[]).length+(data.phrases09||[]).length+(data.adverbs14||[]).length+(data.talk16||[]).length+(data.likes23||[]).length+mine+phrases+idioms);
   return {words,mine,phrases,idioms,verbs:(window.IRREGULAR||[]).filter(cardVisible).length,songs:typeof loadSongs==='function'?loadSongs().filter(row=>!row.archived).length:0,texts:typeof loadTexts==='function'?loadTexts().filter(row=>!row.archived).length:0};
 }
@@ -1266,7 +1266,7 @@ function stagePaintCounts(counts){
   }
 }
 var stageSettled={};
-const stagePersonalPlaces=['mine','phrasal','idioms','text','music','tenses','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const stagePersonalPlaces=['mine','phrasal','idioms','text','chat','chat-phrasal','chat-idioms','music','tenses','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 const stageCycles=new Map();
 function stageCycle(name,cursor){
   if(!cursor)stageCycles.set(name,{ids:new Set(),extra:new Map(),started:true});
@@ -1327,7 +1327,7 @@ async function stageLibraryBatchRun(section,follow=true){
     stagePaintCounts();
     stageRefreshHome();
     const host=document.getElementById(hostId);
-    if(host&&!(window.LESSON_DATA[bank]||[]).length)host.innerHTML='<p class="hint">No cards yet.</p>';
+    if(host&&!(window.LESSON_DATA[bank]||[]).length&&!(section==='allwords'&&typeof allRows==='function'&&allRows().length))host.innerHTML='<p class="hint">No cards yet.</p>';
     if(follow)stageFollow('library:'+section,page.next,after,()=>stageLibraryBatch(section));
     stageScheduleHydration();
     return page;

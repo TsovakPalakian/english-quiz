@@ -26,6 +26,75 @@ function fixture(journal){
   const drain=async()=>{while(pending.length)await Promise.all(pending.splice(0));};
   return {env,alice,bob,teacher,boot,drain,close:()=>databases.forEach(db=>db.close())};
 }
+test('Avatars are private, group photos require staff and presence updates subscribers',async()=>{
+  const f=fixture({});try{
+    await f.boot();const {env,alice,teacher}=f;
+    await chatCall(env,'CHAT_BRIDGE','global','/presence',{id:alice.id,online:true});
+    const subscribed=await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'profiles',body:{ids:['alice','bob','group:1','outsider','group:9']}});
+    assert.deepEqual(subscribed.profiles.map(p=>p.id),['alice','bob','group:1']);
+    await chatCall(env,'CHAT_BRIDGE','global','/presence',{id:'bob',online:true});await f.drain();
+    assert.equal((await chatCall(env,'CHAT_INBOX',alice.id,'/snapshot',{})).profiles.bob.online,true);
+    await chatCall(env,'CHAT_BRIDGE','global','/presence',{id:'bob',online:false});await f.drain();
+    const offline=(await chatCall(env,'CHAT_INBOX',alice.id,'/snapshot',{})).profiles.bob;assert.equal(offline.online,false);assert.ok(offline.lastSeen);
+    const body={groupId:1,storageKey:'chat/avatars/test',mime:'image/jpeg',size:20};
+    await assert.rejects(chatCall(env,'CHAT_BRIDGE','global','/avatar',{...body,actor:alice}),e=>e.status===403);
+    await chatCall(env,'CHAT_BRIDGE','global','/avatar',{...body,actor:teacher});await f.drain();
+    const group=(await chatCall(env,'CHAT_INBOX',alice.id,'/snapshot',{})).profiles['group:1'];assert.ok(group.avatarUrl.startsWith('/api/messages/avatar?'));assert.equal(group.storageKey,undefined);
+    const inbox=env.CHAT_INBOX.get('bob'),socket=()=>({readyState:1,deserializeAttachment:()=>({expires:Date.now()+10000})}),a=socket(),b=socket();inbox.ctx.getWebSockets().push(a,b);
+    await inbox.presence(a);assert.equal((await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor:alice,ids:['bob']})).profiles[0].online,true);
+    b.readyState=3;await inbox.presence(a);assert.equal((await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor:alice,ids:['bob']})).profiles[0].online,false);
+    inbox.ctx.getWebSockets().length=0;
+    env.CHAT_V2_ENABLED='true';env.CONTENT_ALLOWED_HOST='example.test';env.STORAGE_MODE='production';env.CONTENT_WRITES='true';
+    const blobs=new Map();env.CONTENT_MEDIA={put:async(k,v)=>blobs.set(k,v)};
+    const app=durableChatWorker({fetch:()=>new Response('unused')},{authenticate:async()=>alice});
+    const post=(subject,bytes,type='image/png')=>app.fetch(new Request('https://example.test/api/messages/avatar?subject='+encodeURIComponent(subject),{method:'POST',headers:{Origin:'https://example.test','Content-Type':type},body:bytes}),env,{waitUntil:()=>{}});
+    assert.equal((await post('bob',new Uint8Array(10))).status,403);
+    assert.equal((await post('group:1',new Uint8Array(10))).status,403);
+    assert.equal((await post('alice',new Uint8Array(2*1024*1024+1))).status,413);
+    const jpeg=new Uint8Array([255,216,255,224,0,16,74,70,73,70]);const saved=await post('alice',jpeg,'image/jpeg');assert.equal(saved.status,200);assert.ok((await saved.json()).profile.avatarUrl);assert.equal(blobs.size,1);
+    const usernameRequest=(body,origin='https://example.test')=>app.fetch(new Request('https://example.test/api/messages/username',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)}),env,{});
+    assert.equal((await usernameRequest({username:'@alice',actor:{id:'bob'}})).status,200);assert.equal((await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor:alice,ids:['alice','bob']})).profiles[0].username,'@alice');
+    assert.equal((await usernameRequest({username:'@other'},'https://evil.test')).status,403);assert.equal((await usernameRequest(null)).status,400);
+  }finally{await f.drain();f.close();}
+});
+test('Usernames are case-insensitively unique, independent of login and searchable without bypassing privacy',async()=>{
+  const f=fixture({});try{
+    await f.boot();const {env,alice,bob}=f,bridge=env.CHAT_BRIDGE.get('global');
+    bridge.set('policy',{at:Date.now(),users:[alice,bob,{id:'hidden',role:'USER',hidden:true},{id:'inactive',role:'USER',active:0}],groups:[],members:[]});
+    const claim=(actor,username,extra={})=>chatCall(env,'CHAT_BRIDGE','global','/username',{actor,username,...extra});
+    assert.equal((await claim(bob,'@BoB_123')).profile.username,'@bob_123');
+    await assert.rejects(claim(alice,'@BOB_123'),e=>e.status===409);
+    for(const invalid of ['missing_at','@ab','@1name','@has space','@hello-world'])await assert.rejects(claim(alice,invalid),e=>e.status===400);
+    assert.equal((await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'lookup',body:{query:'@BOB_123'}})).person.id,bob.id);
+    await assert.rejects(claim(bob,'@new_bob',{expectedUsername:'@wrong'}),e=>e.status===409);
+    await claim(bob,'@new_bob',{expectedUsername:'@bob_123'});assert.equal((await bridge.discover(alice,'@bob_123')).person,null);
+    await claim(alice,'@bob_123');assert.equal((await bridge.discover(alice,'@bob_123')).person,null,'Cannot discover self');
+    await claim({id:'hidden',role:'USER'},'@hidden');await claim({id:'inactive',role:'USER'},'@inactive');assert.equal((await bridge.discover(alice,'@hidden')).person,null);assert.equal((await bridge.discover(alice,'@inactive')).person,null);
+    const concurrent=await Promise.allSettled([claim(alice,'@shared'),claim(bob,'@shared')]);assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1);assert.equal(concurrent.filter(r=>r.status==='rejected')[0].reason.status,409);
+  }finally{await f.drain();f.close();}
+});
+test('Phone and birthday are stored in separate columns and visibility toggles filter public profiles',async()=>{
+  const f=fixture({});try{
+    await f.boot();const {env,alice}=f;await chatCall(env,'CHAT_INBOX','bob','/command',{action:'profiles',body:{ids:['alice']}});
+    const fields={phone:'+374 99123456',phoneVisible:false,birthday:'1990-04-25',birthdayVisible:false};
+    const update=body=>chatCall(env,'CHAT_BRIDGE','global','/profile',{actor:alice,...body});await update(fields);await f.drain();
+    assert.deepEqual((await chatCall(env,'CHAT_BRIDGE','global','/profile',{actor:alice,read:true})).details,fields);
+    let peer=(await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).profiles.alice;assert.equal(peer.phone,undefined);assert.equal(peer.birthday,undefined);
+    await update({...fields,phoneVisible:true});await f.drain();peer=(await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).profiles.alice;assert.equal(peer.phone,fields.phone);assert.equal(peer.birthday,undefined);
+    await update({...fields,birthdayVisible:true});await f.drain();peer=(await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).profiles.alice;assert.equal(peer.phone,undefined);assert.equal(peer.birthday,fields.birthday);
+    await assert.rejects(update({...fields,birthday:'2024-02-30'}),e=>e.status===400);await assert.rejects(update({...fields,phone:'not a phone'}),e=>e.status===400);
+  }finally{await f.drain();f.close();}
+});
+test('Selected quotes persist, reject forged text, retain retry safety and follow study author restrictions',async()=>{
+  const f=fixture();try{await f.boot();const {env,alice,bob,teacher}=f,id=directRoomId(alice.id,bob.id);
+    await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'open',body:{kind:'direct',accountId:bob.id}});const original=await chatCall(env,'CHAT_ROOM',id,'/send',{actor:bob,text:'Hello Alice, how are you?',clientKey:'quote-source'});
+    const body={actor:alice,text:'Fine',replyTo:original.message.id,quote:'how are you?',clientKey:'quote-answer'};const quoted=await chatCall(env,'CHAT_ROOM',id,'/send',body);assert.equal(quoted.message.replyText,body.quote);assert.equal((await chatCall(env,'CHAT_ROOM',id,'/send',body)).message.id,quoted.message.id);
+    assert.equal((await chatCall(env,'CHAT_ROOM',id,'/history',{actor:bob})).messages.at(-1).replyText,body.quote);
+    await assert.rejects(chatCall(env,'CHAT_ROOM',id,'/send',{...body,quote:'Hello Alice'}),e=>e.status===409);await assert.rejects(chatCall(env,'CHAT_ROOM',id,'/send',{...body,clientKey:'forged',quote:'Invented words'}),e=>e.status===400);
+    await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'open',body:{kind:'direct',accountId:teacher.id}});const alertRoom=directRoomId(alice.id,teacher.id),alert=await chatCall(env,'CHAT_ROOM',alertRoom,'/send',{actor:teacher,category:'learning',text:'Important study announcement',clientKey:'quote-alert'});
+    const result=await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'study-reply',body:{sourceRoomId:alertRoom,messageId:alert.message.id,quote:'study announcement',text:'My question',clientKey:'quoted-alert-reply'}});assert.equal(result.roomId,alertRoom);assert.equal(result.message.forwarded.text,'study announcement');
+  }finally{await f.drain();f.close();}
+});
 test('Durable chat persists, deduplicates, searches, publishes counters and read receipts',async()=>{
   const f=fixture();try{
     await f.boot();const {env,alice,bob}=f,id=directRoomId(alice.id,bob.id);
@@ -126,6 +195,8 @@ test('Chat accepts arbitrary file formats to 25 MB without weakening media rules
     const large=await upload(new Uint8Array(CHAT_FILE_LIMIT+1));assert.equal(large.status,413);assert.match((await large.json()).error,/25 MB/);assert.equal(stored.size,2);
     await assert.rejects(chatFileMetadata(new Uint8Array(CHAT_FILE_LIMIT+1),'text/plain'),e=>e.status===413);
     const html=await chatFileMetadata(new TextEncoder().encode('<script>alert(1)</script>'),'text/html');assert.equal(html.mime,'application/octet-stream');
+    const box=brand=>{const bytes=new Uint8Array(24);new DataView(bytes.buffer).setUint32(0,24);bytes.set(new TextEncoder().encode('ftyp'+brand),4);bytes.set(new TextEncoder().encode(brand),16);return bytes;};
+    assert.equal((await chatFileMetadata(box('heic'),'image/heic')).mime,'image/heic');assert.equal((await chatFileMetadata(box('avif'),'image/avif')).mime,'image/avif');assert.equal((await chatFileMetadata(box('qt  '),'video/quicktime')).mime,'video/quicktime');
     const response=await worker.fetch(new Request(origin+'/api/messages/file?'+new URLSearchParams({roomId,id:file.id})),env,{});assert.equal(response.status,200);assert.match(response.headers.get('Content-Disposition'),/^attachment/);assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');assert.deepEqual([...new Uint8Array(await response.arrayBuffer())],[80,75,3,4]);
     const range=await chatFileResponse({get:async()=>({size:10,range:{offset:2,length:3},body:new Uint8Array([1,2,3])})},{storage_key:'key',mime:'application/octet-stream',name:'file.bin'},new Request(origin,{headers:{Range:'bytes=2-4'}}));assert.equal(range.status,206);assert.equal(range.headers.get('Content-Range'),'bytes 2-4/10');
   }finally{f.close();}

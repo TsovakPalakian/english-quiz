@@ -1,7 +1,8 @@
 // Local integration harness only. This file is not a deployable entry point.
 import {ChatRoom,ChatInbox,chatCall} from '../src/chat-durable.mjs';
 import {parseChatPreviewHTML} from '../src/chat-previews.mjs';
-export {ChatRoom,ChatInbox};
+import {ChatBridge} from '../src/chat-worker.mjs';
+export {ChatRoom,ChatInbox,ChatBridge};
 const users=[{id:'alice',name:'Alice',role:'USER'},{id:'bob',name:'Bob',role:'USER'}];
 export default {async fetch(request,env){
   const url=new URL(request.url),actor=users.find(u=>u.id===url.searchParams.get('account'))||users[0];

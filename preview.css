@@ -1109,6 +1109,10 @@ img, video, iframe, table { max-width: 100%; }
   background: transparent;
   border-right: 1px solid var(--line);
 }
+.brand-row { display:flex; align-items:center; gap:8px; padding:4px 10px 18px; }
+.brand-account { display:flex; padding:0; border:0; background:transparent; flex-shrink:0; cursor:pointer; }
+.brand-account .chat-avatar { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:var(--acc); color:var(--on-acc,var(--card)); font-size:14px; }
+.brand-row .brand { padding:0; letter-spacing:0; }
 .brand {
   display: inline-flex;
   align-items: baseline;

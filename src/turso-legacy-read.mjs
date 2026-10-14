@@ -313,7 +313,7 @@ export async function accountBootstrap(db,actor){
 function cardRow(row){
   return {...legacyCard(row),...(row.stage_dictionary_deferred?{stageDataDeferred:true}:{}),word:row.en,place:row.place,stagePublicCatalog:row.stage_public||false};
 }
-const personalCardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const personalCardPlaces=['mine','text','chat','chat-phrasal','chat-idioms','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 export async function accountCards(db,actor,{after='',limit=50,place='',excludePlaces=[]}={}){
   if(place&&!personalCardPlaces.includes(place))throw new StudyError(400,'Invalid personal card destination.');
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after),placeSql=place?' AND p.place=?':'';

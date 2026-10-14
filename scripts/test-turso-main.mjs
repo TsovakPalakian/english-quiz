@@ -864,6 +864,13 @@ test('All original quiz type names are supported without legacy whole-map writes
   }
   assert.equal((await service.card(f.users.get('student'),1)).quizzes.length,QUIZ_TYPES.length);f.sqlite.close();
 });
+test('Chat card links retain origin and destination after reload without changing existing links',async()=>{
+  const f=fixture();try{const service=new StudyService(f.db),student=f.users.get('student');let revision=0;
+    for(const place of ['chat','chat-phrasal','chat-idioms']){await service.linkCard(student,{mutationId:crypto.randomUUID(),cardId:3,place,expectedRevision:revision++,expectedCardRevision:1});assert.deepEqual((await accountCards(f.db,student,{place})).cards.map(c=>c.stageId),[3]);}
+    const saved=await legacyState(f.db,student);assert.ok(saved.added.some(c=>c.stageId===3&&c.place==='chat-phrasal'));assert.deepEqual((await accountCards(f.db,student,{place:'mine'})).cards.map(c=>c.stageId),[3]);
+    await service.unlinkCard(student,3,{mutationId:crypto.randomUUID(),place:'chat-phrasal',expectedRevision:revision});assert.equal((await accountCards(f.db,student,{place:'chat-phrasal'})).cards.length,0);assert.equal((await accountCards(f.db,student,{place:'chat'})).cards.length,1);
+  }finally{f.sqlite.close();}
+});
 test('Text card links survive reload without entering My words, including managed profiles',async()=>{
   const f=fixture();try{
     const service=new StudyService(f.db),student=f.users.get('student');

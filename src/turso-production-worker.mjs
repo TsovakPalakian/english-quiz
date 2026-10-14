@@ -21,6 +21,11 @@ export function productionWorker(application=integrated){return {async scheduled
   if(env.CONTENT_ENABLED!=='true')return unavailable();
   const configured=productionEnvironment(env);
   if(!configured)return unavailable();
-  return application.fetch(request,configured,ctx);
+  const response=await application.fetch(request,configured,ctx);
+  if(response.headers.get('Content-Type')?.includes('text/html')&&response.headers.has('Content-Security-Policy')){
+    const headers=new Headers(response.headers);headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
+    return new Response(response.body,{status:response.status,headers});
+  }
+  return response;
 }};}
 export default productionWorker(durableChatWorker(messagesWorker({mode:'production'})));

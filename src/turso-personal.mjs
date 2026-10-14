@@ -2,7 +2,7 @@
 import {StudyService,StudyError,statement as s,cardAccess,accessArgs,cardId,recordId} from './turso-study.mjs';
 import {themeAccount,themeProfiles} from './turso-paired-themes.mjs';
 const bad=(status,message)=>{throw new StudyError(status,message);};
-const cardPlaces=['mine','text','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+const cardPlaces=['mine','text','chat','chat-phrasal','chat-idioms','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
 function ownPlace(card){if(card.place==null||card.place==='')return 'mine';if(!cardPlaces.includes(card.place))bad(400,'Invalid personal card destination.');return card.place;}
 const only=(value,keys)=>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))bad(400,'Invalid fields.');};
 const id=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))bad(400,'Invalid ID.');return value;};

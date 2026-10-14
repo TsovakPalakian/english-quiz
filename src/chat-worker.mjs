@@ -5,6 +5,7 @@ import {chatCall,ChatRoom,ChatInbox} from './chat-durable.mjs';
 import {statement} from './turso-study.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from './chat-attachments.mjs';
 import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
+import {readProfiles,setPresence,setAvatar,setUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
 export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -13,7 +14,7 @@ const clients=new WeakMap();
 function database(env){const key=env.DB||env;if(!clients.has(key))clients.set(key,studyClient(env));return clients.get(key);}
 
 export class ChatBridge{
-  constructor(ctx,env,{studyDatabase=database}={}){this.ctx=ctx;this.env={...env,STORAGE_MODE:'production'};this.database=studyDatabase;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.loading=null;this.flushing=null;this.importing=new Map();}
+  constructor(ctx,env,{studyDatabase=database}={}){this.ctx=ctx;this.env={...env,STORAGE_MODE:'production'};this.database=studyDatabase;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");this.loading=null;this.flushing=null;this.importing=new Map();}
   get(key){const row=this.sql.exec('SELECT value FROM meta WHERE key=?',key).toArray()[0];return row?JSON.parse(row.value):null;}
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}
@@ -98,13 +99,16 @@ export class ChatBridge{
   async catalog(){const policy=await this.policy(),version=this.get('catalogVersion')+1||1;this.set('catalogVersion',version);for(const user of policy.users.filter(u=>staff(u)&&u.active!==0&&!u.is_personal_data_revoked))await chatCall(this.env,'CHAT_INBOX',user.id,'/event',{key:'catalog:'+version,type:'catalog',catalogVersion:version});return {updated:true};}
   async discover(actor,query){
     const policy=await this.policy(),self=policy.users.find(u=>u.id===actor.id&&u.active!==0&&!u.is_personal_data_revoked);
-    if(!self)fail(403,'Account unavailable.');const q=String(query||'').trim().toLocaleLowerCase();if(q.length<3||q.length>254)fail(400,'Enter the full email or login.');
-    const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q));
+    if(!self)fail(403,'Account unavailable.');const q=String(query||'').trim().toLocaleLowerCase();if(q.length<3||q.length>254)fail(400,'Enter the full email, login or @username.');
+    const usernameOwner=q.startsWith('@')?this.get('username-owner:'+q):null;
+    const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
     if(matches.length>1)fail(409,'Use the full email to identify this account.');return {person:matches[0]||null};
   }
   async fetch(request){
     if(request.headers.get('X-Chat-Internal')!==(this.env.CONTENT_SESSION_SECRET||this.env.SESSION_SECRET))return json({error:'Unavailable.'},403);
-    try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}
+    if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}
+    if(new URL(request.url).pathname==='/username'){try{return json(await setUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Username could not be saved.'},error.status||503);}}
+    try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/profiles')return json(readProfiles(this,body));if(path==='/presence')return json(await setPresence(this,body));if(path==='/avatar')return json(await setAvatar(this,body));if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}
   }
 }
 
@@ -115,6 +119,43 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
     if(legacyChat)return json({error:'Reload the page to connect to the new chat.'},410);
     const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||['/api/me/account','/api/me/revoke'].includes(path)),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
     try{
+      if(path==='/api/messages/profile'){
+        if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[actor.id]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
+        if(request.method==='GET'){const result=await chatCall(env,'CHAT_BRIDGE','global','/profile',{actor,read:true});return json(result);}
+        if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');const raw=await request.text();if(raw.length>1024)fail(413,'Profile request is too large.');let body;try{body=JSON.parse(raw);}catch{fail(400,'Invalid profile.');}if(!body||typeof body!=='object')fail(400,'Invalid profile.');
+        const result=await chatCall(env,'CHAT_BRIDGE','global','/profile',{actor,phone:body.phone,phoneVisible:body.phoneVisible,birthday:body.birthday,birthdayVisible:body.birthdayVisible});return json({details:result.details,profile:publicProfile(result.profile)});
+      }
+      if(path==='/api/messages/username'){
+        if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
+        const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
+        if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');
+        const raw=await request.text();if(raw.length>1024)fail(413,'Username request is too large.');let body;try{body=JSON.parse(raw);}catch{fail(400,'Invalid username.');}
+        if(!body||typeof body.username!=='string'||body.expectedUsername!==undefined&&typeof body.expectedUsername!=='string')fail(400,'Invalid username.');
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[actor.id]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
+        const result=await chatCall(env,'CHAT_BRIDGE','global','/username',{actor,username:body.username,expectedUsername:body.expectedUsername});return json({profile:publicProfile(result.profile)});
+      }
+      if(path==='/api/messages/avatar'){
+        if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
+        const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
+        const subject=url.searchParams.get('subject')||actor.id;
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[subject]}});
+        if(!allowed.profiles.some(p=>p.id===subject))fail(403,'This profile is unavailable.');
+        if(request.method==='GET'||request.method==='HEAD'){
+          const saved=await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor,ids:[subject]});const profile=saved.profiles[0];if(!profile?.storageKey)fail(404,'No avatar.');
+          return chatFileResponse(env.CONTENT_MEDIA,{storage_key:profile.storageKey,mime:profile.mime,name:'avatar'},request);
+        }
+        if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');
+        if(subject!==actor.id&&!subject.startsWith('group:'))fail(403,'Only the owner can change this avatar.');
+        if(subject.startsWith('group:')&&!staff(actor))fail(403,'Only teachers can change group avatars.');
+        const reader=request.body?.getReader();if(!reader)fail(400,'Empty avatar.');const chunks=[];let size=0;
+        try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>2*1024*1024){await reader.cancel();fail(413,'Maximum avatar size is 2 MB.');}chunks.push(part.value);}}finally{reader.releaseLock();}
+        const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+        const metadata=await chatFileMetadata(bytes,request.headers.get('Content-Type')||'');if(!['image/jpeg','image/png','image/webp','image/avif'].includes(metadata.mime))fail(400,'Use JPEG, PNG, WebP or AVIF.');
+        const storageKey='chat/avatars/'+crypto.randomUUID();await env.CONTENT_MEDIA.put(storageKey,bytes,{httpMetadata:{contentType:metadata.mime}});
+        const result=await chatCall(env,'CHAT_BRIDGE','global','/avatar',{actor,groupId:subject.startsWith('group:')?subject.slice(6):null,storageKey,mime:metadata.mime,size});
+        if(result.previousKey&&env.CONTENT_MEDIA.delete)ctx.waitUntil(env.CONTENT_MEDIA.delete(result.previousKey).catch(()=>{}));return json({profile:publicProfile(result.profile)});
+      }
       if(path==='/api/messages/preview'||path==='/api/messages/preview-image'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
         if(path.endsWith('/preview-image')){if(request.method!=='GET')fail(405,'Use GET.');return chatPreviewImage(url.searchParams.get('id'),url.origin);}

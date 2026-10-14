@@ -1,4 +1,5 @@
 import {validateColorDocument} from './text-formatting.mjs';
+import {profileAllowed,publicProfile} from './chat-profiles.mjs';
 
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -69,6 +70,7 @@ export class ChatRoom extends Store{
     const peer=this.one('SELECT MIN(read_'+row.category+') read,MIN(delivered_'+row.category+') delivered FROM members WHERE active=1 AND id<>?',account);
     const member=this.one('SELECT joined FROM members WHERE id=?',account);
     const reply=row.reply?this.one("SELECT body,name,category,deleted FROM messages WHERE id=? AND (id>? OR category='learning')",row.reply,member?.joined||0):null;
+    if(reply&&!reply.deleted){const quote=this.get('quote:'+row.id);if(quote)reply.body=quote;}
     const files=this.get('files:'+row.id,[]),forward=this.get('forward:'+row.id);
     const peers=this.rows('SELECT id,role FROM members WHERE active=1'),sender=peers.find(p=>p.id===row.sender);
     return {id:row.id,senderId:row.sender,sender:row.name,category:row.category,text:row.deleted?'Message deleted':row.body,deleted:!!row.deleted,editedMs:row.edited_ms,canEdit:!row.deleted&&!row.exam_id&&row.sender===account,canStudyReply:!row.deleted&&row.category==='learning'&&row.sender!==account&&staff(sender),reactions:row.deleted?[]:Object.entries(this.get('reactions:'+row.id,{})).map(([emoji,ids])=>({emoji,count:ids.length,mine:ids.includes(account)})),format:!row.deleted&&row.format?JSON.parse(row.format):null,files:row.deleted?[]:files,forwarded:row.deleted?null:forward?.label||null,forwardTo:forward?.recipientId||null,createdMs:row.created_ms,created:Math.floor(row.created_ms/1000),clientKey:row.client_key,replyTo:row.deleted?null:row.reply,replyText:reply?.deleted?'Message deleted':reply?.body,replySender:reply?.name,replyCategory:reply?.category,examId:row.deleted?null:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:(peer?.read||0)>=row.id,delivered:(peer?.delivered||0)>=row.id};
@@ -158,6 +160,7 @@ export class ChatRoom extends Store{
   forward(actor,body){
     this.member(actor);const client=ref(body.clientKey),payload=body.payload,old=this.one('SELECT * FROM messages WHERE sender=? AND client_key=?',actor.id,client);
     if(payload.recipientId&&this.get('room').id!==directRoomId(actor.id,payload.recipientId))fail(403,'Send this alert only to its teacher.');
+    if(old&&(this.get('forward:'+old.id)?.label?.quote??null)!==(payload.label?.quote??null))fail(409,'This message key was already used.');
     const text=payload.recipientId&&body.comment?String(body.comment).trim():payload.text,format=payload.recipientId&&body.comment?body.format:payload.format;
     if(old){if(this.get('forward:'+old.id)?.source!==payload.source||old.body!==text)fail(409,'This message key was already used.');return {message:this.message(old,actor.id),sent:true};}
     this.writable(actor);
@@ -174,11 +177,14 @@ export class ChatRoom extends Store{
     if(!Array.isArray(body.files||[])||(body.files||[]).length>5)fail(400,'Attach up to five files.');
     const files=(body.files||[]).map(id=>{const file=this.one('SELECT * FROM files WHERE id=? AND owner=?',ref(id),actor.id);if(!file)fail(403,'Attachment unavailable.');return {id:file.id,name:file.name,mime:file.mime,size:file.size,url:'/api/messages/file?'+new URLSearchParams({roomId:this.get('room').id,id:file.id})};});
     if(kind==='learning'&&!staff(actor))fail(403,'Only teachers can send learning announcements.');
-    const format=body.format?JSON.stringify(validateColorDocument(body.format,text)):null,reply=body.replyTo?integer(body.replyTo):null;
+    const format=body.format?JSON.stringify(validateColorDocument(body.format,text)):null,reply=body.replyTo?integer(body.replyTo):null,quote=body.quote==null?null:body.quote;
+    if(quote!==null&&(typeof quote!=='string'||!quote.trim()||quote.length>4000||!reply))fail(400,'Choose text from an original message.');
     if(reply){const parent=this.one('SELECT * FROM messages WHERE id=?',reply),member=this.member(actor);if(!parent||parent.deleted||parent.category!=='learning'&&parent.id<=member.joined)fail(404,'Original message unavailable.');if(parent.category==='learning'&&this.get('room').id!==directRoomId(actor.id,parent.sender))fail(403,'Reply to this alert in its author\'s personal chat.');const restricted=this.get('forward:'+parent.id)?.recipientId;if(restricted&&this.get('room').id!==directRoomId(actor.id,restricted))fail(403,'Reply to this study reference only in its teacher\'s personal chat.');}
     const old=this.one('SELECT * FROM messages WHERE sender=? AND client_key=?',actor.id,client);
+    if(old&&(this.get('quote:'+old.id)||null)!==quote)fail(409,'This message key was already used.');
     if(old){if(old.body!==text||old.category!==kind||old.reply!==reply||old.format!==format||JSON.stringify(this.get('files:'+old.id,[]).map(f=>f.id))!==JSON.stringify(files.map(f=>f.id)))fail(409,'This message key was already used.');return {message:this.message(old,actor.id),sent:true};}
     this.writable(actor);
+    if(quote!==null&&!this.one('SELECT body FROM messages WHERE id=?',reply)?.body.includes(quote))fail(400,'The quote must be part of the original message.');
     for(const file of files)if(this.one('SELECT message_id FROM files WHERE id=?',file.id).message_id)fail(409,'This attachment has already been sent.');
     const budget=this.get('budget:'+actor.id,{at:0,n:0});if(budget.at<Date.now()-60000){budget.at=Date.now();budget.n=0;}if(budget.n>=30)fail(429,'Please wait before sending more messages.');
     let result;
@@ -187,6 +193,7 @@ export class ChatRoom extends Store{
       const access=this.access(actor.id);if(!access.protected&&access.state!=='accepted')this.set('consent',access.canAccept?{state:'accepted'}:{state:'pending',requestedBy:actor.id});
       this.sql.exec('INSERT INTO messages(sender,name,category,body,format,reply,client_key,created_ms) VALUES(?,?,?,?,?,?,?,?)',actor.id,publicName(actor),kind,text,format,reply,client,Date.now());
       const id=this.one('SELECT last_insert_rowid() id').id;
+      if(quote!==null)this.set('quote:'+id,quote);
       if(forwarded)this.set('forward:'+id,{source:forwarded.source,label:forwarded.label,recipientId:forwarded.recipientId||null});
       if(files.length){this.set('files:'+id,files);for(const file of files)this.sql.exec('UPDATE files SET message_id=? WHERE id=?',id,file.id);}
       this.sql.exec('UPDATE members SET unread_'+kind+'=unread_'+kind+'+1 WHERE active=1 AND id<>?',actor.id);
@@ -274,14 +281,16 @@ export class ChatInbox extends Store{
   snapshot(){
     const profile=this.get('profile'),rooms=this.rows('SELECT data FROM rooms').map(r=>JSON.parse(r.data)).filter(r=>r.active!==false).sort((a,b)=>(b.lastMessage?.createdMs||0)-(a.lastMessage?.createdMs||0));
     const unread={personal:0,learning:0};for(const room of rooms){unread.personal+=room.unread.personal;unread.learning+=room.unread.learning;}
-    return {rooms,groups:this.get('groups',[]),contacts:this.get('contacts',[]).map(u=>({id:u.id,name:publicName(u),role:publicRole(u)})),profile:profile?{id:profile.id,name:publicName(profile),login:profile.login,email:profile.email,role:publicRole(profile)}:null,unread,total:unread.personal+unread.learning,catalogVersion:this.get('catalogVersion',0),seq:this.one('SELECT COALESCE(MAX(id),0) id FROM events').id};
+    return {rooms,groups:this.get('groups',[]),contacts:this.get('contacts',[]).map(u=>({id:u.id,name:publicName(u),role:publicRole(u)})),profile:profile?{id:profile.id,name:publicName(profile),login:profile.login,email:profile.email,role:publicRole(profile)}:null,profiles:Object.fromEntries(Object.entries(this.get('profileViews',{})).filter(([id])=>profileAllowed(this,id))),unread,total:unread.personal+unread.learning,catalogVersion:this.get('catalogVersion',0),seq:this.one('SELECT COALESCE(MAX(id),0) id FROM events').id};
   }
   event(body){
     const profile=this.get('profile');
+    if(body.profile&&!profileAllowed(this,body.profile.id))return {received:true,ignored:true};
     if(profile?.active===false||body.room?.kind==='group'&&!this.get('groups',[]).some(g=>g.id===body.room.groupId))return {received:true,ignored:true};
     if(this.one('SELECT id FROM events WHERE event_key=?',ref(body.key)))return {received:true,duplicate:true};
     let seq;
     this.tx(()=>{
+      if(body.profile)this.set('profileViews',{...this.get('profileViews',{}),[body.profile.id]:publicProfile(body.profile)});
       if(body.catalogVersion)this.set('catalogVersion',Math.max(this.get('catalogVersion',0),body.catalogVersion));
       if(body.room){const old=this.one('SELECT data FROM rooms WHERE id=?',body.room.id);if(!old||(JSON.parse(old.data).revision||0)<=(body.room.revision||0))this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',body.room.id,JSON.stringify(body.room));}
       if(body.removeRoom)this.sql.exec('DELETE FROM rooms WHERE id=?',body.removeRoom);
@@ -300,8 +309,15 @@ export class ChatInbox extends Store{
   }
   async command(action,body){
     const actor=this.get('profile');if(!actor||actor.active===false)fail(403,'Account unavailable.');
-    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions'].includes(action))fail(403,'Chat writes are unavailable.');
+    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions','profiles'].includes(action))fail(403,'Chat writes are unavailable.');
     if(action==='snapshot')return this.snapshot();
+    if(action==='profiles'){
+      if(!Array.isArray(body.ids)||body.ids.length>100)fail(400,'Choose up to 100 profiles.');
+      const ids=body.ids.filter(id=>typeof id==='string'&&profileAllowed(this,id));
+      if(!this.env.CHAT_BRIDGE)return {profiles:[]};
+      const result=await chatCall(this.env,'CHAT_BRIDGE','global','/profiles',{actor,ids});const profiles=result.profiles.map(publicProfile);
+      this.set('profileViews',{...this.get('profileViews',{}),...Object.fromEntries(profiles.map(p=>[p.id,p]))});return {profiles};
+    }
     if(action==='lookup'){
       const budget=this.get('lookupBudget',{at:0,n:0});if(budget.at<Date.now()-60000){budget.at=Date.now();budget.n=0;}if(budget.n>=10)fail(429,'Please wait before searching for more people.');this.set('lookupBudget',{...budget,n:budget.n+1});
       const result=await chatCall(this.env,'CHAT_BRIDGE','global','/discover',{actor,query:body.query});
@@ -318,6 +334,7 @@ export class ChatInbox extends Store{
     if(action==='study-reply'){
       const source=ref(body.sourceRoomId);if(!this.one('SELECT id FROM rooms WHERE id=?',source))fail(403,'Conversation unavailable.');
       const payload=await chatCall(this.env,'CHAT_ROOM',source,'/forward/source',{actor,id:body.messageId,study:true});
+      if(body.quote!=null){if(typeof body.quote!=='string'||!body.quote.trim()||body.quote.length>4000||!payload.text.includes(body.quote))fail(400,'The quote must be part of the original message.');payload.text=body.quote;payload.format=null;payload.label.text=body.quote;payload.label.quote=body.quote;payload.files=[];}
       const opened=await this.command('open',{kind:'direct',accountId:payload.recipientId});
       const result=await chatCall(this.env,'CHAT_ROOM',opened.roomId,'/forward',{actor,payload,comment:body.text,format:body.format,clientKey:body.clientKey});
       return {...result,roomId:opened.roomId,room:opened.room};
@@ -351,10 +368,11 @@ export class ChatInbox extends Store{
       const result=await this.command(request.action,request.body||{});ws.send(JSON.stringify({type:'response',requestId:request.requestId,result}));
     }catch(error){try{ws.send(JSON.stringify({type:'response',requestId:request?.requestId,error:error.status?error.message:'Chat temporarily unavailable.',status:error.status||503}));}catch{}}
   }
-  async webSocketClose(){await this.scheduleExpiry();}
-  async webSocketError(ws){ws.close(1011,'Reconnect.');await this.scheduleExpiry();}
+  async presence(exclude=null){if(this.env.CHAT_BRIDGE&&this.get('profile'))await chatCall(this.env,'CHAT_BRIDGE','global','/presence',{id:this.get('profile').id,online:this.ctx.getWebSockets().some(ws=>ws!==exclude&&ws.readyState===1&&ws.deserializeAttachment().expires>Date.now())});}
+  async webSocketClose(ws){await this.presence(ws);await this.scheduleExpiry();}
+  async webSocketError(ws){ws.close(1011,'Reconnect.');await this.presence(ws);await this.scheduleExpiry();}
   async scheduleExpiry(){const times=this.ctx.getWebSockets().map(ws=>ws.deserializeAttachment().expires).filter(t=>t>Date.now());if(times.length)await this.ctx.storage.setAlarm(Math.min(...times));else await this.ctx.storage.deleteAlarm();}
-  async alarm(){for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires<=Date.now())ws.close(4000,'Renew session.');await this.scheduleExpiry();}
+  async alarm(){for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires<=Date.now())ws.close(4000,'Renew session.');await this.presence();await this.scheduleExpiry();}
   async fetch(request){
     if(new URL(request.url).pathname!=='/connect')return this.handle(request,async(path,body)=>{
       if(path==='/configure')return this.configure(body);if(path==='/event')return this.event(body);if(path==='/snapshot')return this.snapshot();if(path==='/command')return this.command(body.action,body.body||{});if(path==='/suspend'){const profile=this.get('profile');if(profile)this.set('profile',{...profile,active:false});for(const ws of this.ctx.getWebSockets())ws.close(4002,'Permissions changed.');return {closed:true};}if(path==='/revoke'){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Session closed.');return {closed:true};}fail(404,'Inbox route not found.');
@@ -363,8 +381,8 @@ export class ChatInbox extends Store{
       this.trusted(request);if(!this.get('profile')||this.get('profile').active===false)fail(403,'Sign in first.');
       const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:Date.now()+20*60*1000});
       const after=Number(new URL(request.url).searchParams.get('after')||0),min=this.one('SELECT COALESCE(MIN(id),0) id FROM events').id;
-      if(after&&after>=min-1&&after<=this.snapshot().seq){for(const row of this.rows('SELECT id,data FROM events WHERE id>? ORDER BY id',after))server.send(JSON.stringify({type:'event',seq:row.id,event:JSON.parse(row.data)}));}
-      server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));await this.scheduleExpiry();return new Response(null,{status:101,webSocket:client});
+      if(after&&after>=min-1&&after<=this.snapshot().seq){for(const row of this.rows('SELECT id,data FROM events WHERE id>? ORDER BY id',after)){const event=JSON.parse(row.data);if(!event.profile||profileAllowed(this,event.profile.id))server.send(JSON.stringify({type:'event',seq:row.id,event}));}}
+      await this.presence();server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));await this.scheduleExpiry();return new Response(null,{status:101,webSocket:client});
     }catch(error){return json({error:error.status?error.message:'Chat unavailable.'},error.status||503);}
   }
 }

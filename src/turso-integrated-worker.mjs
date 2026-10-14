@@ -61,7 +61,7 @@ export function accountMedia(bucket){
 }
 export function accountRoute(path,method){
   if(method==='GET'&&['/api/me','/api/me/account','/api/admin/users','/api/admin/registrations','/api/admin/changes'].includes(path))return true;
-  if(method==='POST'&&['/api/register','/api/login','/api/logout','/api/me/account','/api/me/account/cancel','/api/me/password','/api/me/revoke'].includes(path))return true;
+  if(method==='POST'&&['/api/register','/api/login','/api/logout','/api/me/activity','/api/me/account','/api/me/account/cancel','/api/me/password','/api/me/revoke'].includes(path))return true;
   if(['GET','DELETE'].includes(method)&&new RegExp('^/api/admin/users/'+identity+'$').test(path))return true;
   if(method==='POST'&&new RegExp('^/api/admin/users/'+identity+'/(profile|hidden|active|role)$').test(path))return true;
   return method==='POST'&&new RegExp('^/api/admin/(registrations|changes)/'+identity+'/(approve|reject)$').test(path);

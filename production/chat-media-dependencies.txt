@@ -1,0 +1,7 @@
+heic-to 1.6.6 (LGPL-3.0): https://github.com/hoppergee/heic-to
+CSP distribution from https://cdn.jsdelivr.net/npm/heic-to@1.6.6/dist/csp/heic-to.js
+License: heic-to-LICENSE.txt. Decoder dependencies and their notices are described in the upstream repository.
+
+fflate 0.8.2 (MIT): https://github.com/101arrowz/fflate/tree/v0.8.2
+Distribution from https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js
+License: fflate-LICENSE.txt.

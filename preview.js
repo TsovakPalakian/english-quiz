@@ -3763,7 +3763,9 @@
       }[ch]));
     }
     const PLACE_LABEL = { "lesson-23": "23 Sep", "lesson-21": "21 Sep", "lesson-16": "16 Sep", "lesson-14": "14 Sep", "lesson-09": "9 Sep", "lesson-07": "7 Sep", music: "Song lyrics", tenses: "Grammar", mine: "My words", text: "Text", phrasal: "Phrasal verbs", idioms: "Idioms" };
+    Object.assign(PLACE_LABEL,{chat:'Chat','chat-phrasal':'Phrasal verbs','chat-idioms':'Idioms'});
     function cardOrigin(item) {
+      if(String(item?.place||'').startsWith('chat'))return 'From chat';
       try {
         if (!item || (item.place !== "phrasal" && item.place !== "idioms")) return "";
         const title = String(item.fromSong || songTitleFor(item.word) || "").trim();
@@ -3788,7 +3790,7 @@
       const box = document.getElementById(boxId);
       if (!box) return;
       const list = loadAdded();
-      const html = list.map((item, index) => (item.place || "mine") === place ? addedCard(item, index) : "").join("");
+      const html = list.map((item, index) => (item.place || "mine") === place || item.place==='chat-'+place ? addedCard(item, index) : "").join("");
       box.innerHTML = html;
       if (labelId) {
         const label = document.getElementById(labelId);
@@ -3927,8 +3929,9 @@
       loadAdded().forEach((item) => {
         const place = item.place || "mine";
         if (hideStudentSongs() && place === "music") return;
-        const where = item.fromText && place === "mine" ? "Text" : (PLACE_LABEL[place] || "My words");
+        const where = place==='chat'?'Chat':place==='chat-phrasal'?'Phrasal verbs':place==='chat-idioms'?'Idioms':item.fromText && place === "mine" ? "Text" : (PLACE_LABEL[place] || "My words");
         add(item.word, item.ru, where, "added", item.word);
+        if(place.startsWith('chat'))add(item.word,item.ru,'From chat','added',item.word);
       });
       rows.sort((a, b) => a.en.localeCompare(b.en));
       return rows;
@@ -3961,6 +3964,7 @@
       if (name === "Phrasal verbs") return 8.2;
       if (name === "Idioms") return 8.4;
       if (name === "Irregular verbs") return 8.6;
+      if(name==='Chat')return 10;
       return 9;
     }
     function lessonOrder(row) {
@@ -4163,7 +4167,7 @@
       likes23.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "23 Sep", "like", w.en); });
       phrasalWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Phrasal verbs", "phrasal", w.en); });
       idiomWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Idioms", "idiom", w.en); });
-      const homePlace = { mine: "My words", phrasal: "Phrasal verbs", idioms: "Idioms", "lesson-07": "7 Sep", "lesson-09": "9 Sep", "lesson-14": "14 Sep", "lesson-16": "16 Sep", "lesson-21": "21 Sep", "lesson-23": "23 Sep" };
+      const homePlace = { mine: "My words", phrasal: "Phrasal verbs", idioms: "Idioms", "chat-phrasal":"Phrasal verbs","chat-idioms":"Idioms", "lesson-07": "7 Sep", "lesson-09": "9 Sep", "lesson-14": "14 Sep", "lesson-16": "16 Sep", "lesson-21": "21 Sep", "lesson-23": "23 Sep" };
       loadAdded().forEach((item) => {
         const place = item.place || "mine";
         if (item.fromText || !homePlace[place]) return;
@@ -4188,6 +4192,7 @@
           map[name].push(row);
         });
         names.sort((a, b) => sourceRank(a) - sourceRank(b) || a.localeCompare(b));
+        if(!map.Chat){map.Chat=[];names.push('Chat');names.sort((a,b)=>sourceRank(a)-sourceRank(b)||a.localeCompare(b));}
         if (title) title.textContent = "All words · " + rows.length;
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
@@ -8177,7 +8182,7 @@
     function deckStudyCards(place) {
       const bank = place === "idioms" ? idiomWords : phrasalWords;
       const base = bank.filter(cardVisible).map((w) => withStage({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk || "", us: w.us || "", ex: w.ex || "", gloss: w.gloss || "" }, w));
-      const extra = loadAdded().filter((item) => item.place === place && !item.fromText).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
+      const extra = loadAdded().filter((item) => (item.place === place || item.place==='chat-'+place) && !item.fromText).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
       return base.concat(extra);
     }
     function paintDeckCounts() {
@@ -9488,6 +9493,7 @@
       if (examStudentRestricted()) return true;
       if (!section || quizScreens[section.id]) return true;
       if (!node || !node.closest) return false;
+      if (section.id === 'messages' && !node.closest('.chat-message-text')) return true;
       if (node.closest("#selpop, input, textarea, select")) return true;
       if (node.closest(".opts, .token, .pair")) return true;
       return false;
@@ -9539,6 +9545,21 @@
         if (sel && sel.rangeCount) placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
       }
     }
+    async function saveChatWord(word){
+      if(!authUser||viewAccount)throw new Error('Sign in to add words from chat.');
+      if(dictionaryOwned(word))return;
+      const actor=authUser.id,res=await fetch(lookupBase()+'/lookup?word='+encodeURIComponent(word));if(!res.ok)throw new Error('The dictionary did not answer.');const data=await res.json();
+      if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
+      if(/\s/.test(word)&&!/(phrasal|idiom)/i.test([data.expressionType,data.type,data.cambridge?.pos,data.pos].join(' '))){try{const analysis=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:word,contentType:'TEXT'})}),key=word.toLowerCase().trim(),match=(analysis.expressions||[]).find(e=>[e.exactText,e.canonicalForm].some(v=>String(v||'').toLowerCase().trim()===key));if(match)data.expressionType=match.type;}catch{}}
+      if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
+      const type=[data.expressionType,data.type,data.cambridge?.pos,data.pos].filter(Boolean).join(' ').toLowerCase(),place=type.includes('phrasal')?'chat-phrasal':type.includes('idiom')?'chat-idioms':'chat';
+      await window.TursoMain.flushPersonal();if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
+      let found;try{found=await window.TursoMain.findCard(word);}catch{}
+      if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
+      const result=found?await window.TursoMain.linkCard(found,place):await window.TursoMain.newCard(word,String(data.ru||data.wiktionary?.ru||data.wikdict?.ru||'').trim(),place);
+      if(authUser?.id!==actor||viewAccount)return;
+      const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);trackEvent('card',cardArea(place),'add');
+    }
     function showSelectionTranslation() {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) { hideSelpop(); return; }
@@ -9574,6 +9595,7 @@
       if (examStudentRestricted()) return;
       const button = e.currentTarget;
       const word = document.getElementById("selpopWord").textContent.trim();
+      const inChat=document.querySelector('section.on')?.id==='messages';if(inChat){button.disabled=true;try{await saveChatWord(word);button.hidden=true;}catch(error){document.getElementById('selpopBody').textContent=error.message;}finally{button.disabled=false;}return;}
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
       button.disabled = true;
       let data = {};
@@ -11846,6 +11868,37 @@
       if (viewAccount) return Promise.resolve(null);
       return accountFetch("/api/me/themes").then((pack) => pack).catch(() => null);
     }
+    const idleLimit = 3 * 60 * 60 * 1000;
+    let idleActor = "", idleRenewed = 0, idleFlight = false;
+    function accountIdleCheck(activity = false) {
+      if (!authUser) { idleActor = ""; return; }
+      const key = "enquiz-last-activity:" + authUser.id;
+      const time = Date.now();
+      let last = Number(localStorage.getItem(key)) || time;
+      if (idleActor !== authUser.id) {
+        idleActor = authUser.id;
+        last = time;
+        localStorage.setItem(key, String(time));
+      }
+      if (time - last >= idleLimit) {
+        fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+        leaveAccount({ signedOut: true });
+        return;
+      }
+      if (!activity) return;
+      localStorage.setItem(key, String(time));
+      if (idleFlight || time - idleRenewed < 30000) return;
+      idleFlight = true;
+      fetch("/api/me/activity", { method: "POST", credentials: "same-origin" }).then(response => {
+        if (response.status === 401) leaveAccount({ signedOut: true });
+        else if (response.ok) idleRenewed = time;
+      }).catch(() => {}).finally(() => { idleFlight = false; });
+    }
+    ["pointerdown", "keydown", "wheel", "touchstart"].forEach(type => {
+      document.addEventListener(type, event => { if (event.isTrusted) accountIdleCheck(true); }, { passive: true, capture: true });
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) accountIdleCheck(); });
+    setInterval(() => accountIdleCheck(), 15000);
     function initAccount() {
       const pendingId = localStorage.getItem("enquiz-view-id");
       const pendingLogin = localStorage.getItem("enquiz-view-login") || "";

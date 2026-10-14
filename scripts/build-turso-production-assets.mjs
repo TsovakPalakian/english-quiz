@@ -22,6 +22,7 @@ for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstra
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
+for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 copyFileSync(resolve(root,'production/chat.js'),resolve(target,'messages.js'));
 copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
 for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
@@ -44,6 +45,12 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/color-picker.js
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+const brandRow=readFileSync(resolve(root,'preview.html'),'utf8').match(/^    <div class="brand-row">.*<\/div>$/m)?.[0];
+assert.ok(brandRow,'Account avatar header missing');
+const oldBrand='    <button class="brand" type="button" data-jump="home">English</button>';
+assert.equal(html.split(oldBrand).length,2);
+html=html.replace(oldBrand,brandRow).replace(/(<div class="side-foot">\s*)<button class="btn ghost" type="button" data-jump="account">My account<\/button>/,'$1');
+assert.ok(!/<div class="side-foot">\s*<button[^>]+data-jump="account"/.test(html));
 assert.equal(html.split('<section id="account">').length,2);
 html=html.replace('<section id="account">',readFileSync(resolve(root,'production/chat.html'),'utf8')+'\n<section id="account">')
   .replace('</head>','<link rel="stylesheet" href="/messages.css?v='+version('messages.css')+'"></head>');
