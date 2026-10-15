@@ -41,6 +41,15 @@ try{
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
+  await page.evaluate(()=>{
+    const previous=stageEverydayData,before=JSON.stringify(studyCards());
+    stageEverydayData={groups:[{title:'Optional vocabulary',topics:[{title:'Test',entries:[{card:{stageId:99999991,en:'optionalessentialfixture',ru:'optional'}}]}]}]};
+    try{
+      if(JSON.stringify(studyCards())!==before)throw Error('Essential English changed the required study set');
+      if(!collectCards().some(row=>row.kind==='essential'&&row.en==='optionalessentialfixture'))throw Error('Optional words disappeared from All words');
+      if(allStudyCards().some(card=>card?.en==='optionalessentialfixture'))throw Error('Optional-only word entered the general study queue');
+    }finally{stageEverydayData=previous;}
+  });
   await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-level="A1"]').waitFor();
   await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 5'));
