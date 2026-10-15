@@ -3863,7 +3863,7 @@
     function fillCardSearch(section, q) {
       if (section.id === "allwords") {
         const rows = allSearchRows().filter((row) => searchHit(row.en, q) || searchHit(row.ru, q) || searchHit((row.where || []).join(" "), q));
-        document.getElementById("allWordGrid").innerHTML = rows.length ? rows.map(statRow).join("") : '<p class="hint">No cards</p>';
+        document.getElementById("allWordGrid").innerHTML = rows.length ? rows.map(row=>statRow(row,true)).join("") : '<p class="hint">No cards</p>';
         return true;
       }
       if (section.id === "cardstat") {
@@ -4074,9 +4074,10 @@
       }));
       return Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b)).map((type) => type + " · " + counts[type]);
     }
-    function statRow(row) {
+    function statRow(row, linkSources=false) {
       const bits = statKind === "weak" ? mistakeBits([row]) : [];
       const side = bits.length ? bits.join(", ") : row.where.join(" · ");
+      if(linkSources===true&&typeof stageWordSources==='function')return '<div class="path word-source-row"><button class="word-source-card" type="button" data-all-kind="'+row.kind+'" data-all-key="'+esc(row.key)+'"><b>'+esc(row.en)+'</b>'+ipaHtml(rowToCard(row))+'<br><span class="label">'+esc(row.ru)+'</span></button><span class="to word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</span></div>';
       return '<button class="path" type="button" data-all-kind="' + row.kind + '" data-all-key="' + esc(row.key) + '"><span><b>' + esc(row.en) + '</b>' + ipaHtml(rowToCard(row)) + '<br><span class="label">' + esc(row.ru) + '</span></span><span class="to">' + esc(side) + "</span></button>";
     }
     function keysOfMarks(marks) {
@@ -4269,7 +4270,7 @@
       }
       if (title) title.textContent = label + " · " + words.length;
       if (sub) sub.hidden = true;
-      box.innerHTML = words.map(row=>allGroup==='Essential English'?statRow({...row,kind:'essential',key:String(rowToCard(row)?.stageId)}):statRow(row)).join("");
+      box.innerHTML = words.map(row=>allGroup==='Essential English'?statRow({...row,kind:'essential',key:String(rowToCard(row)?.stageId)},true):statRow(row,true)).join("");
       applyCardSearch(box.closest("section"));
     }
     function openAllGroup(name) {
@@ -4955,7 +4956,7 @@
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
       html += madeEditHtml(item);
       html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + dictionaryAddHtml(item) + "</div></div>";
-      if(item.stageEverydayReference)html+='<p class="label">'+esc(item.essentialSource||'Essential English')+'</p>';
+      if(item.stageEverydayReference)html+=stageEssentialSourceLinks(item);
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
       html += ipa;
@@ -5883,8 +5884,9 @@
       return saved || null;
     }
     function mediaDb() {
+      if (window.DatabaseContext && !window.DatabaseContext.confirmed) return window.DatabaseContext.ready.then(() => mediaDb());
       return new Promise((resolve, reject) => {
-        const req = indexedDB.open("enquiz-media", 4);
+        const req = indexedDB.open(window.DatabaseContext?.mediaDatabase || "enquiz-media", 4);
         req.onupgradeneeded = () => {
           const db = req.result;
           if (!db.objectStoreNames.contains("files")) db.createObjectStore("files");
@@ -5892,7 +5894,7 @@
           if (!db.objectStoreNames.contains("stash")) db.createObjectStore("stash");
           if (!db.objectStoreNames.contains("songs")) db.createObjectStore("songs");
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => { req.result.onversionchange = () => req.result.close(); resolve(req.result); };
         req.onerror = () => reject(req.error);
       });
     }
@@ -12550,10 +12552,10 @@
     }
     let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
-    function metricPairs(rows){return '<span class="metric-pairs">'+rows.map(([label,value])=>'<span>'+esc(label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
+    function metricPairs(rows,compact=false){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs'+(compact?' metric-pairs--compact':'')+'">'+rows.map(([label,value])=>'<span>'+esc(compact?({'groups':'group','assigned works':'assigned','ready for review':'ready'}[label]||label):label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
       const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
-      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs)+'</span></button>';}).join('')+'</div>';
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
       const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
@@ -12590,7 +12592,7 @@
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
         const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]])+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]],true)+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {

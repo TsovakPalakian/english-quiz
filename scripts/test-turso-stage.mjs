@@ -18,6 +18,12 @@ test('Native Worker fetch is called without the client as receiver',async()=>{
   }});
   assert.deepEqual(await client.read('SELECT 1'),[]);
 });
+test('Worker subrequest exhaustion is classified without replaying an uncertain database write',async()=>{
+  let calls=0;
+  const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{calls++;throw Error('Too many subrequests.');}});
+  await assert.rejects(client.atomic([statement('UPDATE fixture SET id=1')]),error=>error.status===503&&error.message.includes('SUBREQUEST_LIMIT'));
+  assert.equal(calls,1);
+});
 
 test('Database redirects are rejected without forwarding the token',async()=>{
   let calls=0;

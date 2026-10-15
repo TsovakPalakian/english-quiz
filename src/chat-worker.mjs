@@ -6,15 +6,17 @@ import {statement} from './turso-study.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from './chat-attachments.mjs';
 import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
 import {readProfiles,setPresence,setAvatar,setUsername,signupUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
+import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase} from './chat-database.mjs';
+import {neonApplicationEnvironment} from './neon-application.mjs';
 export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
-const clients=new WeakMap();
-function database(env){const key=env.DB||env;if(!clients.has(key))clients.set(key,studyClient(env));return clients.get(key);}
+const database=studyClient;
 
 export class ChatBridge{
-  constructor(ctx,env,{studyDatabase=database}={}){this.ctx=ctx;this.env={...env,STORAGE_MODE:'production'};this.database=studyDatabase;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");this.loading=null;this.flushing=null;this.importing=new Map();}
+  constructor(ctx,env,{studyDatabase=database,openNeon=neonApplicationEnvironment}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.openNeon=openNeon;this.database=studyDatabase;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");this.loading=null;this.flushing=null;this.importing=new Map();}
+  async prepare(request){const selected=await prepareChatDatabase(this,request);if(selected.provider==='neon')this.env=this.openNeon(this.env);}
   get(key){const row=this.sql.exec('SELECT value FROM meta WHERE key=?',key).toArray()[0];return row?JSON.parse(row.value):null;}
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}
@@ -95,7 +97,7 @@ export class ChatBridge{
       return {delivered:done.length};
     })().catch(async()=>{await this.ctx.storage.setAlarm(Date.now()+10000);return {retrying:true};}).finally(()=>{this.flushing=null;});return this.flushing;
   }
-  async alarm(){const dirty=this.get('policyDirtyAt');if(dirty&&Date.now()-dirty>=120000)try{await this.policy(true,true);}catch{await this.ctx.storage.setAlarm(Date.now()+10000);}await this.flush();}
+  async alarm(){try{await this.prepare();}catch(error){if(!error.inactiveDatabase)await this.ctx.storage.setAlarm(Date.now()+10000);return;}const dirty=this.get('policyDirtyAt');if(dirty&&Date.now()-dirty>=120000)try{await this.policy(true,true);}catch{await this.ctx.storage.setAlarm(Date.now()+10000);}await this.flush();}
   async catalog(){const policy=await this.policy(),version=this.get('catalogVersion')+1||1;this.set('catalogVersion',version);for(const user of policy.users.filter(u=>staff(u)&&u.active!==0&&!u.is_personal_data_revoked))await chatCall(this.env,'CHAT_INBOX',user.id,'/event',{key:'catalog:'+version,type:'catalog',catalogVersion:version});return {updated:true};}
   async discover(actor,query){
     const policy=await this.policy(),self=policy.users.find(u=>u.id===actor.id&&u.active!==0&&!u.is_personal_data_revoked);
@@ -105,7 +107,7 @@ export class ChatBridge{
     if(matches.length>1)fail(409,'Use the full email to identify this account.');return {person:matches[0]||null};
   }
   async fetch(request){
-    if(request.headers.get('X-Chat-Internal')!==(this.env.CONTENT_SESSION_SECRET||this.env.SESSION_SECRET))return json({error:'Unavailable.'},403);
+    try{await this.prepare(request);}catch(error){return json({error:error.status?error.message:'Chat database unavailable.'},error.status||503);}
     if(new URL(request.url).pathname==='/signup-username'){try{return json(signupUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Signup username unavailable.'},error.status||503);}}
     if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}
     if(new URL(request.url).pathname==='/username'){try{return json(await setUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Username could not be saved.'},error.status||503);}}
@@ -183,7 +185,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in to open messages.');
         await chatCall(env,'CHAT_BRIDGE','global','/bootstrap',{actor});
         const target='https://chat.internal/connect?after='+Math.max(0,Number(url.searchParams.get('after'))||0);
-        return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(actor.id)).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET}}));
+        return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(chatStorageName(env,actor.id))).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...chatDatabaseHeaders(env)}}));
       }
       const actor=logout||policyMutation?await authenticate(env,request):null;
       const syncPolicy=policyMutation&&actor&&(path.startsWith('/api/me/')||staff(actor))&&request.headers.get('Origin')===url.origin;
@@ -193,7 +195,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         if(logout&&actor)await chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{});
       }
       if(syncPolicy)try{await chatCall(env,'CHAT_BRIDGE','global','/policy',{});}catch{ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/policy',{}).catch(()=>{}));}
-      if(response.ok&&mutation&&['/api/assessment','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
+      if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
       if(response.ok&&mutation&&path.startsWith('/api/exams'))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/catalog',{}).catch(()=>{}));
       return response;
     }catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}

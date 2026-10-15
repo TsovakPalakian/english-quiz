@@ -25,13 +25,16 @@ export async function examLifecycleCommands(db,examId,account,actor,blockId,stat
     return [...messages.directCommands(sender,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) SELECT ?,?,?,'learning',?,?,?,?,? FROM exam_instances WHERE exam_id=? AND ${condition}`,[room,sender.id,sender.name,text,instance.assignment_id,'exam:'+examId+':'+event,Date.now(),examId,examId])];
   };
   const commands=[];
+  const journal=(event,condition)=>s(`INSERT INTO assessment_history(account_id,kind,material_id,actor_id,action,reason,snapshot_json) SELECT ?,'exam-workflow',?,?,?,'',? FROM exam_instances WHERE exam_id=? AND ${condition} AND NOT EXISTS(SELECT 1 FROM assessment_history h WHERE h.kind='exam-workflow' AND h.material_id=? AND h.action=?)`,[account,examId,actor.id,event,JSON.stringify({event,examId,at:new Date().toISOString()}),examId,examId,event]);
   for(const id of new Set(rows.map(r=>r.id)))if(id!==blockId)commands.push(s("INSERT INTO assessment_guard SELECT COALESCE((SELECT revision FROM assessment_work WHERE account_id=? AND kind='exam-block' AND material_id=?),0)=?",[account,id,rows.find(r=>r.id===id).revision||0]));
   commands.push(...notify(teacher.id,{id:account,name:instance.student_name},'submitted','Ready for review'+details+'\nSubmitted: '+new Date().toISOString(),submitted));
+  commands.push(journal('submitted',submitted));
+  if(state==='published')commands.push(journal('results_published',completed));
   if(state==='published')commands.push(...notify(account,{id:actor.id,name:actor.role==='DEVELOPER'?'Support':actor.name||actor.login||'Teacher'},'completed','Exam reviewed. Results published.'+details+'\nScore: '+Number(earned.toFixed(10))+' / '+Number(maximum.toFixed(10)),completed));
   commands.push(s(`UPDATE exam_instances SET status=CASE WHEN ${completed} THEN 'completed' WHEN ${submitted} THEN 'ready' ELSE status END,completed_at=CASE WHEN ${completed} THEN COALESCE(completed_at,unixepoch()) ELSE completed_at END,max_points=?,earned_points=CASE WHEN ${completed} THEN ? ELSE earned_points END WHERE exam_id=?`,[Number(maximum.toFixed(10)),Number(earned.toFixed(10)),examId]));
   commands.push(s("UPDATE chat_assignments SET active=0 WHERE id=? AND NOT EXISTS(SELECT 1 FROM exam_instances WHERE assignment_id=? AND status<>'completed' AND active=1)",[instance.assignment_id,instance.assignment_id]));
   commands.push(s("UPDATE class_groups SET revision=revision+1 WHERE id=(SELECT group_id FROM class_group_exams WHERE exam_id=?) AND NOT EXISTS(SELECT 1 FROM chat_assignments WHERE exam_id=? AND target_kind='group' AND active=1)",[instance.source_exam_id,instance.source_exam_id]));
-  commands.push(s("DELETE FROM class_group_exams WHERE exam_id=? AND NOT EXISTS(SELECT 1 FROM chat_assignments WHERE exam_id=? AND target_kind='group' AND active=1)",[instance.source_exam_id,instance.source_exam_id]));
+  // Ending an assignment must not detach its reusable source exam from its subgroup.
   commands.push(s('UPDATE exams SET revision=revision+1 WHERE id=?',[examId]));
   return commands;
 }

@@ -37,7 +37,7 @@ export class TursoStudyClient {
     } catch(error) {
       // Fixed diagnostic categories only: never expose URLs, tokens or SQL.
       const message=String(error?.message||'');
-      const reason=/redirect/i.test(message)?'REDIRECT':/illegal invocation|receiver/i.test(message)?'RECEIVER':/signal|timeout|abort/i.test(message)?'TIMEOUT':/dns|resolve/i.test(message)?'DNS':error?.name==='TypeError'?'TYPE':'NETWORK';
+      const reason=/subrequests|too many api requests/i.test(message)?'SUBREQUEST_LIMIT':/redirect/i.test(message)?'REDIRECT':/illegal invocation|receiver/i.test(message)?'RECEIVER':/signal|timeout|abort/i.test(message)?'TIMEOUT':/dns|resolve/i.test(message)?'DNS':error?.name==='TypeError'?'TYPE':'NETWORK';
       fail(503,`Test database connection failed (${reason}). Retry the same operation.`);
     }
     if (!response.ok) fail(503,'Test database request failed.');

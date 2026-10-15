@@ -24,7 +24,7 @@
 :is(#material,#speakouteditor) .lm-head-actions{align-items:center;flex-wrap:wrap;gap:6px}
 :is(#material,#speakouteditor) .lm-head-actions>.lm-icon{width:40px;min-width:40px;height:40px;min-height:40px;border-radius:8px}
 :is(#material,#speakouteditor) .lm-opts{grid-column:1/-1}.lm-opt .material-option-remove{flex:none;width:32px;height:32px;padding:4px;min-height:32px;min-width:32px;border-radius:6px}
-:is(#material,#speakouteditor) .content-group{background:transparent;border-left:3px solid var(--acc);padding:16px;margin:16px 0;border-radius:0}
+:is(#material,#speakouteditor) .content-group{background:var(--assignment-bg);border-left:5px solid var(--assignment-accent);padding:18px;margin:20px 0;border-radius:8px;min-width:0;overflow-wrap:anywhere}
 :is(#material,#speakouteditor) .content-group>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.content-group>header h3{margin:0;font-size:20px}
 :is(#material,#speakouteditor) .content-group>.lm-panel{background:transparent;box-shadow:none;border:0;border-radius:0;padding:16px 0}
 :is(#material,#speakouteditor) .material-question{position:relative;border-top:1px solid var(--line);padding:16px 0;min-width:0}

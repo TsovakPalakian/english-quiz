@@ -15,6 +15,16 @@
 @media(max-width:600px){#grammarrule>.meta{flex-wrap:wrap}#grammarRuleTitle{flex:0 0 100%;font-size:22px}}
 .metric-pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;white-space:normal;max-width:100%;font-size:14px}
 .metric-pairs>span{min-width:0;overflow-wrap:anywhere}
+.metric-pairs--compact{font-size:12px;line-height:1.3;gap:3px 10px;text-align:left}
+.metric-pairs--compact>span{white-space:nowrap;overflow-wrap:normal}
+.file-card .metric-pairs--compact b{font-size:inherit}
+.day>.about:has(.metric-pairs--compact){grid-column:1/-1;grid-row:auto;width:100%}
+.word-source-row{align-items:start;flex-wrap:wrap}
+.word-source-card{flex:1 1 200px;min-width:0;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;overflow-wrap:anywhere}
+.word-source-links{display:flex;flex-direction:column;gap:5px;flex:0 1 50%;min-width:0;overflow-wrap:anywhere}
+.word-source-links a{color:var(--acc);text-decoration:underline}
+#allwords>.meta{position:static}
+@media(max-width:600px){.word-source-links{flex-basis:100%}.path .word-source-links{text-align:left}}
 #verbList.verb-form-cards{grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));align-items:start}
 #verbList.verb-form-cards>.card-edit{grid-column:1/-1}
 #verbList.verb-form-cards .entry{font-size:22px;overflow-wrap:anywhere}

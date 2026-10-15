@@ -13,3 +13,18 @@
 #material.is-exam .lm-picker-grid{gap:12px}
 #exams .page-path ol,#examblocks .page-path ol,#material.is-exam .page-path ol{flex-wrap:wrap;overflow-wrap:anywhere}
 @media(max-width:480px){#exams .decks{grid-template-columns:minmax(0,1fr)}#exams .page-path button,#examblocks .page-path button,#material.is-exam .page-path button{max-width:100%;white-space:normal;overflow-wrap:anywhere}#exams #examSections .btn{min-width:0;white-space:normal}}
+#material.is-exam .exam-colored-block{border-inline-start:4px solid var(--exam-block-color);padding:12px;margin-block:12px;min-width:0;border-radius:6px}
+#material.is-exam .exam-colored-block.content-group{background:color-mix(in srgb,var(--exam-block-color) 9%,transparent)}
+#material.is-exam .exam-colored-block.lm-assignment{border:1px solid var(--exam-block-color);border-inline-start-width:4px;background:color-mix(in srgb,var(--exam-block-color) 4%,transparent)}
+.is-exam .exam-container-kind{font-size:12px;font-weight:600;color:var(--muted)}
+.is-exam .exam-answer-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.is-exam .exam-answer-settings label{min-width:0}
+.is-exam .exam-answer-option{display:flex;align-items:center;gap:8px}
+.is-exam .exam-answer-option input{width:auto}
+.is-exam .exam-model-answer{margin-block:16px;padding-block:12px;border-top:1px solid var(--line)}
+.is-exam .exam-model-answer>div{padding-inline-start:24px;margin-top:8px}
+@media(max-width:600px){.is-exam .exam-answer-settings{grid-template-columns:minmax(0,1fr)}.is-exam .exam-colored-block{padding:8px}}
+.brand-account{position:relative}
+.brand-account .exam-account-count{position:absolute;top:-5px;inset-inline-end:-5px;min-width:18px;height:18px;padding-inline:4px;display:grid;place-items:center;border-radius:9px;background:var(--acc);color:var(--on-acc,#fff);font-size:11px;font-weight:700;line-height:1}
+.brand-account .exam-account-count[hidden]{display:none}
+#examWorkflowStatus{display:flex;align-items:center;flex-wrap:wrap;gap:12px;width:100%}

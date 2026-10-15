@@ -17,8 +17,12 @@ import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ArchiveService} from './turso-archive.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
+import {ExamWorkflowService} from './exam-workflow.mjs';
+import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
+import {databaseStatus,databaseAction} from './database-administration.mjs';
+import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
@@ -121,6 +125,21 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/developer/databases'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developers only.');
+        if(method==='GET')return json(databaseStatus(env));
+        if(method!=='POST')throw new StudyError(405,'Use GET or POST.');
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let body;try{body=JSON.parse(await boundedText(request,512,'Database action too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid JSON.');}
+        const result=await databaseAction(env,body,{actor,readTurso:()=>new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'}).read('SELECT 1 AS ok')});
+        if(body.action==='activate'&&result.revision!==env.DATABASE_SELECTION?.revision){
+          if(env.CHAT_BRIDGE)ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/invalidate',{}).catch(()=>console.error('Previous database chat invalidation failed; epoch fencing remains active.')));
+        }
+        const response=json(result);
+        if(body.action==='activate')response.headers.set('X-Database-Context',result.active+':'+result.revision);
+        return response;
+      }
       if(path==='/api/everyday'&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         let viewer=actor;const accountId=url.searchParams.get('accountId');
@@ -180,6 +199,20 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(value.studentId&&value.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
         const service=new AssessmentService(studyDatabase(env));
         return json(method==='POST'?await service.write(actor,value):value.history?{history:await service.history(actor,value)}:await service.get(actor,value));
+      }
+      if(path==='/api/exams/workflow'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(method==='POST'&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=method==='GET'?{examId:Number(url.searchParams.get('examId'))}:JSON.parse(await boundedText(request,512,'Workflow request too large.'));}catch{throw new StudyError(400,'Invalid workflow request.');}
+        if(!value||Object.keys(value).some(key=>!['examId','action'].includes(key)))throw new StudyError(400,'Invalid workflow request.');
+        const service=new ExamWorkflowService(studyDatabase(env));return json(method==='GET'?await service.status(actor,value):await service.write(actor,value));
+      }
+      if(path==='/api/exams/recommendation'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,1000,'Review request too large.'));}catch{throw new StudyError(400,'Invalid review request.');}
+        if(!value||Object.keys(value).some(key=>!['id','studentId','partId','index','expectedRevision'].includes(key)))throw new StudyError(400,'Invalid review request.');
+        const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;
+        return json(await examRecommendation(studyDatabase(env),env,actor,value));
       }
       if(path==='/api/archive'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

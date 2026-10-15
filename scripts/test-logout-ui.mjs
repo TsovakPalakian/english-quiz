@@ -19,6 +19,7 @@ try{
   await page.routeWebSocket('**/api/messages/socket*',ws=>{ws.send(JSON.stringify({type:'snapshot',data:{rooms:[],contacts:[],groups:[],total:0,seq:0}}));});
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
+    if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user:loggedOut?null:user};
     if(path==='/api/me/state')data={bootstrap:true,stats:{},stageActivity:{tracked:true,seconds:36480,examPass:7}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};

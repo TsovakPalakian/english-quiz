@@ -464,6 +464,7 @@
     return window.ContentCache?.load?window.ContentCache.load(key,load):load();
   }
   const bridge=window.TursoMain={
+    databaseReset(){unloading=true;actorId='';personalReady=false;pending=null;personalQueue=[];clearTimeout(personalTimer);cards.clear();collections.clear();quizzes.clear();catalogDetails.clear();managedLinkRevisions.clear();quizProgress.clear();cardProgress.clear();savedResponses.clear();localStorage.removeItem(queueKey);localStorage.removeItem(personalKey);},
     fetch:accountFetch,register,notice,perform,mediaAllowed,lessonSnapshot,lessonDirty,
     archiveList,
     archivePreview:(type,id)=>{

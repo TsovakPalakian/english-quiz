@@ -1,0 +1,10 @@
+#databaseAdmin{width:560px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;padding:20px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);box-sizing:border-box}
+#databaseAdmin::backdrop{background:#0008}
+#databaseAdmin header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+#databaseAdmin h2{margin:0;font-size:22px}
+#databaseAdmin label{display:grid;gap:6px;margin-bottom:16px}
+#databaseAdmin select{width:100%;min-width:0}
+#databaseRegistry{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 12px;margin:0 0 20px}
+#databaseRegistry dt,#databaseRegistry dd{margin:0;overflow-wrap:anywhere}
+#databaseResult,#databaseBlocker{overflow-wrap:anywhere;margin-bottom:0}
+#databaseAdmin .row{gap:10px;align-items:stretch}
