@@ -1,6 +1,7 @@
 accounts.sqlite
 .dev.vars
 .env
+node_modules/
 wrangler.toml
 .wrangler/
 expression-analyzer/.venv

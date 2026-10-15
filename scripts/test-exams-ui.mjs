@@ -3,6 +3,8 @@ import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import {examWorkflowDemo} from './exam-workflow-demo.mjs';
+import {studentExamContent} from '../src/turso-exams.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root=resolve('rollback/turso-production-assets');
@@ -25,6 +27,7 @@ try{
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;if(route.request().method()!=='GET')writes.push(path);
     let data={};
+    if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user};
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};
@@ -46,6 +49,8 @@ try{
   assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 2','ready for review · 1','completed · 1']);
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*1/);
   await page.locator('[data-exam-level="A1"]').click();
+  assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 2','ready · 1','completed · 1']);
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await page.screenshot({path:'/private/tmp/compact-exam-metrics.png'});await page.setViewportSize({width:1280,height:900});
   assert.equal(await page.locator('[data-exam-group-view]').count(),2,'Empty lesson subgroups remain visible');
   assert.equal(await page.locator('#examList button').filter({hasText:/^Back$/}).count(),0);
   await page.locator('[data-exam-group-view="41"]').click();
@@ -87,6 +92,69 @@ try{
   assert.equal(await page.locator('[data-material-quiz-menu]').count(),1,'Lesson quiz menu is unchanged');
   assert.equal(await page.locator('#material').evaluate(node=>node.classList.contains('is-exam')),false);
   assert.deepEqual(await page.evaluate(()=>examPagePath({id:99,title:'Unassigned exam'}).map(item=>item.label)),['Exams','Unassigned','Unassigned','Unassigned exam'],'Direct exam links do not inherit an unrelated group');
+  for(const examOwned of [false,true])for(const published of [false,true]){
+    await page.evaluate(({examOwned,published})=>{
+      authUser.role='DEVELOPER';viewAccount=null;
+      lmState={...lmBlankMaterial(),id:99,title:'Container fixture',examOwned,published,mode:'preview',tab:'overview',blocks:[
+        {id:'group',type:'task',contentGroup:true,assignmentId:'group',title:'Group 1',tab:'overview'},
+        {id:'question',type:'text',html:'<p>How are you?</p>',assignmentKey:'group',tab:'overview'},
+        {id:'answer',type:'text',html:'<p>I am fine.</p>',answerEnabled:true,maxPoints:2.5,scoringVersion:3,assignmentKey:'group',tab:'overview'},
+        {id:'nested',type:'task',contentGroup:true,assignmentId:'nested',assignmentKey:'group',title:'Nested group',tab:'overview'},
+        {id:'heading',type:'heading',text:'Nested content',level:'h3',assignmentKey:'nested',tab:'overview'},
+        {id:'task',type:'task',assignmentId:'task',assignmentKey:'group',title:'Actual task',text:'Task question',maxPoints:1,scoringVersion:3,tab:'overview'},
+        {id:'task-detail',type:'text',html:'<p>Task details</p>',assignmentKey:'task',tab:'overview'}
+      ]};window.enquizVisit('material');lmShow('preview');
+    },{examOwned,published});
+    const group=page.locator('#lmPreview .content-group[data-assignment="group"]');
+    assert.equal(await group.isVisible(),true,'Container visible in '+(examOwned?'exam':'lesson')+' published='+published);
+    for(const text of ['How are you?','I am fine.','Nested content','Task details'])assert.equal(await group.getByText(text,{exact:true}).isVisible(),true,text);
+    assert.equal(await group.locator(':scope>header').innerText(),examOwned?'Content group\nGroup 1':'Group 1');
+    assert.equal(await group.locator(':scope>header .material-maximum,:scope>header .exam-task-score').count(),0,'Container has no task score');
+    assert.equal(await group.evaluate((node,examOwned)=>getComputedStyle(node).backgroundColor!=='rgba(0, 0, 0, 0)'&&getComputedStyle(node).borderLeftWidth===(examOwned?'4px':'5px'),examOwned),true);
+    assert.equal(await group.locator('.content-group').isVisible(),true);assert.equal(await group.locator('.lm-assignment').isVisible(),true);
+    await page.evaluate(()=>{authUser.role='USER';lmRenderPreview();examDress();});assert.equal(await group.isVisible(),true,'Learner sees container');assert.equal(await group.getByText('How are you?',{exact:true}).isVisible(),true);
+  }
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Content group fits '+width);}await page.screenshot({path:'/private/tmp/content-group-mobile.png',fullPage:true});
+  for(const examOwned of [false,true])for(const published of [false,true]){
+    await page.evaluate(({examOwned,published})=>{
+      authUser.role='DEVELOPER';lmState={...lmBlankMaterial(),id:99,title:'Task fixture',examOwned,published,mode:'preview',tab:'overview',blocks:[
+        {id:'task',type:'task',assignmentId:'task',title:'Actual task',text:'Answer the question.',maxPoints:1,scoringVersion:3,tab:'overview'},
+        {id:'question',type:'text',html:'<p>Task without Content group</p>',assignmentKey:'task',tab:'overview'},
+        {id:'answer',type:'text',html:'<p>Task answer material</p>',answerEnabled:true,maxPoints:2.5,scoringVersion:3,assignmentKey:'task',tab:'overview'}
+      ]};window.enquizVisit('material');lmShow('preview');
+    },{examOwned,published});
+    assert.equal(await page.locator('#lmPreview .lm-assignment').isVisible(),true,'Task visible without Content group');
+    for(const text of ['Task without Content group','Task answer material'])assert.equal(await page.locator('#lmPreview').getByText(text,{exact:true}).isVisible(),true,text);
+    await page.evaluate(()=>{authUser.role='USER';lmRenderPreview();examDress();});assert.equal(await page.locator('#lmPreview .lm-assignment').isVisible(),true,'Learner sees Task');
+  }
+  await page.evaluate(()=>{authUser.role='USER';viewAccount=null;examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});assert.equal(await page.locator('#exams .metric-pairs').count(),0,'Students do not see staff statistics');
+  const databaseActions=[];
+  await page.route('**/api/developer/databases',async route=>{
+    const body=route.request().postDataJSON();if(body)databaseActions.push(body);
+    const data=body?(body.provider==='neon'?{provider:'neon',connected:true,database:'english',schemaVersion:body.action==='prepare'?1:0,dataTransferred:false}:{provider:'turso',connected:true}):{active:'turso',authentication:'cloudflare-d1',chat:'cloudflare-durable-objects',providers:[{id:'turso',configured:true,adapterReady:true,active:true},{id:'neon',configured:true,adapterReady:false,active:false,blocker:'PostgreSQL application adapter pending.'}]};
+    await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await page.evaluate(()=>{authUser.role='DEVELOPER';window.enquizVisit('admin');paintDeveloperChrome();});await page.locator('[data-database-admin]').click();await page.locator('#databaseAdmin[open]').waitFor();await page.waitForFunction(()=>document.getElementById('databaseRegistry').textContent.includes('Configured'));
+  assert.equal(await page.locator('#databaseActivate').isDisabled(),true);assert.equal(await page.locator('#databaseAdmin input').count(),0,'No connection secret field in browser');
+  await page.locator('[data-database-action="check"]').click();await page.locator('#databaseResult').filter({hasText:'Connected'}).waitFor();
+  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-database-action="prepare"]').click();await page.locator('#databaseResult').filter({hasText:'Schema 1'}).waitFor();assert.equal(await page.locator('#databaseActivate').isDisabled(),true,'Schema does not enable runtime switching');
+  await page.setViewportSize({width:320,height:900});assert.ok(await page.locator('#databaseAdmin').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/database-admin-mobile.png'});await page.locator('#databaseProvider').selectOption('turso');assert.equal(await page.locator('[data-database-action="prepare"]').isVisible(),false);assert.equal(await page.locator('#databaseActivate').isDisabled(),true);await page.locator('[data-database-close]').click();assert.deepEqual(databaseActions,[{provider:'neon',action:'check'},{provider:'neon',action:'prepare'}]);
+  await page.evaluate(()=>{authUser.role='ADMIN';paintDeveloperChrome();});assert.equal(await page.locator('[data-database-admin]').isVisible(),false);
   assert.equal(writes.filter(path=>['/api/groups','/api/lessons'].includes(path)).length,0,'Exam UI does not write Groups or Lessons: '+writes.join(','));
+  let demoId=1000;
+  for(const block of examWorkflowDemo(41).blocks){
+    const parts=block.materials.map(part=>({...part,id:demoId++}));
+    await page.evaluate(({title,parts})=>{authUser.role='ADMIN';viewAccount=null;lmState={...lmBlankMaterial(),id:900,examId:11,blockId:900,title,examOwned:true,published:true,assessmentReady:true,mode:'preview',tab:'overview',blocks:parts};window.enquizVisit('material');lmShow('preview');},{title:block.title,parts});
+    assert.equal(await page.locator('#lmPreview [data-lm-panel]').count(),parts.filter(part=>!part.contentGroup&&part.type!=='wordcard').length,block.title+' retains every content panel');
+    for(const part of parts.filter(part=>part.type==='wordcard'))assert.equal(await page.locator('[data-lm-word="'+part.id+'"]').count(),1);
+    for(const width of [1280,375]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),block.title+' fits '+width);}
+    if(block.title.startsWith('05'))await page.screenshot({path:'/private/tmp/exam-demo-groups-mobile.png',fullPage:true});
+    if(block.title.startsWith('04')){
+      const projected=parts.map(part=>studentExamContent(part,part.type));
+      await page.evaluate(parts=>{authUser.role='USER';lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
+      assert.equal(await page.locator('#lmPreview .exam-model-answer').count(),0);
+      assert.equal(await page.locator('#lmPreview textarea[data-exam-response]').count(),3);
+    }
+  }
   assert.deepEqual(errors,[]);console.log('Exam-only navigation, counts, filters, breadcrumbs, responsive controls and lesson isolation passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

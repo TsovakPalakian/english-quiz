@@ -353,6 +353,8 @@ async function signSession(env, user) {
     pwdv: String(user.password_hash || "").slice(0, 24),
     createdAt: user.created_at || user.createdAt || 0,
     idleSession: 1,
+    database: env.AUTH_DATABASE_PROVIDER || 'd1',
+    databaseRevision: env.DATABASE_SELECTION?.revision || 0,
     exp: now() + SESSION_SECONDS
   };
   const body = bytesToB64url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -377,6 +379,8 @@ async function verifySession(env, token) {
   let payload = null;
   try { payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(body))); } catch (e) { return null; }
   if (!payload || !payload.id || !payload.exp || payload.exp <= now() || payload.idleSession !== 1) return null;
+  if ((payload.database || 'd1') !== (env.AUTH_DATABASE_PROVIDER || 'd1')) return null;
+  if ((payload.databaseRevision || 0) !== (env.DATABASE_SELECTION?.revision || 0)) return null;
   return {
     id: payload.id,
     login: payload.login,

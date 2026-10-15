@@ -6,11 +6,18 @@ import {GroupService} from './turso-groups.mjs';
 import {validateExamScoring,memoryDeck} from './exam-scoring.mjs';
 import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 import {prefixedExamTitle} from './group-levels.mjs';
+import {prepareExamContent} from './exam-content.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
-export function studentExamContent(content,type){
+export function studentExamContent(content,type,{revealAnswer=false,protectAnswer=true}={}){
+  if(protectAnswer&&type==='text'&&content.answerEnabled){
+    const projected={...content,html:'',allowedAnswers:'',teacherAnswer:undefined,modelAnswer:undefined};
+    delete projected.response;delete projected.responseFormatting;delete projected.text;delete projected.formatting;
+    if(revealAnswer)projected.modelAnswer=content.teacherAnswer||content.html||'';
+    return projected;
+  }
   const clean=value=>Array.isArray(value)?value.map(clean):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).filter(([key])=>!['answer','answers','write','back','hint','correct','marked','score','response','given','picked','typed','examCorrections','examPoints'].includes(key)).map(([key,item])=>[key,clean(item)])):value;
   if(type==='quiz'&&content.scoringVersion>=3&&content.quizType==='Memory'){const projected=clean(content);for(const item of projected.items||[])delete item.right;return {...projected,memoryFaces:memoryDeck(content)};}
   if(type==='quiz'&&content.scoringVersion>=3&&content.quizType==='Letters'){const projected=clean(content);for(const [i,item] of (projected.items||[]).entries()){item.letterOptions=String(content.items[i].word||'').split('').sort();delete item.word;}return projected;}
@@ -89,9 +96,11 @@ export class ExamService {
       }
       const additions={status:"TEXT NOT NULL DEFAULT 'active'",group_id:'INTEGER',group_title:"TEXT NOT NULL DEFAULT ''",reviewer_id:"TEXT NOT NULL DEFAULT ''",reviewer_name:"TEXT NOT NULL DEFAULT 'Teacher'",student_name:"TEXT NOT NULL DEFAULT ''",student_email:"TEXT NOT NULL DEFAULT ''",assigned_at:'INTEGER NOT NULL DEFAULT 0',completed_at:'INTEGER',max_points:'REAL',earned_points:'REAL'};
       await this.db.atomic([stmt('CREATE TABLE IF NOT EXISTS exam_reviewer_hides(account_id TEXT NOT NULL,exam_id INTEGER NOT NULL,PRIMARY KEY(account_id,exam_id))')]);
+      const instanceColumns=new Set((await this.db.read('PRAGMA table_info(exam_instances)')).map(column=>column.name));
       for(const [name,type] of Object.entries(additions)){
-        if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name)){
+        if(!instanceColumns.has(name)){
           try{await this.db.atomic([stmt('ALTER TABLE exam_instances ADD COLUMN '+name+' '+type)]);}catch(error){if(!(await this.db.read('PRAGMA table_info(exam_instances)')).some(c=>c.name===name))throw error;}
+          instanceColumns.add(name);
         }
       }
     })().catch((error) => { ready.delete(this.db); throw error; }));
@@ -230,6 +239,7 @@ export class ExamService {
         if (!part || !part.type) fail(400, 'Invalid exam material.');
         const partId = optionalId(part.id);
         const content = { ...part };
+        try{prepareExamContent(content,part.type);}catch(error){fail(400,error.message);}
         if(content.items!=null&&(!Array.isArray(content.items)||content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item))))fail(400,'Invalid questions.');
         validateAssessmentContent(content,part.type);
         delete content.stageDefinition;

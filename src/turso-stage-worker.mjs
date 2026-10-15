@@ -1,5 +1,7 @@
 // Separate, fail-closed TEST Worker. Never routes study data to production D1/R2 writes.
-import {StudyService,TursoStudyClient,StudyError} from './turso-study.mjs';
+import {StudyService,StudyError} from './turso-study.mjs';
+import {studyClient} from './study-database.mjs';
+export {studyClient} from './study-database.mjs';
 import {PersonalService} from './turso-personal.mjs';
 import {ActivityService} from './turso-activity.mjs';
 import {ExamService} from './turso-exams.mjs';
@@ -20,7 +22,6 @@ import {stageContentPolicy} from './turso-embed.mjs';
 import {ContentCopyService} from './turso-content-copy.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './turso-request-limits.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
-export const studyClient=env=>new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'});
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 const cardKey=value=>{if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(Number(value)))throw new StudyError(400,'Invalid card ID.');return Number(value);};
 const hex=bytes=>[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -149,7 +150,7 @@ export default {async fetch(request,env){
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
-    const publicAsset=publicPaths.includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
+    const publicAsset=publicPaths.includes(path)||path==='/database-context.js'||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
     if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
     const db=studyClient(env);

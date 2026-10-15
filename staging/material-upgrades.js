@@ -116,7 +116,8 @@ const materialPreviewPartsBefore=lmPreviewParts;
 lmPreviewParts=function(parts){
   if(!parts.some(part=>part.contentGroup))return materialPreviewPartsBefore(parts);
   const all=new Map(parts.map(part=>[part.assignmentId||'part-'+part.id,part])),visiting=new Set();
-  const paint=part=>{if(visiting.has(part))return '';visiting.add(part);const key=part.assignmentId||'part-'+part.id,children=parts.filter(child=>child!==part&&child.assignmentKey===key),content=part.contentGroup?'':lmPreviewPartsFlat([part]);const body=content+children.map(paint).join('');visiting.delete(part);return part.contentGroup?'<section class="content-group" data-assignment="'+esc(key)+'"><header><h3>'+esc(part.title||'Content group')+'</h3></header>'+body+'</section>':children.length?'<section class="lm-assignment" data-assignment="'+esc(key)+'"><header><h3>'+esc(part.title||'Task')+'</h3></header>'+body+'</section>':body;};
+  const containers=parts.filter(part=>part.contentGroup||parts.some(child=>child.assignmentKey===(part.assignmentId||'part-'+part.id)));
+  const paint=part=>{if(visiting.has(part))return '';visiting.add(part);const key=part.assignmentId||'part-'+part.id,children=parts.filter(child=>child!==part&&child.assignmentKey===key),content=part.contentGroup?'':lmPreviewPartsFlat([part]);const body=content+children.map(paint).join('');visiting.delete(part);const tone=' lm-assignment-tone-'+(containers.indexOf(part)%4);return part.contentGroup?'<div class="content-group'+tone+'" data-assignment="'+esc(key)+'"><header><h3>'+esc(part.title||'Content group')+'</h3></header>'+body+'</div>':children.length?'<div class="lm-assignment'+tone+'" data-assignment="'+esc(key)+'"><header><h3>'+esc(part.title||'Task')+'</h3></header>'+body+'</div>':body;};
   return parts.filter(part=>!part.assignmentKey||!all.has(part.assignmentKey)).map(paint).join('');
 };
 const materialRenderPreviewBefore=lmRenderPreview;
@@ -188,9 +189,9 @@ examRefreshTaskScores=function(){
 };
 const materialListBefore=examPaintList;
 function examNeedsReview(exam){return exam.instanceStatus==='ready'||!exam.instanceStatus&&examVisibleBlocks(exam).some(block=>['submitted','reviewing'].includes(block.doc?.assessmentState));}
-function examSummary(rows,groups){
+function examSummary(rows,groups,compact=false){
   const works=rows.filter(exam=>exam.instanceStatus),templates=rows.filter(exam=>!exam.instanceStatus);
-  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]]);
+  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact);
 }
 examPaintList=function(){
   const tabs=document.getElementById('examSections');if(tabs){tabs.innerHTML=['active','ready','completed'].map((key,index)=>'<button class="btn'+(examSection===key?' primary':'')+'" type="button" data-exam-section="'+key+'">'+['Exams','Ready for review','Completed'][index]+'</button>').join('');const add=document.getElementById('examNew');add?.before(tabs);}
@@ -217,9 +218,9 @@ examPaintList=function(){
   paintPagePath('exams');root.querySelector('.page-path').hidden=!examViewLevel;
   if(!examViewLevel){
     const levels=groups.some(item=>accountGroupLevel(item)==='unassigned')?[...adminLevels,'unassigned']:adminLevels;
-    box.innerHTML='<div class="decks">'+levels.filter(level=>canEditLessons()||groups.some(item=>accountGroupLevel(item)===level)).map(level=>{const subset=groups.filter(item=>accountGroupLevel(item)===level),ids=new Set(subset.map(item=>String(item.id)));return '<button class="file-card" type="button" data-exam-level="'+esc(level)+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+examSummary(allRows.filter(exam=>ids.has(String(groupFor(exam).id))),subset)+'</span></button>';}).join('')+'</div>';return;
+    box.innerHTML='<div class="decks">'+levels.filter(level=>canEditLessons()||groups.some(item=>accountGroupLevel(item)===level)).map(level=>{const subset=groups.filter(item=>accountGroupLevel(item)===level),ids=new Set(subset.map(item=>String(item.id)));return '<button class="file-card" type="button" data-exam-level="'+esc(level)+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+examSummary(allRows.filter(exam=>ids.has(String(groupFor(exam).id))),subset,true)+'</span></button>';}).join('')+'</div>';return;
   }
-  if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item])+'</span></button>').join('')+'</div>';return;}
+  if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item],true)+'</span></button>').join('')+'</div>';return;}
   box.innerHTML=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map(exam=>{
     const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;

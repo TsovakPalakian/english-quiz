@@ -1,0 +1,12 @@
+{
+  "name": "english-quiz",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@libsql/client": "0.18.0",
+    "@neondatabase/serverless": "1.2.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10"
+  }
+}

@@ -425,6 +425,37 @@ function stageSaveWord(place,input,status,button,openCard){
   },status);
 }
 let stageTextDraft=null,stageSongDraft=null;
+let stageDatabaseRegistry=null,stageDatabaseBusy=false;
+function stageDatabasePaint(){
+  const modal=document.getElementById('databaseAdmin');if(!modal)return;
+  const provider=stageDatabaseRegistry?.providers?.find(provider=>provider.id===document.getElementById('databaseProvider').value);
+  document.getElementById('databaseRegistry').innerHTML=[['Scope','Entire site · All users'],['Active content database',stageDatabaseRegistry?.active||'Unknown'],['Authentication',stageDatabaseRegistry?.authentication||'Unknown'],['Chat',stageDatabaseRegistry?.chat||'Unknown'],['Server connection secret',provider?.configured?'Configured':'Not configured'],['Authentication adapter',provider?.authenticationAdapterReady?'Ready':'Pending'],['Application adapter',provider?.adapterReady?'Ready':'Pending']].map(([label,value])=>'<dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd>').join('');
+  modal.querySelectorAll('[data-database-action]').forEach(button=>{button.disabled=stageDatabaseBusy||!provider?.configured;button.hidden=button.dataset.databaseAction==='prepare'&&provider?.id!=='neon';});
+  document.getElementById('databaseActivate').disabled=stageDatabaseBusy||!provider?.adapterReady||provider?.active;
+  document.getElementById('databaseBlocker').textContent=provider?.blocker||(provider?.active?'Already active.':'');
+}
+document.addEventListener('change',event=>{if(event.target.id==='databaseProvider'){document.getElementById('databaseResult').textContent='';stageDatabasePaint();}});
+document.addEventListener('click',async event=>{
+  const open=event.target.closest('[data-database-admin]'),close=event.target.closest('[data-database-close]'),action=event.target.closest('[data-database-action],#databaseActivate');
+  if(!open&&!close&&!action)return;
+  const modal=document.getElementById('databaseAdmin');if(close){modal.close();return;}
+  if(!authUser||authUser.role!=='DEVELOPER'||viewAccount||stageDatabaseBusy)return;
+  const actor=authUser.id,generation=viewGen,current=()=>authUser?.id===actor&&authUser?.role==='DEVELOPER'&&!viewAccount&&generation===viewGen;
+  const result=document.getElementById('databaseResult');
+  if(open){stageDatabaseRegistry=null;result.textContent='Loading...';modal.showModal();window.lucide?.createIcons({root:modal});}
+  const operation=action?.dataset.databaseAction||(action?'activate':null),provider=document.getElementById('databaseProvider').value;
+  if(operation==='prepare'&&!confirm('Create empty foundation tables in Neon? No data will be copied and Turso will remain active.'))return;
+  if(operation==='activate'&&!confirm('Switch the database for the entire site and all users? Data will not be copied between databases.'))return;
+  stageDatabaseBusy=true;stageDatabasePaint();
+  try{
+    const data=await accountFetch('/api/developer/databases',operation?{method:'POST',body:JSON.stringify({provider,action:operation,...(operation==='activate'?{expectedRevision:stageDatabaseRegistry?.revision}:{})})}:undefined);
+    if(!current()){modal.close();return;}
+    if(!operation){stageDatabaseRegistry=data;result.textContent='';}
+    else if(operation==='activate'){stageDatabaseRegistry=data;result.textContent=data.message||'Database switched.';}
+    else result.textContent=data.provider==='neon'?'Connected · '+data.database+' · Schema '+(data.schemaVersion||'not prepared')+(data.tableCount!=null?' · '+data.tableCount+' tables':'')+(data.authenticationSchemaReady?' · Auth ready':'')+' · No data transferred':data.message||'Connected';
+  }catch(error){if(current())result.textContent=error.message;}
+  finally{stageDatabaseBusy=false;if(current())stageDatabasePaint();}
+});
 const stageMadeAttempts=new Map();
 function stageMadeAnswer(type,key,ok,value){
   if(!stageOwnReady())return;
@@ -2301,6 +2332,44 @@ function stageEssentialCollect(rows){
     for(const source of ['Essential English',entry.source.slice('Essential English · '.length)])if(!row.where.includes(source))row.where.push(source);
   }
 }
+function stageWordSources(row){
+  const targets=[],add=source=>{if(!targets.some(item=>JSON.stringify(item)===JSON.stringify(source)))targets.push(source);};
+  const pages={'7 Sep':'lesson07','9 Sep':'lesson09','14 Sep':'lesson14','16 Sep':'lesson16','21 Sep':'lesson','23 Sep':'lesson23',Lessons:'groups','Additional word':'add','Additional words':'add',Grammar:'tenses','My words':'add','Phrasal verbs':'phrasal',Idioms:'idioms','Irregular verbs':'verbs','Song lyrics':'music',Text:'texts',Chat:'messages','From chat':'messages','Essential English':'everyday'};
+  const cardId=rowToCard(row)?.stageId;
+  const essential=stageEverydayData?.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.filter(entry=>entry.card.stageId===cardId).map(()=>({label:group.title+' · '+topic.title,page:'everydaytopic',groupId:group.id,topicId:topic.id}))))||[];
+  for(const label of row.where||[]){
+    const topic=essential.find(source=>label===source.label||label.startsWith(source.label+' · '));
+    if(topic){add({...topic,label});continue;}
+    if(label==='Song lyrics'){
+      const songs=songCatalog().filter(song=>rowInKeys(row,song.keys));
+      if(songs.length){for(const song of songs)add({label:'Song lyrics · '+song.title,page:song.id==='sample'?'song':'music',...(song.id==='sample'?{}:{songId:song.id})});continue;}
+    }
+    if(label==='Text'){
+      const texts=loadTexts().filter(text=>!text.archived&&rowInKeys(row,keysOfMarks(text.marks)));
+      if(texts.length){for(const text of texts)add({label:'Text · '+text.title,page:'texts',textId:text.id});continue;}
+    }
+    add({label,page:pages[label]||'groups'});
+  }
+  return targets;
+}
+function stageEssentialSourceLinks(card){
+  const sources=stageEssentialEntries().filter(entry=>entry.card.stageId===card.stageId);
+  const row={kind:'essential',key:String(card.stageId),where:['Essential English',...sources.map(entry=>entry.source.slice('Essential English · '.length))]};
+  return '<p class="label word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</p>';
+}
+document.addEventListener('click',event=>{
+  const link=event.target.closest('[data-word-source]');if(!link)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  const source=JSON.parse(link.dataset.wordSource);
+  if(source.page==='everydaytopic'){
+    const topic=stageEverydayData?.groups.find(group=>group.id===source.groupId)?.topics.find(topic=>topic.id===source.topicId);if(!topic)return;
+    pushHistory();stageEverydayState={group:source.groupId,topic:source.topicId,groupSearch:'',wordSearch:''};show('everydaytopic');stageEverydayPaint();return;
+  }
+  if(source.songId){pushHistory();stageOpenSongId(source.songId);return;}
+  if(source.textId){pushHistory();stageOpenText(source.textId);return;}
+  if(source.page==='add'){pushHistory();addGroup='';addSong='';paintAdded();show('add');return;}
+  visit(source.page);
+},true);
 function stageEssentialWord(entry,group,topic){
   const card=entry.card;
   const html='<button class="wcard" type="button" data-everyday-card="'+card.stageId+'">'+wordPic(card.en)+'<div class="en">'+esc(card.en)+'</div><div class="pos">'+esc(card.pos||'')+'</div>'+ipaHtml(card)+'<div class="label">'+esc(card.ru)+'</div><div class="label">'+esc(entry.example)+'</div><div class="label">'+esc(entry.exampleRu)+'</div><div class="label">'+esc('Essential English · '+group.title+' · '+topic.title)+'</div></button>';

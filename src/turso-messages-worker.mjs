@@ -9,15 +9,7 @@ import {stageR2Media} from './turso-r2-media.mjs';
 import {lessonMediaMetadata} from './turso-lesson-media.mjs';
 export {StageAuthBudget};
 const json = (value,status=200) => Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
-const databases = new WeakMap();
-function database(env) {
-  // Production wraps env per request; the original D1 binding remains stable.
-  const key=env.DB||env, previous=databases.get(key);
-  if (previous && previous.url===env.TURSO_URL && previous.token===env.TURSO_AUTH_TOKEN && previous.mode===env.STORAGE_MODE) return previous.client;
-  const client=studyClient(env);
-  databases.set(key,{url:env.TURSO_URL,token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE,client});
-  return client;
-}
+const database=studyClient;
 async function body(request) {
   const reader = request.body?.getReader(); let size = 0, chunks = [];
   if (!reader) throw new StudyError(400,'Empty request.');
