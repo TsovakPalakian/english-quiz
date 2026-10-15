@@ -4215,7 +4215,6 @@
         if (item.fromText || !homePlace[place]) return;
         add(item.word, item.ru, homePlace[place], "added", item.word);
       });
-      if(typeof stageEssentialCollect==='function')stageEssentialCollect(rows);
       return rows;
     }
     function paintAllWords() {
@@ -8225,7 +8224,7 @@
       show(target);
     }
     function allStudyCards() {
-      return collectCards().filter((row) => row.kind !== "deck").map(rowToCard);
+      return collectCards().filter((row) => row.kind !== "deck" && row.kind !== "essential").map(rowToCard);
     }
     function classCards() {
       const places = ["lesson-07", "lesson-09", "lesson-14", "lesson-16", "lesson-21", "lesson-23"];

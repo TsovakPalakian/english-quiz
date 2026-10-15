@@ -41,6 +41,15 @@ try{
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
+  await page.evaluate(()=>{
+    const previous=stageEverydayData,before=JSON.stringify(studyCards());
+    stageEverydayData={groups:[{title:'Optional vocabulary',topics:[{title:'Test',entries:[{card:{stageId:99999991,en:'optionalessentialfixture',ru:'optional'}}]}]}]};
+    try{
+      if(JSON.stringify(studyCards())!==before)throw Error('Essential English changed the required study set');
+      if(!collectCards().some(row=>row.kind==='essential'&&row.en==='optionalessentialfixture'))throw Error('Optional words disappeared from All words');
+      if(allStudyCards().some(card=>card?.en==='optionalessentialfixture'))throw Error('Optional-only word entered the general study queue');
+    }finally{stageEverydayData=previous;}
+  });
   await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-level="A1"]').waitFor();
   await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 5'));
@@ -62,8 +71,15 @@ try{
   await page.locator('[data-exam-section="ready"]').click();
   assert.equal(await page.locator('[data-exam-open="21"]').count(),1);
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
+  const studentGroup=page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"]');
+  assert.match(await studentGroup.locator('summary').innerText(),/Student.*1 exam/s);
+  assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),true,'Teacher sees submitted work inside student row');
+  await studentGroup.locator('summary').click();
+  assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),false,'Student row collapses');
+  await studentGroup.locator('summary').click();
   await page.locator('[data-exam-section="completed"]').click();
   assert.equal(await page.locator('[data-exam-open="31"]').count(),1);
+  assert.equal(await page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"] [data-exam-open="31"]').isVisible(),true,'Completed work is also grouped by student');
   await page.locator('[data-exam-section="active"]').click();
   await page.locator('#examListSearch').fill('missing');await page.waitForFunction(()=>document.querySelector('#examList .day-row')?.hidden);
   await page.locator('#examListSearch').fill('');await page.locator('[data-exam-open="11"]').click();
@@ -149,9 +165,39 @@ try{
     for(const part of parts.filter(part=>part.type==='wordcard'))assert.equal(await page.locator('[data-lm-word="'+part.id+'"]').count(),1);
     for(const width of [1280,375]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),block.title+' fits '+width);}
     if(block.title.startsWith('05'))await page.screenshot({path:'/private/tmp/exam-demo-groups-mobile.png',fullPage:true});
+    if(block.title.startsWith('03')){
+      await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
+      for(const width of [1076,375,320]){
+        await page.setViewportSize({width,height:900});
+        const option=page.locator('#lmPreview label:has(>input[data-mq-choice])').first();
+        assert.ok(await option.evaluate(node=>{const input=node.querySelector('input'),a=input.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(node.lastChild);const b=range.getBoundingClientRect();return Math.abs(a.y+a.height/2-b.y-b.height/2)<5&&a.width===20&&getComputedStyle(input).opacity==='1';}),'Choice and label align at '+width);
+        const grading=page.locator('#lmPreview .assessment-grading').first();
+        assert.ok(await grading.evaluate(node=>{const fields=[...node.querySelectorAll('input,select')];return fields.every(field=>field.offsetHeight===42)&& (innerWidth<=380||Math.abs(fields[0].getBoundingClientRect().y-fields[1].getBoundingClientRect().y)<1); }),'Grading controls align at '+width);
+      }
+      await page.setViewportSize({width:1076,height:900});
+      await page.locator('#lmPreview [data-mq-question]').first().screenshot({path:'/private/tmp/exam-choice-alignment.png'});
+      await page.evaluate(()=>{viewAccount=null;});
+    }
     if(block.title.startsWith('04')){
+      await page.route('**/api/assessment',route=>route.request().method()==='POST'?route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'This work changed.'})}):route.fallback());
+      await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
+      const feedback=page.locator('[data-exam-review-note="examOverallComment"]');
+      const longNote=Array.from({length:18},(_,i)=>'Feedback line '+i).join('\n');
+      await feedback.fill(longNote);
+      const expanded=await feedback.evaluate(node=>node.offsetHeight);
+      assert.ok(expanded>150,'Feedback grows with its content');
+      await feedback.fill('Short feedback');
+      assert.ok(await feedback.evaluate(node=>node.offsetHeight)<expanded,'Feedback shrinks after deletion');
+      await page.locator('[data-exam-review-note="examPrivateNote"]').fill('Private draft');
+      await page.evaluate(async()=>{try{await assessmentWrite(lmState,'publish');}catch{}examDress();examDress();});
+      assert.equal(await page.locator('#lmPreview .exam-review-notes').count(),1,'Failed publication and repeated dress do not duplicate notes');
+      assert.equal(await feedback.inputValue(),'Short feedback');
+      assert.equal(await page.locator('[data-exam-review-note="examPrivateNote"]').inputValue(),'Private draft');
+      assert.equal(await page.locator('[data-exam-recommendation]').count(),1,'Repeated fill does not duplicate AI review control');
+      await feedback.fill(longNote);
+      await page.screenshot({path:'/private/tmp/exam-review-notes-mobile.png',fullPage:true});
       const projected=parts.map(part=>studentExamContent(part,part.type));
-      await page.evaluate(parts=>{authUser.role='USER';lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
+      await page.evaluate(parts=>{authUser.role='USER';viewAccount=null;lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
       assert.equal(await page.locator('#lmPreview .exam-model-answer').count(),0);
       assert.equal(await page.locator('#lmPreview textarea[data-exam-response]').count(),3);
     }

@@ -56,6 +56,7 @@ assessmentWrite=function(doc,action,extra={}){return examWriteOriginal(doc,actio
 const examPointsOriginal=examPointInput;
 examPointInput=function(part,index,whole=false){const html=examPointsOriginal(part,index,whole),score=lmState?.examOwned?lmState.examSuggested?.[part.id]?.[index]:null;return score==null?html:html+'<span class="exam-suggestion">Suggested points: '+esc(String(score))+'</span>';};
 examFillAnswers=function(){
+  if(lmState?.examOwned)document.querySelectorAll('#lmPreview .exam-review-notes,#lmPreview [data-exam-fill-decoration]').forEach(node=>node.remove());
   examFillOriginal();if(!lmState?.examOwned)return;
   const reviewer=canTuneStudentLessons();
   for(const part of lmState.blocks||[]){
@@ -64,15 +65,18 @@ examFillAnswers=function(){
     // The editor's HTML is the reference, never the question shown before Submit.
     panel.querySelector('.lm-copy')?.remove();
     if(reviewer||lmState.studentSaved){const html=reviewer?(part.teacherAnswer||part.html||''):part.modelAnswer||'';
-      if(html)panel.insertAdjacentHTML('beforeend','<div class="exam-model-answer"><strong>Answer:</strong><div>'+lmClean(html)+'</div>'+(part.answerPurpose==='example'?'<span>Example answer</span>':'')+'</div>');}
-    if(reviewer&&lmState.examSuggested?.[part.id]?.[0]!=null)panel.insertAdjacentHTML('beforeend','<p class="exam-suggestion">Suggested points: '+esc(String(lmState.examSuggested[part.id][0]))+' / '+assessmentMax(part,0)+'</p>');
-    if(reviewer&&part.checkMode==='meaning')panel.insertAdjacentHTML('beforeend','<div class="exam-suggestion"><button class="btn" type="button" data-exam-recommendation="'+part.id+'"'+(!lmState.studentSaved||lmState.assessmentState==='published'?' disabled':'')+'>Request AI review</button><p data-exam-recommendation-result="'+part.id+'" role="status"></p></div>');
+      if(html)panel.insertAdjacentHTML('beforeend','<div class="exam-model-answer" data-exam-fill-decoration><strong>Answer:</strong><div>'+lmClean(html)+'</div>'+(part.answerPurpose==='example'?'<span>Example answer</span>':'')+'</div>');}
+    if(reviewer&&lmState.examSuggested?.[part.id]?.[0]!=null)panel.insertAdjacentHTML('beforeend','<p class="exam-suggestion" data-exam-fill-decoration>Suggested points: '+esc(String(lmState.examSuggested[part.id][0]))+' / '+assessmentMax(part,0)+'</p>');
+    if(reviewer&&part.checkMode==='meaning')panel.insertAdjacentHTML('beforeend','<div class="exam-suggestion" data-exam-fill-decoration><button class="btn" type="button" data-exam-recommendation="'+part.id+'"'+(!lmState.studentSaved||lmState.assessmentState==='published'?' disabled':'')+'>Request AI review</button><p data-exam-recommendation-result="'+part.id+'" role="status"></p></div>');
   }
   const root=document.getElementById('lmPreview');
   if(reviewer){const locked=lmState.assessmentState==='published'||!lmState.studentSaved;root.insertAdjacentHTML('beforeend','<div class="exam-review-notes"><label>Overall feedback<textarea data-exam-review-note="examOverallComment" maxlength="6000"'+(locked?' disabled':'')+'>'+esc(lmState.examOverallComment||'')+'</textarea></label><label>Private note<textarea data-exam-review-note="examPrivateNote" maxlength="6000"'+(locked?' disabled':'')+'>'+esc(lmState.examPrivateNote||'')+'</textarea></label></div>');}
   else if(lmState.assessmentState==='published'&&lmState.examOverallComment)root.insertAdjacentHTML('beforeend','<div class="exam-review-notes"><strong>Teacher feedback</strong><p>'+esc(lmState.examOverallComment)+'</p></div>');
+  root.querySelectorAll('[data-exam-review-note]').forEach(examResizeReviewNote);
 };
-document.addEventListener('input',event=>{const field=event.target.closest('[data-exam-review-note]');if(field&&lmState?.examOwned&&canTuneStudentLessons()&&['examOverallComment','examPrivateNote'].includes(field.dataset.examReviewNote))lmState[field.dataset.examReviewNote]=field.value;});
+function examResizeReviewNote(field){field.style.height='auto';field.style.height=(field.scrollHeight+field.offsetHeight-field.clientHeight)+'px';}
+window.addEventListener('resize',()=>{if(lmState?.examOwned)document.querySelectorAll('#lmPreview [data-exam-review-note]').forEach(examResizeReviewNote);});
+document.addEventListener('input',event=>{const field=event.target.closest('[data-exam-review-note]');if(field&&lmState?.examOwned&&canTuneStudentLessons()&&['examOverallComment','examPrivateNote'].includes(field.dataset.examReviewNote)){lmState[field.dataset.examReviewNote]=field.value;examResizeReviewNote(field);}});
 let examWorkflowLoading='',examWorkflowRow=null;
 async function examLoadWorkflow(doc){
   const id=doc?.examId,exam=examFind(id);if(!doc?.examOwned||!exam?.studentId)return;

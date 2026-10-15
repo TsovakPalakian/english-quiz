@@ -221,14 +221,22 @@ examPaintList=function(){
     box.innerHTML='<div class="decks">'+levels.filter(level=>canEditLessons()||groups.some(item=>accountGroupLevel(item)===level)).map(level=>{const subset=groups.filter(item=>accountGroupLevel(item)===level),ids=new Set(subset.map(item=>String(item.id)));return '<button class="file-card" type="button" data-exam-level="'+esc(level)+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+examSummary(allRows.filter(exam=>ids.has(String(groupFor(exam).id))),subset,true)+'</span></button>';}).join('')+'</div>';return;
   }
   if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item],true)+'</span></button>').join('')+'</div>';return;}
-  box.innerHTML=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map(exam=>{
+  const subgroupRows=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup));
+  const studentGroups=(canEditLessons()||canTuneStudentLessons())&&['ready','completed'].includes(examSection);
+  const renderExam=exam=>{
     const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;
     const blockCount=examVisibleBlocks(exam).length;
     const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+blockCount+' examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
     const tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
     return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
-  }).join('');window.lucide?.createIcons();
+  };
+  if(studentGroups){
+    const students=new Map();
+    for(const exam of subgroupRows){const key=exam.studentId||'unassigned';if(!students.has(key))students.set(key,{name:exam.studentName|| (exam.studentId?'Student':'Unassigned'),exams:[]});students.get(key).exams.push(exam);}
+    box.innerHTML=[...students.entries()].sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([id,student])=>'<details class="exam-student-group" data-exam-student="'+esc(id)+'" open><summary><strong>'+esc(student.name)+'</strong><span>'+student.exams.length+' exam'+(student.exams.length===1?'':'s')+'</span></summary><div class="exam-student-works">'+student.exams.map(renderExam).join('')+'</div></details>').join('');
+  }else box.innerHTML=subgroupRows.map(renderExam).join('');
+  window.lucide?.createIcons();
 };
 document.addEventListener('click',event=>{const button=event.target.closest('[data-material-remove-reference]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(!canEditLessons()||!confirm('Remove this completed work from your list? The student keeps their exam.'))return;const id=Number(button.dataset.materialRemoveReference);void accountFetch('/api/exams/'+id,{method:'DELETE'}).then(()=>{examSave(examLoad().filter(exam=>exam.id!==id));examPaintList();}).catch(error=>window.TursoMain.notice(error.message,true));},true);
 const materialNormalizeBefore=examFromWire;
