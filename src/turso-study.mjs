@@ -44,7 +44,7 @@ export class TursoStudyClient {
     if(response.ok)break;
     const status=response.status;
     await response.body?.cancel().catch(()=>{});
-    if(readOnly && attempt===0 && [429,502,503,504].includes(status)) {
+    if(readOnly && attempt===0 && [429,502,503,504,520,521,522,523,524].includes(status)) {
       await new Promise(resolve=>setTimeout(resolve,200));
       continue;
     }

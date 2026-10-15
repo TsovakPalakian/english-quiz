@@ -45,7 +45,7 @@ test('Database redirects are rejected without forwarding the token',async()=>{
 });
 
 test('Transient HTTP failures retry SELECT once but never replay writes',async()=>{
-  for(const status of [429,502,503,504]) {
+  for(const status of [429,502,503,504,520,521,522,523,524]) {
     let calls=0;
     const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{
       calls++;
@@ -60,11 +60,11 @@ test('Transient HTTP failures retry SELECT once but never replay writes',async()
 });
 
 test('HTTP read retries are bounded and authentication failures are not retried',async()=>{
-  for(const status of [401,403,503]) {
+  for(const status of [401,403,503,520]) {
     let calls=0;
     const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{calls++;return new Response('private upstream details',{status});}});
     await assert.rejects(client.read('SELECT 1'),error=>error.message.includes(`HTTP ${status}`)&&!error.message.includes('private'));
-    assert.equal(calls,status===503?2:1);
+    assert.equal(calls,[503,520].includes(status)?2:1);
   }
 });
 

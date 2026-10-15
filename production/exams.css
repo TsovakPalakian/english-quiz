@@ -9,6 +9,11 @@
 #exams.exam-group-list>.meta h1{display:none}
 #exams #examSections[hidden]{display:none}
 #exams #examNew{margin:0 0 12px}
+#exams .exam-student-group{margin-block:12px;border-bottom:1px solid var(--line)}
+#exams .exam-student-group>summary{display:list-item;cursor:pointer;padding:12px 8px;font-size:16px;line-height:1.5;overflow-wrap:anywhere}
+#exams .exam-student-group>summary span{margin-inline-start:12px;color:var(--mute);font-size:14px;white-space:nowrap}
+#exams .exam-student-works{padding:0 0 8px 16px;min-width:0}
+@media(max-width:380px){#exams .exam-student-works{padding-inline-start:6px}}
 #material.is-exam .lm-picker-grid+[data-material-quiz-types]{margin-top:16px}
 #material.is-exam .lm-picker-grid{gap:12px}
 #exams .page-path ol,#examblocks .page-path ol,#material.is-exam .page-path ol{flex-wrap:wrap;overflow-wrap:anywhere}

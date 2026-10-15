@@ -62,8 +62,15 @@ try{
   await page.locator('[data-exam-section="ready"]').click();
   assert.equal(await page.locator('[data-exam-open="21"]').count(),1);
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
+  const studentGroup=page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"]');
+  assert.match(await studentGroup.locator('summary').innerText(),/Student.*1 exam/s);
+  assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),true,'Teacher sees submitted work inside student row');
+  await studentGroup.locator('summary').click();
+  assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),false,'Student row collapses');
+  await studentGroup.locator('summary').click();
   await page.locator('[data-exam-section="completed"]').click();
   assert.equal(await page.locator('[data-exam-open="31"]').count(),1);
+  assert.equal(await page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"] [data-exam-open="31"]').isVisible(),true,'Completed work is also grouped by student');
   await page.locator('[data-exam-section="active"]').click();
   await page.locator('#examListSearch').fill('missing');await page.waitForFunction(()=>document.querySelector('#examList .day-row')?.hidden);
   await page.locator('#examListSearch').fill('');await page.locator('[data-exam-open="11"]').click();
