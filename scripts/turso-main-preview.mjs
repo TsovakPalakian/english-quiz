@@ -59,6 +59,7 @@ export function mainPreview(source,hooks){
   insert('    function fillEmptyFromAccount(state) {','      applyViewState(state); return;');
   insert('    function applyAccountState(state) {','      applyViewState(state); return;');
   insert('    function applyViewState(state) {','      stageSetActivity(state.stageActivity);');
+  insert('    function clearOwnBrowserData(opts) {','      stageSetActivity(null);stageTimeAt=0;stageTimeSeconds=0;');
   insert('    function applyViewState(state) {','      if(state&&state.bootstrap){stageApplyBootstrap(state);return;}');
   insert('    function installCardQuizzes(serverMap) {','      if(serverMap==null)return loadCardQuizzes();');
   insert('    function applySharedStudy(state) {','      return false;');

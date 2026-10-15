@@ -35,7 +35,7 @@
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
-      made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library",
+      made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library", grammarrule: "library",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
@@ -137,6 +137,10 @@
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return groupPath(group);
+      if (id.startsWith('grammar')) {
+        const category=(window.GrammarCategories||[]).find(row=>row.id===stageGrammarGroup);
+        return [{id:'library',label:'Library'},{id:'grammarcategories',label:'Grammatical Categories'},...(id!=='grammarcategories'&&category?[{id:'grammarcategory',label:category.title}]:[]),...(id==='grammarrule'?[{id:'grammarrule',label:stageGrammarRule}]:[])];
+      }
       if (id === 'exams') return examPagePath();
       if (id === "examblocks") return examPagePath(examFind(examCurrentId));
       if (id === "material" && lmState) {
@@ -338,7 +342,7 @@
     function placeKey(place) {
       if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
       if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
-      if(place.id?.startsWith('grammarcategor'))return place.id+'|'+(place.grammarCategory||'');
+      if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
       if(place.id?.startsWith('everyday'))return [place.id,place.everyday?.group,place.everyday?.topic,place.everyday?.groupSearch,place.everyday?.wordSearch].join('|');
       return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson, place.workDay || "", place.workKind || ""].join("|");
     }
@@ -375,6 +379,7 @@
         speakView: speakView,
         everyday: typeof stageEverydayState==='undefined'?null:{...stageEverydayState},
         grammarCategory: typeof stageGrammarGroup==='undefined'?'':stageGrammarGroup,
+        grammarRule: typeof stageGrammarRule==='undefined'?'':stageGrammarRule,
         speakLevel: speakLevel,
         speakUnit: speakUnit,
         speakLesson: speakLesson
@@ -396,6 +401,7 @@
     window.enquizVisit = visit;
     function restore(place) {
       if(place.grammarCategory&&typeof stageGrammarGroup!=='undefined')stageGrammarGroup=place.grammarCategory;
+      if(typeof stageGrammarRule!=='undefined')stageGrammarRule=place.grammarRule||'';
       if(place.everyday&&typeof stageEverydayState!=='undefined')stageEverydayState={...place.everyday};
       if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
       if (['admin','adminuser','admingroup','admingrouplevel'].includes(place.id)) {
@@ -9947,7 +9953,7 @@
       };
     }
     function paintHomeStats() {
-      const rows = studyCards();
+      const rows = authUser ? studyCards() : [];
       const buckets = homeBuckets(rows);
       const learned = buckets.learned.length;
       const total = rows.length;
@@ -11440,6 +11446,7 @@
       clearTimeout(syncTimer);
       stopAccountPull();
       paintViewBar();
+      paintHomeAccount();
       return clearOwnBrowserData().then(() => {
         paintAdded();
         paintLyrics();
@@ -12543,9 +12550,10 @@
     }
     let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
+    function metricPairs(rows){return '<span class="metric-pairs">'+rows.map(([label,value])=>'<span>'+esc(label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
       const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
-      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),count=groups.length,extra=attribute==='data-group-level'?' · '+groups.reduce((sum,g)=>sum+(g.studentCount||0),0)+' students · '+groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)+' lessons':'';return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+count+' '+(count===1?'group':'groups')+extra+'</span></button>';}).join('')+'</div>';
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs)+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
       const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
@@ -12566,7 +12574,7 @@
       const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
       const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
-      const overview=document.getElementById('groupOverview');if(overview)overview.textContent=levelRows.length+' '+(levelRows.length===1?'group':'groups')+' · '+levelRows.reduce((sum,g)=>sum+(g.studentCount||0),0)+' students · '+levelRows.reduce((sum,g)=>sum+g.lessonIds.length,0)+' lessons';
+      const overview=document.getElementById('groupOverview');if(overview)overview.innerHTML=metricPairs([['groups',levelRows.length],['students',levelRows.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',levelRows.reduce((sum,g)=>sum+g.lessonIds.length,0)]]);
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
       const query=document.getElementById('groupSearch')?.value.trim().toLocaleLowerCase()||'';
       const rows=levelRows.filter(group=>group.title.toLocaleLowerCase().includes(query));
@@ -12582,7 +12590,7 @@
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
         const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]])+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {
@@ -14103,7 +14111,7 @@
       const title = document.getElementById("lmGroupTitle");
       if (title) title.textContent = group?.title || "Lessons";
       const name = document.getElementById("lmGroupName");
-      if (name) name.textContent = "";
+      if (name) name.innerHTML = metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {

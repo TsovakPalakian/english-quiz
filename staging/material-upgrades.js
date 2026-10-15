@@ -190,10 +190,7 @@ const materialListBefore=examPaintList;
 function examNeedsReview(exam){return exam.instanceStatus==='ready'||!exam.instanceStatus&&examVisibleBlocks(exam).some(block=>['submitted','reviewing'].includes(block.doc?.assessmentState));}
 function examSummary(rows,groups){
   const works=rows.filter(exam=>exam.instanceStatus),templates=rows.filter(exam=>!exam.instanceStatus);
-  const count=(value,label)=>value+' '+label+(value===1?'':'s');
-  return (groups?count(groups.length,'group')+' \u00b7 '+count(groups.reduce((sum,group)=>sum+(group.studentCount||0),0),'student')+' \u00b7 ':'')+
-    count(canEditLessons()?templates.length:rows.length,'exam')+(canEditLessons()?' \u00b7 '+count(works.length,'assigned work'):'')+
-    ' \u00b7 '+rows.filter(examNeedsReview).length+' ready for review \u00b7 '+rows.filter(exam=>exam.instanceStatus==='completed').length+' completed';
+  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]]);
 }
 examPaintList=function(){
   const tabs=document.getElementById('examSections');if(tabs){tabs.innerHTML=['active','ready','completed'].map((key,index)=>'<button class="btn'+(examSection===key?' primary':'')+'" type="button" data-exam-section="'+key+'">'+['Exams','Ready for review','Completed'][index]+'</button>').join('');const add=document.getElementById('examNew');add?.before(tabs);}
@@ -214,15 +211,15 @@ examPaintList=function(){
   let overview=document.getElementById('examOverview');if(!overview){overview=document.createElement('p');overview.id='examOverview';overview.className='sub';box.parentElement.before(overview);}
   const shownGroups=groups.filter(item=>!examViewLevel||accountGroupLevel(item)===examViewLevel).filter(item=>!leaf||String(item.id)===String(examViewGroup));
   const shownIds=new Set(shownGroups.map(item=>String(item.id))),shownRows=allRows.filter(exam=>shownIds.has(String(groupFor(exam).id)));
-  overview.textContent=examSummary(shownRows,shownGroups);
+  overview.innerHTML=examSummary(shownRows,shownGroups);
   const reviewCount=allRows.filter(examNeedsReview).length;
   document.querySelectorAll('[data-jump="exams"]').forEach(button=>{for(const node of button.childNodes)if(node.nodeType===3&&/^Exams(?:\s|$)/.test(node.textContent.trim()))node.textContent='Exams'+(reviewCount?' \u00b7 '+reviewCount:'');});
   paintPagePath('exams');root.querySelector('.page-path').hidden=!examViewLevel;
   if(!examViewLevel){
     const levels=groups.some(item=>accountGroupLevel(item)==='unassigned')?[...adminLevels,'unassigned']:adminLevels;
-    box.innerHTML='<div class="decks">'+levels.filter(level=>canEditLessons()||groups.some(item=>accountGroupLevel(item)===level)).map(level=>{const subset=groups.filter(item=>accountGroupLevel(item)===level),ids=new Set(subset.map(item=>String(item.id)));return '<button class="file-card" type="button" data-exam-level="'+esc(level)+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+esc(examSummary(allRows.filter(exam=>ids.has(String(groupFor(exam).id))),subset))+'</span></button>';}).join('')+'</div>';return;
+    box.innerHTML='<div class="decks">'+levels.filter(level=>canEditLessons()||groups.some(item=>accountGroupLevel(item)===level)).map(level=>{const subset=groups.filter(item=>accountGroupLevel(item)===level),ids=new Set(subset.map(item=>String(item.id)));return '<button class="file-card" type="button" data-exam-level="'+esc(level)+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+examSummary(allRows.filter(exam=>ids.has(String(groupFor(exam).id))),subset)+'</span></button>';}).join('')+'</div>';return;
   }
-  if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+esc(examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item]))+'</span></button>').join('')+'</div>';return;}
+  if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item])+'</span></button>').join('')+'</div>';return;}
   box.innerHTML=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map(exam=>{
     const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;

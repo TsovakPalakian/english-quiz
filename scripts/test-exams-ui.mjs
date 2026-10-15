@@ -40,10 +40,10 @@ try{
   await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
   await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-level="A1"]').waitFor();
-  await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('5 students'));
+  await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 5'));
   assert.equal(await page.locator('#examSections').isVisible(),false);
   assert.equal(await page.locator('#examListSearch').isVisible(),false);
-  assert.match(await page.locator('#examOverview').innerText(),/3 groups.*5 students.*1 exam.*2 assigned works.*1 ready for review.*1 completed/);
+  assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 2','ready for review · 1','completed · 1']);
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*1/);
   await page.locator('[data-exam-level="A1"]').click();
   assert.equal(await page.locator('[data-exam-group-view]').count(),2,'Empty lesson subgroups remain visible');
@@ -76,6 +76,7 @@ try{
     assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam editor fits '+width);
   }
   await page.locator('#material [data-path-exam-group="41"]').click();
+  assert.equal(await page.locator('#examOverview .metric-pairs').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
   await page.locator('#examListSearch').focus();
   assert.equal(await page.locator('#examListSearch').evaluate(node=>getComputedStyle(node).outlineOffset),'-2px');
   assert.ok(await page.locator('#exams').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam list fits smallest viewport');

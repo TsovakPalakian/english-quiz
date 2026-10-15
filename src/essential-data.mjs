@@ -1,3 +1,4 @@
+import {expandEssential} from './essential-expansion.mjs';
 const topics = (names, prefix) => names.split('|').map((title, index) => ({id:prefix+'-'+(index+1),title,entries:[]}));
 export const everydayGroups = [
   {id:'basics',title:'Basic sets',topics:topics('Days of the week|Months|Seasons|Parts of the day|Time and time units|Dates and years|Cardinal numbers|Ordinal numbers|Fractions and percentages|Units of measurement|Colours and shades|Shapes|Countries and nationalities|Languages|Compass directions|Personal pronouns|Possessives|Demonstratives|Reflexive pronouns|Indefinite pronouns|Question words|Articles|Prepositions of place and direction|Prepositions of time|Conjunctions and connectors|Quantity words|Frequency|Degree and intensity|Essential verbs|Modal verbs|Basic adjectives and opposites|Common contractions','basic')},
@@ -106,3 +107,4 @@ fill('topics',2,[
   ['visit','навещать','I visit my friends on Sunday.','Я навещаю друзей в воскресенье.','verb'],
   ['together','вместе','We study together.','Мы учимся вместе.','adverb']
 ]);
+expandEssential(everydayGroups);

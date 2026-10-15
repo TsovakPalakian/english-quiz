@@ -436,8 +436,8 @@ let stageActivity={tracked:false,seconds:0,examPass:0},stageTimeAt=0,stageTimeSe
 function stageSetActivity(value){stageActivity=value||{tracked:false,seconds:0,examPass:0};stagePaintActivity();}
 function stagePaintActivity(){
   const time=document.querySelector('#homeDemo .overview > div:nth-child(1) b'),exams=document.querySelector('#homeDemo .overview > div:nth-child(2) b');
-  if(time){time.textContent=stageActivity.tracked?Math.floor(stageActivity.seconds/60)+' min':'—';time.title='Только подтверждённое время в тестовой Turso; прежняя история не включена.';}
-  if(exams){exams.textContent=stageActivity.tracked?String(stageActivity.examPass):'—';exams.title='Клиентская учебная статистика, не сертифицированный экзамен.';}
+  if(time){time.textContent=!authUser?'0 min':stageActivity.tracked?Math.floor(stageActivity.seconds/60)+' min':'—';time.title='Только подтверждённое время в тестовой Turso; прежняя история не включена.';}
+  if(exams){exams.textContent=!authUser?'0':stageActivity.tracked?String(stageActivity.examPass):'—';exams.title='Клиентская учебная статистика, не сертифицированный экзамен.';}
 }
 function stageRecordTime(flush=false){
   if(!stageOwnReady()){stageTimeAt=0;stageTimeSeconds=0;return;}
@@ -1497,7 +1497,7 @@ function stageCardFirstWave(){
 function stageDemand(id){
   try{
     if(['lyricadd','song','textedit'].includes(id))stageGrowTextEditors();
-    if(['grammarcategories','grammarcategory'].includes(id))stageGrammarPaint();
+    if(['grammarcategories','grammarcategory','grammarrule'].includes(id))stageGrammarPaint();
     if(['everyday','everydaygroup','everydaytopic'].includes(id))stageEverydayLoad();
     if(['library','allwords','home'].includes(id)&&authUser)stageEverydayLoad();
     if(id==='library'){stageLibrarySummary().catch(error=>window.TursoMain.notice(error.message,true));if(typeof authUser!=='undefined'&&authUser)stageKick('cards:first-wave',stageCardFirstWave);}
@@ -2259,23 +2259,33 @@ function stageFetchSpeak(index,active=()=>true){
 
 let stageEverydayState={group:'speech',topic:'',groupSearch:'',wordSearch:''};
 var stageGrammarGroup='classes';
+var stageGrammarRule='';
 function stageGrammarPaint(){
   const groups=window.GrammarCategories||[];
   const list=document.getElementById('grammarCategoryGroups');if(!list)return;
-  list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title,group.cards.length,'data-grammar-group','categories')).join('');
+  list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title+' / '+(window.GrammarGroupNames?.[group.id]||''),group.cards.length,'data-grammar-group','categories')).join('');
   const group=groups.find(group=>group.id===stageGrammarGroup);if(!group)return;
-  document.getElementById('grammarCategoryTitle').textContent=group.title;
-  const query=document.getElementById('grammarCategorySearch').value.trim().toLocaleLowerCase();
-  document.getElementById('grammarCategoryCards').innerHTML=group.cards.filter(card=>!query||card.join(' ').toLocaleLowerCase().includes(query)).map(([title,meaning,example,translation])=>'<article class="wcard">'+wordPic(title)+'<div class="en">'+esc(title)+'</div><p class="label">'+esc(meaning)+'</p><p>'+esc(example)+'</p><p class="label">'+esc(translation)+'</p></article>').join('')||'<p class="hint">No results.</p>';
+  document.getElementById('grammarCategoryTitle').textContent=group.title+' / '+(window.GrammarGroupNames?.[group.id]||'');
+  document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
+  const detail=window.GrammarDetails?.[stageGrammarRule];if(!detail)return;
+  document.getElementById('grammarRuleTitle').textContent=stageGrammarRule+' / '+detail.ru;
+  const pair=(en,ru)=>'<p lang="en">'+esc(en)+'</p><p lang="ru" class="label">'+esc(ru)+'</p>';
+  const labels=window.GrammarUi;
+  document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band"><h2>'+esc(labels.examples)+'</h2><ol>'+detail.examples.map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn" type="button" data-grammar-vocabulary>'+esc(labels.vocabulary)+'</button><div class="grammar-band"><h2>'+esc(labels.references)+'</h2><ul>'+window.GrammarReferences.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';
 }
-document.addEventListener('click',event=>{const button=event.target.closest('[data-grammar-group]');if(!button)return;pushHistory();stageGrammarGroup=button.dataset.grammarGroup;document.getElementById('grammarCategorySearch').value='';stageGrammarPaint();show('grammarcategory');});
-document.addEventListener('input',event=>{if(event.target.id==='grammarCategorySearch')stageGrammarPaint();});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-grammar-group],[data-grammar-rule],[data-grammar-vocabulary]');if(!button)return;
+  pushHistory();
+  if(button.hasAttribute('data-grammar-vocabulary')){stageEverydayState={group:'topics',topic:'topic-grammar',groupSearch:'',wordSearch:''};show('everydaytopic');stageEverydayLoad();return;}
+  if(button.dataset.grammarGroup){stageGrammarGroup=button.dataset.grammarGroup;stageGrammarRule='';stageGrammarPaint();show('grammarcategory');}
+  else {stageGrammarRule=button.dataset.grammarRule;stageGrammarPaint();show('grammarrule');}
+});
 var stageEverydayData=null,stageEverydayAudience='',stageEverydayFlight=null;
 function stageEverydayAudienceKey(){return [authUser?.id||'',authUser?.role||'',viewAccount?.id||'',viewGen].join(':');}
 function stageEverydayCount(group){return group.topics.reduce((count,topic)=>count+topic.entries.length,0);}
 function stageEssentialEntries(){
   if(!stageEverydayData||stageEverydayAudience!==stageEverydayAudienceKey())return [];
-  return stageEverydayData.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>({...entry,source:'Essential English · '+group.title+' · '+topic.title}))));
+  return stageEverydayData.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.map(entry=>({...entry,source:'Essential English · '+group.title+' · '+topic.title+(entry.source?' · '+entry.source:'')}))));
 }
 function stageEssentialCard(id){
   const entry=stageEssentialEntries().find(item=>String(item.card.stageId)===String(id));if(!entry)return null;
