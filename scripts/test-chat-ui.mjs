@@ -49,7 +49,9 @@ try{
     if(action==='mute')result={room:{...room(),muted:body.muted}};
     ws.send(JSON.stringify({type:'response',requestId,result}));
   });});
+  let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''};
   await page.route('**/api/**',async route=>{const url=new URL(route.request().url()),path=url.pathname;http.push(path);let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
+    if(path==='/api/me/notification-sounds'){if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};data=soundSettings;}
     if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user:student};
     if(path==='/api/everyday'){let id=20000;data={version:1,groups:everydayGroups.map(group=>({...group,topics:group.topics.map(topic=>({...topic,entries:topic.entries.map(entry=>({...entry,cardId:++id,card:{en:entry.en,word:entry.en,ru:entry.ru,stageId:id,stageRevision:1,stageScope:'shared'}}))}))}))};}
@@ -252,10 +254,10 @@ try{
   await page.locator('[data-msg-original]').first().click();assert.equal(await page.locator('[data-msg-id="1"]').evaluate(node=>node.classList.contains('is-focused')),true);assert.ok(commands.includes('original'));
   const attachmentReply={id:rows.at(-1).id+1,text:'Attachment reply',replyTo:1,replyText:'',replySender:'Teacher',replyCategory:'personal',senderId:teacher,sender:'Teacher',category:'personal',createdMs:Date.now()};rows.push(attachmentReply);event('message',{message:attachmentReply});
   await page.locator('[data-msg-id="'+attachmentReply.id+'"] [data-msg-quote="1"]').click();assert.equal(await page.locator('[data-msg-id="1"]').evaluate(node=>node.classList.contains('is-focused')),true);
-  await page.locator('#msgSettings').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('[data-pref="sound"]').check();await page.locator('dialog[open] [data-msg-close]').click();
+  await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-notification-sounds]').click();await page.locator('.notification-sound-settings [name=enabled]').check();await page.locator('.notification-sound-settings [data-close]').click();await page.evaluate(()=>window.enquizVisit('messages'));
   await page.waitForTimeout(450);const toneBefore=await page.evaluate(()=>window.fixtureAlertTones||0),soundMessage={id:rows.at(-1).id+1,text:'Sound notification',senderId:teacher,sender:'Teacher',category:'personal',createdMs:Date.now()};rows.push(soundMessage);event('message',{message:soundMessage});
   await page.waitForFunction(before=>(window.fixtureAlertTones||0)>before,toneBefore);const toneAfter=await page.evaluate(()=>window.fixtureAlertTones);event('message',{message:soundMessage});await page.waitForTimeout(50);assert.equal(await page.evaluate(()=>window.fixtureAlertTones),toneAfter);
-  await page.locator('#msgSettings').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('[data-pref="sound"]').uncheck();await page.locator('dialog[open] [data-msg-close]').click();
+  await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-notification-sounds]').click();await page.locator('.notification-sound-settings [name=enabled]').uncheck();await page.locator('.notification-sound-settings [type=submit]').click();await page.locator('.notification-sound-settings [role=status]').filter({hasText:'Saved'}).waitFor();await page.locator('.notification-sound-settings [data-close]').click();await page.evaluate(()=>window.enquizVisit('messages'));
   const mutedSound={...soundMessage,id:soundMessage.id+1,text:'Silent notification'};rows.push(mutedSound);event('message',{message:mutedSound});await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>window.fixtureAlertTones),toneAfter);
   const accountGroups=[{id:71,title:'A1 Open',revision:1,lessonIds:[1],examIds:[]},{id:72,title:'B1 Group',revision:1,lessonIds:[],examIds:[]}];
   await page.evaluate(()=>{const notice=document.getElementById('msgStatus');notice.textContent='Enter the full email, login or @username.';notice.hidden=false;});await page.locator('#msgStatus').waitFor();

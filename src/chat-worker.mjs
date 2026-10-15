@@ -1,4 +1,5 @@
 import {currentUser} from './worker.js';
+import {notificationSoundRoute} from './notification-sounds.mjs';
 import {studyClient} from './turso-stage-worker.mjs';
 import {MessageService} from './turso-messages.mjs';
 import {chatCall,ChatRoom,ChatInbox} from './chat-durable.mjs';
@@ -122,6 +123,12 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
     if(legacyChat)return json({error:'Reload the page to connect to the new chat.'},410);
     const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||['/api/me/account','/api/me/revoke'].includes(path)),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
     try{
+      if(path==='/api/me/notification-sounds'){
+        if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
+        const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
+        if(mutation&&(request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true'))fail(403,'Unavailable.');
+        return await notificationSoundRoute(request,env.CONTENT_MEDIA,actor);
+      }
       if(path==='/api/messages/profile'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
         const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[actor.id]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');

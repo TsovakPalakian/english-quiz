@@ -319,3 +319,19 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .brand-account{display:flex;padding:0;border:0;background:transparent;flex-shrink:0;cursor:pointer}
 .brand-account .chat-avatar{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:var(--acc);color:var(--on-acc,var(--card));font-size:14px}
 .brand-row .brand{padding:0;letter-spacing:0}
+.notification-sound-settings{box-sizing:border-box;width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid var(--line);border-radius:8px;padding:20px;background:var(--card);color:var(--ink)}
+.notification-sound-settings header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.notification-sound-settings h2{font-size:20px;margin:0}
+.notification-sound-settings form,.notification-sound-settings [data-trim]{display:grid;gap:12px}
+.notification-sound-settings [hidden]{display:none!important}
+.notification-sound-settings label{display:grid;gap:6px;min-width:0;font-size:16px}
+.notification-sound-settings .sound-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.notification-sound-settings input,.notification-sound-settings select{box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;margin:0}
+.notification-sound-settings input[type=checkbox]{width:20px;height:20px;min-height:20px;flex:none}
+.notification-sound-settings input[type=range]{padding:0;min-height:32px;accent-color:var(--acc)}
+.notification-sound-settings input[type=file]{font-size:14px;overflow:hidden}
+.notification-sound-settings button{min-height:40px}
+.notification-sound-settings .sound-actions{display:flex;gap:8px}
+.notification-sound-settings button:has(svg){width:40px;height:40px;padding:8px;display:grid;place-items:center}
+.notification-sound-settings svg{width:20px;height:20px}
+.notification-sound-settings [role=status]{margin:0;overflow-wrap:anywhere;font-size:14px}

@@ -210,20 +210,20 @@
     const end=()=>{if(!drag)return;drag=null;section.classList.remove('is-resizing');savePrefs();};handle.onpointerup=end;handle.onpointercancel=end;handle.onlostpointercapture=end;
     handle.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const min=id==='msgResizeLeft'?80:240;prefs[name]=event.key==='Home'?min:event.key==='End'?640:Math.max(min,Math.min(640,Number(handle.getAttribute('aria-valuenow'))+(event.key==='ArrowRight'?1:-1)*side*(event.shiftKey?40:10)));fitPanels();savePrefs();};
   }
-  let alertAudio, lastAlert = 0;
+  let lastAlert = 0;
   const alertSeen = new Set();
   function unlockAlertAudio(event){
     if(!event.isTrusted||!current())return;
-    try{const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;alertAudio||=new Audio();if(alertAudio.state==='suspended')alertAudio.resume().catch(()=>{});}catch{}
+    window.NotificationSounds?.unlock().catch(()=>{});
   }
   document.addEventListener('pointerdown',unlockAlertAudio,{passive:true});
   document.addEventListener('keydown',unlockAlertAudio,{passive:true});
   function messageSound(event,isNew){
     const id=event.room.id+':'+event.message.id;
     if(alertSeen.has(id))return;alertSeen.add(id);if(alertSeen.size>500)alertSeen.delete(alertSeen.values().next().value);
-    if(!isNew||prefs.sound===false||event.room.muted||event.message.senderId===account||!current()||!alertAudio||alertAudio.state!=='running'||Date.now()-lastAlert<400)return;
+    if(!isNew||event.room.muted||event.message.senderId===account||!current()||Date.now()-lastAlert<400)return;
     lastAlert=Date.now();
-    try{const now=alertAudio.currentTime,oscillator=alertAudio.createOscillator(),gain=alertAudio.createGain();oscillator.type='sine';oscillator.frequency.setValueAtTime(660,now);oscillator.frequency.setValueAtTime(880,now+.09);gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.06,now+.015);gain.gain.exponentialRampToValueAtTime(.0001,now+.22);oscillator.connect(gain);gain.connect(alertAudio.destination);oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};oscillator.start(now);oscillator.stop(now+.23);}catch{}
+    try{window.NotificationSounds?.play();}catch{}
   }
   function receive(event){
     if(event.profile){const changed=(profileViews[event.profile.id]?.username||'')!==(event.profile.username||'');profileViews[event.profile.id]=event.profile;if(changed)paintRooms();scheduleProfiles();return;}
@@ -680,7 +680,7 @@
         const saved=details.change||details.user,name=String(saved.name??profile.name??''),names=name.split(/\s+/),username=profileViews[profile.id]?.username||'';initialUsername=username;
         html='<form class="chat-edit-profile"><div class="chat-edit-identity"><button type="button" class="chat-photo-select" data-avatar-upload="'+escape(profile.id)+'" title="Change photo" aria-label="Change photo">'+avatar(profile.name,false,profile.id)+'<span class="chat-photo-camera">'+icon('camera')+'</span></button><div><label>First name<input name="firstName" maxlength="80" value="'+escape(names[0]||'')+'"'+(details.locked?' readonly':'')+'></label><label>Last name<input name="lastName" maxlength="80" value="'+escape(names.slice(1).join(' '))+'"'+(details.locked?' readonly':'')+'></label></div></div><label>Email<input name="email" type="email" required maxlength="120" autocomplete="email" value="'+escape(saved.email||profile.email||'')+'"'+(details.locked?' readonly':'')+'></label><label>Username<input name="username" maxlength="33" autocomplete="off" placeholder="@username" pattern="@[A-Za-z0-9_]{3,32}" value="'+escape(username)+'"></label><p role="status">'+(details.change?'Changes awaiting approval.':details.locked?'Name and email changes are currently locked.':'')+'</p><button type="submit" class="primary" data-profile-save>Done</button></form><button class="chat-link" type="button" data-profile-open>My account</button><button class="chat-link" type="button" data-chat-blocked>Blocked users</button>';
       }
-      if(id==='notifications')html='<label class="chat-setting-row"><span>Desktop notifications</span><input type="checkbox" data-pref="notifications" '+(prefs.notifications?'checked':'')+'></label><label class="chat-setting-row"><span>Message sound</span><input type="checkbox" data-pref="sound" '+(prefs.sound!==false?'checked':'')+'></label><p>Notifications stay off for muted conversations.</p>';
+      if(id==='notifications')html='<label class="chat-setting-row"><span>Desktop notifications</span><input type="checkbox" data-pref="notifications" '+(prefs.notifications?'checked':'')+'></label>';
       if(id==='interface')html=[['left','Conversation list'],['right','Chat info'],['enter','Enter sends messages']].map(([p,label])=>'<label class="chat-setting-row"><span>'+label+'</span><input type="checkbox" data-pref="'+p+'" '+(prefs[p]!==false?'checked':'')+'></label>').join('');
       if(id==='security'){const result=await request('sessions');if(!node.open)return;html='<p>Connected sessions: '+result.sessions.length+'</p><p>Connections authenticate again when they reconnect.</p><button type="button" class="chat-link danger" data-logout>Close current session</button>';}
       if(id==='help')html='<p>Personal contains conversations. Study alerts contains important teacher announcements and exam notices.</p><p>Shift+Enter adds a new line. Search finds messages in the selected category. Your draft is saved on this device.</p><p>Grey checks show delivery; blue checks mean everyone in the conversation has read the message.</p>';
@@ -745,6 +745,7 @@
   function checkAuth(){
     if(databaseResetting)return;
     const user=signedIn(),next=user?user.id+':'+user.role:'';
+    if(signature!==next)window.NotificationSounds?.load(user?.id||'');
     if(signature!==next){remember();cancelUploads();closeContext();clearSelection();cancelRecording();disconnect();document.querySelectorAll('dialog.chat-dialog').forEach(d=>d.close());generation++;signature=next;account=user?.id||'';seq=0;data={rooms:[],contacts:[],groups:[],total:0};room='';reply=null;pending=null;files=[];historyCache.clear();membersCache.clear();cursors.clear();timeline.replaceChildren();composer.value='';prefs={left:true,right:false,enter:true,notifications:false};try{Object.assign(prefs,JSON.parse(localStorage.getItem('english-chat-settings:'+account)||'{}'));}catch{}if(innerWidth<=700)prefs.right=false;el('msgRight').hidden=!prefs.right;el('msgRooms').closest('.chat-list').hidden=!prefs.left;el('msgListBack').hidden=!!prefs.left;el('msgProfile').textContent=initials(user?.name||user?.login);badge();paintRooms();if(user){reconnectCount=0;connect();}}
     if(profileViews._account!==account){profileViews=Object.create(null);profileViews._account=account;profileRequested.clear();}
     const face=el('msgProfile');face.dataset.avatarSubject=user?.id||'';face.dataset.avatarName=user?.name||user?.login||'';
