@@ -190,14 +190,14 @@ examRefreshTaskScores=function(){
 const materialListBefore=examPaintList;
 function examNeedsReview(exam){return exam.instanceStatus==='ready'||!exam.instanceStatus&&examVisibleBlocks(exam).some(block=>['submitted','reviewing'].includes(block.doc?.assessmentState));}
 function examSummary(rows,groups,compact=false){
-  const works=rows.filter(exam=>exam.instanceStatus),templates=rows.filter(exam=>!exam.instanceStatus);
+  const works=rows.filter(exam=>exam.instanceStatus==='active'),templates=rows.filter(exam=>!exam.instanceStatus);
   return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact);
 }
 examPaintList=function(){
-  const tabs=document.getElementById('examSections');if(tabs){tabs.innerHTML=['active','ready','completed'].map((key,index)=>'<button class="btn'+(examSection===key?' primary':'')+'" type="button" data-exam-section="'+key+'">'+['Exams','Ready for review','Completed'][index]+'</button>').join('');const add=document.getElementById('examNew');add?.before(tabs);}
+  const tabs=document.getElementById('examSections');if(tabs){tabs.innerHTML=['active','assigned','ready','completed'].map((key,index)=>'<button class="btn'+(examSection===key?' primary':'')+'" type="button" data-exam-section="'+key+'">'+['Exams','Assigned works','Ready for review','Completed'][index]+'</button>').join('');const add=document.getElementById('examNew');add?.before(tabs);}
   materialListBefore();const box=document.getElementById('examList');if(!box)return;
   const allRows=examShown().filter(exam=>canEditLessons()||canTuneStudentLessons()||!!exam.studentId).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
-  const rows=allRows.filter(exam=>examSection==='ready'?examNeedsReview(exam):examSection==='completed'?exam.instanceStatus==='completed':!exam.instanceStatus||exam.instanceStatus==='active');
+  const rows=allRows.filter(exam=>examSection==='assigned'?exam.instanceStatus==='active':examSection==='ready'?examNeedsReview(exam):examSection==='completed'?exam.instanceStatus==='completed':!exam.instanceStatus);
   const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
   const groups=[...new Map([...classGroups.filter(group=>canEditLessons()||canTuneStudentLessons()||!group.hidden).map(group=>[String(group.id),group]),...allRows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})]).values()];
   const group=classGroups.find(group=>String(group.id)===String(examViewGroup))||groups.find(group=>String(group.id)===String(examViewGroup));
@@ -208,7 +208,7 @@ examPaintList=function(){
   root.querySelector(':scope > .sub').hidden=true;
   if(tabs)tabs.hidden=!leaf;
   const search=document.getElementById('examListSearch')?.closest('.list-search');if(search)search.hidden=!leaf;
-  const add=document.getElementById('examNew');if(add)add.hidden=!leaf||!canEditLessons()||!classGroups.some(item=>String(item.id)===String(examViewGroup));
+  const add=document.getElementById('examNew');if(add)add.hidden=examSection!=='active'||!leaf||!canEditLessons()||!classGroups.some(item=>String(item.id)===String(examViewGroup));
   let overview=document.getElementById('examOverview');if(!overview){overview=document.createElement('p');overview.id='examOverview';overview.className='sub';box.parentElement.before(overview);}
   const shownGroups=groups.filter(item=>!examViewLevel||accountGroupLevel(item)===examViewLevel).filter(item=>!leaf||String(item.id)===String(examViewGroup));
   const shownIds=new Set(shownGroups.map(item=>String(item.id))),shownRows=allRows.filter(exam=>shownIds.has(String(groupFor(exam).id)));
@@ -222,13 +222,14 @@ examPaintList=function(){
   }
   if(!leaf){box.innerHTML='<div class="decks">'+shownGroups.map(item=>'<button class="file-card" type="button" data-exam-group-view="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><span class="label">'+examSummary(allRows.filter(exam=>String(groupFor(exam).id)===String(item.id)),[item],true)+'</span></button>').join('')+'</div>';return;}
   const subgroupRows=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup));
-  const studentGroups=(canEditLessons()||canTuneStudentLessons())&&['ready','completed'].includes(examSection);
+  const studentGroups=(canEditLessons()||canTuneStudentLessons())&&['assigned','ready','completed'].includes(examSection);
   const renderExam=exam=>{
     const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;
     const blockCount=examVisibleBlocks(exam).length;
     const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+blockCount+' examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
-    const tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
+    let tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
+    if(!exam.instanceStatus&&canEditLessons())tools=tools.replace('</button>','</button><button type="button" data-exam-assign="'+exam.id+'" title="Assign exam" aria-label="Assign exam"><i data-lucide="user-plus"></i></button>');
     return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
   };
   if(studentGroups){

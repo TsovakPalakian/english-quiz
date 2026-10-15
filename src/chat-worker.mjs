@@ -202,7 +202,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         if(logout&&actor)await chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{});
       }
       if(syncPolicy)try{await chatCall(env,'CHAT_BRIDGE','global','/policy',{});}catch{ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/policy',{}).catch(()=>{}));}
-      if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
+      if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/exams/assign','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
       if(response.ok&&mutation&&path.startsWith('/api/exams'))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/catalog',{}).catch(()=>{}));
       return response;
     }catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}

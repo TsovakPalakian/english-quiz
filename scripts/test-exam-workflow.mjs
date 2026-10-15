@@ -53,6 +53,21 @@ test('fresh per-request assessment clients keep submit, review and publish below
     console.log('Fresh-request SQL round trips:',JSON.stringify(counts));
   }finally{f.sqlite.close();}
 });
+test('Subgroup assignment rejects outsiders, is replay-safe and exposes active work to teachers',async()=>{
+  const {db,sqlite}=fixture();try{
+    const exams=new ExamService(db),messages=new MessageService(db,async()=>[teacher,student,{id:'outside',role:'USER'}]);
+    await exams.ensure();await messages.ensure();
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher')");
+    const source=await exams.save(teacher,{exam:{title:'A1 Assignment',groupId:99,published:true,blocks:[{title:'Quiz',published:true,materials:[{type:'quiz',quizType:'Choice',scoringVersion:3,items:[{prompt:'Choose',options:['Yes','No'],answer:0,maxPoints:1}]}]}]}});
+    const body={examId:source.id,groupId:99,studentId:student.id,clientKey:'subgroup-assignment'};
+    await assert.rejects(messages.assignInSubgroup(student,body),error=>error.status===403);
+    await assert.rejects(messages.assignInSubgroup(teacher,{...body,studentId:'outside'}),error=>error.status===403);
+    await assert.rejects(messages.assignInSubgroup(teacher,{...body,groupId:98}),error=>error.status===403);
+    await messages.assignInSubgroup(teacher,body);await messages.assignInSubgroup(teacher,body);
+    const instances=await db.read('SELECT exam_id FROM exam_instances WHERE source_exam_id=?',[source.id]);assert.equal(instances.length,1);
+    const row=(await exams.list(teacher)).find(exam=>exam.id===instances[0].exam_id);assert.equal(row.instanceStatus,'active');assert.equal(row.groupId,99);
+  }finally{sqlite.close();}
+});
 test('complete demo supports all 16 quiz types, frozen copies, private references, review and idempotent completion without changing lessons',async()=>{
   const f=fixture();try{
     const {db,sqlite}=f,exams=new ExamService(db),assessment=new AssessmentService(db),workflow=new ExamWorkflowService(db);

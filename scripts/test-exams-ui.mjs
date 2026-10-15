@@ -23,7 +23,8 @@ try{
   const block={id:12,title:'Examination block',published:true,materials:[{id:13,type:'text',tab:'overview',html:'<p>Fixture</p>'}]};
   const exams=[{id:11,title:'A1 Exam',groupId:41,groupTitle:'A1 Group',date:'2026-10-15',published:true,blocks:[block]},
     {id:21,title:'A1 Assigned',groupId:41,groupTitle:'A1 Group',studentId:'b'.repeat(32),studentName:'Student',instanceStatus:'ready',published:true,blocks:[{...block,id:22}]},
-    {id:31,title:'A1 Completed',groupId:41,groupTitle:'A1 Group',studentId:'b'.repeat(32),instanceStatus:'completed',published:true,blocks:[{...block,id:32}]}];
+    {id:31,title:'A1 Completed',groupId:41,groupTitle:'A1 Group',studentId:'b'.repeat(32),instanceStatus:'completed',published:true,blocks:[{...block,id:32}]},
+    {id:51,title:'A1 In progress',groupId:41,groupTitle:'A1 Group',studentId:'b'.repeat(32),studentName:'Student',instanceStatus:'active',published:true,blocks:[{...block,id:52}]}];
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;if(route.request().method()!=='GET')writes.push(path);
     let data={};
@@ -32,6 +33,8 @@ try{
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};
     if(path==='/api/groups')data={groups:groups.map(group=>({...group,date:'2026-10-15',revision:1}))};
+    if(path==='/api/groups/members')data={members:[{accountId:'b'.repeat(32),groupId:41},{accountId:'c'.repeat(32),groupId:43}]};
+    if(path==='/api/admin/users')data={users:[{id:'b'.repeat(32),name:'Student',role:'USER',active:1},{id:'c'.repeat(32),name:'Outside student',role:'USER',active:1}]};
     if(path==='/api/lessons')data={materials:[{id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-15',blocks:[]}]};
     if(path==='/api/exams')data={exams};
     if(path==='/api/exams/work')data={work:[]};
@@ -55,10 +58,10 @@ try{
   await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 5'));
   assert.equal(await page.locator('#examSections').isVisible(),false);
   assert.equal(await page.locator('#examListSearch').isVisible(),false);
-  assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 2','ready for review · 1','completed · 1']);
+  assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 1','ready for review · 1','completed · 1']);
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*1/);
   await page.locator('[data-exam-level="A1"]').click();
-  assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 2','ready · 1','completed · 1']);
+  assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 1','ready · 1','completed · 1']);
   for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await page.screenshot({path:'/private/tmp/compact-exam-metrics.png'});await page.setViewportSize({width:1280,height:900});
   assert.equal(await page.locator('[data-exam-group-view]').count(),2,'Empty lesson subgroups remain visible');
   assert.equal(await page.locator('#examList button').filter({hasText:/^Back$/}).count(),0);
@@ -68,7 +71,23 @@ try{
   assert.equal(await page.locator('#examNew').isVisible(),true);
   assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1\nA1 Group');
   assert.match(await page.locator('[data-exam-open="11"]').innerText(),/1 examination block/);
+  assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Assigned copies are not templates');
+  assert.equal(await page.locator('[data-exam-hide="exam:11"] + [data-exam-assign="11"]').count(),1,'Assign follows visibility');
+  await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();
+  assert.deepEqual(await page.locator('.exam-assign-dialog select option').allTextContents(),['Student']);
+  await page.locator('.exam-assign-dialog [data-close]').click();
+  await page.locator('[data-exam-section="assigned"]').click();
+  assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);
+  assert.equal(await page.locator('#examNew').isVisible(),false);
+  exams.find(exam=>exam.id===51).instanceStatus='ready';
+  await page.evaluate(async()=>{await examPull(true);examPaintList();});
+  assert.equal(await page.locator('#examOverview .metric-pairs>span').nth(3).innerText(),'assigned works · 0');
+  assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Submitted work leaves Assigned works');
+  exams.find(exam=>exam.id===51).instanceStatus='active';
+  await page.evaluate(async()=>{await examPull(true);examPaintList();});
   await page.locator('[data-exam-section="ready"]').click();
+  assert.equal(await page.locator('[data-exam-open="51"]').count(),0);
+  assert.equal(await page.locator('#examNew').isVisible(),false);
   assert.equal(await page.locator('[data-exam-open="21"]').count(),1);
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
   const studentGroup=page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"]');
@@ -78,6 +97,7 @@ try{
   assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),false,'Student row collapses');
   await studentGroup.locator('summary').click();
   await page.locator('[data-exam-section="completed"]').click();
+  assert.equal(await page.locator('#examNew').isVisible(),false);
   assert.equal(await page.locator('[data-exam-open="31"]').count(),1);
   assert.equal(await page.locator('[data-exam-student="'+ 'b'.repeat(32)+'"] [data-exam-open="31"]').isVisible(),true,'Completed work is also grouped by student');
   await page.locator('[data-exam-section="active"]').click();

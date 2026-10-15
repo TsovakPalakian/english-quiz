@@ -24,7 +24,7 @@ async function body(request) {
 export function messagesWorker({mode='test',baseWorker=base,authenticate=currentUser,studyDatabase=database,directory}={}) {
   return {async fetch(request,env,ctx) {
     const url = new URL(request.url), path = url.pathname;
-    const messageRoute = path === '/api/messages' || path.startsWith('/api/messages/');
+    const messageRoute = path === '/api/messages' || path.startsWith('/api/messages/') || path==='/api/exams/assign';
     const asset = (mode==='production'?['/messages.js','/messages.css']:['/messages-test.js','/messages-test.css']).includes(path);
     if (!messageRoute && !asset && !(['/api/groups/manage','/api/groups/members'].includes(path) && request.method==='POST')) return baseWorker.fetch(request,env,ctx);
     if (env.MESSAGES_ENABLED!=='true' && !messageRoute && !asset) return baseWorker.fetch(request,env,ctx);
@@ -62,6 +62,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
         if (path==='/api/messages/assignments') return json(await service.assignments(actor));
         if (path==='/api/messages/exam') return json(await service.examLink(actor,Number(url.searchParams.get('id'))));
       } else {
+        if (path==='/api/exams/assign') return json(await service.assignInSubgroup(actor,value));
         if (path==='/api/messages/open') return json(await service.open(actor,value));
         if (path==='/api/messages/send') return json(await service.send(actor,value));
         if (path==='/api/messages/read') return json(await service.read(actor,value));

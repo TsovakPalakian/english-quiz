@@ -109,3 +109,26 @@ document.addEventListener('click',async event=>{
   catch(error){if(output?.isConnected)output.textContent=error.message;}
   finally{if(button.isConnected)button.disabled=false;}
 });
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-exam-assign]');if(!button||!canEditLessons())return;
+  const examId=Number(button.dataset.examAssign),groupId=Number(examViewGroup),actor=authUser?.id;
+  button.disabled=true;
+  try{
+    const [membership,accounts]=await Promise.all([accountFetch('/api/groups/members'),accountFetch('/api/admin/users')]);
+    if(authUser?.id!==actor||Number(examViewGroup)!==groupId)return;
+    const ids=new Set((membership.members||[]).filter(row=>Number(row.groupId)===groupId).map(row=>row.accountId));
+    const students=(accounts.users||[]).filter(user=>user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked&&ids.has(user.id));
+    const dialog=document.createElement('dialog');dialog.className='chat-dialog exam-assign-dialog';
+    dialog.innerHTML='<header class="chat-dialog-head"><h2>Assign exam</h2><button type="button" class="chat-icon" data-close aria-label="Close" title="Close"><i data-lucide="x"></i></button></header><form><label>Student<select name="student" required>'+students.map(user=>'<option value="'+esc(user.id)+'">'+esc(user.name||user.login)+'</option>').join('')+'</select></label><p role="status">'+(students.length?'':'No students in this subgroup.')+'</p><button type="submit" class="btn primary"'+(students.length?'':' disabled')+'>Assign exam</button></form>';
+    document.body.append(dialog);dialog.showModal();window.lucide?.createIcons({root:dialog});dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
+    const keys=new Map();dialog.querySelector('form').onsubmit=async submit=>{
+      submit.preventDefault();const form=submit.currentTarget,studentId=form.elements.student.value,save=form.querySelector('[type=submit]');save.disabled=true;
+      try{
+        if(authUser?.id!==actor||Number(examViewGroup)!==groupId)throw Error('Account or subgroup changed. Reopen assignment.');
+        if(!keys.has(studentId))keys.set(studentId,crypto.randomUUID());
+        await accountFetch('/api/exams/assign',{method:'POST',body:JSON.stringify({examId,groupId,studentId,clientKey:keys.get(studentId)})});
+        dialog.close();examSection='assigned';await examPull(true);examPaintList();
+      }catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{save.disabled=false;}
+    };
+  }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
+});
