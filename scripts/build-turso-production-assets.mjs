@@ -24,7 +24,7 @@ copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalo
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
-copyFileSync(resolve(root,'production/chat.js'),resolve(target,'messages.js'));
+writeFileSync(resolve(target,'messages.js'),readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
 copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
 for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
