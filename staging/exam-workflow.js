@@ -118,15 +118,19 @@ document.addEventListener('click',async event=>{
     if(authUser?.id!==actor||Number(examViewGroup)!==groupId)return;
     const ids=new Set((membership.members||[]).filter(row=>Number(row.groupId)===groupId).map(row=>row.accountId));
     const students=(accounts.users||[]).filter(user=>user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked&&ids.has(user.id));
-    const dialog=document.createElement('dialog');dialog.className='chat-dialog exam-assign-dialog';
-    dialog.innerHTML='<header class="chat-dialog-head"><h2>Assign exam</h2><button type="button" class="chat-icon" data-close aria-label="Close" title="Close"><i data-lucide="x"></i></button></header><form><label>Student<select name="student" required>'+students.map(user=>'<option value="'+esc(user.id)+'">'+esc(user.name||user.login)+'</option>').join('')+'</select></label><p role="status">'+(students.length?'':'No students in this subgroup.')+'</p><button type="submit" class="btn primary"'+(students.length?'':' disabled')+'>Assign exam</button></form>';
-    document.body.append(dialog);dialog.showModal();window.lucide?.createIcons({root:dialog});dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();
+    const exam=examFind(examId),group=classGroups.find(item=>Number(item.id)===groupId);
+    const dialog=document.createElement('dialog');dialog.className='display-panel content-copy-panel exam-assign-dialog';
+    dialog.innerHTML='<form><div class="display-head"><h2>Assign exam</h2><button type="button" class="btn icon" data-close aria-label="Close" title="Close">&times;</button></div><p class="sub">'+esc(exam?.title||'Exam')+'</p><fieldset><label>Recipient<select name="student" required><option value="group">'+esc('Whole group · '+(group?.title||'Current subgroup'))+'</option>'+students.map(user=>'<option value="'+esc(user.id)+'">'+esc(user.name||user.login)+'</option>').join('')+'</select></label></fieldset><p class="sub" role="status">'+(students.length?'':'No active students in this subgroup.')+'</p><div class="content-copy-actions"><button class="btn" type="button" data-cancel>Cancel</button><button type="submit" class="btn primary"'+(students.length?'':' disabled')+'>Assign exam</button></div></form>';
+    dialog.querySelector('select').insertAdjacentHTML('afterbegin','<option value="" selected disabled>Choose recipient</option>');
+    document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>{dialog.remove();button.focus();};
+    const outside=event=>{const rect=dialog.getBoundingClientRect();return event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom;};let pressedOutside=false;
+    dialog.addEventListener('pointerdown',event=>{pressedOutside=event.target===dialog&&outside(event);});dialog.addEventListener('click',event=>{if(pressedOutside&&event.target===dialog&&outside(event))dialog.close();});
     const keys=new Map();dialog.querySelector('form').onsubmit=async submit=>{
       submit.preventDefault();const form=submit.currentTarget,studentId=form.elements.student.value,save=form.querySelector('[type=submit]');save.disabled=true;
       try{
         if(authUser?.id!==actor||Number(examViewGroup)!==groupId)throw Error('Account or subgroup changed. Reopen assignment.');
         if(!keys.has(studentId))keys.set(studentId,crypto.randomUUID());
-        await accountFetch('/api/exams/assign',{method:'POST',body:JSON.stringify({examId,groupId,studentId,clientKey:keys.get(studentId)})});
+        await accountFetch('/api/exams/assign',{method:'POST',body:JSON.stringify({examId,groupId,...(studentId==='group'?{targetKind:'group'}:{studentId}),clientKey:keys.get(studentId)})});
         dialog.close();examSection='assigned';await examPull(true);examPaintList();
       }catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{save.disabled=false;}
     };

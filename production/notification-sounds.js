@@ -24,7 +24,7 @@
   }
   async function load(account){
     if(account===owner&&loading)return loading;
-    if(account!==owner){stop();owner=account;settings=defaults();buffer=null;uploadBuffer=null;available=false;version++;dialog?.close();}
+    if(account!==owner){stop();owner=account;settings=defaults();buffer=null;uploadBuffer=null;available=false;version++;dialog?.closest('dialog')?.close();}
     if(!account)return;
     const token=version;
     loading=api().then(value=>{if(token!==version)return;if(typeof value.enabled!=='boolean'||!Array.isArray(value.sounds))throw Error('Sound settings unavailable.');settings=value;available=true;return preload();}).catch(()=>{if(token===version)available=false;}).finally(()=>{if(token===version)loading=null;});
@@ -45,16 +45,19 @@
     for(let i=0;i<count;i++){const position=(start+i/rate)*audio.sampleRate,left=Math.floor(position),fraction=position-left;let sample=0;for(const data of channels)sample+=(data[left]||0)*(1-fraction)+(data[left+1]||0)*fraction;sample/=channels.length;const fade=Math.min(1,i/240,(count-1-i)/240);view.setInt16(44+i*2,Math.max(-1,Math.min(1,sample*fade))*32767,true);}
     return bytes;
   }
-  async function open(){
+  async function open(host){
+    const embedded=host instanceof HTMLElement;
     const account=own();if(!account)return;await load(account);if(account!==own())return;
     if(!available)throw Error('Sound settings unavailable. Try again.');
-    if(!dialog){dialog=document.createElement('dialog');dialog.className='notification-sound-settings';document.body.append(dialog);dialog.addEventListener('close',()=>{stop();if(owner===own())load(owner);});}
+    if(embedded){dialog=host;dialog.classList.add('notification-sound-settings','notification-sounds-inline');}
+    else if(!(dialog instanceof HTMLDialogElement)){dialog=document.createElement('dialog');dialog.className='notification-sound-settings';document.body.append(dialog);dialog.addEventListener('close',()=>{stop();if(owner===own())load(owner);});}
     const render=()=>{
       dialog.innerHTML='<header><h2>Notification sounds</h2><button type="button" data-close title="Close" aria-label="Close"><i data-lucide="x"></i></button></header><form><label class="sound-toggle">Message notifications<input type="checkbox" name="enabled"'+(settings.enabled?' checked':'')+'></label><label>Sound<select name="sound">'+choices.map(([id,name,length])=>'<option value="'+id+'"'+(id===settings.sound?' selected':'')+'>'+name+' · '+length+' s</option>').join('')+settings.sounds.map(item=>'<option value="'+item.id+'"'+(item.id===settings.sound?' selected':'')+'>'+escape(item.name)+' · '+item.duration.toFixed(1)+' s</option>').join('')+'</select></label><div class="sound-actions"><button type="button" data-preview title="Preview sound" aria-label="Preview sound"><i data-lucide="volume-2"></i></button><button type="button" data-remove title="Delete custom sound" aria-label="Delete custom sound"'+(!settings.sounds.some(item=>item.id===settings.sound)?' hidden':'')+'><i data-lucide="trash-2"></i></button></div><label>Volume <output>'+Math.round(settings.volume*100)+'%</output><input name="volume" type="range" min="0" max="1" step="0.01" value="'+settings.volume+'"></label><label>Custom sound<input name="upload" type="file" accept="audio/*"></label><div data-trim hidden><label>Start, seconds<input name="start" type="number" min="0" step="0.1" value="0"></label><label>Duration, seconds<input name="duration" type="number" min="0.1" max="3" step="0.1" value="3"></label><button type="button" data-upload>Upload sound</button></div><p role="status"></p><button type="submit" class="btn primary">Save</button></form>';
       window.lucide?.createIcons({root:dialog});const form=dialog.querySelector('form'),notice=dialog.querySelector('[role=status]');
       const fail=error=>notice.textContent=error.message;
       const update=()=>{settings={...settings,enabled:form.elements.enabled.checked,sound:form.elements.sound.value,volume:Number(form.elements.volume.value)};form.querySelector('output').textContent=Math.round(settings.volume*100)+'%';};
-      dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+      dialog.querySelector('[data-close]').onclick=()=>embedded?dialog.closest('dialog')?.close():dialog.close();
+      if(embedded)dialog.querySelector('header').hidden=true;
       form.elements.volume.oninput=update;form.elements.enabled.onchange=update;
       form.elements.sound.onchange=()=>{update();dialog.querySelector('[data-remove]').hidden=!settings.sounds.some(item=>item.id===settings.sound);preload().catch(fail);};
       dialog.querySelector('[data-preview]').onclick=async()=>{try{update();await unlock();if(!buffer&&settings.sounds.some(item=>item.id===settings.sound))await preload();play(true);}catch(error){fail(error);}};
@@ -62,9 +65,10 @@
       dialog.querySelector('[data-remove]').onclick=async()=>{try{settings=await api('DELETE',null,'?id='+encodeURIComponent(settings.sound));buffer=null;render();}catch(error){fail(error);}};
       form.elements.upload.onchange=async()=>{try{const file=form.elements.upload.files[0];if(!file)return;if(file.size>10*1024*1024)throw Error('Maximum source file size is 10 MB.');await unlock();uploadBuffer=await context.decodeAudioData(await file.arrayBuffer());if(uploadBuffer.duration<.1)throw Error('Audio is too short.');form.elements.duration.value=Math.min(3,uploadBuffer.duration).toFixed(2);form.elements.start.max=Math.max(0,uploadBuffer.duration-.1);dialog.querySelector('[data-trim]').hidden=false;notice.textContent='';}catch(error){uploadBuffer=null;fail(error);}};
       dialog.querySelector('[data-upload]').onclick=async event=>{const button=event.currentTarget;button.disabled=true;try{const start=Number(form.elements.start.value),duration=Number(form.elements.duration.value);if(!uploadBuffer||!Number.isFinite(start)||!Number.isFinite(duration)||start<0||duration<.1||duration>3||start+duration>uploadBuffer.duration+.001)throw Error('Select a valid fragment up to 3 seconds.');settings=await api('PUT',wav(uploadBuffer,start,duration),'?name='+encodeURIComponent(form.elements.upload.files[0].name));await preload();uploadBuffer=null;render();}catch(error){fail(error);}finally{button.disabled=false;}};
+      dialog.dispatchEvent(new CustomEvent('notification-sounds-rendered',{bubbles:true}));
     };
-    render();dialog.showModal();
+    render();if(!embedded)dialog.showModal();
   }
   document.addEventListener('click',event=>{if(event.target.closest('[data-notification-sounds]'))open().catch(error=>{if(window.TursoMain?.notice)window.TursoMain.notice(error.message,true);else window.alert(error.message);});});
-  window.NotificationSounds={load,play,stop,unlock};
+  window.NotificationSounds={load,play,stop,unlock,mount:open};
 })();

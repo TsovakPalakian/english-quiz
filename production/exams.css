@@ -9,6 +9,9 @@
 #exams.exam-group-list>.meta h1{display:none}
 #exams #examSections[hidden]{display:none}
 #exams #examNew{margin:0 0 12px}
+dialog.exam-assign-dialog{box-sizing:border-box;width:min(520px,calc(100vw - 36px));margin:auto}
+dialog.exam-assign-dialog::backdrop{background:rgba(0,0,0,.52)}
+dialog.exam-assign-dialog form{margin:0;padding:0}
 #exams .exam-student-group{margin-block:12px;border-bottom:1px solid var(--line)}
 #exams .exam-student-group>summary{display:list-item;cursor:pointer;padding:12px 8px;font-size:16px;line-height:1.5;overflow-wrap:anywhere}
 #exams .exam-student-group>summary span{margin-inline-start:12px;color:var(--mute);font-size:14px;white-space:nowrap}

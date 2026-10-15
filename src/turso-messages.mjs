@@ -211,13 +211,14 @@ export class MessageService {
     const [exam] = await this.db.read('SELECT id,title,published,hidden_from_students,lesson_date,revision FROM exams WHERE id=? AND deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id)',[body.examId]);
     if (!exam) fail(404,'Exam not found.');
     if(body.action==='assign'&&!exam.published)fail(409,'Publish the exam before assigning it.');
-    let recipients, group;
+    let recipients, group,groupMembers;
     if (body.targetKind === 'group') {
       recordId(Number(targetId)); group = await new GroupService(this.db).activeGroup(Number(targetId));
       if (body.expectedRevision!=null && body.expectedRevision!==group.revision) fail(409,'The group changed. Reload Accounts.');
       recipients = (await this.db.read('SELECT account_id FROM class_group_students WHERE group_id=?',[group.id])).map(row => row.account_id);
+      if(body.subgroupId!=null){groupMembers=[...recipients];const active=new Set((await this.directory()).filter(user=>user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked).map(user=>user.id));recipients=recipients.filter(id=>active.has(id));if(!recipients.length)fail(409,'No active students in this subgroup.');}
     } else {
-      const student = (await this.directory()).find(user => user.id===targetId && user.role==='USER');
+      const student = (await this.directory()).find(user => user.id===targetId && user.role==='USER' && (body.subgroupId==null || user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked));
       if (!student) fail(404,'Student not found.'); recipients = [targetId];
     }
     const [current] = await this.db.read('SELECT id FROM chat_assignments WHERE exam_id=? AND target_kind=? AND target_id=? AND active=1',[exam.id,body.targetKind,targetId]);
@@ -229,13 +230,14 @@ export class MessageService {
     const message = (body.action==='assign' ? 'Exam assigned: ' : 'Exam assignment cancelled: ') + title + (exam.lesson_date ? '\nDate: '+exam.lesson_date : '') + (group ? '\nGroup: '+group.title : '');
     const commands = [s('DROP TABLE IF EXISTS temp.chat_guard'),s('CREATE TEMP TABLE chat_guard(ok INTEGER NOT NULL CHECK(ok=1))')];
     commands.push(s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM exams WHERE id=? AND revision=? AND deleted_at IS NULL)',[exam.id,exam.revision]));
-    if(body.subgroupId!=null)commands.push(s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM class_group_students s JOIN class_groups g ON g.id=s.group_id JOIN class_group_exams e ON e.group_id=g.id WHERE s.account_id=? AND g.id=? AND e.exam_id=? AND g.deleted_at IS NULL)',[targetId,body.subgroupId,exam.id]));
+    if(body.subgroupId!=null)commands.push(body.targetKind==='group'?s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM class_groups g JOIN class_group_exams e ON e.group_id=g.id WHERE g.id=? AND e.exam_id=? AND g.deleted_at IS NULL)',[body.subgroupId,exam.id]):s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM class_group_students s JOIN class_groups g ON g.id=s.group_id JOIN class_group_exams e ON e.group_id=g.id WHERE s.account_id=? AND g.id=? AND e.exam_id=? AND g.deleted_at IS NULL)',[targetId,body.subgroupId,exam.id]));
     if(body.action==='assign'&&!current)commands.push(...await instanceCommands(this.db,exam,assignment,recipients,this.storage,{reviewer:{id:actor.id,name:name(actor)},students:await this.directory()}));
     commands.push(s("INSERT INTO chat_guard SELECT COALESCE((SELECT id FROM chat_assignments WHERE exam_id=? AND target_kind=? AND target_id=? AND active=1),'')=?",[exam.id,body.targetKind,targetId,current?.id||'']));
     if (group) {
       commands.push(s('INSERT INTO chat_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND revision=? AND deleted_at IS NULL)',[group.id,group.revision]));
       commands.push(s('INSERT INTO chat_guard SELECT COALESCE((SELECT group_id FROM class_group_exams WHERE exam_id=?),0)=?',[exam.id,link?.group_id||0]));
-      commands.push(s(`INSERT INTO chat_guard SELECT COUNT(*)=? AND COUNT(CASE WHEN account_id IN (${recipients.length?recipients.map(()=>'?').join(','):"''"}) THEN 1 END)=? FROM class_group_students WHERE group_id=?`,[recipients.length,...recipients,recipients.length,group.id]));
+      const members=groupMembers||recipients;
+      commands.push(s(`INSERT INTO chat_guard SELECT COUNT(*)=? AND COUNT(CASE WHEN account_id IN (${members.length?members.map(()=>'?').join(','):"''"}) THEN 1 END)=? FROM class_group_students WHERE group_id=?`,[members.length,...members,members.length,group.id]));
       if (body.action==='assign') {
         // Moving an existing assignment also cancels its old group's notices.
         if (link && link.group_id!==group.id) {
@@ -261,9 +263,11 @@ export class MessageService {
   async assignInSubgroup(actor,body){
     signed(actor);if(!staff(actor))fail(403,'Only a teacher can assign exams.');
     recordId(body.groupId);recordId(body.examId);await this.ensure();
-    const rows=await this.db.read(`SELECT 1 FROM class_group_exams e JOIN class_groups g ON g.id=e.group_id JOIN class_group_students s ON s.group_id=g.id WHERE e.exam_id=? AND g.id=? AND g.deleted_at IS NULL AND s.account_id=?`,[body.examId,body.groupId,body.studentId]);
+    const whole=body.targetKind==='group';
+    if(body.targetKind!=null&&!['student','group'].includes(body.targetKind))fail(400,'Invalid assignment recipient.');
+    const rows=await this.db.read(whole?'SELECT 1 FROM class_group_exams e JOIN class_groups g ON g.id=e.group_id WHERE e.exam_id=? AND g.id=? AND g.deleted_at IS NULL':`SELECT 1 FROM class_group_exams e JOIN class_groups g ON g.id=e.group_id JOIN class_group_students s ON s.group_id=g.id WHERE e.exam_id=? AND g.id=? AND g.deleted_at IS NULL AND s.account_id=?`,whole?[body.examId,body.groupId]:[body.examId,body.groupId,body.studentId]);
     if(!rows.length)fail(403,'Choose a student in the current exam subgroup.');
-    return this.assign(actor,{examId:body.examId,targetKind:'student',targetId:body.studentId,action:'assign',clientKey:body.clientKey,subgroupId:body.groupId});
+    return this.assign(actor,{examId:body.examId,targetKind:whole?'group':'student',targetId:whole?String(body.groupId):body.studentId,action:'assign',clientKey:body.clientKey,subgroupId:body.groupId});
   }
   async assignments(actor) {
     signed(actor); await this.ensure();

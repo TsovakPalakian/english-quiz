@@ -68,6 +68,20 @@ test('Subgroup assignment rejects outsiders, is replay-safe and exposes active w
     const row=(await exams.list(teacher)).find(exam=>exam.id===instances[0].exam_id);assert.equal(row.instanceStatus,'active');assert.equal(row.groupId,99);
   }finally{sqlite.close();}
 });
+test('Whole-subgroup assignment creates copies only for its active students and rejects another subgroup',async()=>{
+  const {db,sqlite}=fixture();try{
+    const exams=new ExamService(db),messages=new MessageService(db,async()=>[teacher,student,{id:'inactive',role:'USER',active:false},{id:'outside',role:'USER'}]);
+    await exams.ensure();await messages.ensure();
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'),(98,'B1 Other','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'),('inactive',99,'teacher'),('outside',98,'teacher')");
+    const source=await exams.save(teacher,{exam:{title:'A1 Group test',groupId:99,published:true,blocks:[{title:'Task',published:true,materials:[{type:'task',title:'Write',text:'Hello',maxPoints:1}]}]}});
+    const body={examId:source.id,groupId:99,targetKind:'group',clientKey:'whole-subgroup'};
+    await assert.rejects(messages.assignInSubgroup(teacher,{...body,groupId:98}),error=>error.status===403);
+    await messages.assignInSubgroup(teacher,body);await messages.assignInSubgroup(teacher,body);
+    const rows=await db.read('SELECT account_id,group_id FROM exam_instances WHERE source_exam_id=?',[source.id]);
+    assert.deepEqual(rows.map(row=>row.account_id),['student']);assert.equal(rows[0].group_id,99);
+    assert.equal(sqlite.prepare('SELECT group_id FROM class_group_exams WHERE exam_id=?').get(source.id).group_id,99);
+  }finally{sqlite.close();}
+});
 test('complete demo supports all 16 quiz types, frozen copies, private references, review and idempotent completion without changing lessons',async()=>{
   const f=fixture();try{
     const {db,sqlite}=f,exams=new ExamService(db),assessment=new AssessmentService(db),workflow=new ExamWorkflowService(db);

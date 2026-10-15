@@ -10089,7 +10089,7 @@
         box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
           '<div class="row"><button class="btn primary" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn" type="button" data-notification-sounds>Notification sounds</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+          (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }
@@ -10128,7 +10128,7 @@
       box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (viewAccount ? "" : '<button class="btn" type="button" data-notification-sounds>Notification sounds</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+        (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
         (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
         '<div class="overview"><button class="stat-tile" type="button" data-stat="learned"><b>' + counts.learned + '</b><span>Learned</span></button><button class="stat-tile" type="button" data-jump="allwords"><b>' + counts.words + '</b><span>Words</span></button></div>' +

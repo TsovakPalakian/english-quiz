@@ -229,7 +229,7 @@ examPaintList=function(){
     const blockCount=examVisibleBlocks(exam).length;
     const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+blockCount+' examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
     let tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
-    if(!exam.instanceStatus&&canEditLessons())tools=tools.replace('</button>','</button><button type="button" data-exam-assign="'+exam.id+'" title="Assign exam" aria-label="Assign exam"><i data-lucide="user-plus"></i></button>');
+    if(!exam.instanceStatus&&canEditLessons())tools=tools.replace('</button>','</button><button class="day-edit" type="button" data-exam-assign="'+exam.id+'" title="Assign exam" aria-label="Assign exam"><i data-lucide="user-plus"></i></button>');
     return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
   };
   if(studentGroups){

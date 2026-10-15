@@ -74,7 +74,12 @@ try{
   assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Assigned copies are not templates');
   assert.equal(await page.locator('[data-exam-hide="exam:11"] + [data-exam-assign="11"]').count(),1,'Assign follows visibility');
   await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();
-  assert.deepEqual(await page.locator('.exam-assign-dialog select option').allTextContents(),['Student']);
+  assert.deepEqual(await page.locator('.exam-assign-dialog select option').allTextContents(),['Choose recipient','Whole group · A1 Group','Student']);
+  assert.ok(await page.locator('[data-exam-assign="11"]').evaluate(node=>getComputedStyle(node).borderRadius==='0px'&&getComputedStyle(node).backgroundColor==='rgba(0, 0, 0, 0)'));
+  await page.screenshot({path:'/private/tmp/exam-assignment-dialog.png'});
+  await page.locator('.exam-assign-dialog [data-cancel]').click();await page.locator('.exam-assign-dialog').waitFor({state:'detached'});
+  await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();await page.mouse.click(1,1);await page.locator('.exam-assign-dialog').waitFor({state:'detached'});
+  await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();
   await page.locator('.exam-assign-dialog [data-close]').click();
   await page.locator('[data-exam-section="assigned"]').click();
   assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);
