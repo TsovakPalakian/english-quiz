@@ -149,6 +149,19 @@ try{
     for(const part of parts.filter(part=>part.type==='wordcard'))assert.equal(await page.locator('[data-lm-word="'+part.id+'"]').count(),1);
     for(const width of [1280,375]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),block.title+' fits '+width);}
     if(block.title.startsWith('05'))await page.screenshot({path:'/private/tmp/exam-demo-groups-mobile.png',fullPage:true});
+    if(block.title.startsWith('03')){
+      await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
+      for(const width of [1076,375,320]){
+        await page.setViewportSize({width,height:900});
+        const option=page.locator('#lmPreview label:has(>input[data-mq-choice])').first();
+        assert.ok(await option.evaluate(node=>{const input=node.querySelector('input'),a=input.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(node.lastChild);const b=range.getBoundingClientRect();return Math.abs(a.y+a.height/2-b.y-b.height/2)<5&&a.width===20&&getComputedStyle(input).opacity==='1';}),'Choice and label align at '+width);
+        const grading=page.locator('#lmPreview .assessment-grading').first();
+        assert.ok(await grading.evaluate(node=>{const fields=[...node.querySelectorAll('input,select')];return fields.every(field=>field.offsetHeight===42)&& (innerWidth<=380||Math.abs(fields[0].getBoundingClientRect().y-fields[1].getBoundingClientRect().y)<1); }),'Grading controls align at '+width);
+      }
+      await page.setViewportSize({width:1076,height:900});
+      await page.locator('#lmPreview [data-mq-question]').first().screenshot({path:'/private/tmp/exam-choice-alignment.png'});
+      await page.evaluate(()=>{viewAccount=null;});
+    }
     if(block.title.startsWith('04')){
       await page.route('**/api/assessment',route=>route.request().method()==='POST'?route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'This work changed.'})}):route.fallback());
       await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
