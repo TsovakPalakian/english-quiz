@@ -122,7 +122,7 @@ export class AssessmentService{
       previous=await this.workView(actor,{kind,id,account},document,row);
     }else{previous=await this.get(actor,{kind,id,studentId});row=await this.row(account,kind,id);}
     const revision=row?.revision||0;
-    if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,'This work changed. Reload before saving.');
+    if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,kind==='exam-block'?`This work changed (expected revision ${body.expectedRevision}, current ${revision}). Reopen the work before saving; your changes were not published.`:'This work changed. Reload before saving.');
     const teaching=account!==actor.id&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
     const questions=gradingQuestions(parts),answerQuestions=parts.some(part=>part.scoringVersion>=3)?examAnswerQuestions(parts):assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
     if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>1e12)||max>1e14)fail(400,'Invalid maximum points.');

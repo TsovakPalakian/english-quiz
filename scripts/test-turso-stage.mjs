@@ -10,6 +10,16 @@ import {createStageServer} from './run-turso-stage.mjs';
 import {legacyLessons} from '../src/turso-legacy-read.mjs';
 import {applyTursoSchema} from './turso-test-schema.mjs';
 
+test('Fractional grades use Hrana float parameters without truncation',async()=>{
+  assert.deepEqual(statement('SELECT ?, ?',[3.4,42]).args,[{type:'float',value:3.4},{type:'integer',value:'42'}]);
+  const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async(_url,options)=>{
+    const command=JSON.parse(options.body).requests[0].stmt;
+    assert.equal(command.args[0].type,'float');
+    return Response.json({results:[{type:'ok',response:{type:'execute',result:{cols:[{name:'score'}],rows:[[{type:'float',value:command.args[0].value}]]}}},{type:'ok',response:{type:'close'}}]});
+  }});
+  assert.deepEqual(await client.read('SELECT ? score',[3.4]),[{score:3.4}]);
+});
+
 test('Native Worker fetch is called without the client as receiver',async()=>{
   const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async function(url,options){
     assert.equal(this,undefined);
@@ -30,8 +40,32 @@ test('Database redirects are rejected without forwarding the token',async()=>{
   const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{
     calls++;return new Response(null,{status:307,headers:{Location:'https://other.invalid/'}});
   }});
-  await assert.rejects(client.read('SELECT 1'),/Test database request failed/);
+  await assert.rejects(client.read('SELECT 1'),/Database request failed \(HTTP 307\)/);
   assert.equal(calls,1);
+});
+
+test('Transient HTTP failures retry SELECT once but never replay writes',async()=>{
+  for(const status of [429,502,503,504]) {
+    let calls=0;
+    const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{
+      calls++;
+      return calls===1?new Response('unavailable',{status}):Response.json({results:[{type:'ok',response:{type:'execute',result:{cols:[],rows:[]}}},{type:'ok',response:{type:'close'}}]});
+    }});
+    assert.deepEqual(await client.read('SELECT 1'),[]);
+    assert.equal(calls,2);
+    calls=0;
+    await assert.rejects(client.atomic([statement('UPDATE fixture SET id=1')]),error=>error.databaseCodes[0]===`HTTP_${status}`);
+    assert.equal(calls,1);
+  }
+});
+
+test('HTTP read retries are bounded and authentication failures are not retried',async()=>{
+  for(const status of [401,403,503]) {
+    let calls=0;
+    const client=new TursoStudyClient({endpoint:'https://english-quiz-test-fixture.turso.io/v2/pipeline',token:'fixture',fetchImpl:async()=>{calls++;return new Response('private upstream details',{status});}});
+    await assert.rejects(client.read('SELECT 1'),error=>error.message.includes(`HTTP ${status}`)&&!error.message.includes('private'));
+    assert.equal(calls,status===503?2:1);
+  }
 });
 
 test('Only read snapshots receive the larger transfer window; writes do not',async()=>{

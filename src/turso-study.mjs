@@ -14,7 +14,7 @@ const decode = result => result.rows.map(row => Object.fromEntries(result.cols.m
   return [col.name, value.type === 'null' ? null : ['integer','float'].includes(value.type) ? Number(value.value) : value.value];
 })));
 const encode = value => value === null ? {type:'null'} : typeof value === 'number'
-  ? {type:'integer',value:String(value)} : {type:'text',value:String(value)};
+  ? Number.isInteger(value)?{type:'integer',value:String(value)}:{type:'float',value} : {type:'text',value:String(value)};
 export const statement = (sql,args=[]) => ({sql,args:args.map(encode),want_rows:true});
 const stmt = statement;
 
@@ -27,8 +27,9 @@ export class TursoStudyClient {
         || url.pathname !== '/v2/pipeline' || url.search || url.hash || url.username || url.password || url.port) fail(500,'Only the test Turso database is allowed.');
     this.endpoint=endpoint; this.token=token; this.fetchImpl=fetchImpl;
   }
-  async send(requests,{readSnapshot=false}={}) {
+  async send(requests,{readSnapshot=false,readOnly=false}={}) {
     let response;
+    for(let attempt=0;attempt<2;attempt++) {
     try {
       // Worker-native fetch must not receive the adapter as its receiver.
       response=await (0,this.fetchImpl)(this.endpoint,{method:'POST',redirect:'manual',signal:AbortSignal.timeout(readSnapshot?45_000:20_000),
@@ -40,7 +41,17 @@ export class TursoStudyClient {
       const reason=/subrequests|too many api requests/i.test(message)?'SUBREQUEST_LIMIT':/redirect/i.test(message)?'REDIRECT':/illegal invocation|receiver/i.test(message)?'RECEIVER':/signal|timeout|abort/i.test(message)?'TIMEOUT':/dns|resolve/i.test(message)?'DNS':error?.name==='TypeError'?'TYPE':'NETWORK';
       fail(503,`Test database connection failed (${reason}). Retry the same operation.`);
     }
-    if (!response.ok) fail(503,'Test database request failed.');
+    if(response.ok)break;
+    const status=response.status;
+    await response.body?.cancel().catch(()=>{});
+    if(readOnly && attempt===0 && [429,502,503,504].includes(status)) {
+      await new Promise(resolve=>setTimeout(resolve,200));
+      continue;
+    }
+    const failure=new StudyError(503,`Database request failed (HTTP ${status}).${readOnly?' Please try again.':' Check the saved state before trying again.'}`);
+    failure.databaseCodes=[`HTTP_${status}`];
+    throw failure;
+    }
     let body;
     try { body=await response.json(); } catch { fail(503,'Unexpected database response. Retry the same operation.'); }
     if (body.baton != null || body.results?.length !== requests.length+1) fail(503,'Unexpected database response.');
@@ -49,7 +60,7 @@ export class TursoStudyClient {
     return body.results.slice(0,-1).map(item=>item.response);
   }
   async read(sql,args=[]) {
-    const [response]=await this.send([{type:'execute',stmt:stmt(sql,args)}]);
+    const [response]=await this.send([{type:'execute',stmt:stmt(sql,args)}],{readOnly:/^\s*SELECT\b/i.test(sql)});
     return decode(response.result);
   }
   async readMany(statements) {
@@ -60,8 +71,8 @@ export class TursoStudyClient {
     const commands=[stmt('PRAGMA foreign_keys=ON'),stmt(readOnly?'BEGIN':'BEGIN IMMEDIATE'),...statements,stmt('COMMIT')];
     const steps=commands.map((command,i)=>({stmt:command,...(i ? {condition:{type:'ok',step:i-1}} : {})}));
     // Retained dictionary data makes the initial read snapshot ~7 MiB. Give
-    // that one atomic read time to arrive; writes keep their 20s bound. No retry.
-    const [response]=await this.send([{type:'batch',batch:{steps}}],{readSnapshot:readOnly});
+    // that one atomic read time to arrive; writes keep their 20s bound and are never replayed.
+    const [response]=await this.send([{type:'batch',batch:{steps}}],{readSnapshot:readOnly,readOnly:readOnly&&statements.every(command=>/^\s*SELECT\b/i.test(command.sql))});
     const errors=response.result?.step_errors;
     const results=response.result?.step_results;
     if (!Array.isArray(errors) || !Array.isArray(results) || errors.length!==commands.length || results.length!==commands.length) fail(503,'Unexpected transaction response.');
