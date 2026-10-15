@@ -150,8 +150,25 @@ try{
     for(const width of [1280,375]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),block.title+' fits '+width);}
     if(block.title.startsWith('05'))await page.screenshot({path:'/private/tmp/exam-demo-groups-mobile.png',fullPage:true});
     if(block.title.startsWith('04')){
+      await page.route('**/api/assessment',route=>route.request().method()==='POST'?route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'This work changed.'})}):route.fallback());
+      await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
+      const feedback=page.locator('[data-exam-review-note="examOverallComment"]');
+      const longNote=Array.from({length:18},(_,i)=>'Feedback line '+i).join('\n');
+      await feedback.fill(longNote);
+      const expanded=await feedback.evaluate(node=>node.offsetHeight);
+      assert.ok(expanded>150,'Feedback grows with its content');
+      await feedback.fill('Short feedback');
+      assert.ok(await feedback.evaluate(node=>node.offsetHeight)<expanded,'Feedback shrinks after deletion');
+      await page.locator('[data-exam-review-note="examPrivateNote"]').fill('Private draft');
+      await page.evaluate(async()=>{try{await assessmentWrite(lmState,'publish');}catch{}examDress();examDress();});
+      assert.equal(await page.locator('#lmPreview .exam-review-notes').count(),1,'Failed publication and repeated dress do not duplicate notes');
+      assert.equal(await feedback.inputValue(),'Short feedback');
+      assert.equal(await page.locator('[data-exam-review-note="examPrivateNote"]').inputValue(),'Private draft');
+      assert.equal(await page.locator('[data-exam-recommendation]').count(),1,'Repeated fill does not duplicate AI review control');
+      await feedback.fill(longNote);
+      await page.screenshot({path:'/private/tmp/exam-review-notes-mobile.png',fullPage:true});
       const projected=parts.map(part=>studentExamContent(part,part.type));
-      await page.evaluate(parts=>{authUser.role='USER';lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
+      await page.evaluate(parts=>{authUser.role='USER';viewAccount=null;lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
       assert.equal(await page.locator('#lmPreview .exam-model-answer').count(),0);
       assert.equal(await page.locator('#lmPreview textarea[data-exam-response]').count(),3);
     }
