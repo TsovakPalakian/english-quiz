@@ -15,11 +15,27 @@ alerts are not cleared by these actions.
 Clear/delete are logical visibility removal, not a promise of physical erasure of
 all backups. A self-only clear preserves the other participant's history.
 
-Folders are account-private references, sorted after manually ordered pins.
-Deleting a folder does not delete its chats. Timed mute is evaluated from a stored
+Folders are account-private references. Root order is archive, alphabetical folders,
+manually ordered pins, then ordinary conversations. Filed conversations are hidden
+from Personal (not Contacts or Study alerts); removing their last folder restores
+them unless archived or blocked. Deleting a folder does not delete its chats.
+Pins use a bottom-right icon. Public roles accompany names in lists and the header;
+internal role codes are never displayed. Today's list timestamps use HH.MM and
+older timestamps use DD.MM.YYYY in the viewer's local timezone.
+Shrinking an open conversation to mobile hides the list, preserving the draft and
+timeline. The list button still opens the list explicitly.
+Timed mute is evaluated from a stored
 UTC deadline; archiving overrides notification settings. Per-chat sound overrides
 the selected melody, but not global disable/volume. Browser popup restrictions
 still apply to Open in window.
+
+Repeated receipt events do not rebuild unchanged status icons. Icon rendering is
+batched once per animation frame and processes only new chat icon placeholders,
+not existing SVGs or unrelated page icons; audio progress does not recreate the play icon
+until playback state changes. Normal personal sending already uses Durable Objects
+without SQL journal migration on its critical path; encryption and authorization
+remain unchanged. These optimizations reduce client work, not a claim of measured
+production network latency improvements.
 
 ## Encryption
 

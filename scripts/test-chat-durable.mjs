@@ -34,6 +34,15 @@ async function managedChat(f,kind='direct'){
   await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});
   await f.drain();return {id,command:(actor,action,body={})=>chatCall(f.env,'CHAT_INBOX',actor,'/command',{action,body:{roomId:id,...body}})};
 }
+test('room summaries expose only public peer roles, never internal developer roles',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    assert.equal((await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id).peerRole,'Student');
+    const room=f.env.CHAT_ROOM.get(c.id);
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/configure',{room:{id:c.id,kind:'direct',title:'Private conversation'},members:[f.alice,{...f.bob,role:'DEVELOPER'}]});
+    assert.equal(room.summary('alice').peerRole,'Support');
+    assert.ok(!JSON.stringify(room.summary('alice')).includes('DEVELOPER'));
+  }finally{await f.drain();f.close();}
+});
 test('chat preferences persist per account, archive suppresses unread and cannot change peers',async()=>{
   const f=fixture();try{const c=await managedChat(f);
     await c.command('bob','send',{text:'hello',clientKey:'managed-1'});await f.drain();

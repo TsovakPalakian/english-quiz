@@ -441,7 +441,8 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-room-context button:hover,.chat-room-context button:focus-visible{background:var(--acc-s)}
 .chat-room-context button.danger{color:var(--bad,#b42332)}
 #messages .chat-list-heading{font-size:14px;font-weight:650;margin:16px 14px 6px;color:var(--muted)}
-#messages [data-pin-order] .chat-room-top b:after{content:' ·';color:var(--acc)}
+#messages .chat-room-pin{float:right;display:inline-flex;align-items:center;margin-left:6px;color:var(--mute)}
+#messages .chat-room-pin svg{width:16px;height:16px}
 .chat-manage-dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px}
 .chat-manage-dialog .chat-mute-choice{display:grid;grid-template-columns:minmax(0,1fr) 24px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .chat-manage-dialog .chat-mute-choice input{width:20px;height:20px;margin:0;accent-color:var(--acc)}
