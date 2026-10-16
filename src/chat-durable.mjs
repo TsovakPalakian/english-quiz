@@ -1,8 +1,10 @@
 import {validateColorDocument} from './text-formatting.mjs';
 import {profileAllowed,publicProfile} from './chat-profiles.mjs';
-import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase} from './chat-database.mjs';
+import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase,assertChatRunning} from './chat-database.mjs';
 import {SOUND_IDS} from './notification-sounds.mjs';
 import {chatCipher} from './chat-encryption.mjs';
+import {transferObject,trackTransferTask} from './account-transfer.mjs';
+import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
 
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -14,6 +16,7 @@ const integer=value=>{if(!Number.isSafeInteger(value)||value<0)fail(400,'Invalid
 const category=value=>{if(!['personal','learning'].includes(value))fail(400,'Invalid category.');return value;};
 export const directRoomId=(a,b)=>'direct:'+ [ref(a),ref(b)].sort().join(':');
 export async function chatCall(env,binding,id,path,body){
+  assertAccountTransferRunning(env);
   const namespace=env[binding];if(!namespace)fail(503,'Chat storage unavailable.');
   const response=await namespace.get(namespace.idFromName(chatStorageName(env,id))).fetch(new Request('https://chat.internal'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...chatDatabaseHeaders(env)},body:JSON.stringify(body)}));
   const value=await response.json();if(!response.ok)fail(response.status,value.error||'Chat request failed.');return value;
@@ -35,11 +38,11 @@ class Store{
     this.tx(()=>{for(const [table,key,columns] of tables)for(const column of columns){const rows=this.sql.exec('SELECT '+key+','+column+' FROM '+table+' WHERE '+column+" IS NOT NULL AND "+column+" NOT LIKE 'chatenc:%' LIMIT 100").toArray();for(const row of rows)this.sql.exec('UPDATE '+table+' SET '+column+'=? WHERE '+key+'=?',this.seal(row[column],column),row[key]);if(rows.length===100)more=true;}if(!more)this.set('crypto:migrated','aes256gcm-v1');});
     if(more)this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now()+1000));
   }
-  async handle(request,fn){try{await this.trusted(request);return json(await fn(new URL(request.url).pathname,await request.json()));}catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}}
+  async handle(request,fn){return trackTransferTask(this,async()=>{try{await this.trusted(request);return json(await fn(new URL(request.url).pathname,await request.json()));}catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}});}
 }
 
 export class ChatRoom extends Store{
-  constructor(ctx,env){super(ctx,env);this.storageKind='room';this.sql.exec(`
+  constructor(ctx,env){super(ctx,env);this.storageKind='room';this.flushing=null;if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='messages'").toArray().length)return;this.sql.exec(`
     CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS members(id TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT NOT NULL,active INTEGER NOT NULL DEFAULT 1,joined INTEGER NOT NULL DEFAULT 0,read_personal INTEGER NOT NULL DEFAULT 0,read_learning INTEGER NOT NULL DEFAULT 0,delivered_personal INTEGER NOT NULL DEFAULT 0,delivered_learning INTEGER NOT NULL DEFAULT 0,unread_personal INTEGER NOT NULL DEFAULT 0,unread_learning INTEGER NOT NULL DEFAULT 0,muted INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,sender TEXT NOT NULL,name TEXT NOT NULL,category TEXT NOT NULL,body TEXT NOT NULL,format TEXT,reply INTEGER,exam_id INTEGER,assignment_active INTEGER,client_key TEXT NOT NULL,created_ms INTEGER NOT NULL,UNIQUE(sender,client_key));
@@ -105,15 +108,16 @@ export class ChatRoom extends Store{
   async flush(){
     if(this.flushing)return this.flushing;
     this.flushing=(async()=>{
+      await assertChatRunning(this);
       try{
         for(const row of this.rows('SELECT * FROM outbox ORDER BY id LIMIT 100')){
           await chatCall(this.env,'CHAT_INBOX',row.recipient,'/event',{key:row.event_key,...JSON.parse(row.payload)});
           this.sql.exec('DELETE FROM outbox WHERE id=?',row.id);
         }
-      }finally{if(this.one('SELECT COUNT(*) n FROM outbox').n||this.cipher&&this.get('crypto:migrated')!=='aes256gcm-v1')await this.ctx.storage.setAlarm(Date.now()+3000);else await this.ctx.storage.deleteAlarm();}
+      }finally{await assertChatRunning(this);if(this.one('SELECT COUNT(*) n FROM outbox').n||this.cipher&&this.get('crypto:migrated')!=='aes256gcm-v1')await this.ctx.storage.setAlarm(Date.now()+3000);else await this.ctx.storage.deleteAlarm();}
     })().catch(()=>{}).finally(()=>{this.flushing=null;});return this.flushing;
   }
-  async alarm(){try{await this.trusted();await this.flush();}catch(error){if(!error.inactiveDatabase)await this.ctx.storage.setAlarm(Date.now()+10000);}}
+  async alarm(){return trackTransferTask(this,async()=>{try{await this.trusted();await this.flush();}catch(error){if(!error.inactiveDatabase&&!error.migrationFrozen)await this.ctx.storage.setAlarm(Date.now()+10000);}});}
   configure(body){
     const room={...body.room,active:body.room.active!==false};ref(room.id);
     const old=this.get('room'),previousMembers=new Map(this.rows('SELECT * FROM members').map(m=>[m.id,m])),last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
@@ -305,7 +309,7 @@ export class ChatRoom extends Store{
       if(body.deleteChat)this.emit('blocked:'+this.get('revision',0),'room');
     });this.deliver();return {cleared:{category:'personal',through},room:this.summary(actor.id)};
   }
-  fetch(request){return this.handle(request,async(path,body)=>{
+  fetch(request){if(new URL(request.url).pathname.startsWith('/__account-transfer/'))return transferObject(this,request,'room');return this.handle(request,async(path,body)=>{
     if(path==='/configure')return this.configure(body);
     if(path==='/status')return {migrated:!!this.get('migrated')};
     if(path==='/import')return this.import(body);
@@ -331,7 +335,7 @@ export class ChatRoom extends Store{
 }
 
 export class ChatInbox extends Store{
-  constructor(ctx,env){super(ctx,env);this.storageKind='inbox';this.sessionDeliveries=new WeakMap();this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
+  constructor(ctx,env){super(ctx,env);this.storageKind='inbox';this.sessionDeliveries=new WeakMap();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='events'").toArray().length)return;this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
   snapshot(){
     const profile=this.get('profile'),rooms=this.rows('SELECT data FROM rooms').map(r=>JSON.parse(r.data)).filter(r=>r.active!==false).sort((a,b)=>(b.lastMessage?.createdMs||0)-(a.lastMessage?.createdMs||0));
     for(const room of rooms)if(room.muteUntil!==undefined)room.muted=room.muteUntil===-1||room.muteUntil>Date.now();
@@ -359,8 +363,8 @@ export class ChatInbox extends Store{
     try{if(!this.env.MEDIA)throw Error('Unavailable');if(await this.env.MEDIA.head((session.sessionNamespace||'')+'revoked-sid/'+session.sessionId)){ws.close(4003,'Session ended.');return false;}return true;}
     catch{ws.close(1011,'Session verification unavailable.');return false;}
   }
-  broadcast(value){for(const ws of this.ctx.getWebSockets()){
-    if(ws.deserializeAttachment().sessionId){const delivery=(this.sessionDeliveries.get(ws)||Promise.resolve()).then(async()=>{if(await this.sessionAllowed(ws))try{ws.send(JSON.stringify(value));}catch{}}).catch(()=>{});this.sessionDeliveries.set(ws,delivery);this.ctx.waitUntil(delivery);}
+  broadcast(value){try{assertAccountTransferRunning(this.baseEnv);}catch{for(const ws of this.ctx.getWebSockets())ws.close(1013,'Account migration in progress.');return;}for(const ws of this.ctx.getWebSockets()){
+    if(ws.deserializeAttachment().sessionId||this.baseEnv.CONTENT_ENABLED==='true'){const previous=this.sessionDeliveries.get(ws)||Promise.resolve();const delivery=trackTransferTask(this,async()=>{await previous;try{await assertChatRunning(this);if(await this.sessionAllowed(ws))ws.send(JSON.stringify(value));}catch(error){if(error.migrationFrozen)ws.close(1013,'Account migration in progress.');}}).catch(()=>{});this.sessionDeliveries.set(ws,delivery);this.ctx.waitUntil(delivery);}
     else try{ws.send(JSON.stringify(value));}catch{}
   }}
   async configure(body){
@@ -445,7 +449,8 @@ export class ChatInbox extends Store{
     if(!['history','send','read','delivered','mute','members','edit','delete','pin','react','relation','room-settings','clear-history'].includes(action))fail(400,'Invalid chat command.');
     return chatCall(this.env,'CHAT_ROOM',room,'/'+action,{...body,actor});
   }
-  async webSocketMessage(ws,raw){
+  async webSocketMessage(ws,raw){return trackTransferTask(this,()=>this.receiveWebSocketMessage(ws,raw));}
+  async receiveWebSocketMessage(ws,raw){
     let request;
     try{
       await this.trusted();
@@ -453,14 +458,18 @@ export class ChatInbox extends Store{
       if(!await this.sessionAllowed(ws))return;
       if(typeof raw!=='string'||raw.length>24000)fail(413,'Message too large.');request=JSON.parse(raw);ref(request.requestId);
       const result=await this.command(request.action,request.body||{});ws.send(JSON.stringify({type:'response',requestId:request.requestId,result}));
-    }catch(error){if(error.inactiveDatabase)ws.close(4001,'Database changed.');try{ws.send(JSON.stringify({type:'response',requestId:request?.requestId,error:error.status?error.message:'Chat temporarily unavailable.',status:error.status||503}));}catch{}}
+    }catch(error){if(error.inactiveDatabase)ws.close(4001,'Database changed.');try{ws.send(JSON.stringify({type:'response',requestId:request?.requestId,error:error.status?error.message:'Chat temporarily unavailable.',status:error.status||503}));}catch{}if(error.migrationFrozen)ws.close(1013,'Account migration in progress.');}
   }
   async presence(exclude=null){try{await this.trusted();}catch(error){if(error.inactiveDatabase)return;throw error;}if(this.env.CHAT_BRIDGE&&this.get('profile'))await chatCall(this.env,'CHAT_BRIDGE','global','/presence',{id:this.get('profile').id,online:this.ctx.getWebSockets().some(ws=>ws!==exclude&&ws.readyState===1&&ws.deserializeAttachment().expires>Date.now())});}
   async webSocketClose(ws){await this.presence(ws);await this.scheduleExpiry();}
   async webSocketError(ws){ws.close(1011,'Reconnect.');await this.presence(ws);await this.scheduleExpiry();}
-  async scheduleExpiry(){const times=this.ctx.getWebSockets().map(ws=>ws.deserializeAttachment().expires).filter(t=>t>Date.now());if(this.cipher&&this.get('crypto:migrated')!=='aes256gcm-v1')times.push(Date.now()+1000);if(times.length)await this.ctx.storage.setAlarm(Math.min(...times));else await this.ctx.storage.deleteAlarm();}
-  async alarm(){try{await this.trusted();}catch(error){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Database unavailable.');if(!error.inactiveDatabase)await this.ctx.storage.setAlarm(Date.now()+10000);return;}for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires<=Date.now())ws.close(4000,'Renew session.');await this.presence();await this.scheduleExpiry();}
-  async fetch(request){
+  async scheduleExpiry(){try{await assertChatRunning(this);}catch(error){if(error.migrationFrozen)return;throw error;}const times=this.ctx.getWebSockets().map(ws=>ws.deserializeAttachment().expires).filter(t=>t>Date.now());if(this.cipher&&this.get('crypto:migrated')!=='aes256gcm-v1')times.push(Date.now()+1000);if(times.length)await this.ctx.storage.setAlarm(Math.min(...times));else await this.ctx.storage.deleteAlarm();}
+  async alarm(){return trackTransferTask(this,async()=>{try{await this.trusted();}catch(error){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Database unavailable.');if(!error.inactiveDatabase&&!error.migrationFrozen)await this.ctx.storage.setAlarm(Date.now()+10000);return;}for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires<=Date.now())ws.close(4000,'Renew session.');await this.presence();await this.scheduleExpiry();});}
+  fetch(request){
+    if(new URL(request.url).pathname.startsWith('/__account-transfer/'))return transferObject(this,request,'inbox');
+    return trackTransferTask(this,()=>this.receiveRequest(request));
+  }
+  async receiveRequest(request){
     if(new URL(request.url).pathname!=='/connect')return this.handle(request,async(path,body)=>{
       if(path==='/configure')return this.configure(body);if(path==='/event')return this.event(body);if(path==='/snapshot')return this.snapshot();if(path==='/command')return this.command(body.action,body.body||{});if(path==='/suspend'){const profile=this.get('profile');if(profile)this.set('profile',{...profile,active:false});for(const ws of this.ctx.getWebSockets())ws.close(4002,'Permissions changed.');return {closed:true};}if(path==='/revoke'){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Session closed.');return {closed:true};}
       if(path==='/revoke-session'){if(!/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(body.sid||''))fail(400,'Invalid session.');for(const ws of this.ctx.getWebSockets()){const id=ws.deserializeAttachment().sessionId;if(!id||id===body.sid)ws.close(id?4003:4001,'Session ended.');}return {closed:true};}fail(404,'Inbox route not found.');

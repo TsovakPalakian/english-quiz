@@ -286,11 +286,11 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 #messages .chat-reactions button{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:13px;background:var(--card)}
 #messages .chat-reactions button[aria-pressed=true]{border-color:var(--acc);background:var(--acc-s)}
 .chat-list.is-compact{min-width:80px!important;background:color-mix(in srgb,var(--card) 82%,transparent)}
-.chat-list.is-compact .chat-panel-head h2,.chat-list.is-compact .chat-panel-head button:not(#msgHideList),.chat-list.is-compact .chat-search,.chat-list.is-compact .chat-categories,.chat-list.is-compact .chat-room-copy,.chat-list.is-compact .chat-contact>span:not(.chat-avatar){display:none}
-.chat-list.is-compact .chat-panel-head{justify-content:center;padding:0 6px}
-.chat-list.is-compact .chat-panel-head #msgHideList{display:inline-flex}
-.chat-list.is-compact .msg-room,.chat-list.is-compact .chat-contact{justify-content:center;padding:12px 4px}
-.chat-list.is-compact .chat-avatar{width:46px;height:46px}
+#messages .chat-list.is-compact .chat-panel-head h2,#messages .chat-list.is-compact .chat-panel-head button:not(#msgHideList),#messages .chat-list.is-compact .chat-search,#messages .chat-list.is-compact .chat-categories,#messages .chat-list.is-compact .chat-room-copy,#messages .chat-list.is-compact .chat-contact>span:not(.chat-avatar){display:none}
+#messages .chat-list.is-compact .chat-panel-head{justify-content:center;padding:0 6px}
+#messages .chat-list.is-compact .chat-panel-head #msgHideList{display:inline-flex}
+#messages .chat-list.is-compact .msg-room,#messages .chat-list.is-compact .chat-contact{justify-content:center;padding:12px 4px}
+#messages .chat-list.is-compact .chat-avatar{width:46px;height:46px}
 #messages .chat-study-reference{margin:6px 0;padding:8px;border-left:2px solid var(--acc);background:var(--card);font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto}
 .chat-dialog .chat-forward-summary{max-height:200px;overflow:auto}
 .chat-dialog .chat-forward-summary p{white-space:pre-wrap;font-size:13px}

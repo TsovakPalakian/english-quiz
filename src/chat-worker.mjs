@@ -7,9 +7,10 @@ import {statement} from './turso-study.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from './chat-attachments.mjs';
 import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
 import {readProfiles,setPresence,setAvatar,setUsername,signupUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
-import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase} from './chat-database.mjs';
+import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase,assertChatRunning} from './chat-database.mjs';
 import {neonApplicationEnvironment} from './neon-application.mjs';
 import {chatCipher} from './chat-encryption.mjs';
+import {transferObject,trackTransferTask} from './account-transfer.mjs';
 export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -17,7 +18,7 @@ const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
 const database=studyClient;
 
 export class ChatBridge{
-  constructor(ctx,env,{studyDatabase=database,openNeon=neonApplicationEnvironment}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.openNeon=openNeon;this.database=studyDatabase;this.sql=ctx.storage.sql;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");this.loading=null;this.flushing=null;this.importing=new Map();}
+  constructor(ctx,env,{studyDatabase=database,openNeon=neonApplicationEnvironment}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.openNeon=openNeon;this.database=studyDatabase;this.sql=ctx.storage.sql;this.loading=null;this.flushing=null;this.importing=new Map();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='profiles'").toArray().length)return;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");}
   async prepare(request){const selected=await prepareChatDatabase(this,request);if(selected.provider==='neon')this.env=this.openNeon(this.env);}
   get(key){const row=this.sql.exec('SELECT value FROM meta WHERE key=?',key).toArray()[0];return row?JSON.parse(row.value):null;}
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
@@ -90,6 +91,7 @@ export class ChatBridge{
   async flush(){
     if(this.flushing)return this.flushing;
     this.flushing=(async()=>{
+      await assertChatRunning(this);
       const db=this.database(this.env);await this.ensureJournal();
       const rows=await db.read('SELECT m.*,a.exam_id,a.active assignment_active FROM chat_delivery_outbox o JOIN chat_messages m ON m.id=o.message_id LEFT JOIN chat_assignments a ON a.id=m.assignment_id ORDER BY m.id LIMIT 100');
       if(!rows.length)return {delivered:0};
@@ -104,9 +106,9 @@ export class ChatBridge{
       if(done.length)await db.atomic([statement('DELETE FROM chat_delivery_outbox WHERE message_id IN ('+done.map(()=>'?').join(',')+')',done)]);
       if(rows.length===100)await this.ctx.storage.setAlarm(Date.now()+1000);
       return {delivered:done.length};
-    })().catch(async()=>{await this.ctx.storage.setAlarm(Date.now()+10000);return {retrying:true};}).finally(()=>{this.flushing=null;});return this.flushing;
+    })().catch(async error=>{if(error.migrationFrozen)return {frozen:true};await this.ctx.storage.setAlarm(Date.now()+10000);return {retrying:true};}).finally(()=>{this.flushing=null;});return this.flushing;
   }
-  async alarm(){try{await this.prepare();}catch(error){if(!error.inactiveDatabase)await this.ctx.storage.setAlarm(Date.now()+10000);return;}const dirty=this.get('policyDirtyAt');if(dirty&&Date.now()-dirty>=120000)try{await this.policy(true,true);}catch{await this.ctx.storage.setAlarm(Date.now()+10000);}await this.flush();}
+  async alarm(){return trackTransferTask(this,async()=>{try{await this.prepare();}catch(error){if(!error.inactiveDatabase&&!error.migrationFrozen)await this.ctx.storage.setAlarm(Date.now()+10000);return;}const dirty=this.get('policyDirtyAt');if(dirty&&Date.now()-dirty>=120000)try{await this.policy(true,true);}catch(error){if(!error.migrationFrozen)await this.ctx.storage.setAlarm(Date.now()+10000);}await this.flush();});}
   async catalog(){const policy=await this.policy(),version=this.get('catalogVersion')+1||1;this.set('catalogVersion',version);for(const user of policy.users.filter(u=>staff(u)&&u.active!==0&&!u.is_personal_data_revoked))await chatCall(this.env,'CHAT_INBOX',user.id,'/event',{key:'catalog:'+version,type:'catalog',catalogVersion:version});return {updated:true};}
   async discover(actor,query){
     const policy=await this.policy(),self=policy.users.find(u=>u.id===actor.id&&u.active!==0&&!u.is_personal_data_revoked);
@@ -115,7 +117,11 @@ export class ChatBridge{
     const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
     if(matches.length>1)fail(409,'Use the full email to identify this account.');return {person:matches[0]||null};
   }
-  async fetch(request){
+  fetch(request){
+    if(new URL(request.url).pathname.startsWith('/__account-transfer/'))return transferObject(this,request,'bridge');
+    return trackTransferTask(this,()=>this.receiveRequest(request));
+  }
+  async receiveRequest(request){
     try{await this.prepare(request);}catch(error){return json({error:error.status?error.message:'Chat database unavailable.'},error.status||503);}
     if(new URL(request.url).pathname==='/signup-username'){try{return json(signupUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Signup username unavailable.'},error.status||503);}}
     if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}

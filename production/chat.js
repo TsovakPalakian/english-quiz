@@ -219,7 +219,8 @@
     el('msgListTitle').textContent=listMode==='contacts'?'Contacts':'Chats';el('msgRoomSearch').placeholder=listMode==='contacts'?'Name, full email or login':'Chats, contacts';el('msgLookup').hidden=listMode!=='contacts';el('msgUnread').hidden=listMode==='contacts';el('msgChats').classList.toggle('selected',listMode==='chats');el('msgContacts').classList.toggle('selected',listMode==='contacts');
     if(el('msgRooms').dataset.renderedHtml!==html){el('msgRooms').innerHTML=html;el('msgRooms').dataset.renderedHtml=html;}
     if(chatListView)el('msgListTitle').textContent=chatListView==='archive'?'Archive':folder?.name||'Chats';
-    el('msgRooms').querySelectorAll('[data-msg-room]').forEach(node=>{const row=data.rooms.find(r=>r.id===node.dataset.msgRoom);if(row?.pinOrder){node.draggable=true;node.dataset.pinOrder=String(row.pinOrder);node.title='Pinned conversation';}});
+    el('msgRooms').querySelectorAll('[data-msg-room]').forEach(node=>{const row=data.rooms.find(r=>r.id===node.dataset.msgRoom);if(!row)return;node.setAttribute('aria-label',roomTitle(row));node.title=roomTitle(row);if(row.pinOrder){node.draggable=true;node.dataset.pinOrder=String(row.pinOrder);node.title+=' · Pinned conversation';}});
+    el('msgRooms').querySelectorAll('[data-chat-folder],[data-chat-archive]').forEach(node=>{node.title=node.textContent.trim();node.setAttribute('aria-label',node.title);});
     const selected=data.rooms.find(r=>r.id===room);el('msgRoomTitle').textContent=selected?roomTitle(selected):'Messages';el('msgRoomSubtitle').textContent=selected?(selected.kind==='group'?selected.members+' members':'Private conversation'):'Choose a conversation';
     if(listMode==='contacts')el('msgRoomSearch').placeholder='Name, email, login or @username';el('msgLookup').textContent='Find by email, login or @username';
     const face=el('msgRoomAvatar'),subject=selected?(selected.kind==='group'?selected.id:selected.peerId):'',name=selected?.title||'Messages';
