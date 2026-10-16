@@ -416,10 +416,18 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .security-session details{margin-top:12px}
 .user-settings .security-session summary{cursor:pointer;font-size:14px;padding-block:6px}
 @media(max-width:480px){.user-settings .security-session dl{grid-template-columns:minmax(0,1fr)}}
-.user-settings .chat-edit-profile{max-width:560px;gap:10px}
-.user-settings .chat-edit-profile label{gap:4px}
+.user-settings .chat-edit-profile{max-width:560px;gap:8px;padding:0;align-content:start}
+.user-settings .chat-edit-profile label{gap:3px;margin:0}
+.user-settings .chat-edit-profile .chat-edit-identity>div{gap:8px}
+.user-settings .chat-edit-profile [role=status]{margin:0}
+.user-settings .chat-edit-profile [role=status]:empty{display:none}
+.user-settings .chat-edit-profile [data-profile-save]{margin-top:4px}
 .user-settings .chat-edit-profile .chat-profile-visibility{grid-template-columns:minmax(0,180px) 44px;gap:12px}
 .user-settings #customThemeOpen{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 20px;border:1px solid var(--acc);border-radius:6px;background:var(--acc);color:var(--on-acc);font-weight:700}
+.user-settings #themes{display:flex!important;flex-direction:column;align-items:stretch;gap:16px}
+.user-settings #themes #customThemeOpen{align-self:flex-start;flex:none;margin:0;position:static}
+.user-settings #themes #customThemeForm{margin:0;padding:16px;gap:12px;flex:none;min-width:0}
+.user-settings #themes #customThemeHint{margin:0;line-height:1.5}
 .user-settings #guideLang{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s)}
 .user-settings #guideLang .chip{min-height:38px;border:0;border-radius:5px;margin:0;padding:8px 16px;background:transparent;color:var(--ink)}
 .user-settings #guideLang .chip.on{background:var(--acc);color:var(--on-acc);font-weight:700}

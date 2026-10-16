@@ -21,7 +21,8 @@ export async function notificationSoundRoute(request,bucket,actor){
     return new Response(object.body,{headers:{...headers,'Content-Type':'audio/wav'}});
   }
   if(!['POST','PUT','DELETE'].includes(request.method))fail(405,'Method not allowed.');
-  if(request.headers.get('If-Match')!==revision)fail(409,'Sound settings changed. Reopen settings.');
+  // Browsers/proxies may omit an empty header on the first save.
+  if((request.headers.get('If-Match')??'')!==revision)fail(409,'Sound settings changed. Reopen settings.');
   let uploaded,removed;
   if(request.method==='PUT'){
     if(settings.sounds.length>=20)fail(400,'Remove an unused custom sound first.');

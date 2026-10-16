@@ -11,8 +11,15 @@ function fixture(){
   const objects=new Map();let revision=0;
   const bucket={async get(key){const entry=objects.get(key);return entry?{etag:entry.etag,json:async()=>JSON.parse(entry.value),body:entry.value}:null;},async put(key,value,options={}){const old=objects.get(key);if(options.onlyIf?.etagMatches&&old?.etag!==options.onlyIf.etagMatches||options.onlyIf?.etagDoesNotMatch==='*'&&old)return null;const etag=String(++revision);objects.set(key,{value,etag});return {etag};},async delete(key){objects.delete(key);}};
   const call=(method='GET',body,revision='',query='',actor='alice')=>notificationSoundRoute(new Request('https://example.test/api/me/notification-sounds'+query,{method,headers:{'If-Match':revision},body:body instanceof Uint8Array?body:body?JSON.stringify(body):undefined}),bucket,{id:actor});
-  return {call,objects};
+  return {call,objects,bucket};
 }
+test('An omitted empty revision permits only the first save and cannot overwrite existing settings',async()=>{
+  const {bucket,call}=fixture(),url='https://example.test/api/me/notification-sounds?name=First%20sound';
+  const saved=await(await notificationSoundRoute(new Request(url,{method:'PUT',body:wav(1)}),bucket,{id:'alice'})).json();
+  assert.equal(saved.sounds[0].name,'First sound');assert.equal((await(await call()).json()).sound,saved.sound);
+  await assert.rejects(notificationSoundRoute(new Request(url,{method:'PUT',body:wav(1)}),bucket,{id:'alice'}),error=>error.status===409);
+  assert.equal((await(await call()).json()).sounds.length,1);
+});
 test('Default sound, disabled state and volume persist on server and are private per account',async()=>{
   const {call}=fixture();const initial=await (await call()).json();assert.equal(initial.sound,'soft-double');assert.equal(initial.enabled,true);assert.equal(SOUND_IDS.length,12);
   const saved=await (await call('POST',{enabled:false,volume:.2,sound:'bell'})).json();

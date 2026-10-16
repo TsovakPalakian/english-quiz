@@ -210,9 +210,13 @@ try{
   assert.equal(await page.locator('.user-settings').getByText('Show phone',{exact:true}).count(),1);
   assert.equal(await page.locator('.user-settings').getByText('Show birthday',{exact:true}).count(),1);
   assert.equal(await page.locator('.chat-settings-menu>button:last-child[data-settings-logout]').count(),1);
+  assert.ok(await page.locator('.user-settings .chat-edit-profile').evaluate(form=>[...form.querySelectorAll('label')].every(label=>getComputedStyle(label).marginTop==='0px'&&getComputedStyle(label).marginBottom==='0px')),'Profile labels do not inherit dialog margins');
+  assert.ok(await page.locator('.user-settings .chat-edit-profile').evaluate(form=>form.getBoundingClientRect().height<720),'Profile form stays compact vertically');
   await page.locator('[data-settings-tab="interface"]').click();assert.equal(await page.locator('.user-settings .settings-switch').count(),3);
   await page.locator('[data-settings-tab="theme"]').click();await page.locator('.user-settings #themes').waitFor();
   assert.deepEqual(await settingsSize(),fixedSettingsSize,'Theme does not resize Settings');
+  await page.locator('.user-settings #customThemeOpen').click();assert.ok(await page.locator('.user-settings #themes').evaluate(root=>root.querySelector('#customThemeHint').getBoundingClientRect().top-root.querySelector('#customThemeOpen').getBoundingClientRect().bottom>=16),'Theme button leaves space before its description');
+  await page.locator('.user-settings #customThemeOpen').click();
   await page.locator('[data-settings-tab="help"]').click();await page.locator('.user-settings #guide').waitFor();assert.equal(await page.locator('#themes').evaluate(node=>!!node.closest('.user-settings')),false,'Theme section returns to its original position');
   assert.deepEqual(await settingsSize(),fixedSettingsSize,'Help does not resize Settings');
   await page.locator('.user-settings [data-guide-lang="ru"]').click();assert.equal(await page.locator('.user-settings [data-guide-lang="ru"]').evaluate(button=>button.classList.contains('on')),true);
