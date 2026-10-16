@@ -5,7 +5,7 @@ import {ChatRoom,ChatInbox} from '../src/chat-durable.mjs';
 import {ChatBridge} from '../src/chat-worker.mjs';
 import {transferObject,accountTransferWorker} from '../src/account-transfer.mjs';
 import {prepareChatDatabase} from '../src/chat-database.mjs';
-import {productionWorker} from '../src/turso-production-worker.mjs';
+import {productionWorker} from '../src/learning-production-worker.mjs';
 function fixture(id,role,kind='room'){
  const db=new DatabaseSync(':memory:'),metrics={writes:0,alarms:0,deletes:0},sockets=[],pending=[];
  const env={CONTENT_SESSION_SECRET:'fixture',CHAT_ENCRYPTION_KEY:btoa('r'.repeat(32)),CHAT_ENCRYPTION_REQUIRED:'true',ACCOUNT_TRANSFER_ROLE:role,ACCOUNT_TRANSFER_KEY:btoa('t'.repeat(32)),ACCOUNT_TRANSFER_EXPIRES:String(Date.now()+60000),...(role==='source'?{ACCOUNT_TRANSFER_FROZEN:'true'}:{})};
@@ -20,7 +20,7 @@ test('source export reconstruction does not require schema writes after the dail
 });
 test('portable chat transfer preserves encrypted state across different object IDs',async()=>{
  const a=fixture('a'.repeat(64),'source'),b=fixture('b'.repeat(64),'target');try{
- a.room.set('room',{id:'direct:alice:bob',kind:'direct',active:true});a.room.set('_databaseScope',{provider:'turso',revision:1,scope:'site'});a.room.set('settings:alice',{pinOrder:2,sound:'bell'});
+ a.room.set('room',{id:'direct:alice:bob',kind:'direct',active:true});a.room.set('_databaseScope',{provider:'d1',revision:1,scope:'site'});a.room.set('settings:alice',{pinOrder:2,sound:'bell'});
  a.db.prepare('INSERT INTO messages(sender,name,category,body,client_key,created_ms) VALUES(?,?,?,?,?,?)').run('alice','Alice','personal',a.room.seal('private text','body'),'retry-key',1);
  const exported=await(await transferObject(a.room,req(a.env,'export'),'room')).json();assert.equal(JSON.stringify(exported).includes('private text'),false);
  const imported=await transferObject(b.room,req(b.env,'import',exported),'room');assert.equal(imported.status,200);assert.equal(b.room.get('settings:alice').pinOrder,2);assert.equal(b.room.one('SELECT body FROM messages').body,'private text');
@@ -66,7 +66,7 @@ test('inbox transfer preserves folders, encrypted events, unread counters and de
 });
 test('bridge transfer preserves usernames, policy and private profile fields',async()=>{
  const a=fixture('a'.repeat(64),'source','bridge'),b=fixture('b'.repeat(64),'target','bridge');try{
-  a.store.set('_databaseScope',{provider:'turso',revision:1,scope:'site'});a.store.set('username-owner:@alice','alice');a.store.set('policy',{users:[{id:'alice',active:1}],at:123});
+  a.store.set('_databaseScope',{provider:'d1',revision:1,scope:'site'});a.store.set('username-owner:@alice','alice');a.store.set('policy',{users:[{id:'alice',active:1}],at:123});
   a.db.prepare('INSERT INTO profiles(user_id,phone,phone_visible,birthday,birthday_visible) VALUES(?,?,?,?,?)').run('alice','private-phone',0,'2000-01-01',0);
   const snapshot=await exportState(a);assert.equal(snapshot.logicalName,'global');
   assert.equal((await transferObject(b.store,req(b.env,'import',snapshot),'bridge')).status,200);
@@ -131,7 +131,7 @@ test('frozen production cron exits before opening databases or scheduling cleanu
 });
 test('persisted freeze is observed by existing objects before metadata or encryption writes',async()=>{
  const f=fixture('a'.repeat(64),'target');try{
-  delete f.env.ACCOUNT_TRANSFER_ROLE;f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'turso',revision:0,scope:'site',accountTransferFrozen:true})})};
+  delete f.env.ACCOUNT_TRANSFER_ROLE;f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})})};
   const before=f.metrics.writes;
   await assert.rejects(prepareChatDatabase(f.store),error=>error.status===503&&error.migrationFrozen===true);
   assert.equal(f.metrics.writes,before);
@@ -150,7 +150,7 @@ test('a frozen target defers restored alarms until a later authorized import ret
 });
 for(const kind of ['room','inbox','bridge'])test(kind+' observes a persisted freeze in alarms without rescheduling',async()=>{
  const f=fixture('a'.repeat(64),'target',kind);try{
-  f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'turso',revision:0,scope:'site',accountTransferFrozen:true})})};
+  f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})})};
   const before=f.metrics.writes;await f.store.alarm();await Promise.all(f.pending);
   assert.equal(f.metrics.writes,before);assert.equal(f.metrics.alarms,0);assert.equal(f.metrics.deletes,0);
  }finally{f.db.close();}
@@ -166,7 +166,7 @@ test('frozen room outbox is preserved and bridge flush never opens the study dat
 });
 test('queued socket delivery preserves order and rechecks persistent freeze before sending',{timeout:2000},async()=>{
  const f=fixture('a'.repeat(64),'target','inbox'),sent=[],closed=[];try{
-  let frozen=false;f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'turso',revision:0,scope:'site',accountTransferFrozen:frozen})})};
+  let frozen=false;f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:frozen})})};
   const ws={deserializeAttachment:()=>({expires:Date.now()+60000}),send:raw=>sent.push(JSON.parse(raw)),close:(...args)=>closed.push(args)};f.sockets.push(ws);
   f.store.broadcast({type:'event',seq:1});f.store.broadcast({type:'event',seq:2});await Promise.all(f.pending.splice(0));
   assert.deepEqual(sent.map(row=>row.seq),[1,2]);
@@ -175,7 +175,7 @@ test('queued socket delivery preserves order and rechecks persistent freeze befo
  }finally{f.db.close();}
 });
 test('persistent freeze stops normal production HTTP and cron before application code',async()=>{
- let calls=0;const env={CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_ALLOWED_HOST:'site.example',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get:async()=>({json:async()=>({provider:'turso',revision:0,scope:'site',accountTransferFrozen:true})}),head(){},put(){}}};
+ let calls=0;const env={CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_ALLOWED_HOST:'site.example',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})}),head(){},put(){}}};
  const worker=productionWorker({fetch:async()=>{calls++;return Response.json({});},scheduled:async()=>{calls++;}});
  assert.equal((await worker.fetch(new Request('https://site.example/api/me'),env,{})).status,503);
  await worker.scheduled({},env,{waitUntil(){calls++;}});assert.equal(calls,0);
@@ -208,7 +208,7 @@ test('export waits for an already accepted request before taking the snapshot',{
 });
 test('production export requires the persisted fence as well as the deployment flag',async()=>{
  const f=fixture('a'.repeat(64),'source');try{
-  let frozen=false;f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'turso',revision:0,scope:'site',accountTransferFrozen:frozen})})};
+  let frozen=false;f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:frozen})})};
   assert.equal((await transferObject(f.store,req(f.env,'export'),'room')).status,409);
   frozen=true;assert.equal((await transferObject(f.store,req(f.env,'export'),'room')).status,200);
   f.env.CONTENT_MEDIA.get=async()=>{throw Error('Storage unavailable');};assert.notEqual((await transferObject(f.store,req(f.env,'export'),'room')).status,200);
@@ -221,6 +221,6 @@ for(const kind of ['room','inbox','bridge'])test(kind+' repeated preparation pre
   for(let i=0;i<100;i++)await prepareChatDatabase(f.store);
   assert.equal(f.metrics.writes-before,0);assert.deepEqual(f.db.prepare('SELECT key,value FROM meta ORDER BY key').all(),original);
   if(kind!=='bridge')assert.ok(original.every(row=>row.value.startsWith('chatenc:aes256gcm:')));
-  assert.equal(f.store.get('_databaseWritable'),true);assert.equal(f.store.get('_databaseScope').provider,'turso');
+  assert.equal(f.store.get('_databaseWritable'),true);assert.equal(f.store.get('_databaseScope').provider,'d1');
  }finally{f.db.close();}
 });

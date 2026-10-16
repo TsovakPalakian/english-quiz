@@ -1,5 +1,5 @@
 const $=selector=>document.querySelector(selector);
-const launchKey='english-quiz-turso-stage-launch',pendingKey='english-quiz-turso-stage-pending';
+const launchKey='english-quiz-learning-stage-launch',pendingKey='english-quiz-learning-stage-pending';
 const incoming=new URLSearchParams(location.hash.slice(1)).get('code');
 if(incoming){sessionStorage.setItem(launchKey,incoming);history.replaceState(null,'',location.pathname+location.search);}
 const launchCode=sessionStorage.getItem(launchKey)||'';
@@ -83,7 +83,7 @@ async function sendPending(){
     throw error;
   }
   pending=null;localStorage.removeItem(pendingKey);pendingView();
-  status('Сохранено в тестовой Turso.');
+  status('Сохранено в тестовой Learning.');
   await listCards();
   if(operation.cardId)await openCard(operation.cardId);
   else{selected=null;$('#detail').replaceChildren(node('p','Карточка удалена на сервере.'));const url=new URL(location.href);url.searchParams.delete('card');history.replaceState(null,'',url.pathname+url.search);}

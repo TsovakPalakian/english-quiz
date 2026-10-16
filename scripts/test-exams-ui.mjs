@@ -4,10 +4,10 @@ import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {examWorkflowDemo} from './exam-workflow-demo.mjs';
-import {studentExamContent} from '../src/turso-exams.mjs';
+import {studentExamContent} from '../src/learning-exams.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve('rollback/turso-production-assets');
+const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
   if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}
@@ -28,7 +28,7 @@ try{
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;if(route.request().method()!=='GET')writes.push(path);
     let data={};
-    if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
+    if(path==='/api/database-context')data={provider:'d1',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user};
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};
@@ -210,14 +210,14 @@ try{
   const databaseActions=[];
   await page.route('**/api/developer/databases',async route=>{
     const body=route.request().postDataJSON();if(body)databaseActions.push(body);
-    const data=body?(body.provider==='neon'?{provider:'neon',connected:true,database:'english',schemaVersion:body.action==='prepare'?1:0,dataTransferred:false}:{provider:'turso',connected:true}):{active:'turso',authentication:'cloudflare-d1',chat:'cloudflare-durable-objects',providers:[{id:'turso',configured:true,adapterReady:true,active:true},{id:'neon',configured:true,adapterReady:false,active:false,blocker:'PostgreSQL application adapter pending.'}]};
+    const data=body?(body.provider==='neon'?{provider:'neon',connected:true,database:'english',schemaVersion:body.action==='prepare'?1:0,dataTransferred:false}:{provider:'d1',connected:true}):{active:'d1',authentication:'cloudflare-d1',chat:'cloudflare-durable-objects',providers:[{id:'d1',configured:true,adapterReady:true,active:true},{id:'neon',configured:true,adapterReady:false,active:false,blocker:'PostgreSQL application adapter pending.'}]};
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.evaluate(()=>{authUser.role='DEVELOPER';window.enquizVisit('admin');paintDeveloperChrome();});await page.locator('[data-database-admin]').click();await page.locator('#databaseAdmin[open]').waitFor();await page.waitForFunction(()=>document.getElementById('databaseRegistry').textContent.includes('Configured'));
   assert.equal(await page.locator('#databaseActivate').isDisabled(),true);assert.equal(await page.locator('#databaseAdmin input').count(),0,'No connection secret field in browser');
   await page.locator('[data-database-action="check"]').click();await page.locator('#databaseResult').filter({hasText:'Connected'}).waitFor();
   page.once('dialog',dialog=>dialog.accept());await page.locator('[data-database-action="prepare"]').click();await page.locator('#databaseResult').filter({hasText:'Schema 1'}).waitFor();assert.equal(await page.locator('#databaseActivate').isDisabled(),true,'Schema does not enable runtime switching');
-  await page.setViewportSize({width:320,height:900});assert.ok(await page.locator('#databaseAdmin').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/database-admin-mobile.png'});await page.locator('#databaseProvider').selectOption('turso');assert.equal(await page.locator('[data-database-action="prepare"]').isVisible(),false);assert.equal(await page.locator('#databaseActivate').isDisabled(),true);await page.locator('[data-database-close]').click();assert.deepEqual(databaseActions,[{provider:'neon',action:'check'},{provider:'neon',action:'prepare'}]);
+  await page.setViewportSize({width:320,height:900});assert.ok(await page.locator('#databaseAdmin').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/database-admin-mobile.png'});await page.locator('#databaseProvider').selectOption('d1');assert.equal(await page.locator('[data-database-action="prepare"]').isVisible(),false);assert.equal(await page.locator('#databaseActivate').isDisabled(),true);await page.locator('[data-database-close]').click();assert.deepEqual(databaseActions,[{provider:'neon',action:'check'},{provider:'neon',action:'prepare'}]);
   await page.evaluate(()=>{authUser.role='ADMIN';paintDeveloperChrome();});assert.equal(await page.locator('[data-database-admin]').isVisible(),false);
   assert.equal(writes.filter(path=>['/api/groups','/api/lessons'].includes(path)).length,0,'Exam UI does not write Groups or Lessons: '+writes.join(','));
   let demoId=1000;
@@ -278,7 +278,7 @@ try{
     }
   }
   await page.setViewportSize({width:1280,height:900});
-  if(await page.locator('#turso-main-banner').isVisible())await page.locator('#turso-main-dismiss').click();
+  if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
   await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
   await page.locator('.side [data-jump="exams"]').click();
   assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['',null,'active'],'Main navigation resets Exams to its root even within Exams');
@@ -291,17 +291,17 @@ try{
   for(const width of [1280,320]){
     await page.setViewportSize({width,height:900});
     await page.evaluate(()=>alert('Grade every question before publishing.'));
-    const notice=page.locator('#turso-main-banner');
+    const notice=page.locator('#learning-main-banner');
     assert.equal(await notice.isVisible(),true);
     assert.equal(await notice.locator('button:visible').count(),1,'Informational notice has only a close button');
     const bounds=await notice.boundingBox();assert.ok(Math.abs(bounds.x+bounds.width/2-width/2)<2,'Notice is horizontally centered');assert.ok(Math.abs(bounds.y+bounds.height/2-450)<2,'Notice is vertically centered');
     assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width,'Notice fits the screen');
     await page.keyboard.press('Escape');assert.equal(await notice.isVisible(),false);
-    await page.evaluate(()=>window.TursoMain.notice('Network error. Please try again.',true));
-    assert.equal(await page.locator('#turso-main-status').innerText(),'Network error.');
+    await page.evaluate(()=>window.LearningMain.notice('Network error. Please try again.',true));
+    assert.equal(await page.locator('#learning-main-status').innerText(),'Network error.');
     await page.mouse.click(2,2);assert.equal(await notice.isVisible(),false);
     await page.evaluate(()=>alert('Information'));
-    await page.locator('#turso-main-dismiss').click();assert.equal(await notice.isVisible(),false);
+    await page.locator('#learning-main-dismiss').click();assert.equal(await notice.isVisible(),false);
   }
   assert.deepEqual(errors,[]);console.log('Exam-only navigation, counts, filters, breadcrumbs, responsive controls and lesson isolation passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

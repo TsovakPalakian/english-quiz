@@ -6,10 +6,10 @@ import {runInNewContext} from 'node:vm';
 import {everydayGroups} from '../src/essential-data.mjs';
 import {grammarDetails,grammarGroupNames} from '../src/grammar-content.mjs';
 import {seedEssential} from './seed-essential.mjs';
-import {applyTursoSchema} from './turso-test-schema.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
 
 function fixture(){
-  const sqlite=new DatabaseSync(':memory:');applyTursoSchema(sqlite);
+  const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);
   const db={read:async(sql,args=[])=>sqlite.prepare(sql).all(...args),atomic:async commands=>{
     assert.ok(commands.length<=201,'Bounded import transactions');
     sqlite.exec('BEGIN');try{for(const command of commands)sqlite.prepare(command.sql).run(...command.args.map(arg=>arg.type==='null'?null:arg.type==='integer'?Number(arg.value):arg.value));sqlite.exec('COMMIT');}catch(error){sqlite.exec('ROLLBACK');throw error;}

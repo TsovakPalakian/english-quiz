@@ -1,6 +1,7 @@
 import {chatCipher} from './chat-encryption.mjs';
 import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
 import {readDatabaseSelection,DATABASE_CONTROL} from './database-selection.mjs';
+import {transferMedia} from './account-transfer-media.mjs';
 const names={room:['meta','members','messages','outbox','files'],inbox:['meta','rooms','events'],bridge:['meta','profiles']};
 const reply=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
 const digest=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),n=>n.toString(16).padStart(2,'0')).join('');
@@ -34,7 +35,7 @@ export async function transferObject(store,request,kind){
   if(env.ACCOUNT_TRANSFER_FROZEN!=='true')return reply({error:'Freeze the source before exporting.'},409);
   if(env.CONTENT_ENABLED==='true'){
    let frozen=false;
-   try{await readDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{defaultProvider:env.DB_PROVIDER||'turso'});}catch(error){if(!error.migrationFrozen)throw error;frozen=true;}
+   try{await readDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{defaultProvider:env.DB_PROVIDER||'d1'});}catch(error){if(!error.migrationFrozen)throw error;frozen=true;}
    if(!frozen)return reply({error:'Persist the source migration fence before exporting.'},409);
   }
   await settleTransferTasks(store);
@@ -70,16 +71,19 @@ export function accountTransferWorker(application){return {...application,async 
  const path=new URL(request.url).pathname;
  if(path==='/__account-transfer'){
   if(!transferAuthorized(env,request))return reply({error:'Not found.'},404);
-  try{const body=await request.json();
+  try{
+   if(new URL(request.url).searchParams.get('action')==='media-put')return transferMedia(request,env);
+   const body=await request.json();
+   if(body.action?.startsWith('media-'))return transferMedia(request,env,body);
    if(body.action==='secrets'&&env.ACCOUNT_TRANSFER_ROLE==='source'){
-    const keys=['CONTENT_SESSION_SECRET','CHAT_ENCRYPTION_KEY','CHAT_ENCRYPTION_KEY_ID','CHAT_ENCRYPTION_PREVIOUS_KEYS','EXPRESSION_ANALYZER_KEY','NEON_DATABASE_URL','TURSO_URL','TURSO_AUTH_TOKEN'];
+    const keys=['CONTENT_SESSION_SECRET','CHAT_ENCRYPTION_KEY','CHAT_ENCRYPTION_KEY_ID','CHAT_ENCRYPTION_PREVIOUS_KEYS','EXPRESSION_ANALYZER_KEY','NEON_DATABASE_URL'];
     return reply({sealed:chatCipher({CHAT_ENCRYPTION_KEY:env.ACCOUNT_TRANSFER_KEY}).seal(JSON.stringify(Object.fromEntries(keys.filter(key=>env[key]).map(key=>[key,env[key]]))),'account-transfer:secrets')});
    }
    if(!['room','inbox','bridge'].includes(body.kind))return reply({error:'Invalid transfer type.'},400);
    const binding=env[{room:'CHAT_ROOM',inbox:'CHAT_INBOX',bridge:'CHAT_BRIDGE'}[body.kind]];
    if(body.action==='export'&&env.ACCOUNT_TRANSFER_ROLE==='source'&&/^[a-f0-9]{64}$/.test(body.objectId))return binding.get(binding.idFromString(body.objectId)).fetch(new Request('https://chat.internal/__account-transfer/export',{method:'POST',headers:{Authorization:request.headers.get('Authorization')}}));
    if(body.action==='import'&&env.ACCOUNT_TRANSFER_ROLE==='target'){
-    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['turso','neon'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
+    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['neon','d1'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
     const name=(snapshot.scope.provider==='neon'?'neon:v1:':'')+snapshot.logicalName;
     return binding.get(binding.idFromName(name)).fetch(new Request('https://chat.internal/__account-transfer/import',{method:'POST',headers:{Authorization:request.headers.get('Authorization'),'Content-Type':'application/json'},body:JSON.stringify(snapshot)}));
    }

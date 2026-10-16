@@ -113,6 +113,6 @@
     };
     render();if(!embedded)dialog.showModal();
   }
-  document.addEventListener('click',event=>{if(event.target.closest('[data-notification-sounds]'))open().catch(error=>{if(window.TursoMain?.notice)window.TursoMain.notice(error.message,true);else window.alert(error.message);});});
+  document.addEventListener('click',event=>{if(event.target.closest('[data-notification-sounds]'))open().catch(error=>{if(window.LearningMain?.notice)window.LearningMain.notice(error.message,true);else window.alert(error.message);});});
   window.NotificationSounds={load,play,playFor,list:()=>[...choices.map(([id,name])=>({id,name})),...recordings.map(({id,name})=>({id,name})),...settings.sounds.map(({id,name})=>({id,name}))],stop,unlock,mount:open};
 })();

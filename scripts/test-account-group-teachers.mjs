@@ -5,8 +5,8 @@ import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
 import {PGlite} from '@electric-sql/pglite';
 import {NeonStudyClient} from '../src/neon-study.mjs';
 import {neonStudyMigration} from '../src/neon-study-migration.mjs';
-import {statement as s} from '../src/turso-study.mjs';
-import {integratedWorker} from '../src/turso-integrated-worker.mjs';
+import {statement as s} from '../src/learning-study.mjs';
+import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 const actor={id:'teacher',role:'ADMIN'},users=[actor,{id:'second',role:'ADMIN'},{id:'dev',role:'DEVELOPER'},{id:'student',role:'USER'},{id:'inactive',role:'ADMIN',active:false}];
 function fixture(){const sql=new DatabaseSync(':memory:');sql.exec("CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key));CREATE TABLE class_groups(id INTEGER PRIMARY KEY,deleted_at INTEGER);INSERT INTO class_groups VALUES(1,NULL),(2,NULL),(3,1);CREATE TABLE class_group_students(account_id TEXT PRIMARY KEY,group_id INTEGER);INSERT INTO class_group_students VALUES('student',1)");
  const args=c=>c.args.map(a=>a.type==='null'?null:['integer','float'].includes(a.type)?Number(a.value):a.value),db={read:async(q,a=[])=>sql.prepare(q).all(...a),atomic:async commands=>{sql.exec('BEGIN');try{for(const c of commands)sql.prepare(c.sql).run(...args(c));sql.exec('COMMIT');}catch(e){sql.exec('ROLLBACK');throw e;}}};return {sql,service:new AccountGroupTeachers(db),close:()=>sql.close()};}

@@ -11,8 +11,8 @@ function storage(){
       current=JSON.parse(value);return {etag:String(++etag)};
     }};
 }
-test('default is shared Turso selection and creates no new database or object',async()=>{
-  const bucket=storage();assert.deepEqual(await readDatabaseSelection(bucket),{selection:{provider:'turso',revision:0,scope:'site'},etag:null});
+test('default is shared Learning selection and creates no new database or object',async()=>{
+  const bucket=storage();assert.deepEqual(await readDatabaseSelection(bucket),{selection:{provider:'d1',revision:0,scope:'site'},etag:null});
 });
 test('global choice survives independent callers and supports reversal without copying data',async()=>{
   const bucket=storage(),checks=[];
@@ -24,9 +24,9 @@ test('global choice survives independent callers and supports reversal without c
     const env=await withDatabaseSelection({CONTENT_MEDIA:bucket,userId:id},{openNeon:async env=>{opened++;return {...env,adapter:'neon'};}});
     assert.equal(env.adapter,'neon');assert.equal(env.DATABASE_SELECTION.revision,1);
   }
-  assert.equal(opened,2);await change('turso',1);
-  assert.equal((await withDatabaseSelection({CONTENT_MEDIA:bucket})).DATABASE_SELECTION.provider,'turso');
-  assert.deepEqual(checks,['neon','turso']);
+  assert.equal(opened,2);await change('d1',1);
+  assert.equal((await withDatabaseSelection({CONTENT_MEDIA:bucket})).DATABASE_SELECTION.provider,'d1');
+  assert.deepEqual(checks,['neon','d1']);
 });
 test('failed readiness and unauthorized users never change shared selection',async()=>{
   const bucket=storage();
@@ -40,7 +40,7 @@ test('concurrent activation uses R2 CAS and rejects the stale administrator',asy
   await ready;
   await changeDatabaseSelection(bucket,{provider:'neon',expectedRevision:0,actor:developer,verifyTarget:async()=>{}});
   release();await assert.rejects(first,error=>error.status===409);
-  await assert.rejects(changeDatabaseSelection(bucket,{provider:'turso',expectedRevision:0,actor:developer}),error=>error.status===409);
+  await assert.rejects(changeDatabaseSelection(bucket,{provider:'d1',expectedRevision:0,actor:developer}),error=>error.status===409);
 });
 test('missing adapter, corrupt config or failed storage never silently falls back',async()=>{
   const bucket=storage();await changeDatabaseSelection(bucket,{provider:'neon',expectedRevision:0,actor:developer,verifyTarget:async()=>{}});

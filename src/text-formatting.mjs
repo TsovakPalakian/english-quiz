@@ -1,4 +1,4 @@
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 export function validateColorDocument(value,text,full=false){
   if(!value||!Array.isArray(value.runs)||value.runs.length>2000||Object.keys(value).some(key=>key!=='runs'))throw new StudyError(400,'Invalid text formatting.');
   for(const run of value.runs){

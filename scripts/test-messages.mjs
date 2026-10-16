@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {MessageService} from '../src/turso-messages.mjs';
-import {messagesTestWorker} from '../src/turso-messages-test-worker.mjs';
-import {messagesWorker} from '../src/turso-messages-worker.mjs';
-import {productionWorker} from '../src/turso-production-worker.mjs';
-import {StudyError} from '../src/turso-study.mjs';
-import {ExamService} from '../src/turso-exams.mjs';
-import {AssessmentService} from '../src/turso-assessment.mjs';
+import {MessageService} from '../src/learning-messages.mjs';
+import {messagesTestWorker} from '../src/learning-messages-test-worker.mjs';
+import {messagesWorker} from '../src/learning-messages-worker.mjs';
+import {productionWorker} from '../src/learning-production-worker.mjs';
+import {StudyError} from '../src/learning-study.mjs';
+import {ExamService} from '../src/learning-exams.mjs';
+import {AssessmentService} from '../src/learning-assessment.mjs';
 import {examGrading,examTaskMax,validateExamScoring} from '../src/exam-scoring.mjs';
-import {mediaKey} from '../src/turso-media.mjs';
-import {applyTursoSchema} from './turso-test-schema.mjs';
+import {mediaKey} from '../src/learning-media.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
 function fixture() {
-  const sqlite=new DatabaseSync(':memory:');applyTursoSchema(sqlite);
+  const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);
   const args=command=>command.args.map(arg=>arg.type==='null'?null:arg.type==='integer'?Number(arg.value):arg.value);
   const db={async read(sql,values=[]){return sqlite.prepare(sql).all(...values);},async atomic(commands){
     sqlite.exec('BEGIN IMMEDIATE');
@@ -222,7 +222,7 @@ test('Concurrent exam reassignment fails safely rather than leaving two active g
 test('Messaging wrapper fails closed outside TEST and passes unrelated routes untouched',async()=>{
   const f=fixture();try{await f.boot();let passed=0;
     const worker=messagesTestWorker({baseWorker:{async fetch(){passed++;return new Response('existing feature');}},authenticate:async()=>f.by('student'),studyDatabase:()=>f.db,directory:async()=>f.users});
-    const env={MESSAGES_ENABLED:'true',STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'learn-english-turso-integrated-test.east-tarsal.workers.dev'};
+    const env={MESSAGES_ENABLED:'true',STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'learn-english-learning-integrated-test.east-tarsal.workers.dev'};
     assert.equal((await worker.fetch(new Request('https://learn-english.east-tarsal.workers.dev/api/messages'),env)).status,403);
     const base='https://'+env.STAGE_ALLOWED_HOST;
     assert.equal((await worker.fetch(new Request(base+'/api/messages'),env)).status,200);
@@ -234,15 +234,15 @@ test('Production messaging stays isolated, authenticated and additive to existin
   const f=fixture();try{await f.boot();let actor=f.by('teacher'),passed=0;
     const app=messagesWorker({mode:'production',baseWorker:{async fetch(){passed++;return new Response('existing feature');}},authenticate:async()=>actor,studyDatabase:()=>f.db,directory:async()=>f.users});
     const worker=productionWorker(app),host='learn-english.east-tarsal.workers.dev',base='https://'+host;
-    const env={MESSAGES_ENABLED:'true',CONTENT_ENABLED:'true',CONTENT_WRITES:'true',CONTENT_ALLOWED_HOST:host,CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{fetch:async()=>new Response('asset')},CONTENT_MEDIA:{get(){},head(){},put(){}},TURSO_URL:'libsql://english-quiz-production-fixture.turso.io',TURSO_AUTH_TOKEN:'fixture'};
+    const env={MESSAGES_ENABLED:'true',CONTENT_ENABLED:'true',CONTENT_WRITES:'true',CONTENT_ALLOWED_HOST:host,CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_SESSION_SECRET:'fixture',DB:{},STUDY_DB:{prepare(){},batch(){}},MEDIA:{},ASSETS:{fetch:async()=>new Response('asset')},CONTENT_MEDIA:{get(){},head(){},put(){}}};
     const call=(path,options={},settings=env)=>worker.fetch(new Request(base+path,options),settings,{});
     assert.equal((await call('/api/messages')).status,200);
     assert.equal((await call('/messages.js')).status,200);
     actor=null;assert.equal((await call('/api/messages')).status,401);actor=f.by('teacher');
     assert.equal((await call('/api/messages/open',{method:'POST',headers:{Origin:'https://evil.invalid'},body:'{}'})).status,403);
     assert.equal((await call('/api/messages/open',{method:'POST',headers:{Origin:base},body:'{}'},{...env,CONTENT_WRITES:'false'})).status,403);
-    assert.equal((await worker.fetch(new Request('https://learn-english-turso-integrated-test.east-tarsal.workers.dev/api/messages'),env,{})).status,403);
-    assert.equal((await call('/api/messages',{}, {...env,TURSO_URL:'libsql://english-quiz-test-fixture.turso.io'})).status,503);
+    assert.equal((await worker.fetch(new Request('https://learn-english-learning-integrated-test.east-tarsal.workers.dev/api/messages'),env,{})).status,403);
+    assert.equal((await call('/api/messages',{}, {...env,CONTENT_MEDIA:undefined})).status,503);
     assert.equal(await (await call('/api/lessons')).text(),'existing feature');
     assert.equal(await (await call('/api/groups/manage',{method:'POST',headers:{Origin:base},body:'{"action":"rename"}'})).text(),'existing feature');
     assert.equal(await (await call('/api/groups/members',{method:'POST',body:'{}'},{...env,MESSAGES_ENABLED:'false'})).text(),'existing feature');

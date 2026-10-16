@@ -1,4 +1,4 @@
-import {StudyError,statement as s,recordId} from './turso-study.mjs';
+import {StudyError,statement as s,recordId} from './learning-study.mjs';
 const namespace='accounts-group-teachers',reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const allowed=users=>new Set(users.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0&&!user.revoked).map(user=>user.id));
 const fail=(status,message)=>{throw new StudyError(status,message);};

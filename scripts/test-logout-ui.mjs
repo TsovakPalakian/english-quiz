@@ -4,7 +4,7 @@ import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve('rollback/turso-production-assets');
+const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
   if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}
@@ -19,7 +19,7 @@ try{
   await page.routeWebSocket('**/api/messages/socket*',ws=>{ws.send(JSON.stringify({type:'snapshot',data:{rooms:[],contacts:[],groups:[],total:0,seq:0}}));});
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
-    if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
+    if(path==='/api/database-context')data={provider:'d1',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user:loggedOut?null:user};
     if(path==='/api/me/state')data={bootstrap:true,stats:{},stageActivity:{tracked:true,seconds:36480,examPass:7}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};

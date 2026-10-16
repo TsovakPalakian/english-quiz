@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {saveBug,listBugs,recordHttpBug,resolveBug,headerMap,resetBugStoreForTests} from '../src/bug-log.mjs';
-import {integratedWorker} from '../src/turso-integrated-worker.mjs';
+import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 const plain=value=>value&&typeof value==='object'&&'type' in value?value.value:value;
 function memory(){
   const rows=[];

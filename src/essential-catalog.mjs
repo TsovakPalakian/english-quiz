@@ -1,4 +1,4 @@
-import {statement as s,cardAccess,accessArgs,StudyError} from './turso-study.mjs';
+import {statement as s,cardAccess,accessArgs,StudyError} from './learning-study.mjs';
 export async function removeEssentialReference(db,actor,body){
   if(!['ADMIN','DEVELOPER'].includes(actor?.role))throw new StudyError(403,'Teachers only.');
   if(!body||Object.keys(body).some(key=>!['topicId','cardId','expectedVersion'].includes(key))||typeof body.topicId!=='string'||!Number.isSafeInteger(body.cardId)||body.cardId<1||!Number.isSafeInteger(body.expectedVersion))throw new StudyError(400,'Invalid reference.');

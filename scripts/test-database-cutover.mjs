@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
-import {productionWorker,databaseBackedRequest} from '../src/turso-production-worker.mjs';
-import {PRODUCTION_MEDIA_BUCKET} from '../src/turso-r2-media.mjs';
+import {productionWorker,databaseBackedRequest} from '../src/learning-production-worker.mjs';
+import {PRODUCTION_MEDIA_BUCKET} from '../src/learning-r2-media.mjs';
 import {studyClient,STUDY_DATABASE,STATIC_STUDY_DATABASE} from '../src/study-database.mjs';
 import {withDatabaseSelection,changeDatabaseSelection,DATABASE_SELECTION_KEY} from '../src/database-selection.mjs';
 import {neonProductionReadiness} from '../src/database-readiness.mjs';
@@ -10,15 +10,15 @@ import {neonFoundation} from '../src/neon-foundation.mjs';
 import {neonStudyMigration} from '../src/neon-study-migration.mjs';
 
 const url='https://app.example';
-function fixture(provider='turso'){
+function fixture(provider='d1'){
   const bucket={async get(key){assert.equal(key,DATABASE_SELECTION_KEY);return {json:async()=>({provider,revision:1,scope:'site'})};},async head(){},async put(){}};
-  return {CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,CONTENT_ALLOWED_HOST:'app.example',SESSION_SECRET:'test-only',DB:{prepare(){}},MEDIA:{},ASSETS:{},CONTENT_MEDIA:bucket,TURSO_URL:'libsql://english-quiz-production-fixture.turso.io',TURSO_AUTH_TOKEN:'test-only'};
+  return {CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,CONTENT_ALLOWED_HOST:'app.example',SESSION_SECRET:'test-only',DB:{prepare(){}},MEDIA:{},ASSETS:{},CONTENT_MEDIA:bucket,STUDY_DB:{prepare(){},batch(){}}};
 }
 test('all database-backed paths, including legacy catalog assets, use the global selector',()=>{
   for(const path of ['/api/me','/api/messages/socket','/api/groups','/lookup?word=test','/translate','/grammar.js?v=1','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json'])assert.equal(databaseBackedRequest(new Request(url+path)),true,path);
   for(const path of ['/','/preview.html','/preview.js','/preview.css','/favicon.png','/messages.js'])assert.equal(databaseBackedRequest(new Request(url+path)),false,path);
 });
-test('missing Neon configuration blocks data routes before any old application or Turso query',async()=>{
+test('missing Neon configuration blocks data routes before any old application or Learning query',async()=>{
   let calls=0;const app=productionWorker({async fetch(){calls++;return new Response('old application');}}),env=fixture('neon');
   for(const path of ['/api/me','/lookup','/translate','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json']){
     const response=await app.fetch(new Request(url+path),env,{});
@@ -34,7 +34,7 @@ test('public database context is independent of SQL credentials and exposes no a
 });
 test('stale client context is rejected before authentication or writes to the new database',async()=>{
   let calls=0;const app=productionWorker({fetch(){calls++;throw Error('Must not dispatch');}});
-  const response=await app.fetch(new Request(url+'/api/me/cards/new',{method:'POST',headers:{'X-Database-Context':'turso:0'},body:'{}'}),fixture('neon'),{});
+  const response=await app.fetch(new Request(url+'/api/me/cards/new',{method:'POST',headers:{'X-Database-Context':'d1:0'},body:'{}'}),fixture('neon'),{});
   assert.equal(response.status,409);assert.equal(response.headers.get('X-Database-Context'),'neon:1');assert.equal(calls,0);
 });
 test('static shell requests never construct a hidden fallback SQL client',async()=>{
@@ -42,35 +42,35 @@ test('static shell requests never construct a hidden fallback SQL client',async(
   assert.equal((await app.fetch(new Request(url+'/preview.js'),{...fixture('neon'),DB_PROVIDER:'neon'},{})).status,200);
 });
 test('responses from requests started before a switch cannot acknowledge old-provider data as new',async()=>{
-  let current={provider:'turso',revision:0,scope:'site'};
+  let current={provider:'d1',revision:0,scope:'site'};
   const env=fixture();env.CONTENT_MEDIA.get=async()=>({json:async()=>current});
   const app=productionWorker({async fetch(){current={provider:'neon',revision:1,scope:'site'};return Response.json({secret:'old-provider-result'});}});
-  const response=await app.fetch(new Request(url+'/api/lessons',{headers:{'X-Database-Context':'turso:0'}}),env,{});
+  const response=await app.fetch(new Request(url+'/api/lessons',{headers:{'X-Database-Context':'d1:0'}}),env,{});
   assert.equal(response.status,409);assert.equal(response.headers.get('X-Database-Context'),'neon:1');assert.ok(!(await response.text()).includes('old-provider-result'));
 });
 test('each request captures its own client and selection; services reuse it only in that request',async()=>{
-  const contexts=[],app=productionWorker({async fetch(request,env){contexts.push(env);assert.equal(env.DB_PROVIDER,'turso');assert.equal(studyClient(env),env[STUDY_DATABASE]);return new Response('ok');}}),env=fixture();
+  const contexts=[],app=productionWorker({async fetch(request,env){contexts.push(env);assert.equal(env.DB_PROVIDER,'d1');assert.equal(studyClient(env),env[STUDY_DATABASE]);return new Response('ok');}}),env=fixture();
   await app.fetch(new Request(url+'/api/me'),env,{});await app.fetch(new Request(url+'/api/groups'),env,{});
   assert.notEqual(contexts[0][STUDY_DATABASE],contexts[1][STUDY_DATABASE]);assert.equal(env[STUDY_DATABASE],undefined);
   assert.equal(Object.isFrozen(contexts[0].DATABASE_SELECTION),true);
 });
-test('scheduled tasks cannot write Turso after Neon was selected',async()=>{
-  let calls=0;const app=productionWorker({async scheduled(event,env){calls++;assert.equal(env.DB_PROVIDER,'turso');assert.ok(env[STUDY_DATABASE]);}});
+test('scheduled tasks cannot write Learning after Neon was selected',async()=>{
+  let calls=0;const app=productionWorker({async scheduled(event,env){calls++;assert.equal(env.DB_PROVIDER,'d1');assert.ok(env[STUDY_DATABASE]);}});
   await assert.rejects(app.scheduled({},fixture('neon'),{}),error=>error.status===503);assert.equal(calls,0);
-  await app.scheduled({},fixture(),{});assert.equal(calls,1);
+  await app.scheduled({},fixture(),{waitUntil(){}});assert.equal(calls,1);
 });
 test('direct study callers cannot bypass provider selection and there is no silent fallback',()=>{
-  for(const env of [{DB_PROVIDER:'neon'},{DB_PROVIDER:'unknown'},{DATABASE_SELECTION:{provider:'neon'}},{DB_PROVIDER:'turso',DATABASE_SELECTION:{provider:'neon'}}])assert.throws(()=>studyClient(env),error=>error.status===503);
+  for(const env of [{DB_PROVIDER:'neon'},{DB_PROVIDER:'unknown'},{DATABASE_SELECTION:{provider:'neon'}},{DB_PROVIDER:'d1',DATABASE_SELECTION:{provider:'neon'}}])assert.throws(()=>studyClient(env),error=>error.status===503);
 });
 test('DB_PROVIDER is the validated default and a shared registry override is exposed consistently',async()=>{
   const absent={get:async()=>null};
   await assert.rejects(withDatabaseSelection({CONTENT_MEDIA:absent,DB_PROVIDER:'typo'}),error=>error.status===503);
   await assert.rejects(withDatabaseSelection({CONTENT_MEDIA:absent,DB_PROVIDER:'neon'}),error=>error.status===503);
   const env=await withDatabaseSelection({...fixture(),DB_PROVIDER:'neon'});
-  assert.equal(env.DB_PROVIDER,'turso');assert.equal(env.DATABASE_SELECTION.provider,'turso');
+  assert.equal(env.DB_PROVIDER,'d1');assert.equal(env.DATABASE_SELECTION.provider,'d1');
   let written;
-  await changeDatabaseSelection({get:async()=>null,put:async(key,value)=>{written=JSON.parse(value);return {etag:'new'};}},{provider:'turso',expectedRevision:0,actor:{id:'dev',role:'DEVELOPER'},verifyTarget:async()=>{},defaultProvider:'neon'});
-  assert.equal(written.provider,'turso');assert.equal(written.revision,1);
+  await changeDatabaseSelection({get:async()=>null,put:async(key,value)=>{written=JSON.parse(value);return {etag:'new'};}},{provider:'d1',expectedRevision:0,actor:{id:'dev',role:'DEVELOPER'},verifyTarget:async()=>{},defaultProvider:'neon'});
+  assert.equal(written.provider,'d1');assert.equal(written.revision,1);
 });
 test('read-only PostgreSQL preflight distinguishes a prepared foundation from a working runtime',async()=>{
   const pg=new PGlite();

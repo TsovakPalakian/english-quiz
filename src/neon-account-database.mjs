@@ -1,4 +1,4 @@
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 import {neonClient} from './neon-connection.mjs';
 import {authColumns} from './neon-auth-schema.mjs';
 import {databaseMedia} from './database-media.mjs';

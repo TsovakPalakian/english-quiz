@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve(process.env.UI_ASSETS_DIR || 'rollback/turso-production-assets');
+const root=resolve(process.env.UI_ASSETS_DIR || 'rollback/production-assets');
 const server=createServer((req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname;
   const file=resolve(root,name==='/'?'index.html':'.'+name);
@@ -52,7 +52,7 @@ try{
     if(path==='/api/me/custom-themes'){const body=JSON.parse(route.request().postData());customThemes=body.themes;customRevision++;data={themes:customThemes,revision:customRevision};}
     if(path==='/api/theme-photo'){await route.fulfill({status:200,contentType:'image/jpeg',body:readFileSync(resolve(root,'almond-blossom.jpg'))});return;}
     if(path==='/api/me/state')data={bootstrap:true,archiveRevision:revision,stageThemeRevision:themeRevision,stageCustomRevision:customRevision,stats:{theme:selectedTheme,customThemes},added:[],songs:[],settings:{},counts:{songs:songActive?1:0,lessons:1},stageActivity:{}};
-    if(path==='/api/stats')data={statisticsSource:'turso-activity',legacyHistoryIncluded:false,scope:'user',from:'2026-10-04',to:'2026-10-10',activity:{answers:3,correct:2,series:[]}};
+    if(path==='/api/stats')data={statisticsSource:'learning-activity',legacyHistoryIncluded:false,scope:'user',from:'2026-10-04',to:'2026-10-10',activity:{answers:3,correct:2,series:[]}};
     if(path==='/api/exams'){
       if(method==='POST'){exam=JSON.parse(route.request().postData()).exam;data=exam;}
       else data={exams:[{...exam,personalHidden:hiddenMaterials.has('exam:11'),blocks:exam.blocks.map(block=>({...block,personalHidden:hiddenMaterials.has('exam-block:'+block.id)}))}]};
@@ -365,13 +365,13 @@ try{
   await page.locator('#profile [data-jump="themes"]').click();
   await page.locator('#themes [data-th="user-first"]').click();
   await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-first'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
-  await page.waitForFunction(()=>!window.TursoMain.themeSavePending());assert.equal(selectedTheme,'user-first');
+  await page.waitForFunction(()=>!window.LearningMain.themeSavePending());assert.equal(selectedTheme,'user-first');
   await page.reload();
   await page.locator('[data-jump="archive"]:visible').waitFor();
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.paintedTheme),'user-first');
   await page.locator('#themes [data-th="user-second"]').click();
   await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
-  await page.waitForFunction(()=>!window.TursoMain.themeSavePending());assert.equal(selectedTheme,'user-second');
+  await page.waitForFunction(()=>!window.LearningMain.themeSavePending());assert.equal(selectedTheme,'user-second');
   await page.locator('[data-theme-edit="user-second"]').click();
   await page.locator('#customThemeVeil').press('ArrowRight');
   assert.match(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--theme-photo')),/data:image\/jpeg/);
@@ -432,8 +432,8 @@ try{
   await racePage.reload();await racePage.locator('[data-exam-block="12"]').getByText(/^Published · Maximum/).waitFor();
   assert.equal(exam.blocks[0].published,true);
   await racePage.screenshot({path:'/private/tmp/english-quiz-exam-publish-test.png'});
-  await page.evaluate(()=>window.TursoMain.notice('Dismissible fixture error',true));
-  await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('#turso-main-banner').isVisible(),false);
+  await page.evaluate(()=>window.LearningMain.notice('Dismissible fixture error',true));
+  await page.locator('#learning-main-dismiss').click();assert.equal(await page.locator('#learning-main-banner').isVisible(),false);
   await page.evaluate(()=>window.enquizVisit('guide'));
   await page.evaluate(()=>window.scrollTo(0,600));
   const link=page.locator('#guideContent [data-jump="themes"]').first();await link.scrollIntoViewIfNeeded();
@@ -484,7 +484,7 @@ try{
   assert.equal(await page.locator('[data-exam-del]').count(),0);
   await page.locator('[data-exam-hide="exam:11"]').click();await page.waitForFunction(()=>document.querySelector('[data-exam-hide="exam:11"]')?.classList.contains('is-on'));
   assert.ok(hiddenMaterials.has('exam:11'));
-  await page.waitForFunction(()=>!localStorage.getItem('turso-main-pending-v3'));
+  await page.waitForFunction(()=>!localStorage.getItem('learning-main-pending-v3'));
   exam.blocks.push({...allMaterialsBlock,id:90,materials:allMaterialsBlock.materials.map((p,i)=>({...p,id:100+i}))});
   user.role='DEVELOPER';
   await page.reload();await page.waitForFunction(()=>accountReady&&!viewSwitching);
@@ -725,7 +725,7 @@ try{
   assert.equal(await page.evaluate(()=>Object.values(lmState.examReviewText).some(items=>Object.values(items).some(value=>value.runs.some(run=>run.marks.underline)))),true);
   const formatting=await page.evaluate(()=>lmState.examReviewText);
   assert.equal(Object.values(formatting).some(items=>Object.values(items).some(value=>value.runs.some(run=>run.marks.strike&&run.marks.color==='#c62828'&&run.marks.size===24))),true,JSON.stringify(formatting));
-  await page.locator('#turso-main-dismiss').click();
+  await page.locator('#learning-main-dismiss').click();
   await page.locator('#lmPreview .review-edit').first().scrollIntoViewIfNeeded();
   await page.screenshot({path:'/private/tmp/english-quiz-review-cards.png'});
   await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);

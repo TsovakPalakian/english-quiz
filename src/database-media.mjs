@@ -1,6 +1,6 @@
 export function databaseMedia(bucket,prefix){
   if(!bucket)return bucket;
-  if(!/^[a-z]+\/(?:neon|turso)\/$/.test(prefix))throw Error('Invalid database media namespace');
+  if(!/^[a-z]+\/(?:neon|d1)\/$/.test(prefix))throw Error('Invalid database media namespace');
   return new Proxy(bucket,{get(target,key){
     if(key==='put')return (path,value,options)=>target.put(prefix+path,value,
       /^"[^"\r\n]+"$/.test(options?.onlyIf?.etagMatches||'')?{...options,onlyIf:{...options.onlyIf,etagMatches:options.onlyIf.etagMatches.slice(1,-1)}}:options);

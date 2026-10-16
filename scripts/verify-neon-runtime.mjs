@@ -3,12 +3,12 @@ import {readNeonSecret} from './neon-secret-input.mjs';
 import {neonClient} from '../src/neon-connection.mjs';
 import {studyMigrationFor,studyNamespace} from '../src/neon-study-migration.mjs';
 import {NeonStudyClient} from '../src/neon-study.mjs';
-import {ensureStudyProfile} from '../src/turso-profile.mjs';
-import {StudyService,statement as s} from '../src/turso-study.mjs';
-import {PersonalService} from '../src/turso-personal.mjs';
-import {GroupService} from '../src/turso-groups.mjs';
-import {ExamService} from '../src/turso-exams.mjs';
-import {accountBootstrap} from '../src/turso-legacy-read.mjs';
+import {ensureStudyProfile} from '../src/learning-profile.mjs';
+import {StudyService,statement as s} from '../src/learning-study.mjs';
+import {PersonalService} from '../src/learning-personal.mjs';
+import {GroupService} from '../src/learning-groups.mjs';
+import {ExamService} from '../src/learning-exams.mjs';
+import {accountBootstrap} from '../src/learning-legacy-read.mjs';
 
 const namespace=studyNamespace('english_study_check_'+crypto.randomUUID().replaceAll('-','').slice(0,16));
 let env,created=false;

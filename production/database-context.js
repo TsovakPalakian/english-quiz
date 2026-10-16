@@ -4,7 +4,7 @@
   const banks=new Set(['/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json']);
   let current='',confirmed=false,invalidating=false,checking=null,resolveReady,ready=new Promise(resolve=>{resolveReady=resolve;});
   try{current=localStorage.getItem(KEY)||'';}catch{}
-  const valid=value=>typeof value==='string'&&/^(neon|turso):\d+$/.test(value)&&Number.isSafeInteger(Number(value.split(':')[1]));
+  const valid=value=>typeof value==='string'&&/^(neon|d1):\d+$/.test(value)&&Number.isSafeInteger(Number(value.split(':')[1]));
   if(!valid(current))current='';
   function hide(){document.documentElement.setAttribute('data-database-pending','');if(confirmed){confirmed=false;ready=new Promise(resolve=>{resolveReady=resolve;});}}
   const style=document.createElement('style');style.textContent='html[data-database-pending] body{visibility:hidden!important}';document.head.append(style);hide();
@@ -15,9 +15,9 @@
     if(document.body)document.body.append(node);else document.addEventListener('DOMContentLoaded',()=>document.body.append(node),{once:true});
   }
   async function clearPrivateData(){
-    window.TursoMain?.databaseReset?.();window.ContentCache?.clear?.();window.dispatchEvent(new Event('database-context-reset'));
+    window.LearningMain?.databaseReset?.();window.ContentCache?.clear?.();window.dispatchEvent(new Event('database-context-reset'));
     const keep=new Set(['enquiz-display-size','enquiz-high-visibility']);
-    for(const storage of [localStorage,sessionStorage])for(const key of Object.keys(storage))if(/^(enquiz-|turso-|english-)/.test(key)&&!keep.has(key))storage.removeItem(key);
+    for(const storage of [localStorage,sessionStorage])for(const key of Object.keys(storage))if((/^(enquiz-|learning-|english-)/.test(key)||/^[a-z]+-main-/.test(key))&&!keep.has(key))storage.removeItem(key);
     if(window.indexedDB){
       let names=['enquiz-media'];
       try{if(indexedDB.databases)names=[...new Set([...names,...(await indexedDB.databases()).map(row=>row.name).filter(name=>name?.startsWith('enquiz-media'))])];}catch{}
@@ -25,7 +25,7 @@
         try{const request=indexedDB.deleteDatabase(name);request.onsuccess=request.onerror=request.onblocked=resolve;}catch{resolve();}
       })));
     }
-    if(window.caches)try{await Promise.all((await caches.keys()).filter(name=>/^(enquiz|english|turso)/.test(name)).map(name=>caches.delete(name)));}catch{}
+    if(window.caches)try{await Promise.all((await caches.keys()).filter(name=>/^(enquiz|english|learning)/.test(name)).map(name=>caches.delete(name)));}catch{}
   }
   async function invalidate(next){
     if(invalidating)return never;

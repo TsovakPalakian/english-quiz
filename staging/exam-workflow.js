@@ -140,5 +140,5 @@ document.addEventListener('click',async event=>{
         dialog.close();examSection='assigned';await examPull(true);examPaintList();
       }catch(error){form.querySelector('[role=status]').textContent=error.message;}finally{save.disabled=false;}
     };
-  }catch(error){window.TursoMain.notice(error.message,true);}finally{button.disabled=false;}
+  }catch(error){window.LearningMain.notice(error.message,true);}finally{button.disabled=false;}
 });

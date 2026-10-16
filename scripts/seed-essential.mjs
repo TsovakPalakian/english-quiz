@@ -1,6 +1,5 @@
+import {statement as s} from '../src/learning-study.mjs';
 import {everydayGroups} from '../src/essential-data.mjs';
-import {TursoStudyClient,statement as s} from '../src/turso-study.mjs';
-import {productionCredentials} from './import-turso-production.mjs';
 import {createHash} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {resolve} from 'node:path';
@@ -57,17 +56,4 @@ await db.atomic([s('CREATE TEMP TABLE essential_seed_guard(ok INTEGER NOT NULL C
   previous?s("UPDATE catalog_documents SET value_json=? WHERE namespace='everyday' AND key='v1' AND json_extract(value_json,'$.version')=?",[document,previous.version]):s("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('everyday','v1',?)",[document]),
   s('INSERT INTO essential_seed_guard SELECT changes()=1'),s('DROP TABLE essential_seed_guard')]);
 return {status:'seeded',...summary};
-}
-
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  const [mode,file]=process.argv.slice(2);
-  if(!['--plan','--apply'].includes(mode)||!file)throw new Error('Use --plan or --apply with the production credential file.');
-  const db=new TursoStudyClient({...productionCredentials(file),mode:'production'});
-  let backup;
-  if(mode==='--apply'){
-    const rows=await db.read("SELECT namespace,key,value_json FROM catalog_documents WHERE namespace='everyday' AND key='v1'");
-    backup=resolve(mkdtempSync('/private/tmp/essential-catalog-before-'),'catalog.json');
-    writeFileSync(backup,JSON.stringify(rows),{mode:0o600});
-  }
-  console.log(JSON.stringify({...await seedEssential(db,everydayGroups,{apply:mode==='--apply'}),...(backup?{backup}:{})}));
 }

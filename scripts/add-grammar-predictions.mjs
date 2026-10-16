@@ -1,10 +1,9 @@
+import {statement} from '../src/learning-study.mjs';
 // Curriculum patch for the Predictions grammar topic. No D1, account, lesson or card changes.
 import assert from 'node:assert/strict';
 import {readFileSync,mkdtempSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {productionCredentials} from './import-turso-production.mjs';
-import {TursoStudyClient,statement} from '../src/turso-study.mjs';
 export const predictions=JSON.parse(readFileSync(new URL('../content/grammar-predictions.json',import.meta.url),'utf8'));
 function samePredictions(catalog){
   const existing=(catalog.areas||[]).filter(area=>area.id==='predictions');
@@ -38,17 +37,4 @@ export async function addPredictions(db,backup=()=>{}){
   delete previous.topics.predictions;
   assert.deepEqual(leftover,previous,'Catalog changed outside Predictions; inspect before any retry.');
   return {status:before.topics.predictions?'updated-and-verified':'added-and-verified',writes:1,examples:predictions.topic.examples.length};
-}
-if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
-  try{
-    const [mode,file,flag,target,...extra]=process.argv.slice(2);
-    assert.ok(mode==='--apply'&&flag==='--target'&&target==='english-quiz-production'&&!extra.length,'Explicit production target required.');
-    const db=new TursoStudyClient({...productionCredentials(file),mode:'production'});
-    let directory;
-    const result=await addPredictions(db,value=>{
-      directory=mkdtempSync('/private/tmp/english-quiz-grammar-predictions-');
-      writeFileSync(directory+'/grammar-before.json',value,{mode:0o600,flag:'wx'});
-    });
-    console.log(JSON.stringify({...result,...(directory?{backup:directory+'/grammar-before.json'}:{})}));
-  }catch(error){console.error('Predictions update stopped: '+error.message);process.exitCode=1;}
 }

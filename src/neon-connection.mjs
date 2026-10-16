@@ -1,5 +1,5 @@
 import {neon} from '@neondatabase/serverless';
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 
 export function neonConnection(connection){
   let url;try{url=new URL(connection);}catch{throw new StudyError(503,'Neon connection is not configured.');}

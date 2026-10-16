@@ -4,15 +4,15 @@
   document.addEventListener('submit',event=>{
     if(event.target?.id==='loginForm')event.preventDefault();
   },true);
-  const queueKey='turso-main-pending-v3',cards=new Map(),collections=new Map(),quizzes=new Map();
+  const queueKey='learning-main-pending-v3',cards=new Map(),collections=new Map(),quizzes=new Map();
   const managedLinkRevisions=new Map();
   const catalogDetails=new Map();
-  const personalKey='turso-main-personal-pending-v3',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
+  const personalKey='learning-main-personal-pending-v3',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false,personalFlight=null;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
   let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
   let confirmedThemes={};
-  const mediaAllowed=()=>['127.0.0.1','learn-english-turso-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
+  const mediaAllowed=()=>['127.0.0.1','learn-english-learning-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const validCardId=value=>Number.isSafeInteger(value)&&value>0;
   const canonical=value=>Array.isArray(value)?'['+value.map(canonical).join(',')+']':value&&typeof value==='object'?'{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}':JSON.stringify(value);
@@ -65,7 +65,7 @@
   const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture','enquiz-display-size','enquiz-high-visibility'];
   for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-')&&!themeLocal.includes(key))localStorage.removeItem(key);
   function noticeBanner(){
-    let banner=document.getElementById('turso-main-banner');
+    let banner=document.getElementById('learning-main-banner');
     if(banner?.dataset?.compactNotices==='true'&&typeof window.HTMLDialogElement==='function'&&banner.tagName!=='DIALOG'){
       const dialog=document.createElement('dialog');for(const attribute of banner.attributes)dialog.setAttribute(attribute.name,attribute.value);
       while(banner.firstChild)dialog.append(banner.firstChild);banner.replaceWith(dialog);banner=dialog;
@@ -73,38 +73,38 @@
     }
     return banner;
   }
-  function dismissNotice(){const banner=document.getElementById('turso-main-banner');if(banner){if(banner.open&&banner.close)banner.close();banner.hidden=true;}}
+  function dismissNotice(){const banner=document.getElementById('learning-main-banner');if(banner){if(banner.open&&banner.close)banner.close();banner.hidden=true;}}
   function notice(message,bad=false){
     if(message==='Sign in first.')return;
-    const el=document.getElementById('turso-main-status');if(!el)return;
+    const el=document.getElementById('learning-main-status');if(!el)return;
     const banner=noticeBanner();
     if(banner?.dataset?.compactNotices==='true'){
       banner.hidden=!bad;
       if(bad&&typeof banner.showModal==='function'){
-        banner.setAttribute('role','alertdialog');banner.setAttribute('aria-describedby','turso-main-status');banner.setAttribute('aria-label','Notification');
+        banner.setAttribute('role','alertdialog');banner.setAttribute('aria-describedby','learning-main-status');banner.setAttribute('aria-label','Notification');
         if(!banner.open)banner.showModal();
       }else if(!bad&&banner.open&&banner.close)banner.close();
-      for(const id of ['turso-main-retry','turso-main-refresh']){const button=document.getElementById(id);if(button)button.hidden=true;}
+      for(const id of ['learning-main-retry','learning-main-refresh']){const button=document.getElementById(id);if(button)button.hidden=true;}
       message=String(message).replace(/\s*(?:Please )?(?:try again|reload (?:the page|server)(?: and edit again)?)\.?\s*$/i,'').trim();
     }
-    if(document.getElementById('turso-main-banner')?.dataset?.offlineFixture==='true')
-      message=String(message).replaceAll('тестовой Turso','автономной SQLite').replaceAll('тестовую Turso','автономную SQLite');
+    if(document.getElementById('learning-main-banner')?.dataset?.offlineFixture==='true')
+      message=String(message).replaceAll('тестовой Learning','автономной SQLite').replaceAll('тестовую Learning','автономную SQLite');
     el.textContent=message;el.classList.toggle('bad',bad);
-    if(banner&&document.createElement&&!document.getElementById('turso-main-dismiss')){
-      const close=document.createElement('button');close.id='turso-main-dismiss';close.type='button';close.className='btn icon';
+    if(banner&&document.createElement&&!document.getElementById('learning-main-dismiss')){
+      const close=document.createElement('button');close.id='learning-main-dismiss';close.type='button';close.className='btn icon';
       close.textContent='\u00d7';close.setAttribute('aria-label','Dismiss notification');
       close.addEventListener('click',dismissNotice);banner.append(close);
     }
   }
-  const compactNotice=()=>document.getElementById('turso-main-banner')?.dataset?.compactNotices==='true';
+  const compactNotice=()=>document.getElementById('learning-main-banner')?.dataset?.compactNotices==='true';
   if(compactNotice())window.alert=message=>notice(String(message),true);
   document.addEventListener('click',event=>{
-    const banner=document.getElementById('turso-main-banner');
+    const banner=document.getElementById('learning-main-banner');
     const box=banner?.getBoundingClientRect?.(),outside=box&&(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom);
     if(compactNotice()&&banner&&!banner.hidden&&(!banner.contains(event.target)||outside)){dismissNotice();event.preventDefault();event.stopImmediatePropagation();}
   },true);
   document.addEventListener('keydown',event=>{
-    const banner=document.getElementById('turso-main-banner');
+    const banner=document.getElementById('learning-main-banner');
     if(event.key==='Escape'&&compactNotice()&&banner&&!banner.hidden){dismissNotice();event.preventDefault();event.stopImmediatePropagation();}
   },true);
   function register(value){
@@ -246,7 +246,7 @@
         if(nextActor!==actorId){confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;}
         actorId=nextActor;backendCapabilities=value.user?value.migrationCapabilities||{}:{};
       }
-      if((path==='/api/me'||path==='/api/login')&&value.user&&!pending&&!personalQueue.length)notice('Вход подтверждён. Подключено к тестовой Turso.');
+      if((path==='/api/me'||path==='/api/login')&&value.user&&!pending&&!personalQueue.length)notice('Вход подтверждён. Подключено к тестовой Learning.');
       const bare=path.split('?')[0];
       if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value,bare==='/api/me/state');void drainPersonal();}
       if(bare==='/api/me/themes'&&(!value.accountId||value.accountId===actorId))registerThemes({...value,stats:{theme:value.theme,customThemes:value.themes}});
@@ -302,7 +302,7 @@
       pending=null;localStorage.removeItem(queueKey);
       if(path==='/api/archive')await archiveChanged(result);
       if(path==='/api/content/copy'){
-        const detail={...result,actorId};document.dispatchEvent(new CustomEvent('turso-content-copied',{detail}));
+        const detail={...result,actorId};document.dispatchEvent(new CustomEvent('learning-content-copied',{detail}));
         if(detail.refresh)await detail.refresh;
       }
       return result;
@@ -364,8 +364,8 @@
     const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#stageNewCard button,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
     const disabled=buttons.map(b=>b.disabled);for(const b of buttons)b.disabled=true;
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
-    notice('Сохранение в тестовую Turso…');
-    try{await action();notice('Подтверждено тестовой Turso.');if(status)status.textContent='Сохранено на тестовом сервере.';}
+    notice('Сохранение в тестовую Learning…');
+    try{await action();notice('Подтверждено тестовой Learning.');if(status)status.textContent='Сохранено на тестовом сервере.';}
     catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message,stack:error.stack});if(status){status.textContent=error.message;status.classList.add('bad');}}
     finally{busy=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
   }
@@ -390,7 +390,7 @@
         if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
         personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
       }
-      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Turso.');
+      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Learning.');
       clearTimeout(personalTimer);
       if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
       return;
@@ -402,7 +402,7 @@
         if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
         personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
       }
-      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Turso.');
+      savePersonal();notice('Личные изменения ожидают сохранения в тестовую Learning.');
       clearTimeout(personalTimer);
       if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
       return;
@@ -413,7 +413,7 @@
       if(personalQueue.length>=100)throw new Error('Очередь заполнена. Сначала повторите сохранение.');
       personalQueue.push({...job,actorId,mutationId:crypto.randomUUID()});
     }
-    savePersonal();notice('Личные изменения ожидают сохранения в тестовую Turso.');
+    savePersonal();notice('Личные изменения ожидают сохранения в тестовую Learning.');
     clearTimeout(personalTimer);
     if(delay)personalTimer=setTimeout(()=>void drainPersonal(),delay);else void drainPersonal();
   }
@@ -440,7 +440,7 @@
             :{mutationId:job.mutationId,expectedRevision:job.baseRevision,expectedBlockRevision:job.blockRevision,response:job.response};
         }
         job.paused=false;savePersonal();
-        notice('Сохранение личных данных в тестовую Turso…');
+        notice('Сохранение личных данных в тестовую Learning…');
         let result;
         try{result=await api(job.path,{method:job.method,body:JSON.stringify(job.body),keepalive:unloading,quietBug:job.kind==='theme'});}
         catch(error){
@@ -464,9 +464,9 @@
         personalQueue.shift();
         for(const next of personalQueue)if(next.key===job.key && !next.body && next.kind==='response' && next.baseRevision===job.body.expectedRevision)next.baseRevision=result.revision;
         savePersonal();
-        document.dispatchEvent(new CustomEvent('turso-personal-saved',{detail:{job,result}}));
+        document.dispatchEvent(new CustomEvent('learning-personal-saved',{detail:{job,result}}));
       }
-      notice('Личные данные подтверждены тестовой Turso.');
+      notice('Личные данные подтверждены тестовой Learning.');
     }catch(error){
       if(personalQueue[0])personalQueue[0].paused=true;
       savePersonal();
@@ -479,7 +479,7 @@
     if(result?.revision!=null)window.__archiveRevision=Number(result.revision)||0;
     window.ContentCache?.invalidate?.('archive:');
     const detail={...result,actorId};
-    document.dispatchEvent(new CustomEvent('turso-archive-changed',{detail}));
+    document.dispatchEvent(new CustomEvent('learning-archive-changed',{detail}));
     if(detail.refresh)await detail.refresh;
     return result;
   }
@@ -488,7 +488,7 @@
     const load=()=>api('/api/archive').then(result=>{if(actor===actorId&&result?.revision!=null){window.__archiveRevision=Number(result.revision)||0;window.ContentCache?.set('archive:'+actor+':revision:'+window.__archiveRevision,result);}return result;});
     return window.ContentCache?.load?window.ContentCache.load(key,load):load();
   }
-  const bridge=window.TursoMain={
+  const bridge=window.LearningMain={
     databaseReset(){unloading=true;actorId='';personalReady=false;pending=null;personalQueue=[];clearTimeout(personalTimer);cards.clear();collections.clear();quizzes.clear();catalogDetails.clear();managedLinkRevisions.clear();quizProgress.clear();cardProgress.clear();savedResponses.clear();localStorage.removeItem(queueKey);localStorage.removeItem(personalKey);},
     fetch:accountFetch,register,notice,perform,mediaAllowed,lessonSnapshot,lessonDirty,
     archiveList,
@@ -602,7 +602,7 @@
     async findCard(word){
       const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(word));
       const found=rows.filter(row=>row.en.trim().toLowerCase()===word.trim().toLowerCase());
-      if(found.length!==1)throw Object.assign(new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.'),{code:found.length?'CARD_AMBIGUOUS':'CARD_NOT_FOUND'});
+      if(found.length!==1)throw Object.assign(new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Learning такой карточки нет. Создание новых слов и внешний словарь пока не подключены.'),{code:found.length?'CARD_AMBIGUOUS':'CARD_NOT_FOUND'});
       return found[0];
     },
     async lessonCards(word){
@@ -635,7 +635,7 @@
       addedRevision=result.revision;register(result.card);return result;
     },
     async saveManagedText(accountId,item,changes){
-      return window.TursoMain.saveManagedLibrary(accountId,item,'text',changes);
+      return window.LearningMain.saveManagedLibrary(accountId,item,'text',changes);
     },
     async saveManagedLibrary(accountId,item,kind,changes){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||item.stageId&&item.stageScope!=='profile')throw new Error('Общие материалы нельзя менять в личном профиле.');
@@ -646,7 +646,7 @@
       return write(path+'/'+encodeURIComponent(item.stageId),'PATCH',{expectedRevision:item.stageRevision,changes:changed});
     },
     async archiveManagedText(accountId,item){
-      return window.TursoMain.deleteManagedLibrary(accountId,item,'text');
+      return window.LearningMain.deleteManagedLibrary(accountId,item,'text');
     },
     async deleteManagedLibrary(accountId,item,kind){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
@@ -733,21 +733,21 @@
   };
   document.addEventListener('DOMContentLoaded',()=>{
     register([window.LESSON_DATA,window.IRREGULAR,window.GRAMMAR,window.SPEAKOUT]);
-    const banner=document.getElementById('turso-main-banner');
+    const banner=document.getElementById('learning-main-banner');
     const reserveBanner=()=>{
       if(banner?.dataset?.compactNotices==='true'){
-        document.documentElement?.style?.setProperty('--turso-banner-offset','0px');return;
+        document.documentElement?.style?.setProperty('--learning-banner-offset','0px');return;
       }
-      if(banner?.getBoundingClientRect && document.documentElement?.style)document.documentElement.style.setProperty('--turso-banner-offset',Math.ceil(banner.getBoundingClientRect().height+12)+'px');
+      if(banner?.getBoundingClientRect && document.documentElement?.style)document.documentElement.style.setProperty('--learning-banner-offset',Math.ceil(banner.getBoundingClientRect().height+12)+'px');
     };
     reserveBanner();
     if(banner && typeof ResizeObserver!=='undefined')new ResizeObserver(reserveBanner).observe(banner);
-    document.getElementById('turso-main-refresh').addEventListener('click',()=>{
+    document.getElementById('learning-main-refresh').addEventListener('click',()=>{
       if(personalRunning || busy){notice('Дождитесь ответа на текущую запись.',true);return;}
       if((pending||personalQueue.length) && !confirm('Есть несохранённые или неподтверждённые изменения. Перечитать сервер и отменить их повтор?'))return;
       pending=null;personalQueue=[];localStorage.removeItem(queueKey);savePersonal();location.reload();
     });
-    document.getElementById('turso-main-retry').addEventListener('click',()=>{
+    document.getElementById('learning-main-retry').addEventListener('click',()=>{
       if(personalQueue.length && !pending){void drainPersonal(true);return;}
       void perform(async()=>{
       if(!pending || pending.actorId!==actorId)throw new Error('Нет неподтверждённой операции этого аккаунта.');

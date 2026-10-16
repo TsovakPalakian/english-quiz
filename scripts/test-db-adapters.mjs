@@ -12,37 +12,41 @@ import {quizQuestionsEndpoint,createQuizExampleWorker} from '../examples/db-endp
 
 const environments={
   neon:{DB_PROVIDER:'neon',DATABASE_URL:'postgresql://fixture:fake-secret@ep-fixture-pooler.eu-central-1.aws.neon.tech/english?sslmode=require'},
-  turso:{DB_PROVIDER:'turso',TURSO_DATABASE_URL:'libsql://fixture.turso.io',TURSO_AUTH_TOKEN:'fake-token'}
+  d1:{DB_PROVIDER:'d1',DB:{prepare(){},batch(){}}}
 };
 const silent={log:()=>{},sleep:async()=>{}};
 const emptyNeon=()=>({rows:[],fields:[],rowCount:0,command:'SELECT'});
-function fake(provider,{failures=[],events=[],closeThrows=false}={}){
-  let calls=0,closed=0;const configurations=[];
+function fake(provider,{failures=[],events=[]}={}){
+  let calls=0;const configurations=[];
   async function attempt(value){calls++;const error=failures.shift();if(error)throw error;return value;}
   const options=provider==='neon'?{createNeon:connection=>{
     configurations.push(connection);
     return {query(sql,args,options){const command={sql,args};events.push({query:command,options});return options?attempt(emptyNeon()):command;},
       transaction(commands,options){events.push({batch:commands,options});return attempt(commands.map(emptyNeon));}};
-  }}:{createLibsql:config=>{
-    configurations.push(config);return {protocol:'http',execute(command){events.push({query:command});return attempt({rows:[],columns:[],rowsAffected:0});},batch(commands,mode){events.push({batch:commands,mode});return attempt(commands.map(()=>({rows:[],columns:[],rowsAffected:0})));},close(){closed++;if(closeThrows)throw Error('sensitive-close-message');}};
+  }}:{createD1:binding=>{
+    configurations.push(binding);
+    return {prepare(sql){return {sql,args:[],bind(...args){return {sql,args};}};},batch(commands){
+      events.push({batch:commands,mode:commands.some(c=>!c.sql.startsWith('SELECT'))?'write':'read'});
+      return attempt(commands.map(()=>({success:true,results:[],meta:{changes:0}})));
+    }};
   }};
-  return {options:{...silent,...options},events,configurations,get calls(){return calls;},get closed(){return closed;}};
+  return {options:{...silent,...options},events,configurations,get calls(){return calls;}};
 }
 test('provider is explicit, invalid configuration never falls back or exposes secrets',()=>{
-  for(const DB_PROVIDER of [undefined,'','postgres','NEON',' neon','turso '])assert.throws(()=>createDatabase({DB_PROVIDER}),error=>error.code==='DB_PROVIDER');
+  for(const DB_PROVIDER of [undefined,'','postgres','NEON',' neon','learning '])assert.throws(()=>createDatabase({DB_PROVIDER}),error=>error.code==='DB_PROVIDER');
   for(const DATABASE_URL of ['secret',environments.neon.DATABASE_URL.replace('-pooler',''),environments.neon.DATABASE_URL.replace('sslmode=require','sslmode=disable'),environments.neon.DATABASE_URL+'&sslmode=disable',environments.neon.DATABASE_URL+'&host=other.example'])assert.throws(()=>createDatabase({...environments.neon,DATABASE_URL}),error=>error.code==='DB_CONFIG'&&!error.message.includes('fake-secret'));
-  for(const TURSO_DATABASE_URL of ['ws://fixture.turso.io','file:local.db','http://fixture.turso.io','https://private.example','libsql://fixture.turso.io?tls=0'])assert.throws(()=>createDatabase({...environments.turso,TURSO_DATABASE_URL}),error=>error.code==='DB_CONFIG');
+  for(const DB of [null,{}, {prepare(){}}])assert.throws(()=>createDatabase({...environments.d1,DB}),error=>error.code==='DB_CONFIG');
 });
 test('placeholder lexer preserves literals/comments and never interpolates bound values',()=>{
   const text="SELECT '?' literal, \"?\" FROM things /* ? */ WHERE name=? AND value='it''s ?' -- ?\n AND id=?;";
   const value="' OR 1=1; DROP TABLE users; --";
   const query=compile(text,[value,1],'neon','query');assert.ok(query.sql.includes('name=$1'));assert.ok(query.sql.includes('id=$2'));assert.ok(query.sql.includes("'it''s ?'"));assert.equal(query.args[0],value);assert.ok(!query.sql.includes(value));
-  assert.equal(compile('SELECT id FROM things WHERE id=?',[1],'turso','query').sql,'SELECT id FROM things WHERE id=?');
+  assert.equal(compile('SELECT id FROM things WHERE id=?',[1],'d1','query').sql,'SELECT id FROM things WHERE id=?');
   for(const sql of ['SELECT 1; DELETE FROM users','SELECT 1; -- comment\r DELETE FROM users','SELECT $1','SELECT :id','SELECT @id','SELECT ?1','SELECT $$?$$','SELECT 1 /*','SELECT \'oops','SELECT 1 /* nested /* x */ */'])assert.throws(()=>compile(sql,[],'neon','query'),sql);
   assert.throws(()=>compile('SELECT ?',[],'neon','query'));assert.throws(()=>compile('SELECT 1',[1],'neon','query'));
 });
 test('SQL subset rejects transaction control, migrations and unsupported dialect features',()=>{
-  for(const sql of ['BEGIN','PRAGMA foreign_keys=ON','CREATE TABLE x(id INT)','WITH x AS (SELECT 1) SELECT * FROM x','SELECT NOW()','SELECT changes()','SELECT json_extract(data,?)','SELECT * INTO copy FROM things'])assert.throws(()=>compile(sql,[],'turso','query'));
+  for(const sql of ['BEGIN','PRAGMA foreign_keys=ON','CREATE TABLE x(id INT)','WITH x AS (SELECT 1) SELECT * FROM x','SELECT NOW()','SELECT changes()','SELECT json_extract(data,?)','SELECT * INTO copy FROM things'])assert.throws(()=>compile(sql,[],'d1','query'));
   assert.throws(()=>compile('SELECT 1',[],'neon','execute'));
   assert.throws(()=>compile('DELETE FROM things',[],'neon','query'));
   assert.doesNotThrow(()=>compile('INSERT INTO things(id) VALUES(?) RETURNING id',['x'],'neon','execute'));
@@ -54,11 +58,11 @@ test('parameter and value helpers preserve zero, null, flags, JSON and ISO dates
   assert.equal(encodeBoolean(true),1);assert.equal(decodeBoolean(0),false);assert.throws(()=>decodeBoolean(2));assert.throws(()=>encodeBoolean(1));
   assert.equal(timestamp('2026-10-15T10:00:00Z'),'2026-10-15T10:00:00.000Z');assert.throws(()=>timestamp('invalid'));
 });
-for(const provider of ['neon','turso']){
+for(const provider of ['neon','d1']){
   test(provider+': factory is per request, cleanup runs after success and failure',async()=>{
     const f=fake(provider);await withDatabase(environments[provider],db=>db.query('SELECT 1'),f.options);
     await assert.rejects(withDatabase(environments[provider],async()=>{throw Error('business error');},f.options),/business error/);
-    assert.equal(f.configurations.length,2);if(provider==='turso'){assert.equal(f.closed,2);assert.equal(f.configurations[0].url,'https://fixture.turso.io');assert.equal(f.configurations[0].intMode,'bigint');}
+    assert.equal(f.configurations.length,2);if(provider==='d1')assert.equal(f.configurations[0],environments.d1.DB);
   });
   test(provider+': synchronous plan is one atomic batch; invalid/async plans do no I/O',async()=>{
     const f=fake(provider),db=createDatabase(environments[provider],f.options);
@@ -106,7 +110,7 @@ for(const provider of ['neon','turso']){
 let pg,sqlite;
 before(async()=>{
   pg=new PGlite();await pg.exec(readFileSync(new URL('../db/migrations/neon/001_example.sql',import.meta.url),'utf8'));
-  sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../db/migrations/turso/001_example.sql',import.meta.url),'utf8'));
+  sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../db/migrations/learning/001_example.sql',import.meta.url),'utf8'));
 });
 after(async()=>{await pg?.close();sqlite?.close();});
 function postgresDriver(engine){
@@ -115,15 +119,18 @@ function postgresDriver(engine){
     transaction(commands,options){return engine.transaction(async tx=>{if(options.readOnly)await tx.exec('SET TRANSACTION READ ONLY');const results=[];for(const command of commands)results.push(await run(tx,command.sql,command.args));return results;});}};
 }
 function sqliteClient(engine){
-  const run=command=>{
-    try{const statement=engine.prepare(command.sql);statement.setReadBigInts(true);const rows=statement.all(...command.args);return {rows,columns:statement.columns().map(column=>column.name),rowsAffected:engine.prepare('SELECT changes() n').get().n};}
-    catch(error){if([1555,2067].includes(error.errcode))error.code='SQLITE_CONSTRAINT_UNIQUE';else if(error.errcode===787)error.code='SQLITE_CONSTRAINT_FOREIGNKEY';throw error;}
-  };
-  return {protocol:'http',execute:async command=>run(command),batch:async commands=>{engine.exec('BEGIN');try{const results=commands.map(run);engine.exec('COMMIT');return results;}catch(error){engine.exec('ROLLBACK');throw error;}},close(){}};
+  return {prepare(sql){return {sql,args:[],bind(...args){return {sql,args};}};},async batch(commands){
+    engine.exec('BEGIN');try{
+      const results=commands.map(command=>{
+        try{const query=engine.prepare(command.sql),rows=query.all(...command.args);return {success:true,results:rows,meta:{changes:engine.prepare('SELECT changes() n').get().n}};}
+        catch(error){if([1555,2067].includes(error.errcode))error.code='SQLITE_CONSTRAINT_UNIQUE';else if(error.errcode===787)error.code='SQLITE_CONSTRAINT_FOREIGNKEY';throw error;}
+      });engine.exec('COMMIT');return results;
+    }catch(error){engine.exec('ROLLBACK');throw error;}
+  }};
 }
-for(const provider of ['neon','turso']){
+for(const provider of ['neon','d1']){
   test(provider+': identical SQL, endpoint and atomic example work on the actual database engine',async()=>{
-    const options={...silent,...(provider==='neon'?{createNeon:()=>postgresDriver(pg)}:{createLibsql:()=>sqliteClient(sqlite)})};
+    const options={...silent,...(provider==='neon'?{createNeon:()=>postgresDriver(pg)}:{createD1:()=>sqliteClient(sqlite)})};
     await withDatabase(environments[provider],async db=>{
       const value=await createQuizWithQuestion(db,{ownerId:'owner',title:"It's a quiz",prompt:'Which one?',choices:['one','two'],createdAt:timestamp('2026-10-15T10:00:00Z')});
       const request=new Request('https://app.example/api/db-example/quizzes/'+value.quizId+'/questions');
@@ -142,47 +149,18 @@ for(const provider of ['neon','turso']){
 test('unconfigured example authenticates before constructing any database client',async()=>{
   const response=await createQuizExampleWorker().fetch(new Request('https://app.example/api/db-example/quizzes/one/questions'),{});assert.equal(response.status,401);
 });
-test('actual libSQL HTTP driver uses TLS fetch, bounded signals and one pipeline; cold errors retry',async()=>{
-  const requests=[],stored=new Map();
-  const fetch=async(input,options)=>{
-    assert.equal(options.redirect,'manual');assert.ok(options.signal instanceof AbortSignal);
-    const request=new Request(input,options);assert.equal(new URL(request.url).protocol,'https:');
-    assert.equal(request.headers.get('Authorization'),'Bearer fake-token');
-    const body=await request.json();requests.push(body);
-    if(requests.length===1)return new Response('temporarily unavailable',{status:503});
-    const empty=()=>({cols:[],rows:[],affected_row_count:0,last_insert_rowid:null});
-    return Response.json({baton:null,base_url:null,results:body.requests.map(command=>{
-      if(command.type==='close')return {type:'ok',response:{type:'close'}};
-      if(command.type==='store_sql'){stored.set(command.sql_id,command.sql);return {type:'ok',response:{type:'store_sql'}};}
-      if(command.type==='close_sql')return {type:'ok',response:{type:'close_sql'}};
-      assert.equal(command.type,'batch');
-      return {type:'ok',response:{type:'batch',result:{step_results:command.batch.steps.map(step=>{
-        const sql=step.stmt.sql||stored.get(step.stmt.sql_id);
-        return sql==='ROLLBACK'?null:sql.startsWith('SELECT')?{cols:[{name:'id',decltype:'INTEGER'}],rows:[[{type:'integer',value:'7'}]],affected_row_count:0,last_insert_rowid:null}:empty();
-      }),step_errors:command.batch.steps.map(()=>null)}}};
-    })});
-  };
-  const result=await withDatabase(environments.turso,db=>db.query('SELECT ? AS id',[7]),{...silent,fetch});
-  assert.deepEqual(result,[{id:7}]);assert.equal(requests.length,2);
-  assert.ok(requests[1].requests.some(command=>command.type==='close'));
-  const batch=requests[1].requests.find(command=>command.type==='batch');
-  assert.ok(batch.batch.steps[0].stmt.sql.startsWith('BEGIN'));
-  assert.deepEqual(batch.batch.steps.find(step=>(step.stmt.sql||stored.get(step.stmt.sql_id)).startsWith('SELECT')).stmt.args,[{type:'integer',value:'7'}]);
+
+test('cleanup waits for in-flight binding operations without closing a shared D1 binding',async()=>{
+  let finish;
+  const db=createDatabase(environments.d1,{...silent,createD1:()=>({prepare(){return {};},batch:()=>new Promise(resolve=>{finish=()=>resolve([{success:true,results:[],meta:{changes:0}}]);})})});
+  const query=db.query('SELECT 1'),closing=db.close();assert.throws(()=>db.query('SELECT 1'),error=>error.code==='DB_CLOSED');
+  finish();await query;await closing;await db.close();
 });
-test('actual libSQL transport aborts a slow fetch and closes the request client',async()=>{
-  await assert.rejects(withDatabase(environments.turso,db=>db.query('SELECT 1'),{...silent,retries:0,timeoutMs:10,fetch:(input,options)=>new Promise((resolve,reject)=>{options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true});})}),error=>error.code==='DB_TIMEOUT');
-});
-test('cleanup waits for in-flight HTTP operations and closes only once',async()=>{
-  let finish,closed=0;
-  const db=createDatabase(environments.turso,{...silent,createLibsql:()=>({protocol:'http',batch:()=>new Promise(resolve=>{finish=()=>resolve([{rows:[],columns:[],rowsAffected:0}]);}),close:()=>closed++})});
-  const query=db.query('SELECT 1'),closing=db.close();assert.equal(closed,0);assert.throws(()=>db.query('SELECT 1'),error=>error.code==='DB_CLOSED');
-  finish();await query;await closing;await db.close();assert.equal(closed,1);
-});
-test('per-request backpressure caps active work and drains queued work before closing',async()=>{
+test('per-request backpressure caps active binding work and drains queued work before closing',async()=>{
   let active=0,peak=0;const finish=[];
-  const db=createDatabase(environments.turso,{...silent,concurrency:2,maxPending:3,createLibsql:()=>({protocol:'http',batch:()=>{
-    active++;peak=Math.max(peak,active);return new Promise(resolve=>finish.push(()=>{active--;resolve([{rows:[],columns:[],rowsAffected:0}]);}));
-  },close(){}})});
+  const db=createDatabase(environments.d1,{...silent,concurrency:2,maxPending:3,createD1:()=>({prepare(){return {};},batch(){
+    active++;peak=Math.max(peak,active);return new Promise(resolve=>finish.push(()=>{active--;resolve([{success:true,results:[],meta:{changes:0}}]);}));
+  }})});
   const first=db.query('SELECT 1'),second=db.query('SELECT 2'),third=db.query('SELECT 3');
   assert.throws(()=>db.query('SELECT 4'),error=>error.code==='DB_BACKPRESSURE');assert.equal(active,2);
   finish.shift()();await first;assert.equal(active,2);finish.shift()();finish.shift()();await Promise.all([second,third]);await db.close();assert.equal(peak,2);
