@@ -1,4 +1,4 @@
-import {currentUser} from './worker.js';
+import {currentUser,sessionIdentity} from './worker.js';
 import {notificationSoundRoute} from './notification-sounds.mjs';
 import {studyClient} from './turso-stage-worker.mjs';
 import {MessageService} from './turso-messages.mjs';
@@ -190,9 +190,10 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'Use WebSocket.'},426);
         if(env.STORAGE_MODE!=='production'||url.hostname!==env.CONTENT_ALLOWED_HOST||request.headers.get('Origin')!==url.origin)fail(403,'Chat is unavailable here.');
         const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in to open messages.');
+        const identity=await sessionIdentity(env,request);
         await chatCall(env,'CHAT_BRIDGE','global','/bootstrap',{actor});
         const target='https://chat.internal/connect?after='+Math.max(0,Number(url.searchParams.get('after'))||0);
-        return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(chatStorageName(env,actor.id))).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...chatDatabaseHeaders(env)}}));
+        return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(chatStorageName(env,actor.id))).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...(identity?{'X-Chat-Session':identity.sid,'X-Chat-Session-Expires':String(identity.exp*1000),'X-Chat-Session-Namespace':env.AUTH_DATABASE_PROVIDER==='neon'?'auth/neon/':''}:{}),...chatDatabaseHeaders(env)}}));
       }
       const actor=logout||policyMutation?await authenticate(env,request):null;
       const syncPolicy=policyMutation&&actor&&(path.startsWith('/api/me/')||staff(actor))&&request.headers.get('Origin')===url.origin;

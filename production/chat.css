@@ -403,6 +403,19 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .stats-compare-toggle>input{pointer-events:auto}
 .user-settings [data-settings-sounds] [data-upload]{display:none}
 .user-settings [data-settings-logout]{color:var(--bad)}
+.user-settings .security-session-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
+.user-settings .security-session-tabs button{font-size:14px;min-height:40px;padding:8px 14px;border-radius:6px}
+.user-settings .security-session{padding:16px 0;border-bottom:1px solid var(--line);min-width:0;overflow-wrap:anywhere}
+.user-settings .security-session header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.user-settings .security-session-current{font-size:12px;color:var(--acc);font-weight:700}
+.user-settings .security-session dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:0}
+.user-settings .security-session dt{font-size:12px;color:var(--mute);margin-bottom:3px}
+.user-settings .security-session dd{font-size:14px;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.user-settings .security-session-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.user-settings .security-session-actions .settings-action{margin:0;font-size:14px;padding:8px 12px;min-height:38px;text-decoration:none}
+.user-settings .security-session details{margin-top:12px}
+.user-settings .security-session summary{cursor:pointer;font-size:14px;padding-block:6px}
+@media(max-width:480px){.user-settings .security-session dl{grid-template-columns:minmax(0,1fr)}}
 .user-settings .chat-edit-profile{max-width:560px;gap:10px}
 .user-settings .chat-edit-profile label{gap:4px}
 .user-settings .chat-edit-profile .chat-profile-visibility{grid-template-columns:minmax(0,180px) 44px;gap:12px}

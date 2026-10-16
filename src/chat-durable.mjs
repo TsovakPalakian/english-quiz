@@ -289,7 +289,7 @@ export class ChatRoom extends Store{
 }
 
 export class ChatInbox extends Store{
-  constructor(ctx,env){super(ctx,env);this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
+  constructor(ctx,env){super(ctx,env);this.sessionDeliveries=new WeakMap();this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
   snapshot(){
     const profile=this.get('profile'),rooms=this.rows('SELECT data FROM rooms').map(r=>JSON.parse(r.data)).filter(r=>r.active!==false).sort((a,b)=>(b.lastMessage?.createdMs||0)-(a.lastMessage?.createdMs||0));
     const unread={personal:0,learning:0};for(const room of rooms){unread.personal+=room.unread.personal;unread.learning+=room.unread.learning;}
@@ -310,7 +310,15 @@ export class ChatInbox extends Store{
       if(seq%100===0)this.sql.exec('DELETE FROM events WHERE id<?',seq-2000);
     });this.broadcast({type:'event',seq,event:body});return {received:true,seq};
   }
-  broadcast(value){for(const ws of this.ctx.getWebSockets()){try{ws.send(JSON.stringify(value));}catch{}}}
+  async sessionAllowed(ws){
+    const session=ws.deserializeAttachment();if(!session.sessionId)return true;
+    try{if(!this.env.MEDIA)throw Error('Unavailable');if(await this.env.MEDIA.head((session.sessionNamespace||'')+'revoked-sid/'+session.sessionId)){ws.close(4003,'Session ended.');return false;}return true;}
+    catch{ws.close(1011,'Session verification unavailable.');return false;}
+  }
+  broadcast(value){for(const ws of this.ctx.getWebSockets()){
+    if(ws.deserializeAttachment().sessionId){const delivery=(this.sessionDeliveries.get(ws)||Promise.resolve()).then(async()=>{if(await this.sessionAllowed(ws))try{ws.send(JSON.stringify(value));}catch{}}).catch(()=>{});this.sessionDeliveries.set(ws,delivery);this.ctx.waitUntil(delivery);}
+    else try{ws.send(JSON.stringify(value));}catch{}
+  }}
   async configure(body){
     const old=this.get('profile'),profile=body.profile;ref(profile.id);
     this.tx(()=>{this.set('profile',profile);this.set('contacts',body.contacts||[]);this.set('groups',body.groups||[]);this.sql.exec("DELETE FROM meta WHERE key LIKE 'discovered:%'");});
@@ -388,6 +396,7 @@ export class ChatInbox extends Store{
     try{
       await prepareChatDatabase(this);
       const attachment=ws.deserializeAttachment();if(attachment.expires<Date.now())fail(401,'Reconnect to renew your session.');
+      if(!await this.sessionAllowed(ws))return;
       if(typeof raw!=='string'||raw.length>24000)fail(413,'Message too large.');request=JSON.parse(raw);ref(request.requestId);
       const result=await this.command(request.action,request.body||{});ws.send(JSON.stringify({type:'response',requestId:request.requestId,result}));
     }catch(error){if(error.inactiveDatabase)ws.close(4001,'Database changed.');try{ws.send(JSON.stringify({type:'response',requestId:request?.requestId,error:error.status?error.message:'Chat temporarily unavailable.',status:error.status||503}));}catch{}}
@@ -399,11 +408,16 @@ export class ChatInbox extends Store{
   async alarm(){try{await prepareChatDatabase(this);}catch(error){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Database unavailable.');if(!error.inactiveDatabase)await this.ctx.storage.setAlarm(Date.now()+10000);return;}for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires<=Date.now())ws.close(4000,'Renew session.');await this.presence();await this.scheduleExpiry();}
   async fetch(request){
     if(new URL(request.url).pathname!=='/connect')return this.handle(request,async(path,body)=>{
-      if(path==='/configure')return this.configure(body);if(path==='/event')return this.event(body);if(path==='/snapshot')return this.snapshot();if(path==='/command')return this.command(body.action,body.body||{});if(path==='/suspend'){const profile=this.get('profile');if(profile)this.set('profile',{...profile,active:false});for(const ws of this.ctx.getWebSockets())ws.close(4002,'Permissions changed.');return {closed:true};}if(path==='/revoke'){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Session closed.');return {closed:true};}fail(404,'Inbox route not found.');
+      if(path==='/configure')return this.configure(body);if(path==='/event')return this.event(body);if(path==='/snapshot')return this.snapshot();if(path==='/command')return this.command(body.action,body.body||{});if(path==='/suspend'){const profile=this.get('profile');if(profile)this.set('profile',{...profile,active:false});for(const ws of this.ctx.getWebSockets())ws.close(4002,'Permissions changed.');return {closed:true};}if(path==='/revoke'){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Session closed.');return {closed:true};}
+      if(path==='/revoke-session'){if(!/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(body.sid||''))fail(400,'Invalid session.');for(const ws of this.ctx.getWebSockets()){const id=ws.deserializeAttachment().sessionId;if(!id||id===body.sid)ws.close(id?4003:4001,'Session ended.');}return {closed:true};}fail(404,'Inbox route not found.');
     });
     try{
       await this.trusted(request);if(!this.get('profile')||this.get('profile').active===false)fail(403,'Sign in first.');
-      const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:Date.now()+20*60*1000});
+      const sessionId=request.headers.get('X-Chat-Session'),sessionNamespace=request.headers.get('X-Chat-Session-Namespace')||'';
+      if(sessionId&&(!/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(sessionId)||!['','auth/neon/'].includes(sessionNamespace)))fail(403,'Invalid session.');
+      if(sessionId&&(!this.env.MEDIA||await this.env.MEDIA.head(sessionNamespace+'revoked-sid/'+sessionId)))fail(401,'Session ended.');
+      const sessionExpires=Number(request.headers.get('X-Chat-Session-Expires'));
+      const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:Math.min(Date.now()+20*60*1000,sessionExpires>0?sessionExpires:Infinity),...(sessionId?{sessionId,sessionNamespace}:{})});
       const after=Number(new URL(request.url).searchParams.get('after')||0),min=this.one('SELECT COALESCE(MIN(id),0) id FROM events').id;
       if(after&&after>=min-1&&after<=this.snapshot().seq){for(const row of this.rows('SELECT id,data FROM events WHERE id>? ORDER BY id',after)){const event=JSON.parse(row.data);if(!event.profile||profileAllowed(this,event.profile.id))server.send(JSON.stringify({type:'event',seq:row.id,event}));}}
       await this.presence();server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));await this.scheduleExpiry();return new Response(null,{status:101,webSocket:client});

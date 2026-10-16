@@ -4,7 +4,7 @@ import {pbkdf2Sync,randomBytes,createHmac} from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {neonFoundation} from '../src/neon-foundation.mjs';
 import {accountQuery,neonAccountDatabase,neonAccountMedia} from '../src/neon-account-database.mjs';
-import accounts,{currentUser} from '../src/worker.js';
+import accounts,{currentUser,sessionIdentity} from '../src/worker.js';
 
 let pg,db;
 function pgDriver(engine){
@@ -30,6 +30,17 @@ async function insert(login,role='USER'){
 function environment(){return {DB:db,MEDIA:neonAccountMedia(bucket()),AUTH_DATABASE_PROVIDER:'neon',SESSION_SECRET:'fixture-session-secret'};}
 function call(env,path,body,cookie){return accounts.fetch(new Request('https://app.example'+path,{method:body?'POST':'GET',headers:{Origin:'https://app.example',...(cookie?{Cookie:cookie}:{}),'CF-Connecting-IP':'127.0.0.1'},...(body?{body:JSON.stringify(body)}:{})}),env,{});}
 const cookie=response=>response.headers.get('Set-Cookie')?.split(';')[0];
+test('renewed cookies keep one session identity and remote revocation invalidates its whole lineage',async()=>{
+  const user=await insert('session_identity'),env=environment();
+  const first=cookie(await call(env,'/api/login',{login:user.login,password}));
+  const second=cookie(await call(env,'/api/login',{login:user.login,password}));
+  const identity=value=>sessionIdentity(env,new Request('https://app.example',{headers:{Cookie:value}}));
+  const a=await identity(first),b=await identity(second);assert.notEqual(a.sid,b.sid);
+  const renewed=cookie(await call(env,'/api/me/activity',{},first)),c=await identity(renewed);assert.equal(c.sid,a.sid);assert.equal(c.sortAt,a.sortAt);
+  await env.MEDIA.put('revoked-sid/'+a.sid,'{}');
+  for(const value of [first,renewed])assert.equal(await currentUser(env,new Request('https://app.example',{headers:{Cookie:value}})),null);
+  assert.ok(await currentUser(env,new Request('https://app.example',{headers:{Cookie:second}})));
+});
 before(async()=>{pg=new PGlite();for(const query of neonFoundation)await pg.exec(query);db=neonAccountDatabase({}, {sql:pgDriver(pg)});});
 after(async()=>{await pg?.close();});
 

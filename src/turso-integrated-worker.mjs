@@ -1,6 +1,7 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Turso.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity} from './worker.js';
+import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './turso-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './turso-study.mjs';
 import {ensureStudyProfile} from './turso-profile.mjs';
@@ -125,6 +126,23 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path==='/api/me/sessions'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const session=await sessionIdentity(accountEnv,request);if(!session||session.id!==actor.id)throw new StudyError(401,'Sign in first.');
+        if(method==='GET'){
+          await observeSession(studyDatabase(env),request,session);
+          return json(await listSessions(studyDatabase(env),session,{view:url.searchParams.get('view')||'active',cursor:url.searchParams.get('cursor')}));
+        }
+        if(method!=='POST')throw new StudyError(405,'Use GET or POST.');
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let body;try{body=JSON.parse(await boundedText(request,512,'Session request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid session request.');}
+        if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(key=>key!=='id'))throw new StudyError(400,'Invalid session request.');
+        const result=await endSession(studyDatabase(env),accountEnv.MEDIA,session,body.id);
+        if(env.CHAT_INBOX)try{await chatCall(env,'CHAT_INBOX',actor.id,'/revoke-session',{sid:result.sid});}catch{console.error('Session socket closure deferred to revocation checks.');}
+        const response=json({ended:result.ended,current:result.current});
+        if(result.current)response.headers.set('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+        return response;
+      }
       if(path==='/api/developer/databases'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developers only.');

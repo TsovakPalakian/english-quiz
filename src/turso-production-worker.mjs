@@ -7,6 +7,7 @@ import {durableChatWorker} from './chat-worker.mjs';
 import {withDatabaseSelection,readDatabaseSelection,DATABASE_CONTROL} from './database-selection.mjs';
 import {STUDY_DATABASE,STATIC_STUDY_DATABASE} from './study-database.mjs';
 import {neonApplicationEnvironment} from './neon-application.mjs';
+import {pruneSessionHistory} from './security-sessions.mjs';
 export {ChatRoom,ChatInbox,ChatBridge} from './chat-worker.mjs';
 export {StageAuthBudget};
 const unavailable=()=>Response.json({error:'Production content not activated.'},{status:503,headers:{'Cache-Control':'no-store'}});
@@ -33,7 +34,7 @@ export function productionWorker(application=integrated,{openNeon=neonApplicatio
     const data={...env};delete data[STUDY_DATABASE];return {...data,[STUDY_DATABASE]:studyClient(data)};
   };
   const selected=async env=>compose(await selectedConfiguration(env));
-  return {async scheduled(event,env,ctx){let configured=productionEnvironment(env);if(configured&&application.scheduled){configured=await selected(configured);await application.scheduled(event,configured,ctx);}},async fetch(request,env,ctx){
+  return {async scheduled(event,env,ctx){let configured=productionEnvironment(env);if(configured){configured=await selected(configured);ctx.waitUntil(pruneSessionHistory(studyClient(configured)).catch(()=>console.error('Session history cleanup deferred.')));if(application.scheduled)await application.scheduled(event,configured,ctx);}},async fetch(request,env,ctx){
   if(env.CONTENT_ENABLED!=='true')return unavailable();
   let configured=productionEnvironment(env);
   if(!configured)return unavailable();

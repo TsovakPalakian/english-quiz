@@ -181,7 +181,7 @@
         acknowledgeSnapshot();
       }else if(value.type==='event'){seq=Math.max(seq,value.seq||0);receive(value.event);}
     };
-    ws.onclose=()=>{if(socket!==ws||gen!==generation)return;disconnect();void window.DatabaseContext?.check?.();if(!signedIn())return;status('Connection interrupted. Reconnecting...');if(reconnectCount>=8){status('Chat unavailable. Click Chats to reconnect.');return;}const delay=Math.min(30000,700*2**reconnectCount++)+Math.random()*300;reconnectTimer=setTimeout(connect,delay);};
+    ws.onclose=event=>{if(socket!==ws||gen!==generation)return;disconnect();if(event.code===4003){if(current()&&typeof leaveAccount==='function')void leaveAccount({signedOut:true});return;}void window.DatabaseContext?.check?.();if(!signedIn())return;status('Connection interrupted. Reconnecting...');if(reconnectCount>=8){status('Chat unavailable. Click Chats to reconnect.');return;}const delay=Math.min(30000,700*2**reconnectCount++)+Math.random()*300;reconnectTimer=setTimeout(connect,delay);};
     ws.onerror=()=>{if(socket===ws)status('Unable to connect. Your draft is saved.');};
   }
   function upsertRoom(row){if(!row)return;const old=data.rooms.find(r=>r.id===row.id);if(old&&(old.revision||0)>(row.revision||0))return;if(old)Object.assign(old,row);else data.rooms.push(row);}
@@ -716,6 +716,36 @@
     if(root)settingsSoundEditor(root);icons();
   }
   document.addEventListener('notification-sounds-rendered',event=>{const pane=event.target.closest('.user-settings .chat-settings-content');if(pane)dressUserSettings(pane);});
+  async function settingsSessions(host,parent){
+    const gen=generation,owner=account;let view='active',rows=[],cursor=null,version=0,busy=false,error='';
+    const alive=()=>host.isConnected&&parent.open&&gen===generation&&owner===account&&!!current();
+    const when=value=>value?new Date(value).toLocaleString():'Not recorded';
+    const reasons={logout:'Signed out',terminated:'Ended remotely',expired:'Expired',password_changed:'Credentials changed',database_changed:'Database changed'};
+    const field=(name,value)=>'<div><dt>'+name+'</dt><dd>'+escape(value||'Not available')+'</dd></div>';
+    function paint(){
+      if(!alive())return;
+      host.innerHTML='<div class="security-session-tabs" role="tablist" aria-label="Session views">'+[['active','Active sessions'],['history','Sign-in history']].map(([id,title])=>'<button class="btn'+(view===id?' primary':'')+'" type="button" role="tab" aria-selected="'+(view===id)+'" data-session-view="'+id+'">'+title+'</button>').join('')+'</div><div class="security-session-list" role="tabpanel">'+rows.map(row=>'<article class="security-session"><header><strong>'+escape(row.browser+' · '+row.os)+'</strong>'+(row.current?'<span class="security-session-current">This session</span>':'')+'</header><dl>'+field('Device',row.device)+field(row.startedAt?'Signed in':'First observed',when(row.startedAt||row.firstObservedAt))+field('Last activity',when(row.lastActivityAt))+field('IP address',row.ip)+field('Approximate location',[row.city,row.region,row.country].filter(Boolean).join(', '))+field('Time zone',row.timezone)+(row.active?field('Expires',when(row.expiresAt)):field('Ended',row.endedAt?when(row.endedAt):'Time not recorded')+field('Reason',reasons[row.endReason]||row.endReason))+'</dl><div class="security-session-actions">'+(row.mapsUrl?'<a class="settings-action" target="_blank" rel="noopener noreferrer" href="'+escape(row.mapsUrl)+'">'+icon('map-pin')+'Google Maps</a>':'')+(row.active?'<button class="settings-action danger" type="button" data-end-session="'+escape(row.id)+'">'+icon('log-out')+'End session</button>':'')+'</div><details><summary>Connection details</summary><dl>'+field('Network',row.network)+field('ASN',row.asn?String(row.asn):'')+field('TLS',row.tls)+field('Latest IP address',row.lastIp)+field('Latest location',[row.lastCity,row.lastCountry].filter(Boolean).join(', '))+field('User agent',row.userAgent)+'</dl></details></article>').join('')+(!rows.length&&!busy?'<p>'+ (view==='active'?'No active sessions.':'No previous sign-ins recorded.')+'</p>':'')+'</div><p role="status">'+escape(error||(busy?'Loading sessions…':''))+'</p>'+(cursor?'<button class="settings-action" type="button" data-more-sessions'+(busy?' disabled':'')+'>Load more</button>':'');
+      host.querySelectorAll('[data-session-view]').forEach(button=>button.onclick=()=>{view=button.dataset.sessionView;rows=[];cursor=null;void load();});
+      host.querySelector('[data-more-sessions]')?.addEventListener('click',()=>load(true));
+      host.querySelectorAll('[data-end-session]').forEach(button=>button.onclick=()=>{
+        const row=rows.find(item=>item.id===button.dataset.endSession);if(!row)return;
+        const confirmation=dialog('End session','<p>'+escape(row.browser)+(row.current?' · This device will be signed out.':'')+'</p><button class="settings-action" type="button" data-session-cancel>Cancel</button>',async()=>{
+          const response=await fetch('/api/me/sessions',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:row.id})}),result=await response.json();if(!response.ok)throw Error(result.error||'Session could not be ended.');
+          if(result.current){parent.close();if(current())await leaveAccount({signedOut:true});}else if(alive())await load();
+        });confirmation.querySelector('[data-session-cancel]').onclick=()=>confirmation.close();
+      });icons();
+    }
+    async function load(more=false){
+      const token=++version;busy=true;error='';paint();
+      try{
+        const response=await fetch('/api/me/sessions?'+new URLSearchParams({view,...(more&&cursor?{cursor}:{})}),{credentials:'same-origin',cache:'no-store'}),value=await response.json();
+        if(!alive()||token!==version)return;if(!response.ok)throw Error(value.error||'Sessions unavailable.');if(!Array.isArray(value.sessions))throw Error('Sessions unavailable.');
+        rows=more?[...new Map([...rows,...value.sessions].map(row=>[row.id,row])).values()]:value.sessions;cursor=value.nextCursor;
+      }catch(e){if(alive()&&token===version)error=e.message;}
+      finally{if(alive()&&token===version){busy=false;paint();}}
+    }
+    await load();
+  }
   function settings(initial='profile'){
     if(typeof initial!=='string')initial='profile';
     if(!current())return;
@@ -740,7 +770,7 @@
       }
       if(id==='notifications')html=toggle('notifications','Desktop notifications','New messages outside the active window',prefs.notifications)+'<div data-settings-sounds></div>';
       if(id==='interface'||id==='messages')html=[['left','Conversation list','Show conversations in the sidebar'],['right','Chat info','Show details about the selected conversation'],['enter','Enter sends messages','Shift+Enter starts a new line']].map(([p,label,description])=>toggle(p,label,description,prefs[p]!==false)).join('')+(id==='messages'?'<button class="btn" type="button" data-settings-chat>Open messages</button>':'');
-      if(id==='security'){const result=await request('sessions');if(!node.open)return;html='<p>Your active chat connections: '+result.sessions.length+'</p><button type="button" class="settings-action" data-settings-password>'+icon('key-round')+'Change password</button><div data-settings-password-slot></div><hr><button type="button" class="settings-action danger" data-account="revoke">'+icon('trash-2')+'Delete my data</button>';}
+      if(id==='security')html='<div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password>'+icon('key-round')+'Change password</button><div data-settings-password-slot></div><hr><button type="button" class="settings-action danger" data-account="revoke">'+icon('trash-2')+'Delete my data</button>';
       if(id==='blocked'){const result=await request('blocked');html=result.users.length?result.users.map(user=>'<div class="settings-row"><span>'+escape(user.name)+'</span><button type="button" class="btn" data-settings-unblock="'+escape(user.roomId)+'">Unblock</button></div>').join(''):'<p>No blocked users.</p>';}
       if(id==='help')html='<p>Personal contains conversations. Study alerts contains important teacher announcements and exam notices.</p><p>Shift+Enter adds a new line. Search finds messages in the selected category. Your draft is saved on this device.</p><p>Grey checks show delivery; blue checks mean everyone in the conversation has read the message.</p>';
       if(!node.open||version!==tabVersion||gen!==generation)return;
@@ -750,6 +780,7 @@
       if(id==='statistics'){mountSection('stats',pane);paintStats();}
       if(id==='help'){pane.querySelectorAll('p').forEach(p=>p.remove());mountSection('guide',pane);paintGuide();}
       if(id==='notifications')await window.NotificationSounds?.mount(pane.querySelector('[data-settings-sounds]'));
+      if(id==='security')void settingsSessions(pane.querySelector('[data-security-sessions]'),node);
       if(!node.open||version!==tabVersion||gen!==generation)return;
       if(id==='profile'){
         const form=pane.querySelector('.chat-edit-profile'),saved=details.change||details.user;

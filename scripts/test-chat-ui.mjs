@@ -50,7 +50,12 @@ try{
     ws.send(JSON.stringify({type:'response',requestId,result}));
   });});
   let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},settingsSoundAudio;
+  const sessionRows=[{id:'current',current:true,active:true,browser:'Safari 18.6',os:'macOS',device:'Desktop',startedAt:Date.now(),lastActivityAt:Date.now(),expiresAt:Date.now()+10800000,ip:'192.0.2.1',city:'Yerevan',country:'AM',mapsUrl:'https://www.google.com/maps/search/?api=1&query=40%2C44'},{id:'other',current:false,active:true,browser:'Firefox 130',os:'Linux',device:'Desktop',startedAt:Date.now(),lastActivityAt:Date.now(),expiresAt:Date.now()+10800000}];
   await page.route('**/api/**',async route=>{const url=new URL(route.request().url()),path=url.pathname;http.push(path);let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
+    if(path==='/api/me/sessions'){
+      if(route.request().method()==='POST'){const row=sessionRows.find(row=>row.id===route.request().postDataJSON().id);row.active=false;row.endedAt=Date.now();row.endReason='terminated';data={ended:true,current:row.current};}
+      else data={sessions:sessionRows.filter(row=>row.active===(url.searchParams.get('view')!=='history')),nextCursor:null};
+    }
     if(path==='/api/me/notification-sounds'){
       if(url.searchParams.has('id'))return route.fulfill({contentType:'audio/wav',body:settingsSoundAudio});
       if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};
@@ -230,7 +235,13 @@ try{
   assert.equal(await page.locator('.user-settings [name=sound]').inputValue(),'custom-settings','Custom selection is restored from the server');
   await page.locator('.user-settings [name=sound]').selectOption('bell');await page.locator('.user-settings [data-settings-sounds] [type=submit]').click();await page.locator('.user-settings [data-settings-sounds] [role=status]').filter({hasText:'Saved'}).waitFor();
   await page.setViewportSize({width:320,height:800});assert.ok(await page.locator('.user-settings').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/unified-settings-mobile.png'});await page.setViewportSize({width:1664,height:1000});
-  await page.locator('[data-settings-tab="security"]').click();await page.locator('[data-settings-password]').click();await page.locator('.user-settings #ownPasswordForm').waitFor();assert.equal(await page.locator('.user-settings [data-account="revoke"]').count(),1);
+  await page.locator('[data-settings-tab="security"]').click();await page.locator('.security-session').first().waitFor();assert.equal(await page.locator('.security-session').count(),2);
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Security keeps the same dimensions');assert.equal(await page.locator('.security-session-current').innerText(),'This session');
+  await page.screenshot({path:'/private/tmp/settings-security-desktop.png'});
+  await page.locator('[data-end-session="other"]').click();await page.locator('dialog[open]:not(.user-settings) button[type=submit]').click();await page.waitForFunction(()=>document.querySelectorAll('.security-session').length===1);
+  await page.locator('[data-session-view="history"]').click();await page.getByText('Ended remotely',{exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.user-settings .chat-settings-content').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/settings-security-mobile.png'});await page.setViewportSize({width:1664,height:1000});
+  await page.locator('[data-settings-password]').click();await page.locator('.user-settings #ownPasswordForm').waitFor();assert.equal(await page.locator('.user-settings [data-account="revoke"]').count(),1);
   await page.locator('[data-settings-tab="statistics"]').click();await page.locator('.user-settings #stats').waitFor();
   assert.deepEqual(await settingsSize(),fixedSettingsSize,'Statistics keeps the same dimensions');
   assert.equal(await page.locator('.user-settings .stats-compare-toggle .settings-switch').count(),0,'Statistics retains only its own switch');

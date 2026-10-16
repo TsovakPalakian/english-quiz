@@ -16,7 +16,7 @@ export async function prepareChatDatabase(store,request){
   if(request&&request.headers.get('X-Chat-Internal')!==(base.CONTENT_SESSION_SECRET||base.SESSION_SECRET))fail(403,'Unavailable.');
   const previous=store.get('_databaseScope'),selected=request?scope({provider:request.headers.get('X-Chat-Database')||'turso',revision:Number(request.headers.get('X-Chat-Database-Revision')||0)}):scope(previous||{provider:'turso',revision:0});
   if(previous&&previous.provider!==selected.provider)fail(403,'This conversation belongs to another database.');
-  const inactiveAllowed=request&&['/suspend','/revoke','/invalidate'].includes(new URL(request.url).pathname);
+  const inactiveAllowed=request&&['/suspend','/revoke','/revoke-session','/invalidate'].includes(new URL(request.url).pathname);
   if(base.CONTENT_ENABLED==='true'){
     const {selection}=await readDatabaseSelection(base[DATABASE_CONTROL]||base.CONTENT_MEDIA,{defaultProvider:base.DB_PROVIDER||'turso'});
     if((selection.provider!==selected.provider||selection.revision!==selected.revision)&&!inactiveAllowed)fail(503,'The active database changed. Reconnect to messages.',true);

@@ -27,6 +27,16 @@ function fixture(journal){
   const drain=async()=>{while(pending.length)await Promise.all(pending.splice(0));};
   return {env,alice,bob,teacher,boot,drain,close:()=>databases.forEach(db=>db.close())};
 }
+test('ending one authenticated session closes only its sockets and blocks further delivery',async()=>{
+  const f=fixture();try{
+    const revoked=new Set();f.env.MEDIA={head:async key=>revoked.has(key)?{}:null};await f.boot();const inbox=f.env.CHAT_INBOX.get('alice');
+    const socket=sid=>({messages:[],closes:[],deserializeAttachment:()=>({sessionId:sid,expires:Date.now()+60000}),send(value){this.messages.push(JSON.parse(value));},close(code){this.closes.push(code);}});
+    const a=socket('a'.repeat(32)),b=socket('b'.repeat(32));inbox.ctx.getWebSockets().push(a,b);
+    inbox.broadcast({seq:1});inbox.broadcast({seq:2});await f.drain();assert.deepEqual(a.messages.map(v=>v.seq),[1,2]);
+    revoked.add('revoked-sid/'+'a'.repeat(32));await chatCall(f.env,'CHAT_INBOX','alice','/revoke-session',{sid:'a'.repeat(32)});
+    inbox.broadcast({seq:3});await f.drain();assert.ok(a.closes.includes(4003));assert.equal(a.messages.length,2);assert.equal(b.messages.length,3);assert.equal(b.closes.length,0);
+  }finally{f.close();}
+});
 test('database switching isolates rooms/inboxes and returning to Turso restores only its history',async()=>{
   const f=fixture();let selected={provider:'turso',revision:0,scope:'site'};
   try{

@@ -682,6 +682,25 @@ export const neonStudyTables=[
     "ddl": "CREATE TABLE IF NOT EXISTS english_study.class_group_students ( account_id TEXT PRIMARY KEY , group_id bigint NOT NULL REFERENCES english_study.class_groups ( id ) , assigned_by TEXT NOT NULL , updated_at bigint NOT NULL DEFAULT(floor(extract(epoch FROM statement_timestamp()))::bigint) , _runtime_rowid bigint GENERATED ALWAYS AS IDENTITY )"
   },
   {
+    "name": "security_sessions",
+    "identity": "_runtime_rowid",
+    "columns": [
+      "account_id",
+      "id",
+      "value_json",
+      "revision",
+      "expires_at"
+    ],
+    "types": {
+      "account_id": "TEXT",
+      "id": "TEXT",
+      "value_json": "TEXT",
+      "revision": "INTEGER",
+      "expires_at": "INTEGER"
+    },
+    "ddl": "CREATE TABLE IF NOT EXISTS english_study.security_sessions ( account_id TEXT NOT NULL , id TEXT NOT NULL , value_json TEXT NOT NULL , revision bigint NOT NULL DEFAULT 1 , expires_at bigint NOT NULL , PRIMARY KEY(account_id,id) , _runtime_rowid bigint GENERATED ALWAYS AS IDENTITY )"
+  },
+  {
     "name": "exam_instances",
     "identity": "exam_id",
     "columns": [
@@ -1129,6 +1148,7 @@ export const neonStudyIndexes=[
   "CREATE INDEX IF NOT EXISTS exams_visible ON english_study.exams ( published , deleted_at , id )",
   "CREATE INDEX IF NOT EXISTS exam_blocks_order ON english_study.exam_blocks ( exam_id , deleted_at , position )",
   "CREATE INDEX IF NOT EXISTS exam_materials_order ON english_study.exam_materials ( exam_id , block_id , deleted_at , position )",
+  "CREATE INDEX IF NOT EXISTS security_sessions_expiry ON english_study.security_sessions ( expires_at )",
   "CREATE UNIQUE INDEX IF NOT EXISTS chat_active_assignment ON english_study.chat_assignments ( exam_id , target_kind , target_id ) WHERE active = 1",
   "CREATE INDEX IF NOT EXISTS chat_room_sequence ON english_study.chat_messages ( room_id , id )"
 ];
