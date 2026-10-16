@@ -25,6 +25,26 @@
     return parts.length<=48&&parts.every(p=>emoji.test(p))?parts:[];
   }
   let account='',signature='',generation=0,socket=null,seq=0,reconnectTimer,reconnectCount=0,ready=false,room='',kind='personal',rightMode='',unreadOnly=false,examDirty=false,catalogVersion=0;
+  let examRefreshTimer,examRefreshing=false;
+  function scheduleExamRefresh(){
+    examDirty=true;clearTimeout(examRefreshTimer);
+    const gen=generation;
+    examRefreshTimer=setTimeout(async()=>{
+      if(gen!==generation||!current()||examRefreshing)return;
+      examRefreshing=true;
+      try{
+        while(examDirty&&gen===generation&&current()){
+          examDirty=false;
+          if(typeof examPulling!=='undefined'&&examPulling)await examFlight;
+          if(gen!==generation||!current())return;
+          await examPull(true);
+          if(gen!==generation||!current())return;
+          examResetWork();examPullWork();
+        }
+      }catch{if(gen===generation)examDirty=true;}
+      finally{examRefreshing=false;if(gen!==generation&&examDirty&&current())scheduleExamRefresh();}
+    },150);
+  }
   let data={rooms:[],contacts:[],groups:[],unread:{personal:0,learning:0},total:0},prefs={},reply=null,pending=null,files=[],format=null,busy=false,loading=0,searchToken=0,searchBefore=0,searchTimer,readTimer,listMode='chats',emojiMode='';
   let recorder=null,recordTimer,recordProgressTimer,recordMode='audio',recordGesture=null,recordUploading=false;
   let contextMessage=null,contextRoom='',selection=new Set(),selecting=false;
@@ -154,7 +174,7 @@
       if(value.type==='response'){const p=requests.get(value.requestId);if(!p)return;clearTimeout(p.timer);requests.delete(value.requestId);if(value.error)p.reject(new Error(value.error));else p.resolve(value.result);}
       else if(value.type==='snapshot'){
         profileRequested.clear();Object.assign(profileViews,value.data.profiles||{});
-        const reconnect=ready;ready=true;reconnectCount=0;data=value.data;if((data.catalogVersion||0)!==catalogVersion){catalogVersion=data.catalogVersion||0;examDirty=true;}seq=Math.max(seq,data.seq||0);status('');paintRooms();badge();
+        const reconnect=ready;ready=true;reconnectCount=0;data=value.data;if((data.catalogVersion||0)!==catalogVersion){catalogVersion=data.catalogVersion||0;scheduleExamRefresh();}seq=Math.max(seq,data.seq||0);status('');paintRooms();badge();
         if(room&&!data.rooms.some(row=>row.id===room)){room='';timeline.replaceChildren();paintRooms();}
         if(active()&&room){if(reconnect||state()?.loaded)history({refresh:true}).catch(error=>status(error.message));else history().catch(error=>status(error.message));}
         else if(active()&&!room){let saved;try{saved=sessionStorage.getItem('enquiz-chat-room:'+account);}catch{}if(data.rooms.some(row=>row.id===saved))openRoom(saved).catch(error=>status(error.message));}
@@ -227,7 +247,8 @@
   }
   function receive(event){
     if(event.profile){const changed=(profileViews[event.profile.id]?.username||'')!==(event.profile.username||'');profileViews[event.profile.id]=event.profile;if(changed)paintRooms();scheduleProfiles();return;}
-    if(event.catalogVersion&&event.catalogVersion>catalogVersion){catalogVersion=event.catalogVersion;examDirty=true;}
+    if(event.catalogVersion&&event.catalogVersion>catalogVersion){catalogVersion=event.catalogVersion;scheduleExamRefresh();}
+    else if(event.type==='message'&&event.message?.category==='learning'&&event.message.examId)scheduleExamRefresh();
     if(event.removeRoom){data.rooms=data.rooms.filter(r=>r.id!==event.removeRoom);for(const cache of historyCache.keys())if(cache.startsWith(event.removeRoom+':'))historyCache.delete(cache);if(room===event.removeRoom){cancelUploads();room='';timeline.replaceChildren();el('msgCompose').hidden=true;}}
     upsertRoom(event.room);
     if(event.message&&event.room){

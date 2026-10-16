@@ -22,7 +22,7 @@ try{
   const rows=[{id:1,senderId:teacher,sender:'Teacher',category:'personal',text:'Hello Alice',createdMs:1780000000123},{id:2,senderId:teacher,sender:'Teacher',category:'learning',text:'Exam assigned: Fixture exam',createdMs:1780000010123,examId:11,assignmentActive:true}];
   let fail=true,seq=0,connection,unread={personal:1,learning:1},pinned=null,accessOverride=null,lastLookupQuery='';const uploads=new Map(),fileBytes=new Map();
   const profiles=new Map([[student.id,{id:student.id,online:true,username:''}],[teacher,{id:teacher,online:true,username:'@teacher'}],['group:1',{id:'group:1',online:false}]]);let avatarBytes;const dictionaryCards=[];
-  let groupRoom=false;
+  let groupRoom=false,examState=null;
   const room=()=>({id:groupRoom?'group:1':roomId,title:groupRoom?'A1':accessOverride?'Outside student':'Teacher',peerId:groupRoom?null:teacher,kind:groupRoom?'group':'direct',groupId:groupRoom?1:null,access:accessOverride||{protected:true,state:'accepted',canSend:true},pinned,members:2,revision:seq,unread:{...unread},has:{personal:true,learning:true},lastMessage:rows.at(-1),muted:false});
   const snapshot=()=>({rooms:[room()],contacts:[{id:teacher,name:'Teacher',role:'Teacher'}],groups:[{id:1,title:'A1'}],profile:{...student,role:'Student'},seq,total:unread.personal+unread.learning});
   const event=(type,extra={})=>{if(extra.profile){extra.profile={...profiles.get(extra.profile.id),...extra.profile};profiles.set(extra.profile.id,extra.profile);}connection.send(JSON.stringify({type:'event',seq:++seq,event:{type,key:'fixture:'+seq,room:room(),...extra}}));};
@@ -60,7 +60,7 @@ try{
     if(path==='/api/me/cards')data={cards:dictionaryCards.filter(c=>!url.searchParams.get('place')||c.place===url.searchParams.get('place')),next:null,stageAddedRevision:dictionaryCards.length};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};
     if(path==='/api/account/bootstrap')data={versions:{},catalogs:[],user:student};
-    if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'Fixture exam',published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
+    if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'Fixture exam',instanceStatus:examState,studentId:examState?student.id:null,published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
     if(path==='/api/exams/work')data={work:[]};if(path==='/api/messages/exam')data={examId:11};
     if(path==='/api/messages/preview')data={url:'https://example.com/lesson',site:'example.com',title:'Lesson preview',description:'A useful English lesson &#x424;&#x43B;&#x44D;&#x448; &lt;script&gt;ignored&lt;/script&gt;'};
     if(path==='/api/messages/avatar'){
@@ -211,7 +211,10 @@ try{
   const beforeExams=http.filter(p=>p==='/api/exams').length;
   for(let i=0;i<2;i++){await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();}
   assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams,'Assign exam uses the existing cache');
-  event('catalog',{catalogVersion:1});await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Catalog changes invalidate the cache');
+  examState='completed';event('catalog',{catalogVersion:1});
+  await page.waitForFunction(()=>examFind(11)?.instanceStatus==='completed');
+  assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Review publication refreshes exams without opening a dialog or reloading');
+  await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Assignment dialog reuses the refreshed catalog');
   await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('teacher@example.com');const beforeLookups=commands.filter(c=>c==='lookup').length;await page.waitForTimeout(350);assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups,'Typing never queries the directory');await page.locator('#msgLookup').click();await page.locator('[data-contact-id]').click();assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups+1);
   accessOverride={protected:false,state:'pending',requestedBy:student.id,canSend:false};event('room');await page.locator('#msgAccess').filter({hasText:'Waiting'}).waitFor();assert.equal(await page.locator('#msgCompose').isVisible(),false);
   accessOverride={protected:false,state:'pending',requestedBy:teacher,canAccept:true,canSend:true};event('room');await page.locator('[data-relation="accept"]').click();await page.locator('#msgAccess').waitFor({state:'hidden'});
@@ -313,7 +316,7 @@ try{
   await page.locator('#groupNew').click();await page.locator('#itemEditPop [name=title]').fill('A1 UI group');await page.locator('#itemEditPop [name=date]').fill('2026-10-15');await page.locator('#itemEditPop [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#groupList')?.textContent.includes('A1 UI group'));assert.equal(createdTitle,'A1 UI group');assert.equal(await page.locator('#groupList [data-group-open]').count(),3);
   await page.evaluate(()=>{classGroupId=71;lmState={...lmBlankMaterial(),id:1,title:'New lesson',mode:'preview',tab:'overview'};paintPagePath('material');});
   assert.deepEqual(await page.locator('#material .page-path button').allTextContents(),['Groups','A1','A1 Open','New lesson']);
-  await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});
+  await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;examSection='active';window.enquizVisit('exams');});
   assert.ok(await page.locator('#examList [data-exam-level="A1"]').count(),JSON.stringify(await page.evaluate(()=>({html:document.querySelector('#examList').innerHTML,groups:classGroups,exams:examLoad(),auth:authUser?.role})))+' '+errors.join(';'));
   await page.locator('#examList [data-exam-level="A1"]').click();await page.locator('#examList [data-exam-group-view="71"]').click();
   assert.equal(await page.locator('#examList [data-exam-open="11"]').count(),1);assert.match(await page.locator('#examList').innerText(),/A1 Fixture exam/);
