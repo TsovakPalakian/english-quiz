@@ -2648,7 +2648,7 @@
       } else {
         html += guideBlock(t('Learn from your classes', 'Обучение по занятиям'), t('Open a group, choose a lesson, then study its cards, rules and tasks. Exams are listed separately and results remain in your account.', 'Откройте группу, выберите занятие и изучайте его карточки, правила и задания. Экзамены находятся отдельно, результаты сохраняются в аккаунте.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Study', 'Обучение'), [['Groups', 'groups'], ['Exams', 'exams'], ['Study', 'groups']]));
         html += guideBlock(t('Cards: read, listen and practise', 'Карточки: смотреть, слушать и тренировать'), t('A card contains translation, part of speech, UK/US pronunciation and audio, examples and dictionary links. Study offers choice, typing, gaps, matching, listening and more.', 'Карточка содержит перевод, часть речи, британское и американское произношение и аудио, примеры и ссылки на словари. Есть выбор, ввод, пропуски, пары, аудирование и другие проверки.'), 'allwords', t('Open cards', 'Открыть карточки'), guideShot(t('Word card', 'Карточка слова'), [[t('Pronunciation', 'Произношение'), 'allwords'], [t('Examples', 'Примеры'), 'allwords'], [t('Study', 'Учить'), 'setup']]));
-        html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Library you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Library можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Library', 'Открыть Library'), guideShot(t('Library', 'Библиотека'), [[t('My words', 'Мои слова'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
+        html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Library you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Library можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Library', 'Открыть Library'), guideShot(t('Library', 'Библиотека'), [[t('My cards', 'Мои карточки'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
         html += guideBlock(t('Archive and account', 'Архив и аккаунт'), role === 'USER' ? t('Removing your material first moves it to Archive after confirmation. Restore brings it back. Remove from archive hides your own archived item without a password; it does not erase it permanently. Account contains statistics, details, password changes and sign-out.', 'Удаление своего материала сначала перемещает его в Archive после подтверждения. Restore возвращает его обратно. Remove from archive скрывает свой архивный материал без пароля, но не стирает окончательно. В Account находятся статистика, данные аккаунта, смена пароля и выход.') : t('Archive groups removed materials by type and shows who archived them. Restore returns material to its original section. Remove from archive hides an entry; teachers confirm this with their password. Account contains details, password changes and sign-out.', 'Archive группирует убранные материалы по типам и показывает, кто их перенёс. Restore возвращает материал в исходный раздел. Remove from archive скрывает запись; учитель подтверждает это паролем. В Account находятся данные аккаунта, смена пароля и выход.'), 'archive', t('Open Archive', 'Открыть Archive'), guideShot(t('Account tools', 'Управление'), [['Archive', 'archive'], [t('Account', 'Аккаунт'), 'profile'], [t('Statistics', 'Статистика'), 'stats']]));
         html += guideBlock(t('Statistics and progress', 'Статистика и прогресс'), t('Choose a period to see answers, accuracy, learned checks, study time, exams and added materials. Keep comparison enabled to compare the selected period with the previous period.', 'Выберите период, чтобы увидеть ответы, точность, выученные проверки, время, экзамены и добавленные материалы. Оставьте сравнение включённым, чтобы сопоставить выбранный период с предыдущим.'), 'stats', t('Open Statistics', 'Открыть статистику'), guideShot(t('Progress', 'Прогресс'), [[t('Period', 'Период'), 'stats'], [t('Learning', 'Обучение'), 'stats'], [t('Materials', 'Материалы'), 'stats']]));
         if (!viewAccount) html += guideBlock(t('Personal themes', 'Личные темы'), t('Open Account then Theme. Select a theme or use Add theme to choose its name, colours and background image. Edit or remove your own themes there. Your themes and selected theme are saved to your account and restored after signing in, including on another device.', 'Откройте Account, затем Theme. Выберите тему или нажмите Add theme: задайте название, цвета и фоновую картинку. Там же можно редактировать и удалять свои темы. Темы и выбранное оформление сохраняются в аккаунте и восстанавливаются после входа, в том числе на другом устройстве.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [[t('Choose theme', 'Выбрать тему'), 'themes'], [t('Add theme', 'Добавить тему'), 'themes'], [t('Edit themes', 'Изменить темы'), 'themes']]));
@@ -3819,7 +3819,7 @@
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
       }[ch]));
     }
-    const PLACE_LABEL = { "lesson-23": "23 Sep", "lesson-21": "21 Sep", "lesson-16": "16 Sep", "lesson-14": "14 Sep", "lesson-09": "9 Sep", "lesson-07": "7 Sep", music: "Song lyrics", tenses: "Grammar", mine: "My words", text: "Text", phrasal: "Phrasal verbs", idioms: "Idioms" };
+    const PLACE_LABEL = { "lesson-23": "23 Sep", "lesson-21": "21 Sep", "lesson-16": "16 Sep", "lesson-14": "14 Sep", "lesson-09": "9 Sep", "lesson-07": "7 Sep", music: "Song lyrics", tenses: "Grammar", mine: "My cards", text: "Text", phrasal: "Phrasal verbs", idioms: "Idioms" };
     Object.assign(PLACE_LABEL,{chat:'Chat','chat-phrasal':'Phrasal verbs','chat-idioms':'Idioms'});
     function cardOrigin(item) {
       if(String(item?.place||'').startsWith('chat'))return 'From chat';
@@ -3986,7 +3986,7 @@
       loadAdded().forEach((item) => {
         const place = item.place || "mine";
         if (hideStudentSongs() && place === "music") return;
-        const where = place==='chat'?'Chat':place==='chat-phrasal'?'Phrasal verbs':place==='chat-idioms'?'Idioms':item.fromText && place === "mine" ? "Text" : (PLACE_LABEL[place] || "My words");
+        const where = place==='chat'?'Chat':place==='chat-phrasal'?'Phrasal verbs':place==='chat-idioms'?'Idioms':item.fromText && place === "mine" ? "Text" : (PLACE_LABEL[place] || "My cards");
         add(item.word, item.ru, where, "added", item.word);
         if(place.startsWith('chat'))add(item.word,item.ru,'From chat','added',item.word);
       });
@@ -4018,7 +4018,7 @@
       if (name === "Additional words") return 5.5;
       if (name === "Grammar") return 6;
       if (name === "Song lyrics") return 7;
-      if (name === "My words") return 8;
+      if (name === "My words" || name === "My cards") return 8;
       if (name === "Phrasal verbs") return 8.2;
       if (name === "Idioms") return 8.4;
       if (name === "Irregular verbs") return 8.6;
@@ -4227,7 +4227,7 @@
       likes23.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "23 Sep", "like", w.en); });
       phrasalWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Phrasal verbs", "phrasal", w.en); });
       idiomWords.forEach((w) => { if (cardVisible(w)) add(w.en, w.ru || w.gloss, "Idioms", "idiom", w.en); });
-      const homePlace = { mine: "My words", phrasal: "Phrasal verbs", idioms: "Idioms", "chat-phrasal":"Phrasal verbs","chat-idioms":"Idioms", "lesson-07": "7 Sep", "lesson-09": "9 Sep", "lesson-14": "14 Sep", "lesson-16": "16 Sep", "lesson-21": "21 Sep", "lesson-23": "23 Sep" };
+      const homePlace = { mine: "My cards", phrasal: "Phrasal verbs", idioms: "Idioms", "chat-phrasal":"Phrasal verbs","chat-idioms":"Idioms", "lesson-07": "7 Sep", "lesson-09": "9 Sep", "lesson-14": "14 Sep", "lesson-16": "16 Sep", "lesson-21": "21 Sep", "lesson-23": "23 Sep" };
       loadAdded().forEach((item) => {
         const place = item.place || "mine";
         if (item.fromText || !homePlace[place]) return;
@@ -4304,7 +4304,7 @@
       show("allwords");
     }
     function addedPlaceName(item) {
-      return PLACE_LABEL[item.place] || "My words";
+      return PLACE_LABEL[item.place] || "My cards";
     }
     function ownMine(item) {
       return !!item && (item.place || "mine") === "mine" && !item.fromText;
@@ -4325,7 +4325,7 @@
       list.forEach((item, index) => {
         if (ownMine(item)) shown.push({ item: item, index: index });
       });
-      if (title) title.textContent = shown.length ? "My words · " + shown.length : "My words";
+      if (title) title.textContent = shown.length ? "My cards · " + shown.length : "My cards";
       box.classList.add('words');box.classList.remove('paths');
       shown.sort((a,b)=>a.item.word.localeCompare(b.item.word,'en',{sensitivity:'base'}));
       box.innerHTML = shown.map(({ item, index }) => addedCard(item, index)).join("");
@@ -8866,7 +8866,7 @@
     }
     function openAddStudy() {
       const rows = loadAdded().map((item, index) => ({ item: item, index: index })).filter((row) => ownMine(row.item));
-      openListedStudy(rows.map((row) => rowToCard({ en: row.item.word, ru: row.item.ru, key: row.item.word })), "My words", "add");
+      openListedStudy(rows.map((row) => rowToCard({ en: row.item.word, ru: row.item.ru, key: row.item.word })), "My cards", "add");
     }
     function openClassesStudy() {
       const places = ["lesson-07", "lesson-09", "lesson-14", "lesson-16", "lesson-21", "lesson-23"];
@@ -12355,7 +12355,7 @@
     }
     function expressionDeckName(place, fromText) {
       if (fromText && (!place || place === "mine")) return "Text";
-      return PLACE_LABEL[place] || "My words";
+      return PLACE_LABEL[place] || "My cards";
     }
     function findExpressionCard(expr) {
       const place = expressionPlace(expr);

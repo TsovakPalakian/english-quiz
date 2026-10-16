@@ -3,14 +3,17 @@ html[data-turso-compact-notices="true"]{scroll-padding-top:0}
 html[data-turso-compact-notices="true"] body{padding-top:0!important}
 html[data-turso-compact-notices="true"] #turso-main-banner{
   inset:50% auto auto 50%;transform:translate(-50%,-50%);max-width:480px;width:calc(100vw - 32px);
-  box-sizing:border-box;padding:20px;border:1px solid var(--line);border-radius:8px;
+  box-sizing:border-box;margin:0;padding:20px 24px 24px;border:2px solid color-mix(in srgb,var(--ink) 45%,var(--line));border-left:6px solid var(--acc);border-radius:8px;
   background:var(--card);color:var(--ink);font:inherit;
   display:flex;flex-direction:column-reverse;gap:8px;max-height:40vh;overflow:auto;
-  box-shadow:0 8px 32px #0003;
+  box-shadow:0 0 0 100vmax #0007,0 20px 64px #0008,0 0 0 3px color-mix(in srgb,var(--card) 80%,transparent);
 }
+html[data-turso-compact-notices="true"] #turso-main-banner[open]{box-shadow:0 20px 64px #0008,0 0 0 3px color-mix(in srgb,var(--card) 80%,transparent)}
+html[data-turso-compact-notices="true"] dialog#turso-main-banner:not([open]){display:none}
+html[data-turso-compact-notices="true"] #turso-main-banner::backdrop{background:rgb(0 0 0 / .48);backdrop-filter:blur(2px)}
 html[data-turso-compact-notices="true"] #turso-main-banner>p{display:none}
-html[data-turso-compact-notices="true"] #turso-main-status.bad{color:var(--ink);font-weight:500}
-html[data-turso-compact-notices="true"] #turso-main-dismiss{background:var(--card);color:var(--ink);border-color:var(--line);margin:0}
+html[data-turso-compact-notices="true"] #turso-main-status.bad{color:var(--ink);font-weight:650;line-height:1.5}
+html[data-turso-compact-notices="true"] #turso-main-dismiss{background:var(--acc-s);color:var(--ink);border:2px solid color-mix(in srgb,var(--ink) 40%,var(--line));margin:0;width:40px;min-height:40px}
 html[data-turso-compact-notices="true"] #turso-main-banner[hidden]{display:none}
 html[data-turso-compact-notices="true"] #turso-main-status{margin:0;min-height:0;overflow-wrap:anywhere}
 html[data-turso-compact-notices="true"] #turso-main-banner button[hidden]{display:none}

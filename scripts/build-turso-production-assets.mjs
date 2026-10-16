@@ -65,6 +65,7 @@ assert.equal(html.split(everydayAnchor).length,2);
 const myWordsAnchor='<button class="file-card" type="button" data-jump="add"><span class="num" id="myWordCount">0</span><b>My words</b><span class="label">one field · both directions</span></button>';
 assert.equal(html.split(myWordsAnchor).length,2);
 html=html.replace(myWordsAnchor,myWordsAnchor+'\n        <button class="file-card" type="button" data-jump="everyday"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>');
+html=html.replaceAll('My words','My cards').replaceAll('Words you added yourself.','Cards you added yourself.');
 html=html.replace('<section id="library">',readFileSync(resolve(root,'production/essential.html'),'utf8')+'\n<section id="library">');
 html=html.replace('<section id="library">',readFileSync(resolve(root,'production/grammar-categories.html'),'utf8')+'\n<section id="library">');
 const irregularAnchor='<button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>';

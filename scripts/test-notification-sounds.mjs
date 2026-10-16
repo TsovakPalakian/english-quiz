@@ -4,6 +4,9 @@ import {notificationSoundRoute,validateNotificationWav,SOUND_IDS,MAX_SOUND_BYTES
 import recordings from '../production/notification-catalog.json' with {type:'json'};
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+import {messagesWorker} from '../src/turso-messages-worker.mjs';
+import {productionWorker} from '../src/turso-production-worker.mjs';
+import {PRODUCTION_MEDIA_BUCKET} from '../src/turso-r2-media.mjs';
 function wav(seconds){
   const bytes=new Uint8Array(44+Math.floor(seconds*24000)*2),view=new DataView(bytes.buffer);
   for(const [at,text] of [[0,'RIFF'],[8,'WAVEfmt '],[36,'data']])for(let i=0;i<text.length;i++)bytes[at+i]=text.charCodeAt(i);
@@ -56,4 +59,13 @@ test('100+ licensed recordings are distinct audible assets and every built-in ID
     const saved=await(await call('POST',{enabled:true,volume:.3,sound:sound.id},revision)).json();revision=saved.revision;assert.equal(saved.sound,sound.id);
   }
   assert.equal(hashes.size,recordings.length,'No duplicate audio passed off as different sounds');
+});
+test('Production routing serves only declared notification assets without auth or database reads',async()=>{
+  const served=[],app=productionWorker(messagesWorker({mode:'production',authenticate:async()=>{throw Error('Audio must not query auth');},baseWorker:{fetch:async()=>new Response('Not migrated',{status:501})}}));
+  const env={CONTENT_ENABLED:'true',MESSAGES_ENABLED:'true',CONTENT_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,CONTENT_ALLOWED_HOST:'learn-english.east-tarsal.workers.dev',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},CONTENT_MEDIA:{get(){},head(){},put(){}},ASSETS:{fetch:async request=>{served.push(new URL(request.url).pathname);return new Response(request.method==='HEAD'?null:'audio',{headers:{'Content-Type':'audio/wav'}});}}};
+  const call=(path,method='GET')=>app.fetch(new Request('https://learn-english.east-tarsal.workers.dev'+path,{method}),env,{});
+  for(const sound of recordings){assert.equal((await call(sound.file)).status,200);assert.equal((await call(sound.file,'HEAD')).status,200);}
+  assert.equal((await call('/notification-audio/common-toad.wav','POST')).status,405);
+  assert.equal((await call('/notification-audio/not-in-catalog.wav')).status,501);
+  assert.equal((await call('/private.wav')).status,501);assert.equal(served.length,recordings.length*2);
 });

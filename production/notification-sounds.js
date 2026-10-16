@@ -22,7 +22,7 @@
     if(!recording&&!settings.sounds.some(sound=>sound.id===selected))return;
     if(recording&&decodedRecordings.has(selected)){buffer=decodedRecordings.get(selected);return;}
     const response=await fetch(recording?recording.file:'/api/me/notification-sounds?id='+encodeURIComponent(selected),{credentials:'same-origin',...(recording?{}:{cache:'no-store'})});
-    if(!response.ok)throw Error('Custom sound unavailable.');
+    if(!response.ok)throw Error('Selected sound unavailable.');
     const Audio=window.AudioContext||window.webkitAudioContext;if(!Audio)return;context||=new Audio();
     const decoded=await context.decodeAudioData(await response.arrayBuffer());
     if(recording){if(decodedRecordings.size>=8)decodedRecordings.delete(decodedRecordings.keys().next().value);decodedRecordings.set(selected,decoded);}

@@ -1,7 +1,9 @@
 #everydaygroup input,#everydaytopic input{margin-bottom:16px;width:100%}
 #everydaygroup>.row,#everydaytopic>.row{margin-bottom:16px}
 #everydayWords,#addedList,#verbList.words,#grammarCategoryCards{align-items:start}
-#add>.card.grow{background:transparent;border:0;box-shadow:none;padding:0}
+#add>.card.grow{background:transparent;border:0;box-shadow:none;padding:8px;box-sizing:border-box}
+#add [data-add-form]{min-width:0;max-width:100%}
+#add :is([data-add-input],[data-card-search]){box-sizing:border-box;min-width:0;max-width:100%;width:100%}
 #phrasalAdded,#idiomAdded{margin-top:16px}
 #everydayWords .wcard-tools .wcard{width:100%}
 #grammarCategoryCards p{margin:6px 0}
