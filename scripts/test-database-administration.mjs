@@ -2,22 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {databaseStatus,databaseAction,neonConnection} from '../src/database-administration.mjs';
 import {neonFoundation,neonTables,NEON_FOUNDATION_VERSION} from '../src/neon-foundation.mjs';
-import {integratedWorker} from '../src/turso-integrated-worker.mjs';
+import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 import {PGlite} from '@electric-sql/pglite';
 import {neonStudyMigration} from '../src/neon-study-migration.mjs';
 const connection='postgresql://fixture:fake-password@ep-test-name-pooler.c-8.eu-central-1.aws.neon.tech/english?sslmode=require&channel_binding=require';
 test('Neon accepts server credentials only on TLS Neon endpoints and never returns secrets',()=>{
   assert.equal(neonConnection(connection),connection);
   for(const value of ['',connection.replace('sslmode=require','sslmode=disable'),connection.replace('neon.tech','example.com'),connection.replace('/english?','/english/extra?'),connection.replace('postgresql:','https:')])assert.throws(()=>neonConnection(value));
-  const status=databaseStatus({NEON_DATABASE_URL:connection,TURSO_URL:'configured',TURSO_AUTH_TOKEN:'secret'});
-  assert.equal(status.active,'turso');assert.equal(status.providers[1].adapterReady,true);
+  const status=databaseStatus({NEON_DATABASE_URL:connection,STUDY_DB:{}});
+  assert.equal(status.active,'d1');assert.equal(status.providers[1].adapterReady,true);
   assert.ok(!JSON.stringify(status).includes('fake-password'));assert.ok(!JSON.stringify(status).includes('ep-test-name'));
 });
 test('activation requires developer identity and a revision; no request can run arbitrary SQL',async()=>{
   let calls=0;const options={createNeon:()=>{calls++;throw Error('Must not connect');}};
   await assert.rejects(databaseAction({},{provider:'neon',action:'activate'},options),error=>error.status===403);
   await assert.rejects(databaseAction({},{provider:'neon',action:'check',sql:'DROP TABLE cards'},options),error=>error.status===400);
-  assert.equal(calls,0);assert.equal((await databaseAction({},{provider:'turso',action:'activate',expectedRevision:0},{actor:{id:'dev',role:'DEVELOPER'}})).active,'turso');
+  assert.equal(calls,0);assert.equal((await databaseAction({},{provider:'d1',action:'activate',expectedRevision:0},{actor:{id:'dev',role:'DEVELOPER'}})).active,'d1');
 });
 test('Foundation is idempotent, schema-scoped, transactional, and does not import business data',async()=>{
   const calls=[],transactions=[],pg=new PGlite();
@@ -41,12 +41,12 @@ test('Foundation covers every declared table and installs auth views without imp
 test('Connection failures never expose connection strings or driver messages',async()=>{
   await assert.rejects(databaseAction({},{provider:'neon',action:'check'},{createNeon:()=>{throw Error(connection);}}),error=>error.status===503&&!error.message.includes('fake-password')&&!error.message.includes('postgresql:'));
 });
-test('Database controls require live developer identity, CSRF and bounded input without Turso reads',async()=>{
+test('Database controls require live developer identity, CSRF and bounded input without Learning reads',async()=>{
   let actor={id:'developer',role:'DEVELOPER'},reads=0;
-  const app=integratedWorker({authenticate:async()=>actor,studyDatabase:()=>{reads++;throw Error('Unexpected Turso read');}});
+  const app=integratedWorker({authenticate:async()=>actor,studyDatabase:()=>{reads++;throw Error('Unexpected Learning read');}});
   const env={STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'app.example',STAGE_WRITES:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',DB:{prepare(){}},NEON_DATABASE_URL:connection};
   const call=(method='GET',body,origin='https://app.example')=>app.fetch(new Request('https://app.example/api/developer/databases',{method,headers:{Origin:origin},...(body?{body:JSON.stringify(body)}:{})}),env,{});
-  let response=await call();assert.equal(response.status,200);assert.equal((await response.json()).active,'turso');
+  let response=await call();assert.equal(response.status,200);assert.equal((await response.json()).active,'d1');
   response=await call('POST',{provider:'neon',action:'activate'});assert.equal(response.status,400);assert.equal(reads,0);
   assert.equal((await call('POST',{provider:'neon',action:'prepare'},'https://evil.example')).status,403);
   assert.equal((await call('POST',{provider:'neon',action:'check',padding:'x'.repeat(600)})).status,413);

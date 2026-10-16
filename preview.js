@@ -1279,13 +1279,13 @@
     }
     const themeUploadFlights = new Map();
     function queueThemePhotos(list) {
-      if (!window.TursoMain || typeof window.TursoMain.uploadThemePhoto !== "function") return;
+      if (!window.LearningMain || typeof window.LearningMain.uploadThemePhoto !== "function") return;
       (list || []).forEach((row) => {
         if (!row || typeof row.photo !== "string" || row.photo.indexOf("data:image/") !== 0 || row.photoKey) return;
         const id = row.id, photo = row.photo, actor = authUser?.id;
         if (!actor || themeUploadFlights.has(id)) return;
         themeUploadFlights.set(id, photo);
-        Promise.resolve(dataUrlBlob(row.photo)).then((blob) => window.TursoMain.uploadThemePhoto(id, blob)).then((result) => {
+        Promise.resolve(dataUrlBlob(row.photo)).then((blob) => window.LearningMain.uploadThemePhoto(id, blob)).then((result) => {
           if (authUser?.id !== actor || viewAccount) return;
           const current = loadCustomThemes();
           const item = current.find((theme) => theme && theme.id === id);
@@ -1681,9 +1681,9 @@
         customThemeStatus.textContent = "Saving the theme…";
         customThemeStatus.className = "hint";
         try {
-          if (window.TursoMain?.flushPersonal) await window.TursoMain.flushPersonal();
-          if (window.TursoMain?.themeSavePending?.()) throw new Error("The theme is saved in this browser, but the account save is not confirmed. Retry before signing out.");
-          if (window.TursoMain?.themePreferences) applyAccountThemes(window.TursoMain.themePreferences());
+          if (window.LearningMain?.flushPersonal) await window.LearningMain.flushPersonal();
+          if (window.LearningMain?.themeSavePending?.()) throw new Error("The theme is saved in this browser, but the account save is not confirmed. Retry before signing out.");
+          if (window.LearningMain?.themePreferences) applyAccountThemes(window.LearningMain.themePreferences());
           clearThemeDraft();
           customThemeStatus.textContent = message;
         } catch (error) {
@@ -1715,7 +1715,7 @@
         }
         const photo = theme.photo;
         const actor = authUser?.id;
-        const upload = window.TursoMain && typeof window.TursoMain.uploadThemePhoto === "function"
+        const upload = window.LearningMain && typeof window.LearningMain.uploadThemePhoto === "function"
           && typeof photo === "string" && photo.indexOf("data:image/") === 0;
         if (!upload) {
           commitTheme(theme, message);
@@ -1723,7 +1723,7 @@
         }
         customThemeStatus.textContent = "Saving the picture…";
         customThemeStatus.className = "hint";
-        Promise.resolve(dataUrlBlob(photo)).then((blob) => window.TursoMain.uploadThemePhoto(theme.id, blob)).then((result) => {
+        Promise.resolve(dataUrlBlob(photo)).then((blob) => window.LearningMain.uploadThemePhoto(theme.id, blob)).then((result) => {
           if (authUser?.id !== actor || viewAccount) throw new Error("The account changed before the theme was saved.");
           if (!result || typeof result.photo !== "string" || result.photo.indexOf("stage-local/themes/") !== 0) throw new Error("The picture could not be saved.");
           rememberThemePicture(theme.id, themePhotoStamp(result.photo), photo);
@@ -6392,7 +6392,7 @@
     let pendingLyricId = "";
     function uploadSongFile(id, blob, type, onProgress, holder) {
       if (!authUser || accountApi() || !id || !blob) return Promise.resolve(false);
-      if (window.TursoMain && typeof window.TursoMain.uploadSongAudio === "function") return Promise.resolve(false);
+      if (window.LearningMain && typeof window.LearningMain.uploadSongAudio === "function") return Promise.resolve(false);
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         if (holder) holder.xhr = xhr;
@@ -9663,10 +9663,10 @@
       if(/\s/.test(word)&&!/(phrasal|idiom)/i.test([data.expressionType,data.type,data.cambridge?.pos,data.pos].join(' '))){try{const analysis=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text:word,contentType:'TEXT'})}),key=word.toLowerCase().trim(),match=(analysis.expressions||[]).find(e=>[e.exactText,e.canonicalForm].some(v=>String(v||'').toLowerCase().trim()===key));if(match)data.expressionType=match.type;}catch{}}
       if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
       const type=[data.expressionType,data.type,data.cambridge?.pos,data.pos].filter(Boolean).join(' ').toLowerCase(),place=type.includes('phrasal')?'chat-phrasal':type.includes('idiom')?'chat-idioms':'chat';
-      await window.TursoMain.flushPersonal();if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
-      let found;try{found=await window.TursoMain.findCard(word);}catch{}
+      await window.LearningMain.flushPersonal();if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
+      let found;try{found=await window.LearningMain.findCard(word);}catch{}
       if(authUser?.id!==actor||viewAccount)throw new Error('Account changed.');
-      const result=found?await window.TursoMain.linkCard(found,place):await window.TursoMain.newCard(word,String(data.ru||data.wiktionary?.ru||data.wikdict?.ru||'').trim(),place);
+      const result=found?await window.LearningMain.linkCard(found,place):await window.LearningMain.newCard(word,String(data.ru||data.wiktionary?.ru||data.wikdict?.ru||'').trim(),place);
       if(authUser?.id!==actor||viewAccount)return;
       const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);trackEvent('card',cardArea(place),'add');
     }
@@ -10408,7 +10408,7 @@
       if (kind === 'rename') body.title = document.getElementById('accountGroupTitle').value;
       if (kind === 'exam' || kind === 'unassign-exam') { body.examId = Number(action.dataset.examId); if (!body.examId) return; }
       if (kind === 'archive' && !confirm('Move this group to Archive?')) return;
-      action.disabled = true; saveAccountGroup(body).catch(error => { window.TursoMain?.notice(error.message,true); }).finally(() => { action.disabled = false; });
+      action.disabled = true; saveAccountGroup(body).catch(error => { window.LearningMain?.notice(error.message,true); }).finally(() => { action.disabled = false; });
     });
     function paintAdmin(detailPage = '') {
       if(adminTab==='groups')adminTab='accounts';
@@ -10636,7 +10636,7 @@
     let archivePaintToken = 0;
     function paintArchive() {
       const box = document.getElementById("archiveList");
-      if (!box || !authUser || viewAccount || !window.TursoMain) return;
+      if (!box || !authUser || viewAccount || !window.LearningMain) return;
       const token = ++archivePaintToken, actor = authUser.id, generation = viewGen;
       const render = (data) => {
         if (token !== archivePaintToken || authUser?.id !== actor || generation !== viewGen || viewAccount) return;
@@ -10654,25 +10654,25 @@
           return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
         }).join("") + "</div>").join("");
       };
-      const cached = window.TursoMain.archiveSnapshot?.();
+      const cached = window.LearningMain.archiveSnapshot?.();
       if (cached) render(cached);
       else box.innerHTML = '<p class="hint">Loading…</p>';
-      return window.TursoMain.archiveList().then(render).catch((error) => {
+      return window.LearningMain.archiveList().then(render).catch((error) => {
         if (token === archivePaintToken && authUser?.id === actor && generation === viewGen) box.innerHTML = '<p class="hint">' + esc(error.message) + "</p>";
       });
     }
     function archiveAction(action, raw) {
       const split = String(raw || "").indexOf(":"), type = String(raw || "").slice(0, split), id = String(raw || "").slice(split + 1);
-      if (split < 1 || !id || !window.TursoMain) return;
+      if (split < 1 || !id || !window.LearningMain) return;
       let password = "";
       if (action === "remove" && authUser && authUser.role === "ADMIN") {
         password = prompt("Enter your password to remove this material from the teachers' archive:") || "";
         if (!password) return;
       }
       if (action === "remove" && isDeveloper() && !confirm("Delete this material permanently? This cannot be undone.")) return;
-      window.TursoMain.perform(async () => {
-        if (action === "restore") await window.TursoMain.restoreArchive(type, id);
-        else await window.TursoMain.removeArchive(type, id, password);
+      window.LearningMain.perform(async () => {
+        if (action === "restore") await window.LearningMain.restoreArchive(type, id);
+        else await window.LearningMain.removeArchive(type, id, password);
         paintArchive();
       });
     }
@@ -10692,13 +10692,13 @@
       if (trigger?.isConnected) trigger.focus();
     }
     async function openArchivePreview(raw, trigger) {
-      if (!authUser || viewAccount || !window.TursoMain) return;
+      if (!authUser || viewAccount || !window.LearningMain) return;
       const [type, id] = String(raw).split(":"), job = archivePreviewContext = { actor: authUser.id, generation: viewGen, trigger, raw };
       const dialog = document.getElementById("archivePreviewDialog"), body = document.getElementById("archivePreviewBody");
       document.getElementById("archivePreviewTitle").textContent = trigger.querySelector("b:not(.date b)")?.textContent || "Archived material";
       dialog.hidden = false; body.innerHTML = '<p class="hint">Loading…</p>'; dialog.querySelector('[aria-label="Close"]').focus();
       try {
-        const data = await window.TursoMain.archivePreview(type, id);
+        const data = await window.LearningMain.archivePreview(type, id);
         if (archivePreviewContext !== job || authUser?.id !== job.actor || viewGen !== job.generation || viewAccount) return;
         const media = '/api/archive/media?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
         document.getElementById("archivePreviewTitle").textContent = data.title || "Archived material";
@@ -10720,7 +10720,7 @@
         body.querySelectorAll('[data-read],[data-quiz-score],[data-response]').forEach(el => { delete el.dataset.read; delete el.dataset.quizScore; delete el.dataset.response; });
       } catch (error) { if (archivePreviewContext === job) body.innerHTML = '<p class="hint bad">' + esc(error.message) + '</p>'; }
     }
-    document.addEventListener('turso-archive-changed', () => closeArchivePreview());
+    document.addEventListener('learning-archive-changed', () => closeArchivePreview());
     document.addEventListener('keydown', event => {
       const dialog = document.getElementById('archivePreviewDialog'); if (!dialog || dialog.hidden) return;
       if (event.key === 'Escape') { event.preventDefault(); closeArchivePreview(); }
@@ -11471,10 +11471,10 @@
       viewKeys().forEach((key) => localStorage.removeItem(key));
       [CARD_QUIZ_KEY, STARTED_KEY, LM_KEY, "enquiz-anon-backup", "enquiz-auth-on", "enquiz-dev-stash", "enquiz-view-id", "enquiz-view-login", "enquiz-view-role", "enquiz-view-email", "enquiz-view-name"].forEach((key) => localStorage.removeItem(key));
       try {
-        const prefs = JSON.parse(localStorage.getItem("turso-main-prefs") || "{}");
+        const prefs = JSON.parse(localStorage.getItem("learning-main-prefs") || "{}");
         if (prefs && typeof prefs === "object" && !Array.isArray(prefs)) {
           delete prefs.customThemes;
-          localStorage.setItem("turso-main-prefs", JSON.stringify(prefs));
+          localStorage.setItem("learning-main-prefs", JSON.stringify(prefs));
         }
       } catch (e) {}
       try { sessionStorage.removeItem("enquiz-place"); } catch (e) {}
@@ -12052,7 +12052,7 @@
     function applyAccountThemes(pack) {
       if (!pack || viewAccount) return;
       if (pack.accountId && pack.accountId !== authUser?.id) return;
-      pack = Object.assign({}, pack, window.TursoMain?.themePreferences?.() || {});
+      pack = Object.assign({}, pack, window.LearningMain?.themePreferences?.() || {});
       if (Array.isArray(pack.themes)) installCustomThemes(pack.themes.map((row) => Object.assign({}, row, { owner: authUser?.login || row.owner || "" })));
       if (typeof paintThemeSegs === "function") paintThemeSegs();
       const saved = typeof pack.theme === "string" ? pack.theme : "";
@@ -12602,7 +12602,7 @@
         paintGroups();
         paintLmDays();
         if(document.querySelector('section.on')?.id==='exams')examPaintList();
-      }).catch((error) => window.TursoMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
+      }).catch((error) => window.LearningMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
     }
     function groupSave() {
       classGroupsDirty = true;
@@ -12679,7 +12679,7 @@
       openItemEditor(document.getElementById("groupNew"), { title: (adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' Group', date: lmToday(), label: "Group name" }, (value) => {
         if(accountGroupLevel({title:value.title})==='unassigned')value.title=(adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' '+value.title;
         const actor=authUser?.id,generation=viewGen;
-        accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify({action:'create',title:value.title,date:value.date})}).then(()=>{if(actor===authUser?.id&&generation===viewGen){const search=document.getElementById('groupSearch');if(search)search.value='';return groupPull(true);}}).catch(error=>{if(actor===authUser?.id&&generation===viewGen)window.TursoMain?.notice(error.message,true);});
+        accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify({action:'create',title:value.title,date:value.date})}).then(()=>{if(actor===authUser?.id&&generation===viewGen){const search=document.getElementById('groupSearch');if(search)search.value='';return groupPull(true);}}).catch(error=>{if(actor===authUser?.id&&generation===viewGen)window.LearningMain?.notice(error.message,true);});
       });
     }
     function groupEdit(id, button) {
@@ -12688,7 +12688,7 @@
       const group = classGroups.find((row) => row.id === id);
       if (!group || !button) return;
       openItemEditor(button, { title: group.title, date: group.date, label: "Group name" }, (value) => {
-        if(accountGroupLevel({title:value.title})==='unassigned'){window.TursoMain?.notice('Start the group name with a standard level and a space.',true);return;}
+        if(accountGroupLevel({title:value.title})==='unassigned'){window.LearningMain?.notice('Start the group name with a standard level and a space.',true);return;}
         group.title = value.title;
         groupViewLevel = accountGroupLevel(group);
         group.date = value.date;
@@ -12711,8 +12711,8 @@
       if (!canEditLessons() || classGroups.length < 2) return;
       const group = classGroups.find((row) => row.id === id);
       if (!group || !confirm("Move this group to Archive? Its classes will move to the first group.")) return;
-      window.TursoMain.perform(async () => {
-        await window.TursoMain.archiveItem("group", id);
+      window.LearningMain.perform(async () => {
+        await window.LearningMain.archiveItem("group", id);
         const rest = classGroups.filter((row) => row.id !== id);
         rest[0].lessonIds.push(...group.lessonIds.filter((lessonId) => !rest[0].lessonIds.includes(lessonId)));
         classGroups = rest;if (classGroupId === id) classGroupId = rest[0].id;paintGroups();
@@ -14882,7 +14882,7 @@
     }
     function examRemoteDrop(id) {
       if (!Number.isSafeInteger(id) || id < 1 || typeof accountFetch !== "function") return Promise.resolve();
-      return window.TursoMain.archiveItem("exam", id);
+      return window.LearningMain.archiveItem("exam", id);
     }
     function examPush(list) {
       if (!examReady || !canEditLessons() || typeof accountFetch !== "function") return Promise.resolve();
@@ -14902,7 +14902,7 @@
         return examPush(examLoad());
       });
       examSaveQueue = task;
-      task.catch((error) => window.TursoMain?.notice(error.message, true));
+      task.catch((error) => window.LearningMain?.notice(error.message, true));
       return task;
     }
     function examPull(force = false) {
@@ -14925,7 +14925,7 @@
         if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
       }).catch((error) => {
         if (session === examSession && authUser && authUser.id === actorId) examPulling = false;
-        window.TursoMain?.notice(error.message, true);
+        window.LearningMain?.notice(error.message, true);
       });
       return examFlight;
     }
@@ -15726,8 +15726,8 @@
     function toggleManagedVisibility(row, type) {
       if (!canTuneStudentLessons() || !accountReady || viewSwitching) return;
       const target = viewAccount.id, generation = viewGen;
-      return window.TursoMain.perform(async () => {
-        await window.TursoMain.setManagedVisibility(target, type, row.id, !!row.personalHidden, !row.personalHidden);
+      return window.LearningMain.perform(async () => {
+        await window.LearningMain.setManagedVisibility(target, type, row.id, !!row.personalHidden, !row.personalHidden);
         if (generation !== viewGen || viewAccount?.id !== target) return;
         window.ContentCache?.drop('account:');
         if (type === 'group') await groupPull(true);
@@ -15740,16 +15740,16 @@
       if (!confirm(kind === "exam" ? "Move this exam to Archive?" : "Move this examination block to Archive?")) return;
       const exams = examLoad();
       if (kind === "exam") {
-        return window.TursoMain.perform(async () => {
-          await window.TursoMain.archiveItem("exam", id);
+        return window.LearningMain.perform(async () => {
+          await window.LearningMain.archiveItem("exam", id);
           if (examCurrentId === id) examCurrentId = "";
           examPaintList();
         });
       }
       const exam = exams.find((row) => row.id === examCurrentId);
       if (!exam) return;
-      return window.TursoMain.perform(async () => {
-        await window.TursoMain.archiveItem("exam-block", id);
+      return window.LearningMain.perform(async () => {
+        await window.LearningMain.archiveItem("exam-block", id);
         examPaintBlocks();
       });
     }

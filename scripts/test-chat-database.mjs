@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareChatDatabase} from '../src/chat-database.mjs';
 
-function fixture(provider='turso'){
+function fixture(provider='d1'){
   const values=new Map(),writes=[],closed=[];
   let selection={provider,revision:1,scope:'site'},reads=0,unavailable=false;
   const baseEnv={CONTENT_ENABLED:'true',CONTENT_SESSION_SECRET:'fixture-secret',CONTENT_WRITES:'true',CONTENT_MEDIA:{get:async()=>{
@@ -17,7 +17,7 @@ function fixture(provider='turso'){
   }};
 }
 
-for(const provider of ['turso','neon']){
+for(const provider of ['d1','neon']){
   test(provider+': initial preparation persists both controls once',async()=>{
     const f=fixture(provider);const result=await prepareChatDatabase(f.store,f.request());
     assert.deepEqual(result,f.selection);assert.deepEqual(f.writes.map(row=>row.key),['_databaseScope','_databaseWritable']);
@@ -79,7 +79,7 @@ test('revocation control routes remain available for the inactive scope without 
 test('foreign provider and invalid internal credentials fail without changing persisted state',async()=>{
   const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;
   for(const request of [f.request({database:'neon'}),f.request({secret:'wrong'}),f.request({database:'unknown'})])await assert.rejects(prepareChatDatabase(f.store,request),error=>[403,503].includes(error.status));
-  assert.deepEqual(f.writes,[]);assert.equal(f.values.get('_databaseScope').provider,'turso');
+  assert.deepEqual(f.writes,[]);assert.equal(f.values.get('_databaseScope').provider,'d1');
 });
 test('unavailable control storage and a persistent migration fence remain fail-closed',async()=>{
   const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;f.unavailable=true;
@@ -89,7 +89,7 @@ test('unavailable control storage and a persistent migration fence remain fail-c
   assert.deepEqual(f.writes,[]);
 });
 test('legacy scope without the site marker is normalized once, not on every request',async()=>{
-  const f=fixture();f.values.set('_databaseScope',{provider:'turso',revision:1});f.values.set('_databaseWritable',true);
+  const f=fixture();f.values.set('_databaseScope',{provider:'d1',revision:1});f.values.set('_databaseWritable',true);
   await prepareChatDatabase(f.store,f.request());await prepareChatDatabase(f.store,f.request());
   assert.deepEqual(f.writes,[{key:'_databaseScope',value:f.selection}]);
 });

@@ -1,4 +1,4 @@
-import {mediaRange} from './turso-media.mjs';
+import {mediaRange} from './learning-media.mjs';
 export const CHAT_FILE_LIMIT=25*1024*1024;
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function chatFileMime(bytes,type=''){

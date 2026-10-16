@@ -4,9 +4,9 @@ import {notificationSoundRoute,validateNotificationWav,SOUND_IDS,MAX_SOUND_BYTES
 import recordings from '../production/notification-catalog.json' with {type:'json'};
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {messagesWorker} from '../src/turso-messages-worker.mjs';
-import {productionWorker} from '../src/turso-production-worker.mjs';
-import {PRODUCTION_MEDIA_BUCKET} from '../src/turso-r2-media.mjs';
+import {messagesWorker} from '../src/learning-messages-worker.mjs';
+import {productionWorker} from '../src/learning-production-worker.mjs';
+import {PRODUCTION_MEDIA_BUCKET} from '../src/learning-r2-media.mjs';
 function wav(seconds){
   const bytes=new Uint8Array(44+Math.floor(seconds*24000)*2),view=new DataView(bytes.buffer);
   for(const [at,text] of [[0,'RIFF'],[8,'WAVEfmt '],[36,'data']])for(let i=0;i<text.length;i++)bytes[at+i]=text.charCodeAt(i);

@@ -1,4 +1,4 @@
-// Temporary fence around the exact deployed legacy Worker, not a Turso switch.
+// Temporary fence around the exact deployed legacy Worker, not a Learning switch.
 const paused=()=>Response.json({error:'Учебные изменения временно приостановлены для переноса. Сохранение не выполнено.'},
   {status:503,headers:{'Cache-Control':'no-store','X-Education-Writes':'frozen'}});
 export function frozenEnvironment(env){

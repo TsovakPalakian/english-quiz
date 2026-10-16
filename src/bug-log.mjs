@@ -1,5 +1,5 @@
 // Developer-only failure journal. One row per repeated failure. The latest exchange replaces the stored one.
-import {statement} from './turso-study.mjs';
+import {statement} from './learning-study.mjs';
 const CLIP=12000;
 const SECRET=new Set(['cookie','authorization','set-cookie','proxy-authorization']);
 const CREATE=`CREATE TABLE IF NOT EXISTS bug_reports (

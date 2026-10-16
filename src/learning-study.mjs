@@ -1,0 +1,541 @@
+// Isolated study-data adapter. Not imported by the production Worker.
+// Actors MUST be supplied by a trusted authentication layer, never a request body.
+import {validateContentGroups} from './exam-scoring.mjs';
+import {validateColorDocument} from './text-formatting.mjs';
+export class StudyError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+const fail = (status, message) => { throw new StudyError(status, message); };
+const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
+const stable = value => Array.isArray(value) ? '[' + value.map(stable).join(',') + ']'
+  : value && typeof value === 'object' ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}' : JSON.stringify(value);
+const encode = value => value === null ? {type:'null'} : typeof value === 'number'
+  ? Number.isInteger(value)?{type:'integer',value:String(value)}:{type:'float',value} : {type:'text',value:String(value)};
+export const statement = (sql,args=[]) => ({sql,args:args.map(encode),want_rows:true});
+const stmt = statement;
+
+
+function signedIn(actor) {
+  if (!actor?.id || !['USER','ADMIN','DEVELOPER'].includes(actor.role)) fail(401,'Select a test session first.');
+}
+const lessonHiddenForViewer = `EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.personal_hidden=1)
+  OR EXISTS(SELECT 1 FROM class_group_lessons gl WHERE gl.lesson_id=l.id
+    AND NOT EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=gl.group_id AND gs.account_id=viewer.account_id))
+  OR EXISTS(SELECT 1 FROM class_group_lessons gl JOIN class_groups g ON g.id=gl.group_id
+    WHERE gl.lesson_id=l.id AND (g.deleted_at IS NOT NULL OR g.hidden_from_students=1
+      OR EXISTS(SELECT 1 FROM account_settings a WHERE a.account_id=viewer.account_id AND a.key='visibility:group:'||g.id AND a.value_json='true')))`;
+const lessonVisibleForViewer = `l.deleted_at IS NULL AND l.published=1 AND NOT (${lessonHiddenForViewer})
+  AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.allow_hidden=1))`;
+const lessonAccess = `l.deleted_at IS NULL AND (?=1 OR (l.published=1
+  AND NOT EXISTS(SELECT 1 FROM (SELECT ? account_id) viewer WHERE ${lessonHiddenForViewer})
+  AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))`;
+const cardAccess = `c.deleted_at IS NULL AND EXISTS(SELECT 1 FROM (SELECT ? account_id, ? reviewer) viewer WHERE
+  (viewer.reviewer=1 OR NOT EXISTS(
+    SELECT 1 FROM account_settings a WHERE a.account_id=viewer.account_id AND a.key='visibility:card:'||c.id AND a.value_json='true'
+    UNION ALL SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE b.card_id=c.id AND b.deleted_at IS NULL
+      AND (l.deleted_at IS NOT NULL OR ${lessonHiddenForViewer}
+        OR (l.hidden_from_students=1 AND NOT EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=viewer.account_id AND a.allow_hidden=1)))))
+  AND EXISTS(
+    SELECT 1 FROM profile_members p WHERE c.scope='profile' AND p.account_id=viewer.account_id AND p.profile_id=c.owner_profile_id
+    UNION ALL SELECT 1 WHERE c.scope='shared' AND viewer.reviewer=1
+    UNION ALL SELECT 1 FROM legacy_ids x WHERE c.scope='shared' AND x.entity_kind='card' AND CAST(x.target_id AS INTEGER)=c.id
+      AND x.source_namespace IN ('LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT','EVERYDAY')
+    UNION ALL SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id WHERE c.scope='shared' AND b.card_id=c.id AND b.deleted_at IS NULL AND ${lessonVisibleForViewer}))`;
+function accessArgs(actor) { return [actor.id,+reviewer(actor)]; }
+function cardDto(row) {
+  return {id:row.id,en:row.en,ru:row.ru,partOfSpeech:row.part_of_speech,scope:row.scope,revision:row.revision};
+}
+export {lessonAccess,cardAccess,accessArgs};
+function quizDto(row) { return {id:row.id,type:row.type,items:JSON.parse(row.items_json),revision:row.revision}; }
+function revision(value) { if (!Number.isSafeInteger(value) || value<1) fail(400,'A valid expectedRevision is required.'); return value; }
+function personalRevision(value){if(!Number.isSafeInteger(value)||value<0)fail(400,'A valid expectedRevision is required (0 for a new record).');return value;}
+function fields(body,allowed){if(!body || Object.keys(body).some(key=>!allowed.includes(key)))fail(400,'Only the changed personal fields are allowed.');}
+export const QUIZ_TYPES=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman'];
+function validateQuiz(value) {
+  if (!value || !QUIZ_TYPES.includes(value.type) || !Array.isArray(value.items)
+      || !value.items.length || value.items.length>100 || stable(value.items).length>50_000
+      || value.items.some(item=>!item || typeof item!=='object' || Array.isArray(item))) fail(400,'Invalid quiz type or items.');
+  // Keep the legacy type-specific fields intact; UI can render them as structured JSON.
+  return {type:value.type,items:value.items};
+}
+async function requestHash(value) {
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(stable(value)));
+  return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
+const lessonColumns={title:'title',description:'description',className:'class_name',unit:'unit',lesson:'lesson',date:'lesson_date',published:'published',hiddenFromStudents:'hidden_from_students'};
+const lessonDefaults={title:'',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false};
+const blockTypes=['heading','text','link','cards','vocab','exercise','quiz','note','dialogue','reading','table','task','divider','phrase','wordcard','word','rule','pdf','image','audio','file','pronunciation'];
+function entityId(value){if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))fail(400,'Invalid account ID.');return value;}
+export function recordId(value){if(!Number.isSafeInteger(value)||value<1)fail(400,'Invalid ID.');return value;}
+export function cardId(value){return recordId(value);}
+function cardPlace(value){
+  if(!['mine','text','chat','chat-phrasal','chat-idioms','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'].includes(value))fail(400,'Invalid personal card destination.');
+  return value;
+}
+function lessonChanges(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))fail(400,'Invalid lesson changes.');
+  fields(value,Object.keys(lessonColumns));
+  for(const [key,item] of Object.entries(value)){
+    if(['published','hiddenFromStudents'].includes(key)){if(typeof item!=='boolean')fail(400,'Invalid visibility flag.');}
+    else if(typeof item!=='string'||item.length>(key==='description'?10_000:500))fail(400,'Invalid lesson metadata.');
+    if(key==='date' && item && (!/^\d{4}-\d{2}-\d{2}$/.test(item)||!Number.isFinite(Date.parse(item+'T00:00:00Z'))||new Date(item+'T00:00:00Z').toISOString().slice(0,10)!==item))fail(400,'Invalid lesson date.');
+  }
+  return value;
+}
+export function validateAssessmentContent(content,type){
+  if(!['quiz','exercise','task','text','cards','vocab'].includes(type))return;
+  if(content.contentGroup!=null&&(type!=='task'||typeof content.contentGroup!=='boolean'))fail(400,'Invalid Content group.');
+  if(content.assessed!=null&&typeof content.assessed!=='boolean')fail(400,'Invalid assessment setting.');
+  if(content.answerEnabled!=null&&(type!=='text'||typeof content.answerEnabled!=='boolean'))fail(400,'Invalid Answer block.');
+  const items=['task','text'].includes(type)?[content]:[content,...(content.items||[])];
+  for(const item of items){
+    if(item.maxPoints!=null&&(!['number','string'].includes(typeof item.maxPoints)||!Number.isFinite(Number(String(item.maxPoints).replace(',','.')))||Number(String(item.maxPoints).replace(',','.'))<0||Number(String(item.maxPoints).replace(',','.'))>1e12))fail(400,'Invalid maximum points.');
+    if(item.criteria!=null){
+      if(typeof item.criteria!=='string'||item.criteria.length>3000)fail(400,'Invalid grading criteria.');
+      const rows=item.criteria.split('\n').filter(line=>line.trim());
+      if(rows.length>20||rows.some(line=>{const bits=line.split('|'),points=Number(String(bits[1]).replace(',','.'));return bits.length!==2||!bits[0].trim()||!Number.isFinite(points)||points<=0||points>1e12;}))fail(400,'Use one criterion per line: Content | 3.');
+    }
+  }
+}
+function lessonBlock(value){
+  fields(value,['id','expectedRevision','type','tab','cardId','content']);personalRevision(value.expectedRevision);
+  if(value.expectedRevision===0){if(value.id!=null)fail(400,'New blocks receive an ID from the database.');}
+  else recordId(value.id);
+  if(!blockTypes.includes(value.type))fail(400,'This block type is not yet editable on the test server.');
+  if(typeof value.tab!=='string'||value.tab.length>50||!value.content||typeof value.content!=='object'||Array.isArray(value.content)||stable(value.content).length>32_000)fail(400,'Invalid block content.');
+  fields(value.content,Object.keys(value.content).filter(k=>!['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision','__proto__','constructor','prototype'].includes(k)));
+  if(value.content.items!==undefined && (!Array.isArray(value.content.items)||value.content.items.length>100||value.content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item)||['picked','typed','marked','correct'].some(key=>key in item))))fail(400,'Personal answers are not lesson definitions.');
+  validateAssessmentContent(value.content,value.type);
+  if(value.cardId!==null)cardId(value.cardId);
+  if(['word','wordcard'].includes(value.type) && !value.cardId)fail(400,'Word blocks require an existing shared card ID.');
+  if(!['word','wordcard'].includes(value.type) && value.cardId!==null)fail(400,'Only word blocks may link a card.');
+  return value;
+}
+
+export class StudyService {
+  constructor(db) { this.db=db; }
+  async lookupSharedCard(actor,body,lookup){
+    fields(body,['mutationId','word']);
+    if(typeof body.word!=='string'||!body.word.trim()||body.word.length>120)fail(400,'Enter a word or phrase.');
+    return this.createdCardMutation(actor,body,['lookup-shared-card'],async()=>{
+      const data=await lookup(body.word.trim());
+      if(!data?.found||typeof data.word!=='string'||!data.word.trim()||data.word.length>200)fail(404,'No dictionary entry found.');
+      const en=data.word.trim(),ru=typeof data.ru==='string'?data.ru:'',pos=data.cambridge?.pos||'';
+      if(ru.length>10000||typeof pos!=='string'||pos.length>100||stable(data).length>256000)fail(413,'Dictionary entry is too large.');
+      const existing=await this.db.read("SELECT id,revision FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?",[en,ru,pos]);
+      if(existing.length>1)fail(409,'Multiple shared cards match. Select the exact card instead.');
+      const resultSql=`SELECT json_object('id',c.id,'en',c.en,'ru',c.ru,'partOfSpeech',c.part_of_speech,
+        'scope',c.scope,'revision',c.revision) result_json FROM cards c WHERE c.id=`+(existing.length?'?':'(SELECT id FROM created_rows)');
+      if(existing.length)return {statements:[],resultSql,resultArgs:[existing[0].id]};
+      const extra={data,uk:data.cambridge?.uk||data.wooordhunt?.uk||'',us:data.cambridge?.us||data.wooordhunt?.us||''};
+      return {statements:[
+        stmt(`INSERT INTO cards(scope,en,word_key,ru,part_of_speech,extra_json)
+          SELECT 'shared',?,?,?,?,? WHERE NOT EXISTS(
+            SELECT 1 FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?
+          )`,[en,en.toLowerCase(),ru,pos,stable(extra),en,ru,pos]),
+        stmt(`INSERT INTO created_rows(id)
+          SELECT id FROM cards WHERE scope='shared' AND deleted_at IS NULL
+          AND lower(en)=lower(?) AND ru=? AND part_of_speech=? ORDER BY id LIMIT 1`,[en,ru,pos])],
+        resultSql,resultArgs:[]};
+    });
+  }
+  async lessons(actor) {
+    signedIn(actor);
+    return this.db.read(`SELECT l.id,l.title,l.revision,l.published FROM lessons l WHERE ${lessonAccess} ORDER BY l.lesson_date,l.id`,[+reviewer(actor),actor.id,actor.id]);
+  }
+  async cards(actor,{lessonId='',query='',offset=0,exact=false}={}) {
+    signedIn(actor);
+    if (typeof query!=='string' || query.length>120 || typeof exact!=='boolean' || !Number.isSafeInteger(offset) || offset<0 || offset>10_000) fail(400,'Invalid card search.');
+    let restriction='';
+    const args=accessArgs(actor);
+    if (lessonId) {
+      recordId(lessonId);
+      const visible=await this.db.read(`SELECT l.id FROM lessons l WHERE l.id=? AND ${lessonAccess}`,[lessonId,+reviewer(actor),actor.id,actor.id]);
+      if (!visible.length) fail(404,'Lesson not found.');
+      restriction=' AND EXISTS(SELECT 1 FROM lesson_blocks b WHERE b.lesson_id=? AND b.card_id=c.id AND b.deleted_at IS NULL)';
+      args.push(lessonId);
+    }
+    args.push(query,offset);
+    return (await this.db.read(`SELECT c.id,c.en,c.ru,c.part_of_speech,c.scope,c.revision FROM cards c WHERE ${cardAccess}${restriction}
+      AND ${exact?'lower(c.en)=lower(?)':'instr(lower(c.en),lower(?))>0'} ORDER BY c.en,c.id LIMIT 40 OFFSET ?`,args)).map(cardDto);
+  }
+  async readableCard(actor,id) {
+    signedIn(actor);
+    cardId(id);
+    const rows=await this.db.read(`SELECT c.* FROM cards c WHERE c.id=? AND ${cardAccess}`,[id,...accessArgs(actor)]);
+    if (!rows.length) fail(404,'Card not found.');
+    return rows[0];
+  }
+  async readableCards(actor,raw) {
+    signedIn(actor);
+    const parts=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+    if(!parts.length||parts.length>50||parts.some(item=>!/^[1-9]\d{0,15}$/.test(item)))fail(400,'Invalid card ids.');
+    const ids=parts.map(Number);if(ids.some(item=>!Number.isSafeInteger(item)))fail(400,'Invalid card ids.');
+    const rows=await this.db.read(`SELECT c.* FROM cards c WHERE c.id IN (${ids.map(()=>'?').join(',')}) AND ${cardAccess}`,[...ids,...accessArgs(actor)]);
+    const byId=new Map(rows.map(row=>[row.id,row]));
+    return ids.filter(id=>byId.has(id)).map(id=>byId.get(id));
+  }
+  async card(actor,id) {
+    const record=await this.readableCard(actor,id);
+    const collections=await this.db.read(`SELECT q.id,q.revision FROM quiz_collections q JOIN card_quiz_collections c ON c.collection_id=q.id WHERE c.card_id=? ORDER BY q.id`,[id]);
+    const quizzes=await this.db.read(`SELECT q.id,q.type,q.items_json,q.revision FROM quizzes q JOIN card_quiz_collections c ON c.collection_id=q.collection_id
+      WHERE c.card_id=? AND q.deleted_at IS NULL ORDER BY q.position,q.id`,[id]);
+    return {...cardDto(record),canEdit:reviewer(actor),collections,quizzes:quizzes.map(quizDto)};
+  }
+  async receipt(actor,mutationId,hash) {
+    const rows=await this.db.read(`SELECT request_sha256,result_json FROM operation_receipts WHERE account_id=? AND mutation_id=? AND expires_at>unixepoch()`,[actor.id,mutationId]);
+    if (!rows.length) return null;
+    if (rows[0].request_sha256!==hash) fail(409,'This operation ID was already used for different changes.');
+    return JSON.parse(rows[0].result_json);
+  }
+  async mutate(actor,body,identity,build,{personal=false}={}) {
+    signedIn(actor);
+    if (!personal && !reviewer(actor)) fail(403,'Only a teacher can edit definitions.');
+    if (!body || !/^[A-Za-z0-9_-]{12,100}$/.test(body.mutationId || '')) fail(400,'A stable mutationId is required.');
+    const hash=await requestHash({identity,body});
+    const replay=await this.receipt(actor,body.mutationId,hash);
+    if (replay) return replay;
+    const built=await build();
+    const receipt=built.resultSql
+      ?stmt(`INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at) SELECT ?,?,?,result_json,unixepoch()+86400 FROM (${built.resultSql})`,[actor.id,body.mutationId,hash,...(built.resultArgs||[])])
+      :stmt('INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at) VALUES(?,?,?,?,unixepoch()+86400)',[actor.id,body.mutationId,hash,stable(built.result)]);
+    const commands=[stmt('DROP TABLE IF EXISTS temp.mutation_guard'),stmt('CREATE TEMP TABLE mutation_guard(ok INTEGER NOT NULL CHECK(ok=1))'),...built.statements,
+      stmt('DELETE FROM operation_receipts WHERE account_id=? AND mutation_id=? AND expires_at<=unixepoch()',[actor.id,body.mutationId]),
+      receipt,stmt('DROP TABLE temp.mutation_guard')];
+    try { await this.db.atomic(commands); }
+    catch (error) {
+      // Concurrent duplicate requests may race past the initial receipt lookup.
+      // An uncertain commit is retried with the same mutationId, never a new ID.
+      const saved=await this.receipt(actor,body.mutationId,hash);
+      if (saved) return saved;
+      throw error;
+    }
+    if(!built.resultSql)return built.result;
+    const saved=await this.receipt(actor,body.mutationId,hash);
+    if(!saved)fail(503,'The transaction result was not saved.');
+    return saved;
+  }
+  async createdCardMutation(actor,body,identity,build,{personal=false}={}) {
+    signedIn(actor);
+    if(!personal&&!reviewer(actor))fail(403,'Only a teacher can edit definitions.');
+    if(!body||!/^[A-Za-z0-9_-]{12,100}$/.test(body.mutationId||''))fail(400,'A stable mutationId is required.');
+    const hash=await requestHash({identity,body}),replay=await this.receipt(actor,body.mutationId,hash);
+    if(replay)return replay;
+    let profile=null;
+    if(personal){
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
+      if(members.length!==1)fail(409,'This account has not been imported into test Learning.');
+      profile=members[0].profile_id;
+    }
+    const command=await build(profile);
+    if(personal)command.statements.unshift(stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM profile_members WHERE account_id=? AND profile_id=?)',[actor.id,profile]));
+    const commands=[stmt('DROP TABLE IF EXISTS temp.mutation_guard'),stmt('CREATE TEMP TABLE mutation_guard(ok INTEGER NOT NULL CHECK(ok=1))'),
+      stmt('DROP TABLE IF EXISTS temp.created_rows'),stmt('CREATE TEMP TABLE created_rows(seq INTEGER PRIMARY KEY, id INTEGER NOT NULL)'),
+      ...command.statements,
+      stmt('DELETE FROM operation_receipts WHERE account_id=? AND mutation_id=? AND expires_at<=unixepoch()',[actor.id,body.mutationId]),
+      stmt(`INSERT INTO operation_receipts(account_id,mutation_id,request_sha256,result_json,expires_at)
+        SELECT ?,?,?,result_json,unixepoch()+86400 FROM (${command.resultSql})`,[actor.id,body.mutationId,hash,...(command.resultArgs||[])]),
+      stmt('DROP TABLE temp.created_rows'),stmt('DROP TABLE temp.mutation_guard')];
+    try{await this.db.atomic(commands);}
+    catch(error){const saved=await this.receipt(actor,body.mutationId,hash);if(saved)return saved;throw error;}
+    const saved=await this.receipt(actor,body.mutationId,hash);
+    if(!saved)fail(503,'The transaction result was not saved.');
+    return saved;
+  }
+  guard() { return stmt('INSERT INTO mutation_guard SELECT changes()=1'); }
+  async setLessonAccess(actor,accountId,lessonId,body){
+    fields(body,['mutationId','expected','changes']);entityId(accountId);recordId(lessonId);
+    for(const value of [body.expected,body.changes]){
+      fields(value,['allowHidden','personalHidden']);
+      if(typeof value.allowHidden!=='boolean'||typeof value.personalHidden!=='boolean')fail(400,'Two boolean access flags are required.');
+    }
+    return this.mutate(actor,body,['managed-lesson-access',accountId,lessonId],async()=>{
+      const [row]=await this.db.read(`SELECT a.allow_hidden,a.personal_hidden FROM lessons l
+        LEFT JOIN lesson_access a ON a.lesson_id=l.id AND a.account_id=?
+        WHERE l.id=? AND l.deleted_at IS NULL AND EXISTS(SELECT 1 FROM account_refs WHERE id=?)`,[accountId,lessonId,accountId]);
+      if(!row)fail(404,'Imported account or lesson not found.');
+      const expected=body.expected,changes=body.changes;
+      if(!!row.allow_hidden!==expected.allowHidden||!!row.personal_hidden!==expected.personalHidden)fail(409,'Lesson access changed. Reload before saving.');
+      return {statements:[stmt(`INSERT INTO lesson_access(account_id,lesson_id,allow_hidden,personal_hidden)
+        SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM lessons WHERE id=? AND deleted_at IS NULL)
+        ON CONFLICT(account_id,lesson_id) DO UPDATE SET allow_hidden=excluded.allow_hidden,personal_hidden=excluded.personal_hidden
+        WHERE lesson_access.allow_hidden=? AND lesson_access.personal_hidden=?`,[accountId,lessonId,+changes.allowHidden,+changes.personalHidden,lessonId,+expected.allowHidden,+expected.personalHidden]),this.guard()],
+        result:{accountId,lessonId,...changes}};
+    });
+  }
+  async createLesson(actor,body){
+    fields(body,['mutationId','changes','blocks']);
+    const changes={...lessonDefaults,...lessonChanges(body.changes)};
+    if(!changes.title.trim())fail(400,'Enter a lesson title before saving.');
+    if(!Array.isArray(body.blocks)||body.blocks.length>200)fail(400,'Invalid lesson blocks.');
+    const blocks=body.blocks.map(lessonBlock);
+    try{validateContentGroups(blocks.map(block=>({...block.content,type:block.type,id:block.id})));}catch(error){fail(400,error.message);}
+    if(blocks.some(b=>b.expectedRevision!==0))fail(400,'New blocks must have revision 0.');
+    return this.createdCardMutation(actor,body,['create-lesson'],async()=>{
+      const columns=Object.values(lessonColumns),args=Object.keys(lessonColumns).map(k=>typeof changes[k]==='boolean'?+changes[k]:changes[k]);
+      const commands=[stmt(`INSERT INTO lessons(${columns.join(',')},mode) VALUES(${columns.map(()=>'?').join(',')},?)`,[...args,changes.published?'preview':'edit']),
+        stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard()];
+      for(const [position,b] of blocks.entries())commands.push(...this.lessonBlockCommands(null,b,position));
+      return {statements:commands,resultSql:this.lessonResultSql(),resultArgs:[]};
+    });
+  }
+  lessonResultSql(){
+    return `SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+      SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
+      FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
+    )) result_json FROM lessons l WHERE l.id=(SELECT id FROM created_rows WHERE seq=1)`;
+  }
+  lessonBlockCommands(lessonId,b,position){
+    const commands=[];
+    if(b.cardId)commands.push(stmt("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND scope='shared' AND deleted_at IS NULL)",[b.cardId]));
+    if(b.expectedRevision===0){
+      commands.push(lessonId==null
+        ?stmt('INSERT INTO lesson_blocks(lesson_id,position,type,tab,card_id,content_json) SELECT id,?,?,?,?,? FROM created_rows WHERE seq=1',[position,b.type,b.tab,b.cardId,stable(b.content)])
+        :stmt('INSERT INTO lesson_blocks(lesson_id,position,type,tab,card_id,content_json) VALUES(?,?,?,?,?,?)',[lessonId,position,b.type,b.tab,b.cardId,stable(b.content)]));
+    }else commands.push(stmt('UPDATE lesson_blocks SET type=?,tab=?,card_id=?,content_json=?,revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[b.type,b.tab,b.cardId,stable(b.content),lessonId,b.id,b.expectedRevision]));
+    commands.push(this.guard());
+    return commands;
+  }
+  async editLesson(actor,id,body){
+    recordId(id);fields(body,['mutationId','expectedRevision','changes','upserts','deletes','order']);
+    const expected=revision(body.expectedRevision),changes=lessonChanges(body.changes);
+    if(!Array.isArray(body.upserts)||!Array.isArray(body.deletes)||body.upserts.length+body.deletes.length>200)fail(400,'Invalid block changes.');
+    const upserts=body.upserts.map(lessonBlock),deletes=body.deletes.map(b=>{fields(b,['id','expectedRevision']);recordId(b.id);revision(b.expectedRevision);return b;});
+    const named=[...upserts.map(b=>b.id),...deletes.map(b=>b.id)].filter(key=>key!=null);
+    if(new Set(named).size!==named.length)fail(400,'Conflicting block operations.');
+    if(body.order!==undefined && (!Array.isArray(body.order)||body.order.length>200||new Set(body.order).size!==body.order.length))fail(400,'Invalid block order.');
+    for(const block of body.order||[])recordId(block);
+    if(!Object.keys(changes).length&&!upserts.length&&!deletes.length&&!body.order)fail(400,'No changed fields.');
+    return this.mutate(actor,body,['edit-lesson',id],async()=>{
+      const [lesson]=await this.db.read('SELECT * FROM lessons WHERE id=? AND deleted_at IS NULL',[id]);
+      if(!lesson)fail(404,'Lesson not found.');
+      if(lesson.revision!==expected)fail(409,'The lesson changed. Reload before saving.');
+      if('title' in changes && !changes.title.trim())fail(400,'Enter a lesson title before saving.');
+      const current=await this.db.read('SELECT id,revision,position,type,content_json FROM lesson_blocks WHERE lesson_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
+      const next=current.filter(block=>!deletes.some(row=>row.id===block.id)&&!upserts.some(row=>row.id===block.id)).map(block=>({...JSON.parse(block.content_json),id:block.id,type:block.type}));
+      next.push(...upserts.map(block=>({...block.content,id:block.id,type:block.type})));
+      try{validateContentGroups(next);}catch(error){fail(400,error.message);}
+      const active=new Set(current.map(b=>b.id));
+      for(const b of deletes)active.delete(b.id);
+      for(const b of upserts)if(b.id!=null)active.add(b.id);
+      if(active.size>200)fail(400,'Too many blocks.');
+      if(body.order && (body.order.length!==active.size||body.order.some(key=>!active.has(key))))fail(400,'Order must contain exactly the remaining blocks.');
+      const assignments=Object.keys(changes).map(k=>lessonColumns[k]+'=?'),args=Object.values(changes).map(v=>typeof v==='boolean'?+v:v);
+      if('published' in changes){assignments.push('mode=?');args.push(changes.published?'preview':'edit');}
+      const commands=[stmt(`UPDATE lessons SET ${[...assignments,'revision=revision+1','updated_at=unixepoch()'].join(',')} WHERE id=? AND revision=? AND deleted_at IS NULL`,[...args,id,expected]),this.guard()];
+      let position=current.reduce((n,b)=>Math.max(n,b.position+1),0);
+      for(const b of upserts)commands.push(...this.lessonBlockCommands(id,b,position++));
+      for(const b of deletes)commands.push(stmt('UPDATE lesson_blocks SET deleted_at=unixepoch(),revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[id,b.id,b.expectedRevision]),this.guard());
+      for(const [i,key] of (body.order||[]).entries())commands.push(stmt('UPDATE lesson_blocks SET position=? WHERE lesson_id=? AND id=? AND deleted_at IS NULL',[i,id,key]),this.guard());
+      return {statements:commands,resultSql:`SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+        SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
+        FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
+      )) result_json FROM lessons l WHERE l.id=?`,resultArgs:[id]};
+    });
+  }
+  async deleteLesson(actor,id,body){
+    recordId(id);fields(body,['mutationId','expectedRevision']);const expected=revision(body.expectedRevision);
+    return this.mutate(actor,body,['delete-lesson',id],async()=>({statements:[stmt('UPDATE lessons SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard()],result:{id,deleted:true,revision:expected+1}}));
+  }
+  async personal(actor,body,identity,build){
+    signedIn(actor);
+    const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
+    if(members.length!==1)fail(409,'This account has not been imported into test Learning.');
+    const profile=members[0].profile_id;
+    return this.mutate(actor,body,[...identity,profile],async()=>{
+      const command=await build(profile);
+      command.statements.unshift(stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM profile_members WHERE account_id=? AND profile_id=?)',[actor.id,profile]));
+      return command;
+    },{personal:true});
+  }
+  cardGuard(actor,id){return stmt(`INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards c WHERE c.id=? AND ${cardAccess})`,[id,...accessArgs(actor)]);}
+  linkRevisionCommands(profile,expected){
+    return [expected===0
+      ?stmt("INSERT INTO profile_settings(profile_id,key,value_json) VALUES(?,'learningCardLinks','{}')",[profile])
+      :stmt("UPDATE profile_settings SET revision=revision+1 WHERE profile_id=? AND key='learningCardLinks' AND revision=?",[profile,expected]),this.guard()];
+  }
+  async linkCard(actor,body){
+    fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);cardId(body.cardId);
+    const expected=personalRevision(body.expectedRevision),cardRevision=revision(body.expectedCardRevision);
+    const place=cardPlace(body.place);
+    return this.personal(actor,body,['link-card',body.cardId,place],async profile=>{
+      const card=await this.readableCard(actor,body.cardId);
+      return {statements:[...this.linkRevisionCommands(profile,expected),this.cardGuard(actor,card.id),
+        stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=?)',[card.id,cardRevision]),
+        stmt('INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?))',[profile,card.id,place,profile,place]),this.guard()],
+        result:{id:card.id,place,revision:expected+1,card:{...JSON.parse(card.extra_json),en:card.en,word:card.en,ru:card.ru,pos:card.part_of_speech,
+          stageId:card.id,stageRevision:card.revision,stageScope:card.scope,stageLinksRevision:expected+1,place}}};
+    });
+  }
+  async unlinkCard(actor,id,body){
+    cardId(id);fields(body,['mutationId','place','expectedRevision']);const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
+    // Removing an own link is also allowed when its definition is hidden/deleted.
+    // Neither the physical card nor anyone's existing progress is deleted.
+    return this.personal(actor,body,['unlink-card',id,place],async profile=>({statements:[...this.linkRevisionCommands(profile,expected),
+      stmt('DELETE FROM profile_cards WHERE profile_id=? AND card_id=? AND place=?',[profile,id,place]),this.guard()],
+      result:{id,place,unlinked:true,revision:expected+1}}));
+  }
+  async linkManagedCard(actor,accountId,body){
+    entityId(accountId);fields(body,['mutationId','cardId','place','expectedRevision','expectedCardRevision']);cardId(body.cardId);
+    const expected=personalRevision(body.expectedRevision),cardRevision=revision(body.expectedCardRevision),place=cardPlace(body.place);
+    return this.mutate(actor,body,['managed-link-card',accountId,body.cardId,place],async()=>{
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
+      if(members.length!==1)fail(409,'Target profile has not been imported.');
+      const profile=members[0].profile_id,target={id:accountId,role:'USER'},card=await this.readableCard(target,body.cardId);
+      return {statements:[...this.linkRevisionCommands(profile,expected),this.cardGuard(target,card.id),
+        stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=?)',[card.id,cardRevision]),
+        stmt('INSERT INTO profile_cards(profile_id,card_id,place,position) VALUES(?,?,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?))',[profile,card.id,place,profile,place]),this.guard()],
+        result:{id:card.id,place,revision:expected+1,card:{...JSON.parse(card.extra_json),en:card.en,word:card.en,ru:card.ru,pos:card.part_of_speech,
+          stageId:card.id,stageRevision:card.revision,stageScope:card.scope,stageLinksRevision:expected+1,place}}};
+    });
+  }
+  async unlinkManagedCard(actor,accountId,id,body){
+    if(actor?.role!=='DEVELOPER')fail(403,'You cannot remove another account\'s data.');
+    entityId(accountId);cardId(id);fields(body,['mutationId','place','expectedRevision']);
+    const expected=personalRevision(body.expectedRevision),place=cardPlace(body.place);
+    return this.mutate(actor,body,['managed-unlink-card',accountId,id,place],async()=>{
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
+      if(members.length!==1)fail(409,'Target profile has not been imported.');
+      const profile=members[0].profile_id;
+      return {statements:[...this.linkRevisionCommands(profile,expected),
+        stmt('DELETE FROM profile_cards WHERE profile_id=? AND card_id=? AND place=?',[profile,id,place]),this.guard()],
+        result:{id,place,unlinked:true,revision:expected+1}};
+    });
+  }
+  async saveCardProgress(actor,id,body){
+    cardId(id);
+    fields(body,['mutationId','expectedRevision','changes']);
+    const expected=personalRevision(body.expectedRevision),changes=body.changes;
+    if(!changes || !Object.keys(changes).length || Object.keys(changes).some(key=>!['learned','variants'].includes(key))
+      || ('learned' in changes && typeof changes.learned!=='boolean')
+      || ('variants' in changes && (!Array.isArray(changes.variants)||changes.variants.length>100||changes.variants.some(v=>typeof v!=='string'||v.length>1000))))fail(400,'Invalid personal card progress.');
+    return this.personal(actor,body,['card-progress',id],async profile=>{
+      await this.readableCard(actor,id);
+      const [old]=await this.db.read('SELECT learned,variants_json FROM card_progress WHERE profile_id=? AND card_id=?',[profile,id]);
+      const learned='learned' in changes?+changes.learned:old?.learned||0;
+      const variants='variants' in changes?changes.variants:old?JSON.parse(old.variants_json):[];
+      const sql=expected===0?'INSERT INTO card_progress(profile_id,card_id,learned,variants_json) VALUES(?,?,?,?)'
+        :'UPDATE card_progress SET learned=?,variants_json=?,revision=revision+1,updated_at=unixepoch() WHERE profile_id=? AND card_id=? AND revision=?';
+      return {statements:[this.cardGuard(actor,id),stmt(sql,expected===0?[profile,id,learned,stable(variants)]:[learned,stable(variants),profile,id,expected]),this.guard()],
+        result:{id,learned:!!learned,variants,revision:expected+1}};
+    });
+  }
+  async answerCard(actor,id,body){
+    cardId(id);
+    fields(body,['mutationId','expectedRevision','quizType','correct']);
+    const expected=personalRevision(body.expectedRevision),type=body.quizType;
+    if(!QUIZ_TYPES.includes(type)||type==='Flip'||typeof body.correct!=='boolean')fail(400,'Invalid quiz answer.');
+    return this.personal(actor,body,['quiz-answer',id,type],async profile=>{
+      const card=await this.readableCard(actor,id);
+      const [old]=await this.db.read('SELECT progress_json FROM quiz_progress WHERE profile_id=? AND card_id=? AND quiz_type=?',[profile,id,type]);
+      const prior=old?JSON.parse(old.progress_json):{};
+      // A cleared weak-card counter starts a new sequence on the next answer.
+      const misses=prior.cleared?0:Number(prior.misses)||0,streak=prior.cleared?0:Number(prior.streak)||0;
+      const progress={en:card.en,type,misses:misses+(body.correct?0:1),streak:body.correct?streak+1:0,cleared:body.correct && streak+1>=4};
+      const sql=expected===0?'INSERT INTO quiz_progress(profile_id,card_id,quiz_type,progress_json) VALUES(?,?,?,?)'
+        :'UPDATE quiz_progress SET progress_json=?,revision=revision+1,updated_at=unixepoch() WHERE profile_id=? AND card_id=? AND quiz_type=? AND revision=?';
+      return {statements:[this.cardGuard(actor,id),stmt(sql,expected===0?[profile,id,type,stable(progress)]:[stable(progress),profile,id,type,expected]),this.guard()],result:{id,type,progress,revision:expected+1}};
+    });
+  }
+  async saveLessonResponse(actor,lessonId,blockId,body){
+    recordId(lessonId);recordId(blockId);
+    fields(body,['mutationId','expectedRevision','expectedBlockRevision','response']);
+    const expected=personalRevision(body.expectedRevision),blockRevision=revision(body.expectedBlockRevision);
+    return this.personal(actor,body,['lesson-response',lessonId,blockId],async profile=>{
+      const [block]=await this.db.read(`SELECT b.type,b.content_json FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
+        WHERE b.lesson_id=? AND b.id=? AND b.deleted_at IS NULL AND ${lessonAccess}`,[lessonId,blockId,+reviewer(actor),actor.id,actor.id]);
+      if(!block)fail(404,'Task not found.');
+      // Lesson practice is ungraded; existing assessment history is retained.
+      let response=body.response;
+      const definition=JSON.parse(block.content_json);
+      if(block.type==='task'&&!definition.contentGroup||block.type==='text'&&definition.answerEnabled===true){
+        if(typeof response==='object'&&response&&!Array.isArray(response)&&Object.keys(response).every(key=>['text','format'].includes(key))){if(typeof response.text!=='string'||response.text.length>10_000)fail(400,'Invalid task response.');validateColorDocument(response.format,response.text,definition.answerEnabled===true);}
+        else if(typeof response!=='string'||response.length>10_000)fail(400,'Invalid task response.');
+      }else if(['quiz','exercise'].includes(block.type)){
+        const content=JSON.parse(block.content_json),items=content.items||[];
+        if(!response || Object.keys(response).some(key=>!['items','checked'].includes(key)) || (response.checked!==undefined && typeof response.checked!=='boolean')
+          || !Array.isArray(response.items)||response.items.length!==items.length||items.length>100)fail(400,'Invalid exercise response.');
+        const checked=response.checked===true;
+        const answers=response.items.map((answer,i)=>{
+          if(!answer || Object.keys(answer).some(key=>!['picked','typed','format'].includes(key))
+            || (answer.picked!=null && (!Number.isSafeInteger(answer.picked)||answer.picked<0||answer.picked>=(items[i].options||[]).length))
+            || (answer.typed!==undefined && (typeof answer.typed!=='string'||answer.typed.length>(['Match','Memory'].includes(content.quizType)?32000:2000))))fail(400,'Send only selected options or typed answers.');
+          if(answer.format)validateColorDocument(answer.format,answer.typed);
+          return {...(answer.picked!=null?{picked:answer.picked}:{}),...(answer.typed!==undefined?{typed:answer.typed}:{}),...(answer.format?{format:answer.format}:{})};
+        });
+        response={items:answers,...(checked?{checked:true}:{})};
+        if(checked && block.type==='exercise')for(const [i,answer] of answers.entries()){
+          answer.marked=true;
+          answer.correct=items[i].kind==='write'
+            ?String(answer.typed||'').trim().toLowerCase()===String(items[i].write||'').trim().toLowerCase()
+            :answer.picked!==undefined && answer.picked===Number(items[i].answer);
+        }
+        if(checked && block.type==='quiz' && (content.quizType==='Choice'||(!content.quizType && items.some(item=>item.options))))
+          response.score=answers.reduce((sum,answer,i)=>sum+(answer.picked!==undefined && answer.picked===Number(items[i].answer)?1:0),0)+' / '+items.length;
+      }else fail(400,'This block has no personal answer field.');
+      if(stable(response).length>50_000)fail(400,'Response too large.');
+      const sql=expected===0?'INSERT INTO lesson_responses(profile_id,lesson_id,block_id,response_json) VALUES(?,?,?,?)'
+        :'UPDATE lesson_responses SET response_json=?,revision=revision+1,updated_at=unixepoch() WHERE profile_id=? AND lesson_id=? AND block_id=? AND revision=?';
+      return {statements:[stmt(`INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
+          WHERE b.lesson_id=? AND b.id=? AND b.revision=? AND b.deleted_at IS NULL AND ${lessonAccess})`,[lessonId,blockId,blockRevision,+reviewer(actor),actor.id,actor.id]),
+        stmt(sql,expected===0?[profile,lessonId,blockId,stable({definitionRevision:blockRevision,value:response})]:[stable({definitionRevision:blockRevision,value:response}),profile,lessonId,blockId,expected]),this.guard()],
+        result:{lessonId,blockId,response,revision:expected+1}};
+    });
+  }
+  async editCard(actor,id,body) {
+    cardId(id);
+    return this.mutate(actor,body,['edit-card',id],async()=>{
+      const expected=revision(body.expectedRevision);
+      if (!body.changes || Object.keys(body.changes).join(',')!=='ru' || typeof body.changes.ru!=='string' || body.changes.ru.length>10_000) fail(400,'Send only the changed translation in changes.ru.');
+      await this.readableCard(actor,id);
+      return {statements:[stmt(`UPDATE cards SET ru=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL`,[body.changes.ru,id,expected]),this.guard()],result:{id,ru:body.changes.ru,revision:expected+1}};
+    });
+  }
+  async deleteCard(actor,id,body) {
+    cardId(id);
+    return this.mutate(actor,body,['delete-card',id],async()=>{
+      const expected=revision(body.expectedRevision);
+      await this.readableCard(actor,id);
+      return {statements:[stmt('UPDATE cards SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard()],result:{id,deleted:true,revision:expected+1}};
+    });
+  }
+  async createQuiz(actor,cardKey,body) {
+    cardId(cardKey);
+    return this.createdCardMutation(actor,body,['create-quiz',cardKey],async()=>{
+      const expected=revision(body.expectedRevision);
+      const quiz=validateQuiz(body.quiz);
+      const expectedCollection=body.expectedCollectionRevision;
+      if (!Number.isSafeInteger(expectedCollection) || expectedCollection<0) fail(400,'A valid collection revision is required.');
+      const card=await this.readableCard(actor,cardKey);
+      if (card.scope!=='shared') fail(403,'This staged quiz editor handles shared cards only.');
+      const collectionKey=JSON.parse(card.extra_json).quizKey||card.word_key;
+      const statements=[stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=? AND deleted_at IS NULL)',[cardKey,expected])];
+      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[collectionKey]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'));
+      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[collectionKey,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=?',[collectionKey]));
+      statements.push(this.guard(),
+        stmt("INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,r.id FROM cards c JOIN created_rows r ON r.seq=1 WHERE COALESCE(json_extract(c.extra_json,'$.quizKey'),c.word_key)=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING",[collectionKey]),
+        stmt(`INSERT INTO quizzes(collection_id,position,type,items_json)
+          SELECT id,COALESCE((SELECT max(position)+1 FROM quizzes WHERE collection_id=created_rows.id),0),?,? FROM created_rows WHERE seq=1`,[quiz.type,stable(quiz.items)]),
+        stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard());
+      return {statements,resultSql:`SELECT json_object('id',q.id,'type',q.type,'items',json(q.items_json),'revision',q.revision) result_json
+        FROM quizzes q WHERE q.id=(SELECT id FROM created_rows ORDER BY seq DESC LIMIT 1)`,resultArgs:[]};
+    });
+  }
+  async editQuiz(actor,id,body) {
+    recordId(id);
+    return this.mutate(actor,body,['edit-quiz',id],async()=>{
+      const expected=revision(body.expectedRevision),quiz=validateQuiz(body.quiz);
+      return {statements:[stmt('UPDATE quizzes SET type=?,items_json=?,revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[quiz.type,stable(quiz.items),id,expected]),this.guard(),
+        stmt('UPDATE quiz_collections SET revision=revision+1 WHERE id=(SELECT collection_id FROM quizzes WHERE id=?)',[id]),this.guard()],result:{id,...quiz,revision:expected+1}};
+    });
+  }
+  async deleteQuiz(actor,id,body) {
+    recordId(id);
+    return this.mutate(actor,body,['delete-quiz',id],async()=>{
+      const expected=revision(body.expectedRevision);
+      return {statements:[stmt('UPDATE quizzes SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch() WHERE id=? AND revision=? AND deleted_at IS NULL',[id,expected]),this.guard(),
+        stmt('UPDATE quiz_collections SET revision=revision+1 WHERE id=(SELECT collection_id FROM quizzes WHERE id=?)',[id]),this.guard()],result:{id,deleted:true,revision:expected+1}};
+    });
+  }
+}

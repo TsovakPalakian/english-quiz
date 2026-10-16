@@ -101,9 +101,9 @@
     }while(after);
     return hydrate(documents[key]);
   }
-  window.TursoCatalogPage=(key,after)=>window.ContentCache.load('catalog:'+key+':page:'+(after||'start'),()=>fetchPage(key,after||''));
-  window.TursoLoadCatalog=key=>window.ContentCache.load('catalog:'+key,()=>loadAll(key));
-  window.TursoHydrateCatalog=key=>hydrate(documents[key]);
+  window.LearningCatalogPage=(key,after)=>window.ContentCache.load('catalog:'+key+':page:'+(after||'start'),()=>fetchPage(key,after||''));
+  window.LearningLoadCatalog=key=>window.ContentCache.load('catalog:'+key,()=>loadAll(key));
+  window.LearningHydrateCatalog=key=>hydrate(documents[key]);
   const pending=[],inflight=new Map();
   let active=0;
   const limit=2;
@@ -136,5 +136,5 @@
   };
   const script=document.createElement('script');script.src='/preview.js?v=20261010-13';
   document.body.append(script);
-  window.TursoCatalogReady=Promise.resolve();
+  window.LearningCatalogReady=Promise.resolve();
 })();

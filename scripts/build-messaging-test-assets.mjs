@@ -1,10 +1,10 @@
 import {readFileSync,writeFileSync,copyFileSync,cpSync,mkdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
-const target=resolve('rollback/turso-messaging-assets');
+const target=resolve('rollback/learning-messaging-assets');
 mkdirSync(target,{recursive:true});
 // The input is the existing explicit-allowlist TEST build, never the workspace.
-cpSync(resolve('rollback/turso-worker-assets'),target,{recursive:true});
+cpSync(resolve('rollback/accepted-worker-assets'),target,{recursive:true});
 for(const name of ['messages-test.js','messages-test.css'])copyFileSync(resolve('staging',name),resolve(target,name));
 let preview=readFileSync(resolve(target,'preview.js'),'utf8');
 if(preview.split('    function show(id) {').length!==2)throw new Error('Navigation guard anchor changed.');

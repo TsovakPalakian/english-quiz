@@ -1,4 +1,4 @@
-import {StudyError,statement as s} from './turso-study.mjs';
+import {StudyError,statement as s} from './learning-study.mjs';
 const RETENTION=90*86400000;
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const clean=(value,max=160)=>typeof value==='string'?value.slice(0,max):'';

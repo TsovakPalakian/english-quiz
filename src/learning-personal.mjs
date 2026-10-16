@@ -1,0 +1,244 @@
+// Point mutations for own content; used only by isolated Learning staging.
+import {StudyService,StudyError,statement as s,cardAccess,accessArgs,cardId,recordId} from './learning-study.mjs';
+import {themeAccount,themeProfiles} from './learning-paired-themes.mjs';
+const bad=(status,message)=>{throw new StudyError(status,message);};
+const cardPlaces=['mine','text','chat','chat-phrasal','chat-idioms','music','tenses','phrasal','idioms','lesson-07','lesson-09','lesson-14','lesson-16','lesson-21','lesson-23'];
+function ownPlace(card){if(card.place==null||card.place==='')return 'mine';if(!cardPlaces.includes(card.place))bad(400,'Invalid personal card destination.');return card.place;}
+const only=(value,keys)=>{if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))bad(400,'Invalid fields.');};
+const id=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))bad(400,'Invalid ID.');return value;};
+const rev=value=>{if(!Number.isSafeInteger(value)||value<0)bad(400,'Invalid expectedRevision.');return value;};
+const text=(value,max)=>{if(typeof value!=='string'||value.length>max)bad(400,'Invalid content size.');return value;};
+export const libraryDto=row=>({...JSON.parse(row.content_json),stageId:row.id,stageRevision:row.revision,stageScope:row.scope,stageLocalMedia:!!row.media_key?.startsWith('stage-local/')});
+export const libraryVisibility=actor=>actor.role==='USER'?" AND COALESCE(json_extract(l.content_json,'$.archived'),0) NOT IN (1,'true')":'';
+export class PersonalService extends StudyService {
+  async saveTheme(actor,body){
+    only(body,['mutationId','expectedRevision','theme']);const expected=rev(body.expectedRevision);
+    if(typeof body.theme!=='string'||! /^[a-z][a-z0-9-]{0,99}$/.test(body.theme))bad(400,'Invalid theme.');
+    const owner=await themeAccount(this.db,actor);
+    return this.personal(actor,body,['account-theme'],async()=>({statements:[
+      expected===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'theme',?)",[owner,JSON.stringify(body.theme)])
+        :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='theme' AND revision=?",[JSON.stringify(body.theme),owner,expected]),this.guard()],
+      result:{theme:body.theme,revision:expected+1}}));
+  }
+  async saveCustomThemes(actor,body){
+    only(body,['mutationId','expectedRevision','themes']);const expected=rev(body.expectedRevision);
+    if(!Array.isArray(body.themes)||body.themes.length>16)bad(400,'Invalid themes.');
+    const owner=await themeAccount(this.db,actor),profiles=await themeProfiles(this.db,actor);
+    const hex=/^#[0-9A-Fa-f]{6}$/,wash=/^#[0-9A-Fa-f]{8}$/;
+    const mine=typeof actor?.login==='string'?actor.login.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
+    const themes=body.themes.map(row=>{
+      if(!row||typeof row.id!=='string'||!/^user-[a-z0-9-]{1,80}$/.test(row.id))bad(400,'Invalid theme.');
+      const incoming=typeof row.owner==='string'?row.owner.replace(/[\u0000-\u001f]/g,'').slice(0,80):'';
+      const vars={};
+      if(row.vars&&typeof row.vars==='object')for(const [key,val] of Object.entries(row.vars)){
+        if(typeof val!=='string')continue;
+        if(key==='--photo-wash'&&(wash.test(val)||hex.test(val)))vars[key]=val;
+        else if(key==='color-scheme'&&(val==='light'||val==='dark'))vars[key]=val;
+        else if(hex.test(val))vars[key]=val;
+      }
+      if(!hex.test(vars['--bg'])||!hex.test(vars['--card'])||!hex.test(vars['--acc']))bad(400,'Invalid theme.');
+      const photo=typeof row.photo==='string'&&/^stage-local\/themes\/[A-Za-z0-9_-]{1,100}\/user-[a-z0-9-]{1,80}\/[a-f0-9]{64}$/.test(row.photo)?row.photo:'';
+      return {id:row.id,name:typeof row.name==='string'?row.name.slice(0,64):'',owner:mine||incoming,bg:vars['--bg'],card:vars['--card'],acc:vars['--acc'],vars,photo};
+    }).filter(Boolean);
+    if(new Set(themes.map(row=>row.id)).size!==themes.length)bad(400,'Duplicate theme identity.');
+    return this.personal(actor,body,['account-custom-themes'],async profile=>{
+      const [existing]=await this.db.read("SELECT revision,value_json FROM account_settings WHERE account_id=? AND key='customThemes'",[owner]);
+      let previous=[];
+      try{previous=JSON.parse(existing?.value_json||'[]');}catch{}
+      const stored=themes.map(row=>{
+        const allowed=photo=>profiles.some(id=>photo.startsWith(`stage-local/themes/${id}/${row.id}/`));
+        if(row.photo&&!allowed(row.photo))bad(403,'This theme picture belongs to another profile.');
+        const old=Array.isArray(previous)?previous.find(item=>item.id===row.id):null;
+        const photo=row.photo||(typeof old?.photo==='string'&&allowed(old.photo)?old.photo:'');
+        return {...row,photo};
+      });
+      const json=JSON.stringify(stored);
+      if(json.length>60000)bad(413,'Themes are too large.');
+      const base=expected===0&&existing?Number(existing.revision)||1:expected;
+      return {statements:[
+        base===0?s("INSERT INTO account_settings(account_id,key,value_json) VALUES(?,'customThemes',?)",[owner,json])
+          :s("UPDATE account_settings SET value_json=?,revision=revision+1 WHERE account_id=? AND key='customThemes' AND revision=?",[json,owner,base]),this.guard()],
+        result:{themes:stored,revision:base+1}};
+    });
+  }
+  async createManagedCard(actor,accountId,body){
+    id(accountId);only(body,['mutationId','expectedRevision','card']);const expected=rev(body.expectedRevision);
+    only(body.card,['en','ru','place']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim(),place=ownPlace(body.card);
+    if(!en||!ru)bad(400,'English and translation are required.');
+    return this.createdCardMutation(actor,body,['create-managed-card',accountId],async()=>{
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
+      if(members.length!==1)bad(409,'Target profile has not been imported.');
+      const profile=members[0].profile_id,target={id:accountId,role:'USER'};
+      const duplicates=await this.db.read(`SELECT c.id FROM cards c WHERE ${cardAccess} AND lower(c.en)=lower(?) AND c.ru=? LIMIT 1`,[...accessArgs(target),en,ru]);
+      if(duplicates.length)bad(409,'The same definition exists. Add it by ID instead.');
+      return {statements:[...this.linkRevisionCommands(profile,expected),
+        s("INSERT INTO cards(scope,owner_profile_id,en,word_key,ru) VALUES('profile',?,?,?,?)",[profile,en,en.toLowerCase(),ru]),
+        s('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard(),
+        s("INSERT INTO profile_cards(profile_id,card_id,place,position) SELECT ?,id,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?) FROM created_rows",[profile,place,profile,place]),this.guard()],
+        resultSql:`SELECT json_object('id',c.id,'revision',?,'card',json_object(
+          'word',c.en,'en',c.en,'ru',c.ru,'place',p.place,'stageId',c.id,'stageRevision',1,
+          'stageScope','profile','stageLinksRevision',?)) result_json
+          FROM cards c JOIN profile_cards p ON p.card_id=c.id AND p.profile_id=?
+          WHERE c.id=(SELECT id FROM created_rows)`,
+        resultArgs:[expected+1,expected+1,profile]};
+    });
+  }
+  async createOwnCard(actor,body){
+    only(body,['mutationId','expectedRevision','card']);const expected=rev(body.expectedRevision);
+    only(body.card,['en','ru','place']);const en=text(body.card.en,200).trim(),ru=text(body.card.ru,10000).trim(),place=ownPlace(body.card);
+    if(!en||!ru)bad(400,'English and translation are required.');
+    return this.createdCardMutation(actor,body,['create-own-card'],async profile=>{
+      const duplicates=await this.db.read(`SELECT c.id FROM cards c WHERE ${cardAccess} AND lower(c.en)=lower(?) AND c.ru=? LIMIT 1`,[...accessArgs(actor),en,ru]);
+      if(duplicates.length)bad(409,'The same definition exists. Add it by its existing ID instead.');
+      return {statements:[...this.linkRevisionCommands(profile,expected),
+        s("INSERT INTO cards(scope,owner_profile_id,en,word_key,ru) VALUES('profile',?,?,?,?)",[profile,en,en.toLowerCase(),ru]),
+        s('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard(),
+        s("INSERT INTO profile_cards(profile_id,card_id,place,position) SELECT ?,id,?,(SELECT COALESCE(MIN(position),1)-1 FROM profile_cards WHERE profile_id=? AND place=?) FROM created_rows",[profile,place,profile,place]),this.guard()],
+        resultSql:`SELECT json_object('id',c.id,'revision',?,'card',json_object(
+          'word',c.en,'en',c.en,'ru',c.ru,'place',p.place,'stageId',c.id,'stageRevision',1,
+          'stageScope','profile','stageLinksRevision',?)) result_json
+          FROM cards c JOIN profile_cards p ON p.card_id=c.id AND p.profile_id=?
+          WHERE c.id=(SELECT id FROM created_rows)`,
+        resultArgs:[expected+1,expected+1,profile]};
+    },{personal:true});
+  }
+  async libraryItems(actor,raw){
+    if(!actor?.id)bad(401,'Sign in first.');
+    const parts=[...new Set(String(raw||'').split(',').map(item=>item.trim()).filter(Boolean))];
+    if(!parts.length||parts.length>8||parts.some(item=>!/^[1-9]\d{0,15}$/.test(item)))bad(400,'Invalid library ids.');
+    const ids=parts.map(Number);if(ids.some(item=>!Number.isSafeInteger(item)))bad(400,'Invalid library ids.');
+    const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+      JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} AND l.id IN (${ids.map(()=>'?').join(',')})`,[actor.id,...ids]);
+    return rows.map(row=>({kind:row.kind,...libraryDto(row)}));
+  }
+  async libraryItem(actor,itemId){
+    if(!actor?.id)bad(401,'Sign in first.');
+    recordId(itemId);
+    const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+      JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.id=? AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)}`,[actor.id,itemId]);
+    if(rows.length!==1)bad(404,'Not found.');
+    return {kind:rows[0].kind,...libraryDto(rows[0])};
+  }
+  async library(actor){
+    if(!actor?.id)bad(401,'Sign in first.');
+    const rows=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+      JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND l.deleted_at IS NULL
+      AND (l.scope='shared' OR l.owner_profile_id=m.profile_id)${libraryVisibility(actor)} ORDER BY p.position,l.id`,[actor.id]);
+    return rows.map(row=>({kind:row.kind,...libraryDto(row)}));
+  }
+  validateLibrary(kind,changes){
+    if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
+    only(changes,kind==='text'?['title','text','analysis','archived','colorText']:['title','artist','lyrics','videoUrl','musicUrl','archived','marks','colorText']);
+    if(!Object.keys(changes).length)bad(400,'Send changed fields only.');
+    for(const [key,value] of Object.entries(changes)){
+      if(key==='colorText'){
+        if(value===null)continue;
+        if(!value||!Array.isArray(value.runs)||value.runs.length>2000||value.runs.some(run=>typeof run.text!=='string'||run.marks?.color&&!/^#[a-f0-9]{6}$/i.test(run.marks.color)))bad(400,'Invalid text color.');
+        const field=kind==='text'?'text':'lyrics';if(field in changes&&value.runs.map(run=>run.text).join('')!==changes[field])bad(400,'Text formatting does not match the content.');continue;
+      }
+      if(key==='marks'||key==='analysis'){
+        const raw=JSON.stringify(value);
+        if(!value||typeof value!=='object'||Array.isArray(value)||raw.length>(key==='analysis'?2_000_000:50000))bad(400,key==='analysis'?'Invalid analysis.':'Invalid marks.');
+        if(key==='analysis'&&value.expressions!==undefined&&!Array.isArray(value.expressions))bad(400,'Invalid analysis.');
+        continue;
+      }
+      if(key==='archived'){if(typeof value!=='boolean')bad(400,'Invalid archive flag.');continue;}
+      text(value,key==='text'?2_000_000:key==='lyrics'?50_000:1000);
+      if(key==='title'&&!value.trim())bad(400,'A title is required.');
+      if(['musicUrl','videoUrl'].includes(key)&&value){let url;try{url=new URL(value);}catch{bad(400,'Invalid media URL.');}
+        if(url.protocol!=='https:'||url.username||url.password)bad(400,'Only HTTPS media links are allowed.');}
+    }
+    return changes;
+  }
+  async createLibrary(actor,body){
+    only(body,['mutationId','kind','changes']);const changes=this.validateLibrary(body.kind,body.changes);
+    if(!changes.title||!changes[body.kind==='text'?'text':'lyrics']?.trim())bad(400,'Title and content are required.');
+    return this.createdCardMutation(actor,body,['create-library',body.kind],async profile=>{
+      const content={...changes,...(body.kind==='text'?{analysis:null}:{marks:{}}),updatedAt:new Date().toISOString()};
+      return {statements:[s("INSERT INTO library_items(kind,scope,owner_profile_id,content_json) VALUES(?,'profile',?,?)",[body.kind,profile,JSON.stringify(content)]),
+        s('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard(),
+        s("UPDATE library_items SET content_json=json_set(content_json,'$.id',id) WHERE id=(SELECT id FROM created_rows)"),
+        s('INSERT INTO profile_library_items(profile_id,item_id,position) SELECT ?,id,(SELECT COALESCE(MIN(position),1)-1 FROM profile_library_items WHERE profile_id=?) FROM created_rows',[profile,profile]),this.guard()],
+        resultSql:`SELECT json_object('id',l.id,'revision',1,'item',json_patch(l.content_json,json_object(
+          'stageId',l.id,'stageRevision',1,'stageScope','profile','kind',l.kind))) result_json
+          FROM library_items l WHERE l.id=(SELECT id FROM created_rows)`,
+        resultArgs:[]};
+    },{personal:true});
+  }
+  async editLibrary(actor,key,body,deleting=false){
+    recordId(key);only(body,deleting?['mutationId','expectedRevision']:['mutationId','expectedRevision','changes']);const expected=rev(body.expectedRevision);if(!expected)bad(400,'Expected a saved record.');
+    return this.personal(actor,body,[deleting?'delete-library':'edit-library',key],async profile=>{
+      const [row]=await this.db.read('SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id WHERE p.profile_id=? AND l.id=? AND l.deleted_at IS NULL',[profile,key]);
+      if(!row||row.scope!=='profile'||row.owner_profile_id!==profile)bad(404,'Own library item not found. Shared items are read-only here.');
+      const changes=deleting?{}:this.validateLibrary(row.kind,body.changes),content={...JSON.parse(row.content_json),...changes,updatedAt:new Date().toISOString()};
+      if('text' in changes)content.analysis=null;
+      if('lyrics' in changes)content.marks={};
+      return {statements:[s(`UPDATE library_items SET ${deleting?'deleted_at=unixepoch()':'content_json=?'},revision=revision+1 WHERE id=? AND owner_profile_id=? AND scope='profile' AND revision=? AND deleted_at IS NULL`,[...(deleting?[]:[JSON.stringify(content)]),key,profile,expected]),this.guard()],
+        result:{id:key,revision:expected+1,...(deleting?{deleted:true}:{item:{...content,stageId:key,stageRevision:expected+1,stageScope:'profile',kind:row.kind}})}};
+    });
+  }
+  async editManagedText(actor,accountId,key,body){
+    return this.editManagedLibrary(actor,accountId,key,'text',body);
+  }
+  async createManagedLibrary(actor,accountId,kind,body){
+    id(accountId);only(body,['mutationId','changes']);
+    if(actor?.role!=='DEVELOPER')bad(403,'This material is unavailable.');
+    const changes=this.validateLibrary(kind,body.changes);
+    if(!changes.title||!changes[kind==='text'?'text':'lyrics']?.trim())bad(400,'Title and content are required.');
+    return this.createdCardMutation(actor,body,['create-managed-library',accountId,kind],async()=>{
+      const members=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
+      if(members.length!==1)bad(409,'Target profile has not been imported.');
+      const profile=members[0].profile_id,content={...changes,...(kind==='text'?{analysis:null}:{marks:{}}),updatedAt:new Date().toISOString()};
+      return {statements:[s("INSERT INTO library_items(kind,scope,owner_profile_id,content_json) VALUES(?,'profile',?,?)",[kind,profile,JSON.stringify(content)]),
+        s('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard(),
+        s("UPDATE library_items SET content_json=json_set(content_json,'$.id',id) WHERE id=(SELECT id FROM created_rows)"),
+        s('INSERT INTO profile_library_items(profile_id,item_id,position) SELECT ?,id,(SELECT COALESCE(MIN(position),1)-1 FROM profile_library_items WHERE profile_id=?) FROM created_rows',[profile,profile]),this.guard()],
+        resultSql:`SELECT json_object('id',l.id,'revision',1,'item',json_patch(l.content_json,json_object(
+          'stageId',l.id,'stageRevision',1,'stageScope','profile','kind',l.kind))) result_json
+          FROM library_items l WHERE l.id=(SELECT id FROM created_rows)`,
+        resultArgs:[]};
+    });
+  }
+  async editManagedLibrary(actor,accountId,key,kind,body,deleting=false){
+    if(deleting&&actor?.role!=='DEVELOPER')bad(403,'You cannot remove another account\'s data.');
+    id(accountId);recordId(key);only(body,deleting?['mutationId','expectedRevision']:['mutationId','expectedRevision','changes']);
+    if(!['text','song'].includes(kind))bad(400,'Invalid library kind.');
+    if(actor?.role!=='DEVELOPER')bad(403,'This material is unavailable.');
+    const expected=rev(body.expectedRevision);if(!expected)bad(400,'Expected a saved text.');
+    const changes=deleting?{}:this.validateLibrary(kind,body.changes);
+    return this.mutate(actor,body,[deleting?'archive-managed-'+kind:'edit-managed-'+kind,accountId,key],async()=>{
+      const profiles=await this.db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[accountId]);
+      if(profiles.length!==1)bad(409,'Target profile has not been imported.');
+      const profile=profiles[0].profile_id;
+      const [row]=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+        WHERE p.profile_id=? AND l.id=? AND l.kind=? AND l.scope='profile'
+        AND l.owner_profile_id=? AND l.deleted_at IS NULL`,[profile,key,kind,profile]);
+      if(!row)bad(404,'Target personal text not found. Shared texts are read-only.');
+      const content={...JSON.parse(row.content_json),...changes,updatedAt:new Date().toISOString()};
+      if('text' in changes)content.analysis=null;
+      if('lyrics' in changes)content.marks={};
+      return {statements:[s(`UPDATE library_items SET ${deleting?'deleted_at=unixepoch()':'content_json=?'},revision=revision+1 WHERE id=? AND kind=?
+        AND scope='profile' AND owner_profile_id=? AND revision=? AND deleted_at IS NULL
+        AND EXISTS(SELECT 1 FROM profile_library_items WHERE profile_id=? AND item_id=library_items.id)`,[...(deleting?[]:[JSON.stringify(content)]),key,kind,profile,expected,profile]),this.guard()],
+        result:{id:key,revision:expected+1,...(deleting?{deleted:true}:{item:{...libraryDto({...row,content_json:JSON.stringify(content),revision:expected+1}),kind}})}};
+    });
+  }
+  async editManagedCard(actor,accountId,key,body){
+    id(accountId);cardId(key);only(body,['mutationId','expectedRevision','changes']);
+    const expected=rev(body.expectedRevision);if(!expected)bad(400,'Expected a saved card.');
+    only(body.changes,['ru']);const ru=text(body.changes.ru,10000).trim();if(!ru)bad(400,'Translation required.');
+    return this.mutate(actor,body,['edit-managed-card',accountId,key],async()=>{
+      const [row]=await this.db.read(`SELECT c.owner_profile_id FROM profile_members m JOIN profile_cards p ON p.profile_id=m.profile_id
+        JOIN cards c ON c.id=p.card_id WHERE m.account_id=? AND c.id=? AND c.scope='profile'
+        AND c.owner_profile_id=m.profile_id AND c.deleted_at IS NULL LIMIT 1`,[accountId,key]);
+      if(!row)bad(404,'Target personal card not found. Shared cards cannot be edited here.');
+      return {statements:[s(`UPDATE cards SET ru=?,revision=revision+1,updated_at=unixepoch() WHERE id=?
+        AND owner_profile_id=? AND scope='profile' AND revision=? AND deleted_at IS NULL
+        AND EXISTS(SELECT 1 FROM profile_members m JOIN profile_cards p ON p.profile_id=m.profile_id
+          WHERE m.account_id=? AND p.card_id=cards.id AND m.profile_id=cards.owner_profile_id)`,[ru,key,row.owner_profile_id,expected,accountId]),this.guard()],
+        result:{id:key,ru,revision:expected+1}};
+    });
+  }
+}

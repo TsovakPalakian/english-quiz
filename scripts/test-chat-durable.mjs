@@ -5,11 +5,11 @@ import {ChatRoom,ChatInbox,chatCall,directRoomId} from '../src/chat-durable.mjs'
 import {ChatBridge,durableChatWorker} from '../src/chat-worker.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from '../src/chat-attachments.mjs';
 import {chatPreviewUrl,chatLinkPreview} from '../src/chat-previews.mjs';
-import {MessageService} from '../src/turso-messages.mjs';
-import {AssessmentService} from '../src/turso-assessment.mjs';
+import {MessageService} from '../src/learning-messages.mjs';
+import {AssessmentService} from '../src/learning-assessment.mjs';
 import {ExamWorkflowService} from '../src/exam-workflow.mjs';
-import {ExamService} from '../src/turso-exams.mjs';
-import {applyTursoSchema} from './turso-test-schema.mjs';
+import {ExamService} from '../src/learning-exams.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
 import {bindChatEncryption} from '../src/chat-encryption.mjs';
 function fixture(journal){
   const env={CONTENT_SESSION_SECRET:'fixture-secret'},databases=[],pending=[];
@@ -173,8 +173,8 @@ test('ending one authenticated session closes only its sockets and blocks furthe
     inbox.broadcast({seq:3});await f.drain();assert.ok(a.closes.includes(4003));assert.equal(a.messages.length,2);assert.equal(b.messages.length,3);assert.equal(b.closes.length,0);
   }finally{f.close();}
 });
-test('database switching isolates rooms/inboxes and returning to Turso restores only its history',async()=>{
-  const f=fixture();let selected={provider:'turso',revision:0,scope:'site'};
+test('database switching isolates rooms/inboxes and returning to Learning restores only its history',async()=>{
+  const f=fixture();let selected={provider:'d1',revision:0,scope:'site'};
   try{
     f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>selected})};
     const room=directRoomId(f.alice.id,f.bob.id),members=[f.alice,f.bob],configure=async env=>{
@@ -182,7 +182,7 @@ test('database switching isolates rooms/inboxes and returning to Turso restores 
       await chatCall(env,'CHAT_ROOM',room,'/configure',{room:{id:room,kind:'direct'},members});
       await chatCall(env,'CHAT_ROOM',room,'/import',{initial:true,messages:[],complete:true});
     };
-    await configure(f.env);await chatCall(f.env,'CHAT_ROOM',room,'/send',{actor:f.alice,text:'Turso only',clientKey:'same-key'});await f.drain();
+    await configure(f.env);await chatCall(f.env,'CHAT_ROOM',room,'/send',{actor:f.alice,text:'Learning only',clientKey:'same-key'});await f.drain();
     const oldInbox=f.env.CHAT_INBOX.get(f.env.CHAT_INBOX.idFromName(f.alice.id));let closed=0;
     oldInbox.ctx.getWebSockets().push({close(){closed++;},deserializeAttachment:()=>({expires:Date.now()+60000})});
     selected={provider:'neon',revision:1,scope:'site'};
@@ -191,14 +191,14 @@ test('database switching isolates rooms/inboxes and returning to Turso restores 
     const neon={...f.env,DB_PROVIDER:'neon',DATABASE_SELECTION:selected};await configure(neon);
     await chatCall(neon,'CHAT_ROOM',room,'/send',{actor:f.alice,text:'Neon only',clientKey:'same-key'});await f.drain();
     assert.deepEqual((await chatCall(neon,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'})).messages.map(message=>message.text),['Neon only']);
-    selected={provider:'turso',revision:2,scope:'site'};const returned={...f.env,DATABASE_SELECTION:selected};
-    assert.deepEqual((await chatCall(returned,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'})).messages.map(message=>message.text),['Turso only']);
+    selected={provider:'d1',revision:2,scope:'site'};const returned={...f.env,DATABASE_SELECTION:selected};
+    assert.deepEqual((await chatCall(returned,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'})).messages.map(message=>message.text),['Learning only']);
     await assert.rejects(chatCall(neon,'CHAT_INBOX',f.alice.id,'/snapshot',{}),error=>error.status===503);
     const response=await f.env.CHAT_ROOM.get(room).fetch(new Request('https://chat.internal/history',{method:'POST',headers:{'X-Chat-Internal':'fixture-secret','X-Chat-Database':'neon','X-Chat-Database-Revision':'1'},body:JSON.stringify({actor:f.alice})}));assert.equal(response.status,403);
   }finally{await f.drain();f.close();}
 });
 test('inactive bridge alarms never access the original account or learning database',async()=>{
-  const f=fixture({});let selected={provider:'turso',revision:0,scope:'site'},reads=0;
+  const f=fixture({});let selected={provider:'d1',revision:0,scope:'site'},reads=0;
   try{
     f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>selected})};
     await chatCall(f.env,'CHAT_BRIDGE','global','/profiles',{actor:f.alice,ids:[]});
@@ -313,7 +313,7 @@ test('Durable chat persists, deduplicates, searches, publishes counters and read
   }finally{f.close();}
 });
 for(const encrypted of [false,true])test('Academic bridge imports once, retains colored replies and dispatches assignment/review/publication notices'+(encrypted?' with encryption':''),async()=>{
-  const sqlite=new DatabaseSync(':memory:');applyTursoSchema(sqlite);let reads=0;
+  const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);let reads=0;
   const values=cmd=>cmd.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value);
   const journal={read:async(sql,args=[])=>{reads++;return sqlite.prepare(sql).all(...args);},readMany:async cmds=>cmds.map(c=>sqlite.prepare(c.sql).all(...values(c))),atomic:async cmds=>{sqlite.exec('BEGIN');try{const result=cmds.map(c=>{const stmt=sqlite.prepare(c.sql);if(stmt.columns().length)return {rows:stmt.all(...values(c)).map(r=>Object.values(r).map(value=>({value:String(value)})))};stmt.run(...values(c));return {rows:[]};});sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
   const f=fixture(journal);try{
@@ -328,7 +328,7 @@ for(const encrypted of [false,true])test('Academic bridge imports once, retains 
     await env.CHAT_BRIDGE.get('global').bootstrap(alice);await f.drain();
     if(encrypted)assert.ok(sqlite.prepare('SELECT body FROM chat_messages').all().every(row=>row.body.startsWith('chatenc:')));
     const history=await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:alice,category:'personal'});assert.equal(history.messages.length,2);assert.equal(history.messages[0].id,sent.id);assert.equal(history.messages[0].format.runs[0].marks.color,'#ff0000');assert.equal(history.messages[1].replyText,'Colored legacy');
-    const before=reads;await chatCall(env,'CHAT_ROOM',roomId,'/send',{actor:alice,category:'personal',text:'No Turso read',clientKey:'new-chat'});await f.drain();assert.equal(reads,before,'Normal chat does not query Turso');
+    const before=reads;await chatCall(env,'CHAT_ROOM',roomId,'/send',{actor:alice,category:'personal',text:'No Learning read',clientKey:'new-chat'});await f.drain();assert.equal(reads,before,'Normal chat does not query Learning');
     await legacy.assign(teacher,{targetKind:'student',targetId:'alice',examId:1,action:'assign',clientKey:'bridge-assignment'});await chatCall(env,'CHAT_BRIDGE','global','/flush',{});await f.drain();
     if(encrypted)assert.ok(sqlite.prepare('SELECT body FROM chat_messages').all().every(row=>row.body.startsWith('chatenc:')));
     const id='direct:alice:teacher',notices=await chatCall(env,'CHAT_ROOM',id,'/history',{actor:alice,category:'learning'});assert.equal(notices.messages.length,1);assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM chat_delivery_outbox').get().n,0);

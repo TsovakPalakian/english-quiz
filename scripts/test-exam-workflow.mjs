@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {applyTursoSchema} from './turso-test-schema.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
 import {examWorkflowDemo} from './exam-workflow-demo.mjs';
-import {ExamService,studentExamContent} from '../src/turso-exams.mjs';
-import {AssessmentService,gradingQuestions} from '../src/turso-assessment.mjs';
-import {MessageService} from '../src/turso-messages.mjs';
+import {ExamService,studentExamContent} from '../src/learning-exams.mjs';
+import {AssessmentService,gradingQuestions} from '../src/learning-assessment.mjs';
+import {MessageService} from '../src/learning-messages.mjs';
 import {ExamWorkflowService} from '../src/exam-workflow.mjs';
 import {examSuggestion} from '../src/exam-checking.mjs';
 import {examTaskMax} from '../src/exam-scoring.mjs';
 import {examRecommendation} from '../src/exam-recommendations.mjs';
 const teacher={id:'teacher',login:'TsovakTeacher',name:'Teacher',role:'ADMIN'},student={id:'student',login:'Somestudent',name:'Student',role:'USER'};
 function fixture(){
-  const sqlite=new DatabaseSync(':memory:');applyTursoSchema(sqlite);
+  const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);
   const args=command=>command.args.map(a=>a.type==='null'?null:['integer','float'].includes(a.type)?Number(a.value):a.value);
   const db={async read(sql,args=[]){return sqlite.prepare(sql).all(...args);},async readMany(commands){return commands.map(command=>sqlite.prepare(command.sql).all(...args(command)));},async atomic(commands){sqlite.exec('BEGIN IMMEDIATE');try{const result=commands.map(command=>{const query=sqlite.prepare(command.sql),rows=query.all(...args(command));return {cols:query.columns().map(c=>({name:c.name})),rows:rows.map(row=>Object.values(row).map(value=>({type:value==null?'null':typeof value==='number'?'integer':'text',value:String(value)})))};});sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
   return {sqlite,db};

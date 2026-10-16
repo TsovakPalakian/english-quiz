@@ -3,12 +3,12 @@ import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-assert.ok(readFileSync('rollback/turso-production-assets/preview.js','utf8').includes('class="account-approval-row" data-list-row'));
+assert.ok(readFileSync('rollback/production-assets/preview.js','utf8').includes('class="account-approval-row" data-list-row'));
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 try{
   const page=await browser.newPage();
   await page.setContent('<html data-theme="almond"><body><main><section class="on"><div class="card"><p>Waiting for approval</p>'+['Student_4','Student_3','Student_2','Student_1_with_a_long_name'].map(name=>'<div class="account-approval-row"><div><b>'+name+'</b><br><span class="hint">'+name.toLowerCase()+'@gmail.com · '+name+' · Student</span></div><select aria-label="Student group"><option>A1 Group</option></select><button class="btn primary">Approve</button><button class="btn">Reject</button></div>').join('')+'</div></section></main></body></html>');
-  for(const file of ['preview.css','main-stage.css'])await page.addStyleTag({content:readFileSync('rollback/turso-production-assets/'+file,'utf8')});
+  for(const file of ['preview.css','main-stage.css'])await page.addStyleTag({content:readFileSync('rollback/production-assets/'+file,'utf8')});
   await page.addStyleTag({content:'body{padding:16px!important}main{margin:0!important;max-width:100%}section.on{display:block;padding:0}'});
   for(const width of [1280,700,390,320]){
     await page.setViewportSize({width,height:900});

@@ -10,26 +10,26 @@ function fixture(overrides={}){
     cardIndex:()=>new Map(added.map(row=>[row.word,{en:row.word}])),loadAdded:()=>added,
     lyricTokens:text=>text.toLowerCase().split(/\s+/),lookupLyricWord:async word=>({found:true,word,ru:'translation'}),
     document:{addEventListener(){},getElementById(){return null;},querySelector(){return null;}},
-    window:{TursoMain:{findCard:async()=>{throw missing();},newCard:async(word,ru,place)=>{calls.push(word);return {revision:1,card:{word,ru,place}};}}},...overrides};
+    window:{LearningMain:{findCard:async()=>{throw missing();},newCard:async(word,ru,place)=>{calls.push(word);return {revision:1,card:{word,ru,place}};}}},...overrides};
   runInNewContext(hooks,scope);scope.stageStampLinks=()=>{};return {scope,added,calls};
 }
 test('Song writes are sequential and successful words are all acknowledged',async()=>{
   const {scope,calls}=fixture();let active=0,peak=0;
-  scope.window.TursoMain.newCard=async(word,ru,place)=>{peak=Math.max(peak,++active);await new Promise(resolve=>setTimeout(resolve,3));active--;calls.push(word);return {revision:calls.length,card:{word,ru,place}};};
+  scope.window.LearningMain.newCard=async(word,ru,place)=>{peak=Math.max(peak,++active);await new Promise(resolve=>setTimeout(resolve,3));active--;calls.push(word);return {revision:calls.length,card:{word,ru,place}};};
   const marks={};await scope.stageMarkLyricWords({lyrics:'man night train'},marks,()=>{});
   assert.equal(peak,1);assert.equal(calls.length,3);assert.ok(Object.values(marks).every(mark=>mark.state==='new'));
 });
 test('Server card lookup precedes external dictionaries and uses the lemma',async()=>{
   const {scope,calls}=fixture();let lookups=0;
   scope.lookupLyricWord=async()=>{lookups++;throw Error('Should not reach dictionary');};
-  scope.window.TursoMain.findCard=async word=>{if(word==='run')return {id:7,en:'run'};throw missing();};
-  scope.window.TursoMain.linkCard=async()=>({revision:1,card:{word:'run',stageId:7,place:'music'}});
+  scope.window.LearningMain.findCard=async word=>{if(word==='run')return {id:7,en:'run'};throw missing();};
+  scope.window.LearningMain.linkCard=async()=>({revision:1,card:{word:'run',stageId:7,place:'music'}});
   const marks={};await scope.stageMarkLyricWords({lyrics:'running'},marks,()=>{},{running:'run'});
   assert.equal(marks.running.word,'run');assert.equal(marks.running.state,'have');assert.equal(lookups,0);assert.equal(calls.length,0);
 });
 test('Transient and ambiguous lookups never create cards or turn previous success red',async()=>{
   for(const error of [Object.assign(Error('Offline'),{status:503}),Object.assign(Error('Choose a card'),{code:'CARD_AMBIGUOUS'})]){
-    const {scope,calls}=fixture();scope.window.TursoMain.findCard=async()=>{throw error;};
+    const {scope,calls}=fixture();scope.window.LearningMain.findCard=async()=>{throw error;};
     const marks={man:{state:'new',word:'man'}};await scope.stageMarkLyricWords({lyrics:'man night'},marks,()=>{});
     assert.equal(marks.man.state,'new');assert.equal(marks.man.needsRetry,true);assert.equal(marks.night.state,'error');assert.equal(calls.length,0);
   }
@@ -44,7 +44,7 @@ test('Ordinary words cannot resolve to inherited object properties',async()=>{
   assert.equal(marks.constructor.state,'new');assert.deepEqual(calls,['constructor']);
 });
 test('A failed link cannot fall through into new-card creation',async()=>{
-  const {scope,calls}=fixture();scope.window.TursoMain.findCard=async()=>({id:7,en:'man'});scope.window.TursoMain.linkCard=async()=>{throw Object.assign(Error('Conflict'),{status:409});};
+  const {scope,calls}=fixture();scope.window.LearningMain.findCard=async()=>({id:7,en:'man'});scope.window.LearningMain.linkCard=async()=>{throw Object.assign(Error('Conflict'),{status:409});};
   await assert.rejects(()=>scope.stageKeepExpression({word:'man',ru:'translation',place:'music'}),/Conflict/);assert.equal(calls.length,0);
 });
 test('AI review continues past the first batch and preserves earlier decisions',async()=>{

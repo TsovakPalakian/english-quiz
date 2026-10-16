@@ -1,5 +1,5 @@
 import {neonClient} from './neon-connection.mjs';
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 import {studyQuery} from './neon-study-sql.mjs';
 import {studyNamespace} from './neon-study-migration.mjs';
 

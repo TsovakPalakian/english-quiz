@@ -1,4 +1,4 @@
-// PostgreSQL schema only. Runtime reads/writes still use Turso.
+// PostgreSQL schema only. Runtime reads/writes still use Learning.
 import {neonSchemaV2,neonV2Tables} from './neon-schema-v2.mjs';
 import {neonAuthSchema} from './neon-auth-schema.mjs';
 export const NEON_FOUNDATION_VERSION=3;

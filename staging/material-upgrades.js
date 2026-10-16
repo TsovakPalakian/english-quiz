@@ -124,12 +124,12 @@ const materialRenderPreviewBefore=lmRenderPreview;
 lmRenderPreview=function(){materialRenderPreviewBefore();if(!lmState?.examOwned)window.MaterialQuiz?.bind(document.getElementById('lmPreview'),{
   block:id=>(lmState.blocks||[]).find(part=>String(part.id)===id),locked:()=>!!viewAccount,
   get:(part,index)=>materialWhole(part)?part.response||part.items?.[0]?.typed||'':part.items[index]?.given??part.items[index]?.typed??part.items[index]?.picked??'',
-  set:(part,index,value)=>{if(materialWhole(part)){part.response=value;if(part.items?.[0])part.items[0].typed=String(value);}else{part.items[index].typed=Array.isArray(value)?JSON.stringify(value):String(value);if(typeof value==='number')part.items[index].picked=value;}if(authUser&&accountReady&&part.stageBlockRevision)window.TursoMain.response(lmState.id,part,stageResponseValue(part,false),true);},
+  set:(part,index,value)=>{if(materialWhole(part)){part.response=value;if(part.items?.[0])part.items[0].typed=String(value);}else{part.items[index].typed=Array.isArray(value)?JSON.stringify(value):String(value);if(typeof value==='number')part.items[index].picked=value;}if(authUser&&accountReady&&part.stageBlockRevision)window.LearningMain.response(lmState.id,part,stageResponseValue(part,false),true);},
 });if(!lmState?.examOwned)document.querySelectorAll('#lmPreview [data-response],#lmPreview [data-material-answer-input],#lmPreview input[data-write],#lmPreview input[data-mq-input]:not([readonly])').forEach(field=>{
   const widget=field.closest('[data-mq]'),key=field.dataset.write||field.dataset.response||field.dataset.materialAnswerInput||widget?.dataset.mq,[id,index]=String(key).split(':'),part=lmBlock(id);if(!part||viewAccount)return;const row=index!=null?part.items?.[Number(index)]:field.hasAttribute('data-mq-input')?part.items?.[Number(field.dataset.mqInput)]:part;
   if(!row)return;window.TextColors?.mount(field,{format:row===part?part.responseFormatting:row.typedFormatting,richTools:!!part.answerEnabled,onChange:format=>{if(row===part)part.responseFormatting=format;else row.typedFormatting=format;}});
 });};
-document.addEventListener('input',event=>{const field=event.target.closest('[data-material-answer-input]');if(!field||lmState?.examOwned||viewAccount)return;const part=lmBlock(field.dataset.materialAnswerInput);if(!part)return;part.response=field.value;if(accountReady&&part.stageBlockRevision)window.TursoMain.response(lmState.id,part,stageResponseValue(part));});
+document.addEventListener('input',event=>{const field=event.target.closest('[data-material-answer-input]');if(!field||lmState?.examOwned||viewAccount)return;const part=lmBlock(field.dataset.materialAnswerInput);if(!part)return;part.response=field.value;if(accountReady&&part.stageBlockRevision)window.LearningMain.response(lmState.id,part,stageResponseValue(part));});
 const materialApplyBefore=assessmentApply;
 assessmentApply=function(doc,row){materialApplyBefore(doc,row);doc.recordings=row.recordings||{};doc.examSuggested=row.suggestedPoints||{};for(const part of doc.blocks||[]){if(part.scoringVersion>=3&&materialWhole(part))part.response=row.answers?.[part.id]?.[0]||'';if(row.saved&&canTuneStudentLessons()&&part.quizType==='Memory'&&doc.examSuggested[part.id]?.[0]!=null&&doc.examPoints?.[part.id]?.[0]==null)(doc.examPoints[part.id]||={})[0]=doc.examSuggested[part.id][0];}};
 const materialCollectBefore=examCollectAnswers;
@@ -244,7 +244,7 @@ examPaintList=function(){
   }else box.innerHTML=subgroupRows.map(renderExam).join('');
   window.lucide?.createIcons();
 };
-document.addEventListener('click',event=>{const button=event.target.closest('[data-material-remove-reference]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(!canEditLessons()||!confirm('Remove this completed work from your list? The student keeps their exam.'))return;const id=Number(button.dataset.materialRemoveReference);void accountFetch('/api/exams/'+id,{method:'DELETE'}).then(()=>{examSave(examLoad().filter(exam=>exam.id!==id));examPaintList();}).catch(error=>window.TursoMain.notice(error.message,true));},true);
+document.addEventListener('click',event=>{const button=event.target.closest('[data-material-remove-reference]');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(!canEditLessons()||!confirm('Remove this completed work from your list? The student keeps their exam.'))return;const id=Number(button.dataset.materialRemoveReference);void accountFetch('/api/exams/'+id,{method:'DELETE'}).then(()=>{examSave(examLoad().filter(exam=>exam.id!==id));examPaintList();}).catch(error=>window.LearningMain.notice(error.message,true));},true);
 const materialNormalizeBefore=examFromWire;
 examFromWire=function(row){const value=materialNormalizeBefore(row);value.studentEmail=row.studentEmail||'';return value;};
 const materialVisibilityPending=new Set();
@@ -255,7 +255,7 @@ toggleManagedVisibility=function(row,type){
   const actor=viewAccount.id,generation=viewGen,previous=!!row.personalHidden;materialVisibilityPending.add(key);
   const update=flag=>{row.personalHidden=flag;if(type==='group'){const found=classGroups.find(group=>group.id===row.id);if(found)found.personalHidden=flag;}else{const exams=examLoad();const found=type==='exam'?exams.find(exam=>exam.id===row.id):exams.flatMap(exam=>exam.blocks||[]).find(block=>block.id===row.id);if(found)found.personalHidden=flag;localStorage.setItem('enquiz-exams',JSON.stringify(exams));}};update(!previous);
   const repaint=()=>{if(type==='group')paintGroups();else if(type==='exam')examPaintList();else examPaintBlocks();};repaint();
-  return materialVisibilityWrite(()=>{if(generation!==viewGen||viewAccount?.id!==actor)throw new Error('Account changed.');return window.TursoMain.setManagedVisibility(actor,type,row.id,previous,!previous);}).then(()=>{if(generation===viewGen&&viewAccount?.id===actor){window.ContentCache?.invalidate('account:bootstrap');repaint();}}).catch(error=>{if(generation===viewGen&&viewAccount?.id===actor){update(previous);repaint();window.TursoMain.notice(error.message,true);}}).finally(()=>materialVisibilityPending.delete(key));
+  return materialVisibilityWrite(()=>{if(generation!==viewGen||viewAccount?.id!==actor)throw new Error('Account changed.');return window.LearningMain.setManagedVisibility(actor,type,row.id,previous,!previous);}).then(()=>{if(generation===viewGen&&viewAccount?.id===actor){window.ContentCache?.invalidate('account:bootstrap');repaint();}}).catch(error=>{if(generation===viewGen&&viewAccount?.id===actor){update(previous);repaint();window.LearningMain.notice(error.message,true);}}).finally(()=>materialVisibilityPending.delete(key));
 };
 const materialHideLessonBefore=stageHideLesson;
 stageHideLesson=function(id){
@@ -264,7 +264,7 @@ stageHideLesson=function(id){
   const account=viewAccount.id,generation=viewGen,expected={allowHidden:lmAllowedForStudent(id),personalHidden:lmHiddenForStudent(id)},changes={...expected};if(part.hiddenFromStudents)changes.allowHidden=!expected.allowHidden;else changes.personalHidden=!expected.personalHidden;
   const update=flags=>{const toggle=(list,on)=>on?[...new Set([...list,String(id)])]:list.filter(value=>String(value)!==String(id));installAllowedLessons(toggle(loadAllowedLessons(),flags.allowHidden));installHiddenLessons(toggle(loadHiddenLessons(),flags.personalHidden));paintLmDays();};
   materialVisibilityPending.add(key);update(changes);
-  return materialVisibilityWrite(()=>{if(generation!==viewGen||viewAccount?.id!==account)throw new Error('Account changed.');return window.TursoMain.setManagedLessonAccess(account,id,expected,changes);}).catch(error=>{if(generation===viewGen&&viewAccount?.id===account){update(expected);window.TursoMain.notice(error.message,true);}}).finally(()=>materialVisibilityPending.delete(key));
+  return materialVisibilityWrite(()=>{if(generation!==viewGen||viewAccount?.id!==account)throw new Error('Account changed.');return window.LearningMain.setManagedLessonAccess(account,id,expected,changes);}).catch(error=>{if(generation===viewGen&&viewAccount?.id===account){update(expected);window.LearningMain.notice(error.message,true);}}).finally(()=>materialVisibilityPending.delete(key));
 };
 globalThis.lmHideLesson=stageHideLesson;
 let materialRecording;

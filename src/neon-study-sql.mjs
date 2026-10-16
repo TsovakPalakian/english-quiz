@@ -1,4 +1,4 @@
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 import {studyTracking} from './neon-study-helpers.mjs';
 import {neonStudyTables} from './neon-study-schema.mjs';
 

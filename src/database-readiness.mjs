@@ -1,6 +1,6 @@
 import {neonClient} from './neon-connection.mjs';
 import {neonTables,NEON_FOUNDATION_VERSION} from './neon-foundation.mjs';
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 import {neonStudyTables} from './neon-study-schema.mjs';
 import {NEON_STUDY_VERSION} from './neon-study-migration.mjs';
 

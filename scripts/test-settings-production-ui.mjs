@@ -17,7 +17,7 @@ try{
   await waitConnection(connected);
   if(phase==='after'){
     const original=await page.evaluate(()=>document.documentElement.dataset.theme);
-    for(const theme of ['light','dark','almond']){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;window.TursoMain.notice('Notification preview: please check your settings.',true);},theme);assert.ok(await page.locator('#turso-main-banner').evaluate(node=>node.open&&parseFloat(getComputedStyle(node).borderLeftWidth)>=6));await page.screenshot({path:'/private/tmp/production-warning-'+theme+'.png'});await page.locator('#turso-main-dismiss').click();}
+    for(const theme of ['light','dark','almond']){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;window.LearningMain.notice('Notification preview: please check your settings.',true);},theme);assert.ok(await page.locator('#learning-main-banner').evaluate(node=>node.open&&parseFloat(getComputedStyle(node).borderLeftWidth)>=6));await page.screenshot({path:'/private/tmp/production-warning-'+theme+'.png'});await page.locator('#learning-main-dismiss').click();}
     await page.evaluate(value=>{document.documentElement.dataset.theme=value;},original);
   }
   if(phase==='cards'){
@@ -25,9 +25,9 @@ try{
     assert.match(await page.locator('#add h1').innerText(),/^My cards/);assert.equal(await page.locator('#add .sub').innerText(),'Cards you added yourself.');
     await page.locator('#groupAdd [data-add-open]').click();const word=await page.evaluate(()=>loadAdded().find(row=>(row.place||'mine')==='mine'&&!row.fromText).word);
     for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});for(const field of ['#add [data-add-input]','#add [data-card-search]']){await page.locator(field).focus();assert.ok(await page.locator(field).evaluate(node=>{const box=node.getBoundingClientRect(),parent=node.closest('.card.grow').getBoundingClientRect();return box.left>=parent.left+7&&box.right<=parent.right-7;}));}}
-    await page.setViewportSize({width:1440,height:1000});await page.locator('#add [data-add-input]').fill(word);await page.locator('#add [data-add-go]').click();await page.locator('#turso-main-status').filter({hasText:'This card is already on the page.'}).waitFor({timeout:30000});
-    assert.equal(await page.locator('#add [data-add-status]').innerText(),'');await page.screenshot({path:'/private/tmp/my-cards-production.png'});await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('#turso-main-banner').isVisible(),false);
-    await page.locator('#add [data-add-go]').click();await page.locator('#turso-main-banner:not([hidden])').waitFor();await page.mouse.click(2,2);assert.equal(await page.locator('#turso-main-banner').isVisible(),false);
+    await page.setViewportSize({width:1440,height:1000});await page.locator('#add [data-add-input]').fill(word);await page.locator('#add [data-add-go]').click();await page.locator('#learning-main-status').filter({hasText:'This card is already on the page.'}).waitFor({timeout:30000});
+    assert.equal(await page.locator('#add [data-add-status]').innerText(),'');await page.screenshot({path:'/private/tmp/my-cards-production.png'});await page.locator('#learning-main-dismiss').click();assert.equal(await page.locator('#learning-main-banner').isVisible(),false);
+    await page.locator('#add [data-add-go]').click();await page.locator('#learning-main-banner:not([hidden])').waitFor();await page.mouse.click(2,2);assert.equal(await page.locator('#learning-main-banner').isVisible(),false);
     console.log('PRODUCTION: My cards labels, intact input outlines at 1440/390/320px and duplicate warning close/outside passed. No cards created or edited.');
   }else{
   await page.locator('.brand-account').first().click();await page.locator('.user-settings .chat-edit-profile').waitFor({timeout:30000});

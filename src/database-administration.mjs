@@ -1,37 +1,38 @@
-import {StudyError} from './turso-study.mjs';
+import {StudyError} from './learning-study.mjs';
 import {neonFoundation,neonTables,NEON_FOUNDATION_VERSION} from './neon-foundation.mjs';
 import {changeDatabaseSelection,DATABASE_CONTROL} from './database-selection.mjs';
 import {neonAccountDatabase} from './neon-account-database.mjs';
 import {neonClient} from './neon-connection.mjs';
 import {neonStudyMigration} from './neon-study-migration.mjs';
 import {neonProductionReadiness} from './database-readiness.mjs';
+import {d1Readiness} from './d1-readiness.mjs';
 export {neonClient,neonConnection} from './neon-connection.mjs';
 export function databaseStatus(env){
-  const selection=env.DATABASE_SELECTION||{provider:env.DB_PROVIDER||'turso',revision:0,scope:'site'};
+  const selection=env.DATABASE_SELECTION||{provider:env.DB_PROVIDER||'d1',revision:0,scope:'site'};
   return {active:selection.provider,scope:'site',revision:selection.revision,authentication:env.AUTH_DATABASE_PROVIDER==='neon'?'neon':'cloudflare-d1',chat:'cloudflare-durable-objects',providers:[
-    {id:'turso',name:'Turso',configured:!!(env.TURSO_URL&&env.TURSO_AUTH_TOKEN),adapterReady:true,authenticationAdapterReady:true,active:selection.provider==='turso'},
+    {id:'d1',name:'Cloudflare D1',configured:!!env.STUDY_DB,adapterReady:true,authenticationAdapterReady:true,active:selection.provider==='d1'},
     {id:'neon',name:'Neon PostgreSQL',configured:!!env.NEON_DATABASE_URL,adapterReady:true,authenticationAdapterReady:true,active:selection.provider==='neon'}
   ]};
 }
-export async function databaseAction(env,body,{createNeon=neonClient,readTurso,actor}={}){
-  if(!body||Object.keys(body).some(key=>!['action','provider',...(body.action==='activate'?['expectedRevision']:[])].includes(key))||!['check','prepare','activate'].includes(body.action)||!['neon','turso'].includes(body.provider))throw new StudyError(400,'Invalid database action.');
+export async function databaseAction(env,body,{createNeon=neonClient,actor}={}){
+  if(!body||Object.keys(body).some(key=>!['action','provider',...(body.action==='activate'?['expectedRevision']:[])].includes(key))||!['check','prepare','activate'].includes(body.action)||!['neon','d1'].includes(body.provider))throw new StudyError(400,'Invalid database action.');
   if(body.action==='activate'){
     if(actor?.role!=='DEVELOPER'||!actor.id)throw new StudyError(403,'Developers only.');
     if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)throw new StudyError(400,'A valid configuration revision is required.');
-    if((env.DATABASE_SELECTION?.provider||env.DB_PROVIDER||'turso')===body.provider)return {...databaseStatus(env),message:'This database is already active for all users.'};
-    const selection=await changeDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{provider:body.provider,expectedRevision:body.expectedRevision,actor,defaultProvider:env.DB_PROVIDER||'turso',verifyTarget:async()=>{
+    if((env.DATABASE_SELECTION?.provider||env.DB_PROVIDER||'d1')===body.provider)return {...databaseStatus(env),message:'This database is already active for all users.'};
+    const selection=await changeDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{provider:body.provider,expectedRevision:body.expectedRevision,actor,defaultProvider:env.DB_PROVIDER||'d1',verifyTarget:async()=>{
       if(body.provider==='neon'){
         const sql=createNeon(env),readiness=await neonProductionReadiness(env,{sql});
         if(!readiness.ready)throw new StudyError(409,'Neon runtime preparation or developer verification is incomplete. The active database was not changed.');
         const row=await neonAccountDatabase(env,{sql}).prepare('SELECT id,role,active,is_personal_data_revoked FROM users WHERE id=?').bind(actor.id).first();
         if(!row||row.role!=='DEVELOPER'||row.active!==1||row.is_personal_data_revoked)throw new StudyError(409,'The current developer account is not available in Neon.');
-      }else{try{await readTurso();}catch{throw new StudyError(503,'Turso connection check failed. The global database was not changed.');}}
+      }else{await d1Readiness(env,actor);}
     }});
     return {...databaseStatus({...env,DATABASE_SELECTION:selection,AUTH_DATABASE_PROVIDER:selection.provider==='neon'?'neon':undefined}),message:'The database was activated for all users. Sign in again.'};
   }
-  if(body.provider==='turso'){
-    if(body.action!=='check')throw new StudyError(400,'Turso schema preparation is not supported here.');
-    try{await readTurso();return {provider:'turso',connected:true};}catch{throw new StudyError(503,'Turso connection check failed. No database was changed.');}
+  if(body.provider==='d1'){
+    if(body.action!=='check')throw new StudyError(400,'D1 imports are performed by the migration operator.');
+    return d1Readiness(env,actor);
   }
   try{
     const sql=createNeon(env);

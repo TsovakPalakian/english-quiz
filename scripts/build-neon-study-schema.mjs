@@ -1,13 +1,13 @@
 import {DatabaseSync} from 'node:sqlite';
 import {writeFileSync} from 'node:fs';
-import {applyTursoSchema} from './turso-test-schema.mjs';
-import {ExamService} from '../src/turso-exams.mjs';
-import {GroupService} from '../src/turso-groups.mjs';
-import {ArchiveService} from '../src/turso-archive.mjs';
-import {AssessmentService} from '../src/turso-assessment.mjs';
-import {MessageService} from '../src/turso-messages.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
+import {ExamService} from '../src/learning-exams.mjs';
+import {GroupService} from '../src/learning-groups.mjs';
+import {ArchiveService} from '../src/learning-archive.mjs';
+import {AssessmentService} from '../src/learning-assessment.mjs';
+import {MessageService} from '../src/learning-messages.mjs';
 import {listBugHeads} from '../src/bug-log.mjs';
-import {ensureSpeakout} from '../src/turso-speakout.mjs';
+import {ensureSpeakout} from '../src/learning-speakout.mjs';
 import {ensureSecuritySessions} from '../src/security-sessions.mjs';
 import {studyTableDDL,studyIndexDDL} from '../src/neon-study-sql.mjs';
 
@@ -15,7 +15,7 @@ const sqlite=new DatabaseSync(':memory:');
 const decode=command=>(command.args||[]).map(item=>item.type==='null'?null:['integer','float'].includes(item.type)?Number(item.value):item.value);
 const db={async read(sql,args=[]){return sqlite.prepare(sql).all(...args);},async atomic(commands){sqlite.exec('BEGIN');try{for(const command of commands)sqlite.prepare(command.sql).all(...decode(command));sqlite.exec('COMMIT');return [];}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
 try{
-  applyTursoSchema(sqlite);
+  applyLearningSchema(sqlite);
   await ensureSecuritySessions(db);
   await new ExamService(db).ensure();await new GroupService(db).ensure();await new AssessmentService(db).ensure();
   await new MessageService(db,async()=>[]).ensure();await new ArchiveService(db).ensure();await ensureSpeakout(db);await listBugHeads(db);

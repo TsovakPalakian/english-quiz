@@ -33,7 +33,7 @@ try{
     const content=await call('/content/v2');assert.ok(content.headers.get('content-type')?.startsWith('multipart'));
     const entrypoint=content.headers.get('cf-entrypoint');assert.ok(entrypoint&&!entrypoint.includes('..'));
     const form=await content.formData(),modules=[];
-    const dir=mkdtempSync('/Users/tsovakpalakian/Downloads/english-quiz-turso-backups/source-worker-');chmodSync(dir,0o700);
+    const dir=mkdtempSync('/Users/tsovakpalakian/Downloads/english-quiz-learning-backups/source-worker-');chmodSync(dir,0o700);
     mkdirSync(resolve(dir,'modules'),{mode:0o700});
     const write=(name,bytes)=>writeFileSync(resolve(dir,name),bytes,{mode:0o600,flag:'wx'});
     for(const [name,value] of form.entries()){
@@ -47,7 +47,7 @@ try{
     write('worker-backup.json',JSON.stringify({account,worker,version,entrypoint,modules,createdAt:new Date().toISOString()},null,2));
     console.log(JSON.stringify({directory:dir,version,modules:modules.length,productionChanged:false}));
   }else if(mode==='--freeze'){
-    assert.match(directory,/^\/Users\/tsovakpalakian\/Downloads\/english-quiz-turso-backups\/source-worker-[A-Za-z0-9]+$/);
+    assert.match(directory,/^\/Users\/tsovakpalakian\/Downloads\/english-quiz-learning-backups\/source-worker-[A-Za-z0-9]+$/);
     const backup=JSON.parse(readFileSync(resolve(directory,'worker-backup.json')));
     assert.equal(backup.account,account);assert.equal(backup.worker,worker);
     assert.equal(active(await json('/deployments')),backup.version,'Source deployment changed: fresh backup required.');
@@ -65,10 +65,10 @@ try{
     const after=await json('/settings');sameSettings(after,before);
     const version=active(await json('/deployments'));
     writeFileSync(resolve(directory,'freeze-result.json'),JSON.stringify({frozenAt:new Date().toISOString(),version,rollbackVersion:backup.version,
-      configUnchanged:true,sourceCodePreserved:true,switchedToTurso:false},null,2),{mode:0o600,flag:'wx'});
-    console.log(JSON.stringify({version,rollbackVersion:backup.version,educationWritesFrozen:true,configUnchanged:true,switchedToTurso:false}));
+      configUnchanged:true,sourceCodePreserved:true,switchedToLearning:false},null,2),{mode:0o600,flag:'wx'});
+    console.log(JSON.stringify({version,rollbackVersion:backup.version,educationWritesFrozen:true,configUnchanged:true,switchedToLearning:false}));
   }else if(mode==='--verify-frozen'){
-    assert.match(directory,/^\/Users\/tsovakpalakian\/Downloads\/english-quiz-turso-backups\/source-worker-[A-Za-z0-9]+$/);
+    assert.match(directory,/^\/Users\/tsovakpalakian\/Downloads\/english-quiz-learning-backups\/source-worker-[A-Za-z0-9]+$/);
     const backup=JSON.parse(readFileSync(resolve(directory,'worker-backup.json')));
     sameSettings(await json('/settings'),JSON.parse(readFileSync(resolve(directory,'settings.json'))));
     const content=await call('/content/v2');assert.equal(content.headers.get('cf-entrypoint'),'migration-freeze.mjs');
@@ -78,7 +78,7 @@ try{
     const expected=`import legacy from ${JSON.stringify('./'+backup.entrypoint)};\n`+middleware+'\nexport default migrationFreeze(legacy);\n';
     assert.equal(await form.get('migration-freeze.mjs').text(),expected);
     const version=active(await json('/deployments'));
-    const result={verifiedAt:new Date().toISOString(),version,rollbackVersion:backup.version,configUnchanged:true,sourceCodePreserved:true,switchedToTurso:false};
+    const result={verifiedAt:new Date().toISOString(),version,rollbackVersion:backup.version,configUnchanged:true,sourceCodePreserved:true,switchedToLearning:false};
     writeFileSync(resolve(directory,'freeze-result.json'),JSON.stringify(result,null,2),{mode:0o600,flag:'wx'});
     console.log(JSON.stringify({...result,educationWritesFrozen:true}));
   }else throw Error('Use --backup, --freeze or --verify-frozen <source-worker-backup>.');

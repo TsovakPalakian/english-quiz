@@ -1,0 +1,115 @@
+// Inject hooks only into the served staging copy. Production preview.js stays
+// byte-for-byte unchanged. Exact anchors fail closed if the main source changes.
+import {embedSource,previewImage,mediaSource} from '../src/learning-embed.mjs';
+import {readFileSync} from 'node:fs';
+export function mainPreview(source,hooks){
+  const insert=(anchor,text)=>{
+    if(source.split(anchor).length!==2)throw new Error('Main preview hook anchor changed: '+anchor);
+    source=source.replace(anchor,anchor+'\n'+text);
+  };
+  const replace=(anchor,text)=>{
+    if(source.split(anchor).length!==2)throw new Error('Main preview replacement anchor changed: '+anchor);
+    source=source.replace(anchor,text);
+  };
+  replace(`    fetch("tense-bank.json").then((res) => res.json()).then((data) => {
+      tenseBank = data || {};
+      tenseBankReady = true;
+    });`,'    // Tense examples are loaded only when their topic/marker is opened.');
+  replace(`      if (!quiet && !tenseBankReady && (legacy || tenseBank[id])) {
+        fetch("tense-bank.json").then((res) => res.json()).then((data) => {
+          tenseBank = data || {};
+          tenseBankReady = true;
+          if (openTenseId === id && (document.querySelector("section.on") || {}).id === "tense") openTopic(id, true);
+        });
+      }`,'      if(!tenseBankReady && (legacy || tenseBank[id]))stageLoadTenseView("tense",id);');
+  insert('    function openMarker(en, quiet) {','      if(!tenseBankReady)stageLoadTenseView("marker",en);');
+  insert('    function show(id) {','      stageDemandLater(id);');
+  insert('    function paintAllWords() {','      if(stageWordsPending()){const box=document.getElementById("allWordGrid");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintStat() {','      if(statKind==="weak"&&typeof stageWeakPending==="function"&&stageWeakPending()){const title=document.getElementById("cardStatTitle");const box=document.getElementById("cardStatList");if(title)title.textContent="Weak cards";if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintVerbs() {','      if(!window.IRREGULAR.length){const box=document.getElementById("verbList");if(box)box.innerHTML=\'<p class="hint">Loading…</p>\';return;}');
+  insert('    function paintSpeak() {','      if(speakView==="levels" && stageSpeakIncomplete()){stagePaintSpeakLevels();return;}');
+  insert('    function openSpeak(view, level, unit, lesson, quiet) {','      if(view!=="levels" && stageSpeakNeedsLoad(level))return stageLoadSpeak(view,level,unit,lesson,quiet);');
+  insert('    function paintTexts() {','      return stagePaintTexts();');
+  insert('    function renderTextList() {','      return stagePaintLibraryList("text");');
+  insert('    function showText(id) {','      const pendingText=loadTexts().find(row=>row.id===id);if(pendingText&&pendingText.stageTextDeferred)return stageOpenText(id);');
+  insert('    function renderUserSong(song) {','      if(song&&song.stageLyricsDeferred)return stageOpenSong(song);');
+  insert('    function paintLyrics() {','      return stagePaintLibraryList("song");');
+  replace('              if (parsed.protocol === "http:" || parsed.protocol === "https:") imageUrl = parsed.toString();','              imageUrl = stagePreviewImage(parsed.href,location.origin);');
+  insert('    function accountFetch(path, options) {','      return window.LearningMain.fetch(path, options);');
+  insert('    function syncChange(change) {','      if (!authUser || authSyncLock) return;\n      if(change?.op==="put-setting" && change.key==="cardQuizzes")return;\n      if(change?.op==="put-setting" && change.key==="theme"){if(!viewAccount && accountReady)try{window.LearningMain.theme(change.value);}catch(error){window.LearningMain.notice(error.message,true);} return;}\n      if(change?.op==="put-setting" && change.key==="customThemes"){if(!viewAccount && accountReady)try{window.LearningMain.customThemes(change.value);}catch(error){window.LearningMain.notice(error.message,true);} stageKeepSetting(change);return;}\n      if(stageKeepSetting(change))return;\n      return window.LearningMain.unsupported(change && change.op);');
+  const logoutTheme='return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme }) }).catch(() => {});';
+  if(source.split(logoutTheme).length!==2)throw new Error('Logout theme anchor changed.');
+  source=source.replace(logoutTheme,'return window.LearningMain.flushPersonal();');
+  insert('    function canEditAdded(item) {','      return !!(item && authUser && accountReady && !viewSwitching && (!viewAccount || stageCanManageAdded(item)));');
+  insert('    function addedEditHtml(item) {','      return stageAddedEditHtml(item);');
+  insert('    function madeEditHtml(item) {','      return addedIndexOf(item)>=0 ? stageAddedEditHtml(item) : (canEditLessons()?catalogEditHtml(findCatalog(item.word)):"");');
+  insert('    function addedRow(item, index) {','      return stageAddedRow(item,index);');
+  insert('    function addedIndexOf(item) {','      if(item && item.stageId)return loadAdded().findIndex(row=>row.stageId===item.stageId&&(row.place||"mine")===(item.place||"mine"));');
+  insert('    function idbGetAdded() {','      return Promise.resolve([]);');
+  insert('    function idbGetSongs() {','      return Promise.resolve([]);');
+  insert('    function renderOwnAccount(data) {',`      if(data && data.testReadonly){
+        const box=document.getElementById('ownAccount');
+        if(box)box.textContent='Настройки аккаунта на этом стенде только для чтения. Пароли, регистрации и профили в production не изменяются.';
+        return;
+      }`);
+  insert('    function saveCardQuizzes(map) {','      localStorage.setItem(CARD_QUIZ_KEY, JSON.stringify(plainCardQuizMap(map)));\n      window.LearningMain.notice("Черновик квиза. Нажмите Done, чтобы сохранить в тестовую Learning."); return;');
+  insert('    function plainCardQuizMap(value) {','      return stageQuizMap(value);');
+  insert('    function installCardQuizzes(serverMap) {','      const authoritative=plainCardQuizMap(serverMap);\n      localStorage.setItem(CARD_QUIZ_KEY,JSON.stringify(authoritative)); return authoritative;');
+  insert('    function mergeCardQuizMaps(localMap, serverMap) {','      return plainCardQuizMap(serverMap);');
+  insert('    function fillEmptyFromAccount(state) {','      applyViewState(state); return;');
+  insert('    function applyAccountState(state) {','      applyViewState(state); return;');
+  insert('    function applyViewState(state) {','      stageSetActivity(state.stageActivity);');
+  insert('    function clearOwnBrowserData(opts) {','      stageSetActivity(null);stageTimeAt=0;stageTimeSeconds=0;');
+  insert('    function applyViewState(state) {','      if(state&&state.bootstrap){stageApplyBootstrap(state);return;}');
+  insert('    function installCardQuizzes(serverMap) {','      if(serverMap==null)return loadCardQuizzes();');
+  insert('    function applySharedStudy(state) {','      return false;');
+  insert('    function editFieldsFor(host) {','      const stageCard=stageHostCard(host);\n      if(!stageCard || !stageCanEditTranslation(stageCard))return null;\n      return [{key:"ru",label:"Russian",value:stageCard.ru||""}];');
+  insert('    function saveCardEdit(host) {','      stageSaveTranslation(host); return;');
+  insert('    function renderWord(w) {','      current=w; // Keep the displayed card selected across Save/catalog refresh.');
+  insert('    function renderWord(w) {','      if(w?.stagePublicCatalog && w.stageDataDeferred)return stageHydrateCatalogWord(w);');
+  insert('    function deleteCard(host) {','      stageDeleteDefinition(host); return;');
+  insert('    function handleCardQuizClick(e) {','      if(stageQuizWrite(e))return true;');
+  insert('    function noteAnswer(item, ok) {','      stageNoteAnswer(item,ok); return;');
+  insert('    function trackEvent(kind, area, result) {','      if(stageOwnReady())try{window.LearningMain.event(kind,area,result);}catch(error){window.LearningMain.notice(error.message,true);} return;');
+  insert('    function statsIntro() {','      stageStatsIntro(); return;');
+  insert('    async function lmLookupWord() {','      return stageLookupLessonWord();');
+  insert('    function lmEmbed(url) {','      return stageEmbedSource(url);');
+  insert('    function lmUrlKind(url) {','      return stageExternalKind(url);');
+  insert('    function videoHtml(url) {',"      return stageExternalPlayer(url,'Video');");
+  insert('    function musicHtml(url) {',"      return stageExternalPlayer(url,'Music');");
+  insert('    function attachSpotify(iframe) {','      return; // Native iframe controls; no third-party script in the app.');
+  insert('    function lmFileUrl(id) {',"      const stageBase='/api/lesson-file?id='+encodeURIComponent(id);return viewAccount?stageBase+'&for='+encodeURIComponent(viewAccount.id):stageBase;");
+  insert('    function paintStats() {','      return stagePaintStats();');
+  insert('    function renderMade(item) {','      if(item)item.word=item.word||item.en||"";if(item?.stageDataDeferred)return stageHydrateMade(item);');
+  insert('    function renderMade(item) {','      stageMadeAttempts.clear();');
+  insert('        const dir = choice.dataset.choiceDir;',"        stageMadeAnswer('Choice',dir,choice.dataset.madeChoice==='ok',choice.textContent);");
+  insert('        const needed = dir === "ru" ? view.dataset.ru : view.dataset.word;',"        stageMadeAnswer('Type',dir,ok,typed);");
+  insert('        const ok = input.value.trim().toLowerCase() === input.dataset.gapAnswer.trim().toLowerCase();',"        stageMadeAnswer('Gap',index,ok,input.value);");
+  insert('        view.querySelectorAll("[data-usage-choice]").forEach((btn) => btn.classList.remove("ok", "bad"));',"        stageMadeAnswer('Choice','usage',usageChoice.dataset.usageChoice==='ok',usageChoice.textContent);");
+  insert('        const ok = tf.dataset.tf === "ok";',"        stageMadeAnswer('True / false','usage',ok,tf.textContent);");
+  insert('    async function openUsages(word, lessonRu, quizKey) {','      const stored=loadAdded().filter(item=>quizKey?item.quizKey===quizKey:!item.quizKey&&String(item.word||item.en||"").toLowerCase()===String(word).toLowerCase());\n      if(stored.length===1&&stored[0].stageDataDeferred)return renderMade(stored[0]);');
+  insert('    function lmPullFromServer() {','      return stagePullLessons();');
+  insert('    function lmOpenLesson(id) {','      const deferred=lmLibrary?.materials?.find(row=>row.id===domEntityId(id));if(deferred?.stageLessonDeferred)return stageOpenLesson(deferred);');
+  insert('    function paintMaterial() {','      if(lmState?.stageLessonDeferred){const deferred=lmState;queueMicrotask(()=>stageOpenLesson(deferred));return;}');
+  insert('    function lmSchedulePush() {','      if(canEditLessons())lmNote("Черновик в браузере. Нажмите Save Draft или Publish для сохранения в тестовую Learning."); return;');
+  insert('    function lmPushToServer() {','      return stageSaveLesson();');
+  insert('    function lmDeleteLesson(id) {','      stageDeleteLesson(id); return;');
+  insert('    function lmHideLesson(id) {','      stageHideLesson(id); return;');
+  insert('    function lmTakeFile(id, file) {','      return stageUploadLessonFile(id,file);');
+  insert('    function lmClearFile(id) {','      return stageClearLessonFile(id);');
+  insert('    function lmSrc(block) {','      if(block && block.fileId)return lmFileUrl(block.fileId);');
+  insert('    async function lmResolveFile(id) {','      const stageBlock=lmBlock(id); if(stageBlock && stageBlock.fileId)return lmFileUrl(stageBlock.fileId);');
+  insert('    async function openPdf(href, title) {','      return stageOpenPdf(href,title);');
+  insert('    function writeTexts(list) {','      return window.LearningMain.unsupported("Редактирование текстов");');
+  insert('    function runTextAnalysis(item, status) {','      return stageRunTextAnalysis(item, status);');
+  insert('    function storeText(analyze) {','      return stageStoreText(analyze);');
+  insert('    function storeExpressionCard(expr, button, item) {','      return stageStoreTextExpression(expr,button,item);');
+  insert('    function showText(id) {','      stageMountTextArchive(id);');
+  insert('    async function readLyrics(existingId) {','      return stageStoreSong(existingId);');
+  insert('    async function saveSongMeta() {','      return stageSaveSongMeta();');
+  insert('    function paintSongMedia(song, box) {','      stageMountSongAudio(song,box); if(stagePaintLocalAudio(song,box))return;');
+  insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.LearningMain.unsupported("Добавление личных карточек");');
+  insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
+  insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
+  return embedSource.toString().replace('function embedSource','function stageEmbedSource')+'\n'+previewImage.toString().replace('function previewImage','function stagePreviewImage')+'\n'+mediaSource.toString().replace('function mediaSource','function stageMediaSource')+'\n'+source+'\n'+hooks+'\n'+readFileSync(new URL('../staging/material-upgrades.js',import.meta.url),'utf8');
+}

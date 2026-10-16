@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const root=resolve(process.env.UI_ASSETS_DIR||'rollback/turso-messaging-assets');
+const root=resolve(process.env.UI_ASSETS_DIR||'rollback/learning-messaging-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
   if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}

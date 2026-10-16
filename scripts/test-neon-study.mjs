@@ -7,24 +7,24 @@ import {neonStudyMigration} from '../src/neon-study-migration.mjs';
 import {neonStudyTables} from '../src/neon-study-schema.mjs';
 import {NeonStudyClient} from '../src/neon-study.mjs';
 import {studyQuery} from '../src/neon-study-sql.mjs';
-import {StudyService,statement as s} from '../src/turso-study.mjs';
-import {PersonalService} from '../src/turso-personal.mjs';
-import {GroupService} from '../src/turso-groups.mjs';
-import {ExamService} from '../src/turso-exams.mjs';
-import {ensureStudyProfile} from '../src/turso-profile.mjs';
-import {ActivityService} from '../src/turso-activity.mjs';
-import {ArchiveService} from '../src/turso-archive.mjs';
-import {MessageService} from '../src/turso-messages.mjs';
-import {AssessmentService} from '../src/turso-assessment.mjs';
-import {ContentCopyService} from '../src/turso-content-copy.mjs';
-import {ensureSpeakout,saveSpeakout,speakoutLesson} from '../src/turso-speakout.mjs';
+import {StudyService,statement as s} from '../src/learning-study.mjs';
+import {PersonalService} from '../src/learning-personal.mjs';
+import {GroupService} from '../src/learning-groups.mjs';
+import {ExamService} from '../src/learning-exams.mjs';
+import {ensureStudyProfile} from '../src/learning-profile.mjs';
+import {ActivityService} from '../src/learning-activity.mjs';
+import {ArchiveService} from '../src/learning-archive.mjs';
+import {MessageService} from '../src/learning-messages.mjs';
+import {AssessmentService} from '../src/learning-assessment.mjs';
+import {ContentCopyService} from '../src/learning-content-copy.mjs';
+import {ensureSpeakout,saveSpeakout,speakoutLesson} from '../src/learning-speakout.mjs';
 import {neonFoundation} from '../src/neon-foundation.mjs';
 import {neonApplicationEnvironment} from '../src/neon-application.mjs';
 import {DATABASE_CONTROL} from '../src/database-selection.mjs';
-import {integratedWorker} from '../src/turso-integrated-worker.mjs';
+import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 import {ChatBridge} from '../src/chat-worker.mjs';
 import {chatDatabaseHeaders} from '../src/chat-database.mjs';
-import {accountBootstrap,accountCards,legacyLessons,accountSongs} from '../src/turso-legacy-read.mjs';
+import {accountBootstrap,accountCards,legacyLessons,accountSongs} from '../src/learning-legacy-read.mjs';
 
 let pg,db;
 const dev={id:'a'.repeat(32),login:'fixture_dev',name:'Teacher',role:'DEVELOPER'},student={id:'b'.repeat(32),login:'fixture_student',role:'USER'},other={id:'c'.repeat(32),login:'fixture_other',role:'USER'};
@@ -163,7 +163,7 @@ test('SQL message journal and outbox are kept in the same PostgreSQL transaction
   await db.atomic([s("INSERT INTO chat_messages(room_id,sender_id,sender_name,category,body,client_key) VALUES(?,?,?,'learning',?,?)",[opened.roomId,dev.id,'Teacher','Notice','pg-fixture-notice'])]);
   assert.equal((await db.read('SELECT message_id FROM chat_delivery_outbox')).length,1);
 });
-test('real login, profile provisioning and account/card endpoints run with no D1 or Turso binding',async()=>{
+test('real login, profile provisioning and account/card endpoints run with no D1 or Learning binding',async()=>{
   for(const query of neonFoundation)await pg.exec(query);
   const password='Fixture-password-123',salt='ab'.repeat(16),hash=pbkdf2Sync(password,Buffer.from(salt,'hex'),100000,32,'sha256').toString('hex'),id='e'.repeat(32);
   await pg.query("INSERT INTO english_app.users(id,login,email,name,password_salt,password_hash,password_iterations,role) VALUES($1,'runtime_login','runtime@example.test','Fixture',$2,$3,100000,'DEVELOPER')",[id,salt,hash]);
@@ -176,7 +176,7 @@ test('real login, profile provisioning and account/card endpoints run with no D1
   response=await call('/api/me/state?summary=1',null,session);assert.equal(response.status,200,await response.clone().text());assert.equal((await response.json()).counts.cards,0);
   response=await call('/api/me/cards/new',{mutationId:crypto.randomUUID(),expectedRevision:0,card:{en:'runtime endpoint',ru:'fixture translation',place:'mine'}},session);assert.equal(response.status,200,await response.clone().text());
   response=await call('/api/me/cards',null,session);assert.equal((await response.json()).cards[0].word,'runtime endpoint');
-  assert.equal(env[DATABASE_CONTROL],bucket);assert.equal(await env.CONTENT_MEDIA.get('old-turso-file'),null);
+  assert.equal(env[DATABASE_CONTROL],bucket);assert.equal(await env.CONTENT_MEDIA.get('old-learning-file'),null);
   await env.CONTENT_MEDIA.put('fixture-file','private');assert.equal(objects.get('study/neon/fixture-file'),'private');
   response=await call('/api/logout',{},session);assert.equal(response.status,200);
   assert.equal((await (await call('/api/me',null,session)).json()).user,null);

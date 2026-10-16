@@ -1,7 +1,7 @@
-import {StudyError,statement as s,recordId} from './turso-study.mjs';
-import {ExamService} from './turso-exams.mjs';
-import {AssessmentService} from './turso-assessment.mjs';
-import {MessageService} from './turso-messages.mjs';
+import {StudyError,statement as s,recordId} from './learning-study.mjs';
+import {ExamService} from './learning-exams.mjs';
+import {AssessmentService} from './learning-assessment.mjs';
+import {MessageService} from './learning-messages.mjs';
 const events={viewed:'Assignment viewed',started:'Exam started',review_started:'Review started',results_viewed:'Results viewed',completed:'Exam completed'};
 export async function requireExamStarted(db,examId,account){
   const [row]=await db.read("SELECT EXISTS(SELECT 1 FROM assessment_history h WHERE h.kind='exam-workflow' AND h.material_id=i.exam_id AND h.account_id=i.account_id AND h.action='started' AND h.actor_id=i.account_id) started FROM exam_instances i WHERE i.exam_id=? AND i.account_id=? AND i.active=1",[examId,account]);
