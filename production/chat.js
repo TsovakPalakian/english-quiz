@@ -167,7 +167,7 @@
   function upsertRoom(row){if(!row)return;const old=data.rooms.find(r=>r.id===row.id);if(old&&(old.revision||0)>(row.revision||0))return;if(old)Object.assign(old,row);else data.rooms.push(row);}
   function badge(){
     const unread={personal:0,learning:0};for(const r of data.rooms)for(const c of ['personal','learning'])unread[c]+=r.unread?.[c]||0;data.unread=unread;data.total=unread.personal+unread.learning;
-    document.querySelectorAll('.brand-account').forEach(button=>{let count=button.querySelector('[data-exam-unread]');if(!count){count=document.createElement('span');count.dataset.examUnread='';count.className='exam-account-count';button.append(count);}count.textContent=String(unread.learning);count.hidden=!unread.learning||!current();count.setAttribute('aria-label','Unread study alerts: '+unread.learning);count.title='Unread study alerts: '+unread.learning;});
+    document.querySelectorAll('[data-exam-unread]').forEach(node=>node.remove());
     document.querySelectorAll('[data-jump="account"]:not(.brand-account)').forEach(button=>{button.textContent='Settings'+(data.total?' \u00b7 '+data.total:'');});
     document.querySelectorAll('[data-msg-open]').forEach(button=>{button.textContent='Messages'+(data.total?' \u00b7 '+data.total:'');button.hidden=!current();});
     section.querySelectorAll('[data-msg-category]').forEach(button=>{const c=button.dataset.msgCategory;button.textContent=(c==='learning'?'Study alerts':'Personal')+(unread[c]?' \u00b7 '+unread[c]:'');button.classList.toggle('on',listMode==='chats'&&c===kind);button.setAttribute('aria-selected',String(listMode==='chats'&&c===kind));});

@@ -38,6 +38,7 @@ try{
     if(path==='/api/lessons')data={materials:[{id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-15',blocks:[]}]};
     if(path==='/api/exams')data={exams};
     if(path==='/api/exams/work')data={work:[]};
+    if(path==='/api/exams/workflow')data={examId:21,state:'submitted',canStart:false,canComplete:false,history:[],blocks:1,submitted:1,published:0};
     if(path==='/api/messages')data={rooms:[],groups:[],contacts:[],unread:{},total:0};
     if(path.includes('catalogs'))data={documents:{},cards:[],next:null};
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
@@ -86,7 +87,7 @@ try{
   assert.equal(await page.locator('#examNew').isVisible(),false);
   exams.find(exam=>exam.id===51).instanceStatus='ready';
   await page.evaluate(async()=>{await examPull(true);examPaintList();});
-  assert.equal(await page.locator('#examOverview .metric-pairs>span').nth(3).innerText(),'assigned works · 0');
+  assert.equal(await page.locator('#examOverview .metric-pairs>span').filter({hasText:'assigned works'}).innerText(),'assigned works','Zero counts keep their labels');
   assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Submitted work leaves Assigned works');
   exams.find(exam=>exam.id===51).instanceStatus='active';
   await page.evaluate(async()=>{await examPull(true);examPaintList();});
@@ -101,6 +102,23 @@ try{
   await studentGroup.locator('summary').click();
   assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),false,'Student row collapses');
   await studentGroup.locator('summary').click();
+  await page.locator('[data-exam-open="21"]').click();
+  assert.match(await page.locator('#examblocks .page-path').innerText(),/Ready for review\nStudent\nA1 Assigned/);
+  await page.reload();
+  await page.locator('#examblocks.on [data-exam-block="22"]').waitFor();
+  assert.match(await page.locator('#examblocks .page-path').innerText(),/Ready for review\nStudent\nA1 Assigned/,'Refresh restores the review context');
+  await page.locator('[data-exam-block="22"]').click();
+  await page.reload();
+  await page.locator('#material.on').waitFor();
+  assert.deepEqual(await page.evaluate(()=>({exam:lmState.examId,block:lmState.blockId,student:lmState.reviewStudentId,section:examSection})),{exam:21,block:22,student:'b'.repeat(32),section:'ready'},'Block refresh retains teacher review and its section');
+  await page.locator('#material [data-page-path="examblocks"]').click();
+  await page.waitForFunction(()=>!examWorkPulling);
+  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Not submitted/,'Review list does not confuse content publication with submission');
+  await page.evaluate(()=>{examWorkBag()['21/22']={saved:true,state:'published',points:{},answers:{}};examPaintBlocks();});
+  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Results published/,'Published results retain their distinct label');
+  await page.evaluate(()=>{examWorkBag()['21/22']={saved:true,state:'submitted',points:{},answers:{}};examPaintBlocks();});
+  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Submitted/,'Submitted work has its own status');
+  await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-section="completed"]').click();
   assert.equal(await page.locator('#examNew').isVisible(),false);
   assert.equal(await page.locator('[data-exam-open="31"]').count(),1);
@@ -168,7 +186,27 @@ try{
     for(const text of ['Task without Content group','Task answer material'])assert.equal(await page.locator('#lmPreview').getByText(text,{exact:true}).isVisible(),true,text);
     await page.evaluate(()=>{authUser.role='USER';lmRenderPreview();examDress();});assert.equal(await page.locator('#lmPreview .lm-assignment').isVisible(),true,'Learner sees Task');
   }
-  await page.evaluate(()=>{authUser.role='USER';viewAccount=null;examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});assert.equal(await page.locator('#exams .metric-pairs').count(),0,'Students do not see staff statistics');
+  await page.evaluate(()=>{authUser={...authUser,id:'b'.repeat(32),role:'USER'};viewAccount=null;examViewLevel='';examViewGroup=null;examSection='active';window.enquizVisit('exams');});assert.equal(await page.locator('#exams .metric-pairs').count(),0,'Students do not see staff statistics');
+  assert.equal(await page.locator('[data-exam-section="active"]').isVisible(),false);
+  assert.equal(await page.locator('[data-exam-section="assigned"]').innerText(),'Assigned works · 1');
+  assert.equal(await page.locator('[data-exam-section="ready"]').innerText(),'Ready for review · 1');
+  assert.equal(await page.locator('#exams .meta h1').innerText(),'A1 Group');
+  assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1 Group\nAssigned works');
+  assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
+  assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);
+  assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*2/s);
+  await page.screenshot({path:'/private/tmp/student-exam-navigation.png'});
+  let started=false;
+  await page.route('**/api/exams/workflow*',async route=>{if(route.request().method()==='POST'&&route.request().postDataJSON().action==='started')started=true;await route.fulfill({contentType:'application/json',body:JSON.stringify({examId:51,state:started?'in_progress':'assigned',canStart:!started,history:[{action:'viewed'},...(started?[{action:'started'}]:[])],blocks:1,submitted:0})});});
+  await page.locator('[data-exam-open="51"]').click();await page.locator('[data-exam-block="52"]').click();
+  await page.locator('[data-exam-workflow="started"]').waitFor();
+  assert.equal(await page.locator('#examSave').isDisabled(),true);
+  assert.match(await page.locator('#examWorkflowStatus').innerText(),/Start at least one examination block before submitting/);
+  await page.locator('[data-exam-workflow="started"]').click();
+  await page.waitForFunction(()=>!document.getElementById('examSave').disabled);
+  assert.equal(await page.locator('#examSave').isEnabled(),true);
+  await page.evaluate(()=>window.enquizVisit('exams'));
+  await page.evaluate(()=>{authUser.id='a'.repeat(32);});
   const databaseActions=[];
   await page.route('**/api/developer/databases',async route=>{
     const body=route.request().postDataJSON();if(body)databaseActions.push(body);
@@ -221,11 +259,33 @@ try{
       assert.equal(await page.locator('[data-exam-recommendation]').count(),1,'Repeated fill does not duplicate AI review control');
       await feedback.fill(longNote);
       await page.screenshot({path:'/private/tmp/exam-review-notes-mobile.png',fullPage:true});
+      assert.equal(await page.locator('#assessmentPublish').innerText(),'Publish review');
+      await page.evaluate(()=>{lmState.assessmentState='published';examDress();});
+      assert.equal(await page.locator('#examSave').isVisible(),false);
+      assert.equal(await page.locator('#assessmentPublish').isVisible(),false);
+      assert.equal(await page.locator('#assessmentAmend').innerText(),'Reopen review');
+      assert.equal(await page.locator('#assessmentAmend').isVisible(),true);
+      assert.equal(await page.locator('#assessmentHistory').isVisible(),true);
+      await page.evaluate(()=>{lmState.assessmentState='reviewing';examDress();});
+      assert.equal(await page.locator('#examSave').isVisible(),true);
+      assert.equal(await page.locator('#assessmentPublish').isVisible(),true);
+      assert.equal(await page.locator('#assessmentAmend').isVisible(),false);
       const projected=parts.map(part=>studentExamContent(part,part.type));
       await page.evaluate(parts=>{authUser.role='USER';viewAccount=null;lmState.blocks=parts;lmState.studentSaved=false;lmState.assessmentState='draft';lmRenderPreview();examDress();},projected);
       assert.equal(await page.locator('#lmPreview .exam-model-answer').count(),0);
       assert.equal(await page.locator('#lmPreview textarea[data-exam-response]').count(),3);
+      assert.equal(await page.locator('#lmPreview .text-color-tools').count(),0,'Students have no formatting or color tools');
     }
   }
+  await page.setViewportSize({width:1280,height:900});
+  await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
+  await page.locator('.side [data-jump="exams"]').click();
+  assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['',null,'active'],'Main navigation resets Exams to its root even within Exams');
+  await page.evaluate(()=>goBack('home'));
+  assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['A1',41,'completed'],'Back retains the previous nested exam location');
+  await page.evaluate(()=>{groupViewLevel='A1';window.enquizVisit('home');});
+  await page.locator('#homeStudy').click();
+  assert.equal(await page.evaluate(()=>groupViewLevel),'','Home study button opens the Groups root');
+  assert.equal(await page.locator('#groups.on').count(),1);
   assert.deepEqual(errors,[]);console.log('Exam-only navigation, counts, filters, breadcrumbs, responsive controls and lesson isolation passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

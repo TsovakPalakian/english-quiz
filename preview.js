@@ -124,8 +124,10 @@
       const title=group?.title||exam?.groupTitle||'Unassigned';
       const level=group?accountGroupLevel(group):exam?accountGroupLevel({title}):examViewLevel;
       return [{id:'exams',label:'Exams',examLevel:''},
-        ...(level?[{id:'exams',label:level==='unassigned'?'Unassigned':level,examLevel:level}]:[]),
+        ...(level&&authUser?.role!=='USER'?[{id:'exams',label:level==='unassigned'?'Unassigned':level,examLevel:level}]:[]),
         ...(groupId!==null&&groupId!==undefined?[{id:'exams',label:title,examLevel:level,examGroup:groupId}]:[]),
+        ...((exam||examViewGroup!==null)&&examSection!=='active'?[{id:'exams',label:({assigned:'Assigned works',ready:'Ready for review',completed:'Completed'})[examSection],examLevel:level,examGroup:groupId,examSection}]:[]),
+        ...(exam?.studentId&&authUser?.role!=='USER'?[{id:'exams',label:exam.studentName||'Student',examLevel:level,examGroup:groupId,examSection}]:[]),
         ...(exam?[{id:'examblocks',label:exam.title||'Exam'}]:[])];
     }
     function pagePathItems(id, seen = new Set()) {
@@ -183,7 +185,7 @@
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-page-path]");
       if (!target) return;
-      if(target.dataset.pathExamLevel!==undefined){pushHistory();examViewLevel=target.dataset.pathExamLevel;examViewGroup=target.dataset.pathExamGroup??null;show('exams');return;}
+      if(target.dataset.pathExamLevel!==undefined){const index=[...target.closest('ol').children].indexOf(target.parentElement),section=pagePathItems(document.querySelector('section.on')?.id)[index]?.examSection;pushHistory();examViewLevel=target.dataset.pathExamLevel;examViewGroup=target.dataset.pathExamGroup??null;examSection=section||'active';show('exams');return;}
       if(target.dataset.pathLevel!==undefined){pushHistory();groupViewLevel=target.dataset.pathLevel;show('groups');return;}
       if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show('days');return;}
       if (target.dataset.pagePath === "material") {
@@ -359,6 +361,9 @@
         groupViewLevel: typeof groupViewLevel === 'undefined' ? '' : groupViewLevel,
         examViewLevel: typeof examViewLevel === 'undefined' ? '' : examViewLevel,
         examViewGroup: typeof examViewGroup === 'undefined' ? null : examViewGroup,
+        examSection: typeof examSection === 'undefined' ? 'active' : examSection,
+        examId: on?.id==='examblocks' ? examCurrentId : on?.id==='material'&&lmState?.examOwned ? lmState.examId : null,
+        examBlockId: on?.id==='material'&&lmState?.examOwned ? lmState.blockId : null,
         adminTab: typeof adminTab === 'undefined' ? null : adminTab,
         focusAttrs: focused ? [...focused.attributes].filter(attr => attr.name === 'id' || attr.name === 'href' || attr.name.startsWith('data-') && attr.name !== 'data-return-focus').map(attr => [attr.name, attr.value]) : [],
         view: grammarView,
@@ -409,7 +414,13 @@
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
       if (place.id === 'groups') groupViewLevel = place.groupViewLevel || '';
-      if (place.id === 'exams') { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; }
+      if (place.id === 'exams'||place.examId) { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; examSection=place.examSection||'active'; }
+      if(place.examId){
+        examCurrentId=place.examId;
+        const exam=examFind(place.examId);
+        if(exam?.studentId&&authUser?.role!=='USER'&&!viewAccount&&typeof materialReviewStudent!=='undefined')materialReviewStudent={id:exam.studentId,name:exam.studentName,email:exam.studentEmail};
+        if(place.id==='material'&&place.examBlockId){examOpenBlock(place.examBlockId);return;}
+      }
       if (place.id === "tenses" && place.view === "area") { openArea(place.area, true); return; }
       if (place.id === "tenses") { openHub(true); return; }
       if (place.id === "tense" && place.kind === "compare") { openCompare(place.compare, true); return; }
@@ -2004,6 +2015,13 @@
       }
       const jump = e.target.closest("[data-jump]");
       if (jump) {
+        if(jump.id==='homeStudy'&&jump.dataset.jump!=='setup')jump.dataset.jump='groups';
+        if(jump.closest('.side,#home,.mobile-tools')&&['groups','exams'].includes(jump.dataset.jump)){
+          pushHistory();
+          if(jump.dataset.jump==='groups')groupViewLevel='';
+          else{examViewLevel='';examViewGroup=null;examSection=authUser?.role==='USER'&&!viewAccount?'assigned':'active';}
+          show(jump.dataset.jump);return;
+        }
         if (jump.dataset.jump === "tenses") openHub();
         else if (jump.dataset.jump === "speakout") { openSpeak("levels", -1, -1, -1); return; }
         else if (jump.dataset.jump === "setup") { openGlobalStudy(); return; }
@@ -11697,6 +11715,7 @@
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
       if (!place || !place.id || place.id === "home" || !document.getElementById(place.id)) return;
+      if(place.id==='exams'){examSection=place.examSection||'active';examViewLevel=place.examViewLevel||'';examViewGroup=place.examViewGroup??null;}
       if (place.id === 'speakouteditor' && typeof stageResumeSpeakEditor === 'function') { stageResumeSpeakEditor(place); return; }
       if (place.id === "bugs" && !placeBoot) return;
       if (place.dayQuizPlace) dayQuizPlace = place.dayQuizPlace;
@@ -11740,6 +11759,13 @@
         if (place.id === "material" && lmState?.examOwned && lmState.examId === place.examId && lmState.blockId === place.examBlockId) return;
         if (!examReady) { examPull().then(() => { if (examReady) resumePlace(); }); return; }
         examCurrentId = place.examId;
+        const restoredExam=examFind(place.examId);
+        examSection=place.examSection||({active:'assigned',ready:'ready',completed:'completed'})[restoredExam?.instanceStatus]||'active';
+        examViewGroup=place.examViewGroup??restoredExam?.groupId??null;
+        examViewLevel=place.examViewLevel||'';
+        if(restoredExam?.studentId&&authUser?.role!=='USER'&&!viewAccount&&typeof materialReviewStudent!=='undefined'){
+          materialReviewStudent={id:restoredExam.studentId,name:restoredExam.studentName,email:restoredExam.studentEmail};examResetWork();
+        }
         if (place.id === "material") {
           examOpenBlock(place.examBlockId);
           if (lmState?.examOwned && lmState.examId === place.examId && lmState.blockId === place.examBlockId) show("material");
@@ -15006,7 +15032,7 @@
           if (doc === lmState) { lmRenderPreview(); examDress(); }
         }
         assessmentStatus(doc.assessmentMessage,doc); examPaintList(); if (examCurrentId) examPaintBlocks();
-        if(doc.examOwned&&['submit','publish'].includes(action))await examPull(true);
+        if(doc.examOwned&&['submit','publish','amend'].includes(action))await examPull(true);
         return row;
       }).catch(error => { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Not saved. Retry.'; assessmentStatus(doc.assessmentMessage,doc); throw error; });
       assessmentQueue = task; return task;
@@ -15189,7 +15215,9 @@
       }
       const save = document.getElementById("examSave");
       if (save) { save.hidden = reviewer ? !lmState.studentSaved || lmState.assessmentState === 'published' : (!taking || locked); save.textContent = reviewer ? 'Save review' : 'Submit'; save.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
-      for (const [id,visible] of [['assessmentPublish',reviewer && lmState.studentSaved && lmState.assessmentState !== 'published'],['assessmentReopen',reviewer && lmState.studentSaved && !lmState.examOwned],['assessmentAmend',reviewer && lmState.assessmentState === 'published' && !lmState.examOwned],['assessmentHistory',reviewer]]) {
+      document.getElementById('assessmentPublish').textContent = lmState?.examOwned ? 'Publish review' : 'Publish results';
+      document.getElementById('assessmentAmend').textContent = lmState?.examOwned ? 'Reopen review' : 'Amend review';
+      for (const [id,visible] of [['assessmentPublish',reviewer && lmState.studentSaved && lmState.assessmentState !== 'published'],['assessmentReopen',reviewer && lmState.studentSaved && !lmState.examOwned],['assessmentAmend',reviewer && lmState.assessmentState === 'published'],['assessmentHistory',reviewer]]) {
         const button = document.getElementById(id); if (button) { button.hidden = !visible; button.disabled = !lmState?.assessmentReady || !!lmState?.assessmentBusy; }
       }
       assessmentStatus();
@@ -15601,6 +15629,7 @@
       const newer = document.getElementById("examBlockNew");
       const date = document.getElementById("examBlocksDate");
       const exam = examView(examCurrentId);
+      if (canTuneStudentLessons() && examWorkLoadedFor !== examWorkAccount() && !examWorkPulling) examPullWork();
       if (newer) newer.hidden = !canEditLessons();
       const name = document.getElementById("examBlocksName");
       if (name) name.textContent = exam ? exam.title || "Exam" : "";
@@ -15613,6 +15642,7 @@
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
         let about = block.hidden ? "Hidden" : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? "Submitted" : (block.doc && block.doc.published ? "Published" : "Draft"));
+        if (canTuneStudentLessons() && !block.hidden) about = ({draft:'Not submitted',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'})[block.doc?.assessmentState] || (examWorkLoadedFor === examWorkAccount() && !examWorkPulling ? 'Not submitted' : 'Loading status…');
         const maximum = Math.round(assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0)*1e8)/1e8;
         about += ' · Maximum ' + maximum;
         if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
@@ -15905,7 +15935,7 @@
         if (!open || !isTeacher() || viewAccount) return;
         examCurrentId = domEntityId(open.dataset.examOpen); visit('examblocks');
       });
-      document.getElementById('examSections')?.addEventListener('click',event=>{const button=event.target.closest('[data-exam-section]');if(button){examSection=button.dataset.examSection;examPaintList();}});
+      document.getElementById('examSections')?.addEventListener('click',event=>{const button=event.target.closest('[data-exam-section]');if(button){examSection=button.dataset.examSection;examPaintList();rememberPlace();}});
       if (list) list.addEventListener("click", async (event) => {
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
@@ -15943,13 +15973,14 @@
       });
       document.getElementById('assessmentPublish')?.addEventListener('click',() => { if (confirm('Publish scores and feedback for this student?')) assessmentAction('publish'); });
       for (const [id,action] of [['assessmentReopen','reopen'],['assessmentAmend','amend']]) document.getElementById(id)?.addEventListener('click',() => {
+        if(lmState?.examOwned&&action==='amend'){assessmentAction(action);return;}
         const reason = prompt(action === 'reopen' ? 'Why are you reopening the submission?' : 'Why are you amending the published review?');
         if (reason?.trim()) assessmentAction(action,{reason:reason.trim()});
       });
       document.getElementById('assessmentHistory')?.addEventListener('click',async () => {
         const doc = lmState;
         try {
-          const result = await accountFetch('/api/assessment?history=1&kind=' + (doc.examOwned ? 'exam-block' : 'lesson') + '&id=' + (doc.examOwned ? doc.blockId : doc.id) + '&student=' + encodeURIComponent(viewAccount.id));
+          const result = await accountFetch('/api/assessment?history=1&kind=' + (doc.examOwned ? 'exam-block' : 'lesson') + '&id=' + (doc.examOwned ? doc.blockId : doc.id) + '&student=' + encodeURIComponent(doc.reviewStudentId||viewAccount?.id||examWorkAccount()));
           const rows = result.history || [];
           const dialog = document.createElement('dialog'); dialog.className = 'assessment-history';
           dialog.innerHTML = '<form method="dialog"><button class="lm-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');

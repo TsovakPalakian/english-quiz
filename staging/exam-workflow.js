@@ -59,6 +59,7 @@ examFillAnswers=function(){
   if(lmState?.examOwned)document.querySelectorAll('#lmPreview .exam-review-notes,#lmPreview [data-exam-fill-decoration]').forEach(node=>node.remove());
   examFillOriginal();if(!lmState?.examOwned)return;
   const reviewer=canTuneStudentLessons();
+  if(authUser?.role==='USER'&&!viewAccount)document.querySelectorAll('#lmPreview .text-color-tools').forEach(node=>node.remove());
   for(const part of lmState.blocks||[]){
     if(!part.answerEnabled)continue;
     const panel=document.querySelector('#lmPreview [data-lm-panel="'+part.id+'"]');if(!panel)continue;
@@ -92,14 +93,19 @@ function examPaintWorkflow(){
   const row=examWorkflowRow,box=document.getElementById('assessmentSummary');if(!row||!box||row.examId!==lmState?.examId)return;
   document.getElementById('examWorkflowStatus')?.remove();
   const own=!viewAccount&&authUser?.id===examFind(row.examId)?.studentId;
+  const submit=document.getElementById('examSave');
+  const needsStart=own&&!row.history.some(event=>event.action==='started')&&!lmState.studentSaved;
+  if(needsStart&&submit)submit.disabled=true;
   const labels={assigned:'Assigned',in_progress:'In progress',submitted:'Submitted for review',under_review:'Under review',results_published:'Results published',completed:'Completed'};
-  const node=document.createElement('div');node.id='examWorkflowStatus';node.innerHTML='<strong>'+esc(labels[row.state]||row.state)+'</strong><span>'+row.submitted+' / '+row.blocks+' blocks submitted</span>'+(own&&row.canStart?'<button class="btn primary" type="button" data-exam-workflow="started">Start exam</button>':'')+(!own&&canTuneStudentLessons()&&row.state==='submitted'?'<button class="btn primary" type="button" data-exam-workflow="review_started">Start review</button>':'')+(own&&row.canComplete?'<button class="btn primary" type="button" data-exam-workflow="completed">Mark as reviewed</button>':'');box.append(node);
+  const node=document.createElement('div');node.id='examWorkflowStatus';node.innerHTML='<strong>'+esc(labels[row.state]||row.state)+'</strong>'+(row.submitted?'<span>'+row.submitted+' / '+row.blocks+' blocks submitted</span>':'')+(needsStart?'<p>Start at least one examination block before submitting.</p>':'')+(own&&row.canStart?'<button class="btn primary" type="button" data-exam-workflow="started">Start</button>':'')+(!own&&canTuneStudentLessons()&&row.state==='submitted'?'<button class="btn primary" type="button" data-exam-workflow="review_started">Start review</button>':'')+(own&&row.canComplete?'<button class="btn primary" type="button" data-exam-workflow="completed">Mark as reviewed</button>':'');box.append(node);
 }
 const examStatusOriginal=assessmentStatus;
-assessmentStatus=function(message,doc=lmState){examStatusOriginal(message,doc);if(doc?.examOwned){void examLoadWorkflow(doc);examPaintWorkflow();}};
+assessmentStatus=function(message,doc=lmState){examStatusOriginal(message,doc);if(doc?.examOwned){if(authUser?.role==='USER'&&!viewAccount&&!doc.studentSaved){const submit=document.getElementById('examSave');if(submit&&(!examWorkflowRow||examWorkflowRow.examId!==doc.examId||!examWorkflowRow.history.some(event=>event.action==='started')))submit.disabled=true;}void examLoadWorkflow(doc);examPaintWorkflow();}};
+const examBlocksHeadingOriginal=examPaintBlocks;
+examPaintBlocks=function(){examBlocksHeadingOriginal();const exam=examFind(examCurrentId),title=classGroups.find(group=>String(group.id)===String(exam?.groupId))?.title||exam?.groupTitle;const heading=document.querySelector('#examblocks .meta h1');if(heading&&title)heading.textContent=title;};
 document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-exam-workflow]');if(!button||!lmState?.examOwned)return;button.disabled=true;
-  try{examWorkflowRow=await accountFetch('/api/exams/workflow',{method:'POST',body:JSON.stringify({examId:lmState.examId,action:button.dataset.examWorkflow})});examPaintWorkflow();}
+  try{examWorkflowRow=await accountFetch('/api/exams/workflow',{method:'POST',body:JSON.stringify({examId:lmState.examId,action:button.dataset.examWorkflow})});examDress();examPaintWorkflow();}
   catch(error){button.disabled=false;assessmentStatus(error.message);}
 });
 document.addEventListener('click',async event=>{

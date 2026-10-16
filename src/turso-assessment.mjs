@@ -8,7 +8,7 @@ import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 import {boundedMediaBytes} from './turso-r2-media.mjs';
 import {chatFileMetadata} from './chat-attachments.mjs';
 import {examSuggestion} from './exam-checking.mjs';
-import {examWorkflowCommands} from './exam-workflow.mjs';
+import {examWorkflowCommands,requireExamStarted} from './exam-workflow.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const ready=new WeakMap();
@@ -55,9 +55,10 @@ export class AssessmentService{
     if(kind==='exam-block'){
       await new ExamService(this.db).ensure();
       const assigned=await assignedExamIds(this.db,account);
-      const [found]=await this.db.read(`SELECT b.exam_id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND ${assignedExamSql('e.id',assigned)}))`,[id,+reviewer(actor)]);
+      const [found]=await this.db.read(`SELECT b.exam_id,(SELECT status FROM exam_instances i WHERE i.exam_id=b.exam_id AND i.active=1) instance_status FROM exam_blocks b JOIN exams e ON e.id=b.exam_id WHERE b.id=? AND b.deleted_at IS NULL AND e.deleted_at IS NULL AND (?=1 OR (e.published=1 AND b.published=1 AND ${assignedExamSql('e.id',assigned)}))`,[id,+reviewer(actor)]);
       const hidden=await materialVisibility(this.db,account);
       if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
+      if(!reviewer(actor)&&found.instance_status==='ready')fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
       await instanceAccess(this.db,found.exam_id,account);
       if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance?.reviewer_id&&instance.reviewer_id!==actor.id)fail(403,'Only the assigned teacher can review this exam.');}
       rows=await this.db.read('SELECT id,type,content_json FROM exam_materials WHERE block_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
@@ -82,6 +83,7 @@ export class AssessmentService{
   }
   async get(actor,{kind,id,studentId}){
     const account=this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
+    if(kind==='exam-block'&&!reviewer(actor)&&row&&['submitted','reviewing'].includes(row.state))fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
     return this.workView(actor,{kind,id,account},document,row);
   }
   async workView(actor,{kind,id,account},document,row){
@@ -114,7 +116,7 @@ export class AssessmentService{
   async write(actor,body){
     if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Invalid assessment.');
     const {kind,id,studentId,action='draft'}=body,account=this.account(actor,studentId),document=await this.document(actor,kind,id,account);
-    if(kind==='exam-block'&&['reopen','amend'].includes(action))fail(409,'Submitted exams cannot be reopened. Assign a new exam instead.');
+    if(kind==='exam-block'&&action==='reopen')fail(409,'Submitted exams cannot be reopened. Assign a new exam instead.');
     if(kind==='exam-block'&&body.examId!=null&&body.examId!==document.examId)fail(404,'Exam not found.');
     let previous,row;
     if(kind==='exam-block'){
@@ -122,6 +124,7 @@ export class AssessmentService{
       previous=await this.workView(actor,{kind,id,account},document,row);
     }else{previous=await this.get(actor,{kind,id,studentId});row=await this.row(account,kind,id);}
     const revision=row?.revision||0;
+    if(kind==='exam-block'&&action==='submit'&&account===actor.id)await requireExamStarted(this.db,document.examId,account);
     if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,kind==='exam-block'?`This work changed (expected revision ${body.expectedRevision}, current ${revision}). Reopen the work before saving; your changes were not published.`:'This work changed. Reload before saving.');
     const teaching=account!==actor.id&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
     const questions=gradingQuestions(parts),answerQuestions=parts.some(part=>part.scoringVersion>=3)?examAnswerQuestions(parts):assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
@@ -156,7 +159,8 @@ export class AssessmentService{
       if(!['review','publish','reopen','amend'].includes(action))fail(400,'Invalid review action.');
       if(['reopen','amend'].includes(action)){
         if(action==='reopen'&&!previous.saved||action==='amend'&&previous.state!=='published')fail(409,'This action is not available for the current submission.');
-        if(typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>500)fail(400,'Enter a reason.');
+        if(!(kind==='exam-block'&&action==='amend')&&(typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>500))fail(400,'Enter a reason.');
+        if(kind==='exam-block'&&action==='amend'&&body.reason!=null&&(typeof body.reason!=='string'||body.reason.length>500))fail(400,'Invalid reason.');
         state=action==='reopen'?'draft':'reviewing';
         if(action==='reopen'){grading={};snapshot=document.parts;}
       }else{
@@ -221,12 +225,13 @@ export class AssessmentService{
       s('INSERT INTO assessment_history(account_id,kind,material_id,actor_id,action,reason,snapshot_json) VALUES(?,?,?,?,?,?,?)',[account,kind,id,actor.id,action,body.reason||'',JSON.stringify(row||previous)]),
       s(`INSERT INTO assessment_work(account_id,kind,material_id,exam_id,revision,state,answers_json,grading_json,snapshot_json) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(account_id,kind,material_id) DO UPDATE SET revision=excluded.revision,state=excluded.state,answers_json=excluded.answers_json,grading_json=excluded.grading_json,snapshot_json=excluded.snapshot_json,updated_at=unixepoch()`,[account,kind,id,document.examId,revision+1,state,JSON.stringify(savedAnswers),JSON.stringify(grading),JSON.stringify(snapshot)])];
     if(kind==='exam-block')commands.push(s(`INSERT INTO exam_work(account_id,exam_id,block_id,saved,answers_json,corrections_json,points_json) VALUES(?,?,?,?,?,?,?) ON CONFLICT(account_id,exam_id,block_id) DO UPDATE SET saved=excluded.saved,answers_json=excluded.answers_json,corrections_json=excluded.corrections_json,points_json=excluded.points_json,updated_at=unixepoch()`,[account,document.examId,id,+(state!=='draft'),JSON.stringify(savedAnswers),JSON.stringify(grading.comments||{}),JSON.stringify(grading.points||{})]));
-    if(kind==='exam-block'&&['submit','publish'].includes(action))commands.push(...await examLifecycleCommands(this.db,document.examId,account,actor,id,state,grading));
-    if(kind==='exam-block'&&['draft','submit','review','publish'].includes(action)){
+    if(kind==='exam-block'&&['submit','publish','amend'].includes(action))commands.push(...await examLifecycleCommands(this.db,document.examId,account,actor,id,state,grading));
+    if(kind==='exam-block'&&['review','publish'].includes(action)){
       const [instance]=await this.db.read('SELECT i.*,e.title FROM exam_instances i JOIN exams e ON e.id=i.exam_id WHERE i.exam_id=? AND i.account_id=? AND i.active=1',[document.examId,account]);
       if(instance)commands.push(...await examWorkflowCommands(this.db,instance,actor,teaching?'review_started':'started'));
     }
     try{await this.db.atomic(commands);}catch(error){if(/constraint|check/i.test(error.message))fail(409,'This work changed. Reload before saving.');throw error;}
+    if(kind==='exam-block'&&!reviewer(actor)&&state==='submitted')return {kind,examId:document.examId,blockId:id,revision:revision+1,state,saved:true,answers,materials:[]};
     return this.get(actor,{kind,id,studentId});
   }
   async history(actor,body){const account=this.account(actor,body.studentId);if(!reviewer(actor)||account===actor.id)fail(403,'Review history is available to the teacher.');await this.document(actor,body.kind,body.id,account);await this.ensure();return this.db.read('SELECT action,reason,actor_id actorId,created_at createdAt,snapshot_json snapshot FROM assessment_history WHERE account_id=? AND kind=? AND material_id=? ORDER BY id DESC LIMIT 30',[account,body.kind,body.id]);}

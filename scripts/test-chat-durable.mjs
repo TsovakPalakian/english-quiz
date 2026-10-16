@@ -7,6 +7,7 @@ import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from '../src/chat-att
 import {chatPreviewUrl,chatLinkPreview} from '../src/chat-previews.mjs';
 import {MessageService} from '../src/turso-messages.mjs';
 import {AssessmentService} from '../src/turso-assessment.mjs';
+import {ExamWorkflowService} from '../src/exam-workflow.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
 import {applyTursoSchema} from './turso-test-schema.mjs';
 function fixture(journal){
@@ -182,6 +183,7 @@ test('Academic bridge imports once, retains colored replies and dispatches assig
     const id='direct:alice:teacher',notices=await chatCall(env,'CHAT_ROOM',id,'/history',{actor:alice,category:'learning'});assert.equal(notices.messages.length,1);assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM chat_delivery_outbox').get().n,0);
     await chatCall(env,'CHAT_BRIDGE','global','/flush',{});assert.equal((await chatCall(env,'CHAT_ROOM',id,'/history',{actor:alice,category:'learning'})).messages.length,1);
     const exams=new ExamService(journal),instance=(await exams.list(alice)).find(e=>e.instanceStatus),block=instance.blocks[0],assessment=new AssessmentService(journal),part=block.materials[0];
+    await new ExamWorkflowService(journal).write(alice,{examId:instance.id,action:'started'});
     await assessment.write(alice,{kind:'exam-block',id:block.id,action:'submit',answers:{[part.id]:{0:'Answer'}}});await chatCall(env,'CHAT_BRIDGE','global','/flush',{});await f.drain();
     const review=await chatCall(env,'CHAT_ROOM',id,'/history',{actor:teacher,category:'learning'});assert.ok(review.messages.some(m=>m.text.startsWith('Ready for review')&&m.examId===instance.id));
     const work=await assessment.get(teacher,{studentId:'alice',kind:'exam-block',id:block.id});

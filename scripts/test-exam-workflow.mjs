@@ -42,7 +42,14 @@ test('fresh per-request assessment clients keep submit, review and publish below
     const [block]=await f.db.read('SELECT id FROM exam_blocks WHERE exam_id=?',[instance.exam_id]);
     const parts=await f.db.read('SELECT id,type FROM exam_materials WHERE block_id=? ORDER BY position',[block.id]);
     const answers={[parts[0].id]:{0:0},[parts[1].id]:{0:'children'}},points={[parts[0].id]:{0:1},[parts[1].id]:{0:2}};
-    const counts={};let revision=0;
+    await assert.rejects(new AssessmentService(f.db).get(student,{kind:'exam-block',id:source.blocks[0].id}),error=>error.status===404);
+    await assert.rejects(new ExamService(f.db).saveWork(student,{examId:source.id,blockId:source.blocks[0].id,saved:true,answers:{}}),error=>error.status===404);
+    const draft=await new AssessmentService(f.db).write(student,{kind:'exam-block',id:block.id,action:'draft',expectedRevision:0,answers});
+    assert.equal((await new ExamWorkflowService(f.db).status(student,{examId:instance.exam_id})).canStart,true,'Autosave does not replace Start');
+    await assert.rejects(new AssessmentService(f.db).write(student,{kind:'exam-block',id:block.id,action:'submit',expectedRevision:draft.revision,answers}),error=>error.status===409&&error.message.includes('Start at least one'));
+    await assert.rejects(new ExamService(f.db).saveWork(student,{examId:instance.exam_id,blockId:block.id,saved:true,answers}),error=>error.status===409);
+    await new ExamWorkflowService(f.db).write(student,{examId:instance.exam_id,action:'started'});
+    const counts={};let revision=draft.revision;
     for(const action of ['submit','review','publish']){
       let calls=0;const client={};
       for(const method of ['read','readMany','atomic'])client[method]=(...args)=>{assert.ok(++calls<=40,'Assessment exceeded its 40-subrequest SQL budget');return f.db[method](...args);};
@@ -103,13 +110,31 @@ test('complete demo supports all 16 quiz types, frozen copies, private reference
       const request={kind:'exam-block',id:block.id};const initial=await assessment.get(student,request);assert.equal(initial.saved,false);
       for(const part of initial.materials.filter(part=>part.answerEnabled))assert.equal(part.html,'');
       const sent=await assessment.write(student,{...request,action:'submit',expectedRevision:initial.revision,answers:{}});assert.equal(sent.state,'submitted');
-      for(const part of sent.materials.filter(part=>part.answerEnabled))assert.ok(part.modelAnswer);
+      assert.deepEqual(sent.materials,[],'Submitting does not reveal the review content');
       const review=await assessment.get(teacher,{...request,studentId:student.id}),points={};
       const meaning=review.materials.find(part=>part.checkMode==='meaning');
       if(meaning){const recommendation=await examRecommendation(db,{},teacher,{id:block.id,studentId:student.id,partId:meaning.id,index:0,expectedRevision:review.revision});assert.equal(recommendation.status,'unavailable');assert.equal(recommendation.requiresTeacher,true);assert.equal(sqlite.prepare('SELECT count(*) n FROM bug_reports').get().n,1);}
       for(const question of gradingQuestions(block.materials))(points[question.part.id]||={})[question.index]=0;
       await assessment.write(teacher,{...request,studentId:student.id,action:'publish',expectedRevision:review.revision,points,corrections:{},overallComment:'Published feedback',privateNote:'Private teacher note'});
       const published=await assessment.get(student,request);assert.equal(published.overallComment,'Published feedback');assert.ok(!JSON.stringify(published).includes('Private teacher note'));
+      const reopened=await assessment.write(teacher,{...request,studentId:student.id,action:'amend',expectedRevision:published.revision});
+      assert.equal(reopened.state,'reviewing');assert.equal(reopened.saved,true);
+      assert.deepEqual(reopened.answers,published.answers,'Reopening a review preserves student answers');
+      assert.deepEqual(reopened.points,points,'Reopening a review preserves grades');
+      await assert.rejects(assessment.write(student,{...request,action:'draft',expectedRevision:reopened.revision,answers:{}}),error=>[403,409].includes(error.status));
+      await assert.rejects(assessment.get(student,request),error=>error.status===403);
+      const studentList=(await exams.list(student)).find(exam=>exam.id===instance.exam_id);
+      if(studentList.instanceStatus==='ready')assert.equal(studentList.blocks.length,0,'Review content is withheld from the student');
+      await assessment.write(teacher,{...request,studentId:student.id,action:'publish',expectedRevision:reopened.revision,points,corrections:{},overallComment:'Corrected feedback'});
+      const history=await assessment.history(teacher,{...request,studentId:student.id});
+      assert.deepEqual(history.slice(0,2).map(row=>row.action),['publish','amend']);
+      for(const untouched of copy.blocks.slice(copy.blocks.indexOf(block)+1)){
+        const next=await assessment.get(teacher,{kind:'exam-block',id:untouched.id,studentId:student.id});
+        assert.equal(next.saved,false,'Publishing one examination block does not submit another');
+        assert.notEqual(next.state,'published','Publishing one examination block does not publish another');
+        assert.equal(next.overallComment||'','','Feedback stays specific to the examination block');
+        assert.deepEqual(next.points||{},{},'Scores stay specific to the examination block');
+      }
     }
     assert.equal((await workflow.status(student,{examId:instance.exam_id})).state,'results_published');
     await workflow.write(student,{examId:instance.exam_id,action:'results_viewed'});

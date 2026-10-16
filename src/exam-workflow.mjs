@@ -3,6 +3,10 @@ import {ExamService} from './turso-exams.mjs';
 import {AssessmentService} from './turso-assessment.mjs';
 import {MessageService} from './turso-messages.mjs';
 const events={viewed:'Assignment viewed',started:'Exam started',review_started:'Review started',results_viewed:'Results viewed',completed:'Exam completed'};
+export async function requireExamStarted(db,examId,account){
+  const [row]=await db.read("SELECT EXISTS(SELECT 1 FROM assessment_history h WHERE h.kind='exam-workflow' AND h.material_id=i.exam_id AND h.account_id=i.account_id AND h.action='started' AND h.actor_id=i.account_id) started FROM exam_instances i WHERE i.exam_id=? AND i.account_id=? AND i.active=1",[examId,account]);
+  if(row&&!row.started)throw new StudyError(409,'Start at least one examination block before submitting.');
+}
 export async function examWorkflowCommands(db,instance,actor,event){
   if(!events[event])throw new StudyError(400,'Invalid exam event.');
   const key='exam-workflow:'+instance.exam_id+':'+event;

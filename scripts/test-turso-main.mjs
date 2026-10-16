@@ -167,7 +167,7 @@ test('Student exam reads omit solution keys and submitted work cannot be changed
     const body={examId:10,blockId:20,answers:{30:{0:0}},saved:true};
     await service.saveWork(student,body);await service.saveWork(student,body);
     await assert.rejects(service.saveWork(student,{...body,saved:false,answers:{30:{0:1}}}),error=>error.status===409);
-    assert.equal((await service.listWork(student))[0].answers[30][0],0);
+    assert.deepEqual((await service.listWork(student))[0].answers,{});
     await service.saveWork(teacher,{...body,studentId:'student',corrections:{30:{0:'reviewed'}},points:{30:{0:1}}});
     assert.deepEqual((await service.listWork(student))[0].corrections,{});
     const assessment=new AssessmentService(f.db);
@@ -359,9 +359,9 @@ test('V3 Answer and Memory are graded privately, recordings belong to the studen
     await assert.rejects(service.recording({id:'student2',role:'USER'},query,new Request('https://fixture.invalid/audio'),store),e=>e.status===404);
     await assert.rejects(service.recording(teacher,{...query,studentId:'student'},request(),store),e=>e.status===403);
     await service.write(student,{...base,answers,action:'submit',expectedRevision:1});
-    await assert.rejects(service.recording(student,query,request(),store),e=>e.status===409);
+    await assert.rejects(service.recording(student,query,request(),store),e=>e.status===403);
     await assert.rejects(service.write(student,{...base,answers,action:'draft'}),e=>e.status===409);
-    const points={31:{0:1.5},33:{0:2}};await service.write(teacher,{...base,studentId:'student',action:'review',points});assert.deepEqual((await service.get(student,base)).points,{});assert.equal((await service.get(teacher,{...base,studentId:'student'})).points[32][0],10);
+    const points={31:{0:1.5},33:{0:2}};await service.write(teacher,{...base,studentId:'student',action:'review',points});await assert.rejects(service.get(student,base),e=>e.status===403);assert.equal((await service.get(teacher,{...base,studentId:'student'})).points[32][0],10);
     await service.write(teacher,{...base,studentId:'student',action:'publish',points});assert.equal((await service.get(student,base)).points[31][0],1.5);
     assert.equal(files.size,1);
   }finally{f.sqlite.close();}
@@ -2235,7 +2235,7 @@ test('Lesson refresh cannot replace an open exam block with a matching lesson ID
 test('Page restoration keeps examination identity separate from lesson IDs',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),opened=[];
   const examDoc={id:8,examOwned:true,examId:9,blockId:8},place={id:'material',examId:9,examBlockId:8};
-  const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',
+  const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',examFind:()=>null,authUser:{role:'USER'},
     workFromLocation:()=>false,sessionStorage:{getItem:()=>JSON.stringify(place)},document:{getElementById:()=>({})},
     lmEnsure(){throw Error('Exam restoration must not search lessons');},examOpenBlock:id=>opened.push(id),show(){}};
   runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace() {')),scope);
