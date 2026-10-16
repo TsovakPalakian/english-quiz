@@ -278,6 +278,7 @@ try{
     }
   }
   await page.setViewportSize({width:1280,height:900});
+  if(await page.locator('#turso-main-banner').isVisible())await page.locator('#turso-main-dismiss').click();
   await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
   await page.locator('.side [data-jump="exams"]').click();
   assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['',null,'active'],'Main navigation resets Exams to its root even within Exams');
@@ -287,5 +288,20 @@ try{
   await page.locator('#homeStudy').click();
   assert.equal(await page.evaluate(()=>groupViewLevel),'','Home study button opens the Groups root');
   assert.equal(await page.locator('#groups.on').count(),1);
+  for(const width of [1280,320]){
+    await page.setViewportSize({width,height:900});
+    await page.evaluate(()=>alert('Grade every question before publishing.'));
+    const notice=page.locator('#turso-main-banner');
+    assert.equal(await notice.isVisible(),true);
+    assert.equal(await notice.locator('button:visible').count(),1,'Informational notice has only a close button');
+    const bounds=await notice.boundingBox();assert.ok(Math.abs(bounds.x+bounds.width/2-width/2)<2,'Notice is horizontally centered');assert.ok(Math.abs(bounds.y+bounds.height/2-450)<2,'Notice is vertically centered');
+    assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width,'Notice fits the screen');
+    await page.keyboard.press('Escape');assert.equal(await notice.isVisible(),false);
+    await page.evaluate(()=>window.TursoMain.notice('Network error. Please try again.',true));
+    assert.equal(await page.locator('#turso-main-status').innerText(),'Network error.');
+    await page.mouse.click(2,2);assert.equal(await notice.isVisible(),false);
+    await page.evaluate(()=>alert('Information'));
+    await page.locator('#turso-main-dismiss').click();assert.equal(await notice.isVisible(),false);
+  }
   assert.deepEqual(errors,[]);console.log('Exam-only navigation, counts, filters, breadcrumbs, responsive controls and lesson isolation passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

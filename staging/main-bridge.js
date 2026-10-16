@@ -70,8 +70,8 @@
     const banner=document.getElementById('turso-main-banner');
     if(banner?.dataset?.compactNotices==='true'){
       banner.hidden=!bad;
-      const retry=document.getElementById('turso-main-retry');
-      if(retry)retry.hidden=!(pending||personalQueue.length);
+      for(const id of ['turso-main-retry','turso-main-refresh']){const button=document.getElementById(id);if(button)button.hidden=true;}
+      message=String(message).replace(/\s*(?:Please )?(?:try again|reload (?:the page|server)(?: and edit again)?)\.?\s*$/i,'').trim();
     }
     if(document.getElementById('turso-main-banner')?.dataset?.offlineFixture==='true')
       message=String(message).replaceAll('тестовой Turso','автономной SQLite').replaceAll('тестовую Turso','автономную SQLite');
@@ -82,6 +82,16 @@
       close.addEventListener('click',()=>{banner.hidden=true;});banner.append(close);
     }
   }
+  const compactNotice=()=>document.getElementById('turso-main-banner')?.dataset?.compactNotices==='true';
+  if(compactNotice())window.alert=message=>notice(String(message),true);
+  document.addEventListener('click',event=>{
+    const banner=document.getElementById('turso-main-banner');
+    if(compactNotice()&&banner&&!banner.hidden&&!banner.contains(event.target)){banner.hidden=true;event.preventDefault();event.stopImmediatePropagation();}
+  },true);
+  document.addEventListener('keydown',event=>{
+    const banner=document.getElementById('turso-main-banner');
+    if(event.key==='Escape'&&compactNotice()&&banner&&!banner.hidden){banner.hidden=true;event.preventDefault();event.stopImmediatePropagation();}
+  },true);
   function register(value){
     if(Array.isArray(value)){value.forEach(register);return;}
     if(value && typeof value==='object'){

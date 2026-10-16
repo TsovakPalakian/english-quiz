@@ -1236,7 +1236,7 @@ test('Offline UI status cannot claim real Turso acceptance',async()=>{
   await window.TursoMain.fetch('/api/me');assert.match(status.textContent,/автономной SQLite/);assert.doesNotMatch(status.textContent,/Turso/);
   banner.dataset.offlineFixture='false';window.TursoMain.notice('Подтверждено тестовой Turso.');assert.match(status.textContent,/Turso/);
 });
-test('Production notices hide success, show errors and retain retry only for pending operations',()=>{
+test('Production notices hide success, show informational errors without action buttons',()=>{
   for(const pending of [null,{actorId:'fixture',path:'/api/cards/fixture',method:'PATCH',body:{mutationId:'same-id'}}]){
     const banner={dataset:{compactNotices:'true'},hidden:true},status={classList:{toggle(){}}},retry={},window={};
     const scope={window,crypto,sessionStorage:{removeItem(){}},
@@ -1245,7 +1245,7 @@ test('Production notices hide success, show errors and retain retry only for pen
     runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
     window.TursoMain.notice('Saving');assert.equal(banner.hidden,true);
     window.TursoMain.notice('Network error',true);assert.equal(banner.hidden,false);
-    assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,!pending);
+    assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,true);
     window.TursoMain.notice('Saved');assert.equal(banner.hidden,true);
   }
   const css=readFileSync(new URL('../production/notification.css',import.meta.url),'utf8');
