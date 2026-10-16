@@ -10290,13 +10290,20 @@
     function accountGroupLevel(group) {
       return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
     }
+    function accountGroupMetrics(groups,extra={}) {
+      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>user.id));
+      return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>user.id)),...(extra.teachers||[]).map(user=>user.id)]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(member.accountId)).map(member=>member.accountId),...(extra.students||[]).map(user=>user.id)]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
+    }
+    function accountMetricsHTML(groups,extra={}) {
+      return '<span class="accounts-metrics">'+Object.entries(accountGroupMetrics(groups,extra)).map(([label,count])=>'<span>'+esc(accountCount(label,count))+'</span>').join('')+'</span>';
+    }
     function paintAdminGroupLevel() {
       if (!isTeacher() || viewAccount) return;
       const box = document.getElementById('adminLevelBody'); if (!box) return;
       const level = adminGroupLevel;
       document.getElementById('adminLevelTitle').textContent = level === 'unassigned' ? 'Unassigned groups' : level;
       const groups = adminGroups.filter(group => accountGroupLevel(group) === level);
-      box.innerHTML = (level === 'unassigned' ? '' : '<div class="row accounts-group-create"><label for="accountGroupName">Create group</label><span>' + esc(level) + '</span><input id="accountGroupName" aria-label="New group name" placeholder="Group name" maxlength="110"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>') + '<div class="accounts-level-groups">' + groups.map(group => '<button class="path" type="button" data-admin-group="' + group.id + '"><span><b>' + esc(accountCount(group.title,adminMembers.filter(m=>m.groupId===group.id).length+adminTeachers(group.id).length)) + '</b><span class="accounts-metrics"><span>'+esc(accountCount('students',adminMembers.filter(m=>m.groupId===group.id).length))+'</span><span>'+esc(accountCount('teachers',adminTeachers(group.id).length))+'</span></span></span></button>').join('') + '</div>';
+      box.innerHTML = (level === 'unassigned' ? '' : '<div class="row accounts-group-create"><label for="accountGroupName">Create group</label><span>' + esc(level) + '</span><input id="accountGroupName" aria-label="New group name" placeholder="Group name" maxlength="110"><button class="btn primary" type="button" data-account-group="create">Create group</button></div>') + '<div class="accounts-level-groups">' + groups.map(group => '<button class="path" type="button" data-admin-group="' + group.id + '"><span><b>' + esc(group.title) + '</b>'+accountMetricsHTML([group])+'</span></button>').join('') + '</div>';
       paintPagePath('admingrouplevel');
     }
     function paintAdminAccounts() {
@@ -10304,13 +10311,12 @@
       const query = adminSearch.trim().toLocaleLowerCase();
       const accounts = adminAccounts.filter(user => [user.name,user.login,user.email].some(value => String(value || '').toLocaleLowerCase().includes(query)));
       if(adminBucket==='staff')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role!=='USER'))||'<p class="hint">No staff accounts.</p>';
-      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id)))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'">'+esc(accountCount(group.title,adminMembers.filter(m=>m.groupId===group.id).length+adminTeachers(group.id).length))+'</button>').join('');
+      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id)))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'"><span><b>'+esc(group.title)+'</b>'+accountMetricsHTML([group])+'</span></button>').join('');
       else if(query)list.innerHTML=adminAccountRows(accounts)||'<p class="hint">No matching accounts.</p>';
       else{
         const staff=adminAccounts.filter(user=>user.role!=='USER'),unassigned=adminAccounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id));
-        list.innerHTML='<div class="accounts-special"><button class="file-card" type="button" data-admin-bucket="staff"><b>'+esc(accountCount('Teachers & Staff',staff.length))+'</b></button><button class="file-card" type="button" data-admin-bucket="unassigned"><b>'+esc(accountCount('Unassigned',unassigned.length))+'</b></button></div><div class="decks">'+adminLevels.map(level=>'<button class="file-card" type="button" data-admin-level="'+level+'"><b>'+esc(accountCount(level,adminGroups.filter(group=>accountGroupLevel(group)===level).length))+'</b></button>').join('')+'</div>';
+        list.innerHTML='<div class="accounts-special"><button class="file-card" type="button" data-admin-bucket="staff"><b>Teachers & Staff</b>'+accountMetricsHTML(adminGroups.filter(group=>adminTeachers(group.id).length),{teachers:staff})+'</button><button class="file-card" type="button" data-admin-bucket="unassigned"><b>Unassigned</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'),{students:unassigned})+'</button></div><div class="decks">'+adminLevels.map(level=>'<button class="file-card" type="button" data-admin-level="'+level+'"><b>'+esc(level)+'</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)===level))+'</button>').join('')+'</div>';
       }
-      if(adminBucket)list.insertAdjacentHTML('afterbegin','<button class="btn ghost" type="button" data-admin-bucket="">Back to groups</button>');
       paintPagePath('admin');
     }
     document.addEventListener('input',event => {
@@ -10333,8 +10339,8 @@
     function adminGroupOptions(selected) {
       return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
     }
-    function adminAccountRows(accounts) {
-      return accounts.map(row=>{const inspect=canInspectAccount(row),tag=inspect?'button':'div';return '<'+tag+' class="path'+(inspect?'':' account-static-row')+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(row.id)+'"':' aria-disabled="true"')+'><span><b>'+esc(row.name||row.login)+'</b><br><span class="label">'+esc(row.email)+' · '+roleLabel(row.role)+accountMark(row)+'</span></span></'+tag+'>';}).join('');
+    function adminAccountRows(accounts,allowInspect=true) {
+      return accounts.map(row=>{const inspect=allowInspect&&canInspectAccount(row),tag=inspect?'button':'div';return '<'+tag+' class="path'+(inspect?'':' account-static-row')+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(row.id)+'"':' aria-disabled="true"')+'><span><b>'+esc(row.name||row.login)+'</b><br><span class="label">'+esc(row.email)+' · '+roleLabel(row.role)+accountMark(row)+'</span></span></'+tag+'>';}).join('');
     }
     function paintAdminGroups() {
       const box = document.getElementById('adminBody'); if (!box || !isTeacher() || viewAccount) return;
@@ -10348,8 +10354,7 @@
       if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
-      const examsOpen = detail.dataset.groupId === String(selected.id) && !!detail.querySelector('[data-group-exams]')?.open;
-      const teachersOpen=detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-account-teachers-form]')?.closest('details')?.open;
+      const folds=Object.fromEntries(['students','lessons','exams','teachers'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
@@ -10358,22 +10363,22 @@
         const icon = '<svg class="lucide lucide-circle-' + (assigned ? 'minus' : 'plus') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>' + (assigned ? '' : '<path d="M12 8v8"/>') + '</svg>';
         return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(owner?.title || 'Unassigned') + (assigned ? ' · Assigned' : '') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="' + (assigned ? 'unassign-exam' : 'exam') + '" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
       }).join('');
-      document.getElementById('adminGroupDetail').innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Save name</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button><button class="btn" type="button" data-group-open="' + selected.id + '">Open lessons</button></div><h3>Students · ' + students.length + '</h3>' + adminAccountRows(students) + '<details class="accounts-fold" data-group-lessons><summary>Lessons · ' + selected.lessonIds.length + '</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>Exams · ' + exams.length + '</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
+      detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('h3').textContent=accountCount('Students',students.length);
-      detail.querySelectorAll('summary').forEach(node=>node.textContent=node.textContent.replace(/ · 0$/,''));
-      detail.querySelector('h3').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers)+'<details class="accounts-fold"><summary>Assign teachers</summary><form data-account-teachers-form data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'">'+candidates.map(user=>'<label class="accounts-teacher-choice"><input type="checkbox" data-account-teacher value="'+esc(user.id)+'"'+(assignment?.teacherIds.includes(user.id)?' checked':'')+'><span>'+esc(user.name||user.login)+'</span></label>').join('')+'<button class="btn primary" type="submit" data-account-teachers-save>Save teachers</button><span class="hint" role="status" data-account-teachers-status></span></form></details></section>');
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id);return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="btn" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'">'+(assigned?'Unassign':'Assign')+'</button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section>');
       detail.dataset.groupId = String(selected.id);
-      detail.querySelector('[data-group-exams]').open = examsOpen;
-      detail.querySelector('[data-account-teachers-form]').closest('details').open=teachersOpen;
+      for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
       paintPagePath('admingroup');
     }
-    document.addEventListener('submit',async event=>{
-      const form=event.target.closest('[data-account-teachers-form]');if(!form)return;event.preventDefault();if(!isTeacher()||viewAccount)return;
-      const button=form.querySelector('[data-account-teachers-save]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen;button.disabled=true;status.textContent='Saving…';
-      try{const result=await accountFetch('/api/accounts/group-teachers',{method:'POST',body:JSON.stringify({groupId:Number(form.dataset.groupId),expectedRevision:Number(form.dataset.revision),teacherIds:[...form.querySelectorAll('[data-account-teacher]:checked')].map(input=>input.value)})});
-        if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;adminTeacherAssignments=adminTeacherAssignments.filter(row=>row.groupId!==result.groupId);adminTeacherAssignments.push(result);paintAdminGroup();document.querySelector('[data-account-teachers-status]').textContent='Saved';
-      }catch(error){if(form.isConnected)status.textContent=error.message;}finally{if(form.isConnected)button.disabled=false;}
+    document.addEventListener('click',async event=>{
+      const button=event.target.closest('#adminGroupDetail [data-account-teacher-toggle]');if(!button||button.disabled||!isTeacher()||viewAccount)return;
+      const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=button.dataset.accountTeacherToggle;
+      const current=adminTeacherAssignments.find(row=>row.groupId===groupId),ids=new Set(current?.teacherIds||[]);if(ids.has(teacherId))ids.delete(teacherId);else ids.add(teacherId);
+      form.querySelectorAll('button').forEach(node=>node.disabled=true);status.textContent='Saving…';
+      try{const result=await accountFetch('/api/accounts/group-teachers',{method:'POST',body:JSON.stringify({groupId,expectedRevision:Number(form.dataset.revision),teacherIds:[...ids]})});
+        if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;adminTeacherAssignments=adminTeacherAssignments.filter(row=>row.groupId!==result.groupId);adminTeacherAssignments.push(result);
+        if(adminGroupId===groupId&&document.querySelector('section.on')?.id==='admingroup'){paintAdminGroup();document.querySelector('[data-account-teachers-status]').textContent='Saved';}
+      }catch(error){if(form.isConnected)status.textContent=error.message;}finally{if(form.isConnected)form.querySelectorAll('button').forEach(node=>node.disabled=false);}
     });
     async function saveAccountGroup(body) {
       const actor = authUser?.id, generation = viewGen;
@@ -10492,7 +10497,7 @@
           : "";
         slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
           '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
-          (user.role === 'USER' ? '<div class="account-group-row"><label>Group<select data-student-group data-original-group="' + esc(String(adminMembers.find(member => member.accountId === user.id)?.groupId || '')) + '">' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Save group</button></div>' : '') +
+          (user.role === 'USER' ? '<div class="account-group-row"><label><span>Group</span><select data-student-group data-original-group="' + esc(String(adminMembers.find(member => member.accountId === user.id)?.groupId || '')) + '">' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>' : '') +
           (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
             '<p class="label">Login</p><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off" />' +
             '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +

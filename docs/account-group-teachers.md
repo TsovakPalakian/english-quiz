@@ -5,6 +5,12 @@ Unassigned students, nine levels, subgroups, and account rows. Legacy groups
 without a known level remain reachable through Unassigned. Staff rows are not
 interactive when the existing account-detail policy prohibits opening them.
 Approval counters include pending registration and account-change requests.
+Cards display distinct group, teacher, student, lesson and exam counts. Zero
+values omit only the numeric suffix. Staff cards include their linked groups;
+Unassigned includes unclassified groups and students with no group membership.
+Each teacher row has an independent Assign/Unassign action with revision checks;
+descriptions are not links. Student, lesson, exam and teacher-assignment sections
+retain their expanded state when the current subgroup is repainted.
 
 GET/POST /api/accounts/group-teachers is limited to authenticated reviewers.
 POST additionally requires same-origin requests, enabled writes and the current

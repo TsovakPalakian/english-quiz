@@ -20,3 +20,13 @@ test('opening an unclassified Accounts subgroup does not inherit the previous le
  const group={dataset:{adminGroup:'99'}},scope=vm.createContext({document:{addEventListener:(name,handler)=>{click=handler;}},isTeacher:()=>true,viewAccount:null,domEntityId:Number,adminGroups:[{id:99,title:'Legacy group'}],accountGroupLevel:()=> 'unassigned',adminGroupLevel:'B1',visit(){}});
  vm.runInContext(source.slice(start,end),scope);click({target:{closest:selector=>selector==='[data-admin-group]'?group:null}});assert.equal(scope.adminGroupLevel,'unassigned');
 });
+test('Accounts card metrics deduplicate people, groups, lessons and exams and retain zero labels',()=>{
+ const start=source.indexOf('    function accountGroupMetrics('),end=source.indexOf('    function paintAdminGroupLevel()',start);
+ assert.ok(start>=0,'Missing Accounts metric helpers');
+ const context=vm.createContext({adminAccounts:[{id:'s',role:'USER'},{id:'t',role:'ADMIN'}],adminMembers:[{groupId:1,accountId:'s'},{groupId:2,accountId:'s'},{groupId:1,accountId:'invisible'}],adminTeachers:()=>[{id:'t'}],accountCount:(label,n)=>label+(n?' · '+n:''),esc:String});
+ vm.runInContext(source.slice(start,end),context);
+ context.groups=[{id:1,lessonIds:[1,1,2],examIds:[3]},{id:2,lessonIds:[2],examIds:[3,4]}];
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(accountGroupMetrics(groups))',context)),{groups:2,teachers:1,students:1,lessons:2,exams:2});
+ assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(accountGroupMetrics([]))',context)),{groups:0,teachers:0,students:0,lessons:0,exams:0});
+ const html=vm.runInContext('accountMetricsHTML([])',context);for(const label of ['groups','teachers','students','lessons','exams'])assert.ok(html.includes('>'+label+'<'));assert.ok(!html.includes('· 0'));
+});
