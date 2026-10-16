@@ -68,7 +68,9 @@ body.chat-active #selpop{z-index:1300}
 .chat-room-top{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:5px}
 .chat-room-top b{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-weight:600}
 .chat-room-top time{font-size:12px;color:var(--mute);white-space:nowrap}
-.chat-room-preview{color:var(--mute);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.chat-room-preview{display:block;min-width:0;color:var(--mute);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#messages :is([data-chat-folder],[data-chat-archive]){font-size:17px;gap:14px}
+#messages :is([data-chat-folder],[data-chat-archive])>svg{width:28px;height:28px;flex:none}
 .chat-counter{float:right;background:var(--acc);color:var(--on-acc,var(--card));border-radius:12px;padding:1px 6px;font-size:12px;margin-left:5px}
 .chat-empty{color:var(--mute);padding:24px;text-align:center}
 .chat-center{position:relative;flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:transparent;overflow:hidden}
@@ -424,10 +426,16 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .chat-edit-profile [data-profile-save]{margin-top:4px}
 .user-settings .chat-edit-profile .chat-profile-visibility{grid-template-columns:minmax(0,180px) 44px;gap:12px}
 .user-settings #customThemeOpen{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 20px;border:1px solid var(--acc);border-radius:6px;background:var(--acc);color:var(--on-acc);font-weight:700}
-.user-settings #themes{display:flex!important;flex-direction:column;align-items:stretch;gap:16px}
+.user-settings #themes{display:flex!important;flex-direction:column;align-items:stretch;gap:12px}
 .user-settings #themes #customThemeOpen{align-self:flex-start;flex:none;margin:0;position:static}
 .user-settings #themes #customThemeForm{margin:0;padding:16px;gap:12px;flex:none;min-width:0}
 .user-settings #themes #customThemeHint{margin:0;line-height:1.5}
+.user-settings #themes #customThemeStatus:empty{display:none}
+.user-settings #themes>.card:last-child{margin-top:0}
+.user-settings .settings-display-symbol{display:inline-flex;align-items:center;justify-content:center;width:22px;flex:none;font-size:18px}
+.user-settings .display-sizes{margin:12px 0 20px}
+.user-settings .display-visibility{position:relative;margin-top:16px}
+.user-settings .display-visibility input{left:14px;top:50%;transform:translateY(-50%);width:46px;height:28px;min-width:0;min-height:0;padding:0;margin:0}
 .user-settings #guideLang{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s)}
 .user-settings #guideLang .chip{min-height:38px;border:0;border-radius:5px;margin:0;padding:8px 16px;background:transparent;color:var(--ink)}
 .user-settings #guideLang .chip.on{background:var(--acc);color:var(--on-acc);font-weight:700}

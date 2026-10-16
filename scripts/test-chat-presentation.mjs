@@ -47,3 +47,15 @@ test('icon rendering coalesces a burst of updates into one animation frame',()=>
   assert.equal(callbacks.length,1);assert.equal(scans,0);callbacks[0]();assert.equal(scans,1);
   icons();assert.equal(callbacks.length,2);callbacks[1]();assert.equal(scans,2);
 });
+test('folder markers sum only current-user unread across visible member chats',()=>{
+  const data={rooms:[{id:'a',unread:{personal:3}},{id:'b',unread:{personal:3}},{id:'muted',muted:true,unread:{learning:2}},{id:'archived',archived:true,unread:{personal:9}},{id:'blocked',access:{blockedByMe:true},unread:{personal:8}}]};
+  const line=source.split('\n').find(line=>line.trimStart().startsWith('const folderUnread='));assert.ok(line);
+  const count=runInNewContext(line+'\nfolderUnread',{data});
+  assert.equal(count({roomIds:['a','b','a']}),6);assert.equal(count({roomIds:['muted','archived','blocked','missing']}),2);assert.equal(count({roomIds:[]}),0);
+});
+test('chat previews shorten words and unbroken text without altering messages',()=>{
+  const line=source.split('\n').find(line=>line.trimStart().startsWith('const roomPreview='));assert.ok(line);
+  const preview=runInNewContext(line+'\nroomPreview');
+  assert.equal(preview('one two three four five six seven eight'),'one two three four five six…');
+  assert.equal(preview('short message'),'short message');assert.equal(preview('  short\nmessage  '),'short message');assert.ok(preview('x'.repeat(100)).length<=65);
+});

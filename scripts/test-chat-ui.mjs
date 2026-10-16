@@ -133,9 +133,13 @@ try{
   await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('#chatRoomContext svg').first().waitFor();
   assert.equal(await page.locator('#msgSearch svg').evaluate(node=>node===window.fixtureStableIcon),true,'Rendering menu icons preserves existing chat icons');await page.keyboard.press('Escape');
   const extra=(id,title,settings={})=>({...room(),id,peerId:id,title,unread:{personal:0,learning:0},...settings});
-  const organized={...snapshot(),folders:[{id:'z',name:'Zebra',roomIds:[]},{id:'a',name:'Alpha',roomIds:[]}],rooms:[room(),extra('archived','Archived',{archived:true}),extra('p2','Second pin',{pinOrder:2}),extra('p1','First pin',{pinOrder:1})]};
+  const organized={...snapshot(),folders:[{id:'z',name:'Zebra',roomIds:['f1','f2']},{id:'a',name:'Alpha',roomIds:[]}],rooms:[room(),extra('archived','Archived',{archived:true}),extra('p2','Second pin',{pinOrder:2}),extra('p1','First pin',{pinOrder:1}),extra('f1','Folder one',{unread:{personal:3}}),extra('f2','Folder two',{unread:{personal:3}})]};
   connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.locator('[data-chat-archive]').waitFor();
   assert.deepEqual(await page.locator('#msgRooms>button').evaluateAll(nodes=>nodes.map(n=>n.dataset.chatArchive!==undefined?'archive':n.dataset.chatFolder||n.dataset.msgRoom)),['archive','a','z','p1','p2',roomId]);
+  assert.equal(await page.locator('[data-chat-folder="z"]').innerText(),'Zebra · 6');assert.equal(await page.locator('[data-chat-folder="a"]').innerText(),'Alpha');assert.equal(await page.locator('[data-chat-archive]').innerText(),'Archived Chats');
+  organized.rooms.find(r=>r.id==='f1').unread.personal=0;connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-chat-folder="z"]').textContent==='Zebra · 3');
+  organized.rooms.find(r=>r.id==='f2').unread.personal=0;connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-chat-folder="z"]').textContent==='Zebra');
+  organized.rooms.find(r=>r.id==='p2').lastMessage={text:'one two three four five six seven eight',createdMs:Date.now()};connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-msg-room="p2"] .chat-room-preview').textContent==='one two three four five six…');
   assert.equal(await page.locator('[data-msg-room="p1"] .chat-room-pin').count(),1);assert.match(await page.locator('#msgRoomTitle').innerText(),/Teacher · Teacher/);
   assert.match(await page.locator('#msgRooms [data-msg-room] time').last().innerText(),/^\d{2}\.\d{2}\.\d{4}$/);
   await page.locator('#msgRooms [data-msg-room="'+roomId+'"]').click();
@@ -246,6 +250,9 @@ try{
   await page.locator('.user-settings .chat-edit-profile').waitFor();
   await page.evaluate(()=>window.TursoMain.notice('The selected sound is unavailable.',true));await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('.user-settings').isVisible(),true,'Informational warning closes above Settings without closing Settings');
   const settingsSize=async()=>page.locator('.user-settings').evaluate(node=>({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})),fixedSettingsSize=await settingsSize();
+  assert.deepEqual(await page.locator('[data-settings-tab]').evaluateAll(nodes=>nodes.slice(-3).map(n=>n.dataset.settingsTab)),['security','display','help']);
+  await page.locator('[data-settings-tab="display"]').click();assert.equal(await page.locator('.user-settings [data-display-size]').count(),5);await page.locator('.user-settings [data-display-size="compact"]').click();assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-display-size')),'compact');await page.locator('.user-settings [data-display-size="comfortable"]').click();
+  await page.locator('.user-settings #highVisibility').check();assert.equal(await page.evaluate(()=>document.documentElement.dataset.highVisibility),'1');await page.locator('.user-settings #highVisibility').uncheck();await page.screenshot({path:'/private/tmp/settings-display-desktop.png'});await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.user-settings .chat-settings-content').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/settings-display-mobile.png'});await page.setViewportSize({width:1664,height:1000});await page.locator('[data-settings-tab="profile"]').click();await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('#displayDialog [data-display-size]').count(),5,'Display controls return to their original dialog');assert.deepEqual(await settingsSize(),fixedSettingsSize);
   assert.equal(await page.locator('.user-settings').getByText('Show phone',{exact:true}).count(),1);
   assert.equal(await page.locator('.user-settings').getByText('Show birthday',{exact:true}).count(),1);
   assert.equal(await page.locator('.chat-settings-menu>button:last-child[data-settings-logout]').count(),1);
@@ -253,6 +260,7 @@ try{
   assert.ok(await page.locator('.user-settings .chat-edit-profile').evaluate(form=>form.getBoundingClientRect().height<720),'Profile form stays compact vertically');
   await page.locator('[data-settings-tab="interface"]').click();assert.equal(await page.locator('.user-settings .settings-switch').count(),3);
   await page.locator('[data-settings-tab="theme"]').click();await page.locator('.user-settings #themes').waitFor();
+  assert.ok(await page.locator('.user-settings #themes').evaluate(n=>{const button=n.querySelector('#customThemeOpen'),card=n.querySelector('[data-theme-seg]').closest('.card'),gap=card.getBoundingClientRect().top-button.getBoundingClientRect().bottom;return gap>=0&&gap<=24;}),'Theme gallery stays close without overlap');
   assert.deepEqual(await settingsSize(),fixedSettingsSize,'Theme does not resize Settings');
   await page.locator('.user-settings #customThemeOpen').click();assert.ok(await page.locator('.user-settings #themes').evaluate(root=>root.querySelector('#customThemeHint').getBoundingClientRect().top-root.querySelector('#customThemeOpen').getBoundingClientRect().bottom>=16),'Theme button leaves space before its description');
   await page.locator('.user-settings #customThemeOpen').click();
