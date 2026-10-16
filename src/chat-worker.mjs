@@ -9,6 +9,7 @@ import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
 import {readProfiles,setPresence,setAvatar,setUsername,signupUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
 import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase} from './chat-database.mjs';
 import {neonApplicationEnvironment} from './neon-application.mjs';
+import {chatCipher} from './chat-encryption.mjs';
 export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -54,7 +55,10 @@ export class ChatBridge{
     const job=this.importRoom(roomId,policy).finally(()=>this.importing.delete(roomId));this.importing.set(roomId,job);return job;
   }
   async importRoom(roomId,policy){
-    const state=await chatCall(this.env,'CHAT_ROOM',roomId,'/status',{});if(state.migrated)return;
+    const cipher=chatCipher(this.env),scope=column=>'journal:'+roomId+':'+column;
+    const sealRows=async(db,rows)=>{if(!cipher||!rows.length)return;const statements=[];for(const row of rows){for(const column of ['body','format_json'])if(row[column]!=null&&!row[column].startsWith('chatenc:'))statements.push(statement('UPDATE chat_messages SET '+column+'=? WHERE id=? AND '+column+'=?',[cipher.seal(row[column],scope(column)),row.id,row[column]]));}if(statements.length)await db.atomic(statements);};
+    const state=await chatCall(this.env,'CHAT_ROOM',roomId,'/status',{});
+    if(state.migrated){if(cipher){const db=this.database(this.env),rows=await db.read("SELECT id,body,format_json FROM chat_messages WHERE room_id=? AND (body NOT LIKE 'chatenc:%' OR (format_json IS NOT NULL AND format_json NOT LIKE 'chatenc:%')) LIMIT 100",[roomId]);await sealRows(db,rows);}return;}
     const db=this.database(this.env),[source]=await db.read('SELECT * FROM chat_rooms WHERE id=?',[roomId]);
     if(source){
       const members=await db.read('SELECT * FROM chat_members WHERE room_id=?',[roomId]);
@@ -62,7 +66,9 @@ export class ChatBridge{
       let after=0;
       while(true){
         const rows=await db.read('SELECT m.*,a.exam_id,a.active assignment_active FROM chat_messages m LEFT JOIN chat_assignments a ON a.id=m.assignment_id WHERE m.room_id=? AND m.id>? ORDER BY m.id LIMIT 200',[roomId,after]);
-        await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:true,messages:rows,complete:rows.length<200,members});
+        const messages=cipher?rows.map(row=>({...row,body:cipher.open(row.body,scope('body')),format_json:cipher.open(row.format_json,scope('format_json'))})):rows;
+        await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:true,messages,complete:rows.length<200,members});
+        await sealRows(db,rows);
         if(rows.length<200)break;after=rows.at(-1).id;
       }
     }else await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:true,messages:[],complete:true});
@@ -90,7 +96,9 @@ export class ChatBridge{
       const policy=await this.policy(),done=[];
       for(const roomId of new Set(rows.map(r=>r.room_id))){
         await this.migrate(roomId,policy);
-        await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:false,messages:rows.filter(r=>r.room_id===roomId)});
+        const cipher=chatCipher(this.env),batch=rows.filter(r=>r.room_id===roomId);
+        await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:false,messages:cipher?batch.map(row=>({...row,body:cipher.open(row.body,'journal:'+roomId+':body'),format_json:cipher.open(row.format_json,'journal:'+roomId+':format_json')})):batch});
+        if(cipher){const updates=batch.flatMap(row=>['body','format_json'].filter(column=>row[column]!=null&&!row[column].startsWith('chatenc:')).map(column=>statement('UPDATE chat_messages SET '+column+'=? WHERE id=? AND '+column+'=?',[cipher.seal(row[column],'journal:'+roomId+':'+column),row.id,row[column]])));if(updates.length)await db.atomic(updates);}
         done.push(...rows.filter(r=>r.room_id===roomId).map(r=>r.id));
       }
       if(done.length)await db.atomic([statement('DELETE FROM chat_delivery_outbox WHERE message_id IN ('+done.map(()=>'?').join(',')+')',done)]);

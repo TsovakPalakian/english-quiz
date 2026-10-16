@@ -53,6 +53,7 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categor
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+html=html.replace('>Approved accounts</button>','>Approved accounts &amp; Groups</button>').replace('<button type="button" role="tab" data-admin-tab="groups" aria-selected="false">Groups</button>','');
 html=html.replace('<head>','<head><script src="/database-context.js?v='+version('database-context.js')+'"></script>');
 html=html.replace('<div id="adminBody"></div>','<div class="row" data-developer-only hidden><button class="btn" type="button" data-database-admin><i data-lucide="database"></i>Databases</button></div><div id="adminBody"></div>');
 html=html.replace('</body>',readFileSync(resolve(root,'production/database-admin.html'),'utf8')+'</body>');

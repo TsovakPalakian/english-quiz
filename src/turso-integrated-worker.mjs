@@ -9,6 +9,7 @@ import {everydayCatalog,removeEssentialReference} from './essential-catalog.mjs'
 import {ensurePairedThemes} from './turso-paired-themes.mjs';
 import {VisibilityService} from './turso-visibility.mjs';
 import {GroupService} from './turso-groups.mjs';
+import {AccountGroupTeachers} from './account-group-teachers.mjs';
 import {ExamService} from './turso-exams.mjs';
 import {TursoStudyClient} from './turso-study.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './turso-legacy-read.mjs';
@@ -170,6 +171,18 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const raw=await request.text();if(raw.length>1024)throw new StudyError(413,'Reference too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         return json(await removeEssentialReference(studyDatabase(env),actor,body));
+      }
+      if(path==='/api/accounts/group-teachers'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+        if(!['GET','POST'].includes(method))throw new StudyError(405,'Use GET or POST.');
+        const target=new URL(request.url);target.pathname='/api/admin/users';target.search='';
+        const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);if(!response.ok)return response;
+        const {users=[]}=await response.json(),service=new AccountGroupTeachers(studyDatabase(env));
+        if(method==='GET')return json(await service.list(actor,users));
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,10000,'Teacher assignment too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid teacher assignment.');}
+        return json(await service.save(actor,value,users));
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

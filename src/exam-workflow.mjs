@@ -17,7 +17,7 @@ export async function examWorkflowCommands(db,instance,actor,event){
     if(recipient&&recipient!==actor.id){
       const messages=new MessageService(db,async()=>[]);await messages.ensure();
       const room='direct:'+ [actor.id,recipient].sort().join(':');
-      commands.push(...messages.directCommands(actor,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) VALUES(?,?,?,'learning',?,?,?,?,?)`,[room,actor.id,actor.name||actor.login||'Teacher',events[event]+': '+instance.title,instance.assignment_id,key,Date.now(),instance.exam_id]));
+      commands.push(...messages.directCommands(actor,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) VALUES(?,?,?,'learning',?,?,?,?,?)`,[room,actor.id,actor.name||actor.login||'Teacher',messages.sealText(room,events[event]+': '+instance.title),instance.assignment_id,key,Date.now(),instance.exam_id]));
     }
   }
   return commands;

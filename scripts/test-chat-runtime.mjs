@@ -1,9 +1,9 @@
 import {createRequire} from 'node:module';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,readdir,readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{Miniflare,convertV4MiniflareOptions}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/miniflare'),{build}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/esbuild');
 const directory=await mkdtemp('/private/tmp/english-chat-runtime-'),bundle=await build({entryPoints:['scripts/chat-runtime-fixture.mjs'],bundle:true,write:false,format:'esm',platform:'browser'});
-const options={...convertV4MiniflareOptions({name:'chat-runtime-fixture',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-08-01',bindings:{CONTENT_SESSION_SECRET:'fixture-secret'},durableObjects:{CHAT_ROOM:{className:'ChatRoom',useSQLite:true},CHAT_INBOX:{className:'ChatInbox',useSQLite:true},CHAT_BRIDGE:{className:'ChatBridge',useSQLite:true}}}),resourcePersistencePath:directory};
+const options={...convertV4MiniflareOptions({name:'chat-runtime-fixture',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-08-01',bindings:{CONTENT_SESSION_SECRET:'fixture-secret',CHAT_ENCRYPTION_KEY:btoa('r'.repeat(32)),CHAT_ENCRYPTION_REQUIRED:'true'},durableObjects:{CHAT_ROOM:{className:'ChatRoom',useSQLite:true},CHAT_INBOX:{className:'ChatInbox',useSQLite:true},CHAT_BRIDGE:{className:'ChatBridge',useSQLite:true}}}),resourcePersistencePath:directory};
 let mf=new Miniflare(options),sockets=[];
 function wire(ws){const rows=[];ws.addEventListener('message',event=>rows.push(JSON.parse(event.data)));ws.accept();sockets.push(ws);return {ws,rows};}
 async function waitFor(fn){const until=Date.now()+10000;while(Date.now()<until){const value=fn();if(value)return value;await new Promise(resolve=>setTimeout(resolve,20));}throw new Error('Runtime event timed out.');}
@@ -32,7 +32,11 @@ try{
   const history=await rpc(again,'history',{roomId,category:'personal'});assert.equal(history.messages.length,1);assert.equal(history.messages[0].read,true);
   assert.equal(history.messages[0].text,'Updated runtime message');assert.equal(history.messages[0].reactions[0].count,1);assert.equal(history.room.pinned.id,1);assert.equal(history.room.access.state,'accepted');
   assert.ok(again.rows.some(r=>r.type==='event'),'Events replay after restart');
+  await rpc(again,'room-settings',{roomId,archived:true,muteUntil:Date.now()+60000,sound:'common-toad'});const archived=await rpc(again,'snapshot',{});assert.equal(archived.total,0);assert.equal(archived.rooms.find(r=>r.id===roomId).archived,true);
+  await rpc(again,'folders',{op:'save',id:'runtime-folder',name:'Practice',roomIds:[roomId]});assert.equal((await rpc(again,'snapshot',{})).folders[0].name,'Practice');
+  await rpc(again,'clear-history',{roomId,everyone:false});assert.equal((await rpc(again,'history',{roomId,category:'personal'})).messages.length,0);
   const bobAgain=wire((await mf.dispatchFetch('http://fixture/socket?account=bob',{headers:{Upgrade:'websocket'}})).webSocket);await waitFor(()=>bobAgain.rows.some(r=>r.type==='snapshot'));await rpc(again,'profiles',{ids:['bob']});bobAgain.ws.close();await waitFor(()=>again.rows.some(r=>r.event?.profile?.id==='bob'&&r.event.profile.online===false));
   const denied=await mf.dispatchFetch('http://fixture/command?account=bob',{method:'POST',body:JSON.stringify({action:'history',body:{roomId:'direct:alice:stranger',category:'personal'}})});assert.equal(denied.status,500);
-  console.log('Cloudflare runtime: SQLite/FTS, two hibernatable sockets, durable acknowledgements, read receipts, retry deduplication, persisted restart and event replay passed.');
+  for(const file of await readdir(directory,{recursive:true}))if(/\.sqlite(?:-wal)?$/.test(file)){const bytes=await readFile(directory+'/'+file);for(const text of ['Persistent runtime message','Updated runtime message'])assert.equal(bytes.includes(Buffer.from(text)),false,'No plaintext in persisted SQLite: '+file);}
+  console.log('Cloudflare runtime: encrypted SQLite, hibernatable sockets, receipts, retries, persisted restart, replay, archive, folders and history clearing passed.');
 }finally{for(const ws of sockets)if(ws.readyState<2)ws.close();await mf.dispose();await rm(directory,{recursive:true,force:true});}

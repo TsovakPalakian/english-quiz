@@ -44,6 +44,19 @@
     let remaining=notes.length;
     notes.forEach((frequency,index)=>{const source=context.createOscillator(),envelope=context.createGain(),start=now+index*(duration*.45/notes.length),end=now+duration;source.type='sine';source.frequency.value=frequency;envelope.gain.setValueAtTime(.0001,start);envelope.gain.exponentialRampToValueAtTime(.13/notes.length,start+.015);envelope.gain.exponentialRampToValueAtTime(.0001,end);source.connect(envelope);envelope.connect(gain);source.onended=()=>{source.disconnect();envelope.disconnect();if(!--remaining)gain.disconnect();};source.start(start);source.stop(end);playing.push(source);});
   }
+  async function playFor(id=''){
+    if(!id||id===settings.sound){play();return;}
+    const token=version,account=owner;
+    if(!available||!account||account!==own()||!settings.enabled||!context||context.state!=='running')return;
+    const signal=choices.find(item=>item[0]===id),recording=recordings.find(item=>item.id===id),custom=settings.sounds.some(item=>item.id===id);if(!signal&&!recording&&!custom){play();return;}
+    let decoded=recording?decodedRecordings.get(id):null;
+    try{if(!signal&&!decoded){const response=await fetch(recording?recording.file:'/api/me/notification-sounds?id='+encodeURIComponent(id),{credentials:'same-origin',cache:custom?'no-store':'default'});if(!response.ok)throw Error('Sound unavailable.');decoded=await context.decodeAudioData(await response.arrayBuffer());if(recording){if(decodedRecordings.size>=8)decodedRecordings.delete(decodedRecordings.keys().next().value);decodedRecordings.set(id,decoded);}}}catch{if(token===version&&account===own())play();return;}
+    if(token!==version||account!==own()||!settings.enabled)return;
+    stop();const gain=context.createGain();gain.gain.value=settings.volume;gain.connect(context.destination);
+    if(decoded){const source=context.createBufferSource();source.buffer=decoded;source.connect(gain);source.onended=()=>{source.disconnect();gain.disconnect();};source.start();playing.push(source);return;}
+    const [, ,duration,notes]=signal,now=context.currentTime;let remaining=notes.length;
+    notes.forEach((frequency,index)=>{const source=context.createOscillator(),envelope=context.createGain(),start=now+index*(duration*.45/notes.length),end=now+duration;source.type='sine';source.frequency.value=frequency;envelope.gain.setValueAtTime(.0001,start);envelope.gain.exponentialRampToValueAtTime(.13/notes.length,start+.015);envelope.gain.exponentialRampToValueAtTime(.0001,end);source.connect(envelope);envelope.connect(gain);source.onended=()=>{source.disconnect();envelope.disconnect();if(!--remaining)gain.disconnect();};source.start(start);source.stop(end);playing.push(source);});
+  }
   function wav(audio,start,duration){
     const rate=24000,count=Math.floor(duration*rate),bytes=new ArrayBuffer(44+count*2),view=new DataView(bytes),write=(at,text)=>[...text].forEach((c,i)=>view.setUint8(at+i,c.charCodeAt(0)));
     write(0,'RIFF');view.setUint32(4,36+count*2,true);write(8,'WAVEfmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,'data');view.setUint32(40,count*2,true);
@@ -101,5 +114,5 @@
     render();if(!embedded)dialog.showModal();
   }
   document.addEventListener('click',event=>{if(event.target.closest('[data-notification-sounds]'))open().catch(error=>{if(window.TursoMain?.notice)window.TursoMain.notice(error.message,true);else window.alert(error.message);});});
-  window.NotificationSounds={load,play,stop,unlock,mount:open};
+  window.NotificationSounds={load,play,playFor,list:()=>[...choices.map(([id,name])=>({id,name})),...recordings.map(({id,name})=>({id,name})),...settings.sounds.map(({id,name})=>({id,name}))],stop,unlock,mount:open};
 })();

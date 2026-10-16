@@ -2264,18 +2264,19 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
 test('Administration ignores older page and user responses',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
-  const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:slot,addEventListener(){},querySelectorAll:()=>[]},
+  const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:id==='adminUser'?slot:null,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
-    accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
+    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
   runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
   scope.paintAdmin();scope.paintAdmin();
-  for(const item of pending.slice(5,10))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(6,12))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   box.innerHTML='Selected user';
-  for(const item of pending.slice(0,5))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(0,6))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(box.innerHTML,'Selected user');
+  runInNewContext("adminAccounts=[{id:'one',role:'USER'},{id:'two',role:'USER'}];",scope);
   scope.paintAdminUser('one');scope.paintAdminUser('two');
-  pending[11].resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
-  pending[10].resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending.find(item=>item.path==='/api/admin/users/two').resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending.find(item=>item.path==='/api/admin/users/one').resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
   assert.match(slot.innerHTML,/Second/);assert.doesNotMatch(slot.innerHTML,/First/);
 });
 test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{

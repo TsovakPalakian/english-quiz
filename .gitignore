@@ -1,6 +1,7 @@
 accounts.sqlite
 .dev.vars
 .env
+.local-secrets/
 node_modules/
 wrangler.toml
 .wrangler/

@@ -40,6 +40,19 @@
 #adminLevelBody #accountGroupName{width:220px;max-width:100%;flex:0 1 220px;min-width:0}
 .accounts-level-groups{padding-left:16px;display:grid;gap:12px}
 .accounts-level-groups .path{width:100%;text-align:left}
+#admin .accounts-special{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
+#admin .accounts-special .file-card{min-width:0}
+#adminAccountList>.path,#adminGroupDetail .account-static-row{width:100%;box-sizing:border-box;text-align:left;margin-block:8px}
+#adminAccountList .account-static-row,#adminGroupDetail .account-static-row{cursor:default;color:var(--ink)}
+#admin .file-card b{overflow-wrap:anywhere}
+#admin .account-change-row p{margin:6px 0}
+#admin .account-change-row>span:empty{min-height:1px}
+#admingrouplevel .accounts-metrics{display:grid;grid-template-columns:repeat(2,max-content);gap:6px 24px;margin-top:8px;font-size:14px;font-weight:400}
+#adminGroupDetail .accounts-teacher-section{display:block;margin-block:24px;padding:0;border:0;background:transparent}
+#adminGroupDetail .accounts-teacher-choice{display:grid;grid-template-columns:20px minmax(0,1fr);align-items:center;gap:12px;padding:10px 0}
+#adminGroupDetail .accounts-teacher-choice input{box-sizing:border-box;appearance:auto;position:static;width:18px;min-width:18px;max-width:18px;height:18px;min-height:18px;padding:0;margin:0;opacity:1;accent-color:var(--acc)}
+#adminGroupDetail [data-account-teachers-status]{margin-left:12px}
+@media(max-width:480px){#admin .accounts-special{gap:10px}#admingrouplevel .accounts-metrics{grid-template-columns:minmax(0,1fr);gap:4px}#admin .account-change-row>span:empty{display:none}}
 #registerForm input[aria-invalid="true"]{border:2px solid #d93643;outline-color:#d93643}
 #registerForm .signup-field-error{display:block;color:#d93643;margin:0 0 10px}
 #registerForm .signup-field-error[hidden]{display:none}

@@ -435,3 +435,18 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .settings-trim-preview audio{width:100%;max-width:100%}
 .user-settings .settings-trim-preview button{justify-self:start}
 @media(max-width:700px){.chat-dialog.user-settings{width:calc(100vw - 16px)!important;height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)}.user-settings .chat-dialog-body{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,220px) minmax(0,1fr)}.user-settings .chat-settings-menu{max-height:220px;align-content:start}.user-settings .chat-settings-content>.chat-dialog-head{top:-18px}.user-settings :is(.settings-row,.chat-profile-visibility,.notification-sounds-inline .sound-toggle){grid-template-columns:minmax(0,1fr) 44px;gap:12px}}
+.chat-room-context{position:fixed;z-index:10050;max-height:calc(100dvh - 16px);overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 36px #0005;min-width:220px;padding:6px}
+.chat-room-context[hidden]{display:none}
+.chat-room-context button{display:flex;align-items:center;gap:12px;width:100%;min-height:40px;border:0;border-radius:4px;background:transparent;color:inherit;text-align:left;padding:8px 12px}
+.chat-room-context button:hover,.chat-room-context button:focus-visible{background:var(--acc-s)}
+.chat-room-context button.danger{color:var(--bad,#b42332)}
+#messages .chat-list-heading{font-size:14px;font-weight:650;margin:16px 14px 6px;color:var(--muted)}
+#messages [data-pin-order] .chat-room-top b:after{content:' ·';color:var(--acc)}
+.chat-manage-dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px}
+.chat-manage-dialog .chat-mute-choice{display:grid;grid-template-columns:minmax(0,1fr) 24px;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.chat-manage-dialog .chat-mute-choice input{width:20px;height:20px;margin:0;accent-color:var(--acc)}
+.chat-manage-dialog form>label:not(.chat-mute-choice){display:grid;gap:8px;margin-block:12px}
+.chat-manage-dialog :is(input:not([type=checkbox]):not([type=radio]),select){box-sizing:border-box;min-width:0;width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.chat-manage-dialog form>button{margin:12px 8px 0 0}
+#messages mark.chat-quote-highlight{background:var(--acc);color:var(--on-acc);border-radius:2px;box-shadow:0 0 0 2px var(--acc)}
+#messages.chat-detached .chat-rail,#messages.chat-detached #msgListBack{display:none}
