@@ -5,12 +5,12 @@ const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpa
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 try{
   const page=await browser.newPage({viewport:{width:1000,height:900}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  let settings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},counter=0,audio;
+  let settings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},counter=0,audio,failPreview=false;
   await page.route('https://fixture.test/**',async route=>{
     const request=route.request(),url=new URL(request.url());
     if(url.pathname!=='/api/me/notification-sounds')return route.fulfill({contentType:'text/html',body:'<!doctype html><button data-notification-sounds>Notification sounds</button>'});
     const method=request.method();
-    if(method==='GET'&&url.searchParams.has('id'))return route.fulfill({contentType:'audio/wav',body:audio});
+    if(method==='GET'&&url.searchParams.has('id'))return failPreview?route.fulfill({status:503,body:'Preview unavailable'}):route.fulfill({contentType:'audio/wav',body:audio});
     if(method==='POST')settings={...settings,...request.postDataJSON(),revision:String(++counter)};
     if(method==='PUT'){audio=request.postDataBuffer();assert.ok(audio.length<=144044);settings={...settings,sound:'custom-one',sounds:[{id:'custom-one',name:url.searchParams.get('name'),duration:(audio.length-44)/48000}],revision:String(++counter)};}
     if(method==='DELETE')settings={...settings,sound:'soft-double',sounds:[],revision:String(++counter)};
@@ -36,5 +36,21 @@ try{
   for(const width of [1000,320]){await page.setViewportSize({width,height:800});assert.ok(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
   await page.screenshot({path:'/private/tmp/notification-sounds-mobile.png'});
   await dialog.locator('[data-remove]').click();await dialog.locator('option[value=custom-one]').waitFor({state:'detached'});assert.equal(settings.sounds.length,0);
-  assert.deepEqual(errors,[]);console.log('Notification sound selection, server restore, clipping, playback, deletion and mobile layout passed');
+  await dialog.locator('[data-close]').click();
+  const chat=readFileSync('production/chat.js','utf8'),editor=chat.slice(chat.indexOf('  function settingsSoundEditor(root){'),chat.indexOf('  function dressUserSettings(pane){'));
+  await page.addScriptTag({content:'window.icon=()=>"";window.icons=()=>{};'+editor+'document.addEventListener("notification-sounds-rendered",event=>{if(event.target.closest(".user-settings"))settingsSoundEditor(event.target);});'});
+  await page.evaluate(async()=>{const node=document.createElement('dialog');node.className='chat-dialog user-settings';node.innerHTML='<div data-settings-sounds></div>';document.body.append(node);node.showModal();await window.NotificationSounds.mount(node.firstElementChild);});
+  const embedded=page.locator('dialog.user-settings[open]');
+  const short=Buffer.from(wav.subarray(0,44+Math.floor(24000*2.637)*2));short.writeUInt32LE(short.length-8,4);short.writeUInt32LE(short.length-44,40);
+  await embedded.locator('[name=upload]').setInputFiles({name:'Short source.wav',mimeType:'audio/wav',buffer:short});
+  await embedded.locator('.settings-trim-preview').waitFor();await embedded.locator('[name=soundName]').fill('Tiny bell');
+  assert.equal(await embedded.locator('[name=duration]').inputValue(),'2.63','A short source is never rounded beyond its end');
+  failPreview=true;await embedded.locator('[type=submit]').click();
+  await embedded.locator('[role=status]').filter({hasText:'Saved. Preview is unavailable.'}).waitFor();
+  assert.equal(settings.sounds[0].name,'Tiny bell');assert.equal(settings.sounds[0].duration,2.63);
+  assert.equal(await embedded.locator('select').inputValue(),'custom-one','A preview failure does not hide the saved sound');
+  failPreview=false;await page.evaluate(async()=>{const host=document.querySelector('.user-settings [data-settings-sounds]');await window.NotificationSounds.mount(host);});
+  assert.match(await embedded.locator('option[value="custom-one"]').innerText(),/Tiny bell/);
+  assert.equal(await embedded.locator('select').inputValue(),'custom-one');
+  assert.deepEqual(errors,[]);console.log('Standalone sound settings and embedded naming, short clipping, preview failure and server restore passed');
 }finally{await browser.close();}

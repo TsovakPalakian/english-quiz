@@ -403,6 +403,13 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .stats-compare-toggle>input{pointer-events:auto}
 .user-settings [data-settings-sounds] [data-upload]{display:none}
 .user-settings [data-settings-logout]{color:var(--bad)}
+.user-settings .chat-edit-profile{max-width:560px;gap:10px}
+.user-settings .chat-edit-profile label{gap:4px}
+.user-settings .chat-edit-profile .chat-profile-visibility{grid-template-columns:minmax(0,180px) 44px;gap:12px}
+.user-settings #customThemeOpen{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 20px;border:1px solid var(--acc);border-radius:6px;background:var(--acc);color:var(--on-acc);font-weight:700}
+.user-settings #guideLang{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s)}
+.user-settings #guideLang .chip{min-height:38px;border:0;border-radius:5px;margin:0;padding:8px 16px;background:transparent;color:var(--ink)}
+.user-settings #guideLang .chip.on{background:var(--acc);color:var(--on-acc);font-weight:700}
 .user-settings .settings-trim-preview{display:grid;gap:12px;margin-block:12px;padding-block:12px;border-block:1px solid var(--line)}
 .user-settings .settings-trim-preview audio{width:100%;max-width:100%}
 .user-settings .settings-trim-preview button{justify-self:start}

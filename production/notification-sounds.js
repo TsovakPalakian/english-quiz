@@ -49,11 +49,12 @@
     const embedded=host instanceof HTMLElement;
     const account=own();if(!account)return;await load(account);if(account!==own())return;
     if(!available)throw Error('Sound settings unavailable. Try again.');
-    if(embedded){dialog=host;dialog.classList.add('notification-sound-settings','notification-sounds-inline');}
+    if(embedded){uploadBuffer=null;dialog=host;dialog.classList.add('notification-sound-settings','notification-sounds-inline');}
     else if(!(dialog instanceof HTMLDialogElement)){dialog=document.createElement('dialog');dialog.className='notification-sound-settings';document.body.append(dialog);dialog.addEventListener('close',()=>{stop();if(owner===own())load(owner);});}
     const render=()=>{
       dialog.innerHTML='<header><h2>Notification sounds</h2><button type="button" data-close title="Close" aria-label="Close"><i data-lucide="x"></i></button></header><form><label class="sound-toggle">Message notifications<input type="checkbox" name="enabled"'+(settings.enabled?' checked':'')+'></label><label>Sound<select name="sound">'+choices.map(([id,name,length])=>'<option value="'+id+'"'+(id===settings.sound?' selected':'')+'>'+name+' · '+length+' s</option>').join('')+settings.sounds.map(item=>'<option value="'+item.id+'"'+(item.id===settings.sound?' selected':'')+'>'+escape(item.name)+' · '+item.duration.toFixed(1)+' s</option>').join('')+'</select></label><div class="sound-actions"><button type="button" data-preview title="Preview sound" aria-label="Preview sound"><i data-lucide="volume-2"></i></button><button type="button" data-remove title="Delete custom sound" aria-label="Delete custom sound"'+(!settings.sounds.some(item=>item.id===settings.sound)?' hidden':'')+'><i data-lucide="trash-2"></i></button></div><label>Volume <output>'+Math.round(settings.volume*100)+'%</output><input name="volume" type="range" min="0" max="1" step="0.01" value="'+settings.volume+'"></label><label>Custom sound<input name="upload" type="file" accept="audio/*"></label><div data-trim hidden><label>Start, seconds<input name="start" type="number" min="0" step="0.1" value="0"></label><label>Duration, seconds<input name="duration" type="number" min="0.1" max="3" step="0.1" value="3"></label><button type="button" data-upload>Upload sound</button></div><p role="status"></p><button type="submit" class="btn primary">Save</button></form>';
       window.lucide?.createIcons({root:dialog});const form=dialog.querySelector('form'),notice=dialog.querySelector('[role=status]');
+      if(embedded)dialog.querySelector('[data-trim]').insertAdjacentHTML('afterbegin','<label>Sound name<input type="text" name="soundName" maxlength="80" placeholder="My notification sound"></label>');
       const fail=error=>notice.textContent=error.message;
       const update=()=>{settings={...settings,enabled:form.elements.enabled.checked,sound:form.elements.sound.value,volume:Number(form.elements.volume.value)};form.querySelector('output').textContent=Math.round(settings.volume*100)+'%';};
       dialog.querySelector('[data-close]').onclick=()=>embedded?dialog.closest('dialog')?.close():dialog.close();
@@ -61,10 +62,29 @@
       form.elements.volume.oninput=update;form.elements.enabled.onchange=update;
       form.elements.sound.onchange=()=>{update();dialog.querySelector('[data-remove]').hidden=!settings.sounds.some(item=>item.id===settings.sound);preload().catch(fail);};
       dialog.querySelector('[data-preview]').onclick=async()=>{try{update();await unlock();if(!buffer&&settings.sounds.some(item=>item.id===settings.sound))await preload();play(true);}catch(error){fail(error);}};
-      form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{update();settings=await api('POST',{enabled:settings.enabled,sound:settings.sound,volume:settings.volume});notice.textContent='Saved';}catch(error){fail(error);}finally{button.disabled=false;}};
+      form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{update();if(embedded&&form.elements.upload.files.length&&!uploadBuffer)throw Error('The selected audio is not ready. Choose a valid file.');if(embedded&&uploadBuffer){await dialog.querySelector('[data-upload]').onclick({currentTarget:button,saveSettings:true});return;}settings=await api('POST',{enabled:settings.enabled,sound:settings.sound,volume:settings.volume});notice.textContent='Saved';}catch(error){fail(error);}finally{button.disabled=false;}};
       dialog.querySelector('[data-remove]').onclick=async()=>{try{settings=await api('DELETE',null,'?id='+encodeURIComponent(settings.sound));buffer=null;render();}catch(error){fail(error);}};
-      form.elements.upload.onchange=async()=>{try{const file=form.elements.upload.files[0];if(!file)return;if(file.size>10*1024*1024)throw Error('Maximum source file size is 10 MB.');await unlock();uploadBuffer=await context.decodeAudioData(await file.arrayBuffer());if(uploadBuffer.duration<.1)throw Error('Audio is too short.');form.elements.duration.value=Math.min(3,uploadBuffer.duration).toFixed(2);form.elements.start.max=Math.max(0,uploadBuffer.duration-.1);dialog.querySelector('[data-trim]').hidden=false;notice.textContent='';}catch(error){uploadBuffer=null;fail(error);}};
-      dialog.querySelector('[data-upload]').onclick=async event=>{const button=event.currentTarget;button.disabled=true;try{const start=Number(form.elements.start.value),duration=Number(form.elements.duration.value);if(!uploadBuffer||!Number.isFinite(start)||!Number.isFinite(duration)||start<0||duration<.1||duration>3||start+duration>uploadBuffer.duration+.001)throw Error('Select a valid fragment up to 3 seconds.');settings=await api('PUT',wav(uploadBuffer,start,duration),'?name='+encodeURIComponent(form.elements.upload.files[0].name));await preload();uploadBuffer=null;render();}catch(error){fail(error);}finally{button.disabled=false;}};
+      form.elements.upload.onchange=async()=>{try{const file=form.elements.upload.files[0];if(!file)return;if(file.size>10*1024*1024)throw Error('Maximum source file size is 10 MB.');await unlock();uploadBuffer=await context.decodeAudioData(await file.arrayBuffer());if(uploadBuffer.duration<.1)throw Error('Audio is too short.');form.elements.duration.value=(embedded?Math.floor(Math.min(3,uploadBuffer.duration)*100)/100:Math.min(3,uploadBuffer.duration)).toFixed(2);form.elements.start.max=Math.max(0,uploadBuffer.duration-.1);if(embedded&&!form.elements.soundName.value.trim())form.elements.soundName.value=file.name.replace(/\.[^.]+$/,'').slice(0,80);dialog.querySelector('[data-trim]').hidden=false;notice.textContent='';}catch(error){uploadBuffer=null;fail(error);}};
+      dialog.querySelector('[data-upload]').onclick=async event=>{
+        const button=event.currentTarget,host=dialog;button.disabled=true;let saving;
+        try{
+          const start=Number(form.elements.start.value),duration=Number(form.elements.duration.value);
+          if(!uploadBuffer||!Number.isFinite(start)||!Number.isFinite(duration)||start<0||duration<.1||duration>3||start+duration>uploadBuffer.duration+.001)throw Error('Select a valid fragment up to 3 seconds.');
+          const preferences={enabled:settings.enabled,volume:settings.volume},name=embedded?(form.elements.soundName.value.trim()||'Custom sound'):form.elements.upload.files[0].name;
+          settings=await api('PUT',wav(uploadBuffer,start,duration),'?name='+encodeURIComponent(name));
+          if(embedded){
+            uploadBuffer=null;if(dialog!==host||!host.isConnected)return;
+            render();saving=host.querySelector('[type=submit]');saving.disabled=true;
+            if(event.saveSettings)settings=await api('POST',{...preferences,sound:settings.sound});
+            const selected=settings.sound,confirmed=await api();
+            if(!confirmed.sounds.some(sound=>sound.id===selected))throw Error('The uploaded sound was not confirmed by the server.');
+            settings=confirmed;if(dialog!==host||!host.isConnected)return;
+            render();host.querySelector('[role=status]').textContent='Saved';
+            try{await preload();}catch{if(host.isConnected)host.querySelector('[role=status]').textContent='Saved. Preview is unavailable.';}
+          }else{await preload();uploadBuffer=null;render();}
+        }catch(error){if(embedded){if(host.isConnected)host.querySelector('[role=status]').textContent=error.message;}else fail(error);}
+        finally{button.disabled=false;if(saving)saving.disabled=false;}
+      };
       dialog.dispatchEvent(new CustomEvent('notification-sounds-rendered',{bubbles:true}));
     };
     render();if(!embedded)dialog.showModal();

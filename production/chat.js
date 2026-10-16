@@ -692,7 +692,7 @@
   function settingsSoundEditor(root){
     const form=root.querySelector('form');if(!form||form.dataset.settingsWired)return;form.dataset.settingsWired='true';
     root._settingsSoundCleanup?.();
-    const file=form.elements.upload,trim=root.querySelector('[data-trim]'),upload=root.querySelector('[data-upload]');
+    const file=form.elements.upload,trim=root.querySelector('[data-trim]');
     const original=file.onchange;let audio,url='';
     root._settingsSoundCleanup=()=>{audio?.pause();if(url)URL.revokeObjectURL(url);url='';};
     file.onchange=async event=>{
@@ -701,18 +701,14 @@
       const editor=document.createElement('div');editor.className='settings-trim-preview';editor.innerHTML='<audio controls preload="metadata"></audio><label>Start<input type="range" min="0" step="0.01" data-trim-start></label><label>Length<input type="range" min="0.1" max="3" step="0.01" data-trim-length></label><button class="settings-action" type="button">'+icon('play')+'Preview fragment</button>';trim.prepend(editor);
       audio=editor.querySelector('audio');url=URL.createObjectURL(file.files[0]);audio.src=url;
       const start=form.elements.start,duration=form.elements.duration,startRange=editor.querySelector('[data-trim-start]'),lengthRange=editor.querySelector('[data-trim-length]');start.step=duration.step='0.01';
-      startRange.max=start.max;startRange.value=start.value;lengthRange.value=duration.value;
-      startRange.oninput=()=>{start.value=startRange.value;};lengthRange.oninput=()=>{duration.value=lengthRange.value;};
-      start.oninput=()=>{startRange.value=start.value;};duration.oninput=()=>{lengthRange.value=duration.value;};
+      const total=Number(start.max)+.1,maxLength=Math.floor(Math.min(3,total)*100)/100;
+      lengthRange.max=String(maxLength);duration.max=String(maxLength);
+      const clamp=()=>{duration.value=Math.max(.1,Math.min(maxLength,Number(duration.value)||.1)).toFixed(2);const maximum=Math.max(0,Math.floor((total-Number(duration.value))*100)/100);start.max=startRange.max=String(maximum);start.value=Math.max(0,Math.min(maximum,Number(start.value)||0)).toFixed(2);startRange.value=start.value;lengthRange.value=duration.value;};clamp();
+      startRange.oninput=()=>{start.value=startRange.value;clamp();};lengthRange.oninput=()=>{duration.value=lengthRange.value;clamp();};
+      start.onchange=duration.onchange=clamp;
       let playingFragment=false;audio.ontimeupdate=()=>{if(playingFragment&&audio.currentTime>=Number(start.value)+Number(duration.value)){audio.pause();playingFragment=false;}};
       editor.querySelector('button').onclick=async()=>{try{audio.currentTime=Number(start.value);playingFragment=true;await audio.play();}catch(error){root.querySelector('[role=status]').textContent=error.message;}};icons();
     };
-    form.addEventListener('submit',async event=>{
-      if(trim.hidden)return;event.preventDefault();event.stopImmediatePropagation();
-      const save=form.querySelector('[type=submit]');if(save.disabled)return;save.disabled=true;
-      try{form.elements.sound.onchange();await upload.onclick({currentTarget:upload});const next=root.querySelector('form');if(next!==form&&next?.isConnected)next.requestSubmit();}
-      finally{save.disabled=false;}
-    },true);
   }
   function dressUserSettings(pane){
     pane.querySelectorAll('input[type=checkbox]').forEach(input=>{if(input.closest('.settings-switch,section'))return;const wrap=document.createElement('span');wrap.className='settings-switch';input.before(wrap);wrap.append(input);const track=document.createElement('span');track.setAttribute('aria-hidden','true');wrap.append(track);});
@@ -730,7 +726,7 @@
     const outside=event=>{const box=node.getBoundingClientRect();return event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom;};let outsideDown=false;
     node.addEventListener('pointerdown',event=>{outsideDown=event.target===node&&outside(event);});
     node.addEventListener('click',event=>{if(outsideDown&&event.target===node&&outside(event))node.close();outsideDown=false;});
-    const logout=document.createElement('button');logout.type='button';logout.dataset.settingsLogout='';logout.innerHTML=icon('log-out')+'Log out';node.querySelector('[data-settings-tab="security"]').after(logout);logout.onclick=()=>{node.close();performLogout();};
+    const logout=document.createElement('button');logout.type='button';logout.dataset.settingsLogout='';logout.innerHTML=icon('log-out')+'Log out';node.querySelector('.chat-settings-menu').append(logout);logout.onclick=()=>{node.close();performLogout();};
     function mountSection(id,pane){const section=document.getElementById(id);if(!section)return;const marker=document.createComment('settings-section'),style=section.getAttribute('style');section.before(marker);pane.append(section);section.style.display='block';releasePortal=()=>{marker.replaceWith(section);if(style===null)section.removeAttribute('style');else section.setAttribute('style',style);releasePortal=()=>{};};}
     const toggle=(key,label,description,checked)=>'<label class="settings-row"><span class="settings-text"><strong>'+label+'</strong><small>'+description+'</small></span><span class="settings-switch"><input type="checkbox" data-pref="'+key+'" aria-label="'+label+'"'+(checked?' checked':'')+'><span aria-hidden="true"></span></span></label>';
     async function tab(id){node.querySelectorAll('[data-settings-tab]').forEach(b=>b.classList.toggle('on',b.dataset.settingsTab===id));const pane=node.querySelector('.chat-settings-content');let html='';
@@ -788,7 +784,7 @@
     node.querySelectorAll('[data-settings-tab]').forEach(button=>button.onclick=()=>tab(button.dataset.settingsTab).then(scheduleProfiles).catch(error=>{if(node.open)node.querySelector('.chat-settings-content').insertAdjacentHTML('beforeend','<p role="alert">'+escape(error.message)+'</p>');}));tab(initial).catch(error=>{node.querySelector('.chat-settings-content').innerHTML='<p role="alert">'+escape(error.message)+'</p><button class="btn" type="button" data-close-settings>Close</button>';node.querySelector('[data-close-settings]').onclick=()=>node.close();});scheduleProfiles();
   }
   document.addEventListener('click',event=>{
-    if(!current())return;const target=event.target.closest('.brand-account,[data-user-settings],[data-chat-blocked],[data-notification-sounds],[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"],[data-theme-cycle]');
+    if(!current())return;const target=event.target.closest('.brand-account,[data-user-settings],[data-chat-blocked],[data-notification-sounds],[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"]');
     if(!target||target.closest('.user-settings'))return;event.preventDefault();event.stopImmediatePropagation();const page=target.dataset.jump;settings(target.hasAttribute('data-chat-blocked')?'blocked':target.hasAttribute('data-notification-sounds')?'notifications':target.hasAttribute('data-theme-cycle')||page==='themes'?'theme':page==='stats'?'statistics':page==='guide'?'help':'profile');
   },true);
   el('msgProfile').onclick=settings;el('msgSettings').onclick=settings;el('msgNew').onclick=newChat;el('msgContacts').onclick=showContacts;el('msgContactsTab').onclick=showContacts;el('msgChats').onclick=()=>{if(!ready)connect();listMode='chats';el('msgRoomSearch').value='';badge();paintRooms();panel('left',true);};el('msgExit').onclick=()=>window.enquizVisit('home');
