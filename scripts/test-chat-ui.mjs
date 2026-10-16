@@ -49,9 +49,14 @@ try{
     if(action==='mute')result={room:{...room(),muted:body.muted}};
     ws.send(JSON.stringify({type:'response',requestId,result}));
   });});
-  let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''};
+  let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},settingsSoundAudio;
   await page.route('**/api/**',async route=>{const url=new URL(route.request().url()),path=url.pathname;http.push(path);let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
-    if(path==='/api/me/notification-sounds'){if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};data=soundSettings;}
+    if(path==='/api/me/notification-sounds'){
+      if(url.searchParams.has('id'))return route.fulfill({contentType:'audio/wav',body:settingsSoundAudio});
+      if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};
+      if(route.request().method()==='PUT'){settingsSoundAudio=route.request().postDataBuffer();soundSettings={...soundSettings,sound:'custom-settings',sounds:[{id:'custom-settings',name:url.searchParams.get('name'),duration:(settingsSoundAudio.length-44)/48000}],revision:'uploaded'};}
+      data=soundSettings;
+    }
     if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user:student};
     if(path==='/api/everyday'){let id=20000;data={version:1,groups:everydayGroups.map(group=>({...group,topics:group.topics.map(topic=>({...topic,entries:topic.entries.map(entry=>({...entry,cardId:++id,card:{en:entry.en,word:entry.en,ru:entry.ru,stageId:id,stageRevision:1,stageScope:'shared'}}))}))}))};}
@@ -195,15 +200,40 @@ try{
   await page.screenshot({path:'/private/tmp/chat-desktop.png'});
   await page.locator('#msgHideList').click();assert.equal(await page.locator('.chat-list').isVisible(),false);await page.locator('#msgHideInfo').click();assert.equal(await page.locator('.chat-info').isVisible(),false);await page.locator('#msgListBack').click();
   await page.locator('#msgSettings').click();await page.locator('dialog[open]').waitFor();await page.screenshot({path:'/private/tmp/chat-settings.png'});
+  await page.locator('.user-settings .chat-edit-profile').waitFor();
+  const settingsSize=async()=>page.locator('.user-settings').evaluate(node=>({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})),fixedSettingsSize=await settingsSize();
+  assert.equal(await page.locator('.user-settings').getByText('Show phone',{exact:true}).count(),1);
+  assert.equal(await page.locator('.user-settings').getByText('Show birthday',{exact:true}).count(),1);
+  assert.equal(await page.locator('[data-settings-tab="security"]+button[data-settings-logout]').count(),1);
   await page.locator('[data-settings-tab="interface"]').click();assert.equal(await page.locator('.user-settings .settings-switch').count(),3);
   await page.locator('[data-settings-tab="theme"]').click();await page.locator('.user-settings #themes').waitFor();
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Theme does not resize Settings');
   await page.locator('[data-settings-tab="help"]').click();await page.locator('.user-settings #guide').waitFor();assert.equal(await page.locator('#themes').evaluate(node=>!!node.closest('.user-settings')),false,'Theme section returns to its original position');
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Help does not resize Settings');
   await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.user-settings [name=sound]').waitFor();assert.equal(await page.locator('dialog[open]').count(),1,'Notifications stays in the Settings window');await page.screenshot({path:'/private/tmp/unified-settings-notifications.png'});
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Profile and Notifications have equal dimensions');
+  const customWav=Buffer.alloc(44+48000*5);customWav.write('RIFF',0);customWav.writeUInt32LE(customWav.length-8,4);customWav.write('WAVEfmt ',8);customWav.writeUInt32LE(16,16);customWav.writeUInt16LE(1,20);customWav.writeUInt16LE(1,22);customWav.writeUInt32LE(24000,24);customWav.writeUInt32LE(48000,28);customWav.writeUInt16LE(2,32);customWav.writeUInt16LE(16,34);customWav.write('data',36);customWav.writeUInt32LE(customWav.length-44,40);
+  await page.locator('.user-settings [name=upload]').setInputFiles({name:'Settings test.wav',mimeType:'audio/wav',buffer:customWav});
+  await page.locator('.user-settings .settings-trim-preview').waitFor();
+  await page.locator('.user-settings [name=start]').fill('1');await page.locator('.user-settings [name=duration]').fill('2');
+  await page.locator('.user-settings [data-settings-sounds] [type=submit]').click();
+  await page.locator('.user-settings option[value="custom-settings"]').waitFor({state:'attached'});
+  await page.locator('.user-settings [data-settings-sounds] [role=status]').filter({hasText:'Saved'}).waitFor();
+  assert.equal(soundSettings.sounds[0].duration,2,'Settings Save uploads the trimmed fragment');
+  assert.equal(soundSettings.sound,'custom-settings');
+  await page.locator('[data-settings-tab="interface"]').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.user-settings option[value="custom-settings"]').waitFor({state:'attached'});
+  assert.equal(await page.locator('.user-settings [name=sound]').inputValue(),'custom-settings','Custom selection is restored from the server');
+  await page.locator('.user-settings [name=sound]').selectOption('bell');await page.locator('.user-settings [data-settings-sounds] [type=submit]').click();await page.locator('.user-settings [data-settings-sounds] [role=status]').filter({hasText:'Saved'}).waitFor();
   await page.setViewportSize({width:320,height:800});assert.ok(await page.locator('.user-settings').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/unified-settings-mobile.png'});await page.setViewportSize({width:1664,height:1000});
   await page.locator('[data-settings-tab="security"]').click();await page.locator('[data-settings-password]').click();await page.locator('.user-settings #ownPasswordForm').waitFor();assert.equal(await page.locator('.user-settings [data-account="revoke"]').count(),1);
   await page.locator('[data-settings-tab="statistics"]').click();await page.locator('.user-settings #stats').waitFor();
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Statistics keeps the same dimensions');
+  assert.equal(await page.locator('.user-settings .stats-compare-toggle .settings-switch').count(),0,'Statistics retains only its own switch');
   await page.locator('[data-settings-tab="blocked"]').click();await page.getByText('No blocked users.',{exact:true}).waitFor();await page.locator('.user-settings [data-msg-close]').click();
   assert.equal(await page.locator('#stats').evaluate(node=>!!node.closest('.user-settings')),false);
+  assert.equal(await page.locator('#stats .settings-switch').count(),0,'Standalone statistics is not modified');
+  await page.locator('#msgSettings').click();await page.locator('.user-settings .chat-edit-profile').waitFor();await page.mouse.click(2,2);await page.locator('dialog.user-settings').waitFor({state:'detached'});
+  await page.locator('#msgSettings').click();await page.locator('.user-settings .chat-edit-profile').waitFor();await page.keyboard.press('Escape');await page.locator('dialog.user-settings').waitFor({state:'detached'});
   for(const viewport of [{width:768,height:900},{width:390,height:844},{width:320,height:650}]){await page.setViewportSize(viewport);await page.locator('[data-msg-room]').click();await page.locator('#msgCompose').waitFor();assert.ok(await page.locator('#messages').evaluate(n=>n.scrollWidth<=n.clientWidth),'Viewport fits');const box=await page.locator('#msgSend').boundingBox();assert.ok(box.y+box.height<=viewport.height&&box.x+box.width<=viewport.width,'Send stays visible');await page.locator('#msgTimeline').evaluate(n=>n.scrollTop=n.scrollHeight);await checkLastVisible();await page.screenshot({path:'/private/tmp/chat-'+viewport.width+'.png'});if(await page.locator('#msgListBack').isVisible())await page.locator('#msgListBack').click();}
   await page.setViewportSize({width:1664,height:1000});await page.locator('[data-msg-room]').click();await page.locator('#msgText').fill('Unsent draft');await page.reload();await page.waitForFunction(()=>document.querySelector('#messages.on'));await page.waitForFunction(()=>document.querySelector('#msgText').value==='Unsent draft');
   assert.equal(await page.evaluate(()=>loadAdded().some(c=>c.word.toLowerCase()==='hello'&&c.place==='chat')),true);await page.evaluate(async()=>{await saveChatWord('give away');await saveChatWord('spill the beans');});assert.equal(dictionaryCards.find(c=>c.en==='give away').place,'chat-phrasal');assert.equal(dictionaryCards.find(c=>c.en==='spill the beans').place,'chat-idioms');
