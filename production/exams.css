@@ -6,8 +6,15 @@
 #exams .file-card{min-width:0;height:auto;align-self:start}
 #exams .file-card .label{white-space:normal;overflow-wrap:anywhere}
 #exams .page-path{margin-bottom:16px}
-#exams.exam-group-list>.meta h1{display:none}
+#exams.exam-group-list>.meta h1{display:block}
+.exam-attention-count{color:var(--bad,#c6323e);font-weight:700}
+[data-exam-menu-label]{white-space:nowrap}
+#exams .metric-pairs{width:fit-content;max-width:100%;grid-template-columns:repeat(2,minmax(0,max-content));gap:6px 24px;justify-content:start;text-align:left}
+#exams .metric-pairs>span{justify-self:start;text-align:left}
+#exams .metric-pairs--compact{gap:4px 16px}
+@media(max-width:480px){#exams .metric-pairs{column-gap:14px}#exams .metric-pairs:not(.metric-pairs--compact){grid-template-columns:repeat(2,minmax(0,1fr));width:100%}#exams .metric-pairs--compact{column-gap:10px}}
 #exams #examSections[hidden]{display:none}
+#exams #examSections button[hidden]{display:none}
 #exams #examNew{margin:0 0 12px}
 dialog.exam-assign-dialog{box-sizing:border-box;width:min(520px,calc(100vw - 36px));margin:auto}
 dialog.exam-assign-dialog::backdrop{background:rgba(0,0,0,.52)}
@@ -20,7 +27,7 @@ dialog.exam-assign-dialog form{margin:0;padding:0}
 #material.is-exam .lm-picker-grid+[data-material-quiz-types]{margin-top:16px}
 #material.is-exam .lm-picker-grid{gap:12px}
 #exams .page-path ol,#examblocks .page-path ol,#material.is-exam .page-path ol{flex-wrap:wrap;overflow-wrap:anywhere}
-@media(max-width:480px){#exams .decks{grid-template-columns:minmax(0,1fr)}#exams .page-path button,#examblocks .page-path button,#material.is-exam .page-path button{max-width:100%;white-space:normal;overflow-wrap:anywhere}#exams #examSections .btn{min-width:0;white-space:normal}}
+@media(max-width:480px){#exams .decks{grid-template-columns:minmax(0,1fr)}#exams .page-path button,#examblocks .page-path button,#material.is-exam .page-path button{max-width:100%;white-space:normal;overflow-wrap:anywhere}#exams #examSections .btn{min-width:0;white-space:nowrap;flex:none}}
 #material.is-exam .exam-colored-block{border-inline-start:4px solid var(--exam-block-color);padding:12px;margin-block:12px;min-width:0;border-radius:6px;background:var(--card)}
 #material.is-exam .exam-colored-block.content-group{background:color-mix(in srgb,var(--exam-block-color) 9%,var(--card))}
 #material.is-exam .exam-colored-block.lm-assignment{border:1px solid var(--exam-block-color);border-inline-start-width:4px;background:color-mix(in srgb,var(--exam-block-color) 4%,var(--card))}

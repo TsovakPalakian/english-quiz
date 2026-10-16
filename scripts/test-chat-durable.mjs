@@ -7,8 +7,10 @@ import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from '../src/chat-att
 import {chatPreviewUrl,chatLinkPreview} from '../src/chat-previews.mjs';
 import {MessageService} from '../src/turso-messages.mjs';
 import {AssessmentService} from '../src/turso-assessment.mjs';
+import {ExamWorkflowService} from '../src/exam-workflow.mjs';
 import {ExamService} from '../src/turso-exams.mjs';
 import {applyTursoSchema} from './turso-test-schema.mjs';
+import {bindChatEncryption} from '../src/chat-encryption.mjs';
 function fixture(journal){
   const env={CONTENT_SESSION_SECRET:'fixture-secret'},databases=[],pending=[];
   for(const [binding,Type] of [['CHAT_ROOM',ChatRoom],['CHAT_INBOX',ChatInbox],...(journal?[['CHAT_BRIDGE',class extends ChatBridge{constructor(ctx,env){super(ctx,env,{studyDatabase:()=>journal});}}]]:[])]){
@@ -26,6 +28,151 @@ function fixture(journal){
   const drain=async()=>{while(pending.length)await Promise.all(pending.splice(0));};
   return {env,alice,bob,teacher,boot,drain,close:()=>databases.forEach(db=>db.close())};
 }
+async function managedChat(f,kind='direct'){
+  await f.boot();const id=kind==='direct'?directRoomId('alice','bob'):'group:1';
+  await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind,groupId:kind==='group'?1:null,title:'A1'},members:[f.alice,f.bob,f.teacher].filter(p=>kind==='group'||p!==f.teacher)});
+  await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});
+  await f.drain();return {id,command:(actor,action,body={})=>chatCall(f.env,'CHAT_INBOX',actor,'/command',{action,body:{roomId:id,...body}})};
+}
+test('room summaries expose only public peer roles, never internal developer roles',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    assert.equal((await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id).peerRole,'Student');
+    const room=f.env.CHAT_ROOM.get(c.id);
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/configure',{room:{id:c.id,kind:'direct',title:'Private conversation'},members:[f.alice,{...f.bob,role:'DEVELOPER'}]});
+    assert.equal(room.summary('alice').peerRole,'Support');
+    assert.ok(!JSON.stringify(room.summary('alice')).includes('DEVELOPER'));
+  }finally{await f.drain();f.close();}
+});
+test('chat preferences persist per account, archive suppresses unread and cannot change peers',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    await c.command('bob','send',{text:'hello',clientKey:'managed-1'});await f.drain();
+    await c.command('alice','room-settings',{archived:true,pinOrder:1,sound:'common-toad'});await f.drain();
+    const a=(await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id),b=(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id);
+    assert.equal(a.archived,true);assert.equal(a.pinOrder,1);assert.equal(a.sound,'common-toad');assert.ok(!b.archived);assert.equal((await c.command('alice','snapshot')).total,0);
+    await c.command('bob','send',{text:'still archived',clientKey:'managed-2'});await f.drain();
+    assert.equal((await c.command('alice','snapshot')).total,0);assert.equal((await c.command('alice','history')).messages.length,2);
+    await c.command('alice','room-settings',{archived:false});await f.drain();assert.equal((await c.command('alice','snapshot')).total,2);
+  }finally{await f.drain();f.close();}
+});
+test('mute deadlines expire without writing and invalid preferences are rejected atomically',async()=>{
+  const f=fixture();try{const c=await managedChat(f),until=Date.now()+60000;
+    assert.equal((await c.command('alice','room-settings',{muteUntil:until})).room.muted,true);
+    const object=f.env.CHAT_ROOM.get(c.id);object.set('settings:alice',{muteUntil:Date.now()-1});assert.equal(object.summary('alice').muted,false);
+    for(const body of [{muteUntil:-2},{muteUntil:'forever'},{pinOrder:1.5},{archived:'yes'},{sound:'not-a-real-sound'},{unknown:true}])await assert.rejects(c.command('alice','room-settings',body),e=>e.status===400);
+    assert.equal(object.summary('bob').muted,false);
+  }finally{await f.drain();f.close();}
+});
+test('folders are private, alphabetical and reference rooms without moving messages',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    await c.command('alice','folders',{op:'save',id:'z',name:'Zoo',roomIds:[c.id]});
+    await c.command('alice','folders',{op:'save',id:'a',name:'Animals',roomIds:[c.id]});
+    assert.deepEqual((await c.command('alice','snapshot')).folders.map(r=>r.name),['Animals','Zoo']);assert.deepEqual((await c.command('bob','snapshot')).folders,[]);
+    await assert.rejects(c.command('alice','folders',{op:'save',id:'x',name:'Private',roomIds:['direct:teacher:stranger']}),e=>e.status===403);
+    await c.command('alice','folders',{op:'delete',id:'a'});assert.equal((await c.command('alice','snapshot')).folders.length,1);
+    assert.equal((await c.command('alice','history')).messages.length,0);
+  }finally{await f.drain();f.close();}
+});
+for(const everyone of [false,true])test('clear personal history '+(everyone?'for both':'for self')+' preserves learning and persists visibility boundaries',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    const sent=await c.command('alice','send',{text:'private history',clientKey:'managed-clear'});await f.drain();
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/import',{messages:[{sender_id:'teacher',sender_name:'Teacher',category:'learning',body:'Exam notification',client_key:'managed-alert',created_ms:Date.now()}]});await f.drain();
+    await c.command('alice','clear-history',{everyone});await f.drain();
+    assert.equal((await c.command('alice','history')).messages.length,0);assert.equal((await c.command('bob','history')).messages.length,everyone?0:1);
+    assert.equal((await c.command('alice','history',{category:'learning'})).messages.length,1);
+    await assert.rejects(c.command('alice','original',{id:sent.message.id}),e=>e.status===404);
+    await assert.rejects(c.command('alice','send',{text:'hidden quote',replyTo:sent.message.id,clientKey:'hidden-reply'}),e=>e.status===404);
+    await c.command('bob','send',{text:'new visible',clientKey:'managed-after-clear'});await f.drain();
+    assert.deepEqual((await c.command('alice','history')).messages.map(m=>m.text),['new visible']);
+    assert.equal((await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id).hadPersonal,true);
+  }finally{await f.drain();f.close();}
+});
+test('ordinary group member cannot clear everyone, teacher can, neither changes peer preferences',async()=>{
+  const f=fixture();try{const c=await managedChat(f,'group');await c.command('bob','send',{text:'group text',clientKey:'group-clear'});await f.drain();
+    await assert.rejects(c.command('alice','clear-history',{everyone:true}),e=>e.status===403);
+    await c.command('alice','room-settings',{archived:true});await f.drain();assert.ok(!(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).archived);
+    await c.command('teacher','clear-history',{everyone:true});await f.drain();assert.equal((await c.command('bob','history')).messages.length,0);
+  }finally{await f.drain();f.close();}
+});
+test('delete chat does not bypass protected-contact rules or clear on a rejected delete',async()=>{
+  const f=fixture();try{const c=await managedChat(f);await c.command('alice','send',{text:'keep protected',clientKey:'protected-clear'});await f.drain();
+    await assert.rejects(c.command('alice','clear-history',{everyone:true,deleteChat:true}),e=>e.status===403);
+    assert.equal((await c.command('alice','history')).messages.length,1);
+  }finally{await f.drain();f.close();}
+});
+test('cleared messages cannot reappear from idempotent retries, attachment access or inbox replay',async()=>{
+  const f=fixture();try{const c=await managedChat(f),file={id:'cleared-file',name:'private.txt',mime:'application/octet-stream',size:3,storageKey:'fixture/private'};
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/file/register',{actor:f.alice,file});
+    await c.command('alice','send',{text:'erase this secret',clientKey:'clear-retry',files:[file.id]});await f.drain();
+    await c.command('alice','clear-history',{everyone:false});await f.drain();
+    await assert.rejects(c.command('alice','send',{text:'erase this secret',clientKey:'clear-retry',files:[file.id]}),e=>e.status===404);
+    await assert.rejects(chatCall(f.env,'CHAT_ROOM',c.id,'/file',{actor:f.alice,id:file.id}),e=>e.status===404);
+    const inbox=f.env.CHAT_INBOX.get('alice');assert.ok(!inbox.rows('SELECT data FROM events').some(r=>r.data.includes('erase this secret')));
+    assert.equal((await c.command('bob','history')).messages[0].text,'erase this secret');
+  }finally{await f.drain();f.close();}
+});
+test('delete chat blocks an unprotected peer, can clear for both, and unblock does not resurrect history',async()=>{
+  const f=fixture();try{f.bob.groupId=2;const c=await managedChat(f);await c.command('alice','send',{text:'old request',clientKey:'delete-request'});await f.drain();
+    await c.command('bob','relation',{action:'accept'});await f.drain();await c.command('alice','clear-history',{everyone:true,deleteChat:true});await f.drain();
+    assert.equal((await c.command('alice','blocked')).users.length,1);await assert.rejects(c.command('bob','send',{text:'blocked',clientKey:'blocked-new'}),e=>e.status===403);
+    await c.command('alice','relation',{action:'unblock'});await f.drain();assert.equal((await c.command('alice','history')).messages.length,0);
+  }finally{await f.drain();f.close();}
+});
+test('chat commands enforce account availability, membership and the write switch',async()=>{
+  const f=fixture();try{const c=await managedChat(f);
+    await assert.rejects(c.command('teacher','room-settings',{archived:true}),e=>e.status===403);
+    await assert.rejects(c.command('teacher','clear-history',{everyone:true}),e=>e.status===403);
+    const inbox=f.env.CHAT_INBOX.get('alice');inbox.baseEnv.CONTENT_WRITES='false';
+    await assert.rejects(c.command('alice','room-settings',{archived:true}),e=>e.status===403);await assert.rejects(c.command('alice','folders',{op:'save',id:'off',name:'Off',roomIds:[]}),e=>e.status===403);
+    assert.equal((await c.command('alice','history')).messages.length,0);
+  }finally{await f.drain();f.close();}
+});
+test('encrypted chat storage keeps bodies, quotes, formats, inbox summaries and outbox ciphertext while preserving search',async()=>{
+  const f=fixture();try{f.env.CHAT_ENCRYPTION_KEY=btoa('x'.repeat(32));const c=await managedChat(f);
+    const first=await c.command('alice','send',{text:'A private needle',clientKey:'encrypted-one'});await f.drain();
+    await c.command('bob','send',{text:'A second secret',quote:'private needle',replyTo:first.message.id,clientKey:'encrypted-two'});await f.drain();
+    const object=f.env.CHAT_ROOM.get(c.id),raw=object.sql.exec('SELECT body FROM messages').toArray();assert.ok(raw.every(row=>row.body.startsWith('chatenc:')));
+    assert.ok(!JSON.stringify(object.sql.exec('SELECT value FROM meta').toArray()).includes('private needle'));
+    assert.ok(!JSON.stringify(f.env.CHAT_INBOX.get('alice').sql.exec('SELECT data FROM rooms').toArray()).includes('second secret'));
+    assert.deepEqual((await c.command('alice','history',{q:'need'})).messages.map(m=>m.text),['A private needle']);
+    assert.equal((await c.command('alice','history')).messages[1].replyText,'private needle');
+    await c.command('alice','edit',{id:first.message.id,text:'An edited needle'});await f.drain();assert.equal((await c.command('bob','history',{q:'edited'})).messages[0].text,'An edited needle');
+    assert.equal(object.one("SELECT COUNT(*) n FROM sqlite_master WHERE name='message_search'").n,0);
+  }finally{await f.drain();f.close();}
+});
+test('group deletion blocks only that group chat for the actor without changing membership or peers',async()=>{
+  const f=fixture();try{const c=await managedChat(f,'group');await c.command('bob','send',{text:'group copy',clientKey:'delete-group'});await f.drain();
+    await c.command('alice','clear-history',{everyone:false,deleteChat:true});await f.drain();
+    assert.equal((await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id).access.blockedByMe,true);
+    assert.equal((await c.command('bob','history')).messages.length,1);assert.equal((await c.command('alice','members')).members.length,3);
+    assert.equal((await c.command('alice','blocked')).users[0].roomId,c.id);
+    await c.command('alice','relation',{action:'unblock'});await f.drain();assert.equal((await c.command('alice','history')).messages.length,0);
+  }finally{await f.drain();f.close();}
+});
+test('cipher survives hibernated object reconstruction and migrates old rows without plaintext search copies',async()=>{
+  const f=fixture();try{const c=await managedChat(f);await c.command('alice','send',{text:'legacy content',clientKey:'hibernated-legacy'});await f.drain();
+    f.env.CHAT_ENCRYPTION_KEY=btoa('h'.repeat(32));const old=f.env.CHAT_ROOM.get(c.id),restarted=new ChatRoom(old.ctx,f.env);
+    const result=await restarted.fetch(new Request('https://chat.internal/history',{method:'POST',headers:{'X-Chat-Internal':'fixture-secret'},body:JSON.stringify({actor:f.alice,category:'personal'})}));
+    assert.equal(result.status,200);assert.equal((await result.json()).messages[0].text,'legacy content');assert.ok(restarted.sql.exec('SELECT body FROM messages').toArray()[0].body.startsWith('chatenc:'));
+    const RenamedRoom=class extends ChatRoom{},again=new RenamedRoom(old.ctx,f.env);await again.alarm();assert.equal(again.history(f.alice,{q:'leg'}).messages[0].text,'legacy content');
+  }finally{await f.drain();f.close();}
+});
+test('legacy encryption batches continue by alarm until every stored message is sealed',async()=>{
+  const f=fixture();try{const c=await managedChat(f),old=f.env.CHAT_ROOM.get(c.id);for(let i=0;i<205;i++)old.sql.exec("INSERT INTO messages(sender,name,category,body,client_key,created_ms) VALUES('alice','Alice','personal',?,?,?)",'legacy '+i,'legacy-batch-'+i,Date.now());
+    f.env.CHAT_ENCRYPTION_KEY=btoa('m'.repeat(32));let alarm=null;old.ctx.storage.setAlarm=async at=>{alarm=at;};old.ctx.storage.deleteAlarm=async()=>{alarm=null;};const room=new ChatRoom(old.ctx,f.env);
+    await room.alarm();assert.ok(alarm>Date.now());await room.alarm();assert.ok(alarm>Date.now());await room.alarm();
+    assert.equal(room.sql.exec("SELECT COUNT(*) n FROM messages WHERE body NOT LIKE 'chatenc:%'").toArray()[0].n,0);assert.equal(alarm,null);
+  }finally{await f.drain();f.close();}
+});
+test('ending one authenticated session closes only its sockets and blocks further delivery',async()=>{
+  const f=fixture();try{
+    const revoked=new Set();f.env.MEDIA={head:async key=>revoked.has(key)?{}:null};await f.boot();const inbox=f.env.CHAT_INBOX.get('alice');
+    const socket=sid=>({messages:[],closes:[],deserializeAttachment:()=>({sessionId:sid,expires:Date.now()+60000}),send(value){this.messages.push(JSON.parse(value));},close(code){this.closes.push(code);}});
+    const a=socket('a'.repeat(32)),b=socket('b'.repeat(32));inbox.ctx.getWebSockets().push(a,b);
+    inbox.broadcast({seq:1});inbox.broadcast({seq:2});await f.drain();assert.deepEqual(a.messages.map(v=>v.seq),[1,2]);
+    revoked.add('revoked-sid/'+'a'.repeat(32));await chatCall(f.env,'CHAT_INBOX','alice','/revoke-session',{sid:'a'.repeat(32)});
+    inbox.broadcast({seq:3});await f.drain();assert.ok(a.closes.includes(4003));assert.equal(a.messages.length,2);assert.equal(b.messages.length,3);assert.equal(b.closes.length,0);
+  }finally{f.close();}
+});
 test('database switching isolates rooms/inboxes and returning to Turso restores only its history',async()=>{
   const f=fixture();let selected={provider:'turso',revision:0,scope:'site'};
   try{
@@ -165,23 +312,29 @@ test('Durable chat persists, deduplicates, searches, publishes counters and read
     await assert.rejects(chatCall(env,'CHAT_ROOM',id,'/send',{...body,clientKey:'learning',category:'learning'}),e=>e.status===403);
   }finally{f.close();}
 });
-test('Academic bridge imports once, retains colored replies and dispatches assignment/review/publication notices',async()=>{
+for(const encrypted of [false,true])test('Academic bridge imports once, retains colored replies and dispatches assignment/review/publication notices'+(encrypted?' with encryption':''),async()=>{
   const sqlite=new DatabaseSync(':memory:');applyTursoSchema(sqlite);let reads=0;
   const values=cmd=>cmd.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value);
   const journal={read:async(sql,args=[])=>{reads++;return sqlite.prepare(sql).all(...args);},readMany:async cmds=>cmds.map(c=>sqlite.prepare(c.sql).all(...values(c))),atomic:async cmds=>{sqlite.exec('BEGIN');try{const result=cmds.map(c=>{const stmt=sqlite.prepare(c.sql);if(stmt.columns().length)return {rows:stmt.all(...values(c)).map(r=>Object.values(r).map(value=>({value:String(value)})))};stmt.run(...values(c));return {rows:[]};});sqlite.exec('COMMIT');return result;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
   const f=fixture(journal);try{
+    if(encrypted){f.env.CHAT_ENCRYPTION_KEY=btoa('k'.repeat(32));bindChatEncryption(journal,f.env);}
     const {env,alice,bob,teacher}=f,legacy=new MessageService(journal,async()=>[alice,bob,teacher]);await legacy.ensure();
     sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('alice',1,'teacher'),('bob',1,'teacher');INSERT INTO exams(id,title,published) VALUES(1,'Bridge exam',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(1,1,0,'Block',1)");
     sqlite.prepare("INSERT INTO exam_materials(id,exam_id,block_id,position,type,content_json) VALUES(1,1,1,0,'task',?)").run(JSON.stringify({type:'task',title:'Answer',text:'Explain',maxPoints:2,scoringVersion:2}));
     const {roomId}=await legacy.open(alice,{kind:'direct',accountId:'bob'}),sent=await legacy.send(alice,{roomId,category:'personal',text:'Colored legacy',format:{runs:[{text:'Colored legacy',marks:{color:'#ff0000'}}]},clientKey:'legacy-color'});
     await legacy.send(bob,{roomId,category:'personal',text:'Reply',replyTo:sent.id,clientKey:'legacy-reply'});await legacy.read(bob,{roomId,category:'personal',through:sent.id});
+    if(encrypted)assert.ok(sqlite.prepare('SELECT body FROM chat_messages').all().every(row=>row.body.startsWith('chatenc:')),'SQL writes must be encrypted before delivery/import');
+    if(encrypted){assert.equal((await legacy.history(alice,roomId,{query:'Colored'})).messages[0].text,'Colored legacy');assert.equal((await legacy.summary(alice)).rooms.find(r=>r.id===roomId).lastMessage.text,'Reply');}
     await env.CHAT_BRIDGE.get('global').bootstrap(alice);await f.drain();
+    if(encrypted)assert.ok(sqlite.prepare('SELECT body FROM chat_messages').all().every(row=>row.body.startsWith('chatenc:')));
     const history=await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:alice,category:'personal'});assert.equal(history.messages.length,2);assert.equal(history.messages[0].id,sent.id);assert.equal(history.messages[0].format.runs[0].marks.color,'#ff0000');assert.equal(history.messages[1].replyText,'Colored legacy');
     const before=reads;await chatCall(env,'CHAT_ROOM',roomId,'/send',{actor:alice,category:'personal',text:'No Turso read',clientKey:'new-chat'});await f.drain();assert.equal(reads,before,'Normal chat does not query Turso');
     await legacy.assign(teacher,{targetKind:'student',targetId:'alice',examId:1,action:'assign',clientKey:'bridge-assignment'});await chatCall(env,'CHAT_BRIDGE','global','/flush',{});await f.drain();
+    if(encrypted)assert.ok(sqlite.prepare('SELECT body FROM chat_messages').all().every(row=>row.body.startsWith('chatenc:')));
     const id='direct:alice:teacher',notices=await chatCall(env,'CHAT_ROOM',id,'/history',{actor:alice,category:'learning'});assert.equal(notices.messages.length,1);assert.equal(sqlite.prepare('SELECT COUNT(*) n FROM chat_delivery_outbox').get().n,0);
     await chatCall(env,'CHAT_BRIDGE','global','/flush',{});assert.equal((await chatCall(env,'CHAT_ROOM',id,'/history',{actor:alice,category:'learning'})).messages.length,1);
     const exams=new ExamService(journal),instance=(await exams.list(alice)).find(e=>e.instanceStatus),block=instance.blocks[0],assessment=new AssessmentService(journal),part=block.materials[0];
+    await new ExamWorkflowService(journal).write(alice,{examId:instance.id,action:'started'});
     await assessment.write(alice,{kind:'exam-block',id:block.id,action:'submit',answers:{[part.id]:{0:'Answer'}}});await chatCall(env,'CHAT_BRIDGE','global','/flush',{});await f.drain();
     const review=await chatCall(env,'CHAT_ROOM',id,'/history',{actor:teacher,category:'learning'});assert.ok(review.messages.some(m=>m.text.startsWith('Ready for review')&&m.examId===instance.id));
     const work=await assessment.get(teacher,{studentId:'alice',kind:'exam-block',id:block.id});

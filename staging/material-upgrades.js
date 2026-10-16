@@ -174,6 +174,7 @@ examFillAnswers=function(){
     if(reviewer&&!feedback){const part=lmState.blocks.find(p=>String(p.id)===id);field.hidden=true;field.insertAdjacentHTML('afterend',reviewEditor(part,Number(index),field.value));return;}
     const part=lmState.blocks.find(part=>String(part.id)===id),format=map[id]?.[index];
     if(field.disabled&&format){field.hidden=true;field.insertAdjacentHTML('afterend','<div class="text-color-rich">'+window.TextColors.html(field.value,format)+'</div>');return;}
+    if(lmState.examOwned&&authUser?.role==='USER'&&!viewAccount) return;
     window.TextColors?.mount(field,{format,richTools:part?.type==='text'&&!feedback,onChange:value=>{(map[id]||={})[index]=value;}});
   });
   examRefreshTaskScores();window.ColorPicker?.scan(root);window.lucide?.createIcons();
@@ -191,15 +192,18 @@ const materialListBefore=examPaintList;
 function examNeedsReview(exam){return exam.instanceStatus==='ready'||!exam.instanceStatus&&examVisibleBlocks(exam).some(block=>['submitted','reviewing'].includes(block.doc?.assessmentState));}
 function examSummary(rows,groups,compact=false){
   const works=rows.filter(exam=>exam.instanceStatus==='active'),templates=rows.filter(exam=>!exam.instanceStatus);
-  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact);
+  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact).replace(/ · <b>0<\/b>/g,'').replace(/(assigned(?: works)?|ready(?: for review)?) · <b>/g,'$1 · <b class="exam-attention-count">');
 }
 examPaintList=function(){
+  const student=authUser?.role==='USER'&&!viewAccount;
+  if(student&&examSection==='active')examSection='assigned';
   const tabs=document.getElementById('examSections');if(tabs){tabs.innerHTML=['active','assigned','ready','completed'].map((key,index)=>'<button class="btn'+(examSection===key?' primary':'')+'" type="button" data-exam-section="'+key+'">'+['Exams','Assigned works','Ready for review','Completed'][index]+'</button>').join('');const add=document.getElementById('examNew');add?.before(tabs);}
   materialListBefore();const box=document.getElementById('examList');if(!box)return;
-  const allRows=examShown().filter(exam=>canEditLessons()||canTuneStudentLessons()||!!exam.studentId).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
+  const allRows=examShown().filter(exam=>student?exam.studentId===authUser.id:canEditLessons()||canTuneStudentLessons()||!!exam.studentId).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
   const rows=allRows.filter(exam=>examSection==='assigned'?exam.instanceStatus==='active':examSection==='ready'?examNeedsReview(exam):examSection==='completed'?exam.instanceStatus==='completed':!exam.instanceStatus);
   const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
   const groups=[...new Map([...classGroups.filter(group=>canEditLessons()||canTuneStudentLessons()||!group.hidden).map(group=>[String(group.id),group]),...allRows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})]).values()];
+  if(student){const own=classGroups[0]||groups[0];examViewGroup=own?.id??'unassigned';examViewLevel=own?accountGroupLevel(own):'unassigned';}
   const group=classGroups.find(group=>String(group.id)===String(examViewGroup))||groups.find(group=>String(group.id)===String(examViewGroup));
   if(group)examViewLevel=accountGroupLevel(group);
   const leaf=!!examViewLevel&&examViewGroup!==null,root=document.getElementById('exams');
@@ -212,9 +216,10 @@ examPaintList=function(){
   let overview=document.getElementById('examOverview');if(!overview){overview=document.createElement('p');overview.id='examOverview';overview.className='sub';box.parentElement.before(overview);}
   const shownGroups=groups.filter(item=>!examViewLevel||accountGroupLevel(item)===examViewLevel).filter(item=>!leaf||String(item.id)===String(examViewGroup));
   const shownIds=new Set(shownGroups.map(item=>String(item.id))),shownRows=allRows.filter(exam=>shownIds.has(String(groupFor(exam).id)));
+  if(tabs){const counts={active:shownRows.filter(exam=>!exam.instanceStatus).length,assigned:shownRows.filter(exam=>exam.instanceStatus==='active').length,ready:shownRows.filter(examNeedsReview).length,completed:shownRows.filter(exam=>exam.instanceStatus==='completed').length};for(const button of tabs.querySelectorAll('[data-exam-section]')){const key=button.dataset.examSection;button.hidden=student&&key==='active';if(counts[key])button.innerHTML='<span>'+esc(button.textContent)+' · <span'+(['assigned','ready'].includes(key)?' class="exam-attention-count"':'')+'>'+counts[key]+'</span></span>';}}
   overview.innerHTML=examSummary(shownRows,shownGroups);
-  const reviewCount=allRows.filter(examNeedsReview).length;
-  document.querySelectorAll('[data-jump="exams"]').forEach(button=>{for(const node of button.childNodes)if(node.nodeType===3&&/^Exams(?:\s|$)/.test(node.textContent.trim()))node.textContent='Exams'+(reviewCount?' \u00b7 '+reviewCount:'');});
+  const reviewCount=allRows.filter(exam=>examNeedsReview(exam)||student&&exam.instanceStatus==='active').length;
+  document.querySelectorAll('[data-jump="exams"]').forEach(button=>{let label=button.querySelector('[data-exam-menu-label]');if(!label){const text=[...button.childNodes].find(node=>node.nodeType===3&&/^Exams(?:\s|$)/.test(node.textContent.trim()));if(!text)return;label=document.createElement('span');label.dataset.examMenuLabel='';text.replaceWith(label);}label.textContent='Exams';if(reviewCount)label.insertAdjacentHTML('beforeend','<span data-exam-menu-count> · <span class="exam-attention-count">'+reviewCount+'</span></span>');});
   paintPagePath('exams');root.querySelector('.page-path').hidden=!examViewLevel;
   if(!examViewLevel){
     const levels=groups.some(item=>accountGroupLevel(item)==='unassigned')?[...adminLevels,'unassigned']:adminLevels;
@@ -227,10 +232,10 @@ examPaintList=function(){
     const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;
     const blockCount=examVisibleBlocks(exam).length;
-    const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+blockCount+' examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
+    const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+(blockCount?blockCount+' ':'')+'examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
     let tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
     if(!exam.instanceStatus&&canEditLessons())tools=tools.replace('</button>','</button><button class="day-edit" type="button" data-exam-assign="'+exam.id+'" title="Assign exam" aria-label="Assign exam"><i data-lucide="user-plus"></i></button>');
-    return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
+    return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"'+(student&&exam.instanceStatus==='ready'?' disabled title="This exam is being reviewed. Wait for your teacher to publish the review."':'')+'><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
   };
   if(studentGroups){
     const students=new Map();

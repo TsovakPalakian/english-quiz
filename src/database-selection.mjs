@@ -1,10 +1,13 @@
 import {StudyError} from './turso-study.mjs';
+import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
 
 export const DATABASE_SELECTION_KEY='system/database-selection-v1.json';
 export const DATABASE_CONTROL=Symbol('unscoped-database-control-bucket');
 const initial=(provider='turso')=>checked({provider,revision:0,scope:'site'});
 function checked(value){
   if(!value||!['turso','neon'].includes(value.provider)||!Number.isSafeInteger(value.revision)||value.revision<0||value.scope!=='site')throw new StudyError(503,'Global database configuration is invalid. No fallback was selected.');
+  if(value.accountTransferFrozen!==undefined&&typeof value.accountTransferFrozen!=='boolean')throw new StudyError(503,'Invalid account migration state.');
+  assertAccountTransferRunning({ACCOUNT_TRANSFER_FROZEN:value.accountTransferFrozen?'true':'false'});
   return {provider:value.provider,revision:value.revision,scope:'site',...(value.updatedAt?{updatedAt:value.updatedAt}:{}),...(value.updatedBy?{updatedBy:value.updatedBy}:{})};
 }
 
@@ -15,7 +18,7 @@ export async function readDatabaseSelection(bucket,{defaultProvider='turso'}={})
     const object=await bucket.get(DATABASE_SELECTION_KEY);
     if(!object)return {selection:fallback,etag:null};
     return {selection:checked(await object.json()),etag:object.etag};
-  }catch(error){if(error instanceof StudyError)throw error;throw new StudyError(503,'Global database configuration could not be read. No fallback was selected.');}
+  }catch(error){if(error instanceof StudyError||error.migrationFrozen)throw error;throw new StudyError(503,'Global database configuration could not be read. No fallback was selected.');}
 }
 
 export async function changeDatabaseSelection(bucket,{provider,expectedRevision,actor,verifyTarget,defaultProvider='turso'}){
@@ -40,6 +43,7 @@ export async function changeDatabaseSelection(bucket,{provider,expectedRevision,
 }
 
 export async function withDatabaseSelection(env,{openNeon}={}){
+  assertAccountTransferRunning(env);
   const {selection}=await readDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{defaultProvider:env.DB_PROVIDER||'turso'});
   const configured={...env,DB_PROVIDER:selection.provider,DATABASE_SELECTION:Object.freeze(selection)};
   if(selection.provider==='turso')return configured;

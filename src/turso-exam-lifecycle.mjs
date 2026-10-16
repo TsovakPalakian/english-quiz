@@ -22,7 +22,7 @@ export async function examLifecycleCommands(db,examId,account,actor,blockId,stat
   const teacher={id:instance.reviewer_id,name:instance.reviewer_name,role:'ADMIN'};
   const notify=(recipient,sender,event,text,condition)=>{
     const room='direct:'+ [sender.id,recipient].sort().join(':');
-    return [...messages.directCommands(sender,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) SELECT ?,?,?,'learning',?,?,?,?,? FROM exam_instances WHERE exam_id=? AND ${condition}`,[room,sender.id,sender.name,text,instance.assignment_id,'exam:'+examId+':'+event,Date.now(),examId,examId])];
+    return [...messages.directCommands(sender,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) SELECT ?,?,?,'learning',?,?,?,?,? FROM exam_instances WHERE exam_id=? AND ${condition}`,[room,sender.id,sender.name,messages.sealText(room,text),instance.assignment_id,'exam:'+examId+':'+event,Date.now(),examId,examId])];
   };
   const commands=[];
   const journal=(event,condition)=>s(`INSERT INTO assessment_history(account_id,kind,material_id,actor_id,action,reason,snapshot_json) SELECT ?,'exam-workflow',?,?,?,'',? FROM exam_instances WHERE exam_id=? AND ${condition} AND NOT EXISTS(SELECT 1 FROM assessment_history h WHERE h.kind='exam-workflow' AND h.material_id=? AND h.action=?)`,[account,examId,actor.id,event,JSON.stringify({event,examId,at:new Date().toISOString()}),examId,examId,event]);

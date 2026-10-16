@@ -8,6 +8,7 @@ import {AssessmentService} from '../src/turso-assessment.mjs';
 import {MessageService} from '../src/turso-messages.mjs';
 import {listBugHeads} from '../src/bug-log.mjs';
 import {ensureSpeakout} from '../src/turso-speakout.mjs';
+import {ensureSecuritySessions} from '../src/security-sessions.mjs';
 import {studyTableDDL,studyIndexDDL} from '../src/neon-study-sql.mjs';
 
 const sqlite=new DatabaseSync(':memory:');
@@ -15,6 +16,7 @@ const decode=command=>(command.args||[]).map(item=>item.type==='null'?null:['int
 const db={async read(sql,args=[]){return sqlite.prepare(sql).all(...args);},async atomic(commands){sqlite.exec('BEGIN');try{for(const command of commands)sqlite.prepare(command.sql).all(...decode(command));sqlite.exec('COMMIT');return [];}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
 try{
   applyTursoSchema(sqlite);
+  await ensureSecuritySessions(db);
   await new ExamService(db).ensure();await new GroupService(db).ensure();await new AssessmentService(db).ensure();
   await new MessageService(db,async()=>[]).ensure();await new ArchiveService(db).ensure();await ensureSpeakout(db);await listBugHeads(db);
   sqlite.exec('CREATE TABLE speakout_lessons(level TEXT,unit_index INTEGER,lesson_index INTEGER,lesson_id INTEGER)');

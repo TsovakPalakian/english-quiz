@@ -7,6 +7,9 @@ import {durableChatWorker} from './chat-worker.mjs';
 import {withDatabaseSelection,readDatabaseSelection,DATABASE_CONTROL} from './database-selection.mjs';
 import {STUDY_DATABASE,STATIC_STUDY_DATABASE} from './study-database.mjs';
 import {neonApplicationEnvironment} from './neon-application.mjs';
+import {pruneSessionHistory} from './security-sessions.mjs';
+import {accountTransferWorker} from './account-transfer.mjs';
+import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
 export {ChatRoom,ChatInbox,ChatBridge} from './chat-worker.mjs';
 export {StageAuthBudget};
 const unavailable=()=>Response.json({error:'Production content not activated.'},{status:503,headers:{'Cache-Control':'no-store'}});
@@ -33,7 +36,16 @@ export function productionWorker(application=integrated,{openNeon=neonApplicatio
     const data={...env};delete data[STUDY_DATABASE];return {...data,[STUDY_DATABASE]:studyClient(data)};
   };
   const selected=async env=>compose(await selectedConfiguration(env));
-  return {async scheduled(event,env,ctx){let configured=productionEnvironment(env);if(configured&&application.scheduled){configured=await selected(configured);await application.scheduled(event,configured,ctx);}},async fetch(request,env,ctx){
+  return {async scheduled(event,env,ctx){
+    if(env.ACCOUNT_TRANSFER_FROZEN==='true')return;
+    let configured=productionEnvironment(env);
+    if(configured){
+      try{configured=await selected(configured);}catch(error){if(error.migrationFrozen)return;throw error;}
+      ctx.waitUntil(pruneSessionHistory(studyClient(configured)).catch(()=>console.error('Session history cleanup deferred.')));
+      if(application.scheduled)await application.scheduled(event,configured,ctx);
+    }
+  },async fetch(request,env,ctx){
+  try{assertAccountTransferRunning(env);}catch(error){return Response.json({error:error.message},{status:503,headers:{'Cache-Control':'no-store'}});}
   if(env.CONTENT_ENABLED!=='true')return unavailable();
   let configured=productionEnvironment(env);
   if(!configured)return unavailable();
@@ -62,4 +74,4 @@ export function productionWorker(application=integrated,{openNeon=neonApplicatio
   if(headers.get('Content-Type')?.includes('text/html')&&headers.has('Content-Security-Policy'))headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
   return new Response(response.body,{status:response.status,headers});
 }};}
-export default productionWorker(durableChatWorker(messagesWorker({mode:'production'})));
+export default accountTransferWorker(productionWorker(durableChatWorker(messagesWorker({mode:'production'}))));

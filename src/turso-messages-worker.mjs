@@ -7,6 +7,8 @@ import {GroupService} from './turso-groups.mjs';
 import {MessageService} from './turso-messages.mjs';
 import {stageR2Media} from './turso-r2-media.mjs';
 import {lessonMediaMetadata} from './turso-lesson-media.mjs';
+import notificationCatalog from '../production/notification-catalog.json' with {type:'json'};
+const notificationAssets=new Set([...notificationCatalog.map(sound=>sound.file),'/notification-audio/CC0.txt','/notification-audio/SOURCES.json']);
 export {StageAuthBudget};
 const json = (value,status=200) => Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const database=studyClient;
@@ -25,7 +27,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
   return {async fetch(request,env,ctx) {
     const url = new URL(request.url), path = url.pathname;
     const messageRoute = path === '/api/messages' || path.startsWith('/api/messages/') || path==='/api/exams/assign';
-    const asset = (mode==='production'?['/messages.js','/messages.css']:['/messages-test.js','/messages-test.css']).includes(path);
+    const asset = (mode==='production'?['/messages.js','/messages.css']:['/messages-test.js','/messages-test.css']).includes(path)||(mode==='production'&&notificationAssets.has(path));
     if (!messageRoute && !asset && !(['/api/groups/manage','/api/groups/members'].includes(path) && request.method==='POST')) return baseWorker.fetch(request,env,ctx);
     if (env.MESSAGES_ENABLED!=='true' && !messageRoute && !asset) return baseWorker.fetch(request,env,ctx);
     try {

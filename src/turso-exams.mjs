@@ -7,6 +7,7 @@ import {validateExamScoring,memoryDeck} from './exam-scoring.mjs';
 import {assignedExamIds,assignedExamSql} from './turso-exam-access.mjs';
 import {prefixedExamTitle} from './group-levels.mjs';
 import {prepareExamContent} from './exam-content.mjs';
+import {requireExamStarted} from './exam-workflow.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -167,7 +168,7 @@ export class ExamService {
       hidden: !!exam.hidden_from_students&&(catalogView||!assigned.has(exam.id)),
       personalHidden: hidden.has('exam:'+exam.id)&&(catalogView||!assigned.has(exam.id)),
       created: Number(exam.created_at) || 0,
-      blocks: blocks.filter(block => block.exam_id === exam.id&&(teacher||assigned.has(exam.id)||!hidden.has('exam-block:'+block.id))).map(block => ({
+      blocks: blocks.filter(block => (teacher||exam.instance_status!=='ready')&&block.exam_id === exam.id&&(teacher||assigned.has(exam.id)||!hidden.has('exam-block:'+block.id))).map(block => ({
         id: block.id,
         title: block.title || '',
         published: !!block.published,
@@ -300,14 +301,15 @@ export class ExamService {
     await this.ensure();
     const account = this.workAccount(actor, studentId);
     const assigned=await assignedExamIds(this.db,account);
-    const rows = await this.db.read(`SELECT w.exam_id,w.block_id,w.saved,w.answers_json,w.corrections_json,w.points_json FROM exam_work w
+    const rows = await this.db.read(`SELECT w.exam_id,w.block_id,w.saved,w.answers_json,w.corrections_json,w.points_json,(SELECT status FROM exam_instances i WHERE i.exam_id=w.exam_id AND i.active=1) instance_status FROM exam_work w
       JOIN exams e ON e.id=w.exam_id JOIN exam_blocks b ON b.id=w.block_id AND b.exam_id=e.id
       WHERE w.account_id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
-        AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[account,+reviewer(actor)]);
+        AND (?=1 OR (e.published=1 AND b.published=1 AND ${assignedExamSql('e.id',assigned)}))`,[account,+reviewer(actor)]);
     const hidden=await materialVisibility(this.db,account);
     const service=new AssessmentService(this.db);await service.ensure();
     return Promise.all(rows.filter(row=>reviewer(actor)||assigned.has(row.exam_id)||!hidden.has('exam:'+row.exam_id)&&!hidden.has('exam-block:'+row.block_id)).map(async row => {
-      const tracked=await service.row(account,'exam-block',row.block_id);if(tracked)return service.project(tracked,actor);
+      if(!reviewer(actor)&&row.instance_status==='ready')return {examId:row.exam_id,blockId:row.block_id,saved:!!row.saved,state:'reviewing',answers:{},points:{},corrections:{},materials:[]};
+      const tracked=await service.row(account,'exam-block',row.block_id);if(tracked){if(!reviewer(actor)&&['submitted','reviewing'].includes(tracked.state))return {examId:row.exam_id,blockId:row.block_id,saved:true,state:tracked.state,revision:tracked.revision,answers:{},points:{},corrections:{},materials:[]};return service.project(tracked,actor);}
       return ({
       examId: row.exam_id,
       blockId: row.block_id,
@@ -340,9 +342,10 @@ export class ExamService {
     const assigned=await assignedExamIds(this.db,account);
     const [block]=await this.db.read(`SELECT b.id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id
       WHERE e.id=? AND b.id=? AND e.deleted_at IS NULL AND b.deleted_at IS NULL
-        AND (?=1 OR (e.published=1 AND b.published=1 AND (${assignedExamSql('e.id',assigned)} OR (e.hidden_from_students=0 AND b.hidden_from_students=0))))`,[examId,blockId,+reviewer(actor)]);
+        AND (?=1 OR (e.published=1 AND b.published=1 AND ${assignedExamSql('e.id',assigned)}))`,[examId,blockId,+reviewer(actor)]);
     const hidden=await materialVisibility(this.db,account);
     if(!block||!reviewer(actor)&&!assigned.has(examId)&&(hidden.has('exam:'+examId)||hidden.has('exam-block:'+blockId)))fail(404,'Exam not found.');
+    if(own&&actor.role==='USER'&&body.saved){await new AssessmentService(this.db).ensure();await requireExamStarted(this.db,examId,account);}
     const current = await this.db.read('SELECT saved, answers_json, corrections_json, points_json FROM exam_work WHERE account_id=? AND exam_id=? AND block_id=?', [account, examId, blockId]);
     const prev = current[0] || {};
     if(own&&actor.role==='USER'&&prev.saved){

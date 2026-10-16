@@ -1,8 +1,11 @@
-export const SOUND_IDS=['soft-double','triple','bell','ping','wood','glass','rise','fall','pulse','sparkle','low','classic'];
+import recordings from '../production/notification-catalog.json' with {type:'json'};
+export const MAX_SOUND_SECONDS=10;
+export const MAX_SOUND_BYTES=44+48000*MAX_SOUND_SECONDS;
+export const SOUND_IDS=['soft-double','triple','bell','ping','wood','glass','rise','fall','pulse','sparkle','low','classic',...recordings.map(sound=>sound.id)];
 const headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'};
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function validateNotificationWav(bytes){
-  if(bytes.length<46||bytes.length>144044)fail(400,'Use an audio clip up to 3 seconds.');
+  if(bytes.length<46||bytes.length>MAX_SOUND_BYTES)fail(400,'Use an audio clip up to 10 seconds.');
   const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),tag=at=>String.fromCharCode(...bytes.slice(at,at+4));
   if(tag(0)!=='RIFF'||tag(8)!=='WAVE'||tag(12)!=='fmt '||view.getUint32(16,true)!==16||view.getUint16(20,true)!==1||view.getUint16(22,true)!==1||view.getUint32(24,true)!==24000||view.getUint32(28,true)!==48000||view.getUint16(32,true)!==2||view.getUint16(34,true)!==16||tag(36)!=='data'||view.getUint32(40,true)!==bytes.length-44||view.getUint32(4,true)!==bytes.length-8||(bytes.length-44)%2)fail(400,'Invalid notification audio.');
   return (bytes.length-44)/48000;
@@ -21,13 +24,14 @@ export async function notificationSoundRoute(request,bucket,actor){
     return new Response(object.body,{headers:{...headers,'Content-Type':'audio/wav'}});
   }
   if(!['POST','PUT','DELETE'].includes(request.method))fail(405,'Method not allowed.');
-  if(request.headers.get('If-Match')!==revision)fail(409,'Sound settings changed. Reopen settings.');
+  // Browsers/proxies may omit an empty header on the first save.
+  if((request.headers.get('If-Match')??'')!==revision)fail(409,'Sound settings changed. Reopen settings.');
   let uploaded,removed;
   if(request.method==='PUT'){
     if(settings.sounds.length>=20)fail(400,'Remove an unused custom sound first.');
     const reader=request.body?.getReader();if(!reader)fail(400,'Empty audio.');
     const chunks=[];let size=0;
-    try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>144044){await reader.cancel();fail(413,'Sound is too large.');}chunks.push(part.value);}}finally{reader.releaseLock();}
+    try{for(;;){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>MAX_SOUND_BYTES){await reader.cancel();fail(413,'Sound is too large.');}chunks.push(part.value);}}finally{reader.releaseLock();}
     const bytes=new Uint8Array(size);let offset=0;for(const part of chunks){bytes.set(part,offset);offset+=part.length;}
     const duration=validateNotificationWav(bytes),id=crypto.randomUUID();
     uploaded='notifications/'+actor.id+'/'+id+'.wav';

@@ -1,7 +1,9 @@
 #everydaygroup input,#everydaytopic input{margin-bottom:16px;width:100%}
 #everydaygroup>.row,#everydaytopic>.row{margin-bottom:16px}
 #everydayWords,#addedList,#verbList.words,#grammarCategoryCards{align-items:start}
-#add>.card.grow{background:transparent;border:0;box-shadow:none;padding:0}
+#add>.card.grow{background:transparent;border:0;box-shadow:none;padding:8px;box-sizing:border-box}
+#add [data-add-form]{min-width:0;max-width:100%}
+#add :is([data-add-input],[data-card-search]){box-sizing:border-box;min-width:0;max-width:100%;width:100%}
 #phrasalAdded,#idiomAdded{margin-top:16px}
 #everydayWords .wcard-tools .wcard{width:100%}
 #grammarCategoryCards p{margin:6px 0}
@@ -38,6 +40,24 @@
 #adminLevelBody #accountGroupName{width:220px;max-width:100%;flex:0 1 220px;min-width:0}
 .accounts-level-groups{padding-left:16px;display:grid;gap:12px}
 .accounts-level-groups .path{width:100%;text-align:left}
+#admin .accounts-special{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0}
+#admin .accounts-special .file-card{min-width:0}
+#adminAccountList>.path,#adminGroupDetail .account-static-row{width:100%;box-sizing:border-box;text-align:left;margin-block:8px}
+#adminAccountList .account-static-row,#adminGroupDetail .account-static-row{cursor:default;color:var(--ink)}
+#admin .file-card b{overflow-wrap:anywhere}
+#admin .account-change-row p{margin:6px 0}
+#admin .account-change-row>span:empty{min-height:1px}
+#admin .accounts-metrics,#admingrouplevel .accounts-metrics{display:grid;grid-template-columns:repeat(2,max-content);gap:6px 24px;margin-top:10px;font-size:14px;font-weight:400;text-align:left;line-height:1.5}
+#admin .file-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:144px;padding:16px}
+#adminGroupDetail .accounts-fold[open]{padding-bottom:8px}
+#adminGroupDetail .accounts-fold>:not(summary){margin-left:12px;margin-right:12px}
+#adminGroupDetail .accounts-fold>.path{width:calc(100% - 24px);box-sizing:border-box}
+#adminGroupDetail .accounts-teacher-section{display:block;margin-block:24px;padding:0;border:0;background:transparent}
+#adminGroupDetail .accounts-teacher-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:10px;margin-block:10px}
+#adminGroupDetail .accounts-teacher-row .path{min-width:0;margin:0;overflow-wrap:anywhere}
+#adminuser .account-group-row label{display:flex;flex-direction:column;gap:12px}
+#adminuser .account-group-row label>span{font-size:20px;font-weight:600;line-height:1.4}
+@media(max-width:480px){#admin .accounts-special{gap:10px}#admin .accounts-metrics,#admingrouplevel .accounts-metrics{grid-template-columns:minmax(0,1fr);gap:4px}#admin .account-change-row>span:empty{display:none}#adminGroupDetail .accounts-teacher-row{gap:8px}}
 #registerForm input[aria-invalid="true"]{border:2px solid #d93643;outline-color:#d93643}
 #registerForm .signup-field-error{display:block;color:#d93643;margin:0 0 10px}
 #registerForm .signup-field-error[hidden]{display:none}

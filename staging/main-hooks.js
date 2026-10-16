@@ -403,26 +403,28 @@ function stageSaveWord(place,input,status,button,openCard){
   const accountId=viewAccount?.id||'',generation=typeof viewGen==='number'?viewGen:0;
   const word=input.value.trim();if(!word){status.textContent='Введите слово или выражение.';return Promise.resolve();}
   const missing='В тестовой Turso такой карточки нет. Создание новых слов и внешний словарь пока не подключены.';
+  const popupDuplicate=place==='mine'&&!!input.closest?.('#add');let duplicate=false;
+  const duplicateError=()=>{duplicate=true;return Object.assign(new Error('Эта карточка уже добавлена на страницу.'),popupDuplicate?{reported:true}:{});};
   return window.TursoMain.perform(async()=>{
     let card=null;
     try{card=await window.TursoMain.findCard(word);}catch(error){if(error.message!==missing)throw error;}
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
     let result;
     if(card){
-      if(loadAdded().some(row=>row.stageId===card.id&&(row.place||'mine')===place))throw new Error('Эта карточка уже добавлена на страницу.');
+      if(loadAdded().some(row=>row.stageId===card.id&&(row.place||'mine')===place))throw duplicateError();
       result=managed?await window.TursoMain.linkManagedCard(accountId,card,place):await window.TursoMain.linkCard(card,place);
     }else{
       const data=await accountFetch('/lookup?word='+encodeURIComponent(word));
       const en=String(data&&data.word||word).trim(),ru=String(data&&data.ru||'').trim();
       if(!data||!data.found||!en||!ru)throw new Error('No translation came back for this word.');
-      if(loadAdded().some(row=>(row.place||'mine')===place&&String(row.word||row.en||'').toLowerCase()===en.toLowerCase()))throw new Error('Эта карточка уже добавлена на страницу.');
+      if(loadAdded().some(row=>(row.place||'mine')===place&&String(row.word||row.en||'').toLowerCase()===en.toLowerCase()))throw duplicateError();
       result=managed?await window.TursoMain.newManagedCard(accountId,en,ru,place):await window.TursoMain.newCard(en,ru,place);
       result={...result,card:{...result.card,word:en,ru,place:result.card.place||place,data}};
     }
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
     const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);if(!managed)trackEvent('card',place,'add');
     input.value='';if(openCard)renderMade(result.card);
-  },status);
+  },status).finally(()=>{if(duplicate&&popupDuplicate){status.textContent='';status.classList.remove('bad');window.TursoMain.notice('Эта карточка уже добавлена на страницу.',true);}});
 }
 let stageTextDraft=null,stageSongDraft=null;
 let stageDatabaseRegistry=null,stageDatabaseBusy=false;
@@ -1721,7 +1723,7 @@ async function stageAddLibraryPhrase(input,status,button){
   await stageSaveWord(place,input,status,button,false);
   if(typeof loadAdded!=='function'||loadAdded().length===before)return;
   if(typeof paintDeckCounts==='function')paintDeckCounts();
-  if(status&&!status.classList.contains('bad'))status.textContent='Added to '+(place==='idioms'?'Idioms':place==='phrasal'?'Phrasal verbs':'My words')+'.';
+  if(status&&!status.classList.contains('bad'))status.textContent='Added to '+(place==='idioms'?'Idioms':place==='phrasal'?'Phrasal verbs':'My cards')+'.';
 }
 function stageOpenSong(song){
   const user=document.getElementById('songUser');
@@ -2335,6 +2337,7 @@ function stageEssentialCollect(rows){
 function stageWordSources(row){
   const targets=[],add=source=>{if(!targets.some(item=>JSON.stringify(item)===JSON.stringify(source)))targets.push(source);};
   const pages={'7 Sep':'lesson07','9 Sep':'lesson09','14 Sep':'lesson14','16 Sep':'lesson16','21 Sep':'lesson','23 Sep':'lesson23',Lessons:'groups','Additional word':'add','Additional words':'add',Grammar:'tenses','My words':'add','Phrasal verbs':'phrasal',Idioms:'idioms','Irregular verbs':'verbs','Song lyrics':'music',Text:'texts',Chat:'messages','From chat':'messages','Essential English':'everyday'};
+  pages['My cards']='add';
   const cardId=rowToCard(row)?.stageId;
   const essential=stageEverydayData?.groups.flatMap(group=>group.topics.flatMap(topic=>topic.entries.filter(entry=>entry.card.stageId===cardId).map(()=>({label:group.title+' · '+topic.title,page:'everydaytopic',groupId:group.id,topicId:topic.id}))))||[];
   for(const label of row.where||[]){
@@ -2348,7 +2351,7 @@ function stageWordSources(row){
       const texts=loadTexts().filter(text=>!text.archived&&rowInKeys(row,keysOfMarks(text.marks)));
       if(texts.length){for(const text of texts)add({label:'Text · '+text.title,page:'texts',textId:text.id});continue;}
     }
-    add({label,page:pages[label]||'groups'});
+    add({label:label==='My words'?'My cards':label,page:pages[label]||'groups'});
   }
   return targets;
 }

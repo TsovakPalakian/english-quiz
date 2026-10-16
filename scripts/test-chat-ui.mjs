@@ -16,18 +16,20 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
 try{
   const page=await browser.newPage({viewport:{width:1664,height:1000}}),errors=[],http=[],commands=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.addInitScript(()=>{const Native=window.AudioContext;if(Native)window.AudioContext=class extends Native{createOscillator(){window.fixtureAlertTones=(window.fixtureAlertTones||0)+1;return super.createOscillator();}};});
+  await page.addInitScript(()=>{const Native=window.AudioContext;if(Native)window.AudioContext=class extends Native{createOscillator(){window.fixtureAlertTones=(window.fixtureAlertTones||0)+1;return super.createOscillator();}createBufferSource(){const source=super.createBufferSource(),start=source.start.bind(source);source.start=(...args)=>{window.fixtureRecordingStarts=(window.fixtureRecordingStarts||0)+1;return start(...args);};return source;}};});
   await page.addInitScript(()=>{const Native=window.XMLHttpRequest;window.XMLHttpRequest=class extends Native{send(file){if(file?.name==='Progress.bin'){this.fixture=true;window.fixtureUpload=this;return;}return super.send(file);}abort(){if(this.fixture){this.fixtureCancelled=true;this.onabort?.();return;}return super.abort();}};});
   const student={id:'b'.repeat(32),login:'fixture_student',email:'alice@example.com',name:'Alice',role:'USER'},teacher='a'.repeat(32),roomId='direct:'+teacher+':'+student.id;
   const rows=[{id:1,senderId:teacher,sender:'Teacher',category:'personal',text:'Hello Alice',createdMs:1780000000123},{id:2,senderId:teacher,sender:'Teacher',category:'learning',text:'Exam assigned: Fixture exam',createdMs:1780000010123,examId:11,assignmentActive:true}];
   let fail=true,seq=0,connection,unread={personal:1,learning:1},pinned=null,accessOverride=null,lastLookupQuery='';const uploads=new Map(),fileBytes=new Map();
   const profiles=new Map([[student.id,{id:student.id,online:true,username:''}],[teacher,{id:teacher,online:true,username:'@teacher'}],['group:1',{id:'group:1',online:false}]]);let avatarBytes;const dictionaryCards=[];
-  let groupRoom=false;
+  let groupRoom=false,examState=null,roomPreferences={},chatFolders=[];
   const room=()=>({id:groupRoom?'group:1':roomId,title:groupRoom?'A1':accessOverride?'Outside student':'Teacher',peerId:groupRoom?null:teacher,kind:groupRoom?'group':'direct',groupId:groupRoom?1:null,access:accessOverride||{protected:true,state:'accepted',canSend:true},pinned,members:2,revision:seq,unread:{...unread},has:{personal:true,learning:true},lastMessage:rows.at(-1),muted:false});
-  const snapshot=()=>({rooms:[room()],contacts:[{id:teacher,name:'Teacher',role:'Teacher'}],groups:[{id:1,title:'A1'}],profile:{...student,role:'Student'},seq,total:unread.personal+unread.learning});
+  const snapshot=()=>({rooms:[{...room(),...roomPreferences}],folders:chatFolders,contacts:[{id:teacher,name:'Teacher',role:'Teacher'}],groups:[{id:1,title:'A1'}],profile:{...student,role:'Student'},seq,total:unread.personal+unread.learning});
   const event=(type,extra={})=>{if(extra.profile){extra.profile={...profiles.get(extra.profile.id),...extra.profile};profiles.set(extra.profile.id,extra.profile);}connection.send(JSON.stringify({type:'event',seq:++seq,event:{type,key:'fixture:'+seq,room:room(),...extra}}));};
   await page.routeWebSocket('**/api/messages/socket*',ws=>{connection=ws;ws.send(JSON.stringify({type:'snapshot',data:snapshot()}));ws.onMessage(raw=>{
     const value=JSON.parse(raw),{requestId,action,body}=value;commands.push(action);let result={};
+    if(action==='room-settings'){Object.assign(roomPreferences,body);result={room:{...room(),...roomPreferences}};event('room',{room:result.room});}
+    if(action==='folders'){chatFolders=chatFolders.filter(f=>f.id!==body.id);if(body.op==='save')chatFolders.push({id:body.id,name:body.name,roomIds:body.roomIds});result={folders:chatFolders};}
     if(action==='history'){result={room:room(),readThrough:unread[body.category]?0:100,more:false,messages:rows.filter(r=>r.category===body.category&&(!body.before||r.id<body.before)&&(!body.q||r.text.includes(body.q)))};}
     if(action==='read'){unread[body.category]=0;event('room');result={room:room()};}
     if(action==='send'){
@@ -49,9 +51,19 @@ try{
     if(action==='mute')result={room:{...room(),muted:body.muted}};
     ws.send(JSON.stringify({type:'response',requestId,result}));
   });});
-  let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''};
+  let soundSettings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},settingsSoundAudio;
+  const sessionRows=[{id:'current',current:true,active:true,browser:'Safari 18.6',os:'macOS',device:'Desktop',startedAt:Date.now(),lastActivityAt:Date.now(),expiresAt:Date.now()+10800000,ip:'192.0.2.1',city:'Yerevan',country:'AM',mapsUrl:'https://www.google.com/maps/search/?api=1&query=40%2C44'},{id:'other',current:false,active:true,browser:'Firefox 130',os:'Linux',device:'Desktop',startedAt:Date.now(),lastActivityAt:Date.now(),expiresAt:Date.now()+10800000}];
   await page.route('**/api/**',async route=>{const url=new URL(route.request().url()),path=url.pathname;http.push(path);let data={cards:[],groups:[],songs:[],texts:[],progress:[],quizzes:[],documents:{},next:null};
-    if(path==='/api/me/notification-sounds'){if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};data=soundSettings;}
+    if(path==='/api/me/sessions'){
+      if(route.request().method()==='POST'){const row=sessionRows.find(row=>row.id===route.request().postDataJSON().id);row.active=false;row.endedAt=Date.now();row.endReason='terminated';data={ended:true,current:row.current};}
+      else data={sessions:sessionRows.filter(row=>row.active===(url.searchParams.get('view')!=='history')),nextCursor:null};
+    }
+    if(path==='/api/me/notification-sounds'){
+      if(url.searchParams.has('id'))return route.fulfill({contentType:'audio/wav',body:settingsSoundAudio});
+      if(route.request().method()==='POST')soundSettings={...soundSettings,...route.request().postDataJSON(),revision:'saved'};
+      if(route.request().method()==='PUT'){settingsSoundAudio=route.request().postDataBuffer();soundSettings={...soundSettings,sound:'custom-settings',sounds:[{id:'custom-settings',name:url.searchParams.get('name'),duration:(settingsSoundAudio.length-44)/48000}],revision:'uploaded'};}
+      data=soundSettings;
+    }
     if(path==='/api/database-context')data={provider:'turso',revision:0,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user:student};
     if(path==='/api/everyday'){let id=20000;data={version:1,groups:everydayGroups.map(group=>({...group,topics:group.topics.map(topic=>({...topic,entries:topic.entries.map(entry=>({...entry,cardId:++id,card:{en:entry.en,word:entry.en,ru:entry.ru,stageId:id,stageRevision:1,stageScope:'shared'}}))}))}))};}
@@ -60,7 +72,7 @@ try{
     if(path==='/api/me/cards')data={cards:dictionaryCards.filter(c=>!url.searchParams.get('place')||c.place===url.searchParams.get('place')),next:null,stageAddedRevision:dictionaryCards.length};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};
     if(path==='/api/account/bootstrap')data={versions:{},catalogs:[],user:student};
-    if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'Fixture exam',published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
+    if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'Fixture exam',instanceStatus:examState,studentId:examState?student.id:null,published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
     if(path==='/api/exams/work')data={work:[]};if(path==='/api/messages/exam')data={examId:11};
     if(path==='/api/messages/preview')data={url:'https://example.com/lesson',site:'example.com',title:'Lesson preview',description:'A useful English lesson &#x424;&#x43B;&#x44D;&#x448; &lt;script&gt;ignored&lt;/script&gt;'};
     if(path==='/api/messages/avatar'){
@@ -77,6 +89,15 @@ try{
   await page.route('**/lookup?*',route=>{const word=new URL(route.request().url()).searchParams.get('word');return route.fulfill({contentType:'application/json',body:JSON.stringify({ru:'Hello translation',expressionType:word==='give away'?'PHRASAL_VERB':word==='spill the beans'?'IDIOM':'Word'})});});
   await page.goto('http://127.0.0.1:'+server.address().port);
   await page.waitForFunction(()=>document.querySelector('.side-foot [data-msg-open]')?.textContent==='Messages \u00b7 2');
+  await page.waitForFunction(()=>accountReady);await page.evaluate(()=>window.enquizVisit('add'));
+  assert.match(await page.locator('#add h1').innerText(),/^My cards/);assert.equal(await page.locator('#add .sub').innerText(),'Cards you added yourself.');
+  await page.locator('#groupAdd [data-add-open]').click();
+  for(const width of [1440,390,320]){await page.setViewportSize({width,height:900});for(const selector of ['#add [data-add-input]','#add [data-card-search]']){await page.locator(selector).focus();assert.ok(await page.locator(selector).evaluate(input=>{const box=input.getBoundingClientRect(),parent=input.closest('.card.grow').getBoundingClientRect();return box.left>=parent.left+7&&box.right<=parent.right-7;}),'Input focus ring fits '+width);}assert.ok(await page.locator('#add').evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
+  await page.screenshot({path:'/private/tmp/my-cards-mobile.png'});await page.setViewportSize({width:1664,height:1000});
+  const duplicateCheck=async()=>page.evaluate(async()=>{const before=loadAdded(),original=window.TursoMain.findCard,input=document.querySelector('#groupAdd [data-add-input]'),status=document.querySelector('#groupAdd [data-add-status]');rememberAdded([...before,{stageId:987654,word:'toad',ru:'жаба',place:'mine'}]);window.TursoMain.findCard=async()=>({id:987654});input.value='toad';try{await stageSaveWord('mine',input,status,document.querySelector('#groupAdd [data-add-go]'),false);}finally{window.TursoMain.findCard=original;rememberAdded(before);}return status.textContent;});
+  assert.equal(await duplicateCheck(),'');await page.locator('#turso-main-banner:not([hidden])').waitFor();assert.match(await page.locator('#turso-main-status').innerText(),/already on the page/);assert.equal(await page.locator('#turso-main-refresh').isVisible(),false);await page.screenshot({path:'/private/tmp/my-cards-duplicate.png'});
+  await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('#turso-main-banner').isVisible(),false);await duplicateCheck();await page.mouse.click(2,2);assert.equal(await page.locator('#turso-main-banner').isVisible(),false);
+  for(const theme of ['light','dark','almond']){await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;window.TursoMain.notice('Grade every question before publishing.',true);},theme);assert.ok(await page.locator('#turso-main-banner').evaluate(node=>node.open&&parseFloat(getComputedStyle(node).borderLeftWidth)>=6&&getComputedStyle(node,'::backdrop').backgroundColor.includes('0.48')));await page.screenshot({path:'/private/tmp/warning-'+theme+'.png'});await page.keyboard.press('Escape');assert.equal(await page.locator('#turso-main-banner').isVisible(),false);}
   await page.evaluate(()=>window.enquizVisit('library'));assert.deepEqual(await page.locator('#library .decks').first().locator('[data-jump]').evaluateAll(nodes=>nodes.map(node=>node.dataset.jump)),['allwords','add','everyday','phrasal','idioms']);await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();assert.equal(await page.locator('[data-everyday-group]').count(),3);assert.equal(await page.locator('#everyday [data-essential-study]').count(),0);
   await page.locator('[data-everyday-group="speech"]').click();assert.equal(await page.locator('[data-everyday-topic]').count(),everydayGroups.find(group=>group.id==='speech').topics.length);
   await page.locator('#everydayGroupSearch').fill('pronouns');assert.equal(await page.locator('[data-everyday-topic]').count(),3);await page.locator('#everydayGroupSearch').fill('');
@@ -99,6 +120,40 @@ try{
   assert.equal(await page.locator('.side-foot [data-jump="account"]').count(),0);
   assert.equal(await page.locator('.brand-account [data-avatar-subject]').count(),1);
   assert.equal(await page.locator('#msgAssign').isVisible(),false);
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});
+  await page.locator('[data-room-action="pin"]').click();await page.waitForFunction(()=>document.querySelector('#msgRooms [data-pin-order]'));
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="mute"]').click();await page.locator('dialog[open] input[value="3600000"]').check();await page.locator('dialog[open] [type=submit]').click();assert.ok(roomPreferences.muteUntil>Date.now());
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="archive"]').click();await page.locator('[data-chat-archive]').waitFor();assert.equal(await page.locator('#msgRooms [data-msg-room]').count(),0);
+  await page.locator('[data-chat-archive]').click();assert.equal(await page.locator('#msgListTitle').innerText(),'Archive');await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="archive"]').click();await page.locator('[data-chat-list-back]').click();
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="folder"]').click();await page.locator('dialog[open] input[name=name]').fill('Practice');await page.locator('dialog[open] [type=submit]').click();await page.locator('[data-chat-folder]').waitFor();
+  assert.equal(chatFolders[0].roomIds[0],roomId);assert.equal(await page.locator('#msgRooms [data-msg-room]').count(),0,'Folder chats leave Personal');await page.locator('[data-chat-folder]').click();assert.equal(await page.locator('#msgListTitle').innerText(),'Practice');assert.equal(await page.locator('#msgRooms [data-msg-room]').count(),1);await page.locator('[data-chat-list-back]').click();
+  await page.locator('#msgContactsTab').click();assert.deepEqual(await page.locator('#msgRooms .chat-list-heading').allTextContents(),['People','Groups']);assert.equal(await page.locator('[data-chat-group="1"]').count(),1);
+  await page.locator('[data-msg-category="personal"]').click();roomPreferences={};chatFolders=[];connection.send(JSON.stringify({type:'snapshot',data:snapshot()}));
+  await page.locator('#msgSearch svg').waitFor();await page.locator('#msgSearch svg').evaluate(node=>window.fixtureStableIcon=node);
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('#chatRoomContext svg').first().waitFor();
+  assert.equal(await page.locator('#msgSearch svg').evaluate(node=>node===window.fixtureStableIcon),true,'Rendering menu icons preserves existing chat icons');await page.keyboard.press('Escape');
+  const extra=(id,title,settings={})=>({...room(),id,peerId:id,title,unread:{personal:0,learning:0},...settings});
+  const organized={...snapshot(),folders:[{id:'z',name:'Zebra',roomIds:['f1','f2']},{id:'a',name:'Alpha',roomIds:[]}],rooms:[room(),extra('archived','Archived',{archived:true}),extra('p2','Second pin',{pinOrder:2}),extra('p1','First pin',{pinOrder:1}),extra('f1','Folder one',{unread:{personal:3}}),extra('f2','Folder two',{unread:{personal:3}})]};
+  connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.locator('[data-chat-archive]').waitFor();
+  assert.deepEqual(await page.locator('#msgRooms>button').evaluateAll(nodes=>nodes.map(n=>n.dataset.chatArchive!==undefined?'archive':n.dataset.chatFolder||n.dataset.msgRoom)),['archive','a','z','p1','p2',roomId]);
+  assert.equal(await page.locator('[data-chat-folder="z"]').innerText(),'Zebra · 6');assert.equal(await page.locator('[data-chat-folder="a"]').innerText(),'Alpha');assert.equal(await page.locator('[data-chat-archive]').innerText(),'Archived Chats');
+  organized.rooms.find(r=>r.id==='f1').unread.personal=0;connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-chat-folder="z"]').textContent==='Zebra · 3');
+  organized.rooms.find(r=>r.id==='f2').unread.personal=0;connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-chat-folder="z"]').textContent==='Zebra');
+  organized.rooms.find(r=>r.id==='p2').lastMessage={text:'one two three four five six seven eight',createdMs:Date.now()};connection.send(JSON.stringify({type:'snapshot',data:organized}));await page.waitForFunction(()=>document.querySelector('[data-msg-room="p2"] .chat-room-preview').textContent==='one two three four five six…');
+  assert.equal(await page.locator('[data-msg-room="p1"] .chat-room-pin').count(),1);assert.match(await page.locator('#msgRoomTitle').innerText(),/Teacher · Teacher/);
+  await page.locator('#msgResizeLeft').press('Home');assert.equal(await page.locator('.chat-list').evaluate(n=>Math.round(n.getBoundingClientRect().width)),80);
+  assert.equal(await page.locator('.chat-list .chat-search').isVisible(),false);assert.equal(await page.locator('.chat-list .chat-categories').isVisible(),false);assert.equal(await page.locator('[data-msg-room="p1"] .chat-room-copy').isVisible(),false);assert.equal(await page.locator('[data-chat-folder="z"]>span').isVisible(),false);assert.equal(await page.locator('[data-chat-folder="z"] svg').isVisible(),true);assert.equal(await page.locator('[data-chat-archive] svg').isVisible(),true);assert.equal(await page.locator('[data-msg-room="p1"] .chat-avatar').isVisible(),true);
+  assert.ok(await page.locator('.chat-list').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/chat-icon-list.png'});await page.locator('#msgResizeLeft').press('End');for(let i=0;i<6;i++)await page.locator('#msgResizeLeft').press('Shift+ArrowLeft');
+  assert.match(await page.locator('#msgRooms [data-msg-room] time').last().innerText(),/^\d{2}\.\d{2}\.\d{4}$/);
+  await page.locator('#msgRooms [data-msg-room="'+roomId+'"]').click();
+  await page.locator('#msgText').fill('Draft preserved on resize');
+  for(const width of [700,390,320]){await page.setViewportSize({width,height:844});await page.locator('.chat-list').waitFor({state:'hidden'});assert.equal(await page.locator('.chat-center').isVisible(),true);assert.equal(await page.locator('#msgText').inputValue(),'Draft preserved on resize');assert.ok(await page.locator('#messages').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/chat-conversation-'+width+'.png'});}
+  await page.locator('#msgListBack').click();assert.equal(await page.locator('.chat-list').isVisible(),true);await page.locator('#msgRooms [data-msg-room="'+roomId+'"]').click();await page.locator('#msgText').fill('');await page.setViewportSize({width:1664,height:1000});
+  connection.send(JSON.stringify({type:'snapshot',data:snapshot()}));await page.locator('[data-chat-archive]').waitFor({state:'detached'});
+  await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="sound"]').click();await page.locator('dialog[open] select[name=sound]').selectOption('common-toad');await page.locator('dialog[open] [type=submit]').click();assert.equal(roomPreferences.sound,'common-toad');
+  const clearCommands=commands.filter(action=>action==='clear-history').length;await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="clear"]').click();assert.equal(await page.locator('dialog[open] input[name=everyone]').isChecked(),false);await page.locator('dialog[open] input[name=everyone]').check();await page.keyboard.press('Escape');assert.equal(commands.filter(action=>action==='clear-history').length,clearCommands);
+  await page.evaluate(()=>{window.fixtureOpen=window.open;window.open=(url,name,features)=>{window.fixtureChatWindow={url,name,features};return {};};});await page.locator('#msgRooms [data-msg-room]').click({button:'right'});await page.locator('[data-room-action="window"]').click();assert.equal(new URL((await page.evaluate(()=>window.fixtureChatWindow)).url).searchParams.get('chatWindow'),roomId);await page.evaluate(()=>{window.open=window.fixtureOpen;});
+  await page.screenshot({path:'/private/tmp/chat-management-desktop.png'});for(const width of [390,320]){await page.setViewportSize({width,height:844});if(width===390){await page.locator('.chat-list').waitFor({state:'hidden'});await page.locator('#msgListBack').click();}await page.locator('#msgRooms [data-msg-room]').click({button:'right'});const box=await page.locator('#chatRoomContext').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1);await page.keyboard.press('Escape');}await page.setViewportSize({width:1664,height:1000});roomPreferences={};connection.send(JSON.stringify({type:'snapshot',data:snapshot()}));
   await page.locator('#msgSettings').click();await page.locator('.chat-edit-profile input[name=birthday]').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=birthday]').inputValue(),'25.04.1990');await page.locator('dialog[open] [data-msg-close]').click();
   await page.locator('#msgRoomAvatar .chat-presence.is-online').waitFor();
   event('profile',{profile:{id:teacher,online:false}});await page.waitForFunction(()=>document.querySelector('#msgRoomAvatar .chat-presence')&&!document.querySelector('#msgRoomAvatar .is-online'));
@@ -130,7 +185,7 @@ try{
   await page.locator('[data-msg-id="1"]').click({button:'right'});await page.locator('[data-context-action="reply"]').click();await page.locator('#msgText').fill('My saved reply');await page.locator('#msgText').press('Enter');
   await page.getByText('Synthetic send failure',{exact:true}).waitFor();assert.equal(await page.locator('#msgText').inputValue(),'My saved reply');
   await page.locator('#msgSend').click();await page.waitForFunction(()=>document.querySelector('#msgText').value==='');assert.equal(rows.filter(r=>r.text==='My saved reply').length,1);await page.waitForFunction(()=>document.activeElement===document.querySelector('#msgText'));
-  await page.locator('.is-own time').first().waitFor();assert.match(await page.locator('.is-own time').first().innerText(),/^\d{2}:\d{2}$/);
+  await page.locator('.is-own time').first().waitFor();assert.match(await page.locator('.is-own time').first().innerText(),/^\d{2}\.\d{2}$/);
   const checkLastVisible=async()=>{await page.waitForFunction(()=>{const list=document.querySelector('#msgTimeline'),form=document.querySelector('#msgCompose'),last=list.querySelector('.msg-message:last-of-type');return last&&last.getBoundingClientRect().bottom<=form.getBoundingClientRect().top&&list.getBoundingClientRect().bottom<=form.getBoundingClientRect().top;});};
   await checkLastVisible();
   for(const [text,count] of [['\u{1F600}',1],['\u{1F1E6}\u{1F1F2} \u{1F44D}\u{1F3FD}',2],['\u{1F468}\u200D\u{1F469}\u200D\u{1F467}',1],['1\uFE0F\u20E3',1],['Hello \u{1F600}',0],['\u{1F600}'.repeat(49),0]]){
@@ -195,23 +250,75 @@ try{
   await page.screenshot({path:'/private/tmp/chat-desktop.png'});
   await page.locator('#msgHideList').click();assert.equal(await page.locator('.chat-list').isVisible(),false);await page.locator('#msgHideInfo').click();assert.equal(await page.locator('.chat-info').isVisible(),false);await page.locator('#msgListBack').click();
   await page.locator('#msgSettings').click();await page.locator('dialog[open]').waitFor();await page.screenshot({path:'/private/tmp/chat-settings.png'});
+  await page.locator('.user-settings .chat-edit-profile').waitFor();
+  await page.evaluate(()=>window.TursoMain.notice('The selected sound is unavailable.',true));await page.locator('#turso-main-dismiss').click();assert.equal(await page.locator('.user-settings').isVisible(),true,'Informational warning closes above Settings without closing Settings');
+  const settingsSize=async()=>page.locator('.user-settings').evaluate(node=>({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})),fixedSettingsSize=await settingsSize();
+  assert.deepEqual(await page.locator('[data-settings-tab]').evaluateAll(nodes=>nodes.slice(-3).map(n=>n.dataset.settingsTab)),['security','display','help']);
+  await page.locator('[data-settings-tab="display"]').click();assert.equal(await page.locator('.user-settings [data-display-size]').count(),5);await page.locator('.user-settings [data-display-size="compact"]').click();assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-display-size')),'compact');await page.locator('.user-settings [data-display-size="comfortable"]').click();
+  await page.locator('.user-settings #highVisibility').check();assert.equal(await page.evaluate(()=>document.documentElement.dataset.highVisibility),'1');await page.locator('.user-settings #highVisibility').uncheck();await page.screenshot({path:'/private/tmp/settings-display-desktop.png'});await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.user-settings .chat-settings-content').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/settings-display-mobile.png'});await page.setViewportSize({width:1664,height:1000});await page.locator('[data-settings-tab="profile"]').click();await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('#displayDialog [data-display-size]').count(),5,'Display controls return to their original dialog');assert.deepEqual(await settingsSize(),fixedSettingsSize);
+  assert.equal(await page.locator('.user-settings').getByText('Show phone',{exact:true}).count(),1);
+  assert.equal(await page.locator('.user-settings').getByText('Show birthday',{exact:true}).count(),1);
+  assert.equal(await page.locator('.chat-settings-menu>button:last-child[data-settings-logout]').count(),1);
+  assert.ok(await page.locator('.user-settings .chat-edit-profile').evaluate(form=>[...form.querySelectorAll('label')].every(label=>getComputedStyle(label).marginTop==='0px'&&getComputedStyle(label).marginBottom==='0px')),'Profile labels do not inherit dialog margins');
+  assert.ok(await page.locator('.user-settings .chat-edit-profile').evaluate(form=>form.getBoundingClientRect().height<720),'Profile form stays compact vertically');
   await page.locator('[data-settings-tab="interface"]').click();assert.equal(await page.locator('.user-settings .settings-switch').count(),3);
   await page.locator('[data-settings-tab="theme"]').click();await page.locator('.user-settings #themes').waitFor();
+  assert.ok(await page.locator('.user-settings #themes').evaluate(n=>{const button=n.querySelector('#customThemeOpen'),card=n.querySelector('[data-theme-seg]').closest('.card'),gap=card.getBoundingClientRect().top-button.getBoundingClientRect().bottom;return gap>=0&&gap<=24;}),'Theme gallery stays close without overlap');
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Theme does not resize Settings');
+  await page.locator('.user-settings #customThemeOpen').click();assert.ok(await page.locator('.user-settings #themes').evaluate(root=>root.querySelector('#customThemeHint').getBoundingClientRect().top-root.querySelector('#customThemeOpen').getBoundingClientRect().bottom>=16),'Theme button leaves space before its description');
+  await page.locator('.user-settings #customThemeOpen').click();
   await page.locator('[data-settings-tab="help"]').click();await page.locator('.user-settings #guide').waitFor();assert.equal(await page.locator('#themes').evaluate(node=>!!node.closest('.user-settings')),false,'Theme section returns to its original position');
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Help does not resize Settings');
+  await page.locator('.user-settings [data-guide-lang="ru"]').click();assert.equal(await page.locator('.user-settings [data-guide-lang="ru"]').evaluate(button=>button.classList.contains('on')),true);
+  assert.notEqual(await page.locator('.user-settings [data-guide-lang="ru"]').evaluate(button=>getComputedStyle(button).backgroundColor),await page.locator('.user-settings [data-guide-lang="en"]').evaluate(button=>getComputedStyle(button).backgroundColor));
+  await page.locator('.user-settings [data-guide-lang="en"]').click();
   await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.user-settings [name=sound]').waitFor();assert.equal(await page.locator('dialog[open]').count(),1,'Notifications stays in the Settings window');await page.screenshot({path:'/private/tmp/unified-settings-notifications.png'});
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Profile and Notifications have equal dimensions');
+  const customWav=Buffer.alloc(44+48000*5);customWav.write('RIFF',0);customWav.writeUInt32LE(customWav.length-8,4);customWav.write('WAVEfmt ',8);customWav.writeUInt32LE(16,16);customWav.writeUInt16LE(1,20);customWav.writeUInt16LE(1,22);customWav.writeUInt32LE(24000,24);customWav.writeUInt32LE(48000,28);customWav.writeUInt16LE(2,32);customWav.writeUInt16LE(16,34);customWav.write('data',36);customWav.writeUInt32LE(customWav.length-44,40);
+  await page.locator('.user-settings [name=upload]').setInputFiles({name:'Settings test.wav',mimeType:'audio/wav',buffer:customWav});
+  await page.locator('.user-settings .settings-trim-preview').waitFor();
+  await page.locator('.user-settings [name=soundName]').fill('Gentle custom bell');
+  await page.locator('.user-settings [name=start]').fill('1');await page.locator('.user-settings [name=duration]').fill('2');
+  await page.locator('.user-settings [data-settings-sounds] [type=submit]').click();
+  await page.locator('.user-settings option[value="custom-settings"]').waitFor({state:'attached'});
+  await page.locator('.user-settings [data-settings-sounds] [role=status]').filter({hasText:'Saved'}).waitFor();
+  assert.equal(soundSettings.sounds[0].duration,2,'Settings Save uploads the trimmed fragment');
+  assert.equal(soundSettings.sound,'custom-settings');
+  assert.equal(soundSettings.sounds[0].name,'Gentle custom bell');
+  await page.locator('[data-settings-tab="interface"]').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.user-settings option[value="custom-settings"]').waitFor({state:'attached'});
+  assert.equal(await page.locator('.user-settings [name=sound]').inputValue(),'custom-settings','Custom selection is restored from the server');
+  await page.locator('.user-settings [name=sound]').selectOption('bell');await page.locator('.user-settings [data-settings-sounds] [type=submit]').click();await page.locator('.user-settings [data-settings-sounds] [role=status]').filter({hasText:'Saved'}).waitFor();
   await page.setViewportSize({width:320,height:800});assert.ok(await page.locator('.user-settings').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/unified-settings-mobile.png'});await page.setViewportSize({width:1664,height:1000});
-  await page.locator('[data-settings-tab="security"]').click();await page.locator('[data-settings-password]').click();await page.locator('.user-settings #ownPasswordForm').waitFor();assert.equal(await page.locator('.user-settings [data-account="revoke"]').count(),1);
+  await page.locator('[data-settings-tab="security"]').click();await page.locator('.security-session').first().waitFor();assert.equal(await page.locator('.security-session').count(),2);
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Security keeps the same dimensions');assert.equal(await page.locator('.security-session-current').innerText(),'This session');
+  await page.screenshot({path:'/private/tmp/settings-security-desktop.png'});
+  await page.locator('[data-end-session="other"]').click();await page.locator('dialog[open]:not(.user-settings) button[type=submit]').click();await page.waitForFunction(()=>document.querySelectorAll('.security-session').length===1);
+  await page.locator('[data-session-view="history"]').click();await page.getByText('Ended remotely',{exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.user-settings .chat-settings-content').evaluate(n=>n.scrollWidth<=n.clientWidth+1));await page.screenshot({path:'/private/tmp/settings-security-mobile.png'});await page.setViewportSize({width:1664,height:1000});
+  await page.locator('[data-settings-password]').click();await page.locator('.user-settings #ownPasswordForm').waitFor();assert.equal(await page.locator('.user-settings [data-account="revoke"]').count(),1);
   await page.locator('[data-settings-tab="statistics"]').click();await page.locator('.user-settings #stats').waitFor();
+  assert.deepEqual(await settingsSize(),fixedSettingsSize,'Statistics keeps the same dimensions');
+  assert.equal(await page.locator('.user-settings .stats-compare-toggle .settings-switch').count(),0,'Statistics retains only its own switch');
   await page.locator('[data-settings-tab="blocked"]').click();await page.getByText('No blocked users.',{exact:true}).waitFor();await page.locator('.user-settings [data-msg-close]').click();
   assert.equal(await page.locator('#stats').evaluate(node=>!!node.closest('.user-settings')),false);
-  for(const viewport of [{width:768,height:900},{width:390,height:844},{width:320,height:650}]){await page.setViewportSize(viewport);await page.locator('[data-msg-room]').click();await page.locator('#msgCompose').waitFor();assert.ok(await page.locator('#messages').evaluate(n=>n.scrollWidth<=n.clientWidth),'Viewport fits');const box=await page.locator('#msgSend').boundingBox();assert.ok(box.y+box.height<=viewport.height&&box.x+box.width<=viewport.width,'Send stays visible');await page.locator('#msgTimeline').evaluate(n=>n.scrollTop=n.scrollHeight);await checkLastVisible();await page.screenshot({path:'/private/tmp/chat-'+viewport.width+'.png'});if(await page.locator('#msgListBack').isVisible())await page.locator('#msgListBack').click();}
+  assert.equal(await page.locator('#stats .settings-switch').count(),0,'Standalone statistics is not modified');
+  await page.evaluate(()=>window.enquizVisit('home'));
+  const previousTheme=await page.evaluate(()=>currentTheme());await page.locator('.side [data-theme-cycle]').click();
+  await page.waitForFunction(previous=>currentTheme()!==previous,previousTheme);assert.equal(await page.locator('dialog.user-settings[open]').count(),0,'Main theme button cycles themes instead of opening Settings');
+  await page.evaluate(()=>window.enquizVisit('messages'));
+  await page.locator('#msgSettings').click();await page.locator('.user-settings .chat-edit-profile').waitFor();await page.mouse.click(2,2);await page.locator('dialog.user-settings').waitFor({state:'detached'});
+  await page.locator('#msgSettings').click();await page.locator('.user-settings .chat-edit-profile').waitFor();await page.keyboard.press('Escape');await page.locator('dialog.user-settings').waitFor({state:'detached'});
+  for(const viewport of [{width:768,height:900},{width:390,height:844},{width:320,height:650}]){await page.setViewportSize(viewport);await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.locator('#msgChats').click();await page.locator('[data-msg-room]').click();await page.locator('#msgCompose').waitFor();assert.ok(await page.locator('#messages').evaluate(n=>n.scrollWidth<=n.clientWidth),'Viewport fits');const box=await page.locator('#msgSend').boundingBox();assert.ok(box.y+box.height<=viewport.height&&box.x+box.width<=viewport.width,'Send stays visible');await page.locator('#msgTimeline').evaluate(n=>n.scrollTop=n.scrollHeight);await checkLastVisible();await page.screenshot({path:'/private/tmp/chat-'+viewport.width+'.png'});if(await page.locator('#msgListBack').isVisible())await page.locator('#msgListBack').click();}
   await page.setViewportSize({width:1664,height:1000});await page.locator('[data-msg-room]').click();await page.locator('#msgText').fill('Unsent draft');await page.reload();await page.waitForFunction(()=>document.querySelector('#messages.on'));await page.waitForFunction(()=>document.querySelector('#msgText').value==='Unsent draft');
   assert.equal(await page.evaluate(()=>loadAdded().some(c=>c.word.toLowerCase()==='hello'&&c.place==='chat')),true);await page.evaluate(async()=>{await saveChatWord('give away');await saveChatWord('spill the beans');});assert.equal(dictionaryCards.find(c=>c.en==='give away').place,'chat-phrasal');assert.equal(dictionaryCards.find(c=>c.en==='spill the beans').place,'chat-idioms');
   await page.evaluate(()=>{authUser.role='ADMIN';document.querySelector('#profile').append(document.createElement('span'));});await page.locator('#msgAssign').waitFor({state:'visible'});
   const beforeExams=http.filter(p=>p==='/api/exams').length;
   for(let i=0;i<2;i++){await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();}
   assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams,'Assign exam uses the existing cache');
-  event('catalog',{catalogVersion:1});await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Catalog changes invalidate the cache');
+  examState='completed';event('catalog',{catalogVersion:1});
+  await page.waitForFunction(()=>examFind(11)?.instanceStatus==='completed');
+  assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Review publication refreshes exams without opening a dialog or reloading');
+  await page.locator('#msgAssign').click();await page.locator('dialog[open]').waitFor();await page.locator('[data-msg-close]').click();assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Assignment dialog reuses the refreshed catalog');
   await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('teacher@example.com');const beforeLookups=commands.filter(c=>c==='lookup').length;await page.waitForTimeout(350);assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups,'Typing never queries the directory');await page.locator('#msgLookup').click();await page.locator('[data-contact-id]').click();assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups+1);
   accessOverride={protected:false,state:'pending',requestedBy:student.id,canSend:false};event('room');await page.locator('#msgAccess').filter({hasText:'Waiting'}).waitFor();assert.equal(await page.locator('#msgCompose').isVisible(),false);
   accessOverride={protected:false,state:'pending',requestedBy:teacher,canAccept:true,canSend:true};event('room');await page.locator('[data-relation="accept"]').click();await page.locator('#msgAccess').waitFor({state:'hidden'});
@@ -263,9 +370,11 @@ try{
   await page.locator('[data-msg-original]').first().click();assert.equal(await page.locator('[data-msg-id="1"]').evaluate(node=>node.classList.contains('is-focused')),true);assert.ok(commands.includes('original'));
   const attachmentReply={id:rows.at(-1).id+1,text:'Attachment reply',replyTo:1,replyText:'',replySender:'Teacher',replyCategory:'personal',senderId:teacher,sender:'Teacher',category:'personal',createdMs:Date.now()};rows.push(attachmentReply);event('message',{message:attachmentReply});
   await page.locator('[data-msg-id="'+attachmentReply.id+'"] [data-msg-quote="1"]').click();assert.equal(await page.locator('[data-msg-id="1"]').evaluate(node=>node.classList.contains('is-focused')),true);
+  const partialQuote={...attachmentReply,id:attachmentReply.id+1,replyText:'Alice'};rows.push(partialQuote);event('message',{message:partialQuote});await page.locator('[data-msg-id="'+partialQuote.id+'"] [data-msg-quote="1"]').click();assert.equal(await page.locator('[data-msg-id="1"] mark.chat-quote-highlight').innerText(),'Alice');assert.equal(await page.locator('[data-msg-id="1"] .chat-message-text').innerText(),'Hello Alice');await page.waitForFunction(()=>!document.querySelector('mark.chat-quote-highlight'));
   await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.notification-sound-settings [name=enabled]').check();await page.locator('.user-settings [data-msg-close]').click();await page.evaluate(()=>window.enquizVisit('messages'));
   await page.waitForTimeout(450);const toneBefore=await page.evaluate(()=>window.fixtureAlertTones||0),soundMessage={id:rows.at(-1).id+1,text:'Sound notification',senderId:teacher,sender:'Teacher',category:'personal',createdMs:Date.now()};rows.push(soundMessage);event('message',{message:soundMessage});
   await page.waitForFunction(before=>(window.fixtureAlertTones||0)>before,toneBefore);const toneAfter=await page.evaluate(()=>window.fixtureAlertTones);event('message',{message:soundMessage});await page.waitForTimeout(50);assert.equal(await page.evaluate(()=>window.fixtureAlertTones),toneAfter);
+  soundSettings={...soundSettings,sound:'common-toad'};await page.evaluate(()=>window.NotificationSounds.load(authUser.id));await page.waitForTimeout(450);const recordingBefore=await page.evaluate(()=>window.fixtureRecordingStarts||0),recordingMessage={...soundMessage,id:soundMessage.id+1,text:'Recorded notification'};rows.push(recordingMessage);event('message',{message:recordingMessage});await page.waitForFunction(before=>(window.fixtureRecordingStarts||0)>before,recordingBefore);
   await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();await page.locator('.notification-sound-settings [name=enabled]').uncheck();await page.locator('.notification-sound-settings [type=submit]').click();await page.locator('.notification-sound-settings [role=status]').filter({hasText:'Saved'}).waitFor();await page.locator('.user-settings [data-msg-close]').click();await page.evaluate(()=>window.enquizVisit('messages'));
   const mutedSound={...soundMessage,id:soundMessage.id+1,text:'Silent notification'};rows.push(mutedSound);event('message',{message:mutedSound});await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>window.fixtureAlertTones),toneAfter);
   const accountGroups=[{id:71,title:'A1 Open',revision:1,lessonIds:[1],examIds:[]},{id:72,title:'B1 Group',revision:1,lessonIds:[],examIds:[]}];
@@ -273,30 +382,56 @@ try{
   await page.locator('#msgStatus').click();assert.equal(await page.locator('#msgStatus').isVisible(),true);
   await page.locator('#msgTimeline').click({position:{x:4,y:4}});assert.equal(await page.locator('#msgStatus').isVisible(),false);
   let createdTitle='',idleLoggedOut=false;
+  const accountTeachers=[{id:teacher,role:'ADMIN',login:'Teacher',name:'Teacher',email:'teacher@example.invalid'},{id:'c'.repeat(32),role:'ADMIN',login:'Second teacher',name:'Second teacher',email:'second@example.invalid'}];let teacherAssignments=[],accountRequests=[{id:'e'.repeat(32),login:'New student',role:'USER',status:'pending'},{id:'f'.repeat(32),login:'Another student',role:'USER',status:'pending'}],accountChanges=[{id:'1'.repeat(32),user_id:student.id,role:'USER',status:'pending',from_login:'Old login',login:'New login',from_email:'old@example.invalid',email:'new@example.invalid'},{id:'2'.repeat(32),user_id:teacher,role:'ADMIN',status:'pending',from_login:'Teacher',login:'Teacher',from_email:'teacher@example.invalid',email:'changed@example.invalid'}];
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;let data;
     if(path==='/api/groups')data={groups:accountGroups};
     else if(path==='/api/exams')data={exams:[{id:11,revision:1,title:'A1 Fixture exam',groupId:71,published:true,blocks:[{id:12,title:'Fixture block',published:true,materials:[]}]}]};
     else if(path==='/api/groups/members')data={members:[{accountId:student.id,groupId:71}]};
     else if(path==='/api/groups/manage'){const body=route.request().postDataJSON();createdTitle=body.title;accountGroups.push({id:71+accountGroups.length,title:body.title,revision:1,lessonIds:[],examIds:[]});data={groups:accountGroups};}
-    else if(path==='/api/admin/users')data={users:[student]};
-    else if(path==='/api/admin/registrations')data={registrations:[]};
-    else if(path==='/api/admin/changes')data={changes:[]};
+    else if(path==='/api/admin/users')data={users:[student,...accountTeachers]};
+    else if(path==='/api/admin/users/'+student.id)data={user:student};
+    else if(path==='/api/admin/registrations')data={registrations:accountRequests};
+    else if(path==='/api/admin/changes')data={changes:accountChanges};
+    else if(path==='/api/admin/changes/'+'1'.repeat(32)+'/reject'){accountChanges=accountChanges.filter(row=>row.id!=='1'.repeat(32));data={saved:true};}
+    else if(path==='/api/accounts/group-teachers'){if(route.request().method()==='POST'){const body=route.request().postDataJSON();const row={groupId:body.groupId,teacherIds:body.teacherIds,revision:body.expectedRevision+1};teacherAssignments=[row];data=row;}else data={assignments:teacherAssignments};}
     else if(path==='/api/logout'){idleLoggedOut=true;data={ok:true};}
     else if(path==='/api/me'&&idleLoggedOut)data={user:null};
     else{await route.fallback();return;}
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.evaluate(()=>{authUser.role='ADMIN';adminTab='groups';window.enquizVisit('admin');});
+  await page.evaluate(()=>{authUser.role='ADMIN';adminTab='accounts';window.enquizVisit('admin');});
   await page.locator('[data-admin-level="A1"]').waitFor();
   assert.deepEqual(await page.locator('[data-admin-level]').evaluateAll(nodes=>nodes.map(n=>n.dataset.adminLevel)),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2']);
+  assert.equal(await page.locator('[data-admin-tab="groups"]').count(),0);assert.match(await page.locator('[data-admin-tab="accounts"]').innerText(),/Approved accounts & Groups/);
+  assert.equal(await page.locator('[data-admin-bucket="staff"]>b').innerText(),'Teachers & Staff');assert.equal(await page.locator('[data-admin-bucket="unassigned"]>b').innerText(),'Unassigned');
+  assert.deepEqual(await page.locator('[data-admin-level="A1"] .accounts-metrics>span').allTextContents(),['groups · 1','teachers','students · 1','lessons · 1','exams']);
+  assert.ok(await page.locator('#admin .file-card').evaluateAll(nodes=>nodes.every(n=>n.getBoundingClientRect().height<180)),'Accounts cards use compact heights');
+  await page.screenshot({path:'/private/tmp/accounts-combined-desktop.png'});
+  await page.locator('[data-admin-bucket="staff"]').click();assert.equal(await page.locator('#admin [data-account="user"]').count(),0);assert.equal(await page.locator('#admin .account-static-row').count(),2);assert.ok(!(await page.locator('#admin .page-path').innerText()).includes('My account'));assert.ok(!(await page.locator('#admin').innerText()).includes('Back to groups'));await page.locator('#admin [data-path-admin-bucket=""]').click();
+  await page.locator('[data-admin-bucket="unassigned"]').click();assert.ok(!(await page.locator('#admin').innerText()).includes('Back to groups'));await page.locator('#admin [data-path-admin-bucket=""]').click();
+  assert.equal(await page.locator('[data-admin-tab="requests"]').innerText(),'Approval requests · 4');await page.locator('[data-admin-tab="requests"]').click();assert.equal(await page.locator('[data-registration-group]').first().inputValue(),'');assert.equal(await page.locator('#admin .account-change-row').count(),2);await page.screenshot({path:'/private/tmp/accounts-requests-desktop.png',fullPage:true});for(const width of [390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#admin').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/accounts-requests-'+width+'.png',fullPage:true});}await page.setViewportSize({width:1664,height:1000});await page.locator('[data-account="reject-change"]').first().click();await page.waitForFunction(()=>document.querySelector('[data-admin-tab="requests"]').textContent==='Approval requests · 3');await page.locator('[data-admin-tab="accounts"]').click();
   assert.equal(await page.locator('#adminBodySearch').isVisible(),false);
   await page.locator('[data-admin-level="A1"]').click();await page.locator('#admingrouplevel.on').waitFor();
-  assert.match(await page.locator('#adminLevelBody').innerText(),/1\. A1 Open/);
-  assert.match(await page.locator('#adminLevelBody').innerText(),/1 students · 1 lessons · 0 exams/);
+  assert.equal(await page.locator('#adminLevelBody [data-admin-group="71"] b').innerText(),'A1 Open');assert.deepEqual(await page.locator('#adminLevelBody [data-admin-group="71"] .accounts-metrics>span').allTextContents(),['groups · 1','teachers','students · 1','lessons · 1','exams']);
+  assert.ok(!(await page.locator('#adminLevelBody').innerText()).includes('· 0'));
   await page.locator('#accountGroupName').fill('Practice');await page.locator('[data-account-group="create"]').click();
   await page.waitForFunction(()=>document.querySelector('#adminLevelBody').textContent.includes('A1 Practice'));assert.equal(createdTitle,'A1 Practice');
   await page.locator('[data-admin-group="71"]').click();await page.locator('#admingroup.on').waitFor();
+  assert.equal(await page.locator('#adminGroupDetail [data-group-open]').count(),0);assert.equal(await page.locator('[data-account-group="rename"]').innerText(),'Rename group');
+  assert.equal(await page.locator('#adminGroupDetail [data-group-students]').evaluate(n=>n.open),false);await page.locator('[data-group-students] summary').click();assert.equal(await page.locator('[data-group-students] [data-account="user"]').count(),1);
+  await page.locator('#adminGroupDetail summary').filter({hasText:'Assign teachers'}).click();assert.equal(await page.locator('#adminGroupDetail input[type=checkbox]').count(),0);
+  assert.equal(await page.locator('.accounts-teacher-row [data-account="user"]').count(),0);
+  await page.locator('[data-account-teacher-toggle]').first().click();await page.waitForFunction(()=>document.querySelector('[data-account-teachers-status]')?.textContent==='Saved');
+  await page.locator('[data-account-teacher-toggle]').last().click();await page.waitForFunction(()=>document.querySelector('[data-account-teachers-status]')?.textContent==='Saved');assert.equal(teacherAssignments[0].teacherIds.length,2);
+  assert.equal(await page.locator('[data-group-students]').evaluate(n=>n.open),true,'Saving teachers keeps Students expanded');
+  assert.equal(await page.locator('[data-account-teacher-toggle]').first().getAttribute('aria-label'),'Unassign');assert.equal(await page.locator('[data-account-teacher-toggle]').first().innerText(),'');assert.equal(await page.locator('[data-account-teacher-toggle] svg').count(),2);await page.locator('[data-account-teacher-toggle]').first().click();await page.waitForFunction(()=>document.querySelector('[data-account-teachers-status]')?.textContent==='Saved');assert.equal(teacherAssignments[0].teacherIds.length,1);
+  await page.locator('[data-group-lessons] summary').click();await page.locator('[data-group-exams] summary').click();
+  assert.ok(await page.locator('#adminGroupDetail details[open]').evaluateAll(nodes=>nodes.every(n=>{const row=n.querySelector(':scope>.path,:scope>.day-row');if(!row)return true;return row.getBoundingClientRect().left-n.getBoundingClientRect().left>=8;})),'Expanded sections indent their records');
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#adminGroupDetail').evaluate(n=>n.scrollWidth<=n.clientWidth+1));assert.ok(await page.locator('[data-account-teacher-toggle]').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1&&n.getBoundingClientRect().width<=n.parentElement.getBoundingClientRect().width+1)));await page.screenshot({path:'/private/tmp/accounts-teachers-'+width+'.png',fullPage:true});}await page.setViewportSize({width:1664,height:1000});
+  await page.locator('[data-group-students] [data-account="user"]').click();await page.locator('#adminuser.on').waitFor();await page.locator('[data-student-group]').waitFor();assert.equal(await page.locator('[data-account="assign-group"]').innerText(),'Reassign group');assert.equal(await page.locator('[data-account="assign-group"]').isDisabled(),true);
+  assert.ok(await page.locator('#adminuser .account-group-row label').evaluate(node=>{const title=node.querySelector('span'),select=node.querySelector('select');return parseFloat(getComputedStyle(title).fontSize)>=20&&select.getBoundingClientRect().top-title.getBoundingClientRect().bottom>=10;}));
+  await page.locator('[data-student-group]').selectOption('');assert.equal(await page.locator('[data-account="assign-group"]').isEnabled(),true);await page.screenshot({path:'/private/tmp/accounts-reassign.png',fullPage:true});await page.locator('#adminuser [data-nav-back]').click();await page.locator('#admingroup.on').waitFor();
   await page.locator('#admingroup [data-nav-back]').click();await page.locator('#admingrouplevel.on').waitFor();
   await page.screenshot({path:'/private/tmp/account-group-level.png'});
   await page.evaluate(async()=>{await groupPull(true);window.enquizVisit('groups');});
@@ -313,7 +448,7 @@ try{
   await page.locator('#groupNew').click();await page.locator('#itemEditPop [name=title]').fill('A1 UI group');await page.locator('#itemEditPop [name=date]').fill('2026-10-15');await page.locator('#itemEditPop [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#groupList')?.textContent.includes('A1 UI group'));assert.equal(createdTitle,'A1 UI group');assert.equal(await page.locator('#groupList [data-group-open]').count(),3);
   await page.evaluate(()=>{classGroupId=71;lmState={...lmBlankMaterial(),id:1,title:'New lesson',mode:'preview',tab:'overview'};paintPagePath('material');});
   assert.deepEqual(await page.locator('#material .page-path button').allTextContents(),['Groups','A1','A1 Open','New lesson']);
-  await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;window.enquizVisit('exams');});
+  await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;examSection='active';window.enquizVisit('exams');});
   assert.ok(await page.locator('#examList [data-exam-level="A1"]').count(),JSON.stringify(await page.evaluate(()=>({html:document.querySelector('#examList').innerHTML,groups:classGroups,exams:examLoad(),auth:authUser?.role})))+' '+errors.join(';'));
   await page.locator('#examList [data-exam-level="A1"]').click();await page.locator('#examList [data-exam-group-view="71"]').click();
   assert.equal(await page.locator('#examList [data-exam-open="11"]').count(),1);assert.match(await page.locator('#examList').innerText(),/A1 Fixture exam/);

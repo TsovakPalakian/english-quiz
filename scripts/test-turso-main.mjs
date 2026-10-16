@@ -167,7 +167,7 @@ test('Student exam reads omit solution keys and submitted work cannot be changed
     const body={examId:10,blockId:20,answers:{30:{0:0}},saved:true};
     await service.saveWork(student,body);await service.saveWork(student,body);
     await assert.rejects(service.saveWork(student,{...body,saved:false,answers:{30:{0:1}}}),error=>error.status===409);
-    assert.equal((await service.listWork(student))[0].answers[30][0],0);
+    assert.deepEqual((await service.listWork(student))[0].answers,{});
     await service.saveWork(teacher,{...body,studentId:'student',corrections:{30:{0:'reviewed'}},points:{30:{0:1}}});
     assert.deepEqual((await service.listWork(student))[0].corrections,{});
     const assessment=new AssessmentService(f.db);
@@ -359,9 +359,9 @@ test('V3 Answer and Memory are graded privately, recordings belong to the studen
     await assert.rejects(service.recording({id:'student2',role:'USER'},query,new Request('https://fixture.invalid/audio'),store),e=>e.status===404);
     await assert.rejects(service.recording(teacher,{...query,studentId:'student'},request(),store),e=>e.status===403);
     await service.write(student,{...base,answers,action:'submit',expectedRevision:1});
-    await assert.rejects(service.recording(student,query,request(),store),e=>e.status===409);
+    await assert.rejects(service.recording(student,query,request(),store),e=>e.status===403);
     await assert.rejects(service.write(student,{...base,answers,action:'draft'}),e=>e.status===409);
-    const points={31:{0:1.5},33:{0:2}};await service.write(teacher,{...base,studentId:'student',action:'review',points});assert.deepEqual((await service.get(student,base)).points,{});assert.equal((await service.get(teacher,{...base,studentId:'student'})).points[32][0],10);
+    const points={31:{0:1.5},33:{0:2}};await service.write(teacher,{...base,studentId:'student',action:'review',points});await assert.rejects(service.get(student,base),e=>e.status===403);assert.equal((await service.get(teacher,{...base,studentId:'student'})).points[32][0],10);
     await service.write(teacher,{...base,studentId:'student',action:'publish',points});assert.equal((await service.get(student,base)).points[31][0],1.5);
     assert.equal(files.size,1);
   }finally{f.sqlite.close();}
@@ -1236,7 +1236,7 @@ test('Offline UI status cannot claim real Turso acceptance',async()=>{
   await window.TursoMain.fetch('/api/me');assert.match(status.textContent,/автономной SQLite/);assert.doesNotMatch(status.textContent,/Turso/);
   banner.dataset.offlineFixture='false';window.TursoMain.notice('Подтверждено тестовой Turso.');assert.match(status.textContent,/Turso/);
 });
-test('Production notices hide success, show errors and retain retry only for pending operations',()=>{
+test('Production notices hide success, show informational errors without action buttons',()=>{
   for(const pending of [null,{actorId:'fixture',path:'/api/cards/fixture',method:'PATCH',body:{mutationId:'same-id'}}]){
     const banner={dataset:{compactNotices:'true'},hidden:true},status={classList:{toggle(){}}},retry={},window={};
     const scope={window,crypto,sessionStorage:{removeItem(){}},
@@ -1245,7 +1245,7 @@ test('Production notices hide success, show errors and retain retry only for pen
     runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
     window.TursoMain.notice('Saving');assert.equal(banner.hidden,true);
     window.TursoMain.notice('Network error',true);assert.equal(banner.hidden,false);
-    assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,!pending);
+    assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,true);
     window.TursoMain.notice('Saved');assert.equal(banner.hidden,true);
   }
   const css=readFileSync(new URL('../production/notification.css',import.meta.url),'utf8');
@@ -2235,7 +2235,7 @@ test('Lesson refresh cannot replace an open exam block with a matching lesson ID
 test('Page restoration keeps examination identity separate from lesson IDs',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),opened=[];
   const examDoc={id:8,examOwned:true,examId:9,blockId:8},place={id:'material',examId:9,examBlockId:8};
-  const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',
+  const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',examFind:()=>null,authUser:{role:'USER'},
     workFromLocation:()=>false,sessionStorage:{getItem:()=>JSON.stringify(place)},document:{getElementById:()=>({})},
     lmEnsure(){throw Error('Exam restoration must not search lessons');},examOpenBlock:id=>opened.push(id),show(){}};
   runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace() {')),scope);
@@ -2264,18 +2264,19 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
 test('Administration ignores older page and user responses',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
-  const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:slot,addEventListener(){},querySelectorAll:()=>[]},
+  const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:id==='adminUser'?slot:null,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
-    accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
+    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
   runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
   scope.paintAdmin();scope.paintAdmin();
-  for(const item of pending.slice(5,10))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(6,12))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   box.innerHTML='Selected user';
-  for(const item of pending.slice(0,5))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
+  for(const item of pending.slice(0,6))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   assert.equal(box.innerHTML,'Selected user');
+  runInNewContext("adminAccounts=[{id:'one',role:'USER'},{id:'two',role:'USER'}];",scope);
   scope.paintAdminUser('one');scope.paintAdminUser('two');
-  pending[11].resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
-  pending[10].resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending.find(item=>item.path==='/api/admin/users/two').resolve({user:{id:'two',login:'Second',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
+  pending.find(item=>item.path==='/api/admin/users/one').resolve({user:{id:'one',login:'First',role:'USER',email:'test'}});await new Promise(resolve=>setImmediate(resolve));
   assert.match(slot.innerHTML,/Second/);assert.doesNotMatch(slot.innerHTML,/First/);
 });
 test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{

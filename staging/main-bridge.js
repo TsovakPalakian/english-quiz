@@ -64,14 +64,28 @@
   // The chosen theme and its picture stay, so a refresh paints the same picture without a download.
   const themeLocal=['enquiz-theme','enquiz-custom-themes','enquiz-theme-picture','enquiz-display-size','enquiz-high-visibility'];
   for(const key of Object.keys(localStorage))if(key.startsWith('enquiz-')&&!themeLocal.includes(key))localStorage.removeItem(key);
+  function noticeBanner(){
+    let banner=document.getElementById('turso-main-banner');
+    if(banner?.dataset?.compactNotices==='true'&&typeof window.HTMLDialogElement==='function'&&banner.tagName!=='DIALOG'){
+      const dialog=document.createElement('dialog');for(const attribute of banner.attributes)dialog.setAttribute(attribute.name,attribute.value);
+      while(banner.firstChild)dialog.append(banner.firstChild);banner.replaceWith(dialog);banner=dialog;
+      dialog.addEventListener('close',()=>{if(!dialog.open)dialog.hidden=true;});
+    }
+    return banner;
+  }
+  function dismissNotice(){const banner=document.getElementById('turso-main-banner');if(banner){if(banner.open&&banner.close)banner.close();banner.hidden=true;}}
   function notice(message,bad=false){
     if(message==='Sign in first.')return;
     const el=document.getElementById('turso-main-status');if(!el)return;
-    const banner=document.getElementById('turso-main-banner');
+    const banner=noticeBanner();
     if(banner?.dataset?.compactNotices==='true'){
       banner.hidden=!bad;
-      const retry=document.getElementById('turso-main-retry');
-      if(retry)retry.hidden=!(pending||personalQueue.length);
+      if(bad&&typeof banner.showModal==='function'){
+        banner.setAttribute('role','alertdialog');banner.setAttribute('aria-describedby','turso-main-status');banner.setAttribute('aria-label','Notification');
+        if(!banner.open)banner.showModal();
+      }else if(!bad&&banner.open&&banner.close)banner.close();
+      for(const id of ['turso-main-retry','turso-main-refresh']){const button=document.getElementById(id);if(button)button.hidden=true;}
+      message=String(message).replace(/\s*(?:Please )?(?:try again|reload (?:the page|server)(?: and edit again)?)\.?\s*$/i,'').trim();
     }
     if(document.getElementById('turso-main-banner')?.dataset?.offlineFixture==='true')
       message=String(message).replaceAll('тестовой Turso','автономной SQLite').replaceAll('тестовую Turso','автономную SQLite');
@@ -79,9 +93,20 @@
     if(banner&&document.createElement&&!document.getElementById('turso-main-dismiss')){
       const close=document.createElement('button');close.id='turso-main-dismiss';close.type='button';close.className='btn icon';
       close.textContent='\u00d7';close.setAttribute('aria-label','Dismiss notification');
-      close.addEventListener('click',()=>{banner.hidden=true;});banner.append(close);
+      close.addEventListener('click',dismissNotice);banner.append(close);
     }
   }
+  const compactNotice=()=>document.getElementById('turso-main-banner')?.dataset?.compactNotices==='true';
+  if(compactNotice())window.alert=message=>notice(String(message),true);
+  document.addEventListener('click',event=>{
+    const banner=document.getElementById('turso-main-banner');
+    const box=banner?.getBoundingClientRect?.(),outside=box&&(event.clientX<box.left||event.clientX>box.right||event.clientY<box.top||event.clientY>box.bottom);
+    if(compactNotice()&&banner&&!banner.hidden&&(!banner.contains(event.target)||outside)){dismissNotice();event.preventDefault();event.stopImmediatePropagation();}
+  },true);
+  document.addEventListener('keydown',event=>{
+    const banner=document.getElementById('turso-main-banner');
+    if(event.key==='Escape'&&compactNotice()&&banner&&!banner.hidden){dismissNotice();event.preventDefault();event.stopImmediatePropagation();}
+  },true);
   function register(value){
     if(Array.isArray(value)){value.forEach(register);return;}
     if(value && typeof value==='object'){

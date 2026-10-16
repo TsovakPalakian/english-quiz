@@ -1,4 +1,5 @@
 import {TursoStudyClient,StudyError} from './turso-study.mjs';
+import {bindChatEncryption} from './chat-encryption.mjs';
 
 // Server-only request context; headers and request JSON cannot supply this key.
 export const STUDY_DATABASE=Symbol('request-study-database');
@@ -10,7 +11,7 @@ export function studyClient(env){
   const provider=env.DATABASE_SELECTION?.provider||env.DB_PROVIDER||'turso';
   if(!['turso','neon'].includes(provider))throw new StudyError(503,'Invalid study database provider. No fallback was used.');
   if(env.DB_PROVIDER&&env.DB_PROVIDER!==provider)throw new StudyError(503,'Study database selection mismatch. No fallback was used.');
-  if(env[STUDY_DATABASE])return env[STUDY_DATABASE];
+  if(env[STUDY_DATABASE])return bindChatEncryption(env[STUDY_DATABASE],env);
   if(provider!=='turso')throw new StudyError(503,'Neon learning-data adapter is not ready. No fallback was used.');
-  return new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'});
+  return bindChatEncryption(new TursoStudyClient({endpoint:'https://'+new URL(env.TURSO_URL).hostname+'/v2/pipeline',token:env.TURSO_AUTH_TOKEN,mode:env.STORAGE_MODE||'test'}),env);
 }

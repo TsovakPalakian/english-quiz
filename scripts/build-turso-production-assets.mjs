@@ -24,7 +24,12 @@ copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalo
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
-writeFileSync(resolve(target,'messages.js'),readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
+const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));
+assert.ok(soundCatalog.length>=100&&new Set(soundCatalog.map(sound=>sound.id)).size===soundCatalog.length);
+mkdirSync(resolve(target,'notification-audio'),{recursive:true});
+for(const sound of soundCatalog){assert.match(sound.file,/^\/notification-audio\/[a-z0-9-]+\.wav$/);const bytes=readFileSync(resolve(root,'production'+sound.file));assert.equal(createHash('sha256').update(bytes).digest('hex'),sound.sha256);copyFileSync(resolve(root,'production'+sound.file),resolve(target,'.'+sound.file));}
+for(const name of ['CC0.txt','SOURCES.json'])copyFileSync(resolve(root,'production/notification-audio',name),resolve(target,'notification-audio',name));
+writeFileSync(resolve(target,'messages.js'),'window.NotificationSoundCatalog='+JSON.stringify(soundCatalog.map(({id,name,group,duration,file})=>({id,name,group,duration,file})))+';\n'+readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
 copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
 for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
@@ -48,6 +53,7 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categor
   .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+html=html.replace('>Approved accounts</button>','>Approved accounts &amp; Groups</button>').replace('<button type="button" role="tab" data-admin-tab="groups" aria-selected="false">Groups</button>','');
 html=html.replace('<head>','<head><script src="/database-context.js?v='+version('database-context.js')+'"></script>');
 html=html.replace('<div id="adminBody"></div>','<div class="row" data-developer-only hidden><button class="btn" type="button" data-database-admin><i data-lucide="database"></i>Databases</button></div><div id="adminBody"></div>');
 html=html.replace('</body>',readFileSync(resolve(root,'production/database-admin.html'),'utf8')+'</body>');
@@ -60,6 +66,7 @@ assert.equal(html.split(everydayAnchor).length,2);
 const myWordsAnchor='<button class="file-card" type="button" data-jump="add"><span class="num" id="myWordCount">0</span><b>My words</b><span class="label">one field · both directions</span></button>';
 assert.equal(html.split(myWordsAnchor).length,2);
 html=html.replace(myWordsAnchor,myWordsAnchor+'\n        <button class="file-card" type="button" data-jump="everyday"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>');
+html=html.replaceAll('My words','My cards').replaceAll('Words you added yourself.','Cards you added yourself.');
 html=html.replace('<section id="library">',readFileSync(resolve(root,'production/essential.html'),'utf8')+'\n<section id="library">');
 html=html.replace('<section id="library">',readFileSync(resolve(root,'production/grammar-categories.html'),'utf8')+'\n<section id="library">');
 const irregularAnchor='<button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>';

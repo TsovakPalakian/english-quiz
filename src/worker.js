@@ -1,5 +1,7 @@
 import { analyzerHeaders, analyzerOutcome, analyzerTimeoutMs } from "./analyzer-client.js";
 import {chatCall} from './chat-durable.mjs';
+import {observeSession,finishSessionRecord} from './security-sessions.mjs';
+import {studyClient} from './study-database.mjs';
 
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 3 * 3600;
@@ -153,18 +155,19 @@ async function tokenFingerprint(token) {
 
 async function revokeSessionToken(env, token) {
   if (!env.MEDIA || !token) return;
-  const fp = await tokenFingerprint(token);
+  const verified=await verifySession(env,token);if(!verified)return;
+  const fp = verified.sid||await tokenFingerprint(token);
   await env.MEDIA.put("revoked-sid/" + fp, JSON.stringify({ exp: now() + SESSION_SECONDS }), {
     httpMetadata: { contentType: "application/json" }
   });
 }
 
-async function sessionTokenRevoked(env, token) {
+async function sessionTokenRevoked(env, token, session) {
   if (!token) return false;
   // Fail closed: without a denylist check, a stolen cookie would survive logout.
   if (!env.MEDIA) return true;
   try {
-    return !!(await env.MEDIA.head("revoked-sid/" + await tokenFingerprint(token)));
+    return !!(await env.MEDIA.head("revoked-sid/" + (session?.sid||await tokenFingerprint(token))));
   } catch (e) {
     return true;
   }
@@ -340,7 +343,7 @@ async function sessionKey(env) {
   return sessionCryptoKey;
 }
 
-async function signSession(env, user) {
+async function signSession(env, user, previous) {
   const key = await sessionKey(env);
   if (!key) return "";
   const payload = {
@@ -355,6 +358,9 @@ async function signSession(env, user) {
     idleSession: 1,
     database: env.AUTH_DATABASE_PROVIDER || 'd1',
     databaseRevision: env.DATABASE_SELECTION?.revision || 0,
+    sid: previous?.sid||crypto.randomUUID().replaceAll('-',''),
+    sessionCreatedAt:previous?.sortAt??Date.now(),
+    legacySession:!!previous?.legacy,
     exp: now() + SESSION_SECONDS
   };
   const body = bytesToB64url(new TextEncoder().encode(JSON.stringify(payload)));
@@ -388,6 +394,11 @@ async function verifySession(env, token) {
     name: payload.name || "",
     role: payload.role,
     pwdv: payload.pwdv || "",
+    sid:/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(payload.sid||'')?payload.sid:'',
+    sortAt:Number.isSafeInteger(payload.sessionCreatedAt)?payload.sessionCreatedAt:(payload.exp-SESSION_SECONDS)*1000,
+    legacy:!payload.sid||!!payload.legacySession,
+    exp:payload.exp,
+    databaseRevision:payload.databaseRevision||0,
     is_personal_data_revoked: 0,
     created_at: payload.createdAt || 0
   };
@@ -397,7 +408,7 @@ export async function currentUser(env, request) {
   const token = readCookie(request.headers.get("Cookie"));
   const session = await verifySession(env, token);
   if (!session) return null;
-  if (await sessionTokenRevoked(env, token)) return null;
+  if (await sessionTokenRevoked(env, token, session)) return null;
   if (env.MEDIA) {
     const gone = await env.MEDIA.head("gone/" + session.id);
     if (gone) return null;
@@ -618,9 +629,15 @@ async function readState(env, userId) {
   return state;
 }
 
-async function startSession(env, user, payload, secure) {
-  const token = await signSession(env, user);
+export async function sessionIdentity(env,request){
+  const token=readCookie(request.headers.get('Cookie')),session=await verifySession(env,token);if(!session)return null;
+  return {...session,sid:session.sid||await tokenFingerprint(token)};
+}
+async function startSession(env, user, payload, secure, request, renew=false) {
+  const previous=renew&&request?await sessionIdentity(env,request):null;
+  const token = await signSession(env, user, previous);
   if (!token) return json({ error: "Sign-in is not configured." }, 503);
+  if(request)try{const session=await verifySession(env,token);await observeSession(studyClient(env),request,session);}catch{console.error('Session audit write unavailable.');}
   return json(payload, 200, { "Set-Cookie": cookieHeader(token, secure) });
 }
 
@@ -1298,7 +1315,7 @@ async function handleApi(request, env, ctx) {
     if (!user) return json({ error: "Sign in again." }, 401);
     const row = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(user.id).first();
     if (!row) return json({ error: "Sign in again." }, 401);
-    return startSession(env, row, { ok: true }, secure);
+    return startSession(env, row, { ok: true }, secure, request, true);
   }
   if (method === "GET" && path === "/api/me") return me(env, request);
   if (method === "GET" && path === "/api/me/account") return myAccount(env, request);
@@ -1811,7 +1828,7 @@ async function register(env, request, body, secure) {
         ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created)]);
         await rememberUser(env, user);
         await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
-        return startSession(env, user, { status: "active", user: publicUser(user) }, secure);
+        return startSession(env, user, { status: "active", user: publicUser(user) }, secure, request);
       } catch (error) {
         await provisionSignupUsername(env,'rollback',fields.login,regId,userId).catch(()=>{});
         await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
@@ -1875,7 +1892,7 @@ async function login(env, request, body, secure) {
       if (!directory) await refreshDirectory(env);
     } catch (e) {}
   }
-  return startSession(env, row, { user: publicUser(row) }, secure);
+  return startSession(env, row, { user: publicUser(row) }, secure, request);
 }
 
 async function logout(env, request, secure) {
@@ -1884,6 +1901,7 @@ async function logout(env, request, secure) {
     if (!env.MEDIA) return json({ error: "Could not sign out safely. Try again." }, 503);
     try {
       await revokeSessionToken(env, token);
+      const session=await sessionIdentity(env,request);if(session)try{await finishSessionRecord(studyClient(env),session,'logout');}catch{console.error('Session audit end unavailable.');}
     } catch (e) {
       return json({ error: "Could not sign out safely. Try again." }, 503);
     }
@@ -1926,7 +1944,8 @@ async function me(env, request) {
     const pwdRow = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?").bind(user.id).first();
     passwordHash = pwdRow && pwdRow.password_hash || "";
   } catch (e) {}
-  const token = await signSession(env, Object.assign({}, next, { password_hash: passwordHash }));
+  const previous=await sessionIdentity(env,request);
+  const token = await signSession(env, Object.assign({}, next, { password_hash: passwordHash }),previous);
   return json({ user: publicUser(next) }, 200, token ? { "Set-Cookie": cookieHeader(token, secure) } : {});
 }
 
@@ -1993,7 +2012,7 @@ async function revoke(env, request, secure) {
     } catch (e) {}
   }
   try { await scrubStatUid(env, user.id); } catch (e) {}
-  try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie"))); } catch (e) {}
+  try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie")));const session=await sessionIdentity(env,request);if(session)await finishSessionRecord(studyClient(env),session,'data_deleted'); } catch (e) {}
   return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
 }
 
@@ -3248,8 +3267,9 @@ async function changePassword(env, request, body) {
   if (!fresh) return json({ ok: true });
   // Drop the pre-change cookie; new pwdv also kills other devices.
   try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie"))); } catch (e) {}
+  try { const session=await sessionIdentity(env,request);if(session)await finishSessionRecord(studyClient(env),session,'password_changed'); } catch (e) {}
   // Re-issue cookie so this browser stays signed in; other sessions die via pwdv mismatch.
-  return startSession(env, fresh, { ok: true, user: publicUser(fresh) }, new URL(request.url).protocol === "https:");
+  return startSession(env, fresh, { ok: true, user: publicUser(fresh) }, new URL(request.url).protocol === "https:", request);
 }
 
 async function myAccount(env, request) {
