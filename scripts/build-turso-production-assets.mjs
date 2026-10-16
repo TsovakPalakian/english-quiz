@@ -24,7 +24,12 @@ copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalo
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
-writeFileSync(resolve(target,'messages.js'),readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
+const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));
+assert.ok(soundCatalog.length>=100&&new Set(soundCatalog.map(sound=>sound.id)).size===soundCatalog.length);
+mkdirSync(resolve(target,'notification-audio'),{recursive:true});
+for(const sound of soundCatalog){assert.match(sound.file,/^\/notification-audio\/[a-z0-9-]+\.wav$/);const bytes=readFileSync(resolve(root,'production'+sound.file));assert.equal(createHash('sha256').update(bytes).digest('hex'),sound.sha256);copyFileSync(resolve(root,'production'+sound.file),resolve(target,'.'+sound.file));}
+for(const name of ['CC0.txt','SOURCES.json'])copyFileSync(resolve(root,'production/notification-audio',name),resolve(target,'notification-audio',name));
+writeFileSync(resolve(target,'messages.js'),'window.NotificationSoundCatalog='+JSON.stringify(soundCatalog.map(({id,name,group,duration,file})=>({id,name,group,duration,file})))+';\n'+readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
 copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
 for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');

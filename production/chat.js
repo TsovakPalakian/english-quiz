@@ -701,7 +701,7 @@
       const editor=document.createElement('div');editor.className='settings-trim-preview';editor.innerHTML='<audio controls preload="metadata"></audio><label>Start<input type="range" min="0" step="0.01" data-trim-start></label><label>Length<input type="range" min="0.1" max="3" step="0.01" data-trim-length></label><button class="settings-action" type="button">'+icon('play')+'Preview fragment</button>';trim.prepend(editor);
       audio=editor.querySelector('audio');url=URL.createObjectURL(file.files[0]);audio.src=url;
       const start=form.elements.start,duration=form.elements.duration,startRange=editor.querySelector('[data-trim-start]'),lengthRange=editor.querySelector('[data-trim-length]');start.step=duration.step='0.01';
-      const total=Number(start.max)+.1,maxLength=Math.floor(Math.min(3,total)*100)/100;
+      const total=Number(start.max)+.1,maxLength=Math.floor(Math.min(10,total)*100)/100;
       lengthRange.max=String(maxLength);duration.max=String(maxLength);
       const clamp=()=>{duration.value=Math.max(.1,Math.min(maxLength,Number(duration.value)||.1)).toFixed(2);const maximum=Math.max(0,Math.floor((total-Number(duration.value))*100)/100);start.max=startRange.max=String(maximum);start.value=Math.max(0,Math.min(maximum,Number(start.value)||0)).toFixed(2);startRange.value=start.value;lengthRange.value=duration.value;};clamp();
       startRange.oninput=()=>{start.value=startRange.value;clamp();};lengthRange.oninput=()=>{duration.value=lengthRange.value;clamp();};
