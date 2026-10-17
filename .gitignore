@@ -8,3 +8,4 @@ wrangler.toml
 expression-analyzer/.venv
 expression-analyzer/.env
 rollback/
+expression-analyzer/.DS_Store
