@@ -200,9 +200,12 @@
     bugRemember('click',{tag:String(target.tagName||'').toLowerCase(),id:String(target.id||'').slice(0,100),
       action:Object.keys(target.dataset||{}).slice(0,8).join(','),screen:(document.querySelector('section.on')||{}).id||''});
   },true);
+  // Browser extensions run inside the page; their crashes are not site bugs.
+  const extensionOnly=(stack,file)=>{const text=String(stack||'')+'\n'+String(file||'');
+    return /(chrome|moz|safari-web)-extension:\/\//.test(text)&&!text.includes(location.origin);};
   if(window.addEventListener){
-    window.addEventListener('error',event=>reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:event.message||'Unhandled error',errorName:event.error?.name,stack:event.error?.stack||''}));
-    window.addEventListener('unhandledrejection',event=>{const reason=event.reason;reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:reason?.message||String(reason||'Unhandled rejection'),errorName:reason?.name,stack:reason?.stack||''});});
+    window.addEventListener('error',event=>{if(extensionOnly(event.error?.stack,event.filename))return;reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:event.message||'Unhandled error',errorName:event.error?.name,stack:event.error?.stack||''});});
+    window.addEventListener('unhandledrejection',event=>{const reason=event.reason;if(extensionOnly(reason?.stack))return;reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:reason?.message||String(reason||'Unhandled rejection'),errorName:reason?.name,stack:reason?.stack||''});});
   }
   async function api(path,options={}){
     const method=String(options.method||'GET').toUpperCase();
