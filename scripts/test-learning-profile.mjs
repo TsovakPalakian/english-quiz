@@ -41,8 +41,8 @@ test('Restored pair student joins the retained twin profile and does not mint a 
     assert.equal(await ensureStudyProfile(f.db,student,actor.id),9);
     assert.equal(await ensureStudyProfile(f.db,student,'c'.repeat(32)),9);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM study_profiles').get().n,1);
-    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM profile_members').get().n,2);
-    assert.deepEqual(f.sqlite.prepare('SELECT account_id FROM profile_members ORDER BY account_id').all().map(row=>row.account_id),[actor.id,student.id]);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM profile_members').get().n,3);
+    assert.deepEqual(f.sqlite.prepare('SELECT account_id FROM profile_members ORDER BY account_id').all().map(row=>row.account_id),[actor.id,student.id,'c'.repeat(32)].sort());
   }finally{f.sqlite.close();}
 });
 test('Pair join is skipped when the twin has no profile, then isolation stays intact',async()=>{

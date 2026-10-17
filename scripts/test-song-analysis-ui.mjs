@@ -14,9 +14,11 @@ try{
   const user={id:'a'.repeat(32),login:'fixture',name:'Fixture',role:'USER'};
   let song,revision=0,active=0,peak=0,failLookup=true;
   const expressions=[{exactText:'Cool down',canonicalForm:'cool down',type:'PHRASAL_VERB',meaning:'become calm'},{exactText:'Take it easy',canonicalForm:'take it easy',type:'IDIOM',meaning:'relax'}];
+  await page.addInitScript(()=>{try{localStorage.setItem('app-database-context-v1','d1:1');}catch{}});
   await page.route('**/api/**',async route=>{
     const url=new URL(route.request().url()),path=url.pathname,method=route.request().method();let data={};
     requests.push(method+' '+path);if(path==='/api/bugs'&&method==='POST')bugs.push(route.request().postData());
+    if(path==='/api/database-context')data={provider:'d1',revision:1,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user};
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:cards,songs:[],settings:{},counts:{songs:song?1:0},stageAddedRevision:revision,stageActivity:{}};
     if(path==='/api/me/themes')data={theme:'almond',themes:[],revision:0,customRevision:0};

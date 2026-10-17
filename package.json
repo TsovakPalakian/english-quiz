@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "check": "node scripts/check-all.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",
