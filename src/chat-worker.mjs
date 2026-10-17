@@ -216,7 +216,9 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
       if(syncPolicy)await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});
       const response=await application.fetch(request,env,ctx);
       if(response.ok&&mutation){
-        if(logout&&actor)await chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{});
+        // The session is already ended; sockets re-check it, so a failed closure must not hide the cookie reset.
+        if(logout&&actor)try{await chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{});}
+          catch{console.error('Chat socket revocation deferred after logout.');ctx.waitUntil(chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{}).catch(()=>console.error('Chat socket revocation retry failed.')));}
       }
       if(syncPolicy)try{await chatCall(env,'CHAT_BRIDGE','global','/policy',{});}catch{ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/policy',{}).catch(()=>{}));}
       if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/exams/assign','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));

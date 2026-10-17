@@ -3764,10 +3764,9 @@ async function decide(env, actor, regId, action) {
   const db = env.DB;
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);
   if (action !== "approve" && action !== "reject") return json({ error: "Not found." }, 404);
-  const reg = await db.prepare("SELECT * FROM registrations WHERE id = ?").bind(regId).first();
+  const [reg, directory] = await Promise.all([db.prepare("SELECT * FROM registrations WHERE id = ?").bind(regId).first(), readDirectory(env)]);
   if (!reg || reg.status !== "pending") return json({ error: "This request is no longer waiting." }, 409);
   // Same visibility as GET /api/admin/registrations — no approve-by-id for hidden-linked rows.
-  const directory = await readDirectory(env);
   const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
   if (!visible.length) return json({ error: "No such account." }, 404);
   if(action==='approve'&&reg.role==='ADMIN'&&actor.role!=='DEVELOPER')return json({error:'Only a developer can approve a teacher account.'},403);
@@ -3778,11 +3777,11 @@ async function decide(env, actor, regId, action) {
     await provisionSignupUsername(env,'release',reg.login,regId).catch(()=>{});
     return json({ ok: true });
   }
-  const reserved = await db.prepare("SELECT id FROM users WHERE login = ?").bind(reg.login).first();
+  const [reserved, taken] = await Promise.all([
+    db.prepare("SELECT id FROM users WHERE login = ?").bind(reg.login).first(),
+    db.prepare("SELECT id FROM users WHERE is_personal_data_revoked = 0 AND email = ?").bind(reg.email).first(),
+  ]);
   if (reserved) return json({ error: "That login is already in use." }, 409);
-  const taken = await db.prepare(
-    "SELECT id FROM users WHERE is_personal_data_revoked = 0 AND email = ?"
-  ).bind(reg.email).first();
   if (taken) return json({ error: "That email is already in use." }, 409);
   const userId = randomId();
   const role = reg.role === 'ADMIN' ? 'ADMIN' : 'USER';
@@ -3801,8 +3800,14 @@ async function decide(env, actor, regId, action) {
     if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
-  await rememberUser(env, { id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });
-  await rememberRegistration(env, { id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "approved", role: role, user_id: userId, created_at: reg.created_at, decided_at: decided });
+  const user = publicUser({ id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });
+  const registration = registrationPublic({ id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "approved", role: role, user_id: userId, created_at: reg.created_at, decided_at: decided });
+  await patchDirectory(env, (next) => {
+    const userIndex = next.users.findIndex((item) => item && item.id === user.id);
+    if (userIndex >= 0) next.users[userIndex] = user; else next.users.unshift(user);
+    const regIndex = next.registrations.findIndex((item) => item && item.id === registration.id);
+    if (regIndex >= 0) next.registrations[regIndex] = registration; else next.registrations.unshift(registration);
+  });
   return json({ ok: true, userId, role });
 }
 

@@ -37,7 +37,9 @@ function signedIn(actor){
 export class GroupService{
   constructor(db){this.db=db;}
   ensure(){
-    if(!ready.has(this.db))ready.set(this.db,(async()=>{
+    // Request wrappers are rebuilt per call; the schema check belongs to the binding.
+    const key=this.db?.binding||this.db;
+    if(!ready.has(key))ready.set(key,(async()=>{
       await this.db.atomic(schema.map(sql=>stmt(sql)));
       const columns=await this.db.read('PRAGMA table_info(class_groups)');
       const names=new Set(columns.map(column=>column.name));
@@ -45,11 +47,21 @@ export class GroupService{
       if(!names.has('lesson_date'))changes.push(stmt("ALTER TABLE class_groups ADD COLUMN lesson_date TEXT NOT NULL DEFAULT ''"));
       if(!names.has('hidden_from_students'))changes.push(stmt('ALTER TABLE class_groups ADD COLUMN hidden_from_students INTEGER NOT NULL DEFAULT 0 CHECK (hidden_from_students IN (0, 1))'));
       if(changes.length)await this.db.atomic(changes);
-    })().catch(error=>{ready.delete(this.db);throw error;}));
-    return ready.get(this.db);
+    })().catch(error=>{ready.delete(key);throw error;}));
+    return ready.get(key);
   }
-  async seed(){
+  seed(){
+    this.seeding||=this.seedOnce().catch(error=>{this.seeding=null;throw error;});
+    return this.seeding;
+  }
+  async seedOnce(){
     await this.ensure();
+    const [state]=await this.db.read(`SELECT
+      (SELECT COUNT(*) FROM class_group_setup WHERE key IN ('levels-v1','level-names-v2')) AS setup,
+      EXISTS(SELECT 1 FROM class_groups WHERE deleted_at IS NULL) AS has_groups,
+      EXISTS(SELECT 1 FROM class_groups WHERE deleted_at IS NULL AND lesson_date='') AS blank_dates,
+      EXISTS(SELECT 1 FROM lessons l WHERE l.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM class_group_lessons x WHERE x.lesson_id=l.id)) AS loose_lessons`);
+    if(Number(state?.setup)===2&&Number(state.has_groups)&&!Number(state.blank_dates)&&!Number(state.loose_lessons))return;
     await this.db.atomic([
       ...['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'].map((title,position)=>stmt(`INSERT INTO class_groups(title,lesson_date,position) SELECT ?,date('now'),? WHERE NOT EXISTS(SELECT 1 FROM class_group_setup WHERE key='levels-v1') AND NOT EXISTS(SELECT 1 FROM class_groups WHERE title=? AND deleted_at IS NULL)`,[title,position,title])),
       stmt("INSERT OR IGNORE INTO class_group_setup(key) VALUES('levels-v1')"),

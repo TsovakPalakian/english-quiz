@@ -10,8 +10,9 @@
   have been removed. Application modules and browser APIs use Learning naming.
 - Production entry: src/learning-production-worker.mjs.
 - Builder: node scripts/build-learning-production-assets.mjs.
-- Accepted HTML/CSS: rollback/accepted-worker-assets; generated assets:
-  rollback/production-assets. Deploy only with root wrangler.toml.
+- HTML/CSS source: site/ (tracked); private inline media: private/ (untracked,
+  back it up separately); generated assets: rollback/production-assets.
+  Deploy only with root wrangler.toml.
 - Local tests cover D1 transactions, receipts, encryption, Accounts, groups,
   lessons, exams, personal data, media, browser state and renamed module imports.
 - Private recovery archives are stored outside the repository. Git history is

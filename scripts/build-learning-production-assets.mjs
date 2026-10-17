@@ -1,4 +1,4 @@
-// Build locally from accepted TEST assets; never deploy or copy credentials.
+// Build locally from site/ (HTML/CSS source) and private/ (untracked inline media); never deploy or copy credentials.
 import {readFileSync,writeFileSync,copyFileSync,mkdirSync,readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {mainPreview} from './learning-main-preview.mjs';
 import {pdfAssetPaths,pdfAssetFile} from './learning-pdf-assets.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
-const target=resolve(root,'rollback/production-assets'),accepted=resolve(root,'rollback/accepted-worker-assets');
+const target=resolve(root,'rollback/production-assets'),accepted=resolve(root,'site');
 const config=readFileSync(resolve(root,'wrangler.toml'),'utf8');
 assert.match(config,/^DB_PROVIDER = "d1"$/m);assert.match(config,/^preview_urls = false$/m);
 const host=config.match(/^CONTENT_ALLOWED_HOST = "([a-z0-9.-]+)"$/m)?.[1];
@@ -98,7 +98,7 @@ for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,nam
 for(const path of pdfAssetPaths()){
   const file=resolve(target,path.slice(1));mkdirSync(resolve(file,'..'),{recursive:true,mode:0o700});copyFileSync(pdfAssetFile(path).file,file);
 }
-const inline=resolve(accepted,'private-migration-media'),files=readdirSync(inline);assert.ok(files.length<=32);
+const inline=resolve(root,'private/private-migration-media'),files=readdirSync(inline);assert.ok(files.length<=32);
 mkdirSync(resolve(target,'private-migration-media'),{recursive:true,mode:0o700});
 for(const file of files){assert.match(file,/^[a-f0-9]{64}\.bin$/);const bytes=readFileSync(resolve(inline,file));
   assert.equal(createHash('sha256').update(bytes).digest('hex'),file.slice(0,-4));

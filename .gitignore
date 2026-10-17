@@ -8,4 +8,6 @@ wrangler.toml
 expression-analyzer/.venv
 expression-analyzer/.env
 rollback/
+private/
 expression-analyzer/.DS_Store
+docs/refactoring-plan.md
