@@ -494,3 +494,12 @@ test('Download disposition preserves playable MIME and range responses for forwa
   const inline=await chatFileResponse(store,file,new Request('https://fixture.example/api/messages/file?id=one'));assert.equal(inline.headers.get('Content-Type'),'audio/wav');assert.match(inline.headers.get('Content-Disposition'),/^inline/);
   const download=await chatFileResponse(store,file,new Request('https://fixture.example/api/messages/file?id=one&download=1'));assert.match(download.headers.get('Content-Disposition'),/^attachment/);assert.equal(download.headers.get('Content-Type'),'audio/wav');
 });
+test('Logout keeps the cookie reset when chat socket revocation fails, and retries in the background',async()=>{
+  let calls=0;const waits=[];
+  const inbox={idFromName:name=>name,get:()=>({fetch:async()=>{calls++;return Response.json({error:'Unavailable.'},{status:503});}})};
+  const env={CHAT_V2_ENABLED:'true',DB_PROVIDER:'d1',CHAT_INBOX:inbox,CONTENT_SESSION_SECRET:'fixture'};
+  const worker=durableChatWorker({fetch:()=>Response.json({ok:true},{headers:{'Set-Cookie':'enquiz_sid=; Max-Age=0'}})},{authenticate:async()=>({id:'alice',role:'USER'})});
+  const response=await worker.fetch(new Request('https://fixture.example/api/logout',{method:'POST'}),env,{waitUntil:promise=>waits.push(promise)});
+  assert.equal(response.status,200);assert.match(response.headers.get('Set-Cookie'),/Max-Age=0/);
+  await Promise.all(waits);assert.equal(calls,2);
+});
