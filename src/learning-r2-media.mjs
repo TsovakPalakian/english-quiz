@@ -29,8 +29,9 @@ export function stageR2Media(env){
   const validate=(key,object)=>{
     if(!object)fail(404,'Test media not found.');
     const digest=identity(key),meta=object.customMetadata||{},mime=object.httpMetadata?.contentType;
+    // Objects copied between accounts have no stored R2 SHA-256; full reads still hash the bytes.
     if(!Number.isSafeInteger(object.size)||object.size<1||object.size>limit||meta.sha256!==digest||Number(meta.bytes)!==object.size
-      ||!mimes.has(mime)||meta.mime!==mime||!object.checksums?.sha256||hex(object.checksums.sha256)!==digest)
+      ||!mimes.has(mime)||meta.mime!==mime||object.checksums?.sha256&&hex(object.checksums.sha256)!==digest)
       fail(503,'Test media integrity check failed.');
     return {sha256:digest,bytes:object.size,mime,name:meta.name||''};
   };

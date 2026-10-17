@@ -49,7 +49,8 @@ test('Remote media HEAD/Range/inline expectations, integrity and private headers
   const inline='migration-inline/'+metadata.sha256;await f.store.putImmutable(inline,file,metadata);
   assert.equal((await f.store.response(inline,'GET','',metadata)).status,200);
   await assert.rejects(f.store.response(inline,'GET','',{...metadata,mime:'image/png'}),e=>e.status===503);
-  f.objects.get(key).checksums={};await assert.rejects(f.store.response(key,'HEAD'),e=>e.status===503);
+  f.objects.get(key).checksums={};assert.equal((await f.store.response(key,'HEAD')).status,200);assert.equal((await f.store.response(key,'GET')).status,200);
+  f.objects.get(key).checksums={sha256:new Uint8Array(32).buffer};await assert.rejects(f.store.response(key,'HEAD'),e=>e.status===503);
 });
 test('Binary input is bounded before storage, including missing or dishonest lengths',async()=>{
   const make=(bytes,headers={})=>new Request('https://test.invalid/',{method:'POST',body:bytes,headers,duplex:'half'});
