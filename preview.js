@@ -19,12 +19,6 @@
     const syncQueue = [];
     let textsInFlight = Promise.resolve();
     let authTimer = 0;
-    // Глобальный кэш API responses
-    const apiCache = new Map();
-    const apiCacheTTL = 60000; // 1 минута
-    // Debouncing для рендеров
-    const renderDebounce = new Map();
-    const renderDebounceDelay = 100; // 100ms
     let addedCache = null;
     let grammarView = "hub";
     let tenseKind = "topic";
@@ -85,18 +79,22 @@
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
       if (id === "material" && window.paintMaterial) window.paintMaterial();
-      if (id === "groups") ensurePaintGroups();
+      if (id === "groups" && window.paintGroups) window.paintGroups();
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
-      if (id === "admin") ensurePaintAdmin();
+      if (id === "admin" && !['adminuser','admingroup'].includes(previous?.id)) paintAdmin();
+      if (id === "admin" && ['adminuser','admingroup'].includes(previous?.id)) {
+        const target = document.querySelector('#admin [data-account="user"][data-id="' + adminSelectedUser + '"]');
+        const fold = target?.closest('details'); if (fold) fold.open = true;
+      }
       if (id === "adminuser") { adminSelectedUser = null; if (!adminGroups.length) paintAdmin('adminuser'); else paintAdminUser(adminAccountId); }
       if (id === "admingroup") { if (!adminGroups.length) paintAdmin('admingroup'); else paintAdminGroup(); }
       if (id === "admingrouplevel") { if (!adminGroups.length) paintAdmin('admingrouplevel'); else paintAdminGroupLevel(); }
       if (id === "bugs") paintBugs();
       if (id === "archive") paintArchive();
-      if (id === "stats") ensurePaintStats();
+      if (id === "stats") paintStats();
       if (id === "guide") paintGuide();
       if (id === "demonstratives" && window.paintDemonstratives) window.paintDemonstratives();
       if (id === "texts") paintTexts();
@@ -3873,25 +3871,21 @@
       }
     }
     function paintAdded() {
-      // Debounce для производительности
-      clearTimeout(renderDebounce.get('paintAdded'));
-      renderDebounce.set('paintAdded', setTimeout(() => {
-        paintPlace("lesson-21", "lessonAdded", "lessonAddedLabel");
-        paintPlace("lesson-23", "lesson23Added", "lesson23AddedLabel");
-        paintPlace("lesson-16", "lesson16Added", "lesson16AddedLabel");
-        paintPlace("lesson-14", "lesson14Added", "lesson14AddedLabel");
-        paintPlace("lesson-09", "lesson09Added", "lesson09AddedLabel");
-        paintPlace("lesson-07", "lesson07Added");
-        paintPlace("music", "musicAdded");
-        paintPlace("tenses", "tenseAdded");
-        paintPlace("phrasal", "phrasalAdded");
-        paintPlace("idioms", "idiomAdded");
-        paintDeckCounts();
-        paintLessonChips();
-        renderAddedList();
-        paintAllWords();
-        applyCardSearches();
-      }, renderDebounceDelay));
+      paintPlace("lesson-21", "lessonAdded", "lessonAddedLabel");
+      paintPlace("lesson-23", "lesson23Added", "lesson23AddedLabel");
+      paintPlace("lesson-16", "lesson16Added", "lesson16AddedLabel");
+      paintPlace("lesson-14", "lesson14Added", "lesson14AddedLabel");
+      paintPlace("lesson-09", "lesson09Added", "lesson09AddedLabel");
+      paintPlace("lesson-07", "lesson07Added");
+      paintPlace("music", "musicAdded");
+      paintPlace("tenses", "tenseAdded");
+      paintPlace("phrasal", "phrasalAdded");
+      paintPlace("idioms", "idiomAdded");
+      paintDeckCounts();
+      paintLessonChips();
+      renderAddedList();
+      paintAllWords();
+      applyCardSearches();
     }
     function searchHit(text, q) {
       return String(text || "").toLowerCase().indexOf(q) >= 0;
@@ -4254,63 +4248,59 @@
       return rows;
     }
     function paintAllWords() {
-      // Debounce для производительности
-      clearTimeout(renderDebounce.get('paintAllWords'));
-      renderDebounce.set('paintAllWords', setTimeout(() => {
-        const rows = allRows();
-        const count = document.getElementById("allWordCount");
-        if (count) count.textContent = String(rows.length);
-        const box = document.getElementById("allWordGrid");
-        const title = document.getElementById("allWordTitle");
-        const sub = document.getElementById("allWordSub");
-        if (!box) return;
-        if (!allGroup) {
-          const map = {};
-          const names = [];
-          rows.forEach((row) => {
-            const name = sourceName(row);
-            if (!map[name]) { map[name] = []; names.push(name); }
-            map[name].push(row);
-          });
-          names.sort((a, b) => sourceRank(a) - sourceRank(b) || a.localeCompare(b));
-          if(!map.Chat){map.Chat=[];names.push('Chat');names.sort((a,b)=>sourceRank(a)-sourceRank(b)||a.localeCompare(b));}
-          const essential=rows.filter(row=>row.where.includes('Essential English'));map['Essential English']=essential;
-          if(!names.includes('Essential English'))names.push('Essential English');
-          if (title) title.textContent = "All words · " + rows.length;
-          if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
-          box.innerHTML = names.map((name, index) => {
-            const n = map[name].length;
-            return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>"
-          }).join("");
-          applyCardSearch(box.closest("section"));
-          return;
-        }
-        const shown = rows.filter((row) => allGroup==='Essential English'?row.where.includes(allGroup):sourceName(row) === allGroup);
-        if (allGroup === "Song lyrics" && !allSong) {
-          const grouped = songSlices(shown, rowInKeys);
-          if (title) title.textContent = "Song lyrics · " + shown.length;
-          if (sub) { sub.hidden = false; sub.textContent = "By song."; }
-          box.innerHTML = songGroupHtml(grouped.slices, grouped.left, "data-all-song");
-          applyCardSearch(box.closest("section"));
-          return;
-        }
-        let words = shown;
-        let label = allGroup;
-        if (allGroup === "Song lyrics" && allSong) {
-          const song = findSong(allSong);
-          if (allSong === "other") {
-            words = songSlices(shown, rowInKeys).left;
-            label = "Other words";
-          } else if (song) {
-            words = shown.filter((row) => rowInKeys(row, song.keys));
-            label = song.number + " " + song.title;
-          }
-        }
-        if (title) title.textContent = label + " · " + words.length;
-        if (sub) sub.hidden = true;
-        box.innerHTML = words.map(row=>allGroup==='Essential English'?statRow({...row,kind:'essential',key:String(rowToCard(row)?.stageId)},true):statRow(row,true)).join("");
+      const rows = allRows();
+      const count = document.getElementById("allWordCount");
+      if (count) count.textContent = String(rows.length);
+      const box = document.getElementById("allWordGrid");
+      const title = document.getElementById("allWordTitle");
+      const sub = document.getElementById("allWordSub");
+      if (!box) return;
+      if (!allGroup) {
+        const map = {};
+        const names = [];
+        rows.forEach((row) => {
+          const name = sourceName(row);
+          if (!map[name]) { map[name] = []; names.push(name); }
+          map[name].push(row);
+        });
+        names.sort((a, b) => sourceRank(a) - sourceRank(b) || a.localeCompare(b));
+        if(!map.Chat){map.Chat=[];names.push('Chat');names.sort((a,b)=>sourceRank(a)-sourceRank(b)||a.localeCompare(b));}
+        const essential=rows.filter(row=>row.where.includes('Essential English'));map['Essential English']=essential;
+        if(!names.includes('Essential English'))names.push('Essential English');
+        if (title) title.textContent = "All words · " + rows.length;
+        if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
+        box.innerHTML = names.map((name, index) => {
+          const n = map[name].length;
+          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+        }).join("");
         applyCardSearch(box.closest("section"));
-      }, renderDebounceDelay));
+        return;
+      }
+      const shown = rows.filter((row) => allGroup==='Essential English'?row.where.includes(allGroup):sourceName(row) === allGroup);
+      if (allGroup === "Song lyrics" && !allSong) {
+        const grouped = songSlices(shown, rowInKeys);
+        if (title) title.textContent = "Song lyrics · " + shown.length;
+        if (sub) { sub.hidden = false; sub.textContent = "By song."; }
+        box.innerHTML = songGroupHtml(grouped.slices, grouped.left, "data-all-song");
+        applyCardSearch(box.closest("section"));
+        return;
+      }
+      let words = shown;
+      let label = allGroup;
+      if (allGroup === "Song lyrics" && allSong) {
+        const song = findSong(allSong);
+        if (allSong === "other") {
+          words = songSlices(shown, rowInKeys).left;
+          label = "Other words";
+        } else if (song) {
+          words = shown.filter((row) => rowInKeys(row, song.keys));
+          label = song.number + " " + song.title;
+        }
+      }
+      if (title) title.textContent = label + " · " + words.length;
+      if (sub) sub.hidden = true;
+      box.innerHTML = words.map(row=>allGroup==='Essential English'?statRow({...row,kind:'essential',key:String(rowToCard(row)?.stageId)},true):statRow(row,true)).join("");
+      applyCardSearch(box.closest("section"));
     }
     function openAllGroup(name) {
       pushHistory();
@@ -9646,35 +9636,24 @@
       if (bits) html += '<p class="src">' + bits + "</p>";
       body.innerHTML = html;
     }
-    async function loadSelpop(word){
+    const selpopCache = new Map();
+    async function loadSelpop(word) {
       if (examStudentRestricted()) { hideSelpop(); return; }
       const token = ++selToken;
-      // Проверка кэша
-      const cacheKey = 'selpop_' + word;
-      const now = Date.now();
-      const cached = apiCache.get(cacheKey);
-      if (cached && (now - cached.timestamp < 30000)) {
-        // Использовать кэш
-        if (apiCache.has(cacheKey)) {
-          const cachedData = apiCache.get(cacheKey);
-          if (now - cachedData.timestamp < 30000) {
-            paintSelpop(cachedData.data);
-            const pop = document.getElementById("selpop");
-            if (!pop.hidden && window.getSelection) {
-              const sel = window.getSelection();
-              if (sel && sel.rangeCount) placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
-            }
-            return;
-          }
-        }
-      }
+      const key = String(word || "").toLowerCase();
+      const cached = selpopCache.get(key);
       document.getElementById("selpopBody").innerHTML = '<p class="hint">Looking up…</p>';
       try {
-        const res = await fetch(lookupBase() + "/translate?word=" + encodeURIComponent(word));
-        const data = await res.json();
+        let data = cached && Date.now() - cached.at < 300000 ? cached.data : null;
+        if (!data) {
+          const res = await fetch(lookupBase() + "/translate?word=" + encodeURIComponent(word));
+          data = await res.json();
+          if (res.ok) {
+            if (selpopCache.size >= 200) selpopCache.delete(selpopCache.keys().next().value);
+            selpopCache.set(key, { data, at: Date.now() });
+          }
+        }
         if (token !== selToken) return;
-        // Сохранить в кэш
-        apiCache.set(cacheKey, { data, timestamp: now });
         paintSelpop(data);
       } catch (err) {
         if (token !== selToken) return;
@@ -9777,16 +9756,6 @@
       const opts = Object.assign({ credentials: "include" }, options || {});
       const headers = Object.assign({ "Content-Type": "application/json" }, (options && options.headers) || {});
       opts.headers = headers;
-      const cacheKey = path;
-      const now = Date.now();
-      // Проверка кэша
-      if (apiCache.has(cacheKey)) {
-        const cached = apiCache.get(cacheKey);
-        if (now - cached.timestamp < apiCacheTTL) {
-          console.debug(`[cache] hit: ${cacheKey}`);
-          return Promise.resolve(cached.data);
-        }
-      }
       return fetch(accountApi() + path, opts).then(async (res) => {
         const text = await res.text();
         let data = {};
@@ -9795,32 +9764,8 @@
           const plain = text && text.length <= 180 && text.indexOf("<") < 0 ? text.trim() : "";
           throw new Error(data.error || plain || "The server could not finish this request.");
         }
-        // Сохранение в кэш
-        apiCache.set(cacheKey, { data, timestamp: now });
-        console.debug(`[cache] miss: ${cacheKey}`);
         return data;
       });
-    }
-    // Глобальный обработчик ошибок для error boundary
-    window.onerror = function(message, source, lineno, colno, error) {
-      console.error('[Error Boundary]', message, error);
-      return false; // Предать обработке выше
-    };
-    window.onunhandledrejection = function(event) {
-      console.error('[Unhandled Rejection]', event.reason);
-    };
-    // Lazy loading для крупных модулей
-    const lazyModules = {
-      paintLmDays: null,
-      paintGroups: null,
-      paintAdmin: null,
-      paintStats: null
-    };
-    function ensureLazyModule(name) {
-      if (lazyModules[name]) return lazyModules[name];
-      // Определяем через window
-      lazyModules[name] = window[name] || null;
-      return lazyModules[name];
     }
     function accountSnapshot() {
       const read = (key, fallback) => {
@@ -10008,13 +9953,6 @@
       writeSongs(songs);
       const localAdded = loadAdded();
       const serverAdded = Array.isArray(state.added) ? state.added : [];
-      const seen = {};
-      localAdded.forEach((item) => { if (item && item.word) seen[item.word.toLowerCase()] = 1; });
-      serverAdded.forEach((item) => {
-        if (!item || !item.word || seen[item.word.toLowerCase()]) return;
-        localAdded.push(item);
-        seen[item.word.toLowerCase()] = 1;
-      });
       const added = mergeAdded(localAdded, serverAdded);
       const pushAdded = added.length > serverAdded.length;
       rememberAdded(added);
@@ -10056,49 +9994,23 @@
       };
     }
     function paintHomeStats() {
-      // Debounce для производительности
-      clearTimeout(renderDebounce.get('paintHomeStats'));
-      renderDebounce.set('paintHomeStats', setTimeout(() => {
-        const rows = authUser ? studyCards() : [];
-        const buckets = homeBuckets(rows);
-        const learned = buckets.learned.length;
-        const total = rows.length;
-        const pct = total ? Math.round(learned * 100 / total) : 0;
-        const count = document.getElementById("homeLearnedCount");
-        const pctEl = document.getElementById("homeLearnedPct");
-        const ring = document.querySelector("#homeDemo .ring-fg");
-        const learning = document.getElementById("homeLearningCount");
-        if (count) count.innerHTML = learned + " <span>of " + total + "</span>";
-        if (pctEl) pctEl.textContent = pct + "%";
-        if (learning) learning.textContent = String(buckets.learning.length);
-        if (ring) {
-          const whole = total || 1;
-          ring.setAttribute("pathLength", String(whole));
-          ring.setAttribute("stroke-dasharray", learned + " " + (whole - learned));
-          ring.style.strokeLinecap = learned ? "round" : "butt";
-        }
-      }, renderDebounceDelay));
-    }
-    // Lazy loading для крупных функций
-    let paintGroupsCalled = false;
-    let paintAdminCalled = false;
-    let paintStatsCalled = false;
-    function ensurePaintGroups() {
-      if (!paintGroupsCalled && window.paintGroups) {
-        paintGroupsCalled = true;
-        window.paintGroups();
-      }
-    }
-    function ensurePaintAdmin() {
-      if (!paintAdminCalled && window.paintAdmin) {
-        paintAdminCalled = true;
-        window.paintAdmin();
-      }
-    }
-    function ensurePaintStats() {
-      if (!paintStatsCalled && window.paintStats) {
-        paintStatsCalled = true;
-        window.paintStats();
+      const rows = authUser ? studyCards() : [];
+      const buckets = homeBuckets(rows);
+      const learned = buckets.learned.length;
+      const total = rows.length;
+      const pct = total ? Math.round(learned * 100 / total) : 0;
+      const count = document.getElementById("homeLearnedCount");
+      const pctEl = document.getElementById("homeLearnedPct");
+      const ring = document.querySelector("#homeDemo .ring-fg");
+      const learning = document.getElementById("homeLearningCount");
+      if (count) count.innerHTML = learned + " <span>of " + total + "</span>";
+      if (pctEl) pctEl.textContent = pct + "%";
+      if (learning) learning.textContent = String(buckets.learning.length);
+      if (ring) {
+        const whole = total || 1;
+        ring.setAttribute("pathLength", String(whole));
+        ring.setAttribute("stroke-dasharray", learned + " " + (whole - learned));
+        ring.style.strokeLinecap = learned ? "round" : "butt";
       }
     }
     const CLASS_PAGES = [
@@ -10332,28 +10244,12 @@
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
     let ownAccountFlight = null;
-    let ownAccountCache = null;
-    let ownAccountCacheTime = 0;
-    const OWN_ACCOUNT_CACHE_TTL = 60000; // 1 минута
     function loadOwnAccount() {
-      // Сначала проверяем кэш
-      if (ownAccountData && Date.now() - ownAccountCacheTime < OWN_ACCOUNT_CACHE_TTL) {
-        ownAccountFlight = { actor: authUser?.id, generation: viewGen };
-        return Promise.resolve(ownAccountData);
-      }
       const actor = authUser?.id, generation = viewGen;
       if (ownAccountFlight?.actor === actor && ownAccountFlight.generation === generation) return ownAccountFlight.promise;
       const flight = { actor, generation };
       const valid = () => authUser?.id === actor && generation === viewGen && !viewAccount;
-      flight.promise = accountFetch("/api/me/account").then((data) => {
-        if (valid()) {
-          ownAccountData = data;
-          ownAccountCacheTime = Date.now();
-          ownAccountFlight = null;
-        }
-        if (valid()) renderOwnAccount(data);
-        return data;
-      }).catch((err) => {
+      flight.promise = accountFetch("/api/me/account").then((data) => { if (valid()) renderOwnAccount(data); }).catch((err) => {
         if (!valid()) return;
         const box = document.getElementById("ownAccount");
         if (box) box.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
@@ -11550,9 +11446,6 @@
       localStorage.setItem('enquiz-last-activity:' + user.id, String(Date.now()));
       idleActor = user.id; idleRenewed = Date.now(); idleExpiring = false;
       ownAccountData = null;
-      ownAccountCache = null;
-      ownAccountCacheTime = 0;
-      ownAccountFlight = null;
       accountReady = false;
       paintDeveloperChrome();
       localStorage.setItem("enquiz-auth-on", "1");
@@ -11624,9 +11517,6 @@
       stashOwned = false;
       authUser = null;
       ownAccountData = null;
-      ownAccountCache = null;
-      ownAccountCacheTime = 0;
-      ownAccountFlight = null;
       accountReady = false;
       paintDeveloperChrome();
       syncQueue.length = 0;
@@ -11668,10 +11558,7 @@
       if (id === "statsFrom" || id === "statsTo") {
         document.querySelectorAll("[data-stats-range]").forEach((btn) => btn.classList.remove("primary"));
       }
-      if (id === "statsFrom" || id === "statsTo" || id === "statsRole" || id === "statsUser" || id === "statsCompare") {
-        clearTimeout(renderDebounce.get('paintStatsFilter'));
-        renderDebounce.set('paintStatsFilter', setTimeout(() => paintStats(), renderDebounceDelay));
-      }
+      if (id === "statsFrom" || id === "statsTo" || id === "statsRole" || id === "statsUser" || id === "statsCompare") paintStats();
     });
     document.body.addEventListener("submit", (e) => {
       const form = e.target;
@@ -12305,15 +12192,11 @@
       }
     }
     function paintTextCount() {
-      // Debounce для производительности
-      clearTimeout(renderDebounce.get('paintTextCount'));
-      renderDebounce.set('paintTextCount', setTimeout(() => {
-        const node = document.getElementById("textCount");
-        const n = loadTexts().length;
-        if (node) node.textContent = String(n);
-        const title = document.querySelector("#texts h1");
-        if (title) title.textContent = "Text · " + n;
-      }, renderDebounceDelay));
+      const node = document.getElementById("textCount");
+      const n = loadTexts().length;
+      if (node) node.textContent = String(n);
+      const title = document.querySelector("#texts h1");
+      if (title) title.textContent = "Text · " + n;
     }
     function mergeTextLists(local, remote) {
       const map = new Map();
@@ -16166,24 +16049,6 @@
       document.addEventListener("input", (event) => examRemember(event.target));
       document.addEventListener("change", (event) => examRemember(event.target));
     }
-    // Обработчик клика для кнопки Settings (data-user-settings)
-    document.addEventListener('click', event => {
-      const target = event.target.closest('[data-user-settings]');
-      if (!target || target.closest('.user-settings')) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      // Закрыть открытые настройки, если есть
-      const userSettings = document.querySelector('.user-settings');
-      if (userSettings) userSettings.style.display = 'none';
-      // Использовать кэш вместо повторной загрузки
-      if (ownAccountData) {
-        renderOwnAccount(ownAccountData);
-      } else {
-        loadOwnAccount().then(renderOwnAccount);
-      }
-      // Показать форму редактирования
-      openOwnAccountForm();
-    }, true);
     function installListSearch(id, label, selector, scopeKey) {
       const list = document.getElementById(id);
       if (!list) return;
