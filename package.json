@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "vitest",
-    "check": "node scripts/check-all.mjs"
+    "check": "node scripts/check-all.mjs",
+    "build:preview": "node scripts/build-preview.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "1.2.0",

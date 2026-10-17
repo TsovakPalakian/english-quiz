@@ -5,3 +5,4 @@
 - Before every deployment, give the user a short commit-message line in English and past tense, such as "Added ..." or "Fixed ...".
 - Deploy authorized completed changes using the root wrangler.toml and the production asset builder.
 - The production builder reads HTML/CSS from site/ and private inline media from private/ (untracked); verify new UI is included in the generated production assets.
+- Edit site JavaScript only in client/; root preview.js is generated from client/*.js by `npm run build:preview` and is never edited by hand.
