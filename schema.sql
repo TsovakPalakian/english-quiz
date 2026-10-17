@@ -70,9 +70,13 @@ CREATE TABLE IF NOT EXISTS user_state (
   updated_at INTEGER NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS user_state_updated_at ON user_state(updated_at);
+
 CREATE TABLE IF NOT EXISTS user_added (
   user_id TEXT NOT NULL,
   idx INTEGER NOT NULL,
   card TEXT NOT NULL,
   PRIMARY KEY (user_id, idx)
 );
+
+CREATE INDEX IF NOT EXISTS user_added_card ON user_added(card);
