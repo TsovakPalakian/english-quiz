@@ -11708,6 +11708,11 @@
       if (action === "approve" || action === "reject") {
         if (!isTeacher() || viewAccount) return;
         const picker = document.querySelector('[data-registration-group="' + button.dataset.id + '"]');
+        const row = button.closest('.account-approval-row') || button, controls = [...row.querySelectorAll('button,select'), button];
+        if (row.dataset.busy) return;
+        row.dataset.busy = '1';
+        controls.forEach((node) => { node.disabled = true; });
+        button.textContent = action === 'approve' ? 'Approving…' : 'Rejecting…';
         accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: JSON.stringify(action === 'approve' && picker?.value ? {groupId:Number(picker.value)} : {}) })
           .then(() => paintAdmin())
           .catch((err) => { paintAdmin(); alert(err.message); });
