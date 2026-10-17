@@ -178,9 +178,17 @@ export default {async fetch(request,env){
       }
       if(catalogCards)return await catalogJson({cards:await publicCatalogCards(db,url.searchParams.get('ids')||'')});
       if(catalogCard)return await catalogJson(await publicCatalogCard(db,cardKey(catalogCard[1])));
-      if(banks[path]){const data=await projectStudentCatalog(db,viewer,await publicCatalogs(db,banks[path]));if(path.endsWith('.json'))return json(data.TENSE_BANK);return new Response(banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n'),{headers:{'Content-Type':'text/javascript','Cache-Control':'no-store'}});}
+      if(banks[path]){
+        const data=await projectStudentCatalog(db,viewer,await publicCatalogs(db,banks[path]));
+        const body=path.endsWith('.json')?JSON.stringify(data.TENSE_BANK):banks[path].map(k=>'window.'+k+'='+JSON.stringify(data[k]).replace(/</g,'\\u003c')+';').join('\n');
+        const tag='"'+Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(body))).slice(0,16),byte=>byte.toString(16).padStart(2,'0')).join('')+'"';
+        const headers={'Content-Type':path.endsWith('.json')?'application/json':'text/javascript','Cache-Control':'private, no-cache','Vary':'Cookie, Authorization','ETag':tag,'X-Content-Type-Options':'nosniff'};
+        if(request.headers.get('if-none-match')===tag)return new Response(null,{status:304,headers});
+        return new Response(body,{headers});
+      }
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
-      headers.set('Cache-Control','no-store');headers.set('X-Content-Type-Options','nosniff');
+      // Versioned URLs change on every build; everything else revalidates by ETag.
+      headers.set('Cache-Control',response.ok&&url.searchParams.get('v')?'public, max-age=31536000, immutable':'no-cache');headers.set('X-Content-Type-Options','nosniff');
       headers.set('Content-Security-Policy',stageContentPolicy);
       return new Response(response.body,{status:response.status,headers});
     }

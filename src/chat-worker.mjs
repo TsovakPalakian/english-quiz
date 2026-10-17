@@ -167,7 +167,9 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         if(!allowed.profiles.some(p=>p.id===subject))fail(403,'This profile is unavailable.');
         if(request.method==='GET'||request.method==='HEAD'){
           const saved=await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor,ids:[subject]});const profile=saved.profiles[0];if(!profile?.storageKey)fail(404,'No avatar.');
-          return chatFileResponse(env.CONTENT_MEDIA,{storage_key:profile.storageKey,mime:profile.mime,name:'avatar'},request);
+          const response=await chatFileResponse(env.CONTENT_MEDIA,{storage_key:profile.storageKey,mime:profile.mime,name:'avatar'},request);
+          if(response.status===200&&url.searchParams.get('v'))response.headers.set('Cache-Control','private, max-age=31536000, immutable');
+          return response;
         }
         if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');
         if(subject!==actor.id&&!subject.startsWith('group:'))fail(403,'Only the owner can change this avatar.');

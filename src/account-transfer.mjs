@@ -1,6 +1,6 @@
 import {chatCipher} from './chat-encryption.mjs';
 import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
-import {readDatabaseSelection,DATABASE_CONTROL} from './database-selection.mjs';
+import {readDatabaseSelection,DATABASE_CONTROL,DATABASE_SELECTION_KEY} from './database-selection.mjs';
 import {transferMedia} from './account-transfer-media.mjs';
 const names={room:['meta','members','messages','outbox','files'],inbox:['meta','rooms','events'],bridge:['meta','profiles']};
 const reply=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
@@ -26,6 +26,31 @@ export function transferAuthorized(env,request){
  for(let i=0;i<expected.length;i++)different|=(supplied.charCodeAt(i)||0)^expected.charCodeAt(i);
  return different===0;
 }
+function insertKept(store,table,row){
+ const columns=Object.keys(row);if(!columns.length)return;
+ store.sql.exec('INSERT OR IGNORE INTO '+table+' ('+columns.map(name=>'"'+name+'"').join(',')+') VALUES ('+columns.map(()=>'?').join(',')+')',...columns.map(name=>row[name]));
+}
+// Target-only rows survive a merge; imported source rows win on conflicts.
+function restoreKept(store,kind,kept){
+ const free=(table,{id,...row})=>insertKept(store,table,row);
+ if(kind==='room'){
+  const ids=new Map(),added=[];
+  const find=row=>store.sql.exec('SELECT id FROM messages WHERE sender=? AND client_key=?',row.sender,row.client_key).toArray()[0]?.id;
+  for(const row of kept.messages){const known=find(row);if(known!=null){ids.set(row.id,known);continue;}free('messages',row);const id=find(row);ids.set(row.id,id);added.push([id,row.reply]);}
+  for(const [id,reply] of added)if(reply!=null)store.sql.exec('UPDATE messages SET reply=? WHERE id=?',ids.get(reply)??null,id);
+  for(const row of kept.files)insertKept(store,'files',{...row,message_id:row.message_id==null?null:ids.get(row.message_id)??row.message_id});
+  for(const row of kept.meta)insertKept(store,'meta',row);
+  for(const row of kept.members)insertKept(store,'members',row);
+  for(const row of kept.outbox)free('outbox',row);
+ }else if(kind==='inbox'){
+  for(const row of kept.meta)insertKept(store,'meta',row);
+  for(const row of kept.rooms)insertKept(store,'rooms',row);
+  for(const row of kept.events)free('events',row);
+ }else{
+  for(const row of kept.meta)insertKept(store,'meta',row);
+  for(const row of kept.profiles)insertKept(store,'profiles',row);
+ }
+}
 export async function transferObject(store,request,kind){
  const env=store.baseEnv||store.env;
  if(!transferAuthorized(env,request))return reply({error:'Not found.'},404);
@@ -35,7 +60,10 @@ export async function transferObject(store,request,kind){
   if(env.ACCOUNT_TRANSFER_FROZEN!=='true')return reply({error:'Freeze the source before exporting.'},409);
   if(env.CONTENT_ENABLED==='true'){
    let frozen=false;
-   try{await readDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{defaultProvider:env.DB_PROVIDER||'d1'});}catch(error){if(!error.migrationFrozen)throw error;frozen=true;}
+   try{await readDatabaseSelection(env[DATABASE_CONTROL]||env.CONTENT_MEDIA,{defaultProvider:env.DB_PROVIDER||'d1'});}catch(error){
+    if(error.migrationFrozen)frozen=true;
+    else{const object=await (env[DATABASE_CONTROL]||env.CONTENT_MEDIA)?.get(DATABASE_SELECTION_KEY),legacy=object&&await object.json();if(legacy?.provider!=='turso'||legacy.accountTransferFrozen!==true)throw error;frozen=true;}
+   }
    if(!frozen)return reply({error:'Persist the source migration fence before exporting.'},409);
   }
   await settleTransferTasks(store);
@@ -46,10 +74,14 @@ export async function transferObject(store,request,kind){
   const snapshot=await request.json(),{digest:expected,...value}=snapshot;
   if(value.version!==1||value.kind!==kind||expected!==await digest(value)||!Array.isArray(value.tables)||value.tables.map(t=>t.name).join(',')!==tables.join(',')||value.tables.some(t=>!Array.isArray(t.rows))||! /^[a-f0-9]{64}$/.test(value.objectId)||value.alarm!=null&&(!Number.isSafeInteger(value.alarm)||value.alarm<0))return reply({error:'Invalid transfer snapshot.'},400);
   const previous=store.get('_accountTransfer');if(previous?.digest===expected)return reply({imported:true,replayed:true,digest:expected,alarmDeferred:await restoreAlarm(store,previous)});
-  if(tables.some(name=>store.sql.exec('SELECT COUNT(*) n FROM '+name).toArray()[0].n))return reply({error:'Target object is not empty.'},409);
+  const merge=request.headers.get('X-Transfer-Merge')==='1';
+  if(!merge&&tables.some(name=>store.sql.exec('SELECT COUNT(*) n FROM '+name).toArray()[0].n))return reply({error:'Target object is not empty.'},409);
   const cipher=kind==='bridge'?null:store.cipher,klass=kind==='room'?'ChatRoom':'ChatInbox',target=store.ctx.id?.toString()||'';
   const marker={digest:expected,sourceObjectId:value.objectId,at:Date.now(),alarm:value.alarm??null,alarmPending:value.alarm!=null};
+  let kept=null;
+  if(merge)await settleTransferTasks(store);
   store.ctx.storage.transactionSync(()=>{
+   if(merge){kept=Object.fromEntries(tables.map(name=>[name,store.sql.exec('SELECT * FROM '+name+' ORDER BY rowid').toArray()]));for(const name of tables)store.sql.exec('DELETE FROM '+name);}
    for(const table of value.tables){const allowed=new Set(store.sql.exec('PRAGMA table_info('+table.name+')').toArray().map(c=>c.name));
     for(const row of table.rows){const columns=Object.keys(row);if(!columns.length||columns.some(name=>!allowed.has(name)))throw Error('Invalid columns');
      const values=columns.map(column=>{const raw=row[column];return cipher&&['body','format','payload','data','value'].includes(column)&&raw!=null?cipher.seal(cipher.open(raw,klass+':'+value.objectId+':'+column),klass+':'+target+':'+column):raw;});
@@ -57,9 +89,11 @@ export async function transferObject(store,request,kind){
     }
    }
    for(const row of value.sequence||[]){if(!tables.includes(row.name)||!Number.isSafeInteger(row.seq)||row.seq<0)throw Error('Invalid sequence');store.sql.exec('DELETE FROM sqlite_sequence WHERE name=?',row.name);store.sql.exec('INSERT INTO sqlite_sequence(name,seq) VALUES(?,?)',row.name,row.seq);}
+   if(merge)restoreKept(store,kind,kept);
    store.set('_accountTransfer',marker);
   });
-  return reply({imported:true,digest:expected,alarmDeferred:await restoreAlarm(store,marker),tables:value.tables.map(t=>({name:t.name,rows:t.rows.length}))});
+  if(merge)for(const ws of store.ctx.getWebSockets?.()||[])try{ws.close(4001,'Database changed.');}catch{}
+  return reply({imported:true,digest:expected,alarmDeferred:await restoreAlarm(store,marker),tables:value.tables.map(t=>({name:t.name,rows:t.rows.length})),...(merge?{previous:kept}:{})});
  }
  return reply({error:'Not found.'},404);
  }catch{return reply({error:'Account transfer failed validation.'},400);}
@@ -83,9 +117,9 @@ export function accountTransferWorker(application){return {...application,async 
    const binding=env[{room:'CHAT_ROOM',inbox:'CHAT_INBOX',bridge:'CHAT_BRIDGE'}[body.kind]];
    if(body.action==='export'&&env.ACCOUNT_TRANSFER_ROLE==='source'&&/^[a-f0-9]{64}$/.test(body.objectId))return binding.get(binding.idFromString(body.objectId)).fetch(new Request('https://chat.internal/__account-transfer/export',{method:'POST',headers:{Authorization:request.headers.get('Authorization')}}));
    if(body.action==='import'&&env.ACCOUNT_TRANSFER_ROLE==='target'){
-    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['neon','d1'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
+    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['neon','d1','turso'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
     const name=(snapshot.scope.provider==='neon'?'neon:v1:':'')+snapshot.logicalName;
-    return binding.get(binding.idFromName(name)).fetch(new Request('https://chat.internal/__account-transfer/import',{method:'POST',headers:{Authorization:request.headers.get('Authorization'),'Content-Type':'application/json'},body:JSON.stringify(snapshot)}));
+    return binding.get(binding.idFromName(name)).fetch(new Request('https://chat.internal/__account-transfer/import',{method:'POST',headers:{Authorization:request.headers.get('Authorization'),'Content-Type':'application/json',...(body.merge===true?{'X-Transfer-Merge':'1'}:{})},body:JSON.stringify(snapshot)}));
    }
    return reply({error:'Not found.'},404);
   }catch{return reply({error:'Account transfer unavailable.'},503);}

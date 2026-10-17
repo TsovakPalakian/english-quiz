@@ -19,6 +19,7 @@
     const syncQueue = [];
     let textsInFlight = Promise.resolve();
     let authTimer = 0;
+    const viewCache = new Map();
     let addedCache = null;
     let grammarView = "hub";
     let tenseKind = "topic";
@@ -9756,16 +9757,44 @@
       const opts = Object.assign({ credentials: "include" }, options || {});
       const headers = Object.assign({ "Content-Type": "application/json" }, (options && options.headers) || {});
       opts.headers = headers;
+      if (opts.method && opts.method.toUpperCase() !== "GET") viewCache.clear();
       return fetch(accountApi() + path, opts).then(async (res) => {
         const text = await res.text();
         let data = {};
         try { data = text ? JSON.parse(text) : {}; } catch (e) { data = {}; }
         if (!res.ok) {
+          if (res.status === 401 || res.status === 403) viewCache.clear();
           const plain = text && text.length <= 180 && text.indexOf("<") < 0 ? text.trim() : "";
           throw new Error(data.error || plain || "The server could not finish this request.");
         }
         return data;
       });
+    }
+    // Read-only views: paint the last answer at once, then repaint if the server differs.
+    function viewFresh(name, load, paint, loading) {
+      const key = (authUser?.id || "") + ":" + viewGen, hit = viewCache.get(name), cached = hit && hit.key === key ? hit.data : null;
+      if (cached) paint(cached, false); else if (loading) loading();
+      let request;
+      try { request = Promise.resolve(load()); } catch (error) { request = Promise.reject(error); }
+      return request.then((data) => {
+        if ((authUser?.id || "") + ":" + viewGen !== key) return;
+        viewCache.delete(name); viewCache.set(name, { key, data });
+        while (viewCache.size > 50) viewCache.delete(viewCache.keys().next().value);
+        if (!cached || JSON.stringify(cached) !== JSON.stringify(data)) paint(data, !!cached);
+      }, (error) => { viewCache.delete(name); throw error; });
+    }
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (!hiddenAt || Date.now() - hiddenAt < 30000 || !authUser) return;
+      hiddenAt = 0;
+      const active = document.querySelector('section.on')?.id;
+      if (active === 'admin' && !editingIn(document.getElementById('adminBody'))) paintAdmin();
+      if (active === 'stats') paintStats();
+    });
+    function editingIn(root) {
+      const node = document.activeElement;
+      return !!node && !!root && root.contains(node) && node.matches('input:not([type="search"]),select,textarea,[contenteditable="true"]');
     }
     function accountSnapshot() {
       const read = (key, fallback) => {
@@ -10433,13 +10462,14 @@
         return;
       }
       document.querySelectorAll('[data-admin-tab]').forEach(tab => { const on = tab.dataset.adminTab === adminTab; tab.classList.toggle('on',on); tab.setAttribute('aria-selected',String(on)); });
-      box.innerHTML = '<p class="hint">Loading…</p>';
-      Promise.all([
+      viewFresh('admin', () => Promise.all([
         accountFetch("/api/admin/registrations"),
         accountFetch("/api/admin/users"),
         accountFetch("/api/admin/changes"), accountFetch('/api/groups'), accountFetch('/api/groups/members'),accountFetch('/api/accounts/group-teachers')
-      ]).then(([regs, users, changes, groups, membership,teachers]) => {
-        if (!still()) return;
+      ]), ([regs, users, changes, groups, membership,teachers], refresh) => {
+        if (!still() || refresh && (editingIn(box) || editingIn(document.getElementById('adminUser')))) return;
+        const searching = document.activeElement?.id === 'adminAccountSearch';
+        if (refresh) adminSelectedUser = null;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
         accountsCountActor = actor; accountsCountAt = Date.now();
         const accounts = (users.users || []).filter(accountVisible);
@@ -10486,7 +10516,9 @@
           '<label for="adminAccountSearch">Search accounts</label><input id="adminAccountSearch" type="search" placeholder="Name, login or email" value="' + esc(adminSearch) + '"><div id="adminAccountList"></div>';
         if (adminTab === 'accounts') paintAdminAccounts();
         if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup();
-      }).catch((err) => {
+        const search = searching && document.getElementById('adminAccountSearch');
+        if (search) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+      }, () => { box.innerHTML = '<p class="hint">Loading…</p>'; }).catch((err) => {
         if (!still()) return;
         box.innerHTML = '<div class="card"><p class="hint bad">' + esc(err.message) + '</p></div>';
       });
@@ -10499,9 +10531,8 @@
       if (adminSelectedUser === id) { adminSelectedUser = null; slot.innerHTML = ''; return; }
       adminSelectedUser = id;
       const still = () => token === adminUserPaintToken && actor === authUser?.id && generation === viewGen && slot.isConnected;
-      slot.innerHTML = '<p class="hint">Loading…</p>';
-      accountFetch("/api/admin/users/" + encodeURIComponent(id)).then((data) => {
-        if (!still()) return;
+      viewFresh('adminuser:' + id, () => accountFetch("/api/admin/users/" + encodeURIComponent(id)), (data, refresh) => {
+        if (!still() || refresh && editingIn(slot)) return;
         const user = data.user;
         const openPages = canOpenPages(user)
           ? '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button>'
@@ -10533,7 +10564,7 @@
                 '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
                 '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button></div>' : "")) +
           '<p class="hint">Passwords are not shown and cannot be changed here.</p></div>';
-      }).catch((err) => {
+      }, () => { slot.innerHTML = '<p class="hint">Loading…</p>'; }).catch((err) => {
         if (!still()) return;
         slot.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
       });
@@ -10681,6 +10712,7 @@
       }
       if (action === "remove" && isDeveloper() && !confirm("Delete this material permanently? This cannot be undone.")) return;
       window.LearningMain.perform(async () => {
+        viewCache.delete('archive:' + raw);
         if (action === "restore") await window.LearningMain.restoreArchive(type, id);
         else await window.LearningMain.removeArchive(type, id, password);
         paintArchive();
@@ -10708,7 +10740,10 @@
       document.getElementById("archivePreviewTitle").textContent = trigger.querySelector("b:not(.date b)")?.textContent || "Archived material";
       dialog.hidden = false; body.innerHTML = '<p class="hint">Loading…</p>'; dialog.querySelector('[aria-label="Close"]').focus();
       try {
-        const data = await window.LearningMain.archivePreview(type, id);
+        const name = 'archive:' + raw, key = job.actor + ':' + job.generation, hit = viewCache.get(name);
+        const data = hit && hit.key === key ? hit.data : await window.LearningMain.archivePreview(type, id);
+        viewCache.delete(name); viewCache.set(name, { key, data });
+        while (viewCache.size > 50) viewCache.delete(viewCache.keys().next().value);
         if (archivePreviewContext !== job || authUser?.id !== job.actor || viewGen !== job.generation || viewAccount) return;
         const media = '/api/archive/media?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
         document.getElementById("archivePreviewTitle").textContent = data.title || "Archived material";
@@ -11221,7 +11256,6 @@
         return;
       }
       const token = ++statsToken;
-      box.innerHTML = '<p class="hint">Loading…</p>';
       const params = new URLSearchParams();
       params.set("from", document.getElementById("statsFrom").value);
       params.set("to", document.getElementById("statsTo").value);
@@ -11235,7 +11269,7 @@
         if (person) params.set("user", person);
       }
       const compare = document.getElementById("statsCompare").checked;
-      accountFetch("/api/stats?" + params.toString()).then((data) => {
+      viewFresh('stats:' + params.toString(), () => accountFetch("/api/stats?" + params.toString()), (data) => {
         if (token !== statsToken) return;
         const fromEl = document.getElementById("statsFrom");
         const toEl = document.getElementById("statsTo");
@@ -11243,7 +11277,7 @@
         if (toEl && data.to) toEl.value = data.to;
         if (data.scope === "all") fillStatsPeople(data.people || []);
         box.innerHTML = renderStats(data, compare);
-      }).catch((err) => {
+      }, () => { box.innerHTML = '<p class="hint">Loading…</p>'; }).catch((err) => {
         if (token !== statsToken) return;
         box.innerHTML = '<div class="card"><p class="hint bad">' + esc(err.message) + "</p></div>";
       });
@@ -11446,6 +11480,7 @@
       localStorage.setItem('enquiz-last-activity:' + user.id, String(Date.now()));
       idleActor = user.id; idleRenewed = Date.now(); idleExpiring = false;
       ownAccountData = null;
+      viewCache.clear();
       accountReady = false;
       paintDeveloperChrome();
       localStorage.setItem("enquiz-auth-on", "1");
@@ -11517,6 +11552,7 @@
       stashOwned = false;
       authUser = null;
       ownAccountData = null;
+      viewCache.clear();
       accountReady = false;
       paintDeveloperChrome();
       syncQueue.length = 0;

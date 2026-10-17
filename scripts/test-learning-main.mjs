@@ -1170,7 +1170,7 @@ test('Home greets guests, says goodbye only after explicit logout, and welcomes 
   const code=source.slice(helloStart,source.indexOf('    function paintHomeAccount()',helloStart))+
     source.slice(leaveStart,source.indexOf('    document.body.addEventListener("change"',leaveStart));
   function page(user=null){
-    const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',
+    const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',viewCache:new Map(),
       document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}}},
       clearOwnBrowserData:async()=>{},clearTimeout(){},examResetAccount(){},window:{},paintHomeAccount:()=>scope.paintHomeHello(),show:()=>scope.paintHomeHello()};
     for(const name of ['paintDeveloperChrome','stopAccountPull','paintViewBar','paintAdded','paintLyrics','refreshCatalog','applyTheme','settleThemeAudience','paintAccount'])scope[name]=()=>{};
@@ -2266,7 +2266,8 @@ test('Administration ignores older page and user responses',async()=>{
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
   const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:id==='adminUser'?slot:null,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
-    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String};
+    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String,viewCache:new Map()};
+  runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),scope);
   runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
   scope.paintAdmin();scope.paintAdmin();
   for(const item of pending.slice(6,12))item.resolve({});await new Promise(resolve=>setImmediate(resolve));

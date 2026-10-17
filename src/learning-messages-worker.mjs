@@ -36,7 +36,13 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
         : mode==='test' && env.STORAGE_MODE!=='production' && url.hostname==='learn-english-learning-integrated-test.east-tarsal.workers.dev';
       if (env.MESSAGES_ENABLED!=='true' || env.STAGE_ENABLED!=='true' || !allowed
         || url.protocol!=='https:' || env.STAGE_ALLOWED_HOST!==url.hostname) throw new StudyError(403,'Messaging is unavailable on this site.');
-      if (asset) { if (!['GET','HEAD'].includes(request.method)) throw new StudyError(405,'Use GET.'); return env.ASSETS.fetch(request); }
+      if (asset) {
+        if (!['GET','HEAD'].includes(request.method)) throw new StudyError(405,'Use GET.');
+        const response = await env.ASSETS.fetch(request);
+        if (!response.ok || !url.searchParams.get('v')) return response;
+        const headers = new Headers(response.headers); headers.set('Cache-Control','public, max-age=31536000, immutable');
+        return new Response(response.body,{status:response.status,headers});
+      }
       if (!['GET','POST'].includes(request.method)) throw new StudyError(405,'Unsupported method.');
       if (request.method==='POST' && (request.headers.get('origin')!==url.origin || env.STAGE_WRITES!=='true')) throw new StudyError(403,'Message writes are unavailable.');
       let value;
