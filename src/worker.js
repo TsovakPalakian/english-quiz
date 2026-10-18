@@ -3760,6 +3760,10 @@ async function setUserRole(env, actor, userId, body) {
   return json({ ok: true });
 }
 
+export async function approveRegistration(env, actor, regId) {
+  return decide(env, actor, regId, "approve");
+}
+
 async function decide(env, actor, regId, action) {
   const db = env.DB;
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);

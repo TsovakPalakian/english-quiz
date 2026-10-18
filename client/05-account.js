@@ -433,12 +433,19 @@
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
       if (register) {
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' +
-          '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>' +
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
+        const inviteHint = invite
+          ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
+          : '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>';
+        const roleField = invite
+          ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
+          : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
+        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + inviteHint +
           '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
-          '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>' +
+          roleField +
           '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
           '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
           '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';

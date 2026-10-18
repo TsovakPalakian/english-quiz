@@ -63,3 +63,79 @@ test('invite endpoint enforces roles and CSRF for create',async()=>{
     assert.equal((await app.fetch(new Request('https://accounts.example/api/accounts/invites'),env,{})).status,200);
   }finally{f.close();}
 });
+
+test('register rejects invalid invite before creating a pending account',async()=>{
+  const f=fixture();
+  try{
+    let registered=false;
+    const env={STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',DB:{prepare(){return {bind(){return {async first(){return null;}};}};}}};
+    const app=integratedWorker({
+      authenticate:async()=>null,
+      accountWorker:{async fetch(){registered=true;return Response.json({status:'pending'});}},
+      studyDatabase:()=>f.db,
+    });
+    const bad=await app.fetch(new Request('https://accounts.example/api/register',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({login:'Invitee',email:'i@example.invalid',password:'password1',invite:'bad.token'})}),env,{});
+    assert.equal(bad.status,400);
+    assert.equal(registered,false);
+  }finally{f.close();}
+});
+
+test('register with valid invite auto-approves, logs in, and redeems',async()=>{
+  const f=fixture();
+  try{
+    const created=await f.service.create(actor,{groupId:1,teacherId:actor.id},users);
+    const assigned=[];
+    const calls=[];
+    const env={
+      STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',
+      DB:{prepare(sql){return {bind(...args){return {async first(){
+        if(/registrations WHERE status='pending'/.test(sql))return {id:'reg-1'};
+        if(/FROM users WHERE id=/.test(sql))return {id:actor.id,role:'ADMIN',is_personal_data_revoked:0};
+        return null;
+      }};}};}},
+    };
+    const app=integratedWorker({
+      authenticate:async()=>null,
+      approveRegistration:async()=>Response.json({ok:true,userId:'abcdef0123456789abcdef01',role:'USER'}),
+      accountWorker:{async fetch(request){
+        const url=new URL(request.url);calls.push(url.pathname);
+        if(url.pathname==='/api/register'){
+          const body=await request.json();
+          assert.equal(body.role,'USER');
+          assert.equal(body.invite,undefined);
+          return Response.json({status:'pending'});
+        }
+        if(url.pathname==='/api/login')return Response.json({user:{id:'abcdef0123456789abcdef01',login:'Invitee',role:'USER',createdAt:Date.now()/1000}});
+        return Response.json({error:'no'},404);
+      }},
+      studyDatabase:()=>{
+        let profileReady=false;
+        return {
+          read:async(q,a=[])=>{
+            if(/account_settings/.test(q))return [];
+            if(/profile_members/.test(q))return profileReady?[{profile_id:1}]:[];
+            return f.db.read(q,a);
+          },
+          atomic:async(commands)=>{
+            if(/account_settings|account_refs|study_profiles|profile_members/.test(commands?.[0]?.sql||'')){profileReady=true;return;}
+            return f.db.atomic(commands);
+          },
+        };
+      },
+    });
+    const originalRedeem=AccountInvites.prototype.redeem;
+    AccountInvites.prototype.redeem=async function(user,token){
+      return originalRedeem.call(this,user,token,async(teacher,accountId,groupId)=>{assigned.push({teacher:teacher.id,accountId,groupId});});
+    };
+    try{
+      const response=await app.fetch(new Request('https://accounts.example/api/register',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({login:'Invitee',email:'i@example.invalid',password:'password1',invite:created.token})}),env,{});
+      const body=await response.json();
+      assert.equal(response.status,200,JSON.stringify(body));
+      assert.equal(body.user.id,'abcdef0123456789abcdef01');
+      assert.deepEqual(calls,['/api/register','/api/login']);
+      assert.deepEqual(assigned,[{teacher:'teacher',accountId:'abcdef0123456789abcdef01',groupId:1}]);
+    }finally{
+      AccountInvites.prototype.redeem=originalRedeem;
+    }
+  }finally{f.close();}
+});

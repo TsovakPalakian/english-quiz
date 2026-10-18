@@ -150,8 +150,8 @@
   - API: `GET/POST /api/accounts/invites` (peek без сессии по `?token=`).
 - [ ] **H5 (осталось).** Google OAuth — в коде нет, отдельный этап.
 - [ ] **H5 (осталось).** Email OTP / проверка рассылки кода — в коде нет (сейчас password register + teacher approval).
-- [ ] **H5 (осталось).** QR/штрихкод для той же ссылки.
-- [ ] **H5 (осталось).** Redeem без предварительного Approve (авто-approve по валидному invite при register).
+- [x] **H5 (часть).** QR для той же invite-ссылки (Accounts → группа → Create invite).
+- [x] **H5 (часть).** Redeem без предварительного Approve: валидный invite при register → auto-approve + session + join group.
 - [x] **H9.** В чате студент видит staff только из assigned teachers своей группы (dev всегда; если assignments пустые — legacy: все ADMIN).
 - [x] **H10.** В чате студент видит только свою группу и одногруппников; discover ограничен той же видимостью.
 
@@ -171,4 +171,5 @@
 - [x] Copy media для фото в контекстном меню чата (деплой `1f3c1b08-988c-40a6-b731-7e78a39e01b3`).
 - [x] J: invite teacher/dev + chat visibility H9/H10 (без Google/OTP/QR).
 - [x] I: Home SaaS shell HM1–HM3, H1–H4, H6–H8 (Navigator visits = opens + unique devices/accounts).
+- [x] J: invite QR + auto-approve on register (Google/OTP еще отдельно).
 

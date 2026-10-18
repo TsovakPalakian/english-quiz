@@ -10263,12 +10263,19 @@
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
       if (register) {
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' +
-          '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>' +
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
+        const inviteHint = invite
+          ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
+          : '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>';
+        const roleField = invite
+          ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
+          : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
+        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + inviteHint +
           '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
-          '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>' +
+          roleField +
           '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
           '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
           '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';
@@ -10497,7 +10504,7 @@
       }).join('');
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section><section class="accounts-invite-section" data-group-invites data-group-id="'+selected.id+'"><h3>Invite link</h3><p class="hint">Student opens the link, signs in, and joins this group. Visible teacher is chosen below.</p><label><span>Teacher or developer</span><select data-invite-teacher aria-label="Invite teacher">'+candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('')+'</select></label><div class="row"><button class="btn primary" type="button" data-invite-create>Create invite</button><button class="btn" type="button" data-invite-copy hidden>Copy link</button></div><input type="text" readonly hidden data-invite-url aria-label="Invite URL"><p class="hint" role="status" data-invite-status></p></section>');
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section><section class="accounts-invite-section" data-group-invites data-group-id="'+selected.id+'"><h3>Invite link</h3><p class="hint">Student opens the link or scans the QR, registers or signs in, and joins this group. A valid invite auto-approves a new student account.</p><label><span>Teacher or developer</span><select data-invite-teacher aria-label="Invite teacher">'+candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('')+'</select></label><div class="row"><button class="btn primary" type="button" data-invite-create>Create invite</button><button class="btn" type="button" data-invite-copy hidden>Copy link</button></div><input type="text" readonly hidden data-invite-url aria-label="Invite URL"><div class="invite-qr" data-invite-qr hidden></div><p class="hint" role="status" data-invite-status></p></section>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -10532,6 +10539,7 @@
         const link=location.origin+'/?invite='+encodeURIComponent(result.token);
         urlInput.value=link;urlInput.hidden=false;copyBtn.hidden=false;
         status.textContent='Invite for '+result.groupTitle+' · expires '+new Date(result.expiresAt).toLocaleDateString();
+        if(typeof paintInviteQr==='function')paintInviteQr(box.querySelector('[data-invite-qr]'),link);
         const assignment=adminTeacherAssignments.find(row=>row.groupId===groupId);
         if(assignment&&!assignment.teacherIds.includes(teacherId)){assignment.teacherIds=[...assignment.teacherIds,teacherId];assignment.revision+=1;}
         else if(!assignment)adminTeacherAssignments.push({groupId,revision:1,teacherIds:[teacherId]});
@@ -11777,6 +11785,11 @@
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
+      if (path === "/api/register") {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        if (invite) { data.invite = invite; data.role = "USER"; }
+      }
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
@@ -11784,6 +11797,10 @@
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
           if (loginStatus) loginStatus.textContent = "Waiting for approval. You can sign in after the teacher accepts this account.";
           return;
+        }
+        if (result.inviteWarning) console.warn(result.inviteWarning);
+        if (path === "/api/register" && result.user) {
+          try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
         }
         return enterAccount(result.user);
       }).catch((err) => {
@@ -16415,3 +16432,19 @@
     paintHomeStats();
     resumePlace();
     initAccount();
+    // Scannable invite QR via QR image API (teacher creates invites online).
+    function paintInviteQr(box, text) {
+      if (!box) return;
+      box.hidden = !text;
+      if (!text) { box.innerHTML = ""; return; }
+      const img = document.createElement("img");
+      img.width = 180;
+      img.height = 180;
+      img.alt = "Invite QR code";
+      img.decoding = "async";
+      img.src = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&ecc=M&margin=8&data=" + encodeURIComponent(text);
+      img.onerror = () => {
+        box.innerHTML = '<p class="hint">QR image unavailable. Copy the link or open it on the student phone.</p>';
+      };
+      box.replaceChildren(img);
+    }

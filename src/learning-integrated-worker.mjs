@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Learning.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration} from './worker.js';
 import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './learning-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './learning-study.mjs';
@@ -105,7 +105,7 @@ export function accountDatabase(db,reserve,{allowWrites=false}={}){
   }};
 }
 export function integratedWorker({accountWorker=accounts,authenticate=currentUser,studyWorker=study,
-  authorizeManaged=managedAccount,studyDatabase=studyClient}={}){
+  authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration}={}){
   return {async fetch(request,env,ctx){
     const bugProbe=env.BUG_LOG==='true'&&bugWatch(request)?request.clone():null;
     let bugActor=null;
@@ -511,6 +511,18 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(accountRoute(path,method)){
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
         let approvalGroup=null,approvalActor=null,approvalGroups=null;
+        let forward=request,inviteToken='',effectivePath=path,inviteWarning='',signupBody=null;
+        if(path==='/api/register'&&method==='POST'){
+          let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
+          inviteToken=typeof body?.invite==='string'?body.invite.trim():'';
+          if(inviteToken){
+            await new AccountInvites(studyDatabase(env)).peek(inviteToken);
+            body={...body,role:'USER'};
+            delete body.invite;
+          }
+          signupBody=body;
+          forward=new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(body)});
+        }
         if(method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
           const body=await request.clone().json();
           if(body.groupId!=null){
@@ -522,7 +534,33 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             }
           }
         }
-        let response=await accountWorker.fetch(request,accountEnv,ctx);
+        let response=await accountWorker.fetch(forward,accountEnv,ctx);
+        if(response.ok&&inviteToken&&signupBody){
+          const pending=await response.clone().json();
+          if(pending.status==='pending'){
+            const loginKey=String(signupBody.login||'').trim();
+            const reg=await accountEnv.DB.prepare("SELECT id FROM registrations WHERE status='pending' AND login=?").bind(loginKey).first();
+            if(!reg?.id)throw new StudyError(500,'Invite registration was not saved.');
+            const peek=await new AccountInvites(studyDatabase(env)).peek(inviteToken);
+            const teacherRow=await accountEnv.DB.prepare("SELECT id,role FROM users WHERE id=? AND COALESCE(is_personal_data_revoked,0)=0").bind(peek.teacherId).first();
+            if(!teacherRow||!['ADMIN','DEVELOPER'].includes(teacherRow.role))throw new StudyError(503,'Invite teacher is unavailable.');
+            const approved=await approveReg(accountEnv,{id:teacherRow.id,role:teacherRow.role},reg.id);
+            if(!approved.ok)return approved;
+            const loginTarget=new URL(request.url);loginTarget.pathname='/api/login';
+            response=await accountWorker.fetch(new Request(loginTarget,{method:'POST',headers:request.headers,body:JSON.stringify({login:signupBody.login,password:signupBody.password})}),accountEnv,ctx);
+            if(!response.ok)return response;
+            effectivePath='/api/login';
+            const session=await response.clone().json();
+            if(session.user?.id&&session.user.role==='USER'&&env.STAGE_WRITES==='true'){
+              try{
+                await new AccountInvites(studyDatabase(env)).redeem(session.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
+                try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+              }catch(error){
+                inviteWarning=error instanceof StudyError?error.message:'Account created, but the group invite could not be applied.';
+              }
+            }
+          }
+        }
         if(response.ok&&approvalGroup!=null){
           const result=await response.clone().json();
           if(!result.userId)throw new StudyError(500,'Account approved. Assign its group in Accounts.');
@@ -541,34 +579,34 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           }
         }
         // Only a trusted authentication response may attach the reserved pair.
-        if((path==='/api/login'&&method==='POST'||path==='/api/me'&&method==='GET')&&response.ok&&env.STAGE_WRITES==='true'){
+        if((effectivePath==='/api/login'&&method==='POST'||effectivePath==='/api/me'&&method==='GET')&&response.ok&&env.STAGE_WRITES==='true'){
           const value=await response.clone().json();
           let newStudyAccount=false;
-          if(value.user&&(path==='/api/login'||['TsovakDev','Tsovak'].includes(value.user.login))){
+          if(value.user&&(effectivePath==='/api/login'||['TsovakDev','Tsovak'].includes(value.user.login))){
             const twinId=await twinStudyAccountId(accountEnv.DB,value.user.login);
-            const db=studyClient(env);
-            if(path==='/api/login')newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[value.user.id])).length;
+            const db=studyDatabase(env);
+            if(effectivePath==='/api/login')newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[value.user.id])).length;
             await ensurePairedThemes(db,value.user,twinId);
             try{await ensureStudyProfile(db,value.user,twinId);}
             catch(error){
               if(!(error instanceof StudyError)||error.status!==409)throw error;
               // Keep authentication usable if existing profiles need an explicit merge.
               const headers=new Headers(response.headers);headers.delete('Content-Length');
-              return Response.json({...value,studyPairNeedsMerge:true},{status:response.status,headers});
+              return Response.json({...value,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined},{status:response.status,headers});
             }
           }
-          if(value.user&&path==='/api/login'){
-            const db=studyClient(env),[seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[value.user.id]);
+          if(value.user&&effectivePath==='/api/login'){
+            const db=studyDatabase(env),[seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[value.user.id]);
             const recent=Number(value.user.createdAt)>Date.now()/1000-30*86400;
             await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[value.user.id])]);
             value.user.firstLogin=!seen&&recent&&newStudyAccount;
             const headers=new Headers(response.headers);headers.delete('Content-Length');
-            response=Response.json(value,{status:response.status,headers});
+            response=Response.json({...value,inviteWarning:inviteWarning||undefined},{status:response.status,headers});
           }
         }
-        if(response.ok&&['/api/me','/api/login'].includes(path)){
+        if(response.ok&&['/api/me','/api/login'].includes(effectivePath)){
           const value=await response.clone().json(),headers=new Headers(response.headers);headers.delete('Content-Length');
-          return Response.json({...value,migrationCapabilities:value.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
+          return Response.json({...value,migrationCapabilities:value.user?{legacyHistory:true,originalAccounts:true}:{},inviteWarning:inviteWarning||undefined},{status:response.status,headers});
         }
         return response;
       }

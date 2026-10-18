@@ -1144,6 +1144,8 @@ img, video, iframe, table { max-width: 100%; }
 .home-top-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 #home .meta { display: flex; align-items: center; gap: 8px; }
 .guide-visits { margin-left: auto; color: var(--mute); font-size: 13px; font-weight: 600; }
+.invite-qr { margin-top: 10px; }
+.invite-qr img { display: block; width: 180px; height: 180px; background: #fff; border-radius: 8px; }
 .theme-seg {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

@@ -179,6 +179,11 @@
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
+      if (path === "/api/register") {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        if (invite) { data.invite = invite; data.role = "USER"; }
+      }
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
@@ -186,6 +191,10 @@
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
           if (loginStatus) loginStatus.textContent = "Waiting for approval. You can sign in after the teacher accepts this account.";
           return;
+        }
+        if (result.inviteWarning) console.warn(result.inviteWarning);
+        if (path === "/api/register" && result.user) {
+          try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
         }
         return enterAccount(result.user);
       }).catch((err) => {
