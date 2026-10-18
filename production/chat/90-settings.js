@@ -607,7 +607,7 @@
         html =
           [
             ['left', 'Conversation list', 'Show conversations in the sidebar'],
-            ['right', 'Chat info', 'Show details about the selected conversation'],
+            ['right', 'Info', 'Show details about the selected conversation'],
             ['enter', 'Enter sends messages', 'Shift+Enter starts a new line'],
           ]
             .map(([p, label, description]) => toggle(p, label, description, prefs[p] !== false))
@@ -953,7 +953,15 @@
     scheduleRead();
   };
   el('msgSearch').onclick = showSearch;
-  el('msgInfo').onclick = () => showInfo().catch((error) => status(error.message));
+  el('msgInfo').onclick = () => {
+    if (prefs.right && rightMode === 'info' && !el('msgRight').hidden) {
+      rightMode = '';
+      panel('right', false);
+      scheduleRead();
+      return;
+    }
+    showInfo(infoTab).catch((error) => status(error.message));
+  };
   el('msgRoomInfo').onclick = el('msgInfo').onclick;
   el('msgRoomSearch').oninput = paintRooms;
   el('msgUnread').onclick = () => {

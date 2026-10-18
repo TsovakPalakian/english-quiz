@@ -50,6 +50,12 @@ body.chat-active #selpop{z-index:1300}
 #messages .chat-icon,.chat-dialog .chat-icon{width:36px;height:36px;flex:0 0 36px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;color:var(--mute);padding:0}
 #messages .chat-icon:hover,.chat-dialog .chat-icon:hover{background:var(--acc-s);color:var(--acc)}
 #messages .chat-icon.primary,.chat-dialog .primary{background:var(--acc);color:var(--on-acc,var(--card));border-radius:8px}
+#messages .chat-search-toggle{color:var(--ink);background:var(--acc-s);border:1px solid var(--acc)}
+#messages .chat-search-toggle:hover,#messages .chat-search-toggle:focus-visible{color:var(--on-acc,var(--card));background:var(--acc);border-color:var(--acc)}
+#messages .chat-info-head{position:relative;justify-content:center}
+#messages .chat-info-head h2{flex:1;text-align:center;margin:0;padding:0 40px}
+#messages .chat-info-head #msgHideInfo{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+#messages .chat-info-tabs button.on{background:var(--acc);color:var(--on-acc,var(--card));font-weight:650}
 #messages .danger,.chat-dialog .danger{color:var(--bad)}
 .chat-list{width:400px;flex:0 0 400px;display:flex;flex-direction:column;border-right:1px solid var(--chat-line);min-width:0;background:var(--card)}
 .chat-panel-head{height:60px;flex:0 0 60px;display:flex;align-items:center;gap:6px;padding:0 14px;border-bottom:1px solid var(--chat-line);background:transparent;backdrop-filter:none;min-width:0}

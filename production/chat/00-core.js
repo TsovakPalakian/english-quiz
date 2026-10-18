@@ -118,6 +118,7 @@
     room = '',
     kind = 'personal',
     rightMode = '',
+    infoTab = 'members',
     unreadOnly = false,
     examDirty = false,
     catalogVersion = 0;

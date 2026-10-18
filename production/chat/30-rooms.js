@@ -142,7 +142,7 @@
           )
           .join('');
     }
-    if (listMode === 'chats' && !chatListView) {
+    if (listMode === 'chats' && !chatListView && kind === 'personal') {
       const folders = (data.folders || [])
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -165,7 +165,7 @@
         html =
           '<button type="button" class="chat-contact" data-chat-archive>' +
           icon('archive') +
-          '<span>Archived Chats</span></button>' +
+          '<span>Archived</span></button>' +
           html;
     }
     if (chatListView)

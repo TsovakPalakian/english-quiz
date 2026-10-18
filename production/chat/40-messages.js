@@ -52,6 +52,14 @@
         else el('msgLatest').hidden = false;
         scheduleRead();
       }
+      if (
+        rightMode === 'info' &&
+        prefs.right &&
+        room === event.room.id &&
+        active() &&
+        (event.message.deleted || event.message.files)
+      )
+        showInfo(infoTab).catch(() => {});
       if (ready && event.type === 'message') ack('delivered', event.room.id, event.message.category, event.message.id);
       if (
         event.type === 'message' &&
@@ -79,7 +87,7 @@
     }
     if (event.room && event.type === 'room') {
       membersCache.delete(event.room.id);
-      if (rightMode === 'info' && prefs.right && room === event.room.id && active()) showInfo().catch(() => {});
+      if (rightMode === 'info' && prefs.right && room === event.room.id && active()) showInfo(infoTab).catch(() => {});
     }
     badge();
     paintRooms();

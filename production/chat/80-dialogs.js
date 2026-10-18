@@ -1,8 +1,10 @@
-  async function showInfo(tab = 'members') {
+  async function showInfo(tab = infoTab || 'members') {
     if (!room) return;
+    if (!['members', 'media', 'files', 'links'].includes(tab)) tab = 'members';
+    infoTab = tab;
     rightMode = 'info';
     panel('right', true);
-    el('msgRightTitle').textContent = 'Chat info';
+    el('msgRightTitle').textContent = 'Info';
     el('msgInfoContent').hidden = false;
     el('msgSearchContent').hidden = true;
     const selected = data.rooms.find((r) => r.id === room);
@@ -75,12 +77,21 @@
       '</h3><small>' +
       escape(selected.kind === 'group' ? members.length + ' members' : 'Private conversation') +
       '</small></div><div class="chat-info-tabs">' +
-      ['media', 'files', 'links']
-        .map((t) => '<button type="button" data-info-tab="' + t + '">' + t[0].toUpperCase() + t.slice(1) + '</button>')
+      ['members', 'media', 'files', 'links']
+        .map(
+          (t) =>
+            '<button type="button" data-info-tab="' +
+            t +
+            '"' +
+            (t === tab ? ' class="on" aria-current="page"' : '') +
+            '>' +
+            (t === 'members' ? 'Members' : t[0].toUpperCase() + t.slice(1)) +
+            '</button>',
+        )
         .join('') +
       '</div><label class="chat-setting-row"><span>Mute notifications</span><input id="msgMute" type="checkbox" ' +
       (selected.muted ? 'checked' : '') +
-      '></label><button type="button" class="chat-link" data-info-tab="members">Members</button>' +
+      '></label>' +
       (selected.access && !selected.access.protected
         ? '<button type="button" class="chat-link danger" data-relation="' +
           (selected.access.blockedByMe ? 'unblock' : 'block') +
@@ -568,6 +579,7 @@
       node.setAttribute('role', 'menu');
       document.body.append(node);
     }
+    const limited = listMode === 'contacts' || kind === 'learning';
     const items = [
       ['window', 'external-link', 'Open in window'],
       ['pin', 'pin', row.pinOrder ? 'Unpin' : 'Pin'],
@@ -575,8 +587,12 @@
       ['down', 'arrow-down', 'Move pin down'],
       ['mute', 'bell-off', 'Mute'],
       ['sound', 'music', 'Sound'],
-      ['archive', 'archive', row.archived ? 'Unarchive' : 'Archive'],
-      ['folder', 'folder-plus', 'Add to folder…'],
+      ...(limited
+        ? []
+        : [
+            ['archive', 'archive', row.archived ? 'Unarchive' : 'Archive'],
+            ['folder', 'folder-plus', 'Add to folder…'],
+          ]),
       ['clear', 'eraser', 'Clear history'],
     ];
     if (row.kind === 'group' || !row.access?.protected) items.push(['delete', 'trash-2', 'Delete chat']);

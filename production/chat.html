@@ -20,10 +20,10 @@
     <main class="chat-center">
       <header class="chat-panel-head chat-room-head">
         <button type="button" id="msgListBack" class="chat-icon" title="Show conversations" aria-label="Show conversations"><i data-lucide="panel-left"></i></button>
-        <button type="button" id="msgRoomInfo" class="chat-room-heading" title="Chat info"><span id="msgRoomAvatar" class="chat-avatar"><i data-lucide="users-round"></i></span><span><strong id="msgRoomTitle">Messages</strong><small id="msgRoomSubtitle">Choose a conversation</small></span></button>
+        <button type="button" id="msgRoomInfo" class="chat-room-heading" title="Info"><span id="msgRoomAvatar" class="chat-avatar"><i data-lucide="users-round"></i></span><span><strong id="msgRoomTitle">Messages</strong><small id="msgRoomSubtitle">Choose a conversation</small></span></button>
         <button type="button" id="msgAssign" class="chat-icon" title="Assign exam" aria-label="Assign exam" hidden><i data-lucide="clipboard-plus"></i></button>
-        <button type="button" id="msgSearch" class="chat-icon" title="Search messages" aria-label="Search messages"><i data-lucide="search"></i></button>
-        <button type="button" id="msgInfo" class="chat-icon" title="Chat info" aria-label="Chat info"><i data-lucide="panel-right"></i></button>
+        <button type="button" id="msgSearch" class="chat-icon chat-search-toggle" title="Search messages" aria-label="Search messages"><i data-lucide="search"></i></button>
+        <button type="button" id="msgInfo" class="chat-icon" title="Info" aria-label="Info"><i data-lucide="panel-right"></i></button>
       </header>
       <div id="msgStatus" class="chat-status" role="status" hidden></div>
       <div id="msgAccess" class="chat-access" hidden></div>
@@ -50,8 +50,8 @@
       </form>
     </main>
     <div id="msgResizeRight" class="chat-resizer" role="separator" aria-label="Information panel width" aria-orientation="vertical" tabindex="0" hidden></div>
-    <aside id="msgRight" class="chat-info" aria-label="Chat info" hidden>
-      <header class="chat-panel-head"><h2 id="msgRightTitle">Chat info</h2><button type="button" id="msgHideInfo" class="chat-icon" title="Close panel" aria-label="Close panel"><i data-lucide="x"></i></button></header>
+    <aside id="msgRight" class="chat-info" aria-label="Info" hidden>
+      <header class="chat-panel-head chat-info-head"><h2 id="msgRightTitle">Info</h2><button type="button" id="msgHideInfo" class="chat-icon" title="Close panel" aria-label="Close panel"><i data-lucide="x"></i></button></header>
       <div id="msgInfoContent" class="chat-info-content"></div>
       <div id="msgSearchContent" class="chat-info-content" hidden>
         <label class="chat-search"><i data-lucide="search"></i><input id="msgTextSearch" type="search" placeholder="Search messages" aria-label="Search messages"></label>
