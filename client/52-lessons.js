@@ -1295,7 +1295,8 @@
       // Only words/phrases from this material. Custom quizzes weave in per card at Start.
       const cards = lmQuizCards();
       dayPoolOverride = cards;
-      dayPoolStrict = true;
+      // Only exams are limited to teacher-made quizzes.
+      dayPoolStrict = !!lmState.examOwned;
       dayQuizPlace = "material";
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";

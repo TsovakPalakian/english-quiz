@@ -1217,7 +1217,7 @@
           ex: looked.ex || "",
           gloss: looked.gloss || ""
         };
-        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home", { strict: true });
+        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home");
         return true;
       }
       const addBtn = e.target.closest("[data-card-quiz-add]");

@@ -2454,5 +2454,5 @@ document.addEventListener('click',event=>{
   const mode=target.dataset.essentialStudy;
   const entries=mode==='group'?group?.topics.flatMap(item=>item.entries):mode==='topic'?topic?.entries:madeItem?[{card:madeItem}]:[];
   const cards=[...new Map((entries||[]).map(entry=>[entry.card.stageId,stageEssentialCard(entry.card.stageId)])).values()].filter(Boolean);
-  if(cards.length)openListedStudy(cards,mode==='group'?group.title:mode==='topic'?topic.title:madeItem.word,mode==='group'?'everydaygroup':mode==='topic'?'everydaytopic':'made',{strict:true});
+  if(cards.length)openListedStudy(cards,mode==='group'?group.title:mode==='topic'?topic.title:madeItem.word,mode==='group'?'everydaygroup':mode==='topic'?'everydaytopic':'made');
 },true);

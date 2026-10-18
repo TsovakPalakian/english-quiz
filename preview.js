@@ -3417,7 +3417,7 @@
           ex: looked.ex || "",
           gloss: looked.gloss || ""
         };
-        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home", { strict: true });
+        openListedStudy([card], (en || "Card") + " quizzes", (document.querySelector("section.on") || {}).id || "home");
         return true;
       }
       const addBtn = e.target.closest("[data-card-quiz-add]");
@@ -13886,7 +13886,8 @@
       // Only words/phrases from this material. Custom quizzes weave in per card at Start.
       const cards = lmQuizCards();
       dayPoolOverride = cards;
-      dayPoolStrict = true;
+      // Only exams are limited to teacher-made quizzes.
+      dayPoolStrict = !!lmState.examOwned;
       dayQuizPlace = "material";
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
