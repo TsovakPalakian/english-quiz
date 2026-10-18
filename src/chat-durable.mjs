@@ -438,8 +438,10 @@ export class ChatInbox extends Store{
         id=directRoomId(actor.id,peer.id);const status=await chatCall(this.env,'CHAT_ROOM',id,'/status',{});
         await chatCall(this.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Private conversation'},members:[actor,peer]});
         if(!status.migrated)await chatCall(this.env,'CHAT_ROOM',id,'/import',{messages:[],complete:true});
+        await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'direct'}}).catch(()=>{});
       }else if(body.kind==='group'){
         const group=this.get('groups',[]).find(g=>g.id===body.groupId);if(!group)fail(403,'This group is unavailable.');id='group:'+group.id;
+        await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'group',groupId:group.id}}).catch(()=>{});
       }else fail(400,'Choose a conversation type.');
       const result=await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor});
       if(result.room)this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',id,this.seal(JSON.stringify(result.room),'data'));

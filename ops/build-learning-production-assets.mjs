@@ -7,8 +7,10 @@ import assert from 'node:assert/strict';
 import {mainPreview} from './learning-main-preview.mjs';
 import {pdfAssetPaths,pdfAssetFile} from './learning-pdf-assets.mjs';
 import {buildPreview} from './build-preview.mjs';
+import {buildChatIcons} from './build-chat-icons.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 buildPreview();
+buildChatIcons();
 const target=resolve(root,'rollback/production-assets'),accepted=resolve(root,'site');
 const config=readFileSync(resolve(root,'wrangler.toml'),'utf8');
 assert.match(config,/^DB_PROVIDER = "d1"$/m);assert.match(config,/^preview_urls = false$/m);
@@ -26,7 +28,7 @@ for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstra
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/essential.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/exams.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
-for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
+for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js','material-quiz.js','color-picker.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));
 assert.ok(soundCatalog.length>=100&&new Set(soundCatalog.map(sound=>sound.id)).size===soundCatalog.length);
@@ -47,18 +49,23 @@ writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync
   .replaceAll('fetch("tense-bank.json")','window.LearningLoadCatalog("TENSE_BANK").then(data=>({ok:true,json:async()=>data}))'));
 let preview=readFileSync(resolve(target,'preview.js'),'utf8');
 assert.equal(preview.split('    function show(id) {').length,2);
-preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';");
+preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';\n      if(id==='messages' && !window.MessagesReady){window.ensureMessages?.().then(()=>show('messages')).catch(error=>window.LearningMain?.notice?.(error.message,true));return;}\n      if(['material','days','exam','exams','setup'].includes(id)){window.ensureMaterialQuiz?.();window.ensureColorPicker?.();}");
 writeFileSync(resolve(target,'preview.js'),preview);
+writeFileSync(resolve(target,'exam-workflow.js'),readFileSync(resolve(root,'client/main/exam-workflow.js'),'utf8'));
 writeFileSync(resolve(target,'preview.js'),preview+'\n'+readFileSync(resolve(root,'client/main/exam-workflow.js'),'utf8'));
 const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
 const scoring='(()=>{\n'+readFileSync(resolve(root,'src/exam-scoring.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.MaterialScoring={examAnswered,examChildren,examAnswerQuestions,examElementMax,examTaskMax,examGrading,validateExamScoring,memoryDeck,memoryScore};})();';
 const grammar='(()=>{'+readFileSync(resolve(root,'src/grammar-content.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.GrammarDetails=grammarDetails;window.GrammarReferences=grammarReferences;window.GrammarGroupNames=grammarGroupNames;window.GrammarUi=grammarUi;})();';
-const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categories.js'),'utf8')+'\n'+grammar+'\n'+readFileSync(resolve(root,'production/color-picker.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-quiz.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8')).replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
-  .replace('document.body.append(script);',"script.addEventListener('load',()=>{const icons=document.createElement('script');icons.src='/chat-icons.js?v="+version('chat-icons.js')+"';icons.addEventListener('load',()=>{const messages=document.createElement('script');messages.src='/messages.js?v="+version('messages.js')+"';document.body.append(messages);});document.body.append(icons);});document.body.append(script);");
+const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categories.js'),'utf8')+'\n'+grammar+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8'))
+  .replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
+  .replace("window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js');","window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js?v="+version('chat-icons.js')+"');")
+  .replace("return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js')).then(()=>{window.MessagesReady=true;});","return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js?v="+version('messages.js')+"')).then(()=>{window.MessagesReady=true;});")
+  .replace("window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js');","window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js?v="+version('material-quiz.js')+"');")
+  .replace("window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');","window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js?v="+version('color-picker.js')+"');");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 html=html.replace('>Approved accounts</button>','>Approved accounts &amp; Groups</button>').replace('<button type="button" role="tab" data-admin-tab="groups" aria-selected="false">Groups</button>','');
-html=html.replace('<head>','<head><script src="/database-context.js?v='+version('database-context.js')+'"></script>'+['preview.js','chat-icons.js','messages.js'].map(name=>'<link rel="preload" as="script" href="/'+name+'?v='+version(name)+'">').join(''));
+html=html.replace('<head>','<head><script src="/database-context.js?v='+version('database-context.js')+'"></script>'+['preview.js','chat-icons.js'].map(name=>'<link rel="preload" as="script" href="/'+name+'?v='+version(name)+'">').join(''));
 html=html.replace(/<section id="groups">[\s\S]*?<\/section>/,section=>section.replace('<p class="sub">In date order.</p>','').replace('<button class="btn primary" type="button" id="groupNew">+ New group</button>',''));
 html=html.replace('<div id="groupList"></div>','<p class="sub" id="groupOverview"></p><div id="groupControls" hidden><button class="btn primary" type="button" id="groupNew">+ Add subgroup</button><input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups"></div><div id="groupList"></div>');
 html=html.replace('<section id="admingroup">','<section id="admingrouplevel"><div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="admin">Back</button><h1 id="adminLevelTitle">Groups</h1></div><div id="adminLevelBody"></div></section>\n<section id="admingroup">');

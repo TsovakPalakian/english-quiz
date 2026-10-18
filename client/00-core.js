@@ -9,6 +9,23 @@
     let stashOwned = false;
     let authSyncLock = false;
     let accountReady = false;
+    for (const key of ["authUser", "accountChecked", "viewAccount", "viewGen", "viewSwitching", "accountReady"]) {
+      Object.defineProperty(window, key, {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return { authUser, accountChecked, viewAccount, viewGen, viewSwitching, accountReady }[key];
+        },
+        set(value) {
+          if (key === "authUser") authUser = value;
+          else if (key === "accountChecked") accountChecked = value;
+          else if (key === "viewAccount") viewAccount = value;
+          else if (key === "viewGen") viewGen = value;
+          else if (key === "viewSwitching") viewSwitching = value;
+          else accountReady = value;
+        },
+      });
+    }
     let hiddenCardIds = new Set();
     let syncTimer = 0;
     let accountPullTimer = 0;

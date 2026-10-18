@@ -2,6 +2,26 @@
     const lmFiles = {};
     let lmLibrary = null;
     let lmState = null;
+    Object.defineProperty(window, "lmState", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return lmState;
+      },
+      set(value) {
+        lmState = value;
+      },
+    });
+    Object.defineProperty(window, "lmLibrary", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return lmLibrary;
+      },
+      set(value) {
+        lmLibrary = value;
+      },
+    });
     let lmSaveTimer = 0;
     let lmFontRange = null;
     let lmServerReady = false;

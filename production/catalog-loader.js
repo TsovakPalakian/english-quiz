@@ -134,6 +134,40 @@
     active:()=>active,
     waiting:()=>pending.length
   };
+  const scriptJobs=new Map();
+  window.loadSiteScript=(src)=>{
+    if(!src)return Promise.reject(new Error('Script URL missing.'));
+    if(scriptJobs.has(src))return scriptJobs.get(src);
+    const existing=[...document.scripts].find(node=>node.getAttribute('src')===src);
+    if(existing){
+      const job=existing.dataset.loaded==='1'?Promise.resolve():new Promise((resolve,reject)=>{existing.addEventListener('load',()=>{existing.dataset.loaded='1';resolve();},{once:true});existing.addEventListener('error',()=>reject(new Error('Unable to load '+src)),{once:true});});
+      scriptJobs.set(src,job);return job;
+    }
+    const job=new Promise((resolve,reject)=>{
+      const node=document.createElement('script');
+      node.src=src;
+      node.onload=()=>{node.dataset.loaded='1';resolve();};
+      node.onerror=()=>{scriptJobs.delete(src);node.remove();reject(new Error('Unable to load '+src));};
+      document.body.append(node);
+    });
+    scriptJobs.set(src,job);return job;
+  };
+  // Replaced by production builder with versioned URLs.
+  window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js');
+  window.ensureMessages=()=>{
+    if(window.MessagesReady)return Promise.resolve();
+    return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js')).then(()=>{window.MessagesReady=true;});
+  };
+  window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js');
+  window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');
+  document.addEventListener('click',(event)=>{
+    const open=event.target.closest?.('[data-jump="messages"],[data-msg-open]');
+    if(!open||window.MessagesReady)return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.ensureMessages().then(()=>open.click()).catch((error)=>window.LearningMain?.notice?.(error.message,true));
+  },true);
+  window.ensureChatIcons();
   const script=document.createElement('script');script.src='/preview.js?v=20261010-13';
   document.body.append(script);
   window.LearningCatalogReady=Promise.resolve();

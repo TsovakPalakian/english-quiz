@@ -44,8 +44,17 @@ export class ChatBridge{
       const [groups,members]=await db.readMany([statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),statement('SELECT account_id,group_id FROM class_group_students')]);
       for(const user of users)user.groupId=members.find(m=>m.account_id===user.id)?.group_id??null;
       const active=users.filter(u=>u.active!==0&&!u.is_personal_data_revoked),allRooms=new Map(),configs=new Map();
+      const indexed=this.get('roomIndex');
+      if(indexed?.rooms?.length){
+        for(const room of indexed.rooms)allRooms.set(room.id,{id:room.id,kind:room.kind,groupId:room.groupId||null});
+      }else{
+        await mapPool(users,8,async user=>{
+          const old=await chatCall(this.env,'CHAT_INBOX',user.id,'/snapshot',{});
+          for(const room of old.rooms)allRooms.set(room.id,{id:room.id,kind:room.kind,groupId:room.groupId||null});
+        });
+      }
+      for(const group of groups)allRooms.set('group:'+group.id,{id:'group:'+group.id,kind:'group',groupId:group.id});
       await mapPool(users,8,async user=>{
-        const old=await chatCall(this.env,'CHAT_INBOX',user.id,'/snapshot',{});for(const room of old.rooms)allRooms.set(room.id,room);
         const own=members.find(m=>m.account_id===user.id)?.group_id;
         const contacts=active.filter(u=>u.id!==user.id&&(!u.hidden||user.role==='DEVELOPER')&&(staff(user)||staff(u)||own&&members.some(m=>m.account_id===u.id&&m.group_id===own)));
         configs.set(user.id,{profile:{id:user.id,name:user.name,login:user.login,email:user.email,groupId:user.groupId,role:user.role,active:user.active!==0&&!user.is_personal_data_revoked},contacts,groups:groups.filter(g=>staff(user)||g.id===own)});
@@ -61,8 +70,18 @@ export class ChatBridge{
         }
       });
       await mapPool(users,8,async user=>{await chatCall(this.env,'CHAT_INBOX',user.id,'/configure',configs.get(user.id));});
+      this.set('roomIndex',{at:Date.now(),rooms:[...allRooms.values()].map(room=>({id:room.id,kind:room.kind,groupId:room.groupId||null}))});
       const result={at:Date.now(),users,groups,members};this.set('policy',result);if(release)this.set('policyDirtyAt',null);return result;
     })().finally(()=>{this.loading=null;});return this.loading;
+  }
+  registerRoom(room){
+    if(!room?.id||!room?.kind)fail(400,'Room id and kind are required.');
+    const indexed=this.get('roomIndex')||{rooms:[]};
+    const next={id:room.id,kind:room.kind,groupId:room.groupId||null};
+    const rooms=indexed.rooms.filter(row=>row.id!==next.id);
+    rooms.push(next);
+    this.set('roomIndex',{at:Date.now(),rooms});
+    return {registered:true};
   }
   async migrate(roomId,policy){
     if(this.importing.has(roomId))return this.importing.get(roomId);
@@ -139,7 +158,7 @@ export class ChatBridge{
     if(new URL(request.url).pathname==='/signup-username'){try{return json(signupUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Signup username unavailable.'},error.status||503);}}
     if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}
     if(new URL(request.url).pathname==='/username'){try{return json(await setUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Username could not be saved.'},error.status||503);}}
-    try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/profiles')return json(readProfiles(this,body));if(path==='/presence')return json(await setPresence(this,body));if(path==='/avatar')return json(await setAvatar(this,body));if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}
+    try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/profiles')return json(readProfiles(this,body));if(path==='/presence')return json(await setPresence(this,body));if(path==='/avatar')return json(await setAvatar(this,body));if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/register-room')return json(this.registerRoom(body.room||body));if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}
   }
 }
 

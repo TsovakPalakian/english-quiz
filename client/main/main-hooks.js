@@ -1512,6 +1512,7 @@ function stageDemand(id){
     if(['setup','exam','errors','made','add','word','cardstat'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
     if(id==='home'){stageKick('progress',()=>stageProgressPage(''));stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
+    if(['material','days','exam','exams','setup','speak','speaklesson','lyricadd','textedit'].includes(id)){window.ensureMaterialQuiz?.();window.ensureColorPicker?.();}
   }catch(error){window.LearningMain?.notice?.(error.message,true);}
 }
 var stageDemandFrame=0,stageDemandNext='';
