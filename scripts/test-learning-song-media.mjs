@@ -108,7 +108,7 @@ test('Audio browser retry preserves exact mutation after reload; bytes are not s
         if(!failed){failed=true;throw new Error('Lost connection');}
         return {ok:true,json:async()=>({revision:2,item:{stageRevision:2}})};
       }};
-    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);return window.LearningMain;
+    runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);return window.LearningMain;
   };
   const file=value=>({size:46,type:'audio/wav',name:'audio.wav',arrayBuffer:async()=>Uint8Array.from(wav(value)).buffer});
   const item={stageId:'song',stageRevision:1,stageScope:'profile'},bridge=setup();await bridge.fetch('/api/me');
@@ -231,7 +231,7 @@ test('Lesson media bridge refuses unsaved drafts; only acknowledgement advances 
       sent.push(path);if(fail){fail=false;throw new Error('Lost response');}
       return {ok:true,json:async()=>({revision:2,block:{revision:2,content:{caption:'Keep',fileId:'sf_test',name:'lesson.pdf',hasFile:true}}})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);const bridge=window.LearningMain;
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);const bridge=window.LearningMain;
   await bridge.fetch('/api/me');await bridge.fetch('/api/lessons');const block=material.blocks[0],file={type:'application/pdf',name:'lesson.pdf',size:pdf().length,arrayBuffer:async()=>Uint8Array.from(pdf()).buffer};
   block.caption='Unsaved';await assert.rejects(bridge.uploadLessonFile(material,block,file));assert.equal(sent.length,0);
   block.caption='Keep';await assert.rejects(bridge.uploadLessonFile(material,block,file));assert.equal(material.stageRevision,1);assert.equal(block.fileId,undefined);

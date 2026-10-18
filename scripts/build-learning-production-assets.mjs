@@ -36,20 +36,20 @@ for(const name of ['CC0.txt','SOURCES.json'])copyFileSync(resolve(root,'producti
 writeFileSync(resolve(target,'messages.js'),'window.NotificationSoundCatalog='+JSON.stringify(soundCatalog.map(({id,name,group,duration,file})=>({id,name,group,duration,file})))+';\n'+readFileSync(resolve(root,'production/notification-sounds.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/chat.js'),'utf8'));
 copyFileSync(resolve(root,'production/chat.css'),resolve(target,'messages.css'));
 for(const name of ['chat-background.png','chat-icons.js','chat-inter.ttf','chat-font-license.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
-let bridge=readFileSync(resolve(root,'staging/main-bridge.js'),'utf8');
+let bridge=readFileSync(resolve(root,'client/main/main-bridge.js'),'utf8');
 const anchor="const mediaAllowed=()=>['127.0.0.1','learn-english-learning-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);";
 assert.equal(bridge.split(anchor).length,2);
 bridge=bridge.replace(anchor,`const mediaAllowed=()=>${JSON.stringify([...new Set([host,liveHost])])}.includes(location.hostname);`);
 writeFileSync(resolve(target,'main-bridge.js'),presentation(bridge));
 assert.ok(!/[А-Яа-яЁё]/.test(presentation(bridge)),'Untranslated bridge UI text');
-assert.ok(!/[А-Яа-яЁё]/.test(presentation(readFileSync(resolve(root,'staging/main-hooks.js'),'utf8'))),'Untranslated hook UI text');
-writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')))
+assert.ok(!/[А-Яа-яЁё]/.test(presentation(readFileSync(resolve(root,'client/main/main-hooks.js'),'utf8'))),'Untranslated hook UI text');
+writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'client/main/main-hooks.js'),'utf8')))
   .replaceAll('fetch("tense-bank.json")','window.LearningLoadCatalog("TENSE_BANK").then(data=>({ok:true,json:async()=>data}))'));
 let preview=readFileSync(resolve(target,'preview.js'),'utf8');
 assert.equal(preview.split('    function show(id) {').length,2);
 preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';");
 writeFileSync(resolve(target,'preview.js'),preview);
-writeFileSync(resolve(target,'preview.js'),preview+'\n'+readFileSync(resolve(root,'staging/exam-workflow.js'),'utf8'));
+writeFileSync(resolve(target,'preview.js'),preview+'\n'+readFileSync(resolve(root,'client/main/exam-workflow.js'),'utf8'));
 const version=name=>createHash('sha256').update(readFileSync(resolve(target,name))).digest('hex').slice(0,16);
 const scoring='(()=>{\n'+readFileSync(resolve(root,'src/exam-scoring.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.MaterialScoring={examAnswered,examChildren,examAnswerQuestions,examElementMax,examTaskMax,examGrading,validateExamScoring,memoryDeck,memoryScore};})();';
 const grammar='(()=>{'+readFileSync(resolve(root,'src/grammar-content.mjs'),'utf8').replace(/^export /gm,'')+'\nwindow.GrammarDetails=grammarDetails;window.GrammarReferences=grammarReferences;window.GrammarGroupNames=grammarGroupNames;window.GrammarUi=grammarUi;})();';

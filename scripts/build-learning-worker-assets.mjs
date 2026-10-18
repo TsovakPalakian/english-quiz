@@ -9,8 +9,8 @@ const root=fileURLToPath(new URL('../',import.meta.url)),dir=resolve(root,'rollb
 mkdirSync(dir,{recursive:true,mode:0o700});
 if(process.argv.includes('--hooks-only')){
   // Preserve the last accepted assets, especially unrelated local CSS changes.
-  writeFileSync(resolve(dir,'preview.js'),mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')));
-  copyFileSync(resolve(root,'staging/main-bridge.js'),resolve(dir,'main-bridge.js'));
+  writeFileSync(resolve(dir,'preview.js'),mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'client/main/main-hooks.js'),'utf8')));
+  copyFileSync(resolve(root,'client/main/main-bridge.js'),resolve(dir,'main-bridge.js'));
   console.log('Updated TEST JavaScript only; other accepted assets unchanged.');process.exit(0);
 }
 // These paths are NEVER publicPaths. run_worker_first + the owner-bound inline
@@ -33,8 +33,8 @@ for(const path of pdfAssetPaths()){
 // Explicit allowlist: never copy .dev.vars, configurations, backups or accounts.
 for(const name of ['preview.css','almond-blossom.jpg','theme-init.js'])copyFileSync(resolve(root,name),resolve(dir,name));
 for(const name of ['text-colors.js','speakout-editor.js','speakout-editor.css'])copyFileSync(resolve(root,'production',name),resolve(dir,name));
-writeFileSync(resolve(dir,'preview.js'),mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'staging/main-hooks.js'),'utf8')));
-for(const [name,source] of [['main-bridge.js','staging/main-bridge.js'],['main-stage.css','staging/main-stage.css']])copyFileSync(resolve(root,source),resolve(dir,name));
+writeFileSync(resolve(dir,'preview.js'),mainPreview(readFileSync(resolve(root,'preview.js'),'utf8'),readFileSync(resolve(root,'client/main/main-hooks.js'),'utf8')));
+for(const [name,source] of [['main-bridge.js','client/main/main-bridge.js'],['main-stage.css','staging/main-stage.css']])copyFileSync(resolve(root,source),resolve(dir,name));
 copyFileSync(resolve(defaultSnapshot,'local-catalogs/demonstratives.js'),resolve(dir,'demonstratives.js'));
 const html=readFileSync(resolve(root,'preview.html'),'utf8').replace(/<link[^>]+fonts\.googleapis\.com[^>]*>/g,'')
   .replace('</head>','<link rel="stylesheet" href="/main-stage.css"></head>').replace(/<body[^>]*>/,m=>m+'<div id="learning-main-banner"><p>TEST Learning — отдельный Worker. Рабочий сайт не переключён. <button id="learning-main-refresh">Проверить сервер</button><button id="learning-main-retry">Повторить</button></p><div id="learning-main-status" role="status"></div></div>')

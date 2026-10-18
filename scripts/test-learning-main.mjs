@@ -60,7 +60,7 @@ test('Open-source showcase covers every material type and quiz type without empt
 
 test('Spotify players use their own layout height rather than the generic tall video frame',()=>{
   const context={URL,stageEmbedSource:embedSource,stageMediaSource:mediaSource,esc:value=>value,openLink:()=>'',songPlayerHtml:(kind,html)=>html,document:{addEventListener(){}},window:{}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const track=context.stageExternalPlayer('https://open.spotify.com/track/123abc','Music');
   assert.match(track,/data-spotify-height="152"/);assert.doesNotMatch(track,/player tall/);
   const album=context.stageExternalPlayer('https://open.spotify.com/album/123abc','Music');
@@ -770,7 +770,7 @@ test('Catalog loader starts the shell before catalogs and shares one in-flight l
   assert.equal(a,b);assert.equal(calls.length,1);assert.equal(window.ContentCache.get('catalog:TENSE_BANK'),a);
 });
 test('Tense bank does not load at startup, coalesces first use, and ignores a closed view',async()=>{
-  const generated=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
+  const generated=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'));
   const start=generated.indexOf('    let tenseBank = {};'),end=generated.indexOf('    function markerLinks(card)',start);
   assert.doesNotMatch(generated.slice(start,end),/fetch\(|LearningLoadCatalog\(/);
   assert.doesNotMatch(generated,/fetch\("tense-bank\.json"\)/);
@@ -778,7 +778,7 @@ test('Tense bank does not load at startup, coalesces first use, and ignores a cl
   const scope={tenseBank:{},tenseBankReady:false,viewGen:1,openTenseId:'ps',openMarkerName:'today',
     openTopic:id=>painted.push(id),openMarker:id=>painted.push(id),
     document:{addEventListener(){},querySelector:()=>({id:section})},window:{LearningLoadCatalog:()=>{requests++;return new Promise(resolve=>pending.push(resolve));},LearningMain:{notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   assert.equal(requests,0);
   const first=scope.stageLoadTenseView('tense','ps'),second=scope.stageLoadTenseView('marker','today');
   assert.equal(requests,1);section='home';pending.shift()({ps:{markers:[]}});await Promise.all([first,second]);
@@ -791,7 +791,7 @@ test('Lazy lesson open coalesces clicks, guards navigation/profile changes, and 
     lmLessonVisibleToViewer:()=>true,accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),lmOpenLesson:id=>opened.push(id),
     lmApplyRemote(rows){scope.lmLibrary.materials=rows;},
     document:{addEventListener(){},getElementById:()=>root,querySelector:()=>({id:section})},window:{LearningMain:{notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const first=scope.stageOpenLesson(material),second=scope.stageOpenLesson(material);
   assert.equal(pending.length,1);assert.equal(root.inert,true);
   scope.lmLibrary.materials=[{...material}];
@@ -818,7 +818,7 @@ test('A cached lesson keeps a baseline so a new URL can be saved',async()=>{
     },
     authUser:{id:'teacher'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,canEditLessons:()=>true,
     lmLibrary:{materials:[material]},lmLessonVisibleToViewer:()=>true,lmOpenLesson(){},lmKeepLesson(){},lmPersist(){},lmShow(){},lmNote(){},lmSaveTimer:0,clearTimeout(){}};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');
   await scope.stageOpenLesson(material);
   const opened=scope.lmLibrary.materials[0];
@@ -845,12 +845,12 @@ test('Dropping a Lesson PDF saves the new block before the file upload',async()=
       async saveLesson(draft){calls.push('save');for(const item of draft.blocks)if(!item.stageBlockRevision)item.stageBlockRevision=1;draft.stageLessonBaseline={blocks:draft.blocks.map(item=>({id:item.id,expectedRevision:item.stageBlockRevision||0}))};},
       async uploadLessonFile(material,item,file){if(!item.stageBlockRevision)throw new Error('Save the lesson and block using Save draft first.');calls.push(file.name);item.fileId='sf_test';item.name=file.name;}
     }}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageUploadLessonFile('pdf',{name:'lesson.pdf',type:'application/pdf',size:12});
   assert.deepEqual(calls,['save','lesson.pdf']);assert.equal(lesson.blocks[0].fileId,'sf_test');
 });
 test('Staging word rendering preserves the displayed identity across catalog refresh',()=>{
-  const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
+  const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'));
   const start=source.indexOf('    function renderWord(w) {'),end=source.indexOf('    function setDayFlip(w, open) {',start);
   assert.ok(start>=0&&end>start);
   const elements={wordView:{},toDayFlip:{},back:{dataset:{}}};
@@ -1035,7 +1035,7 @@ test('Read-only R2 provider rejects malformed ranges before requests and forward
   assert.ok(sent[0].url.endsWith('/r2/buckets/learn-english-media/objects/songs/known'));assert.equal(source.health().d1AuthQueries,0);
 });
 test('Main source hooks are exact, syntax-valid, original files never rewritten',()=>{
-  const original=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),hooks=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8');
+  const original=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),hooks=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8');
   new Function(mainPreview(original,hooks));assert.equal(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),original);
   assert.match(mainPreview(original,hooks),/lmInsertBlockFront\(\{ id: lmId\(\), type: "rule", tab: "rules"[\s\S]{0,500}Rule added\. Click Save draft or Publish\./);
   assert.throws(()=>mainPreview(original.replace('function saveCardEdit(host)','function movedSaveCardEdit(host)'),hooks));
@@ -1047,7 +1047,7 @@ test('Stage PDF viewer renders with same-origin pinned assets and rejects unsafe
   const elements=new Map(['pdfTitle','pdfStatus','pdfPages'].map(id=>[id,{children:[],replaceChildren(){this.children=[];},append(...nodes){this.children.push(...nodes);}}]));
   const notices=[],scope={URL,location:{origin:'http://127.0.0.1:8000'},window:{LearningMain:{notice:(...v)=>notices.push(v)}},
     document:{addEventListener(){},getElementById:id=>elements.get(id),createElement:tag=>({tag,style:{},getContext:()=>({})})},visit:view=>{scope.view=view;}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   let options;
   scope.fixturePdf={getDocument:value=>{options=value;return {destroy:async()=>{},promise:Promise.resolve({numPages:1,getPage:async()=>({getViewport:({scale})=>({width:300*scale,height:160*scale}),render:()=>({promise:Promise.resolve()}),cleanup(){}})})};}};
   runInNewContext('stageLoadPdf=async()=>fixturePdf;',scope);
@@ -1072,7 +1072,7 @@ test('PDF assets expose only renderer/worker/maps/fonts/decoders, never traversa
 test('Stage statistics separate Learning activity from history and hide unsupported global filters',()=>{
   const elements={statsRole:{hidden:false,value:'USER'},statsUser:{hidden:false,value:'other'},statsSub:{}};
   const scope={viewAccount:null,document:{addEventListener(){},getElementById:id=>elements[id]}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')+'\nstageStatsIntro();',scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8')+'\nstageStatsIntro();',scope);
   assert.equal(elements.statsRole.hidden,true);assert.equal(elements.statsUser.hidden,true);
   assert.equal(elements.statsRole.value,'');assert.equal(elements.statsUser.value,'');
   assert.match(elements.statsSub.textContent,/Choose a period and a view/);
@@ -1080,7 +1080,7 @@ test('Stage statistics separate Learning activity from history and hide unsuppor
 test('R3 answer coverage: all checked game types except Flip, no-card questions and teacher inspection',()=>{
   const events=[],answers=[],scope={authUser:{id:'student',role:'USER'},accountReady:true,viewSwitching:false,viewAccount:null,
     document:{addEventListener(){}},window:{LearningMain:{event:(...args)=>events.push(args),answer:(...args)=>answers.push(args),notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   for(const type of QUIZ_TYPES)scope.stageNoteAnswer({type,card:{en:'Word'}},true);
   assert.equal(events.length,QUIZ_TYPES.length-1);assert.equal(answers.length,events.length);
   scope.stageNoteAnswer({type:'Choice'},false);assert.deepEqual(events.at(-1),['answer','Choice','miss']);assert.equal(answers.length,QUIZ_TYPES.length-1);
@@ -1089,14 +1089,14 @@ test('R3 answer coverage: all checked game types except Flip, no-card questions 
 test('R3 generated dictionary quizzes count changed attempts once and skip foreign profiles',()=>{
   const events=[],scope={madeItem:{stageId:'card'},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
     trackEvent:(...args)=>events.push(args),document:{addEventListener(){}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stageMadeAnswer('Type','en',false,'bad');scope.stageMadeAnswer('Type','en',false,'bad');scope.stageMadeAnswer('Type','en',true,'good');
   assert.equal(events.length,2);scope.viewAccount={id:'other'};scope.stageMadeAnswer('Choice','en',true,'answer');assert.equal(events.length,2);
 });
 test('R3 duration tracks actual day quiz screen, flushes final visible seconds and excludes managed study',()=>{
   const events=[];let now=1000;const scope={Date:{now:()=>now},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
     document:{hidden:false,addEventListener(){},querySelector:()=>({id:'dayq'})},window:{LearningMain:{event:(...args)=>events.push(args),notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stageRecordTime();now=11000;scope.document.hidden=true;scope.stageRecordTime(true);assert.deepEqual(events[0],['duration','study','',10]);
   now=21000;scope.stageRecordTime(true);assert.equal(events.length,1);
   scope.document.hidden=false;scope.viewAccount={id:'foreign'};scope.stageRecordTime();now=31000;scope.stageRecordTime(true);assert.equal(events.length,1);
@@ -1104,7 +1104,7 @@ test('R3 duration tracks actual day quiz screen, flushes final visible seconds a
 test('R3 confirmed lesson response counters use server score/marks only, never another profile',()=>{
   const listeners={},events=[],scope={authUser:{id:'student'},viewAccount:null,viewSwitching:false,lmState:null,trackEvent:(...args)=>events.push(args),
     document:{addEventListener:(key,fn)=>listeners[key]=fn}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const saved=detail=>listeners['learning-personal-saved']({detail});
   saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,score:'1 / 2',items:[{},{}]}}});assert.deepEqual(events,[]);
   saved({job:{kind:'response',actorId:'student'},result:{response:{checked:true,items:[{marked:true,correct:true}]}}});assert.deepEqual(events,[['answer','Lesson exercise','ok']]);
@@ -1116,7 +1116,7 @@ test('R3 statistics select the managed endpoint and ignore late profile response
   const scope={URLSearchParams,statsToken:0,viewGen:1,authUser:{role:'ADMIN'},accountReady:true,viewSwitching:false,viewAccount:{id:'b'.repeat(32)},
     renderStats:()=>'<p>confirmed</p>',accountFetch:path=>{paths.push(path);return new Promise(resolve=>pending.push(resolve));},
     document:{addEventListener(){},getElementById:id=>elements[id]}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const load=scope.stagePaintStats();assert.match(paths[0],/^\/api\/admin\/users\/b+\/stats\?/);
   pending.shift()({statisticsSource:'learning-activity',legacyHistoryIncluded:false});await load;assert.match(elements.statsBody.innerHTML,/confirmed/);
   const late=scope.stagePaintStats();scope.viewGen++;scope.viewAccount=null;pending.shift()({statisticsSource:'learning-activity',legacyHistoryIncluded:false});await late;assert.equal(elements.statsBody.textContent,'Loading Learning activity…');
@@ -1146,7 +1146,7 @@ test('R4 dictionary hydration preserves profile/place and ignores responses afte
   const scope={authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:1,loadAdded:()=>rows,rememberAdded:value=>rows=value,
     show(){},renderMade:value=>painted.push(value),document:{addEventListener(){},getElementById:()=>box,querySelector:()=>({id:section})},
     window:{LearningMain:{register(){},notice(){},dictionary:()=>new Promise(resolve=>pending.push(resolve))}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const full={en:'Word',stageId:'card',stageRevision:1,data:{links:{dictionary:'https://example.test'},usages:[]}};
   const first=scope.stageHydrateMade(item);pending.shift()(full);await first;assert.equal(painted.length,1);assert.equal(rows[0].stageDataDeferred,false);assert.equal(rows[0].place,'mine');
   const switched=scope.stageHydrateMade(item);scope.viewGen++;pending.shift()(full);await switched;assert.equal(painted.length,1);
@@ -1158,7 +1158,7 @@ test('R5 attachment removal updates editor only after server success and ignores
   const scope={lmState:material,viewGen:1,viewAccount:null,viewSwitching:false,lmFiles:{},canEditLessons:()=>true,lmBlock:()=>block,
     lmKeepLesson(){},lmPersist(){},lmRenderEditor(){},lmNote:value=>notes.push(value),document:{addEventListener(){},getElementById:()=>({})},
     window:{LearningMain:{detachLessonFile:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async fn=>{try{await fn();}catch{}}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const failed=scope.stageClearLessonFile('image');assert.equal(block.fileId,'saved');pending.shift().reject(Error('offline'));await failed;assert.equal(notes.length,0);
   const done=scope.stageClearLessonFile('image');pending.shift().resolve({});await done;assert.equal(notes.length,1);
   const late=scope.stageClearLessonFile('image');scope.lmState={id:'other'};pending.shift().resolve({});await late;assert.equal(notes.length,1);
@@ -1202,7 +1202,7 @@ test('Expected sign-in failures do not show a notice or file bugs, and logout do
       if(path==='/api/logout')return {ok:true,json:async()=>({ok:true})};
       return {ok:false,status:failure,json:async()=>({error:failure===401?'Sign in first.':'Failed.'})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');
   await assert.rejects(window.LearningMain.fetch('/api/me/themes'),e=>e.status===401);
   assert.equal(banner.hidden,true);assert.equal(bugs.length,0);
@@ -1232,7 +1232,7 @@ test('Offline UI status cannot claim real Learning acceptance',async()=>{
   const scope={window,crypto,location:{reload(){}},sessionStorage:{removeItem(){}},localStorage:{getItem(){return null;},removeItem(){}},
     document:{addEventListener(){},getElementById:id=>id==='learning-main-status'?status:id==='learning-main-banner'?banner:null},
     fetch:async()=>({ok:true,json:async()=>({user:{id:'fixture'}})})};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');assert.match(status.textContent,/автономной SQLite/);assert.doesNotMatch(status.textContent,/Learning/);
   banner.dataset.offlineFixture='false';window.LearningMain.notice('Подтверждено тестовой Learning.');assert.match(status.textContent,/Learning/);
 });
@@ -1242,7 +1242,7 @@ test('Production notices hide success, show informational errors without action 
     const scope={window,crypto,sessionStorage:{removeItem(){}},
       localStorage:{getItem:key=>key==='learning-main-pending-v3'?JSON.stringify(pending):null,removeItem(){}},
       document:{addEventListener(){},getElementById:id=>({'learning-main-banner':banner,'learning-main-status':status,'learning-main-retry':retry}[id]||null)}};
-    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+    runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
     window.LearningMain.notice('Saving');assert.equal(banner.hidden,true);
     window.LearningMain.notice('Network error',true);assert.equal(banner.hidden,false);
     assert.equal(status.textContent,'Network error');assert.equal(retry.hidden,true);
@@ -1296,7 +1296,7 @@ test('Theme and custom-theme writes stay immutable in flight; refresh cannot ove
         if(sent.length===1)await new Promise(resolve=>release=resolve);
         return {ok:true,json:async()=>({revision:body.expectedRevision+1,...(kind==='theme'?{theme:body.theme}:{themes:body.themes})})};
       }};
-    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+    runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
     await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
     const first=kind==='theme'?'user-first':[{id:'user-first',photo:'first'}],last=kind==='theme'?'user-last':[{id:'user-last',photo:'last'}];
     window.LearningMain[kind](first);const draining=window.LearningMain.flushPersonal();
@@ -1329,13 +1329,13 @@ test('Theme queue coalesces clicks, retries the same operation and drains before
       }
       assert.equal(path,'/api/logout');return {ok:true,json:async()=>({ok:true})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
   window.LearningMain.theme('mint');window.LearningMain.theme('dark');
   await window.LearningMain.flushPersonal();assert.equal(sent.length,1);assert.equal(sent[0].theme,'dark');assert.equal(sent[0].expectedRevision,3);
   await window.LearningMain.fetch('/api/logout',{method:'POST',body:'{}'});
   assert.equal(sent.length,2);assert.deepEqual(sent[0],sent[1]);assert.equal(saved.has('learning-main-personal-pending-v3'),false);
-  const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'));
+  const source=mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'));
   assert.ok(!source.includes('return accountFetch("/api/me/state", { method: "PUT", body: JSON.stringify({ op: "put-setting", key: "theme", value: theme })'));
   assert.ok(source.includes('change.key==="cardQuizzes")return;'));
 });
@@ -1352,7 +1352,7 @@ test('A paused theme write preserves its replay identity before saving the lates
       const body=JSON.parse(options.body);sent.push(body);
       return {ok:true,json:async()=>({theme:body.theme,revision:1})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
   window.LearningMain.theme('dark');
   await window.LearningMain.flushPersonal();
@@ -1370,7 +1370,7 @@ test('A pending theme intent survives a newer server revision instead of being s
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
       return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:58,stats:{theme:'almond'}})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
   assert.deepEqual(sent,['/api/me','/api/me/state']);
   assert.equal(saved.has('learning-main-personal-pending-v3'),true);
@@ -1390,7 +1390,7 @@ test('A theme conflict reloads the revision and saves once',async()=>{
       if(conflict){conflict=false;return {ok:false,status:409,json:async()=>({error:'The record changed. Reload it before editing.'})};}
       return {ok:true,json:async()=>({theme:body.theme,revision:body.expectedRevision+1})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
   window.LearningMain.theme('champagne');
   await window.LearningMain.flushPersonal();
@@ -1403,7 +1403,7 @@ test('Static catalog IDs initialize before edits; broken login never falls back 
   const listeners=new Map(),card={stageId:'card_static',stageRevision:1,en:'gardening',ru:'садоводство'},window={LESSON_DATA:{words:[card]}};
   const context={window,crypto,console,location:{hostname:'learn-english-learning-integrated-test.east-tarsal.workers.dev'},sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,removeItem(){}},
     document:{addEventListener:(event,fn)=>listeners.set(event,fn),getElementById:()=>({addEventListener(){}})}};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   listeners.get('DOMContentLoaded')();
   assert.equal(window.LearningMain.cardForProgress(card.stageId).stageId,'card_static');
   assert.equal(window.LearningMain.mediaAllowed(),true);
@@ -1421,7 +1421,7 @@ test('Open form baseline survives later registry/state refresh',async()=>{
       sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({id:path.split('/').at(-1),ru:'saved',revision:3})};
     }
   };
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.LearningMain;await bridge.fetch('/api/me');
   const form={stageId:1,stageRevision:1,stageScope:'shared',en:'competitive',ru:'before'};
   bridge.register(form);bridge.register({...form,stageRevision:2,ru:'other editor'});
@@ -1436,7 +1436,7 @@ test('Successful login clears a stale provider error without reading or persisti
     localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v),removeItem:k=>memory.delete(k)},
     document:{addEventListener(){},getElementById:id=>id==='learning-main-status'?status:null},
     fetch:async()=>({ok:!fail,status:fail?503:200,json:async()=>fail?{error:'Wrangler login expired.'}:{user:{id:'student',role:'USER'}}})};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   await assert.rejects(window.LearningMain.fetch('/api/login'),/Wrangler login expired/);assert.equal(status.classList.bad,true);
   fail=false;await window.LearningMain.fetch('/api/login');assert.equal(status.classList.bad,false);assert.match(status.textContent,/Вход подтверждён/);assert.equal(memory.size,0);
 });
@@ -1452,7 +1452,7 @@ test('Personal card bridge carries only ID/place/versions and retains the exact 
       sent.push({path,method:options.method,body:JSON.parse(options.body)});if(fail){fail=false;throw new Error('uncertain');}
       return {ok:true,json:async()=>({revision:5,card:{stageId:1,stageRevision:1,word:'competitive'}})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.LearningMain;await bridge.fetch('/api/me');await bridge.fetch('/api/me/state');
   const found=await bridge.findCard('competitive');fail=true;
   await assert.rejects(bridge.linkCard(found,'mine'));
@@ -1470,7 +1470,7 @@ test('Personal card hooks: USER removal only, acknowledgement before local updat
     window:{LearningMain:{notice:(...args)=>notices.push(args),perform:async action=>action(),findCard:async()=>({id:1}),
       linkCard:async()=>{if(fail)throw new Error('Not saved');return {revision:1,card:{stageId:1,word:'test',ru:'тест',place:'mine',stageLinksRevision:1}};},
       unlinkCard:async card=>{removed=card;if(fail)throw new Error('Not removed');return {revision:2};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const input={value:'test'},status={};
   await assert.rejects(scope.stageSaveWord('mine',input,status,{},true));assert.equal(list.length,0);assert.equal(input.value,'test');assert.equal(rendered,null);
   fail=false;await scope.stageSaveWord('mine',input,status,{},true);assert.equal(list.length,1);assert.equal(input.value,'');
@@ -1490,7 +1490,7 @@ test('A word with no saved card is looked up and stored as a new personal card',
     document:{addEventListener(){}},window:{LearningMain:{notice(){},perform:async action=>action(),
       findCard:async()=>{throw new Error(missing);},
       newCard:async(id,en,ru)=>({revision:3,card:{stageId:id,word:en,ru,place:'mine',stageLinksRevision:3}})}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const input={value:'vulnerable'},status={};
   await scope.stageSaveWord('mine',input,status,{},true);
   assert.equal(calls[0],'/lookup?word=vulnerable');assert.equal(list.length,1);assert.equal(list[0].ru,'уязвимый');
@@ -1502,7 +1502,7 @@ test('Empty own My words exposes the first-add form without altering a foreign o
   let list=[],painted=0;
   const scope={document:{addEventListener(){}},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,addGroup:'',
     loadAdded:()=>list,renderAddedList:()=>{painted++;}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.renderAddedList();assert.equal(scope.addGroup,'My words');assert.equal(painted,1);
   scope.addGroup='';list=[{stageId:1,place:'phrasal'}];scope.renderAddedList();assert.equal(scope.addGroup,'');
   list=[];scope.viewAccount={id:'foreign'};scope.renderAddedList();assert.equal(scope.addGroup,'');
@@ -1558,7 +1558,7 @@ test('Browser personal queue: coalesced inputs, editor CAS baseline, sequential 
         if(drop){drop=false;throw new Error('Response lost');}
         return {ok:true,json:async()=>({revision:body.expectedRevision+1,id:'card',response:body.response,progress:{}})};
       }};
-    runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+    runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
     listeners.get('DOMContentLoaded')();return window.LearningMain;
   }
   const settle=async()=>{for(let i=0;i<25;i++)await Promise.resolve();};
@@ -1639,7 +1639,7 @@ test('Lyrics recheck accepts a DOM string ID, saves the edited lyrics and analyz
   const song={id:8,stageId:8,stageScope:'profile',stageRevision:1,lyrics:'Old lyrics'},saved=[];
   const status={textContent:''};
   const context={document:{addEventListener(){},getElementById:()=>status,querySelector:()=>({value:'New lyrics with give up and spill the beans.'})},window:{LearningMain:{perform:fn=>fn(),saveLibrary:async(item,kind,changes)=>{saved.push({id:item.id,kind,changes});return {item:{...item,...changes,stageRevision:2}};},notice:message=>assert.fail(message)}},authUser:{id:'student',role:'USER'},accountReady:true,viewAccount:null,viewSwitching:false,viewGen:0,pendingEditFile:null,editFileSent:false,loadSongs:()=>[song],accountFetch:async()=>({})};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   let analyzed;
   context.stageInstallLibrary=()=>{};context.renderUserSong=()=>{};context.show=()=>{};context.stageAnalyzeSong=async song=>{analyzed=song;};
   await context.stageStoreSong('8');
@@ -1649,7 +1649,7 @@ test('Main response hooks intercept the old lesson-wide save and submit only per
   const sent=[],listeners=new Map(),blocks=[{id:1,type:'task',stageBlockRevision:1,stageResponseRevision:0},{id:2,type:'quiz',stageBlockRevision:1,items:[{answer:1,options:['no','yes'],picked:1}]}];
   const context={document:{addEventListener:(type,fn)=>{if(fn.name==='stageResponseEvent'||!listeners.has(type))listeners.set(type,fn);}},authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,
     lmState:{id:'lesson',blocks},window:{LearningMain:{response:(...args)=>sent.push(args),notice:()=>assert.fail('Unexpected notice')}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   let intercepted=0;
   listeners.get('input')({type:'input',target:{closest:()=>({dataset:{response:'1'},value:'private draft',hasAttribute:()=>false})},stopPropagation:()=>intercepted++});
   const input={dataset:{quizCheck:'2'},hasAttribute:key=>key==='data-quiz-check'};
@@ -1659,7 +1659,7 @@ test('Main response hooks intercept the old lesson-wide save and submit only per
   assert.equal(sent[1][3],true);assert.ok(!JSON.stringify(sent[1][2]).includes('answer'));
 });
 test('Home weak count/list: visible unique words, multiple quizzes once, cleared/missing rows excluded; other buckets unchanged',()=>{
-  const hooks=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8');
+  const hooks=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8');
   const counter={textContent:'0'},rows=[{en:'beta'},{en:'alpha'},{en:'alpha'},{en:'cleared'},{en:'no misses'}];
   const mistakes={a:{en:' ALPHA ',type:'Type',misses:2},b:{en:'alpha',type:'Choice',misses:1},
     c:{en:'beta',type:'Type',misses:1},d:{en:'cleared',misses:3,cleared:true},e:{en:'no misses',misses:0},f:{en:'foreign or deleted',misses:2}};
@@ -1680,7 +1680,7 @@ test('Acknowledged progress refreshes Home and the open Weak cards list without 
     loadMistakeMap:()=>JSON.parse(memory.get('mistakes')||'{}'),localStorage:{setItem:(k,v)=>memory.set(k,v)},
     paintHomeStats:()=>home++,paintStat:()=>list++,
     document:{addEventListener:(type,fn)=>listeners.set(type,fn),getElementById:id=>{assert.equal(id,'cardstat');return {classList:{contains:name=>name==='on'}};}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const saved=listeners.get('learning-personal-saved'),job={kind:'answer',actorId:'student'};
   saved({detail:{job,result:{type:'Type',progress:{en:'fixture',misses:1,streak:0}}}});
   assert.equal(home,1);assert.equal(list,1);assert.equal(JSON.parse(memory.get('mistakes'))['fixture|Type'].misses,1);
@@ -1703,7 +1703,7 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
       if(dropped){dropped=false;throw new Error('Lost response');}
       return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:1,revision:2},{id:2,revision:2}]})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.LearningMain;await bridge.fetch('/api/me');
   const lesson=(await bridge.fetch('/api/lessons')).materials[0];
   lesson.title='My edit';remote.stageRevision=9;await bridge.fetch('/api/lessons');
@@ -1734,7 +1734,7 @@ test('An existing lesson without a baseline loads the server copy and then saves
       const body=JSON.parse(options.body);sent.push(body);
       return {ok:true,json:async()=>({id:'lesson',revision:body.expectedRevision+1,blocks:[{id:3,revision:2},{id:9,revision:1}]})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');
   const lesson={...structuredClone(remote),title:'Edited',blocks:[...remote.blocks,{type:'link',title:'Site',url:'https://example.com/lesson'}]};
   await window.LearningMain.saveLesson(lesson);
@@ -1754,7 +1754,7 @@ test('A file upload keeps the server block revision when the editor lost it',asy
       sent.push(Object.fromEntries(query));
       return {ok:true,json:async()=>({revision:5,block:{revision:4,content:{title:'',fileId:'sf',name:'lesson.pdf',hasFile:true}}})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/lessons');
   delete material.blocks[0].stageBlockRevision;
   const file={type:'application/pdf',name:'lesson.pdf',size:4,arrayBuffer:async()=>new Uint8Array([1,2,3,4]).buffer};
@@ -1770,7 +1770,7 @@ test('Lesson word insertion sends one linked block, not dictionary or unchanged 
       if(path.startsWith('/api/cards?'))return {ok:true,json:async()=>[{id:1,en:'competitive',ru:'before',scope:'shared',revision:1}]};
       const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:1,revision:1},{id:9,revision:1}]})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');const lesson=(await window.LearningMain.fetch('/api/lessons')).materials[0];
   lesson.published=true;lesson.blocks.push({type:'wordcard',word:'competitive',ru:'before',data:{dictionary:'Huge'.repeat(10000)}});
   await window.LearningMain.saveLesson(lesson);
@@ -1789,7 +1789,7 @@ test('Lesson rule insert sends a rules-tab block without catalog text',async()=>
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
       const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:'rule1',revision:1}]})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');const lesson=(await window.LearningMain.fetch('/api/lessons')).materials[0];
   lesson.blocks.push({id:'rule1',type:'rule',tab:'rules',topic:'predictions',compare:false,name:'Predictions',collapsed:false});
   await window.LearningMain.saveLesson(lesson);
@@ -1809,7 +1809,7 @@ test('Lesson block removal sends deletes and does not resurrect the id in order'
       if(path==='/api/lessons'&&!options.method)return {ok:true,json:async()=>({materials:[structuredClone(remote)]})};
       const body=JSON.parse(options.body);sent.push({path,body});return {ok:true,json:async()=>({revision:body.expectedRevision+1,blocks:[{id:1,revision:1}]})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await window.LearningMain.fetch('/api/me');const lesson=(await window.LearningMain.fetch('/api/lessons')).materials[0];
   lesson.blocks=lesson.blocks.filter(block=>block.id!==2);
   await window.LearningMain.saveLesson(lesson);
@@ -1822,7 +1822,7 @@ test('Lesson card lookup retains the shared ID and never uses the external dicti
     lmTab:()=> 'words',lmId:()=> 'new_word',lmInsertBlockFront:block=>blocks.push(block),lmRenderEditor(){},lmSchedule(){},
     document:{addEventListener(){},getElementById:id=>({lmWordInput:input,lmWordStatus:status,lmWordGo:button}[id])},
     window:{LearningMain:{lessonCards:async()=>[{id:1,en:'competitive'}],dictionary:async card=>({en:'competitive',ru:'before',stageId:card.stageId,stageRevision:2,data:{uk:'ipa'}}),notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   await context.stageLookupLessonWord();assert.equal(blocks.length,1);assert.equal(blocks[0].stageId,1);assert.equal(blocks[0].stageRevision,2);assert.equal(button.disabled,false);
 });
 test('New lesson words fall back to shared dictionary creation before adding an ID-linked block',async()=>{
@@ -1830,7 +1830,7 @@ test('New lesson words fall back to shared dictionary creation before adding an 
     lmTab:()=> 'words',lmId:()=> 'new_word',lmInsertBlockFront:block=>blocks.push(block),lmRenderEditor(){},lmSchedule(){},
     document:{addEventListener(){},getElementById:id=>({lmWordInput:{value:'new word'},lmWordStatus:{},lmWordGo:{}}[id])},
     window:{LearningMain:{lessonCards:async()=>[],lookupLessonCard:async word=>{calls.push(word);return {id:'created-shared'};},dictionary:async card=>({en:'new word',ru:'translation',stageId:card.stageId,stageRevision:1}),notice(){}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   await context.stageLookupLessonWord();assert.deepEqual(calls,['new word']);assert.equal(blocks[0].stageId,'created-shared');assert.equal(blocks[0].stageScope,'shared');
 });
 test('Main HTTP lesson routes: teacher create/edit/delete, real-role denial and no whole-library PUT',async()=>{
@@ -1881,7 +1881,7 @@ test('Lesson buttons publish only after acknowledgement; failed Save keeps the o
     lmShow:mode=>shown.push(mode),lmNote:message=>notes.push(message),
     document:{addEventListener(){},getElementById:()=>({})},
     window:{LearningMain:{saveLesson:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async(action)=>{try{await action();}catch{};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const save=context.stageSaveLesson(true);assert.equal(context.lmState.published,false);assert.equal(shown.length,0);
   pending.shift().resolve({});await save;assert.equal(context.lmState.published,true);assert.deepEqual(shown,['preview']);
   const failed=context.stageSaveLesson(false);pending.shift().reject(new Error('Network down'));await failed;
@@ -1894,7 +1894,7 @@ test('Managed add uses target endpoint, waits for acknowledgement and drops late
     loadAdded:()=>list,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},
     document:{addEventListener(){}},window:{LearningMain:{findCard:async()=>({id:1,revision:1}),
       linkManagedCard:(...args)=>{calls.push(args);return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const input={value:'Word'},save=context.stageSaveWord('mine',input,{},null,false);
   await new Promise(resolve=>setImmediate(resolve));assert.equal(list.length,0);assert.equal(calls[0][0],context.viewAccount.id);
   pending.shift().resolve({card:{stageId:1,place:'mine'},revision:1});await save;assert.equal(list.length,1);assert.equal(input.value,'');
@@ -1908,7 +1908,7 @@ test('Managed private card UI exposes teacher edit without removal and ignores l
     madeItem:null,canEditLessons:()=>false,canEditAdded:()=>true,actionIcon:()=>'<svg></svg>',
     loadAdded:()=>[card],rememberAdded(){},paintAdded:()=>paints.push('paint'),addedIndexOf:()=>0,renderMade(){},
     document:{addEventListener(){}},window:{LearningMain:{editManagedCard:()=>new Promise(resolve=>pending.push(resolve)),perform:async action=>action()}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   assert.match(context.stageAddedActions(card),/data-edit-toggle/);assert.doesNotMatch(context.stageAddedActions(card),/data-card-delete/);
   context.authUser.role='DEVELOPER';assert.match(context.stageAddedActions(card),/data-card-delete/);context.authUser.role='ADMIN';
   assert.match(context.stageAddedActions({...card,stageScope:'shared'}),/data-edit-toggle/);
@@ -1924,7 +1924,7 @@ test('Managed removal waits for acknowledgement, filters exact ID/place and igno
   const context={authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,madeItem:null,
     loadAdded:()=>list,addedIndexOf:()=>0,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},document:{addEventListener(){}},
     window:{LearningMain:{unlinkManagedCard:(account,card)=>{removed.push({account,card});return new Promise((resolve,reject)=>pending.push({resolve,reject}));},perform:async action=>{try{await action();}catch{};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const host={dataset:{editKind:'added',editId:'0'}};
   const failed=context.stageDeleteDefinition(host);pending.shift().reject(Error('offline'));await failed;assert.equal(list.length,2);
   const success=context.stageDeleteDefinition(host);assert.equal(list.length,2);pending.shift().resolve({revision:2});await success;
@@ -1939,7 +1939,7 @@ test('Managed text UI waits for acknowledgement and ignores a response after lea
     document:{addEventListener(){},getElementById:id=>elements[id]},window:{LearningMain:{
       saveManagedText:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
       perform:async action=>{try{await action();}catch{};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   context.stageInstallLibrary=value=>saved.push(value);
   const success=context.stageStoreText(false);assert.equal(saved.length,0);
   pending.shift().resolve({item:{...item,title:'New'}});await success;assert.equal(saved.length,1);
@@ -1957,7 +1957,7 @@ test('A text expression uses the dedicated card route and updates the list only 
     document:{addEventListener(){},getElementById:id=>id==='textReadStatus'?status:null,querySelector:()=>null},
     window:{...baseWindow,LearningMain:{findCard:async()=>{throw Object.assign(new Error('missing'),{code:'CARD_NOT_FOUND'});},
       newCard:(word,ru,place)=>new Promise(resolve=>{written={word,ru,place};resolveWrite=resolve;}),perform:action=>action()}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const saving=scope.stageStoreTextExpression({type:'PHRASAL_VERB'}, {},{word:'give up',ru:'сдаться',place:'phrasal',fromText:true});
   await new Promise(resolve=>setImmediate(resolve));assert.equal(list.length,0);
   resolveWrite({revision:1,card:{word:'give up',ru:'сдаться',place:'phrasal',stageId:10,stageScope:'profile'}});
@@ -1980,7 +1980,7 @@ test('A text expression uses the dedicated card route and updates the list only 
   };
   await scope.stageStoreTextExpression({type:'WORD'},{},{word:'competitive',ru:'конкурентный',place:'text',fromText:true});
   assert.equal(list[0].stageId,13,'An existing My words entry must not block saving into Text');
-  assert.match(mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8')),/return stageStoreTextExpression\(expr,button,item\)/);
+  assert.match(mainPreview(readFileSync(new URL('../preview.js',import.meta.url),'utf8'),readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8')),/return stageStoreTextExpression\(expr,button,item\)/);
 });
 test('Text expressions classify into Text, Phrasal verbs or Idioms, never My words',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
@@ -2007,7 +2007,7 @@ test('Song and text lists show hide/delete controls and wait for server acknowle
     localStorage:{setItem(_key,value){texts=JSON.parse(value);},getItem:()=>null,removeItem(){}},
     esc:value=>String(value),songRow:(_n,title)=>'<button>'+title+'</button>',songStat:()=>({}),statsLine:()=> 'Stats',textAbout:()=> 'Stats',
     paintLyrics(){},paintTextCount(){},applyCardSearch(){},document:{addEventListener(){},getElementById:id=>boxes[id]||null,querySelector:()=>({})}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stageInstallLibrary=(item,kind)=>{if(kind==='song')songs=[item];else texts=[item];};
   scope.stageRemoveLibrary=(item,kind)=>{if(kind==='song')songs=songs.filter(row=>row.id!==item.id);else texts=texts.filter(row=>row.id!==item.id);};
   scope.stagePaintLibraryList('song');scope.stagePaintLibraryList('text');
@@ -2024,7 +2024,7 @@ test('R2 managed text archive waits for server, preserves failures and ignores s
     confirm:()=>true,
     TEXT_KEY:'texts',loadTexts:()=>list,localStorage:{setItem:(key,value)=>list=JSON.parse(value)},paintTextCount(){},renderTextList(){},show(){},
     document:{addEventListener(){}},window:{LearningMain:{archiveManagedText:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),perform:async fn=>{try{await fn();}catch{}}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const failed=context.stageArchiveText('one');assert.equal(list.length,2);pending.shift().reject(Error('offline'));await failed;assert.equal(list.length,2);
   const success=context.stageArchiveText('one');assert.equal(list.length,2);pending.shift().resolve({deleted:true});await success;assert.deepEqual(list.map(x=>x.id),['two']);
   const late=context.stageArchiveText('two');context.viewGen++;pending.shift().resolve({deleted:true});await late;assert.equal(list.length,1);
@@ -2034,7 +2034,7 @@ test('R2 developer managed song save waits for acknowledgement, excludes teacher
   const context={crypto,authUser:{role:'DEVELOPER'},accountReady:true,viewAccount:{id:'b'.repeat(32)},viewGen:1,viewSwitching:false,
     pendingLyricFile:null,pendingEditFile:null,loadSongs:()=>[],trackEvent(){throw Error('No learner event');},renderUserSong(){},show(){},
     document:{addEventListener(){},getElementById:id=>elements[id]},window:{LearningMain:{notice(){},saveManagedLibrary:(...args)=>{calls.push(args);return new Promise(resolve=>pending.push(resolve));},perform:async fn=>fn()}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);context.stageInstallLibrary=item=>saved.push(item);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);context.stageInstallLibrary=item=>saved.push(item);
   const success=context.stageStoreSong();assert.equal(saved.length,0);assert.equal(calls[0][0],context.viewAccount.id);assert.equal(calls[0][2],'song');pending.shift()({item:{id:'saved'}});await success;assert.equal(saved.length,1);
   context.authUser.role='ADMIN';context.stageStoreSong();assert.equal(calls.length,1);
   context.authUser.role='DEVELOPER';const late=context.stageStoreSong();context.viewGen++;pending.shift()({item:{id:'late'}});await late;assert.equal(saved.length,1);
@@ -2053,7 +2053,7 @@ test('Adding a song asks the lyric analyzer and stores a new expression card',as
       newCard:async(id,en,ru)=>({revision:1,card:{stageId:id,word:en,ru,place:'mine'}}),
       saveLibrary:async(item,kind,changes)=>({item:{...item,...changes,stageRevision:2},changes})
     }}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   context.stageInstallLibrary=()=>{};
   context.stageStampLinks=()=>{};
   context.renderUserSong=()=>{};
@@ -2074,7 +2074,7 @@ test('Managed lesson visibility updates local flags only after acknowledgement a
     paintLmDays:()=>paints++,document:{addEventListener(){}},window:{LearningMain:{
       setManagedLessonAccess:(...args)=>{calls.push(args);return new Promise((resolve,reject)=>pending.push({resolve,reject}));},
       perform:async action=>{try{await action();}catch{};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
   const save=context.stageHideLesson('lesson');assert.equal(hidden.length,0);assert.equal(paints,0);
   assert.equal(calls[0][0],context.viewAccount.id);assert.equal(calls[0][1],'lesson');
   assert.equal(calls[0][3].personalHidden,true);assert.equal(calls[0][3].allowHidden,false);
@@ -2089,7 +2089,7 @@ test('Test banner reserves its actual wrapped height so editor buttons are not c
   const context={window,crypto,console,sessionStorage:{removeItem(){}},localStorage:{getItem:()=>null,removeItem(){}},
     ResizeObserver:class{constructor(fn){resize=fn;}observe(el){assert.equal(el,banner);}},
     document:{addEventListener:(event,fn)=>listeners.set(event,fn),getElementById:id=>id==='learning-main-banner'?banner:{addEventListener(){}},documentElement:{style:{setProperty:(key,value)=>offsets.push([key,value])}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),context);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   listeners.get('DOMContentLoaded')();assert.deepEqual(offsets.at(-1),['--learning-banner-offset','162px']);
   height=190;resize();assert.deepEqual(offsets.at(-1),['--learning-banner-offset','202px']);
   assert.match(readFileSync(new URL('../staging/main-stage.css',import.meta.url),'utf8'),/scroll-padding-top:var\(--learning-banner-offset/);
@@ -2169,7 +2169,7 @@ test('Session cache restores catalogs on refresh and All words omits lyrics and 
     loadSongs:()=>[{id:'s1'}],loadTexts:()=>[],writeSongs(){},rememberAdded(){},paintDeckCounts(){},paintHomeStats(){}});
   const hooks={window,LESSON_DATA:data,IRREGULAR:window.IRREGULAR,loadAdded:window.loadAdded,loadSongs:window.loadSongs,loadTexts:window.loadTexts,writeSongs:window.writeSongs,rememberAdded:window.rememberAdded,paintDeckCounts:window.paintDeckCounts,paintHomeStats:window.paintHomeStats,
     document:{addEventListener(){},getElementById:()=>({textContent:''}),querySelector:()=>null}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),hooks);
   hooks.stageRestoreSession();
   assert.equal(data.words[0].en,'day');
 });
@@ -2186,7 +2186,7 @@ test('Block cache shows saved lyrics and requests only a missing song',async()=>
   const hooks={window,authUser:{id:'student'},viewAccount:null,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadSongs:()=>songs,loadTexts:()=>[],writeSongs(){},
     accountFetch:async path=>{calls.push(path);return {items:[{kind:'song',id:'b',stageId:'song2',stageRevision:1,title:'Silver',artist:'',lyrics:'no',videoUrl:'',musicUrl:'',marks:{}}]};},
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),hooks);
   hooks.stageRestoreSession();
   assert.equal(songs[0].lyrics,'la');assert.equal(songs[0].videoUrl,'https://example.com/a');assert.equal(songs[0].stageLyricsDeferred,false);
   await hooks.stageHydrateStep();
@@ -2203,7 +2203,7 @@ test('A saved card opens from the cache when the session is not ready',async()=>
     show:id=>shown.push(id),renderMade:value=>painted.push(value),loadAdded:()=>[],
     document:{addEventListener(){},getElementById:()=>({}),querySelector:()=>({id:'made'})},
     window:{LearningMain:{register(){},notice(){},dictionary(){throw new Error('should not fetch');}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageHydrateMade({word:'',en:'mine',stageId:'m1',stageRevision:1,stageDataDeferred:true,place:'mine'});
   assert.deepEqual(shown,['made']);assert.equal(painted[0].word,'mine');assert.equal(painted[0].stageDataDeferred,false);
 });
@@ -2214,7 +2214,7 @@ test('Numeric song and text IDs open when DOM attributes provide strings',async(
   const scope={window,crypto,console,location:{},loadSongs:()=>[song],loadTexts:()=>[text],
     renderUserSong:value=>opened.push(['song',value.id]),showText:id=>opened.push(['text',id]),visit:id=>opened.push(['view',id]),
     document:{addEventListener(){},querySelector(){return {id:''};},getElementById:id=>id==='songUser'?{}:null}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageOpenSongId('10');await scope.stageOpenText('20');
   assert.deepEqual(opened,[['view','song'],['song',10],['text',20]]);
 });
@@ -2250,7 +2250,7 @@ test('Page restoration keeps examination identity separate from lesson IDs',()=>
   assert.equal(written[0].examId,9);assert.equal(written[0].examBlockId,8);assert.equal(written[0].materialId,undefined);
 });
 test('Exam publication uses exam persistence and implicit saves preserve Published',async()=>{
-  const source=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),saved=[];
+  const source=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),saved=[];
   const scope={lmState:{id:8,examOwned:true,published:true,mode:'preview'},viewGen:1,viewAccount:null,viewSwitching:false,lmSaveTimer:0,
     canEditLessons:()=>true,clearTimeout(){},document:{getElementById:()=>({dataset:{lmKind:'exam'}})},
     window:{LearningMain:{perform:fn=>fn(),notice(){throw Error('Unexpected lesson save');}}},
@@ -2315,7 +2315,7 @@ test('Refresh aligns My words with cache and refetches only a stale block',()=>{
   const hooks={window,authUser:null,viewAccount:null,LESSON_DATA:window.LESSON_DATA,IRREGULAR:[],loadAdded:()=>[{stageId:'m1',word:'stale',place:'mine',stageRevision:1},{word:'unsaved',place:'mine'}],
     rememberAdded:list=>{saved=list;},loadSongs:()=>[],loadTexts:()=>[],setTimeout(){},
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),hooks);
   hooks.stageRestoreSession();
   assert.equal(saved.find(row=>row.stageId==='m1').word,'fresh');
   assert.ok(saved.some(row=>row.word==='unsaved'));
@@ -2330,7 +2330,7 @@ test('Speakout joins the end of the background queue, without loading its lesson
   const scope={authUser:{id:'student',role:'USER'},viewGen:0,accountFetch(){},setTimeout:fn=>fn(),
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{PreloadQueue:{add(task){queued.push(task.id);}},ContentCache:{has:()=>false,get:()=>null}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stageStartPreload();
   assert.ok(queued.includes('irregular:page'));
   assert.ok(queued.includes('speakout:catalogs:student:USER'));
@@ -2341,7 +2341,7 @@ test('Library phrase sorting and song back keep the list in history',()=>{
   const hooks={document:{addEventListener(){},querySelector:()=>({id:'music'}),getElementById:()=>null},
     visit(id){stack.push('music');shown.push(id);},show(id){shown.push('show:'+id);},
     idiomWords:[{en:'break the ice'}],phrasalWords:[]};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),hooks);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),hooks);
   assert.equal(hooks.stagePhrasePlace('give up',[]),'phrasal');
   assert.equal(hooks.stagePhrasePlace('break the ice',[{exactText:'break the ice',type:'IDIOM'}]),'idioms');
   assert.equal(hooks.stagePhrasePlace('garden',[]),'mine');
@@ -2357,7 +2357,7 @@ test('A finished list paints zero and drops rows the server no longer returns',a
     window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){}}},
     accountFetch:async()=>({songs:[{id:'keep',stageId:'s1',title:'New',artist:'A',archived:false,stageRevision:2}],next:null}),
     stageAccountBase:()=>'/api/me'};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageSongPage('');
   assert.equal(songs.length,1);assert.equal(songs[0].title,'New');assert.equal(songs[0].lyrics,'line');
   assert.equal(counts.lyricCount.textContent,'1');
@@ -2375,7 +2375,7 @@ test('A list response that arrives after a local delete does not restore the row
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{IRREGULAR:[],LESSON_DATA:{},ContentCache:{load:(key,fetcher)=>fetcher(),get:()=>null,set(){},hold(){},flush(){},drop(){}}},
     accountFetch:()=>pending,stageAccountBase:()=>'/api/me'};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   const job=scope.stageSongPage('');
   scope.stageInstallLibrary({id:'gone',stageId:'s2',title:'Gone',archived:true},'song');
   release({songs:[{id:'keep',stageId:'s1',title:'Keep',archived:false},{id:'gone',stageId:'s2',title:'Gone',archived:false}],next:null});
@@ -2390,7 +2390,7 @@ test('Progress reload replaces learned words instead of putting cleared ones bac
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{ContentCache:{load:(key,fetcher)=>fetcher(),invalidate(){}}},
     accountFetch:async()=>({learned:['kept'],variants:{},mistakes:[],next:null})};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   await scope.stageProgressPage('');
   assert.deepEqual(JSON.parse(stored.learned),['kept']);
 });
@@ -2401,7 +2401,7 @@ test('A new lyric word keeps its song place',async()=>{
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     crypto,
     window:{LearningMain:{findCard:async()=>{throw Object.assign(new Error('missing'),{code:'CARD_NOT_FOUND'});},newCard:(en,ru,place)=>{created.push(place);return {card:{word:en,ru,place},revision:1};}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   assert.equal(await scope.stageKeepExpression({word:'harbour',ru:'гавань',place:'music'}),true);
   assert.deepEqual(created,['music']);
 });
@@ -2410,7 +2410,7 @@ test('Lyric size is kept without an unsupported-operation error',()=>{
   const scope={localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value)},lyricSize:20,applyLyricSize(){},
     document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
     window:{LearningMain:{notice(message){notices.push(message);},unsupported(op){notices.push(op);}}}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   assert.equal(scope.stageKeepSetting({op:'put-setting',key:'lyricSize',value:28}),true);
   scope.stageApplyPrefs();
   assert.equal(saved.get('enquiz-lyric-size'),'28');assert.equal(scope.lyricSize,28);assert.deepEqual(notices,[]);
@@ -2419,7 +2419,7 @@ test('Speak Out level buttons use the loaded level instead of a fixed 32',()=>{
   const list={};
   const scope={esc:value=>String(value??''),document:{addEventListener(){},getElementById:id=>id==='speakoutList'?list:null,querySelector:()=>null},
     window:{SPEAKOUT:[{level:'A1',units:[{lessons:[{},{}]}]}]}};
-  runInNewContext(readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stagePaintSpeakLevels();
   assert.equal(list.innerHTML.includes('>32<'),false);
   assert.match(list.innerHTML,/data-speak-level="0"[\s\S]*>2</);
@@ -2440,7 +2440,7 @@ test('A PDF with an empty browser type is accepted from its name',async()=>{
       headers.push(options.headers['Content-Type']);
       return {ok:true,json:async()=>({revision:3,block:{revision:2,content:{}}})};
     }};
-  runInNewContext(readFileSync(new URL('../staging/main-bridge.js',import.meta.url),'utf8'),scope);
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
   await scope.window.LearningMain.fetch('/api/me');
   const file={name:'lesson.pdf',type:'',size:4,arrayBuffer:async()=>new Uint8Array([1,2,3,4]).buffer};
   lesson.stageLessonBaseline=scope.window.LearningMain.lessonSnapshot(lesson);

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
-const hooks=readFileSync(new URL('../staging/main-hooks.js',import.meta.url),'utf8');
+const hooks=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8');
 const preview=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
 const missing=()=>Object.assign(new Error('Missing'),{code:'CARD_NOT_FOUND'});
 function fixture(overrides={}){
