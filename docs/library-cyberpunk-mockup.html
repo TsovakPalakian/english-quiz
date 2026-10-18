@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Library — cyberpunk mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap");
+    :root {
+      --bg: #05060f;
+      --bg2: #0a1024;
+      --surface: rgba(12, 24, 48, 0.72);
+      --card: rgba(8, 16, 36, 0.9);
+      --ink: #e8fbff;
+      --mute: #7f9bb8;
+      --line: rgba(0, 255, 240, 0.22);
+      --cyan: #00fff0;
+      --magenta: #ff2bd6;
+      --acc: var(--cyan);
+      --acc2: var(--magenta);
+      --glow: 0 0 18px rgba(0, 255, 240, 0.35);
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(255, 43, 214, 0.18), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, rgba(0, 255, 240, 0.14), transparent 50%),
+        linear-gradient(180deg, var(--bg2), var(--bg));
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      pointer-events: none;
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0, 255, 240, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 240, 0.05) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 85%);
+    }
+    body::after {
+      content: "";
+      pointer-events: none;
+      position: fixed; inset: 0; z-index: 5;
+      background: repeating-linear-gradient(
+        180deg,
+        rgba(255,255,255,0.03) 0 1px,
+        transparent 1px 3px
+      );
+      mix-blend-mode: soft-light;
+      opacity: 0.35;
+    }
+    .shell {
+      position: relative; z-index: 1;
+      width: min(740px, 100%);
+      margin: 0 auto;
+      padding: 24px 16px 56px;
+    }
+    .meta { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .meta h1 {
+      margin: 0;
+      font-family: Orbitron, sans-serif;
+      font-size: clamp(22px, 5vw, 30px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(0, 255, 240, 0.55), 0 0 28px rgba(255, 43, 214, 0.25);
+    }
+    .btn {
+      border: 1px solid var(--line); background: transparent; color: var(--cyan);
+      font: inherit; cursor: pointer; padding: 8px 12px;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    .btn:hover { box-shadow: var(--glow); background: rgba(0, 255, 240, 0.08); }
+    .sub {
+      margin: 0 0 18px; color: var(--mute); line-height: 1.5;
+      border-left: 2px solid var(--magenta); padding-left: 12px;
+    }
+    .sub code { color: var(--cyan); }
+    .lib-toolbar { display: grid; gap: 12px; margin-bottom: 10px; }
+    .lib-search {
+      display: flex; align-items: center; gap: 10px;
+      min-height: 48px; padding: 0 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+      box-shadow: inset 0 0 24px rgba(0, 255, 240, 0.06);
+    }
+    .lib-search:focus-within {
+      border-color: var(--cyan);
+      box-shadow: var(--glow), inset 0 0 24px rgba(0, 255, 240, 0.1);
+    }
+    .lib-search svg { width: 20px; height: 20px; color: var(--cyan); flex: 0 0 auto; }
+    .lib-search input {
+      flex: 1; min-width: 0; border: 0; background: transparent;
+      font: inherit; color: var(--ink); outline: none; min-height: 44px;
+      caret-color: var(--magenta);
+    }
+    .lib-search input::placeholder { color: #5c7694; }
+    .lib-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lib-chip {
+      min-height: 36px; padding: 0 14px;
+      border: 1px solid var(--line); background: rgba(0, 0, 0, 0.35);
+      color: var(--mute); font: inherit; text-transform: uppercase; letter-spacing: 0.06em;
+      cursor: pointer;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    .lib-chip.on {
+      color: #041018; background: linear-gradient(90deg, var(--cyan), #7dfff7);
+      border-color: transparent; box-shadow: var(--glow); font-weight: 700;
+    }
+    .hint { margin: 0; color: var(--magenta); font-size: 13px; text-shadow: 0 0 10px rgba(255, 43, 214, 0.4); }
+    .lib-h {
+      margin: 22px 0 10px;
+      font-family: Orbitron, sans-serif;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--cyan);
+    }
+    .decks {
+      display: flex; flex-direction: column; gap: 10px;
+      margin: 0 0 6px; padding: 10px;
+      background: rgba(4, 10, 24, 0.55);
+      border: 1px solid var(--line);
+      box-shadow: inset 0 0 40px rgba(255, 43, 214, 0.05);
+    }
+    .file-card {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto;
+      align-items: center; column-gap: 14px; row-gap: 2px;
+      width: 100%; min-height: 68px; padding: 12px 14px 12px 12px;
+      border: 1px solid rgba(0, 255, 240, 0.16);
+      background: linear-gradient(135deg, rgba(10, 20, 40, 0.95), rgba(18, 8, 32, 0.92));
+      color: inherit; font: inherit; text-align: left; cursor: pointer;
+      clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+    }
+    .file-card:hover {
+      border-color: var(--cyan);
+      box-shadow: var(--glow);
+      transform: translateY(-1px);
+    }
+    .file-card::after {
+      grid-column: 3; grid-row: 1 / -1; align-self: center;
+      content: "›"; color: var(--cyan); font-size: 22px; line-height: 1;
+      text-shadow: 0 0 10px rgba(0, 255, 240, 0.6);
+    }
+    .file-card .num {
+      grid-column: 1; grid-row: 1 / span 3; align-self: center;
+      display: grid; place-items: center;
+      width: 52px; height: 52px; margin: 0;
+      font-family: Orbitron, sans-serif; font-size: 15px; font-weight: 800;
+      color: var(--cyan);
+      border: 1px solid rgba(0, 255, 240, 0.35);
+      background: rgba(0, 255, 240, 0.06);
+      box-shadow: inset 0 0 16px rgba(0, 255, 240, 0.12);
+    }
+    .file-card b {
+      grid-column: 2; grid-row: 1; margin: 0;
+      font-family: Orbitron, sans-serif; font-size: 14px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.25;
+    }
+    .file-card .label {
+      grid-column: 2; grid-row: 2; margin: 0; font-size: 12px; color: var(--mute); line-height: 1.35;
+    }
+    .file-card.active {
+      border-color: var(--magenta);
+      box-shadow: 0 0 20px rgba(255, 43, 214, 0.28), inset 0 0 24px rgba(255, 43, 214, 0.08);
+    }
+    .file-card.active .num {
+      color: var(--magenta);
+      border-color: rgba(255, 43, 214, 0.5);
+      box-shadow: inset 0 0 16px rgba(255, 43, 214, 0.18);
+    }
+    .file-card .mini {
+      grid-column: 2; grid-row: 3; display: block; height: 3px; margin: 6px 0 0;
+      background: rgba(255, 255, 255, 0.08); overflow: hidden;
+    }
+    .file-card .mini > i {
+      display: block; height: 100%; width: 42%;
+      background: linear-gradient(90deg, var(--cyan), var(--magenta));
+      box-shadow: 0 0 10px rgba(0, 255, 240, 0.7);
+    }
+    .note {
+      margin-top: 28px; padding: 14px 16px;
+      border: 1px dashed rgba(255, 43, 214, 0.35);
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--mute); font-size: 12px; line-height: 1.5;
+    }
+    .hud {
+      display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 14px; font-size: 11px; letter-spacing: 0.08em; color: var(--mute);
+      text-transform: uppercase;
+    }
+    .hud span { color: var(--cyan); }
+    @media (min-width: 820px) {
+      .decks { display: grid; grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell" id="library">
+    <div class="hud">
+      <div>NODE <span>LUMISCIA // LIB</span></div>
+      <div>SIGNAL <span>ONLINE</span></div>
+    </div>
+    <div class="meta">
+      <button class="btn" type="button">Back</button>
+      <h1>Library</h1>
+    </div>
+    <p class="sub">Decks, days and songs. A word that already exists is a <code>path</code>, not a second card.</p>
+
+    <div class="lib-toolbar">
+      <label class="lib-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="librarySearch" type="search" placeholder="scan library..." aria-label="Search library" autocomplete="off" />
+      </label>
+      <div class="lib-chips" role="tablist" aria-label="Library sections">
+        <button type="button" class="lib-chip on" role="tab" aria-selected="true" data-lib-filter="all">All</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="words">Words</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="grammar">Grammar</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="materials">Materials</button>
+      </div>
+      <p class="hint" id="librarySearchStatus" role="status" hidden></p>
+    </div>
+
+    <h2 class="lib-h" data-lib-section="words">// Words</h2>
+    <div class="decks" data-lib-section="words">
+      <button class="file-card" type="button"><span class="num">128</span><b>All words</b><span class="label">every card, no duplicates</span></button>
+      <button class="file-card" type="button"><span class="num">24</span><b>My cards</b><span class="label">one field · both directions</span></button>
+      <button class="file-card" type="button"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>
+      <button class="file-card" type="button"><span class="num">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
+      <button class="file-card" type="button"><span class="num">3</span><b>Idioms</b><span class="label">cards</span></button>
+    </div>
+
+    <h2 class="lib-h" data-lib-section="grammar">// Grammar</h2>
+    <div class="decks" data-lib-section="grammar">
+      <button class="file-card active" type="button"><span class="num">12</span><b>Grammar</b><span class="label">tenses, then other structures</span></button>
+      <button class="file-card" type="button"><span class="num">80</span><b>Irregular verbs</b><span class="label">three forms</span></button>
+      <button class="file-card" type="button"><span class="num">7</span><b>Grammatical Categories</b><span class="label">word classes · syntax · meaning</span></button>
+      <button class="file-card" type="button"><span class="num">3</span><b>Articles</b><span class="label">examples</span></button>
+      <button class="file-card" type="button"><span class="num">4</span><b>Demonstratives</b><span class="label">this, that, these, those</span><i class="mini"><i></i></i></button>
+    </div>
+
+    <h2 class="lib-h" data-lib-section="materials">// Materials</h2>
+    <div class="decks" data-lib-section="materials">
+      <button class="file-card" type="button"><span class="num">1</span><b>Song lyrics</b><span class="label">songs</span></button>
+      <button class="file-card" type="button"><span class="num">0</span><b>Text</b><span class="label">articles and notes</span></button>
+      <button class="file-card" type="button"><span class="num">8</span><b>Speakout</b><span class="label">levels · 32 lessons each</span></button>
+    </div>
+
+    <p class="note">Cyberpunk Library mockup only. Not connected to the app. Open in a browser.</p>
+  </main>
+  <script>
+    (() => {
+      const root = document.getElementById('library');
+      const search = document.getElementById('librarySearch');
+      const status = document.getElementById('librarySearchStatus');
+      const chips = [...root.querySelectorAll('[data-lib-filter]')];
+      let filter = 'all';
+      const apply = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        root.querySelectorAll('.decks[data-lib-section]').forEach((deck) => {
+          const section = deck.dataset.libSection;
+          const heading = root.querySelector('.lib-h[data-lib-section="' + section + '"]');
+          const sectionOn = filter === 'all' || filter === section;
+          let visible = 0;
+          deck.querySelectorAll(':scope > .file-card').forEach((card) => {
+            const show = sectionOn && (!query || card.textContent.toLocaleLowerCase().includes(query));
+            card.hidden = !show;
+            if (show) { matches++; visible++; }
+          });
+          const showSection = sectionOn && (!query || visible > 0);
+          deck.hidden = !showSection;
+          if (heading) heading.hidden = !showSection;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' hits' : 'no signal';
+      };
+      chips.forEach((chip) => chip.addEventListener('click', () => {
+        filter = chip.dataset.libFilter || 'all';
+        chips.forEach((node) => {
+          const on = node === chip;
+          node.classList.toggle('on', on);
+          node.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        apply();
+      }));
+      search.addEventListener('input', apply);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Library — SaaS dashboard mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+    :root {
+      --bg: #f5f6fc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --mute: #64748b;
+      --line: #e8ecf4;
+      --blue: #2f6bff;
+      --blue-soft: #eaf0ff;
+      --orange: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.05);
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 500px at 20% -10%, #eef1ff 0%, transparent 55%), var(--bg);
+      color: var(--ink);
+    }
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 24px 18px 56px;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .side, .main, .panel {
+      background: var(--card);
+      border: 1px solid rgba(232, 236, 244, 0.9);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+    }
+    .side {
+      padding: 18px 14px;
+      position: sticky;
+      top: 18px;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 4px 8px 16px;
+    }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 4px;
+      display: grid; place-items: center;
+      background: var(--blue); color: #fff; font-weight: 700; font-size: 14px;
+    }
+    .brand b { display: block; font-size: 14px; }
+    .brand small { color: var(--mute); font-size: 12px; }
+    .side-search {
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 4px 14px; padding: 0 12px; min-height: 40px;
+      border: 1px solid var(--line); border-radius: 4px; background: #fbfbfe;
+    }
+    .side-search input {
+      flex: 1; border: 0; background: transparent; outline: none;
+      font: inherit; font-size: 13px; color: inherit; min-width: 0;
+    }
+    .side-search kbd {
+      font: inherit; font-size: 11px; color: var(--mute);
+      border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px; background: #fff;
+    }
+    .nav { display: grid; gap: 4px; padding: 0 4px; }
+    .nav button {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; min-height: 40px; padding: 0 12px;
+      border: 0; border-radius: 4px; background: transparent;
+      color: var(--mute); font: inherit; font-size: 14px; font-weight: 500;
+      text-align: left; cursor: pointer;
+    }
+    .nav button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+    .nav button.on, .nav button:hover {
+      background: var(--blue-soft); color: var(--blue);
+    }
+    .plan {
+      margin: 18px 4px 0; padding: 14px;
+      border-radius: 5px; background: #f8f9ff; border: 1px solid var(--line);
+    }
+    .plan-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .plan-top b { font-size: 13px; }
+    .badge {
+      font-size: 11px; font-weight: 600; color: var(--blue);
+      background: var(--blue-soft); border-radius: 3px; padding: 3px 8px;
+    }
+    .bar {
+      height: 7px; border-radius: 2px; background: #e7ebf5; overflow: hidden; margin: 8px 0;
+    }
+    .bar > i { display: block; height: 100%; width: 62%; background: var(--orange); border-radius: inherit; }
+    .plan p { margin: 0 0 10px; color: var(--mute); font-size: 12px; }
+    .upgrade {
+      width: 100%; min-height: 36px; border: 0; border-radius: 4px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600;
+      box-shadow: var(--shadow-sm); cursor: pointer;
+    }
+    .main { padding: 22px 22px 26px; }
+    .top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px; margin-bottom: 18px;
+    }
+    .top h1 {
+      margin: 0 0 4px; font-size: 28px; letter-spacing: -0.03em; font-weight: 700;
+    }
+    .top p { margin: 0; color: var(--mute); font-size: 14px; line-height: 1.45; max-width: 36rem; }
+    .top .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      min-height: 38px; padding: 0 14px; border-radius: 4px;
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .kpis {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+      margin-bottom: 18px;
+    }
+    .kpi {
+      padding: 16px; border-radius: 5px; background: #fbfbfe;
+      border: 1px solid var(--line);
+    }
+    .kpi span { display: block; color: var(--mute); font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+    .kpi b { display: block; font-size: 26px; letter-spacing: -0.03em; line-height: 1; }
+    .kpi small {
+      display: inline-flex; align-items: center; gap: 4px; margin-top: 10px;
+      font-size: 12px; font-weight: 600;
+    }
+    .kpi small.up { color: var(--green); }
+    .kpi small.flat { color: var(--mute); }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .search {
+      display: flex; align-items: center; gap: 8px;
+      flex: 1; min-width: 220px; min-height: 42px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: 4px; background: #fff;
+    }
+    .search:focus-within { border-color: #b7c8ff; box-shadow: 0 0 0 3px rgba(47, 107, 255, 0.12); }
+    .search svg { width: 16px; height: 16px; color: var(--mute); }
+    .search input {
+      flex: 1; border: 0; outline: none; background: transparent;
+      font: inherit; font-size: 14px; color: inherit; min-width: 0;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      min-height: 34px; padding: 0 12px; border-radius: 4px;
+      border: 1px solid var(--line); background: #fff; color: var(--mute);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .chip.on { background: var(--blue-soft); border-color: transparent; color: var(--blue); }
+    .hint { margin: 0; color: var(--mute); font-size: 13px; width: 100%; }
+    .section-title {
+      margin: 18px 0 10px; font-size: 13px; font-weight: 600; color: var(--mute);
+    }
+    .decks {
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+    }
+    .file-card {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      align-items: center; column-gap: 12px;
+      width: 100%; min-height: 84px; padding: 14px;
+      border: 1px solid var(--line); border-radius: 5px;
+      background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer;
+      box-shadow: var(--shadow-sm);
+    }
+    .file-card:hover { border-color: #d5def7; box-shadow: 0 8px 22px rgba(47, 107, 255, 0.08); }
+    .file-card.active { border-color: #c9d7ff; background: linear-gradient(180deg, #fff, #f7f9ff); }
+    .file-card .num {
+      display: grid; place-items: center;
+      width: 44px; height: 44px; margin: 0; border-radius: 4px;
+      background: var(--blue-soft); color: var(--blue); font-size: 14px; font-weight: 700;
+    }
+    .file-card .copy { display: grid; gap: 2px; min-width: 0; }
+    .file-card b { margin: 0; font-size: 14px; font-weight: 650; }
+    .file-card .label { margin: 0; color: var(--mute); font-size: 12px; line-height: 1.35; }
+    .file-card .go {
+      width: 28px; height: 28px; border-radius: 3px; display: grid; place-items: center;
+      background: #f5f7fb; color: var(--mute); font-size: 16px;
+    }
+    .file-card .mini {
+      grid-column: 2 / 3; display: block; height: 5px; margin-top: 8px;
+      border-radius: 2px; background: #e8ecf4; overflow: hidden;
+    }
+    .file-card .mini > i {
+      display: block; height: 100%; width: 42%; border-radius: inherit; background: var(--orange);
+    }
+    .file-card:has(.mini) {
+      grid-template-rows: auto auto;
+      align-items: start;
+    }
+    .file-card:has(.mini) .num,
+    .file-card:has(.mini) .go { grid-row: 1 / span 2; align-self: center; }
+    .note {
+      margin-top: 18px; color: var(--mute); font-size: 12px;
+    }
+    @media (max-width: 920px) {
+      .app { grid-template-columns: 1fr; }
+      .side { position: static; }
+      .kpis { grid-template-columns: 1fr; }
+      .decks { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-mark">L</div>
+        <div>
+          <b>Lumiscia</b>
+          <small>Learning studio</small>
+        </div>
+      </div>
+      <label class="side-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" placeholder="Search" aria-label="Search app" />
+        <kbd>K</kbd>
+      </label>
+      <nav class="nav" aria-label="Primary">
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+          Home
+        </button>
+        <button type="button" class="on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h5v16H4zM10 4h5v16h-5zM16 7h4v13h-4z"/></svg>
+          Library
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          Messages
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
+          Account
+        </button>
+      </nav>
+      <div class="plan">
+        <div class="plan-top"><b>Study streak</b><span class="badge">Active</span></div>
+        <div class="bar"><i></i></div>
+        <p>62% of weekly goal · 3 days left</p>
+        <button class="upgrade" type="button">Continue studying</button>
+      </div>
+    </aside>
+
+    <main class="main" id="library">
+      <div class="top">
+        <div>
+          <h1>Library</h1>
+          <p>Decks, days and songs. A word that already exists is a path, not a second card.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button">Back</button>
+          <button class="btn primary" type="button">+ Add word</button>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <span>Total cards</span>
+          <b>248</b>
+          <small class="up">↑ 4.2% this week</small>
+        </div>
+        <div class="kpi">
+          <span>Open decks</span>
+          <b>14</b>
+          <small class="flat">Words · Grammar · Materials</small>
+        </div>
+        <div class="kpi">
+          <span>Progress</span>
+          <b>42%</b>
+          <small class="up">↑ Demonstratives</small>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="librarySearch" type="search" placeholder="Search library" aria-label="Search library" autocomplete="off" />
+        </label>
+        <div class="chips" role="tablist" aria-label="Library sections">
+          <button type="button" class="chip on" role="tab" aria-selected="true" data-lib-filter="all">All</button>
+          <button type="button" class="chip" role="tab" aria-selected="false" data-lib-filter="words">Words</button>
+          <button type="button" class="chip" role="tab" aria-selected="false" data-lib-filter="grammar">Grammar</button>
+          <button type="button" class="chip" role="tab" aria-selected="false" data-lib-filter="materials">Materials</button>
+        </div>
+        <p class="hint" id="librarySearchStatus" role="status" hidden></p>
+      </div>
+
+      <h2 class="section-title" data-lib-section="words">Words</h2>
+      <div class="decks" data-lib-section="words">
+        <button class="file-card" type="button"><span class="num">128</span><span class="copy"><b>All words</b><span class="label">every card, no duplicates</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">24</span><span class="copy"><b>My cards</b><span class="label">one field · both directions</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><span class="copy"><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><span class="copy"><b>Phrasal verbs</b><span class="label">cards</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><span class="copy"><b>Idioms</b><span class="label">cards</span></span><span class="go">›</span></button>
+      </div>
+
+      <h2 class="section-title" data-lib-section="grammar">Grammar</h2>
+      <div class="decks" data-lib-section="grammar">
+        <button class="file-card active" type="button"><span class="num">12</span><span class="copy"><b>Grammar</b><span class="label">tenses, then other structures</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">80</span><span class="copy"><b>Irregular verbs</b><span class="label">three forms</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">7</span><span class="copy"><b>Grammatical Categories</b><span class="label">word classes · syntax · meaning</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><span class="copy"><b>Articles</b><span class="label">examples</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">4</span><span class="copy"><b>Demonstratives</b><span class="label">this, that, these, those</span><i class="mini"><i></i></i></span><span class="go">›</span></button>
+      </div>
+
+      <h2 class="section-title" data-lib-section="materials">Materials</h2>
+      <div class="decks" data-lib-section="materials">
+        <button class="file-card" type="button"><span class="num">1</span><span class="copy"><b>Song lyrics</b><span class="label">songs</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">0</span><span class="copy"><b>Text</b><span class="label">articles and notes</span></span><span class="go">›</span></button>
+        <button class="file-card" type="button"><span class="num">8</span><span class="copy"><b>Speakout</b><span class="label">levels · 32 lessons each</span></span><span class="go">›</span></button>
+      </div>
+
+      <p class="note">SaaS-dashboard Library mockup inspired by the Components screen. Not wired to the app.</p>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const root = document.getElementById('library');
+      const search = document.getElementById('librarySearch');
+      const status = document.getElementById('librarySearchStatus');
+      const chips = [...root.querySelectorAll('[data-lib-filter]')];
+      let filter = 'all';
+      const apply = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        root.querySelectorAll('.decks[data-lib-section]').forEach((deck) => {
+          const section = deck.dataset.libSection;
+          const heading = root.querySelector('.section-title[data-lib-section="' + section + '"]');
+          const sectionOn = filter === 'all' || filter === section;
+          let visible = 0;
+          deck.querySelectorAll(':scope > .file-card').forEach((card) => {
+            const show = sectionOn && (!query || card.textContent.toLocaleLowerCase().includes(query));
+            card.hidden = !show;
+            if (show) { matches++; visible++; }
+          });
+          const showSection = sectionOn && (!query || visible > 0);
+          deck.hidden = !showSection;
+          if (heading) heading.hidden = !showSection;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' results' : 'No matches.';
+      };
+      chips.forEach((chip) => chip.addEventListener('click', () => {
+        filter = chip.dataset.libFilter || 'all';
+        chips.forEach((node) => {
+          const on = node === chip;
+          node.classList.toggle('on', on);
+          node.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        apply();
+      }));
+      search.addEventListener('input', apply);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Library — modern mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@450;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap");
+    :root {
+      --bg: #f3f1ec;
+      --bg-deep: #ebe7df;
+      --card: #faf9f6;
+      --ink: #1c1915;
+      --mute: #6f6a62;
+      --line: #ddd6cb;
+      --acc: #1f5c4d;
+      --acc-soft: #d9ebe4;
+      --radius: 14px;
+      font-family: "Instrument Sans", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(900px 420px at 0% 0%, rgba(31, 92, 77, 0.06), transparent 60%),
+        linear-gradient(180deg, #f6f4ef 0%, var(--bg) 40%, #efebe3 100%);
+      color: var(--ink);
+    }
+    .shell {
+      width: min(680px, 100%);
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+    .meta {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .meta h1 {
+      margin: 0;
+      font-family: Newsreader, Georgia, serif;
+      font-size: clamp(32px, 6vw, 40px);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+    .btn {
+      border: 0;
+      background: transparent;
+      color: var(--mute);
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 0;
+    }
+    .btn:hover { color: var(--ink); }
+    .sub {
+      margin: 0 0 28px;
+      max-width: 38rem;
+      color: var(--mute);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .lib-toolbar {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .lib-search {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+    .lib-search:focus-within {
+      border-color: color-mix(in srgb, var(--acc) 45%, var(--line));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 12%, transparent);
+    }
+    .lib-search svg {
+      width: 18px;
+      height: 18px;
+      color: var(--mute);
+      flex: 0 0 auto;
+    }
+    .lib-search input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      font: inherit;
+      font-size: 15px;
+      color: inherit;
+      outline: none;
+      min-height: 44px;
+    }
+    .lib-search input::placeholder { color: #9a948a; }
+    .lib-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .lib-chip {
+      min-height: 34px;
+      padding: 0 13px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--mute);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 550;
+      cursor: pointer;
+    }
+    .lib-chip:hover { color: var(--ink); background: color-mix(in srgb, var(--bg-deep) 80%, white); }
+    .lib-chip.on {
+      color: var(--acc);
+      background: var(--acc-soft);
+    }
+    .hint {
+      margin: 0;
+      color: var(--mute);
+      font-size: 13px;
+    }
+    .lib-h {
+      margin: 26px 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--mute);
+    }
+    .decks {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 0;
+      padding: 4px 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .file-card {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      grid-template-rows: auto auto;
+      align-items: center;
+      column-gap: 14px;
+      row-gap: 2px;
+      width: 100%;
+      min-height: 72px;
+      padding: 14px 16px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .file-card:last-child { border-bottom: 0; }
+    .file-card:hover { background: color-mix(in srgb, var(--bg-deep) 55%, white); }
+    .file-card::after {
+      grid-column: 3;
+      grid-row: 1 / -1;
+      align-self: center;
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 1.5px solid #a39e94;
+      border-bottom: 1.5px solid #a39e94;
+      transform: rotate(-45deg);
+      opacity: 0.8;
+    }
+    .file-card .num {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      align-self: center;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      font-size: 14px;
+      font-weight: 650;
+      color: var(--acc);
+      border-radius: 12px;
+      background: var(--acc-soft);
+    }
+    .file-card b {
+      grid-column: 2;
+      grid-row: 1;
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+    }
+    .file-card .label {
+      grid-column: 2;
+      grid-row: 2;
+      margin: 0;
+      font-size: 13px;
+      color: var(--mute);
+      line-height: 1.35;
+    }
+    .file-card.active {
+      background: color-mix(in srgb, var(--acc-soft) 42%, var(--card));
+    }
+    .file-card.active b { color: var(--acc); }
+    .file-card .mini {
+      grid-column: 2;
+      grid-row: 3;
+      display: block;
+      height: 3px;
+      margin: 8px 0 0;
+      border-radius: 999px;
+      background: var(--line);
+      overflow: hidden;
+    }
+    .file-card .mini > i {
+      display: block;
+      height: 100%;
+      width: 42%;
+      border-radius: inherit;
+      background: var(--acc);
+    }
+    .file-card:has(.mini) {
+      grid-template-rows: auto auto auto;
+      padding-bottom: 16px;
+    }
+    .note {
+      margin-top: 32px;
+      color: var(--mute);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    @media (min-width: 760px) {
+      .groups {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        align-items: start;
+      }
+      .groups .lib-h { grid-column: 1 / -1; }
+      .groups .decks { margin: 0; }
+      .groups .lib-h[data-lib-section="words"],
+      .groups .decks[data-lib-section="words"] { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell" id="library">
+    <div class="meta">
+      <button class="btn" type="button">Back</button>
+      <h1>Library</h1>
+    </div>
+    <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
+
+    <div class="lib-toolbar">
+      <label class="lib-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="librarySearch" type="search" placeholder="Search library" aria-label="Search library" autocomplete="off" />
+      </label>
+      <div class="lib-chips" role="tablist" aria-label="Library sections">
+        <button type="button" class="lib-chip on" role="tab" aria-selected="true" data-lib-filter="all">All</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="words">Words</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="grammar">Grammar</button>
+        <button type="button" class="lib-chip" role="tab" aria-selected="false" data-lib-filter="materials">Materials</button>
+      </div>
+      <p class="hint" id="librarySearchStatus" role="status" hidden></p>
+    </div>
+
+    <div class="groups">
+      <h2 class="lib-h" data-lib-section="words">Words</h2>
+      <div class="decks" data-lib-section="words">
+        <button class="file-card" type="button"><span class="num">128</span><b>All words</b><span class="label">every card, no duplicates</span></button>
+        <button class="file-card" type="button"><span class="num">24</span><b>My cards</b><span class="label">one field · both directions</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><b>Essential English</b><span class="label">Speech essentials · Basic sets · Topics</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><b>Idioms</b><span class="label">cards</span></button>
+      </div>
+
+      <h2 class="lib-h" data-lib-section="grammar">Grammar</h2>
+      <div class="decks" data-lib-section="grammar">
+        <button class="file-card active" type="button"><span class="num">12</span><b>Grammar</b><span class="label">tenses, then other structures</span></button>
+        <button class="file-card" type="button"><span class="num">80</span><b>Irregular verbs</b><span class="label">three forms</span></button>
+        <button class="file-card" type="button"><span class="num">7</span><b>Grammatical Categories</b><span class="label">word classes · syntax · meaning</span></button>
+        <button class="file-card" type="button"><span class="num">3</span><b>Articles</b><span class="label">examples</span></button>
+        <button class="file-card" type="button"><span class="num">4</span><b>Demonstratives</b><span class="label">this, that, these, those</span><i class="mini"><i></i></i></button>
+      </div>
+
+      <h2 class="lib-h" data-lib-section="materials">Materials</h2>
+      <div class="decks" data-lib-section="materials">
+        <button class="file-card" type="button"><span class="num">1</span><b>Song lyrics</b><span class="label">songs</span></button>
+        <button class="file-card" type="button"><span class="num">0</span><b>Text</b><span class="label">articles and notes</span></button>
+        <button class="file-card" type="button"><span class="num">8</span><b>Speakout</b><span class="label">levels · 32 lessons each</span></button>
+      </div>
+    </div>
+
+    <p class="note">Modern Library mockup. Paper tone, one green accent, list groups — not wired to the app.</p>
+  </main>
+  <script>
+    (() => {
+      const root = document.getElementById('library');
+      const search = document.getElementById('librarySearch');
+      const status = document.getElementById('librarySearchStatus');
+      const chips = [...root.querySelectorAll('[data-lib-filter]')];
+      let filter = 'all';
+      const apply = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        root.querySelectorAll('.decks[data-lib-section]').forEach((deck) => {
+          const section = deck.dataset.libSection;
+          const heading = root.querySelector('.lib-h[data-lib-section="' + section + '"]');
+          const sectionOn = filter === 'all' || filter === section;
+          let visible = 0;
+          deck.querySelectorAll(':scope > .file-card').forEach((card) => {
+            const show = sectionOn && (!query || card.textContent.toLocaleLowerCase().includes(query));
+            card.hidden = !show;
+            if (show) { matches++; visible++; }
+          });
+          const showSection = sectionOn && (!query || visible > 0);
+          deck.hidden = !showSection;
+          if (heading) heading.hidden = !showSection;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' results' : 'No matches.';
+      };
+      chips.forEach((chip) => chip.addEventListener('click', () => {
+        filter = chip.dataset.libFilter || 'all';
+        chips.forEach((node) => {
+          const on = node === chip;
+          node.classList.toggle('on', on);
+          node.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        apply();
+      }));
+      search.addEventListener('input', apply);
+    })();
+  </script>
+</body>
+</html>

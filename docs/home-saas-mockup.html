@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Home — SaaS dashboard mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+    :root {
+      --bg: #f5f6fc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --mute: #64748b;
+      --line: #e8ecf4;
+      --blue: #2f6bff;
+      --blue-soft: #eaf0ff;
+      --orange: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.05);
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 500px at 20% -10%, #eef1ff 0%, transparent 55%), var(--bg);
+      color: var(--ink);
+    }
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 24px 18px 56px;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .side, .main {
+      background: var(--card);
+      border: 1px solid rgba(232, 236, 244, 0.9);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+    }
+    .side { padding: 18px 14px; position: sticky; top: 18px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 4px;
+      display: grid; place-items: center;
+      background: var(--blue); color: #fff; font-weight: 700; font-size: 14px;
+    }
+    .brand b { display: block; font-size: 14px; }
+    .brand small { color: var(--mute); font-size: 12px; }
+    .side-search {
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 4px 14px; padding: 0 12px; min-height: 40px;
+      border: 1px solid var(--line); border-radius: 4px; background: #fbfbfe;
+    }
+    .side-search input {
+      flex: 1; border: 0; background: transparent; outline: none;
+      font: inherit; font-size: 13px; color: inherit; min-width: 0;
+    }
+    .side-search kbd {
+      font: inherit; font-size: 11px; color: var(--mute);
+      border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px; background: #fff;
+    }
+    .nav { display: grid; gap: 4px; padding: 0 4px; }
+    .nav button {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; min-height: 40px; padding: 0 12px;
+      border: 0; border-radius: 4px; background: transparent;
+      color: var(--mute); font: inherit; font-size: 14px; font-weight: 500;
+      text-align: left; cursor: pointer;
+    }
+    .nav button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+    .nav button.on, .nav button:hover { background: var(--blue-soft); color: var(--blue); }
+    .plan {
+      margin: 18px 4px 0; padding: 14px;
+      border-radius: 5px; background: #f8f9ff; border: 1px solid var(--line);
+    }
+    .plan-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .plan-top b { font-size: 13px; }
+    .badge {
+      font-size: 11px; font-weight: 600; color: var(--blue);
+      background: var(--blue-soft); border-radius: 3px; padding: 3px 8px;
+    }
+    .bar {
+      height: 7px; border-radius: 2px; background: #e7ebf5; overflow: hidden; margin: 8px 0;
+    }
+    .bar > i { display: block; height: 100%; width: 62%; background: var(--orange); border-radius: inherit; }
+    .plan p { margin: 0 0 10px; color: var(--mute); font-size: 12px; }
+    .upgrade {
+      width: 100%; min-height: 36px; border: 0; border-radius: 4px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600;
+      box-shadow: var(--shadow-sm); cursor: pointer;
+    }
+    .main { padding: 22px 22px 26px; }
+    .top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px; margin-bottom: 18px;
+    }
+    .top h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -0.03em; font-weight: 700; }
+    .top p { margin: 0; color: var(--mute); font-size: 14px; line-height: 1.45; }
+    .top .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      min-height: 38px; padding: 0 14px; border-radius: 4px;
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .hero {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+      margin-bottom: 14px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: linear-gradient(180deg, #fff, #f7f9ff);
+      box-shadow: var(--shadow-sm);
+    }
+    .ring {
+      position: relative; width: 92px; height: 92px; flex: 0 0 auto;
+      border: 0; background: transparent; padding: 0; cursor: pointer;
+    }
+    .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring circle { fill: none; stroke-width: 3.2; }
+    .ring-bg { stroke: #e7ebf5; }
+    .ring-fg { stroke: var(--blue); stroke-linecap: butt; }
+    .ring b {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font-size: 18px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink);
+    }
+    .hero-copy { margin: 0 0 12px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    .hero-copy span { color: var(--mute); font-weight: 500; font-size: 15px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .kpis {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+      margin-bottom: 18px;
+    }
+    .kpi {
+      padding: 16px; border-radius: 5px; background: #fbfbfe;
+      border: 1px solid var(--line); text-align: left;
+      color: inherit; font: inherit; cursor: pointer;
+    }
+    .kpi:hover { border-color: #d5def7; }
+    .kpi span { display: block; color: var(--mute); font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+    .kpi b { display: block; font-size: 24px; letter-spacing: -0.03em; line-height: 1; }
+    .kpi b.ok { color: var(--green); }
+    .kpi b.bad { color: var(--red); }
+    .kpi small {
+      display: inline-flex; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--mute);
+    }
+    .kpi small.up { color: var(--green); }
+    .grid-2 {
+      display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--line); border-radius: 5px; background: #fff;
+      box-shadow: var(--shadow-sm); overflow: hidden;
+    }
+    .panel-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+    }
+    .panel-head h2 { margin: 0; font-size: 15px; font-weight: 650; }
+    .panel-head a { color: var(--blue); font-size: 13px; font-weight: 600; text-decoration: none; }
+    .list { display: grid; }
+    .row-item {
+      display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
+      gap: 12px; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--line);
+      background: transparent; border-left: 0; border-right: 0; border-top: 0;
+      width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+    }
+    .row-item:last-child { border-bottom: 0; }
+    .row-item:hover { background: #f8f9ff; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 4px;
+      display: grid; place-items: center;
+      background: var(--blue-soft); color: var(--blue); font-size: 12px; font-weight: 700;
+    }
+    .row-item b { display: block; font-size: 14px; font-weight: 600; }
+    .row-item span { color: var(--mute); font-size: 12px; }
+    .row-item time { color: var(--mute); font-size: 12px; white-space: nowrap; }
+    .group-card { padding: 16px; }
+    .group-card p { margin: 0 0 12px; color: var(--mute); font-size: 13px; line-height: 1.45; }
+    .group-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .pill {
+      font-size: 12px; font-weight: 600; color: var(--mute);
+      background: #f5f7fb; border: 1px solid var(--line);
+      border-radius: 3px; padding: 4px 8px;
+    }
+    .note { margin-top: 18px; color: var(--mute); font-size: 12px; }
+    @media (max-width: 920px) {
+      .app { grid-template-columns: 1fr; }
+      .side { position: static; }
+      .kpis, .grid-2 { grid-template-columns: 1fr; }
+      .hero { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-mark">L</div>
+        <div>
+          <b>Lumiscia</b>
+          <small>Learning studio</small>
+        </div>
+      </div>
+      <label class="side-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" placeholder="Search" aria-label="Search app" />
+        <kbd>K</kbd>
+      </label>
+      <nav class="nav" aria-label="Primary">
+        <button type="button" class="on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+          Home
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h5v16H4zM10 4h5v16h-5zM16 7h4v13h-4z"/></svg>
+          Library
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          Messages
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
+          Account
+        </button>
+      </nav>
+      <div class="plan">
+        <div class="plan-top"><b>Study streak</b><span class="badge">Active</span></div>
+        <div class="bar"><i></i></div>
+        <p>62% of weekly goal · 3 days left</p>
+        <button class="upgrade" type="button">Continue studying</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="top">
+        <div>
+          <h1>Welcome back</h1>
+          <p>Classes are organized in groups.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button">Display</button>
+          <button class="btn" type="button">Theme</button>
+          <button class="btn primary" type="button">Start studying</button>
+        </div>
+      </div>
+
+      <section class="hero" aria-label="Learning progress">
+        <button class="ring" type="button" aria-label="Learned cards">
+          <svg viewBox="0 0 36 36" aria-hidden="true">
+            <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
+            <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0.42 1"></circle>
+          </svg>
+          <b>42%</b>
+        </button>
+        <div>
+          <p class="hero-copy">128 <span>of 248</span> cards learned</p>
+          <div class="hero-actions">
+            <button class="btn primary" type="button">Start studying</button>
+            <button class="btn" type="button">Review words</button>
+            <button class="btn" type="button">Open library</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="kpis">
+        <button class="kpi" type="button">
+          <span>Study time</span>
+          <b>3.2h</b>
+          <small class="up">↑ this week</small>
+        </button>
+        <button class="kpi" type="button">
+          <span>Exams passed</span>
+          <b class="ok">4</b>
+          <small class="up">↑ 1 new</small>
+        </button>
+        <button class="kpi" type="button">
+          <span>Weak cards</span>
+          <b class="bad">12</b>
+          <small>needs review</small>
+        </button>
+        <button class="kpi" type="button">
+          <span>Still learning</span>
+          <b>36</b>
+          <small>in progress</small>
+        </button>
+      </div>
+
+      <div class="grid-2">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Recent activity</h2>
+            <a href="#">View all</a>
+          </div>
+          <div class="list">
+            <button class="row-item" type="button">
+              <span class="avatar">GR</span>
+              <span><b>Grammar · Past Simple</b><span>Checked 18 answers</span></span>
+              <time>2h</time>
+            </button>
+            <button class="row-item" type="button">
+              <span class="avatar">EE</span>
+              <span><b>Essential English</b><span>Finished topic “At home”</span></span>
+              <time>Yesterday</time>
+            </button>
+            <button class="row-item" type="button">
+              <span class="avatar">EX</span>
+              <span><b>Exam practice</b><span>Score 86%</span></span>
+              <time>Mon</time>
+            </button>
+            <button class="row-item" type="button">
+              <span class="avatar">PH</span>
+              <span><b>Phrasal verbs</b><span>Added 3 cards</span></span>
+              <time>Sun</time>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Your group</h2>
+            <a href="#">Groups</a>
+          </div>
+          <div class="group-card">
+            <p>B1 Evening · Teacher assigned lessons and exams for this week.</p>
+            <div class="group-meta">
+              <span class="pill">12 students</span>
+              <span class="pill">3 lessons</span>
+              <span class="pill">1 exam</span>
+            </div>
+            <button class="btn primary" type="button" style="width:100%">Open group</button>
+          </div>
+        </section>
+      </div>
+
+      <p class="note">Home mockup in the same SaaS style as Library. Not wired to the app.</p>
+    </main>
+  </div>
+</body>
+</html>

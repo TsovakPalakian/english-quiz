@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Home — lessons cards mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+    :root {
+      --bg: #f5f6fc;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --mute: #64748b;
+      --line: #e8ecf4;
+      --blue: #2f6bff;
+      --blue-soft: #eaf0ff;
+      --orange: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+      --shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.05);
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(1200px 500px at 20% -10%, #eef1ff 0%, transparent 55%), var(--bg);
+      color: var(--ink);
+    }
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 24px 18px 56px;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .side, .main {
+      background: var(--card);
+      border: 1px solid rgba(232, 236, 244, 0.9);
+      border-radius: 6px;
+      box-shadow: var(--shadow);
+    }
+    .side { padding: 18px 14px; position: sticky; top: 18px; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; }
+    .brand-mark {
+      width: 34px; height: 34px; border-radius: 4px;
+      display: grid; place-items: center;
+      background: var(--blue); color: #fff; font-weight: 700; font-size: 14px;
+    }
+    .brand b { display: block; font-size: 14px; }
+    .brand small { color: var(--mute); font-size: 12px; }
+    .side-search {
+      display: flex; align-items: center; gap: 8px;
+      margin: 0 4px 14px; padding: 0 12px; min-height: 40px;
+      border: 1px solid var(--line); border-radius: 4px; background: #fbfbfe;
+    }
+    .side-search input {
+      flex: 1; border: 0; background: transparent; outline: none;
+      font: inherit; font-size: 13px; color: inherit; min-width: 0;
+    }
+    .side-search kbd {
+      font: inherit; font-size: 11px; color: var(--mute);
+      border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px; background: #fff;
+    }
+    .nav { display: grid; gap: 4px; padding: 0 4px; }
+    .nav button {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; min-height: 40px; padding: 0 12px;
+      border: 0; border-radius: 4px; background: transparent;
+      color: var(--mute); font: inherit; font-size: 14px; font-weight: 500;
+      text-align: left; cursor: pointer;
+    }
+    .nav button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+    .nav button.on, .nav button:hover { background: var(--blue-soft); color: var(--blue); }
+    .plan {
+      margin: 18px 4px 0; padding: 14px;
+      border-radius: 5px; background: #f8f9ff; border: 1px solid var(--line);
+    }
+    .plan-top { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .plan-top b { font-size: 13px; }
+    .badge {
+      font-size: 11px; font-weight: 600; color: var(--blue);
+      background: var(--blue-soft); border-radius: 3px; padding: 3px 8px;
+    }
+    .badge.done { color: var(--green); background: #e9f9f2; }
+    .badge.due { color: #b45309; background: #fff4e5; }
+    .badge.lock { color: var(--mute); background: #f1f5f9; }
+    .bar {
+      height: 7px; border-radius: 2px; background: #e7ebf5; overflow: hidden; margin: 8px 0;
+    }
+    .bar > i { display: block; height: 100%; width: 62%; background: var(--orange); border-radius: inherit; }
+    .plan p { margin: 0 0 10px; color: var(--mute); font-size: 12px; }
+    .upgrade {
+      width: 100%; min-height: 36px; border: 0; border-radius: 4px;
+      background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 600;
+      box-shadow: var(--shadow-sm); cursor: pointer;
+    }
+    .main { padding: 22px 22px 26px; }
+    .top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px; margin-bottom: 18px;
+    }
+    .top h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: -0.03em; font-weight: 700; }
+    .top p { margin: 0; color: var(--mute); font-size: 14px; line-height: 1.45; }
+    .top .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      min-height: 38px; padding: 0 14px; border-radius: 4px;
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .search {
+      display: flex; align-items: center; gap: 8px;
+      flex: 1; min-width: 220px; min-height: 42px; padding: 0 12px;
+      border: 1px solid var(--line); border-radius: 4px; background: #fff;
+    }
+    .search input {
+      flex: 1; border: 0; outline: none; background: transparent;
+      font: inherit; font-size: 14px; min-width: 0;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      min-height: 34px; padding: 0 12px; border-radius: 4px;
+      border: 1px solid var(--line); background: #fff; color: var(--mute);
+      font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .chip.on { background: var(--blue-soft); border-color: transparent; color: var(--blue); }
+    .hint { width: 100%; margin: 0; color: var(--mute); font-size: 13px; }
+    .lessons {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .lesson {
+      display: flex; flex-direction: column; align-items: stretch; gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--line); border-radius: 5px;
+      background: #fff; box-shadow: var(--shadow-sm);
+      text-align: left; color: inherit; font: inherit; cursor: pointer;
+    }
+    .lesson:hover { border-color: #d5def7; box-shadow: 0 8px 22px rgba(47, 107, 255, 0.08); }
+    .lesson.next {
+      border-color: #c9d7ff;
+      background: linear-gradient(180deg, #fff, #f7f9ff);
+    }
+    .lesson-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .lesson-date {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+      color: var(--blue); text-transform: uppercase;
+    }
+    .lesson h2 {
+      margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25;
+    }
+    .lesson p { margin: 0; color: var(--mute); font-size: 13px; line-height: 1.45; flex: 1; }
+    .lesson-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .meta-pill {
+      font-size: 12px; font-weight: 600; color: var(--mute);
+      background: #f5f7fb; border: 1px solid var(--line);
+      border-radius: 3px; padding: 4px 8px;
+    }
+    .lesson-foot {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding-top: 4px;
+    }
+    .progress {
+      flex: 1; height: 6px; border-radius: 2px; background: #e7ebf5; overflow: hidden;
+    }
+    .progress > i { display: block; height: 100%; border-radius: inherit; background: var(--blue); }
+    .lesson.done .progress > i { background: var(--green); }
+    .lesson.due .progress > i { background: var(--orange); }
+    .note { margin-top: 18px; color: var(--mute); font-size: 12px; }
+    @media (max-width: 920px) {
+      .app { grid-template-columns: 1fr; }
+      .side { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-mark">L</div>
+        <div>
+          <b>Lumiscia</b>
+          <small>Learning studio</small>
+        </div>
+      </div>
+      <label class="side-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" placeholder="Search" aria-label="Search app" />
+        <kbd>K</kbd>
+      </label>
+      <nav class="nav" aria-label="Primary">
+        <button type="button" class="on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+          Home
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h5v16H4zM10 4h5v16h-5zM16 7h4v13h-4z"/></svg>
+          Library
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+          Messages
+        </button>
+        <button type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
+          Account
+        </button>
+      </nav>
+      <div class="plan">
+        <div class="plan-top"><b>B1 Evening</b><span class="badge">Group</span></div>
+        <div class="bar"><i></i></div>
+        <p>3 of 5 lessons this week</p>
+        <button class="upgrade" type="button">Open group</button>
+      </div>
+    </aside>
+
+    <main class="main" id="home">
+      <div class="top">
+        <div>
+          <h1>Lessons</h1>
+          <p>Your classes as lesson cards. Continue the next one or reopen a finished day.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button">Exams</button>
+          <button class="btn primary" type="button">Continue next</button>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <label class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="lessonSearch" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" />
+        </label>
+        <div class="chips" role="tablist" aria-label="Lesson filter">
+          <button type="button" class="chip on" data-filter="all">All</button>
+          <button type="button" class="chip" data-filter="next">Next</button>
+          <button type="button" class="chip" data-filter="due">Due</button>
+          <button type="button" class="chip" data-filter="done">Done</button>
+        </div>
+        <p class="hint" id="lessonStatus" role="status" hidden></p>
+      </div>
+
+      <div class="lessons" id="lessonGrid">
+        <article class="lesson next" data-status="next" data-title="Past Simple stories">
+          <div class="lesson-top">
+            <span class="lesson-date">21 Sep</span>
+            <span class="badge">Next</span>
+          </div>
+          <h2>Past Simple stories</h2>
+          <p>Tell what happened yesterday. Forms, time words, and short speaking turns.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">12 tasks</span>
+            <span class="meta-pill">Speaking</span>
+            <span class="meta-pill">B1 Evening</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:18%"></i></div>
+            <button class="btn primary" type="button">Study</button>
+          </div>
+        </article>
+
+        <article class="lesson due" data-status="due" data-title="Going to plans">
+          <div class="lesson-top">
+            <span class="lesson-date">16 Sep</span>
+            <span class="badge due">Due</span>
+          </div>
+          <h2>Going to plans</h2>
+          <p>Plans and intentions. Build sentences and check them with the teacher notes.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">9 tasks</span>
+            <span class="meta-pill">Grammar</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:55%"></i></div>
+            <button class="btn primary" type="button">Continue</button>
+          </div>
+        </article>
+
+        <article class="lesson done" data-status="done" data-title="Present Continuous now">
+          <div class="lesson-top">
+            <span class="lesson-date">14 Sep</span>
+            <span class="badge done">Done</span>
+          </div>
+          <h2>Present Continuous now</h2>
+          <p>Actions happening now. Picture prompts and short dialogues.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">10 tasks</span>
+            <span class="meta-pill">Listening</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:100%"></i></div>
+            <button class="btn" type="button">Review</button>
+          </div>
+        </article>
+
+        <article class="lesson done" data-status="done" data-title="Food and likes">
+          <div class="lesson-top">
+            <span class="lesson-date">9 Sep</span>
+            <span class="badge done">Done</span>
+          </div>
+          <h2>Food and likes</h2>
+          <p>Vocabulary around meals, preferences, and soft opinions.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">8 tasks</span>
+            <span class="meta-pill">Vocabulary</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:100%"></i></div>
+            <button class="btn" type="button">Review</button>
+          </div>
+        </article>
+
+        <article class="lesson" data-status="lock" data-title="Comparatives outdoors">
+          <div class="lesson-top">
+            <span class="lesson-date">23 Sep</span>
+            <span class="badge lock">Locked</span>
+          </div>
+          <h2>Comparatives outdoors</h2>
+          <p>Compare places and trips. Opens after the next lesson is finished.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">11 tasks</span>
+            <span class="meta-pill">Writing</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:0%"></i></div>
+            <button class="btn" type="button" disabled>Locked</button>
+          </div>
+        </article>
+
+        <article class="lesson done" data-status="done" data-title="Getting to know you">
+          <div class="lesson-top">
+            <span class="lesson-date">7 Sep</span>
+            <span class="badge done">Done</span>
+          </div>
+          <h2>Getting to know you</h2>
+          <p>Introductions, questions, and classroom language warm-up.</p>
+          <div class="lesson-meta">
+            <span class="meta-pill">7 tasks</span>
+            <span class="meta-pill">Speaking</span>
+          </div>
+          <div class="lesson-foot">
+            <div class="progress" aria-hidden="true"><i style="width:100%"></i></div>
+            <button class="btn" type="button">Review</button>
+          </div>
+        </article>
+      </div>
+
+      <p class="note">Start page as lesson cards. Same SaaS shell as Library/Home mockups. Not wired to the app.</p>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const grid = document.getElementById('lessonGrid');
+      const search = document.getElementById('lessonSearch');
+      const status = document.getElementById('lessonStatus');
+      const chips = [...document.querySelectorAll('[data-filter]')];
+      let filter = 'all';
+      const apply = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        grid.querySelectorAll('.lesson').forEach((card) => {
+          const statusOk = filter === 'all' || card.dataset.status === filter;
+          const textOk = !query || (card.dataset.title + ' ' + card.textContent).toLocaleLowerCase().includes(query);
+          const show = statusOk && textOk;
+          card.hidden = !show;
+          if (show) matches++;
+        });
+        status.hidden = !query && filter === 'all';
+        status.textContent = matches ? matches + ' lessons' : 'No lessons.';
+      };
+      chips.forEach((chip) => chip.addEventListener('click', () => {
+        filter = chip.dataset.filter || 'all';
+        chips.forEach((node) => node.classList.toggle('on', node === chip));
+        apply();
+      }));
+      search.addEventListener('input', apply);
+    })();
+  </script>
+</body>
+</html>
