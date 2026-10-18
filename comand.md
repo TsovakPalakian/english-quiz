@@ -37,9 +37,9 @@
 
 ## A. Settings
 
-- [ ] **S1.** Settings → Notifications: при выборе мелодии — автосохранение (без отдельной кнопки Save).
-- [ ] **S3.** Settings → Interface удалить: дублирует Messages.
-- [ ] **S4.** Settings → Display: починить раздвоенный переключатель High visibility и общую верстку страницы (см. скрины 1–2). У одного пользователя toggle рисуется дважды / «восьмеркой»; страница Accessibility/Display ломается. Проверить desktop и mobile, светлую и темную тему.
+- [x] **S1.** Settings → Notifications: при выборе мелодии — автосохранение (без отдельной кнопки Save).
+- [x] **S3.** Settings → Interface удалить: дублирует Messages.
+- [x] **S4.** Settings → Display: починить раздвоенный переключатель High visibility и общую верстку страницы (см. скрины 1–2). У одного пользователя toggle рисуется дважды / «восьмеркой»; страница Accessibility/Display ломается. Проверить desktop и mobile, светлую и темную тему.
 
 ---
 

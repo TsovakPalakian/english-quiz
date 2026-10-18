@@ -436,8 +436,13 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings #themes>.card:last-child{margin-top:0}
 .user-settings .settings-display-symbol{display:inline-flex;align-items:center;justify-content:center;width:22px;flex:none;font-size:18px}
 .user-settings .display-sizes{margin:12px 0 20px}
-.user-settings .display-visibility{position:relative;margin-top:16px}
-.user-settings .display-visibility input{left:14px;top:50%;transform:translateY(-50%);width:46px;height:28px;min-width:0;min-height:0;padding:0;margin:0}
+.user-settings .display-visibility{position:relative;display:grid;grid-template-columns:46px minmax(0,1fr);gap:12px;align-items:center;margin-top:16px;padding:14px;border:2px solid var(--line);border-radius:8px}
+.user-settings .display-visibility input{position:absolute;opacity:0;width:46px;height:28px;min-width:0;min-height:0;padding:0;margin:0;inset:auto auto auto 14px;top:50%;transform:translateY(-50%)}
+.user-settings .display-visibility>.settings-switch{display:none}
+.user-settings .display-visibility>span{width:46px;height:28px;border-radius:14px;background:var(--line);position:relative}
+.user-settings .display-visibility>span::after{content:"";position:absolute;width:20px;height:20px;left:4px;top:4px;border-radius:50%;background:var(--card);transition:transform .18s}
+.user-settings .display-visibility input:checked+span{background:var(--acc)}
+.user-settings .display-visibility input:checked+span::after{transform:translateX(18px)}
 .user-settings #guideLang{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s)}
 .user-settings #guideLang .chip{min-height:38px;border:0;border-radius:5px;margin:0;padding:8px 16px;background:transparent;color:var(--ink)}
 .user-settings #guideLang .chip.on{background:var(--acc);color:var(--on-acc);font-weight:700}

@@ -84,7 +84,16 @@
       dialog.querySelector('[data-close]').onclick=()=>embedded?dialog.closest('dialog')?.close():dialog.close();
       if(embedded)dialog.querySelector('header').hidden=true;
       form.elements.volume.oninput=update;form.elements.enabled.onchange=update;
-      form.elements.sound.onchange=()=>{update();dialog.querySelector('[data-remove]').hidden=!settings.sounds.some(item=>item.id===settings.sound);preload().catch(fail);};
+      form.elements.sound.onchange=async()=>{
+        update();
+        dialog.querySelector('[data-remove]').hidden=!settings.sounds.some(item=>item.id===settings.sound);
+        preload().catch(fail);
+        if(!embedded)return;
+        try{
+          settings=await api('POST',{enabled:settings.enabled,sound:settings.sound,volume:settings.volume});
+          notice.textContent='Saved';
+        }catch(error){fail(error);}
+      };
       dialog.querySelector('[data-preview]').onclick=async()=>{try{update();await unlock();if(!buffer&&needsBuffer())await preload();play(true);}catch(error){fail(error);}};
       form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;try{update();if(embedded&&form.elements.upload.files.length&&!uploadBuffer)throw Error('The selected audio is not ready. Choose a valid file.');if(embedded&&uploadBuffer){await dialog.querySelector('[data-upload]').onclick({currentTarget:button,saveSettings:true});return;}settings=await api('POST',{enabled:settings.enabled,sound:settings.sound,volume:settings.volume});notice.textContent='Saved';}catch(error){fail(error);}finally{button.disabled=false;}};
       dialog.querySelector('[data-remove]').onclick=async()=>{try{settings=await api('DELETE',null,'?id='+encodeURIComponent(settings.sound));buffer=null;render();}catch(error){fail(error);}};

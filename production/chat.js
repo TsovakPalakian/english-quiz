@@ -4947,7 +4947,7 @@
   }
   function dressUserSettings(pane) {
     pane.querySelectorAll('input[type=checkbox]').forEach((input) => {
-      if (input.closest('.settings-switch,section')) return;
+      if (input.closest('.settings-switch,section,.display-visibility')) return;
       const wrap = document.createElement('span');
       wrap.className = 'settings-switch';
       input.before(wrap);
@@ -5176,7 +5176,6 @@
       [
         ['profile', 'user-round', 'Profile'],
         ['notifications', 'bell', 'Notifications'],
-        ['interface', 'paintbrush', 'Interface'],
         ['theme', 'palette', 'Theme'],
         ['statistics', 'chart-no-axes-combined', 'Statistics'],
         ['messages', 'messages-square', 'Messages'],
@@ -5259,6 +5258,7 @@
       (checked ? ' checked' : '') +
       '><span aria-hidden="true"></span></span></label>';
     async function tab(id, refreshed = false) {
+      if (id === 'interface') id = 'messages';
       node
         .querySelectorAll('[data-settings-tab]')
         .forEach((b) => b.classList.toggle('on', b.dataset.settingsTab === id));
@@ -5354,7 +5354,7 @@
             'New messages outside the active window',
             prefs.notifications,
           ) + '<div data-settings-sounds></div>';
-      if (id === 'interface' || id === 'messages')
+      if (id === 'messages')
         html =
           [
             ['left', 'Conversation list', 'Show conversations in the sidebar'],
@@ -5363,7 +5363,7 @@
           ]
             .map(([p, label, description]) => toggle(p, label, description, prefs[p] !== false))
             .join('') +
-          (id === 'messages' ? '<button class="btn" type="button" data-settings-chat>Open messages</button>' : '');
+          '<button class="btn" type="button" data-settings-chat>Open messages</button>';
       if (id === 'security')
         html =
           '<div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password>' +
