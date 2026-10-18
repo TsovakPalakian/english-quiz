@@ -41,7 +41,28 @@ export class ChatBridge{
     this.loading=(async()=>{
       const db=this.database(this.env);await this.ensureJournal();
       const users=(await this.env.DB.prepare('SELECT id,login,name,email,role,active,hidden,is_personal_data_revoked FROM users').all()).results||[];
-      const [groups,members]=await db.readMany([statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),statement('SELECT account_id,group_id FROM class_group_students')]);
+      const [groups,members,teacherDocs]=await db.readMany([
+        statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),
+        statement('SELECT account_id,group_id FROM class_group_students'),
+        statement("SELECT key,value_json FROM catalog_documents WHERE namespace='accounts-group-teachers'"),
+      ]);
+      const teachersByGroup=new Map();
+      for(const row of teacherDocs||[]){
+        try{
+          const value=JSON.parse(row.value_json);
+          teachersByGroup.set(Number(row.key),new Set((value.teacherIds||[]).map(String)));
+        }catch{}
+      }
+      const groupTeachers=groupId=>{
+        const assigned=teachersByGroup.get(Number(groupId));
+        return assigned&&assigned.size?assigned:null;
+      };
+      const studentMaySeeStaff=(studentGroupId,staffUser)=>{
+        if(staffUser.role==='DEVELOPER')return true;
+        const assigned=groupTeachers(studentGroupId);
+        if(!assigned)return staffUser.role==='ADMIN';
+        return assigned.has(staffUser.id);
+      };
       for(const user of users)user.groupId=members.find(m=>m.account_id===user.id)?.group_id??null;
       const active=users.filter(u=>u.active!==0&&!u.is_personal_data_revoked),allRooms=new Map(),configs=new Map();
       const indexed=this.get('roomIndex');
@@ -56,11 +77,24 @@ export class ChatBridge{
       for(const group of groups)allRooms.set('group:'+group.id,{id:'group:'+group.id,kind:'group',groupId:group.id});
       await mapPool(users,8,async user=>{
         const own=members.find(m=>m.account_id===user.id)?.group_id;
-        const contacts=active.filter(u=>u.id!==user.id&&(!u.hidden||user.role==='DEVELOPER')&&(staff(user)||staff(u)||own&&members.some(m=>m.account_id===u.id&&m.group_id===own)));
+        const contacts=active.filter(u=>{
+          if(u.id===user.id||(u.hidden&&user.role!=='DEVELOPER'))return false;
+          if(staff(user))return true;
+          if(u.role==='USER')return !!(own&&members.some(m=>m.account_id===u.id&&m.group_id===own));
+          if(staff(u))return !!(own&&studentMaySeeStaff(own,u));
+          return false;
+        });
         configs.set(user.id,{profile:{id:user.id,name:user.name,login:user.login,email:user.email,groupId:user.groupId,role:user.role,active:user.active!==0&&!user.is_personal_data_revoked},contacts,groups:groups.filter(g=>staff(user)||g.id===own)});
       });
       await mapPool(groups,8,async group=>{
-        await chatCall(this.env,'CHAT_ROOM','group:'+group.id,'/configure',{room:{id:'group:'+group.id,kind:'group',groupId:group.id,title:group.title},members:active.filter(u=>staff(u)||members.some(m=>m.group_id===group.id&&m.account_id===u.id))});
+        const assigned=groupTeachers(group.id);
+        await chatCall(this.env,'CHAT_ROOM','group:'+group.id,'/configure',{room:{id:'group:'+group.id,kind:'group',groupId:group.id,title:group.title},members:active.filter(u=>{
+          if(members.some(m=>m.group_id===group.id&&m.account_id===u.id))return true;
+          if(!staff(u))return false;
+          if(u.role==='DEVELOPER')return true;
+          if(!assigned)return true;
+          return assigned.has(u.id);
+        })});
       });
       await mapPool([...allRooms.values()],8,async room=>{
         if(room.kind==='group'&&!groups.some(g=>g.id===room.groupId))await chatCall(this.env,'CHAT_ROOM',room.id,'/configure',{room:{...room,active:false},members:[]});
@@ -71,7 +105,7 @@ export class ChatBridge{
       });
       await mapPool(users,8,async user=>{await chatCall(this.env,'CHAT_INBOX',user.id,'/configure',configs.get(user.id));});
       this.set('roomIndex',{at:Date.now(),rooms:[...allRooms.values()].map(room=>({id:room.id,kind:room.kind,groupId:room.groupId||null}))});
-      const result={at:Date.now(),users,groups,members};this.set('policy',result);if(release)this.set('policyDirtyAt',null);return result;
+      const result={at:Date.now(),users,groups,members,teachersByGroup:[...teachersByGroup.entries()].map(([groupId,ids])=>({groupId,teacherIds:[...ids]}))};this.set('policy',result);if(release)this.set('policyDirtyAt',null);return result;
     })().finally(()=>{this.loading=null;});return this.loading;
   }
   registerRoom(room){
@@ -146,7 +180,17 @@ export class ChatBridge{
     const policy=await this.policy(),self=policy.users.find(u=>u.id===actor.id&&u.active!==0&&!u.is_personal_data_revoked);
     if(!self)fail(403,'Account unavailable.');const q=String(query||'').trim().toLocaleLowerCase();if(q.length<3||q.length>254)fail(400,'Enter the full email, login or @username.');
     const usernameOwner=q.startsWith('@')?this.get('username-owner:'+q):null;
-    const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
+    const own=policy.members.find(m=>m.account_id===self.id)?.group_id;
+    const assigned=own==null?null:new Set((policy.teachersByGroup||[]).find(row=>Number(row.groupId)===Number(own))?.teacherIds||[]);
+    const visible=u=>{
+      if(staff(self))return true;
+      if(u.role==='USER')return !!(own&&policy.members.some(m=>m.account_id===u.id&&m.group_id===own));
+      if(!staff(u)||!own)return false;
+      if(u.role==='DEVELOPER')return true;
+      if(!assigned?.size)return u.role==='ADMIN';
+      return assigned.has(u.id);
+    };
+    const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&visible(u)&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
     if(matches.length>1)fail(409,'Use the full email to identify this account.');return {person:matches[0]||null};
   }
   fetch(request){

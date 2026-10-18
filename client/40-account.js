@@ -1,3 +1,26 @@
+    function captureInviteFromLocation() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const token = params.get('invite');
+        if (!token) return;
+        sessionStorage.setItem('enquiz-invite', token);
+        params.delete('invite');
+        const query = params.toString();
+        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+      } catch (e) {}
+    }
+    async function redeemPendingInvite() {
+      let token = '';
+      try { token = sessionStorage.getItem('enquiz-invite') || ''; } catch (e) {}
+      if (!token || !authUser || authUser.role !== 'USER') return;
+      try {
+        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }) });
+        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
+      } catch (error) {
+        console.warn(error.message || 'Invite could not be used.');
+      }
+    }
+    captureInviteFromLocation();
     function enterAccount(user) {
       signedOutHello = false;
       accountChecked = true;
@@ -25,7 +48,7 @@
       }).catch(() => {
         accountReady = !!(loadAdded().length || loadSongs().length);
         if (syncQueue.length) scheduleStateSave();
-      });
+      }).then(() => redeemPendingInvite());
     }
     function clearMediaStore(names) {
       const want = names && names.length ? names : ["files", "added", "songs"];

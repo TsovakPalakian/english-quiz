@@ -10421,7 +10421,7 @@
       }).join('');
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section>');
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section><section class="accounts-invite-section" data-group-invites data-group-id="'+selected.id+'"><h3>Invite link</h3><p class="hint">Student opens the link, signs in, and joins this group. Visible teacher is chosen below.</p><label><span>Teacher or developer</span><select data-invite-teacher aria-label="Invite teacher">'+candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('')+'</select></label><div class="row"><button class="btn primary" type="button" data-invite-create>Create invite</button><button class="btn" type="button" data-invite-copy hidden>Copy link</button></div><input type="text" readonly hidden data-invite-url aria-label="Invite URL"><p class="hint" role="status" data-invite-status></p></section>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -10436,6 +10436,31 @@
         if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;adminTeacherAssignments=adminTeacherAssignments.filter(row=>row.groupId!==result.groupId);adminTeacherAssignments.push(result);
         if(adminGroupId===groupId&&document.querySelector('section.on')?.id==='admingroup'){paintAdminGroup();document.querySelector('[data-account-teachers-status]').textContent='Saved';}
       }catch(error){if(form.isConnected)status.textContent=error.message;}finally{if(form.isConnected)form.querySelectorAll('button').forEach(node=>node.disabled=false);}
+    });
+    document.addEventListener('click',async event=>{
+      const create=event.target.closest('#adminGroupDetail [data-invite-create]');
+      const copy=event.target.closest('#adminGroupDetail [data-invite-copy]');
+      if(!create&&!copy||!isTeacher()||viewAccount)return;
+      const box=event.target.closest('[data-group-invites]');if(!box)return;
+      const status=box.querySelector('[data-invite-status]'),urlInput=box.querySelector('[data-invite-url]'),copyBtn=box.querySelector('[data-invite-copy]');
+      if(copy){
+        if(!urlInput?.value)return;
+        try{await navigator.clipboard.writeText(urlInput.value);status.textContent='Link copied.';}catch{urlInput.hidden=false;urlInput.select();status.textContent='Copy the link from the field.';}
+        return;
+      }
+      const teacherId=box.querySelector('[data-invite-teacher]')?.value||authUser?.id;
+      const groupId=Number(box.dataset.groupId);
+      create.disabled=true;status.textContent='Creating…';
+      try{
+        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId})});
+        const link=location.origin+'/?invite='+encodeURIComponent(result.token);
+        urlInput.value=link;urlInput.hidden=false;copyBtn.hidden=false;
+        status.textContent='Invite for '+result.groupTitle+' · expires '+new Date(result.expiresAt).toLocaleDateString();
+        const assignment=adminTeacherAssignments.find(row=>row.groupId===groupId);
+        if(assignment&&!assignment.teacherIds.includes(teacherId)){assignment.teacherIds=[...assignment.teacherIds,teacherId];assignment.revision+=1;}
+        else if(!assignment)adminTeacherAssignments.push({groupId,revision:1,teacherIds:[teacherId]});
+      }catch(error){status.textContent=error.message;}
+      finally{create.disabled=false;}
     });
     async function saveAccountGroup(body) {
       const actor = authUser?.id, generation = viewGen;
@@ -11489,6 +11514,29 @@
       link.click();
       URL.revokeObjectURL(link.href);
     }
+    function captureInviteFromLocation() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const token = params.get('invite');
+        if (!token) return;
+        sessionStorage.setItem('enquiz-invite', token);
+        params.delete('invite');
+        const query = params.toString();
+        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+      } catch (e) {}
+    }
+    async function redeemPendingInvite() {
+      let token = '';
+      try { token = sessionStorage.getItem('enquiz-invite') || ''; } catch (e) {}
+      if (!token || !authUser || authUser.role !== 'USER') return;
+      try {
+        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }) });
+        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
+      } catch (error) {
+        console.warn(error.message || 'Invite could not be used.');
+      }
+    }
+    captureInviteFromLocation();
     function enterAccount(user) {
       signedOutHello = false;
       accountChecked = true;
@@ -11516,7 +11564,7 @@
       }).catch(() => {
         accountReady = !!(loadAdded().length || loadSongs().length);
         if (syncQueue.length) scheduleStateSave();
-      });
+      }).then(() => redeemPendingInvite());
     }
     function clearMediaStore(names) {
       const want = names && names.length ? names : ["files", "added", "songs"];

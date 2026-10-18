@@ -10,6 +10,7 @@ import {ensurePairedThemes} from './learning-paired-themes.mjs';
 import {VisibilityService} from './learning-visibility.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {AccountGroupTeachers} from './account-group-teachers.mjs';
+import {AccountInvites} from './account-invites.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './learning-media.mjs';
@@ -166,6 +167,38 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         let value;try{value=JSON.parse(await boundedText(request,10000,'Teacher assignment too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid teacher assignment.');}
         return json(await service.save(actor,value,users));
+      }
+      if(path==='/api/accounts/invites'){
+        const service=new AccountInvites(studyDatabase(env));
+        if(method==='GET'&&url.searchParams.get('token')){
+          return json(await service.peek(url.searchParams.get('token')));
+        }
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(method==='GET'){
+          if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+          return json(await service.list(actor));
+        }
+        if(method!=='POST')throw new StudyError(405,'Use GET or POST.');
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,4096,'Invite request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid invite request.');}
+        if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid invite request.');
+        if(value.action==='revoke'){
+          if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+          return json(await service.revoke(actor,value));
+        }
+        if(value.action==='redeem'){
+          const groups=new GroupService(studyDatabase(env));
+          const result=await service.redeem(actor,value.token,(teacher,accountId,groupId)=>groups.assignStudent(teacher,accountId,groupId));
+          try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+          return json(result);
+        }
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+        const target=new URL(request.url);target.pathname='/api/admin/users';target.search='';
+        const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);if(!response.ok)return response;
+        const {users=[]}=await response.json();
+        const created=await service.create(actor,value,users);
+        try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+        return json(created);
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

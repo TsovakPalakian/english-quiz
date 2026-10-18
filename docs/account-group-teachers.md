@@ -22,6 +22,14 @@ Assignments persist in the selected database's existing catalog_documents table,
 namespace accounts-group-teachers, key = subgroup id. No new schema is needed.
 Compare-and-swap writes prevent lost updates. Tests cover SQLite and PostgreSQL.
 
-These records are administrative display metadata ONLY. They are not read by
-lesson/exam permissions, chat membership or academic group membership. Adding
-or removing a teacher here must never grant or revoke those permissions.
+Chat visibility for students now uses these assignments (H9/H10):
+
+- a student sees staff contacts only among teachers assigned to their group
+  (developers remain visible; if a group has no assignments, all ADMIN staff
+  stay visible for legacy groups);
+- group chat rooms include assigned teachers (plus developers); unassigned
+  ADMIN teachers are omitted when the group has at least one assignment.
+
+Lesson/exam academic permissions are still separate from this catalog. Invite
+links (`/api/accounts/invites`) create or extend the teacher assignment for the
+chosen teacher/developer when the invite is issued.
