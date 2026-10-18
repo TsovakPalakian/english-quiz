@@ -42,7 +42,7 @@ try{
   await page.screenshot({path:'/private/tmp/notification-sounds-mobile.png'});
   await dialog.locator('[data-remove]').click();await dialog.locator('option[value=custom-one]').waitFor({state:'detached'});assert.equal(settings.sounds.length,0);
   await dialog.locator('[data-close]').click();
-  const chat=readFileSync('production/chat.js','utf8'),editor=chat.slice(chat.indexOf('  function settingsSoundEditor(root){'),chat.indexOf('  function dressUserSettings(pane){'));
+  const chat=readFileSync('production/chat.js','utf8'),editor=chat.slice(chat.indexOf('  function settingsSoundEditor(root) {'),chat.indexOf('  function dressUserSettings(pane) {'));
   await page.addScriptTag({content:'window.icon=()=>"";window.icons=()=>{};'+editor+'document.addEventListener("notification-sounds-rendered",event=>{if(event.target.closest(".user-settings"))settingsSoundEditor(event.target);});'});
   await page.evaluate(async()=>{const node=document.createElement('dialog');node.className='chat-dialog user-settings';node.innerHTML='<div data-settings-sounds></div>';document.body.append(node);node.showModal();await window.NotificationSounds.mount(node.firstElementChild);});
   const embedded=page.locator('dialog.user-settings[open]');

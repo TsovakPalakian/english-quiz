@@ -4,9 +4,17 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const source=readFileSync(new URL('../production/chat.js',import.meta.url),'utf8');
+// Top-level statements inside the chat IIFE start at a two-space indent.
+function definition(name){
+  const lines=source.split('\n'),start=lines.findIndex(line=>line.startsWith('  const '+name+' = '));
+  if(start<0)return '';
+  let end=start+1;while(end<lines.length&&!/^ {2}\S/.test(lines[end]))end++;
+  if(/^ {2}[)}\]]/.test(lines[end]))end++;
+  return lines.slice(start,end).join('\n');
+}
 function presentation(data={contacts:[]}){
   const definitions=['dateLabel','time','roomTime','roomTitle'].map(name=>{
-    const line=source.split('\n').find(line=>line.trimStart().startsWith('const '+name+'='));
+    const line=definition(name);
     assert.ok(line,'Missing presentation helper '+name);return line;
   }).join('\n');
   return runInNewContext(definitions+'\n({dateLabel,time,roomTime,roomTitle})',{data,Date});
@@ -40,7 +48,7 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
 });
 test('icon rendering coalesces a burst of updates into one animation frame',()=>{
   let scans=0;const callbacks=[];
-  const icons=runInNewContext('let iconFrame=0;'+source.split('\n').find(line=>line.trimStart().startsWith('const icons='))+'\nicons',{
+  const icons=runInNewContext('let iconFrame=0;'+definition('icons')+'\nicons',{
     document:{querySelectorAll:()=>[]},window:{lucide:{createIcons(options){assert.equal(options.nameAttr,'data-chat-icon');scans++;}}},requestAnimationFrame(callback){callbacks.push(callback);return callbacks.length;}
   });
   for(let i=0;i<100;i++)icons();
@@ -49,12 +57,12 @@ test('icon rendering coalesces a burst of updates into one animation frame',()=>
 });
 test('folder markers sum only current-user unread across visible member chats',()=>{
   const data={rooms:[{id:'a',unread:{personal:3}},{id:'b',unread:{personal:3}},{id:'muted',muted:true,unread:{learning:2}},{id:'archived',archived:true,unread:{personal:9}},{id:'blocked',access:{blockedByMe:true},unread:{personal:8}}]};
-  const line=source.split('\n').find(line=>line.trimStart().startsWith('const folderUnread='));assert.ok(line);
+  const line=definition('folderUnread');assert.ok(line);
   const count=runInNewContext(line+'\nfolderUnread',{data});
   assert.equal(count({roomIds:['a','b','a']}),6);assert.equal(count({roomIds:['muted','archived','blocked','missing']}),2);assert.equal(count({roomIds:[]}),0);
 });
 test('chat previews shorten words and unbroken text without altering messages',()=>{
-  const line=source.split('\n').find(line=>line.trimStart().startsWith('const roomPreview='));assert.ok(line);
+  const line=definition('roomPreview');assert.ok(line);
   const preview=runInNewContext(line+'\nroomPreview');
   assert.equal(preview('one two three four five six seven eight'),'one two three four five six…');
   assert.equal(preview('short message'),'short message');assert.equal(preview('  short\nmessage  '),'short message');assert.ok(preview('x'.repeat(100)).length<=65);
