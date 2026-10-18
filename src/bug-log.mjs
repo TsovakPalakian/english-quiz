@@ -96,6 +96,7 @@ export async function saveBug(db,event){
   const status=Number(event.status)||0;
   const path=String(event.path||'/').split('?')[0];
   if(status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||event.error==='Sign in first.')return {ignored:true};
+  if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return {ignored:true};
   await ensure(db);
   const method=String(event.method||'GET');
   const error=clipText(event.error||('HTTP '+status)).slice(0,500);

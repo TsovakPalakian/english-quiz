@@ -182,6 +182,8 @@
     const path=String(entry.path||'/').split('?')[0];
     const status=Number(entry.status)||0;
     if(path.startsWith('/api/bugs')||status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
+    // Stale Approve/Reject after a successful decision is expected; do not fill the bug journal.
+    if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return;
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}

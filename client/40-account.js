@@ -249,9 +249,14 @@
       if (action === "approve-change" || action === "reject-change") {
         if (!isTeacher() || viewAccount) return;
         const verb = action === "approve-change" ? "approve" : "reject";
+        const row = button.closest('.account-approval-row') || button, controls = [...row.querySelectorAll('button,select'), button];
+        if (row.dataset.busy) return;
+        row.dataset.busy = '1';
+        controls.forEach((node) => { node.disabled = true; });
+        button.textContent = verb === 'approve' ? 'Approving…' : 'Rejecting…';
         accountFetch("/api/admin/changes/" + encodeURIComponent(button.dataset.id) + "/" + verb, { method: "POST", body: "{}" })
           .then(() => paintAdmin())
-          .catch((err) => alert(err.message));
+          .catch((err) => { paintAdmin(); alert(err.message); });
         return;
       }
       if (action === "approve" || action === "reject") {
@@ -263,7 +268,10 @@
         controls.forEach((node) => { node.disabled = true; });
         button.textContent = action === 'approve' ? 'Approving…' : 'Rejecting…';
         accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: JSON.stringify(action === 'approve' && picker?.value ? {groupId:Number(picker.value)} : {}) })
-          .then(() => paintAdmin())
+          .then((result) => {
+            if (result?.groupWarning) window.LearningMain?.notice(result.groupWarning, true);
+            paintAdmin();
+          })
           .catch((err) => { paintAdmin(); alert(err.message); });
         return;
       }

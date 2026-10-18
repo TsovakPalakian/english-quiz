@@ -104,7 +104,7 @@
 
 ## H. Accounts
 
-- [ ] **A15.** Accounts → Approval Requests: Approve дает bug в логах — найти причину, починить, проверить успех без ошибки.
+- [x] **A15.** Accounts → Approval Requests: Approve дает bug в логах — найти причину, починить, проверить успех без ошибки.
 
 ---
 

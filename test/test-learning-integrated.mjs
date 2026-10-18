@@ -270,3 +270,36 @@ test('Legacy history is read-only, owner-bound by default, developer-only for al
   assert.equal((await call('scope=all')).status,403);role='DEVELOPER';assert.equal((await call('scope=all')).status,200);
   assert.equal(new URL(requests[1].url).searchParams.has('user'),false);assert.ok(requests.every(r=>r.method==='GET'));assert.equal(f.calls.length,0);
 });
+test('Approve stays successful when group assignment fails after the account is created',async()=>{
+  const regId='c'.repeat(32),userId='d'.repeat(32);let assigned=false;
+  const worker=integratedWorker({
+    authenticate:async()=>({id,role:'ADMIN',login:'SyntheticTeacher'}),
+    accountWorker:{fetch:async()=>Response.json({ok:true,userId,role:'USER'})},
+    studyDatabase:()=>({
+      binding:{},
+      async atomic(commands){
+        if(Array.isArray(commands)&&commands.some(command=>/INSERT INTO class_group_students/i.test(String(command?.sql||'')))){
+          assigned=true;throw Object.assign(new Error('group write failed'),{status:503});
+        }
+      },
+      async read(sql){
+        if(String(sql).includes('PRAGMA'))return [{name:'id'},{name:'title'},{name:'lesson_date'},{name:'hidden_from_students'}];
+        if(String(sql).includes('class_group_setup')&&String(sql).includes('COUNT'))return [{setup:2,has_groups:1,blank_dates:0,loose_lessons:0}];
+        if(String(sql).includes('FROM class_groups'))return [{id:7,title:'A1',deleted_at:null,revision:1}];
+        return [{role:'USER'}];
+      },
+    }),
+  });
+  const env={DB:fixture().raw,STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',
+    AUTH_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>new Response(null)})}};
+  env.DB.prepare=sql=>({bind:()=>({first:async()=>String(sql).includes('FROM registrations')?{role:'USER'}:null,run:async()=>({success:true}),all:async()=>({results:[]})})});
+  const response=await worker.fetch(new Request('https://test.invalid/api/admin/registrations/'+regId+'/approve',{
+    method:'POST',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify({groupId:7}),
+  }),env);
+  const body=await response.json();
+  assert.equal(response.status,200,JSON.stringify(body));
+  assert.equal(body.userId,userId);
+  assert.equal(body.ok,true);
+  assert.match(String(body.groupWarning||''),/group/i);
+  assert.equal(assigned,true);
+});

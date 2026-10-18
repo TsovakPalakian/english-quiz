@@ -515,8 +515,19 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(response.ok&&approvalGroup!=null){
           const result=await response.clone().json();
           if(!result.userId)throw new StudyError(500,'Account approved. Assign its group in Accounts.');
-          try{if(result.role==='USER')await approvalGroups.assignStudent(approvalActor,result.userId,approvalGroup);}
-          catch{throw new StudyError(503,'Account approved, but its group could not be saved. Assign the group in Accounts.');}
+          if(result.role==='USER'){
+            try{
+              await approvalGroups.assignStudent(approvalActor,result.userId,approvalGroup);
+              try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+            }catch(error){
+              // Account is already approved; do not turn a group write failure into a failed Approve / bug log.
+              const headers=new Headers(response.headers);headers.delete('Content-Length');
+              response=Response.json({
+                ...result,
+                groupWarning:error instanceof StudyError?error.message:'Account approved, but its group could not be saved. Assign the group in Accounts.',
+              },{status:200,headers});
+            }
+          }
         }
         // Only a trusted authentication response may attach the reserved pair.
         if((path==='/api/login'&&method==='POST'||path==='/api/me'&&method==='GET')&&response.ok&&env.STAGE_WRITES==='true'){
