@@ -44,7 +44,10 @@
             ? folder.roomIds.includes(r.id)
             : chatListView === 'archive' ||
               (kind === 'personal'
-                ? r.kind === 'direct' && !filed.has(r.id) && (r.hadPersonal || r.has?.personal)
+                ? !r.personalHidden &&
+                  !filed.has(r.id) &&
+                  (r.kind === 'direct' || r.kind === 'group') &&
+                  (r.hadPersonal || r.has?.personal)
                 : r.has?.learning)) &&
           (!unreadOnly || r.unread?.[kind]) &&
           (!query ||
@@ -88,59 +91,98 @@
           .join('')
       : '<div class="chat-empty">No conversations here yet.</div>';
     if (listMode === 'contacts') {
-      const contacts = [
-        ...new Map(
-          [
-            ...data.rooms
-              .filter((r) => r.kind === 'direct')
-              .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-            ...data.contacts,
-          ].map((p) => [p.id, p]),
-        ).values(),
-      ]
-        .filter(
-          (p) =>
-            !blocked.has(p.id) &&
-            !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+      if (contactGroupView) {
+        const members = (contactGroupView.members || []).filter(
+          (m) =>
+            m.id !== account &&
             (!query ||
-              (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name));
-      html =
-        '<h3 class="chat-list-heading">People</h3>' +
-        contacts
-          .map(
-            (p) =>
-              '<button type="button" class="chat-contact" data-contact-id="' +
-              escape(p.id) +
-              '">' +
-              avatar(p.name, false, p.id) +
-              '<span><strong>' +
-              escape(roomTitle({ title: p.name, kind: 'direct', peerRole: p.role })) +
-              '</strong><small>' +
-              escape(profileViews[p.id]?.username || p.role) +
-              '</small></span></button>',
-          )
-          .join('') +
-        '<h3 class="chat-list-heading">Groups</h3>' +
-        data.groups
+              (m.name + ' ' + (m.role || '') + ' ' + (profileViews[m.id]?.username || ''))
+                .toLocaleLowerCase()
+                .includes(query)),
+        );
+        html =
+          '<button type="button" class="chat-contact" data-contact-group-back>' +
+          icon('arrow-left') +
+          '<span>Back</span></button>' +
+          '<button type="button" class="chat-contact" data-contact-group-open="' +
+          escape(String(contactGroupView.groupId)) +
+          '">' +
+          icon('message-circle') +
+          '<span>Open group chat</span></button>' +
+          '<h3 class="chat-list-heading">' +
+          escape(contactGroupView.title || 'Members') +
+          '</h3>' +
+          (members.length
+            ? members
+                .map(
+                  (m) =>
+                    '<button type="button" class="chat-contact" data-contact-id="' +
+                    escape(m.id) +
+                    '">' +
+                    avatar(m.name, false, m.id) +
+                    '<span><strong>' +
+                    escape(m.name) +
+                    '</strong><small>' +
+                    escape(profileViews[m.id]?.username || m.role || 'Member') +
+                    '</small></span></button>',
+                )
+                .join('')
+            : '<div class="chat-empty">No members found.</div>');
+      } else {
+        const contacts = [
+          ...new Map(
+            [
+              ...data.rooms
+                .filter((r) => r.kind === 'direct')
+                .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
+              ...data.contacts,
+            ].map((p) => [p.id, p]),
+          ).values(),
+        ]
           .filter(
-            (g) =>
-              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
-              (!query || g.title.toLocaleLowerCase().includes(query)),
+            (p) =>
+              !blocked.has(p.id) &&
+              !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+              (!query ||
+                (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
-          .sort((a, b) => a.title.localeCompare(b.title))
-          .map(
-            (g) =>
-              '<button type="button" class="chat-contact" data-chat-group="' +
-              g.id +
-              '">' +
-              avatar(g.title, true, 'group:' + g.id) +
-              '<span><strong>' +
-              escape(g.title) +
-              '</strong><small>Group chat</small></span></button>',
-          )
-          .join('');
+          .sort((a, b) => a.name.localeCompare(b.name));
+        html =
+          '<h3 class="chat-list-heading">People</h3>' +
+          contacts
+            .map(
+              (p) =>
+                '<button type="button" class="chat-contact" data-contact-id="' +
+                escape(p.id) +
+                '">' +
+                avatar(p.name, false, p.id) +
+                '<span><strong>' +
+                escape(roomTitle({ title: p.name, kind: 'direct', peerRole: p.role })) +
+                '</strong><small>' +
+                escape(profileViews[p.id]?.username || p.role) +
+                '</small></span></button>',
+            )
+            .join('') +
+          '<h3 class="chat-list-heading">Groups</h3>' +
+          data.groups
+            .filter(
+              (g) =>
+                !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+                (!query || g.title.toLocaleLowerCase().includes(query)),
+            )
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map(
+              (g) =>
+                '<button type="button" class="chat-contact" data-chat-group="' +
+                g.id +
+                '">' +
+                avatar(g.title, true, 'group:' + g.id) +
+                '<span><strong>' +
+                escape(g.title) +
+                '</strong><small>Group chat</small></span></button>',
+            )
+            .join('');
+      }
     }
     if (listMode === 'chats' && !chatListView && kind === 'personal') {
       const folders = (data.folders || [])
@@ -176,7 +218,7 @@
         html;
     el('msgListTitle').textContent = listMode === 'contacts' ? 'Contacts' : 'Chats';
     el('msgRoomSearch').placeholder = listMode === 'contacts' ? 'Name, full email or login' : 'Chats, contacts';
-    el('msgLookup').hidden = listMode !== 'contacts';
+    el('msgLookup').hidden = listMode !== 'contacts' || !!contactGroupView;
     el('msgUnread').hidden = listMode === 'contacts';
     el('msgChats').classList.toggle('selected', listMode === 'chats');
     el('msgContacts').classList.toggle('selected', listMode === 'contacts');
@@ -185,6 +227,8 @@
       el('msgRooms').dataset.renderedHtml = html;
     }
     if (chatListView) el('msgListTitle').textContent = chatListView === 'archive' ? 'Archive' : folder?.name || 'Chats';
+    if (listMode === 'contacts' && contactGroupView)
+      el('msgListTitle').textContent = contactGroupView.title || 'Members';
     el('msgRooms')
       .querySelectorAll('[data-msg-room]')
       .forEach((node) => {

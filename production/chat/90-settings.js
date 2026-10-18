@@ -34,6 +34,7 @@
   }
   function showContacts() {
     chatListView = '';
+    contactGroupView = null;
     listMode = 'contacts';
     el('msgRoomSearch').value = '';
     badge();
@@ -999,6 +1000,7 @@
         closeContext();
         clearSelection();
         chatListView = '';
+        contactGroupView = null;
         listMode = 'chats';
         kind = target.dataset.msgCategory;
         badge();

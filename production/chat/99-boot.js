@@ -5,6 +5,7 @@
     if (signature !== next) window.NotificationSounds?.load(user?.id || '');
     if (signature !== next) {
       chatListView = '';
+      contactGroupView = null;
       section.classList.remove('chat-detached');
     }
     if (signature !== next) {

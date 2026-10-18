@@ -1008,6 +1008,18 @@
       const cache = historyCache.get(room + ':' + category);
       if (cache && !cache.rows.some((m) => m.id === result.message.id)) cache.rows.push(result.message);
       if (kind === category) mergeNode(result.message);
+      if (category === 'personal') {
+        const currentRoom = data.rooms.find((r) => r.id === sent.roomId);
+        if (currentRoom?.personalHidden)
+          setRoomSettings(sent.roomId, { personalHidden: false }).catch(() => {});
+        else {
+          if (currentRoom) {
+            currentRoom.hadPersonal = true;
+            if (currentRoom.has) currentRoom.has.personal = true;
+          }
+          paintRooms();
+        }
+      }
       pending = null;
       reply = null;
       files = [];

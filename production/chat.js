@@ -246,6 +246,7 @@
     selection = new Set(),
     selecting = false;
   let chatListView = '',
+    contactGroupView = null,
     draggedPin = '';
   const mutedChat = (r) =>
     r?.archived ||
@@ -945,7 +946,10 @@
             ? folder.roomIds.includes(r.id)
             : chatListView === 'archive' ||
               (kind === 'personal'
-                ? r.kind === 'direct' && !filed.has(r.id) && (r.hadPersonal || r.has?.personal)
+                ? !r.personalHidden &&
+                  !filed.has(r.id) &&
+                  (r.kind === 'direct' || r.kind === 'group') &&
+                  (r.hadPersonal || r.has?.personal)
                 : r.has?.learning)) &&
           (!unreadOnly || r.unread?.[kind]) &&
           (!query ||
@@ -989,59 +993,98 @@
           .join('')
       : '<div class="chat-empty">No conversations here yet.</div>';
     if (listMode === 'contacts') {
-      const contacts = [
-        ...new Map(
-          [
-            ...data.rooms
-              .filter((r) => r.kind === 'direct')
-              .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-            ...data.contacts,
-          ].map((p) => [p.id, p]),
-        ).values(),
-      ]
-        .filter(
-          (p) =>
-            !blocked.has(p.id) &&
-            !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+      if (contactGroupView) {
+        const members = (contactGroupView.members || []).filter(
+          (m) =>
+            m.id !== account &&
             (!query ||
-              (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
-        )
-        .sort((a, b) => a.name.localeCompare(b.name));
-      html =
-        '<h3 class="chat-list-heading">People</h3>' +
-        contacts
-          .map(
-            (p) =>
-              '<button type="button" class="chat-contact" data-contact-id="' +
-              escape(p.id) +
-              '">' +
-              avatar(p.name, false, p.id) +
-              '<span><strong>' +
-              escape(roomTitle({ title: p.name, kind: 'direct', peerRole: p.role })) +
-              '</strong><small>' +
-              escape(profileViews[p.id]?.username || p.role) +
-              '</small></span></button>',
-          )
-          .join('') +
-        '<h3 class="chat-list-heading">Groups</h3>' +
-        data.groups
+              (m.name + ' ' + (m.role || '') + ' ' + (profileViews[m.id]?.username || ''))
+                .toLocaleLowerCase()
+                .includes(query)),
+        );
+        html =
+          '<button type="button" class="chat-contact" data-contact-group-back>' +
+          icon('arrow-left') +
+          '<span>Back</span></button>' +
+          '<button type="button" class="chat-contact" data-contact-group-open="' +
+          escape(String(contactGroupView.groupId)) +
+          '">' +
+          icon('message-circle') +
+          '<span>Open group chat</span></button>' +
+          '<h3 class="chat-list-heading">' +
+          escape(contactGroupView.title || 'Members') +
+          '</h3>' +
+          (members.length
+            ? members
+                .map(
+                  (m) =>
+                    '<button type="button" class="chat-contact" data-contact-id="' +
+                    escape(m.id) +
+                    '">' +
+                    avatar(m.name, false, m.id) +
+                    '<span><strong>' +
+                    escape(m.name) +
+                    '</strong><small>' +
+                    escape(profileViews[m.id]?.username || m.role || 'Member') +
+                    '</small></span></button>',
+                )
+                .join('')
+            : '<div class="chat-empty">No members found.</div>');
+      } else {
+        const contacts = [
+          ...new Map(
+            [
+              ...data.rooms
+                .filter((r) => r.kind === 'direct')
+                .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
+              ...data.contacts,
+            ].map((p) => [p.id, p]),
+          ).values(),
+        ]
           .filter(
-            (g) =>
-              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
-              (!query || g.title.toLocaleLowerCase().includes(query)),
+            (p) =>
+              !blocked.has(p.id) &&
+              !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+              (!query ||
+                (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
-          .sort((a, b) => a.title.localeCompare(b.title))
-          .map(
-            (g) =>
-              '<button type="button" class="chat-contact" data-chat-group="' +
-              g.id +
-              '">' +
-              avatar(g.title, true, 'group:' + g.id) +
-              '<span><strong>' +
-              escape(g.title) +
-              '</strong><small>Group chat</small></span></button>',
-          )
-          .join('');
+          .sort((a, b) => a.name.localeCompare(b.name));
+        html =
+          '<h3 class="chat-list-heading">People</h3>' +
+          contacts
+            .map(
+              (p) =>
+                '<button type="button" class="chat-contact" data-contact-id="' +
+                escape(p.id) +
+                '">' +
+                avatar(p.name, false, p.id) +
+                '<span><strong>' +
+                escape(roomTitle({ title: p.name, kind: 'direct', peerRole: p.role })) +
+                '</strong><small>' +
+                escape(profileViews[p.id]?.username || p.role) +
+                '</small></span></button>',
+            )
+            .join('') +
+          '<h3 class="chat-list-heading">Groups</h3>' +
+          data.groups
+            .filter(
+              (g) =>
+                !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+                (!query || g.title.toLocaleLowerCase().includes(query)),
+            )
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map(
+              (g) =>
+                '<button type="button" class="chat-contact" data-chat-group="' +
+                g.id +
+                '">' +
+                avatar(g.title, true, 'group:' + g.id) +
+                '<span><strong>' +
+                escape(g.title) +
+                '</strong><small>Group chat</small></span></button>',
+            )
+            .join('');
+      }
     }
     if (listMode === 'chats' && !chatListView && kind === 'personal') {
       const folders = (data.folders || [])
@@ -1077,7 +1120,7 @@
         html;
     el('msgListTitle').textContent = listMode === 'contacts' ? 'Contacts' : 'Chats';
     el('msgRoomSearch').placeholder = listMode === 'contacts' ? 'Name, full email or login' : 'Chats, contacts';
-    el('msgLookup').hidden = listMode !== 'contacts';
+    el('msgLookup').hidden = listMode !== 'contacts' || !!contactGroupView;
     el('msgUnread').hidden = listMode === 'contacts';
     el('msgChats').classList.toggle('selected', listMode === 'chats');
     el('msgContacts').classList.toggle('selected', listMode === 'contacts');
@@ -1086,6 +1129,8 @@
       el('msgRooms').dataset.renderedHtml = html;
     }
     if (chatListView) el('msgListTitle').textContent = chatListView === 'archive' ? 'Archive' : folder?.name || 'Chats';
+    if (listMode === 'contacts' && contactGroupView)
+      el('msgListTitle').textContent = contactGroupView.title || 'Members';
     el('msgRooms')
       .querySelectorAll('[data-msg-room]')
       .forEach((node) => {
@@ -2304,6 +2349,18 @@
       const cache = historyCache.get(room + ':' + category);
       if (cache && !cache.rows.some((m) => m.id === result.message.id)) cache.rows.push(result.message);
       if (kind === category) mergeNode(result.message);
+      if (category === 'personal') {
+        const currentRoom = data.rooms.find((r) => r.id === sent.roomId);
+        if (currentRoom?.personalHidden)
+          setRoomSettings(sent.roomId, { personalHidden: false }).catch(() => {});
+        else {
+          if (currentRoom) {
+            currentRoom.hadPersonal = true;
+            if (currentRoom.has) currentRoom.has.personal = true;
+          }
+          paintRooms();
+        }
+      }
       pending = null;
       reply = null;
       files = [];
@@ -4073,12 +4130,31 @@
                 '</option>',
             )
             .join('') +
-          '</select></label>',
+          '</select></label><div class="sound-actions"><button type="button" data-sound-preview class="btn">Preview</button></div><p class="hint" data-sound-status role="status"></p>',
         async (form) => {
           await setRoomSettings(row.id, { sound: String(form.get('sound')) });
         },
       );
     node.querySelector('[type=submit]').textContent = 'Save';
+    const select = node.querySelector('[name=sound]'),
+      statusNode = node.querySelector('[data-sound-status]');
+    const preview = async () => {
+      const id = String(select.value || '');
+      try {
+        await window.NotificationSounds?.unlock?.();
+        if (!id) await window.NotificationSounds?.play?.(true);
+        else await window.NotificationSounds?.playFor?.(id, true);
+        if (statusNode) statusNode.textContent = '';
+      } catch (error) {
+        if (statusNode) statusNode.textContent = error.message || 'Preview unavailable.';
+      }
+    };
+    select?.addEventListener('change', () => {
+      preview().catch(() => {});
+    });
+    node.querySelector('[data-sound-preview]')?.addEventListener('click', () => {
+      preview().catch(() => {});
+    });
   }
   function openChatWindow(row) {
     const url = new URL(location.href);
@@ -4115,6 +4191,9 @@
             ['archive', 'archive', row.archived ? 'Unarchive' : 'Archive'],
             ['folder', 'folder-plus', 'Add to folder…'],
           ]),
+      ...(listMode === 'chats' && kind === 'personal' && !row.personalHidden
+        ? [['to-contacts', 'users-round', 'Move to Contacts']]
+        : []),
       ['clear', 'eraser', 'Clear history'],
     ];
     if (row.kind === 'group' || !row.access?.protected) items.push(['delete', 'trash-2', 'Delete chat']);
@@ -4158,6 +4237,7 @@
         if (action === 'sound') await soundRoom(row);
         if (action === 'archive') await setRoomSettings(row.id, { archived: !row.archived });
         if (action === 'folder') folderRoom(row);
+        if (action === 'to-contacts') await setRoomSettings(row.id, { personalHidden: true });
         if (action === 'clear' || action === 'delete') clearConversation(row, action === 'delete');
       } catch (error) {
         status(error.message);
@@ -4245,19 +4325,44 @@
   });
   el('msgRooms').addEventListener('click', async (event) => {
     const target = event.target.closest(
-      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group]',
+      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group],[data-contact-group-back],[data-contact-group-open]',
     );
     if (!target) return;
     try {
-      if (target.dataset.chatGroup) {
-        const result = await request('open', { kind: 'group', groupId: Number(target.dataset.chatGroup) });
+      if (target.hasAttribute('data-contact-group-back')) {
+        contactGroupView = null;
+        el('msgRoomSearch').value = '';
+        paintRooms();
+        return;
+      }
+      if (target.dataset.contactGroupOpen) {
+        const result = await request('open', { kind: 'group', groupId: Number(target.dataset.contactGroupOpen) });
         upsertRoom(result.room);
+        contactGroupView = null;
         kind = 'personal';
+        listMode = 'chats';
         await openRoom(result.roomId);
+        return;
+      }
+      if (target.dataset.chatGroup) {
+        const groupId = Number(target.dataset.chatGroup);
+        const result = await request('open', { kind: 'group', groupId });
+        upsertRoom(result.room);
+        const members = await request('members', { roomId: result.roomId });
+        contactGroupView = {
+          groupId,
+          roomId: result.roomId,
+          title: result.room?.title || data.groups.find((g) => g.id === groupId)?.title || 'Group',
+          members: members.members || [],
+        };
+        listMode = 'contacts';
+        el('msgRoomSearch').value = '';
+        paintRooms();
         return;
       }
       chatListView = target.hasAttribute('data-chat-archive') ? 'archive' : target.dataset.chatFolder || '';
       listMode = 'chats';
+      contactGroupView = null;
       el('msgRoomSearch').value = '';
       paintRooms();
     } catch (error) {
@@ -4810,6 +4915,7 @@
   }
   function showContacts() {
     chatListView = '';
+    contactGroupView = null;
     listMode = 'contacts';
     el('msgRoomSearch').value = '';
     badge();
@@ -5775,6 +5881,7 @@
         closeContext();
         clearSelection();
         chatListView = '';
+        contactGroupView = null;
         listMode = 'chats';
         kind = target.dataset.msgCategory;
         badge();
@@ -5885,6 +5992,7 @@
     if (signature !== next) window.NotificationSounds?.load(user?.id || '');
     if (signature !== next) {
       chatListView = '';
+      contactGroupView = null;
       section.classList.remove('chat-detached');
     }
     if (signature !== next) {

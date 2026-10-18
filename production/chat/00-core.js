@@ -246,6 +246,7 @@
     selection = new Set(),
     selecting = false;
   let chatListView = '',
+    contactGroupView = null,
     draggedPin = '';
   const mutedChat = (r) =>
     r?.archived ||

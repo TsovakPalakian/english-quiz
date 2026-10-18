@@ -551,12 +551,31 @@
                 '</option>',
             )
             .join('') +
-          '</select></label>',
+          '</select></label><div class="sound-actions"><button type="button" data-sound-preview class="btn">Preview</button></div><p class="hint" data-sound-status role="status"></p>',
         async (form) => {
           await setRoomSettings(row.id, { sound: String(form.get('sound')) });
         },
       );
     node.querySelector('[type=submit]').textContent = 'Save';
+    const select = node.querySelector('[name=sound]'),
+      statusNode = node.querySelector('[data-sound-status]');
+    const preview = async () => {
+      const id = String(select.value || '');
+      try {
+        await window.NotificationSounds?.unlock?.();
+        if (!id) await window.NotificationSounds?.play?.(true);
+        else await window.NotificationSounds?.playFor?.(id, true);
+        if (statusNode) statusNode.textContent = '';
+      } catch (error) {
+        if (statusNode) statusNode.textContent = error.message || 'Preview unavailable.';
+      }
+    };
+    select?.addEventListener('change', () => {
+      preview().catch(() => {});
+    });
+    node.querySelector('[data-sound-preview]')?.addEventListener('click', () => {
+      preview().catch(() => {});
+    });
   }
   function openChatWindow(row) {
     const url = new URL(location.href);
@@ -593,6 +612,9 @@
             ['archive', 'archive', row.archived ? 'Unarchive' : 'Archive'],
             ['folder', 'folder-plus', 'Add to folder…'],
           ]),
+      ...(listMode === 'chats' && kind === 'personal' && !row.personalHidden
+        ? [['to-contacts', 'users-round', 'Move to Contacts']]
+        : []),
       ['clear', 'eraser', 'Clear history'],
     ];
     if (row.kind === 'group' || !row.access?.protected) items.push(['delete', 'trash-2', 'Delete chat']);
@@ -636,6 +658,7 @@
         if (action === 'sound') await soundRoom(row);
         if (action === 'archive') await setRoomSettings(row.id, { archived: !row.archived });
         if (action === 'folder') folderRoom(row);
+        if (action === 'to-contacts') await setRoomSettings(row.id, { personalHidden: true });
         if (action === 'clear' || action === 'delete') clearConversation(row, action === 'delete');
       } catch (error) {
         status(error.message);
@@ -723,19 +746,44 @@
   });
   el('msgRooms').addEventListener('click', async (event) => {
     const target = event.target.closest(
-      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group]',
+      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group],[data-contact-group-back],[data-contact-group-open]',
     );
     if (!target) return;
     try {
-      if (target.dataset.chatGroup) {
-        const result = await request('open', { kind: 'group', groupId: Number(target.dataset.chatGroup) });
+      if (target.hasAttribute('data-contact-group-back')) {
+        contactGroupView = null;
+        el('msgRoomSearch').value = '';
+        paintRooms();
+        return;
+      }
+      if (target.dataset.contactGroupOpen) {
+        const result = await request('open', { kind: 'group', groupId: Number(target.dataset.contactGroupOpen) });
         upsertRoom(result.room);
+        contactGroupView = null;
         kind = 'personal';
+        listMode = 'chats';
         await openRoom(result.roomId);
+        return;
+      }
+      if (target.dataset.chatGroup) {
+        const groupId = Number(target.dataset.chatGroup);
+        const result = await request('open', { kind: 'group', groupId });
+        upsertRoom(result.room);
+        const members = await request('members', { roomId: result.roomId });
+        contactGroupView = {
+          groupId,
+          roomId: result.roomId,
+          title: result.room?.title || data.groups.find((g) => g.id === groupId)?.title || 'Group',
+          members: members.members || [],
+        };
+        listMode = 'contacts';
+        el('msgRoomSearch').value = '';
+        paintRooms();
         return;
       }
       chatListView = target.hasAttribute('data-chat-archive') ? 'archive' : target.dataset.chatFolder || '';
       listMode = 'chats';
+      contactGroupView = null;
       el('msgRoomSearch').value = '';
       paintRooms();
     } catch (error) {

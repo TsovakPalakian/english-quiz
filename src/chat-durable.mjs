@@ -289,10 +289,10 @@ export class ChatRoom extends Store{
     });this.deliver();return {read:true,room:this.summary(actor.id)};
   }
   roomSettings(actor,body){
-    const allowed=['roomId','actor','archived','pinOrder','muteUntil','sound'];if(Object.keys(body).some(key=>!allowed.includes(key)))fail(400,'Invalid chat setting.');
-    if('archived' in body&&typeof body.archived!=='boolean'||'pinOrder' in body&&(!Number.isSafeInteger(body.pinOrder)||body.pinOrder<0)||'muteUntil' in body&&(!Number.isSafeInteger(body.muteUntil)||body.muteUntil< -1||body.muteUntil> Date.now()+366*86400000))fail(400,'Invalid chat setting.');
+    const allowed=['roomId','actor','archived','pinOrder','muteUntil','sound','personalHidden'];if(Object.keys(body).some(key=>!allowed.includes(key)))fail(400,'Invalid chat setting.');
+    if('archived' in body&&typeof body.archived!=='boolean'||'personalHidden' in body&&typeof body.personalHidden!=='boolean'||'pinOrder' in body&&(!Number.isSafeInteger(body.pinOrder)||body.pinOrder<0)||'muteUntil' in body&&(!Number.isSafeInteger(body.muteUntil)||body.muteUntil< -1||body.muteUntil> Date.now()+366*86400000))fail(400,'Invalid chat setting.');
     if('sound' in body&&body.sound!==''&&!SOUND_IDS.includes(body.sound)&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(body.sound||''))fail(400,'Invalid notification sound.');
-    this.tx(()=>{const value=this.get('settings:'+actor.id,{});for(const key of ['archived','pinOrder','muteUntil','sound'])if(key in body)value[key]=body[key];this.set('settings:'+actor.id,value);this.emit('settings:'+this.get('revision',0),'room',{},new Set([actor.id]));});this.deliver();return {room:this.summary(actor.id)};
+    this.tx(()=>{const value=this.get('settings:'+actor.id,{});for(const key of ['archived','pinOrder','muteUntil','sound','personalHidden'])if(key in body)value[key]=body[key];this.set('settings:'+actor.id,value);this.emit('settings:'+this.get('revision',0),'room',{},new Set([actor.id]));});this.deliver();return {room:this.summary(actor.id)};
   }
   clearHistory(actor,body){
     if(typeof body.everyone!=='boolean'||body.deleteChat!==undefined&&typeof body.deleteChat!=='boolean')fail(400,'Choose who should lose the history.');

@@ -44,14 +44,14 @@
     let remaining=notes.length;
     notes.forEach((frequency,index)=>{const source=context.createOscillator(),envelope=context.createGain(),start=now+index*(duration*.45/notes.length),end=now+duration;source.type='sine';source.frequency.value=frequency;envelope.gain.setValueAtTime(.0001,start);envelope.gain.exponentialRampToValueAtTime(.13/notes.length,start+.015);envelope.gain.exponentialRampToValueAtTime(.0001,end);source.connect(envelope);envelope.connect(gain);source.onended=()=>{source.disconnect();envelope.disconnect();if(!--remaining)gain.disconnect();};source.start(start);source.stop(end);playing.push(source);});
   }
-  async function playFor(id=''){
-    if(!id||id===settings.sound){play();return;}
+  async function playFor(id='',preview=false){
+    if(!id||id===settings.sound){play(preview);return;}
     const token=version,account=owner;
-    if(!available||!account||account!==own()||!settings.enabled||!context||context.state!=='running')return;
+    if(!available||!account||account!==own()||(!preview&&!settings.enabled)||!context||context.state!=='running')return;
     const signal=choices.find(item=>item[0]===id),recording=recordings.find(item=>item.id===id),custom=settings.sounds.some(item=>item.id===id);if(!signal&&!recording&&!custom){play();return;}
     let decoded=recording?decodedRecordings.get(id):null;
     try{if(!signal&&!decoded){const response=await fetch(recording?recording.file:'/api/me/notification-sounds?id='+encodeURIComponent(id),{credentials:'same-origin',cache:custom?'no-store':'default'});if(!response.ok)throw Error('Sound unavailable.');decoded=await context.decodeAudioData(await response.arrayBuffer());if(recording){if(decodedRecordings.size>=8)decodedRecordings.delete(decodedRecordings.keys().next().value);decodedRecordings.set(id,decoded);}}}catch{if(token===version&&account===own())play();return;}
-    if(token!==version||account!==own()||!settings.enabled)return;
+    if(token!==version||account!==own()||(!preview&&!settings.enabled))return;
     stop();const gain=context.createGain();gain.gain.value=settings.volume;gain.connect(context.destination);
     if(decoded){const source=context.createBufferSource();source.buffer=decoded;source.connect(gain);source.onended=()=>{source.disconnect();gain.disconnect();};source.start();playing.push(source);return;}
     const [, ,duration,notes]=signal,now=context.currentTime;let remaining=notes.length;
