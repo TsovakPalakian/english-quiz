@@ -162,6 +162,78 @@
     readTimer,
     listMode = 'chats',
     emojiMode = '';
+  const chatCacheKey = () => 'english-chat-snapshot:' + account;
+  const chatCacheDb = () =>
+    new Promise((resolve, reject) => {
+      const req = indexedDB.open('enquiz-chat', 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains('snapshots')) req.result.createObjectStore('snapshots');
+      };
+      req.onsuccess = () => {
+        req.result.onversionchange = () => req.result.close();
+        resolve(req.result);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  const readChatCache = async () => {
+    if (!account) return null;
+    try {
+      const db = await chatCacheDb();
+      return await new Promise((resolve, reject) => {
+        const req = db.transaction('snapshots', 'readonly').objectStore('snapshots').get(chatCacheKey());
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch {
+      try {
+        return JSON.parse(localStorage.getItem(chatCacheKey()) || 'null');
+      } catch {
+        return null;
+      }
+    }
+  };
+  const writeChatCache = async (snapshot) => {
+    if (!account || !snapshot) return;
+    const payload = {
+      at: Date.now(),
+      seq: snapshot.seq || 0,
+      rooms: snapshot.rooms || [],
+      contacts: snapshot.contacts || [],
+      groups: snapshot.groups || [],
+      folders: snapshot.folders || [],
+      unread: snapshot.unread || { personal: 0, learning: 0 },
+      total: snapshot.total || 0,
+      profiles: snapshot.profiles || {},
+    };
+    try {
+      const db = await chatCacheDb();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('snapshots', 'readwrite');
+        tx.objectStore('snapshots').put(payload, chatCacheKey());
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch {
+      try {
+        localStorage.setItem(chatCacheKey(), JSON.stringify(payload));
+      } catch {}
+    }
+  };
+  const applyChatCache = (cached) => {
+    if (!cached || !Array.isArray(cached.rooms)) return false;
+    data = {
+      rooms: cached.rooms,
+      contacts: cached.contacts || [],
+      groups: cached.groups || [],
+      folders: cached.folders || [],
+      unread: cached.unread || { personal: 0, learning: 0 },
+      total: cached.total || 0,
+      seq: cached.seq || 0,
+    };
+    if (cached.profiles && typeof cached.profiles === 'object') Object.assign(profileViews, cached.profiles);
+    seq = Math.max(seq, cached.seq || 0);
+    return true;
+  };
   let recorder = null,
     recordTimer,
     recordProgressTimer,

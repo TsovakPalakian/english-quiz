@@ -1487,6 +1487,15 @@ a.btn { text-decoration: none; }
 .clips .pre { color: var(--ok); font-size: 14px; font-weight: 800; }
 .clips a { color: var(--acc); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
 .clips .hint { margin: 0; font-weight: 700; font-size: 15px; color: var(--ink); }
+.day,
+.file-card,
+.wcard,
+.archive-group .day-row,
+#adminAccountList > *,
+#groupList > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
 .day {
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);

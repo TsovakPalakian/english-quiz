@@ -41,6 +41,14 @@
       badge();
       paintRooms();
       if (user) {
+        const gen = generation;
+        void readChatCache().then((cached) => {
+          if (gen !== generation || account !== user.id) return;
+          if (applyChatCache(cached)) {
+            paintRooms();
+            badge();
+          }
+        });
         reconnectCount = 0;
         connect();
       }

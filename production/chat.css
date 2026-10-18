@@ -61,6 +61,8 @@ body.chat-active #selpop{z-index:1300}
 #messages .chat-categories button{flex:1;padding:12px 4px;color:var(--mute);border-bottom:2px solid transparent}
 #messages .chat-categories button.on{color:var(--acc);border-bottom-color:var(--acc)}
 .chat-room-list{overflow-y:auto;flex:1;min-height:0;padding:4px}
+#messages .msg-room,#messages .chat-contact{content-visibility:auto;contain-intrinsic-size:auto 74px}
+#messages .msg-message{content-visibility:auto;contain-intrinsic-size:auto 88px}
 #messages .msg-room{display:flex;align-items:center;gap:12px;width:100%;padding:10px;border-radius:8px;text-align:left;min-height:74px}
 #messages .msg-room:hover{background:var(--acc-s)}
 #messages .msg-room.on{background:var(--acc-s)}

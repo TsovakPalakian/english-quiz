@@ -153,6 +153,13 @@
       (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/messages/socket?after=' + seq,
     );
     socket = ws;
+    void readChatCache().then((cached) => {
+      if (gen !== generation || socket !== ws || ready) return;
+      if (applyChatCache(cached)) {
+        paintRooms();
+        badge();
+      }
+    });
     ws.onmessage = (event) => {
       if (socket !== ws || gen !== generation) return;
       let value;
@@ -181,6 +188,7 @@
         }
         seq = Math.max(seq, data.seq || 0);
         status('');
+        void writeChatCache(data);
         paintRooms();
         badge();
         const windowRoom = new URL(location.href).searchParams.get('chatWindow');
