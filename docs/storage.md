@@ -1,6 +1,6 @@
 # Application Storage
 
-- Production: https://learn-english.tsovakpalakian.workers.dev
+- Production: https://lumiscia.org
 - Educational data: Cloudflare D1, binding STUDY_DB, database learn-english-study.
 - Accounts and authentication: separate Cloudflare D1, binding DB.
 - Chat: existing SQLite Durable Objects; object names and encryption keys retained.

@@ -1063,6 +1063,7 @@
   });
   // Keep account navigation owned by the application; chat adds only its entry points.
   for (const button of document.querySelectorAll('[data-jump="stats"]')) {
+    if (button.parentElement?.querySelector('[data-msg-open]')) continue;
     const next = document.createElement('button');
     next.type = 'button';
     next.className = button.className;

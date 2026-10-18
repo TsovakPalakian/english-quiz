@@ -161,7 +161,7 @@
   window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js');
   window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');
   document.addEventListener('click',(event)=>{
-    const open=event.target.closest?.('[data-jump="messages"],[data-msg-open]');
+    const open=event.target.closest?.('[data-jump="messages"],[data-msg-open],[data-user-settings]');
     if(!open||window.MessagesReady)return;
     event.preventDefault();
     event.stopImmediatePropagation();

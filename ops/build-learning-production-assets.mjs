@@ -15,7 +15,7 @@ const target=resolve(root,'rollback/production-assets'),accepted=resolve(root,'s
 const config=readFileSync(resolve(root,'wrangler.toml'),'utf8');
 assert.match(config,/^DB_PROVIDER = "d1"$/m);assert.match(config,/^preview_urls = false$/m);
 const host=config.match(/^CONTENT_ALLOWED_HOST = "([a-z0-9.-]+)"$/m)?.[1];
-assert.equal(host,'learn-english.tsovakpalakian.workers.dev');
+assert.equal(host,'lumiscia.org');
 const liveHost=readFileSync(resolve(root,'wrangler.toml'),'utf8').match(/^CONTENT_ALLOWED_HOST = "([a-z0-9.-]+)"$/m)?.[1];
 assert.ok(liveHost&&/^[a-z0-9.-]+$/.test(liveHost),'Production host is required');
 mkdirSync(target,{recursive:true,mode:0o700});

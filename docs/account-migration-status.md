@@ -1,7 +1,7 @@
 # Cloudflare Migration Status
 
 The application is active in personal account 42a9ebe47d529e3664b914aaf0813a21:
-https://learn-english.tsovakpalakian.workers.dev
+https://lumiscia.org
 
 Educational data was migrated into learn-english-study
 (dd640d1f-abbe-4236-8741-5638e89d890f), separate from authentication DB
