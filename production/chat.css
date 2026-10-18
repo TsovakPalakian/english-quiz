@@ -159,6 +159,12 @@ body.chat-active #selpop{z-index:1300}
 .chat-member{display:flex;align-items:center;gap:12px;padding:10px 0}
 .chat-member small{display:block;color:var(--mute);margin-top:4px}
 .chat-member strong{font-size:14px;font-weight:500}
+.chat-group-limits{margin:8px 0 0;color:var(--mute);font-size:12px}
+.chat-group-limits-fields{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:12px 0}
+.chat-group-limits-fields legend{padding:0 4px;font-size:13px;color:var(--mute)}
+.chat-create-group-list{max-height:240px;overflow:auto}
+.chat-create-member{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+.chat-create-member input{width:18px;height:18px;flex:0 0 18px;margin:0}
 .chat-search-options{display:grid;gap:8px;margin:0 12px 12px}
 .chat-search-options label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;font-size:13px;color:var(--mute)}
 .chat-search-options select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s);color:var(--ink)}

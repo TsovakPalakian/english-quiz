@@ -75,14 +75,23 @@ export class ChatRoom extends Store{
     const last=this.one("SELECT * FROM messages WHERE deleted=0 AND (id>? OR category='learning') ORDER BY id DESC LIMIT 1",floor);
     const counts=this.get('counts',{personal:0,learning:0});
     const pins=this.pins(account);
-    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,access:this.access(account),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
+    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(account),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
   }
   access(account){
-    if(this.get('room')?.kind==='group'&&this.get('settings:'+account,{})?.deletedGroup)return {protected:true,blocked:true,blockedByMe:true,state:'accepted',canSend:false};
+    const room=this.get('room');
+    if((room?.kind==='group'||room?.kind==='circle')&&this.get('settings:'+account,{})?.deletedGroup)return {protected:true,blocked:true,blockedByMe:true,state:'accepted',canSend:false};
     const protectedChat=this.get('protected',true),blocks=this.get('blocks',[]),consent=this.get('consent',{state:'new'}),blocked=!protectedChat&&blocks.length>0;
-    return {protected:protectedChat,blocked,blockedByMe:!protectedChat&&blocks.includes(account),state:protectedChat?'accepted':consent.state,requestedBy:consent.requestedBy,canAccept:!protectedChat&&!blocked&&consent.state==='pending'&&consent.requestedBy!==account,canSend:!blocked&&(protectedChat||consent.state==='accepted'||consent.state==='new'||consent.state==='pending'&&consent.requestedBy!==account)};
+    const member=this.one('SELECT role FROM members WHERE id=? AND active=1',account);
+    let canSend=!blocked&&(protectedChat||consent.state==='accepted'||consent.state==='new'||consent.state==='pending'&&consent.requestedBy!==account);
+    if(canSend&&room?.kind==='circle'&&room.restrictions?.send==='admins'&&room.ownerId!==account&&!staff(member))canSend=false;
+    return {protected:protectedChat,blocked,blockedByMe:!protectedChat&&blocks.includes(account),state:protectedChat?'accepted':consent.state,requestedBy:consent.requestedBy,canAccept:!protectedChat&&!blocked&&consent.state==='pending'&&consent.requestedBy!==account,canSend};
   }
-  writable(actor){const access=this.access(actor.id);if(!access.canSend)fail(403,access.blocked?'This conversation is blocked.':access.state==='rejected'?'The message request was declined.':'Wait for this person to accept your message request.');}
+  circleAdmin(actor){const room=this.get('room');return !!room&&(room.ownerId===actor.id||staff(actor));}
+  writable(actor){
+    const access=this.access(actor.id);if(!access.canSend)fail(403,access.blocked?'This conversation is blocked.':access.state==='rejected'?'The message request was declined.':'Wait for this person to accept your message request.');
+    const room=this.get('room'),restr=room?.restrictions||{};
+    if(room?.kind==='circle'&&restr.send==='admins'&&!this.circleAdmin(actor))fail(403,'Only group admins can send messages.');
+  }
   pinIds(){const pins=this.get('pins');if(Array.isArray(pins))return pins.filter(id=>Number.isSafeInteger(id));const legacy=this.get('pinned');return Number.isSafeInteger(legacy)?[legacy]:[];}
   pins(account){
     const m=this.one('SELECT joined FROM members WHERE id=?',account),floor=this.visibilityFloor(account,m?.joined||0);
@@ -132,14 +141,14 @@ export class ChatRoom extends Store{
     const old=this.get('room'),previousMembers=new Map(this.rows('SELECT * FROM members').map(m=>[m.id,m])),last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
     this.tx(()=>{
       this.set('room',room);
-      const members=body.members||[],protectedChat=room.kind==='group'||members.some(staff)||members.length===2&&members[0].groupId!=null&&members[0].groupId===members[1].groupId;
+      const members=body.members||[],protectedChat=room.kind==='group'||room.kind==='circle'||members.some(staff)||members.length===2&&members[0].groupId!=null&&members[0].groupId===members[1].groupId;
       const oldProtected=this.get('protected',null);this.set('protected',!!protectedChat);if(protectedChat)this.set('blocks',[]);
       if(old&&oldProtected===null&&!protectedChat&&this.get('counts')?.personal)this.set('consent',{state:'accepted'});
-      if(room.kind==='group')this.sql.exec('UPDATE members SET active=0');
+      if(room.kind==='group'||room.kind==='circle')this.sql.exec('UPDATE members SET active=0');
       for(const member of body.members||[]){
         const previous=previousMembers.get(member.id),joined=previous?.active?previous.joined:old&&member.role==='USER'?last:member.joined||0;
         this.sql.exec('INSERT INTO members(id,name,role,active,joined,read_personal,read_learning,delivered_personal,delivered_learning,muted) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,active=excluded.active,joined=excluded.joined',ref(member.id),publicName(member),member.role,member.active===false?0:1,joined,member.readPersonal||joined,member.readLearning||0,member.readPersonal||joined,member.readLearning||0,+!!member.muted);
-        if(room.kind==='group'&&previous&&!previous.active&&member.role==='USER')this.sql.exec('UPDATE members SET read_personal=MAX(read_personal,?),delivered_personal=MAX(delivered_personal,?),unread_personal=0 WHERE id=?',joined,joined,member.id);
+        if((room.kind==='group'||room.kind==='circle')&&previous&&!previous.active&&member.role==='USER')this.sql.exec('UPDATE members SET read_personal=MAX(read_personal,?),delivered_personal=MAX(delivered_personal,?),unread_personal=0 WHERE id=?',joined,joined,member.id);
       }
       const changed=oldProtected!==!!protectedChat||JSON.stringify(old)!==JSON.stringify(room)||JSON.stringify([...previousMembers.values()].map(m=>[m.id,m.name,m.role,m.active]).sort())!==JSON.stringify(this.rows('SELECT * FROM members').map(m=>[m.id,m.name,m.role,m.active]).sort());
       if(changed)this.emit('configured:'+this.get('revision',0),'room',room.active?{}:{removeRoom:room.id});
@@ -230,6 +239,8 @@ export class ChatRoom extends Store{
     const kind=category(body.category||'personal'),client=ref(body.clientKey),text=typeof body.text==='string'?body.text.trim():'';
     if((!text&&!(body.files||[]).length)||text.length>4000)fail(400,'Enter a message of up to 4000 characters.');
     if(!Array.isArray(body.files||[])||(body.files||[]).length>5)fail(400,'Attach up to five files.');
+    const room=this.get('room'),restr=room?.restrictions||{};
+    if(room?.kind==='circle'&&restr.media==='admins'&&(body.files||[]).length&&!this.circleAdmin(actor))fail(403,'Only group admins can send media.');
     const files=(body.files||[]).map(id=>{const file=this.one('SELECT * FROM files WHERE id=? AND owner=?',ref(id),actor.id);if(!file)fail(403,'Attachment unavailable.');return {id:file.id,name:file.name,mime:file.mime,size:file.size,url:'/api/messages/file?'+new URLSearchParams({roomId:this.get('room').id,id:file.id})};});
     if(kind==='learning'&&!staff(actor))fail(403,'Only teachers can send learning announcements.');
     const format=body.format?JSON.stringify(validateColorDocument(body.format,text)):null,reply=body.replyTo?integer(body.replyTo):null,quote=body.quote==null?null:body.quote;
@@ -324,15 +335,17 @@ export class ChatRoom extends Store{
   }
   clearHistory(actor,body){
     if(typeof body.everyone!=='boolean'||body.deleteChat!==undefined&&typeof body.deleteChat!=='boolean')fail(400,'Choose who should lose the history.');
-    if(body.everyone&&this.get('room').kind==='group'&&!staff(actor))fail(403,'Only a teacher can clear history for all group members.');
-    if(body.deleteChat&&this.get('room').kind==='direct'&&this.access(actor.id).protected)fail(403,'This educational conversation cannot be deleted and blocked.');
+    const room=this.get('room');
+    if(body.everyone&&room.kind==='group'&&!staff(actor))fail(403,'Only a teacher can clear history for all group members.');
+    if(body.everyone&&room.kind==='circle'&&!this.circleAdmin(actor))fail(403,'Only group admins can clear history for everyone.');
+    if(body.deleteChat&&room.kind==='direct'&&this.access(actor.id).protected)fail(403,'This educational conversation cannot be deleted and blocked.');
     const through=this.one("SELECT COALESCE(MAX(id),0) id FROM messages WHERE category='personal'").id;
     this.tx(()=>{
       if(through)this.set('hadPersonal',true);
       const recipients=body.everyone?this.rows('SELECT id FROM members WHERE active=1').map(m=>m.id):[actor.id];
       this.set('cleared:'+(body.everyone?'everyone':actor.id),through);
       for(const id of recipients){this.sql.exec('UPDATE members SET unread_personal=0,read_personal=MAX(read_personal,?),delivered_personal=MAX(delivered_personal,?) WHERE id=?',through,through,id);}
-      if(body.deleteChat){if(this.get('room').kind==='group')this.set('settings:'+actor.id,{...this.get('settings:'+actor.id,{}),deletedGroup:true});else{const blocks=new Set(this.get('blocks',[]));blocks.add(actor.id);this.set('blocks',[...blocks]);}}
+      if(body.deleteChat){if(room.kind==='group'||room.kind==='circle')this.set('settings:'+actor.id,{...this.get('settings:'+actor.id,{}),deletedGroup:true});else{const blocks=new Set(this.get('blocks',[]));blocks.add(actor.id);this.set('blocks',[...blocks]);}}
       this.emit('cleared:'+this.get('revision',0),'history-cleared',{cleared:{category:'personal',through}},new Set(recipients));
       if(body.deleteChat)this.emit('blocked:'+this.get('revision',0),'room');
     });this.deliver();return {cleared:{category:'personal',through},room:this.summary(actor.id)};
@@ -354,7 +367,12 @@ export class ChatRoom extends Store{
     if(path==='/read'||path==='/delivered')return this.read(actor,body,path==='/delivered');
     if(path==='/mute'){if(typeof body.muted!=='boolean')fail(400,'Invalid mute setting.');return this.roomSettings(actor,{muteUntil:body.muted?-1:0});}
     if(path==='/members')return {members:this.rows('SELECT id,name,role FROM members WHERE active=1').map(m=>({...m,role:publicRole(m)}))};
-    if(path==='/file/register'){this.writable(actor);const f=body.file;ref(f.id);this.sql.exec('INSERT INTO files(id,owner,name,mime,size,storage_key,created_ms) VALUES(?,?,?,?,?,?,?)',f.id,actor.id,f.name,f.mime,f.size,f.storageKey,Date.now());return {file:{id:f.id,name:f.name,mime:f.mime,size:f.size}};}
+    if(path==='/file/register'){
+      this.writable(actor);
+      const room=this.get('room'),restr=room?.restrictions||{};
+      if(room?.kind==='circle'&&restr.media==='admins'&&!this.circleAdmin(actor))fail(403,'Only group admins can send media.');
+      const f=body.file;ref(f.id);this.sql.exec('INSERT INTO files(id,owner,name,mime,size,storage_key,created_ms) VALUES(?,?,?,?,?,?,?)',f.id,actor.id,f.name,f.mime,f.size,f.storageKey,Date.now());return {file:{id:f.id,name:f.name,mime:f.mime,size:f.size}};
+    }
     if(path==='/file'){const file=this.one('SELECT * FROM files WHERE id=?',ref(body.id)),member=this.member(actor),message=file?.message_id?this.one('SELECT id,category,deleted FROM messages WHERE id=?',file.message_id):null;if(!file||message?.deleted||message?.category==='personal'&&message.id<=member.joined||file.owner!==actor.id&&!message)fail(404,'Attachment unavailable.');return file;}
     if(path==='/summary')return {room:this.summary(actor.id)};
     if(path==='/write-access'){this.writable(actor);return {allowed:true};}
@@ -456,6 +474,37 @@ export class ChatInbox extends Store{
       const result=await chatCall(this.env,'CHAT_ROOM',opened.roomId,'/forward',{actor,payload,comment:body.text,format:body.format,clientKey:body.clientKey});
       return {...result,roomId:opened.roomId,room:opened.room};
     }
+    if(action==='create-group'){
+      const title=typeof body.title==='string'?body.title.trim():'';
+      if(!title||title.length>80)fail(400,'Enter a group name of up to 80 characters.');
+      if(!Array.isArray(body.memberIds)||body.memberIds.length<1||body.memberIds.length>50)fail(400,'Choose from 1 to 50 members.');
+      const choice=value=>['everyone','admins'].includes(value)?value:null;
+      const restrictions={send:choice(body.restrictions?.send),invite:choice(body.restrictions?.invite),media:choice(body.restrictions?.media)};
+      if(!restrictions.send||!restrictions.invite||!restrictions.media)fail(400,'Choose every group restriction before creating.');
+      const contacts=this.get('contacts',[]),members=[actor],seen=new Set([actor.id]);
+      for(const raw of body.memberIds){
+        ref(raw);if(seen.has(raw))continue;seen.add(raw);
+        const discovery=this.get('discovered:'+raw),peer=contacts.find(u=>u.id===raw)||(discovery?.expires>Date.now()?discovery.person:null);
+        if(!peer)fail(403,'Every member must be in your contacts or recently found.');
+        members.push(peer);
+      }
+      const id='circle:'+crypto.randomUUID();
+      const room={id,kind:'circle',title,ownerId:actor.id,restrictions,active:true};
+      const status=await chatCall(this.env,'CHAT_ROOM',id,'/status',{});
+      await chatCall(this.env,'CHAT_ROOM',id,'/configure',{room,members});
+      if(!status.migrated)await chatCall(this.env,'CHAT_ROOM',id,'/import',{messages:[],complete:true});
+      await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'circle'}}).catch(()=>{});
+      const result=await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor});
+      if(result.room){
+        this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',id,this.seal(JSON.stringify(result.room),'data'));
+        for(const member of members){
+          if(member.id===actor.id)continue;
+          await chatCall(this.env,'CHAT_INBOX',member.id,'/event',{key:'circle:'+id+':'+result.room.revision+':'+member.id,type:'room',room:await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor:member}).then(r=>r.room)}).catch(()=>{});
+        }
+      }
+      this.broadcast({type:'snapshot',data:this.snapshot()});
+      return {roomId:id,room:result.room};
+    }
     if(action==='open'){
       let id;
       if(body.kind==='direct'){
@@ -470,6 +519,9 @@ export class ChatInbox extends Store{
       }else if(body.kind==='group'){
         const group=this.get('groups',[]).find(g=>g.id===body.groupId);if(!group)fail(403,'This group is unavailable.');id='group:'+group.id;
         await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'group',groupId:group.id}}).catch(()=>{});
+      }else if(body.kind==='circle'){
+        id=ref(body.roomId);if(!id.startsWith('circle:'))fail(400,'Choose a conversation type.');
+        if(!this.one('SELECT id FROM rooms WHERE id=?',id))fail(403,'This group is unavailable.');
       }else fail(400,'Choose a conversation type.');
       const result=await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor});
       if(result.room)this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',id,this.seal(JSON.stringify(result.room),'data'));

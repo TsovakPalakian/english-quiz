@@ -46,7 +46,7 @@
               (kind === 'personal'
                 ? !r.personalHidden &&
                   !filed.has(r.id) &&
-                  (r.kind === 'direct' || r.kind === 'group') &&
+                  (r.kind === 'direct' || isGroupChat(r)) &&
                   (r.hadPersonal || r.has?.personal)
                 : r.has?.learning)) &&
           (!unreadOnly || r.unread?.[kind]) &&
@@ -73,7 +73,7 @@
               '" data-msg-room="' +
               escape(r.id) +
               '">' +
-              avatar(r.title, r.kind === 'group', r.kind === 'group' ? r.id : r.peerId) +
+              avatar(r.title, isGroupChat(r), isGroupChat(r) ? r.id : r.peerId) +
               '<span class="chat-room-copy"><span class="chat-room-top"><b>' +
               escape(roomTitle(r)) +
               '</b><time>' +
@@ -85,7 +85,7 @@
                   '</span>'
                 : '') +
               (r.unread?.[kind] ? '<span class="chat-counter">' + r.unread[kind] + '</span>' : '') +
-              escape(roomPreview(r.lastMessage?.text || (r.kind === 'group' ? 'Group chat' : 'Private conversation'))) +
+              escape(roomPreview(r.lastMessage?.text || (isGroupChat(r) ? 'Group chat' : 'Private conversation'))) +
               '</span></span></button>',
           )
           .join('')
@@ -147,7 +147,51 @@
                 (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
+        const classGroups = data.groups
+          .filter(
+            (g) =>
+              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+              (!query || g.title.toLocaleLowerCase().includes(query)),
+          )
+          .sort((a, b) => a.title.localeCompare(b.title));
+        const circleGroups = data.rooms
+          .filter(
+            (r) =>
+              r.kind === 'circle' &&
+              !r.archived &&
+              !r.access?.blockedByMe &&
+              (!query || (r.title || '').toLocaleLowerCase().includes(query)),
+          )
+          .sort((a, b) => a.title.localeCompare(b.title));
         html =
+          '<h3 class="chat-list-heading">Groups</h3>' +
+          '<button type="button" class="chat-contact" data-create-group>' +
+          icon('users-round') +
+          '<span><strong>Create group</strong><small>Name, members and limits</small></span></button>' +
+          classGroups
+            .map(
+              (g) =>
+                '<button type="button" class="chat-contact" data-chat-group="' +
+                g.id +
+                '">' +
+                avatar(g.title, true, 'group:' + g.id) +
+                '<span><strong>' +
+                escape(g.title) +
+                '</strong><small>Class group</small></span></button>',
+            )
+            .join('') +
+          circleGroups
+            .map(
+              (r) =>
+                '<button type="button" class="chat-contact" data-chat-circle="' +
+                escape(r.id) +
+                '">' +
+                avatar(r.title, true, r.id) +
+                '<span><strong>' +
+                escape(r.title) +
+                '</strong><small>Group chat</small></span></button>',
+            )
+            .join('') +
           '<h3 class="chat-list-heading">People</h3>' +
           contacts
             .map(
@@ -161,25 +205,6 @@
                 '</strong><small>' +
                 escape(profileViews[p.id]?.username || p.role) +
                 '</small></span></button>',
-            )
-            .join('') +
-          '<h3 class="chat-list-heading">Groups</h3>' +
-          data.groups
-            .filter(
-              (g) =>
-                !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
-                (!query || g.title.toLocaleLowerCase().includes(query)),
-            )
-            .sort((a, b) => a.title.localeCompare(b.title))
-            .map(
-              (g) =>
-                '<button type="button" class="chat-contact" data-chat-group="' +
-                g.id +
-                '">' +
-                avatar(g.title, true, 'group:' + g.id) +
-                '<span><strong>' +
-                escape(g.title) +
-                '</strong><small>Group chat</small></span></button>',
             )
             .join('');
       }
@@ -251,17 +276,17 @@
     const selected = data.rooms.find((r) => r.id === room);
     el('msgRoomTitle').textContent = selected ? roomTitle(selected) : 'Messages';
     el('msgRoomSubtitle').textContent = selected
-      ? selected.kind === 'group'
+      ? isGroupChat(selected)
         ? selected.members + ' members'
         : 'Private conversation'
       : 'Choose a conversation';
     if (listMode === 'contacts') el('msgRoomSearch').placeholder = 'Name, email, login or @username';
     el('msgLookup').textContent = 'Find by email, login or @username';
     const face = el('msgRoomAvatar'),
-      subject = selected ? (selected.kind === 'group' ? selected.id : selected.peerId) : '',
+      subject = selected ? (isGroupChat(selected) ? selected.id : selected.peerId) : '',
       name = selected?.title || 'Messages';
     if (face.dataset.avatarSubject !== subject || face.dataset.avatarName !== name) {
-      face.innerHTML = selected?.kind === 'group' ? icon('users-round') : escape(initials(name));
+      face.innerHTML = isGroupChat(selected) ? icon('users-round') : escape(initials(name));
       face.dataset.avatarSubject = subject;
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;

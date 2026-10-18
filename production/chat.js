@@ -92,6 +92,7 @@
     data.rooms
       .filter((row) => folder.roomIds.includes(row.id) && !row.archived && !row.access?.blockedByMe)
       .reduce((sum, row) => sum + (row.unread?.personal || 0) + (row.unread?.learning || 0), 0);
+  const isGroupChat = (row) => row?.kind === 'group' || row?.kind === 'circle';
   const roomTitle = (row) => {
     const role = row.kind === 'direct' ? row.peerRole || data.contacts.find((p) => p.id === row.peerId)?.role : '';
     return row.title + (['Student', 'Teacher', 'Support'].includes(role) ? ' · ' + role : '');
@@ -276,7 +277,7 @@
       const ids = [
           ...new Set([
             ...data.contacts.map((p) => p.id),
-            ...data.rooms.map((r) => (r.kind === 'group' ? r.id : r.peerId)),
+            ...data.rooms.map((r) => (isGroupChat(r) ? r.id : r.peerId)),
             ...[...document.querySelectorAll('[data-avatar-subject]')].map((n) => n.dataset.avatarSubject),
           ]),
         ].filter((id) => id && !profileRequested.has(id)),
@@ -950,7 +951,7 @@
               (kind === 'personal'
                 ? !r.personalHidden &&
                   !filed.has(r.id) &&
-                  (r.kind === 'direct' || r.kind === 'group') &&
+                  (r.kind === 'direct' || isGroupChat(r)) &&
                   (r.hadPersonal || r.has?.personal)
                 : r.has?.learning)) &&
           (!unreadOnly || r.unread?.[kind]) &&
@@ -977,7 +978,7 @@
               '" data-msg-room="' +
               escape(r.id) +
               '">' +
-              avatar(r.title, r.kind === 'group', r.kind === 'group' ? r.id : r.peerId) +
+              avatar(r.title, isGroupChat(r), isGroupChat(r) ? r.id : r.peerId) +
               '<span class="chat-room-copy"><span class="chat-room-top"><b>' +
               escape(roomTitle(r)) +
               '</b><time>' +
@@ -989,7 +990,7 @@
                   '</span>'
                 : '') +
               (r.unread?.[kind] ? '<span class="chat-counter">' + r.unread[kind] + '</span>' : '') +
-              escape(roomPreview(r.lastMessage?.text || (r.kind === 'group' ? 'Group chat' : 'Private conversation'))) +
+              escape(roomPreview(r.lastMessage?.text || (isGroupChat(r) ? 'Group chat' : 'Private conversation'))) +
               '</span></span></button>',
           )
           .join('')
@@ -1051,7 +1052,51 @@
                 (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
+        const classGroups = data.groups
+          .filter(
+            (g) =>
+              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+              (!query || g.title.toLocaleLowerCase().includes(query)),
+          )
+          .sort((a, b) => a.title.localeCompare(b.title));
+        const circleGroups = data.rooms
+          .filter(
+            (r) =>
+              r.kind === 'circle' &&
+              !r.archived &&
+              !r.access?.blockedByMe &&
+              (!query || (r.title || '').toLocaleLowerCase().includes(query)),
+          )
+          .sort((a, b) => a.title.localeCompare(b.title));
         html =
+          '<h3 class="chat-list-heading">Groups</h3>' +
+          '<button type="button" class="chat-contact" data-create-group>' +
+          icon('users-round') +
+          '<span><strong>Create group</strong><small>Name, members and limits</small></span></button>' +
+          classGroups
+            .map(
+              (g) =>
+                '<button type="button" class="chat-contact" data-chat-group="' +
+                g.id +
+                '">' +
+                avatar(g.title, true, 'group:' + g.id) +
+                '<span><strong>' +
+                escape(g.title) +
+                '</strong><small>Class group</small></span></button>',
+            )
+            .join('') +
+          circleGroups
+            .map(
+              (r) =>
+                '<button type="button" class="chat-contact" data-chat-circle="' +
+                escape(r.id) +
+                '">' +
+                avatar(r.title, true, r.id) +
+                '<span><strong>' +
+                escape(r.title) +
+                '</strong><small>Group chat</small></span></button>',
+            )
+            .join('') +
           '<h3 class="chat-list-heading">People</h3>' +
           contacts
             .map(
@@ -1065,25 +1110,6 @@
                 '</strong><small>' +
                 escape(profileViews[p.id]?.username || p.role) +
                 '</small></span></button>',
-            )
-            .join('') +
-          '<h3 class="chat-list-heading">Groups</h3>' +
-          data.groups
-            .filter(
-              (g) =>
-                !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
-                (!query || g.title.toLocaleLowerCase().includes(query)),
-            )
-            .sort((a, b) => a.title.localeCompare(b.title))
-            .map(
-              (g) =>
-                '<button type="button" class="chat-contact" data-chat-group="' +
-                g.id +
-                '">' +
-                avatar(g.title, true, 'group:' + g.id) +
-                '<span><strong>' +
-                escape(g.title) +
-                '</strong><small>Group chat</small></span></button>',
             )
             .join('');
       }
@@ -1155,17 +1181,17 @@
     const selected = data.rooms.find((r) => r.id === room);
     el('msgRoomTitle').textContent = selected ? roomTitle(selected) : 'Messages';
     el('msgRoomSubtitle').textContent = selected
-      ? selected.kind === 'group'
+      ? isGroupChat(selected)
         ? selected.members + ' members'
         : 'Private conversation'
       : 'Choose a conversation';
     if (listMode === 'contacts') el('msgRoomSearch').placeholder = 'Name, email, login or @username';
     el('msgLookup').textContent = 'Find by email, login or @username';
     const face = el('msgRoomAvatar'),
-      subject = selected ? (selected.kind === 'group' ? selected.id : selected.peerId) : '',
+      subject = selected ? (isGroupChat(selected) ? selected.id : selected.peerId) : '',
       name = selected?.title || 'Messages';
     if (face.dataset.avatarSubject !== subject || face.dataset.avatarName !== name) {
-      face.innerHTML = selected?.kind === 'group' ? icon('users-round') : escape(initials(name));
+      face.innerHTML = isGroupChat(selected) ? icon('users-round') : escape(initials(name));
       face.dataset.avatarSubject = subject;
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;
@@ -3766,12 +3792,22 @@
     }
     el('msgInfoContent').innerHTML =
       '<div class="chat-info-profile">' +
-      avatar(selected.title, selected.kind === 'group', selected.kind === 'group' ? selected.id : selected.peerId) +
+      avatar(selected.title, isGroupChat(selected), isGroupChat(selected) ? selected.id : selected.peerId) +
       '<h3>' +
       escape(selected.title) +
       '</h3><small>' +
-      escape(selected.kind === 'group' ? members.length + ' members' : 'Private conversation') +
-      '</small></div><div class="chat-info-tabs">' +
+      escape(isGroupChat(selected) ? members.length + ' members' : 'Private conversation') +
+      '</small>' +
+      (selected.kind === 'circle' && selected.restrictions
+        ? '<p class="chat-group-limits">Send: ' +
+          escape(selected.restrictions.send) +
+          ' · Invite: ' +
+          escape(selected.restrictions.invite) +
+          ' · Media: ' +
+          escape(selected.restrictions.media) +
+          '</p>'
+        : '') +
+      '</div><div class="chat-info-tabs">' +
       ['members', 'media', 'files', 'links']
         .map(
           (t) =>
@@ -3795,7 +3831,7 @@
           '</button>'
         : '') +
       extra;
-    if (selected.kind === 'group' && reviewer())
+    if (isGroupChat(selected) && (reviewer() || selected.ownerId === account))
       el('msgInfoContent')
         .querySelector('.chat-info-profile')
         .insertAdjacentHTML(
@@ -4095,6 +4131,91 @@
       kind = 'personal';
       await openRoom(result.roomId);
     });
+    const open = document.querySelector('dialog.chat-dialog[open]');
+    open
+      ?.querySelector('form')
+      ?.insertAdjacentHTML(
+        'afterbegin',
+        '<button type="button" class="chat-link" data-new-create-group>' +
+          icon('users-round') +
+          ' Create group</button>',
+      );
+    window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: open });
+    open?.querySelector('[data-new-create-group]')?.addEventListener('click', () => {
+      open.close();
+      createGroupChat();
+    });
+  }
+  function createGroupChat() {
+    const people = [
+      ...new Map(
+        [
+          ...data.rooms
+            .filter((r) => r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked)
+            .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
+          ...data.contacts,
+        ].map((p) => [p.id, p]),
+      ).values(),
+    ].filter((p) => p.id !== account);
+    if (!people.length) {
+      status('Add contacts before creating a group.');
+      return;
+    }
+    const node = dialog(
+      'Create group',
+      '<label>Group name<input name="title" required maxlength="80" placeholder="Group name"></label>' +
+        '<fieldset class="chat-group-limits-fields"><legend>Who can send messages</legend>' +
+        '<label class="chat-mute-choice"><input type="radio" name="send" value="everyone" required> Everyone</label>' +
+        '<label class="chat-mute-choice"><input type="radio" name="send" value="admins" required> Admins only</label></fieldset>' +
+        '<fieldset class="chat-group-limits-fields"><legend>Who can add members</legend>' +
+        '<label class="chat-mute-choice"><input type="radio" name="invite" value="everyone" required> Everyone</label>' +
+        '<label class="chat-mute-choice"><input type="radio" name="invite" value="admins" required> Admins only</label></fieldset>' +
+        '<fieldset class="chat-group-limits-fields"><legend>Who can send media</legend>' +
+        '<label class="chat-mute-choice"><input type="radio" name="media" value="everyone" required> Everyone</label>' +
+        '<label class="chat-mute-choice"><input type="radio" name="media" value="admins" required> Admins only</label></fieldset>' +
+        '<label class="chat-search"><input id="msgCreateGroupSearch" type="search" placeholder="Filter members" aria-label="Filter members"></label>' +
+        '<div class="chat-new-list chat-create-group-list">' +
+        people
+          .map(
+            (p) =>
+              '<label class="chat-contact chat-create-member" data-member-name="' +
+              escape((p.name + ' ' + (p.role || '')).toLocaleLowerCase()) +
+              '"><input type="checkbox" name="member" value="' +
+              escape(p.id) +
+              '">' +
+              avatar(p.name, false, p.id) +
+              '<span>' +
+              escape(p.name) +
+              '<small>' +
+              escape(p.role || 'Contact') +
+              '</small></span></label>',
+          )
+          .join('') +
+        '</div>',
+      async (form) => {
+        const title = String(form.get('title') || '').trim();
+        const memberIds = form.getAll('member').map(String);
+        if (!memberIds.length) throw Error('Choose at least one member.');
+        const restrictions = {
+          send: String(form.get('send') || ''),
+          invite: String(form.get('invite') || ''),
+          media: String(form.get('media') || ''),
+        };
+        if (![restrictions.send, restrictions.invite, restrictions.media].every((v) => ['everyone', 'admins'].includes(v)))
+          throw Error('Choose every group restriction.');
+        const result = await request('create-group', { title, memberIds, restrictions });
+        if (result.room) upsertRoom(result.room);
+        kind = 'personal';
+        listMode = 'chats';
+        await openRoom(result.roomId);
+      },
+    );
+    node.classList.add('chat-create-group-dialog');
+    node.querySelector('#msgCreateGroupSearch').oninput = (event) => {
+      const q = event.target.value.toLocaleLowerCase();
+      node.querySelectorAll('[data-member-name]').forEach((row) => (row.hidden = !row.dataset.memberName.includes(q)));
+    };
+    scheduleProfiles();
   }
   async function setRoomSettings(id, patch) {
     const result = await request('room-settings', { roomId: id, ...patch });
@@ -4331,7 +4452,7 @@
         : []),
       ['clear', 'eraser', 'Clear history'],
     ];
-    if (row.kind === 'group' || !row.access?.protected) items.push(['delete', 'trash-2', 'Delete chat']);
+    if (isGroupChat(row) || !row.access?.protected) items.push(['delete', 'trash-2', 'Delete chat']);
     node.innerHTML = items
       .filter(([action]) => !['up', 'down'].includes(action) || row.pinOrder)
       .map(
@@ -4460,7 +4581,7 @@
   });
   el('msgRooms').addEventListener('click', async (event) => {
     const target = event.target.closest(
-      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group],[data-contact-group-back],[data-contact-group-open]',
+      '[data-chat-archive],[data-chat-folder],[data-chat-list-back],[data-chat-group],[data-chat-circle],[data-create-group],[data-contact-group-back],[data-contact-group-open]',
     );
     if (!target) return;
     try {
@@ -4468,6 +4589,18 @@
         contactGroupView = null;
         el('msgRoomSearch').value = '';
         paintRooms();
+        return;
+      }
+      if (target.hasAttribute('data-create-group')) {
+        createGroupChat();
+        return;
+      }
+      if (target.dataset.chatCircle) {
+        const result = await request('open', { kind: 'circle', roomId: target.dataset.chatCircle });
+        upsertRoom(result.room);
+        kind = 'personal';
+        listMode = 'chats';
+        await openRoom(result.roomId);
         return;
       }
       if (target.dataset.contactGroupOpen) {

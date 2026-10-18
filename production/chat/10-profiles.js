@@ -8,7 +8,7 @@
       const ids = [
           ...new Set([
             ...data.contacts.map((p) => p.id),
-            ...data.rooms.map((r) => (r.kind === 'group' ? r.id : r.peerId)),
+            ...data.rooms.map((r) => (isGroupChat(r) ? r.id : r.peerId)),
             ...[...document.querySelectorAll('[data-avatar-subject]')].map((n) => n.dataset.avatarSubject),
           ]),
         ].filter((id) => id && !profileRequested.has(id)),
