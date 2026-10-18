@@ -58,7 +58,7 @@ async function list(bearer) {
 
 async function main() {
   const mode = process.argv[2];
-  if (!['inventory', 'snapshot'].includes(mode) || process.argv.length > 4) throw new Error('Usage: node scripts/cloudflare-snapshot.mjs inventory|snapshot [prior-snapshot]');
+  if (!['inventory', 'snapshot'].includes(mode) || process.argv.length > 4) throw new Error('Usage: node ops/cloudflare-snapshot.mjs inventory|snapshot [prior-snapshot]');
   const bearer = token();
   const objects = await list(bearer);
   if (mode === 'inventory') {

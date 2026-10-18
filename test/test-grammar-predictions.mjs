@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {addPredictions,predictions,predictionCommands} from './add-grammar-predictions.mjs';
+import {addPredictions,predictions,predictionCommands} from '../ops/add-grammar-predictions.mjs';
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
   sqlite.exec('CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key))');

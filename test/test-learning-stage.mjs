@@ -5,9 +5,9 @@ import {readFileSync} from 'node:fs';
 import {once} from 'node:events';
 import {request} from 'node:http';
 import {StudyService,statement} from '../src/learning-study.mjs';
-import {sqliteStudyDatabase} from './local-study-database.mjs';
+import {sqliteStudyDatabase} from '../ops/local-study-database.mjs';
 import {GroupService} from '../src/learning-groups.mjs';
-import {createStageServer} from './run-learning-stage.mjs';
+import {createStageServer} from '../ops/run-learning-stage.mjs';
 import {legacyLessons} from '../src/learning-legacy-read.mjs';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 

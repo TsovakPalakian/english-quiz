@@ -12,3 +12,4 @@ private/
 expression-analyzer/.DS_Store
 docs/refactoring-plan.md
 __pycache__/
+build/

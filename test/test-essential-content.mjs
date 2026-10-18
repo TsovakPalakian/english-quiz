@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {everydayGroups} from '../src/essential-data.mjs';
 import {grammarDetails,grammarGroupNames} from '../src/grammar-content.mjs';
-import {seedEssential} from './seed-essential.mjs';
+import {seedEssential} from '../ops/seed-essential.mjs';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 
 function fixture(){

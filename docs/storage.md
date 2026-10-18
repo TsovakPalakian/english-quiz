@@ -9,7 +9,7 @@
 - The remote SQLite HTTP driver, credentials, dependencies and deployment tools
   have been removed. Application modules and browser APIs use Learning naming.
 - Production entry: src/learning-production-worker.mjs.
-- Builder: node scripts/build-learning-production-assets.mjs.
+- Builder: node ops/build-learning-production-assets.mjs.
 - HTML/CSS source: site/ (tracked); private inline media: private/ (untracked,
   back it up separately); generated assets: rollback/production-assets.
   Deploy only with root wrangler.toml.

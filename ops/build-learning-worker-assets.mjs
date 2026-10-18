@@ -5,7 +5,7 @@ import {resolve} from 'node:path';
 import {mainPreview} from './learning-main-preview.mjs';
 import {pdfAssetPaths,pdfAssetFile} from './learning-pdf-assets.mjs';
 import {defaultSnapshot} from './run-learning-stage.mjs';
-const root=fileURLToPath(new URL('../',import.meta.url)),dir=resolve(root,'rollback/accepted-worker-assets');
+const root=fileURLToPath(new URL('../',import.meta.url)),dir=resolve(root,'build/test-worker-assets');
 mkdirSync(dir,{recursive:true,mode:0o700});
 if(process.argv.includes('--hooks-only')){
   // Preserve the last accepted assets, especially unrelated local CSS changes.
@@ -40,4 +40,4 @@ const html=readFileSync(resolve(root,'preview.html'),'utf8').replace(/<link[^>]+
   .replace('</head>','<link rel="stylesheet" href="/main-stage.css"></head>').replace(/<body[^>]*>/,m=>m+'<div id="learning-main-banner"><p>TEST Learning — отдельный Worker. Рабочий сайт не переключён. <button id="learning-main-refresh">Проверить сервер</button><button id="learning-main-retry">Повторить</button></p><div id="learning-main-status" role="status"></div></div>')
   .replace('<script src="grammar.js">','<script src="/main-bridge.js"></script><script src="grammar.js">');
 writeFileSync(resolve(dir,'preview.html'),html);writeFileSync(resolve(dir,'index.html'),html);
-console.log('Built allowlisted TEST Worker assets in rollback/accepted-worker-assets; no secrets copied.');
+console.log('Built allowlisted TEST Worker assets in build/test-worker-assets; no secrets copied.');

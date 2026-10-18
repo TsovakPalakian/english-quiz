@@ -21,7 +21,7 @@ test('runtime no longer contains a remote SQLite HTTP transport or dependency',(
   }
 });
 test('renamed module imports resolve throughout application, tooling and tests',()=>{
-  for(const directory of ['src','scripts','db'])for(const name of readdirSync(resolve(root,directory)).filter(n=>/\.(mjs|js)$/.test(n))){
+  for(const directory of ['src','test','ops','db'])for(const name of readdirSync(resolve(root,directory)).filter(n=>/\.(mjs|js)$/.test(n))){
     const path=resolve(root,directory,name),source=readFileSync(path,'utf8');
     for(const match of source.matchAll(/(?:from\s*|import\s*)['"](\.[^'"]+\.(?:mjs|js))['"]/g))assert.ok(existsSync(resolve(dirname(path),match[1]))||existsSync(resolve(root,match[1])),directory+'/'+name+' -> '+match[1]);
   }

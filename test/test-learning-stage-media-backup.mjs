@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {stageMediaArchiveStore} from './learning-stage-media-backup.mjs';
+import {stageMediaArchiveStore} from '../ops/learning-stage-media-backup.mjs';
 const bytes=Buffer.from('%PDF-1.4\nsynthetic'),sha=createHash('sha256').update(bytes).digest('hex');
 const key='stage-local/lessons/test/block/'+sha;
 const data={version:1,testOnly:true,tables:{lesson_blocks:[{lesson_id:'test',id:'block',content_json:JSON.stringify({localMediaKey:key,fileId:'sf_'+createHash('sha256').update(key).digest('hex'),fileType:'application/pdf',name:'test.pdf'})}]}};

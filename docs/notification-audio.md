@@ -24,8 +24,8 @@ They may now be up to 10 seconds: 480,044 bytes for the canonical WAV format.
 Existing saved IDs and shorter recordings remain valid. Source uploads are still
 limited to 10 MB and are trimmed/resampled before sending them to the server.
 
-Checks: `node --test scripts/test-notification-sounds.mjs`,
-`node scripts/test-notification-sounds-ui.mjs`, and the usual chat UI regression.
+Checks: `node --test test/test-notification-sounds.mjs`,
+`node test/test-notification-sounds-ui.mjs`, and the usual chat UI regression.
 The browser test decodes every recording, previews a toad, uploads a 10-second
 clip, and retains the previous short-clip/reload checks. The optional authenticated
 production test restores the original user settings and removes its test upload.

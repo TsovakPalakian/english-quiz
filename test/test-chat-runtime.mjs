@@ -2,7 +2,7 @@ import {createRequire} from 'node:module';
 import {mkdtemp,rm,readdir,readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{Miniflare,convertV4MiniflareOptions}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/miniflare'),{build}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/esbuild');
-const directory=await mkdtemp('/private/tmp/english-chat-runtime-'),bundle=await build({entryPoints:['scripts/chat-runtime-fixture.mjs'],bundle:true,write:false,format:'esm',platform:'browser'});
+const directory=await mkdtemp('/private/tmp/english-chat-runtime-'),bundle=await build({entryPoints:['test/chat-runtime-fixture.mjs'],bundle:true,write:false,format:'esm',platform:'browser'});
 const options={...convertV4MiniflareOptions({name:'chat-runtime-fixture',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-08-01',bindings:{CONTENT_SESSION_SECRET:'fixture-secret',CHAT_ENCRYPTION_KEY:btoa('r'.repeat(32)),CHAT_ENCRYPTION_REQUIRED:'true'},durableObjects:{CHAT_ROOM:{className:'ChatRoom',useSQLite:true},CHAT_INBOX:{className:'ChatInbox',useSQLite:true},CHAT_BRIDGE:{className:'ChatBridge',useSQLite:true}}}),resourcePersistencePath:directory};
 let mf=new Miniflare(options),sockets=[];
 function wire(ws){const rows=[];ws.addEventListener('message',event=>rows.push(JSON.parse(event.data)));ws.accept();sockets.push(ws);return {ws,rows};}

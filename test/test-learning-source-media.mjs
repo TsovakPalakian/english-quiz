@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createHash} from 'node:crypto';
-import {sourceMediaPlan,writeSourceMediaBackup,verifySourceMediaBackup,restoreSourceMediaBackup,cloudflareMediaReader} from './learning-source-media.mjs';
+import {sourceMediaPlan,writeSourceMediaBackup,verifySourceMediaBackup,restoreSourceMediaBackup,cloudflareMediaReader} from '../ops/learning-source-media.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),owner='a'.repeat(32),r2=Buffer.from('original audio'),image=Buffer.from('private image');
 function fixture(){
   const source=mkdtempSync('/private/tmp/english-quiz-source-fixture-'),destination=mkdtempSync('/private/tmp/english-quiz-learning-backup-');

@@ -2,7 +2,7 @@ import {createRequire} from 'node:module';
 import {mkdtemp,rm} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url),{Miniflare,convertV4MiniflareOptions}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/miniflare'),{build}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/esbuild');
-const directory=await mkdtemp('/private/tmp/english-transfer-runtime-'),bundle=await build({entryPoints:['scripts/account-transfer-runtime-fixture.mjs'],bundle:true,write:false,format:'esm',platform:'browser'});
+const directory=await mkdtemp('/private/tmp/english-transfer-runtime-'),bundle=await build({entryPoints:['test/account-transfer-runtime-fixture.mjs'],bundle:true,write:false,format:'esm',platform:'browser'});
 const key=btoa('t'.repeat(32)),expires=String(Date.now()+600000),snapshots=[],sockets=[];
 function options(name,role,frozen){return {...convertV4MiniflareOptions({name,modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-08-01',bindings:{CONTENT_SESSION_SECRET:'fixture-secret',CHAT_ENCRYPTION_KEY:btoa('r'.repeat(32)),CHAT_ENCRYPTION_REQUIRED:'true',ACCOUNT_TRANSFER_ROLE:role,ACCOUNT_TRANSFER_KEY:key,ACCOUNT_TRANSFER_EXPIRES:expires,ACCOUNT_TRANSFER_FROZEN:String(frozen)},durableObjects:{CHAT_ROOM:{className:'ChatRoom',useSQLite:true},CHAT_INBOX:{className:'ChatInbox',useSQLite:true},CHAT_BRIDGE:{className:'ChatBridge',useSQLite:true}}}),resourcePersistencePath:directory};}
 let mf;

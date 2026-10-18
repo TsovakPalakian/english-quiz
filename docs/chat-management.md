@@ -46,7 +46,7 @@ objects and fields. This is server-side encryption at rest, NOT end-to-end
 encryption: authorized application servers decrypt responses.
 
 CHAT_ENCRYPTION_KEY is a dedicated base64-encoded 32-byte Cloudflare secret.
-`node scripts/provision-chat-encryption.mjs` creates it only when absent, never
+`node ops/provision-chat-encryption.mjs` creates it only when absent, never
 overwrites an existing key, and stores a recovery copy in the git-ignored
 `.local-secrets/chat-encryption-v1.key` (directory 0700, file 0600). Preserve this
 copy in an access-controlled backup; losing all copies makes messages unreadable.

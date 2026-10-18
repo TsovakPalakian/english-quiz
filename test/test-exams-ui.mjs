@@ -3,7 +3,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-import {examWorkflowDemo} from './exam-workflow-demo.mjs';
+import {examWorkflowDemo} from '../ops/exam-workflow-demo.mjs';
 import {studentExamContent} from '../src/learning-exams.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');

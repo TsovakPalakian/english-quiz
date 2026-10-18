@@ -9,13 +9,13 @@ import {LessonMediaService,lessonMediaMetadata} from '../src/learning-lesson-med
 import {legacyLessons} from '../src/learning-legacy-read.mjs';
 import {PersonalService} from '../src/learning-personal.mjs';
 import {mediaKey} from '../src/learning-media.mjs';
-import {localMediaStore} from './learning-local-media.mjs';
-import {createMainServer} from './run-learning-main.mjs';
+import {localMediaStore} from '../ops/learning-local-media.mjs';
+import {createMainServer} from '../ops/run-learning-main.mjs';
 import {once} from 'node:events';
 import {runInNewContext} from 'node:vm';
 import {applyLearningSchema} from './learning-test-schema.mjs';
-import {snapshot} from './learning-backup.mjs';
-import {localMediaReferences,writeLocalMediaBackup,verifyLocalMediaBackup,restoreLocalMediaBackup} from './learning-media-backup.mjs';
+import {snapshot} from '../ops/learning-backup.mjs';
+import {localMediaReferences,writeLocalMediaBackup,verifyLocalMediaBackup,restoreLocalMediaBackup} from '../ops/learning-media-backup.mjs';
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
   applyLearningSchema(sqlite);

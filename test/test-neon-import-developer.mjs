@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {developerValues,importDeveloper} from './neon-import-developer.mjs';
+import {developerValues,importDeveloper} from '../ops/neon-import-developer.mjs';
 const row={id:'developer-id',login:'TsovakDev',email:'dev@example.test',name:'Developer',password_salt:'fixture-salt',password_hash:'fixture-hash',password_iterations:100000,role:'DEVELOPER',is_personal_data_revoked:0,revoked_at:null,hidden:0,active:1,created_at:1700000000};
 const columns=Object.keys(row);
 const saved=()=>Object.fromEntries(columns.map((key,i)=>[key,developerValues(row)[i]]));

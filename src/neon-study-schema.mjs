@@ -1,5 +1,5 @@
 // Generated from the canonical SQLite schema and service migrations.
-// Regenerate with node scripts/build-neon-study-schema.mjs; never import business rows.
+// Regenerate with node ops/build-neon-study-schema.mjs; never import business rows.
 export const neonStudyTables=[
   {
     "name": "account_refs",

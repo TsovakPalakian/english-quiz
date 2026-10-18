@@ -4,7 +4,7 @@ import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-import {allMaterialsBlock,sources} from './practice-all-materials.mjs';
+import {allMaterialsBlock,sources} from '../ops/practice-all-materials.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root=resolve(process.env.UI_ASSETS_DIR || 'rollback/production-assets');

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {applyLearningSchema} from './learning-test-schema.mjs';
-import {examWorkflowDemo} from './exam-workflow-demo.mjs';
+import {examWorkflowDemo} from '../ops/exam-workflow-demo.mjs';
 import {ExamService,studentExamContent} from '../src/learning-exams.mjs';
 import {AssessmentService,gradingQuestions} from '../src/learning-assessment.mjs';
 import {MessageService} from '../src/learning-messages.mjs';

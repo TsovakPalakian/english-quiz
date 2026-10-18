@@ -10,8 +10,8 @@ import {legacyState,legacyTexts,accountThemes} from '../src/learning-legacy-read
 import {ThemeMediaService} from '../src/learning-theme-media.mjs';
 import {inlineMedia,mediaKey,mediaPlaceholders,mediaRange,storedMediaResponse} from '../src/learning-media.mjs';
 import worker,{StageAuth,StageAuthBudget,reserveBudget} from '../src/learning-stage-worker.mjs';
-import {snapshot,restore,reverse,auditReverse} from './learning-backup.mjs';
-import {migrationReview} from './learning-migration-review.mjs';
+import {snapshot,restore,reverse,auditReverse} from '../ops/learning-backup.mjs';
+import {migrationReview} from '../ops/learning-migration-review.mjs';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');

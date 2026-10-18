@@ -7,7 +7,7 @@ const excluded=new Set(['test-settings-production-ui.mjs']);
 const only=process.argv.slice(2);
 // Neon is optional and slow; include it with CHECK_NEON=1.
 const neon=process.env.CHECK_NEON==='1';
-const scripts=readdirSync('scripts').filter(name=>/^test-.*\.mjs$/.test(name)&&!excluded.has(name)&&(neon||!name.startsWith('test-neon-'))&&(!only.length||only.some(part=>name.includes(part)))).sort();
+const scripts=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)&&!excluded.has(name)&&(neon||!name.startsWith('test-neon-'))&&(!only.length||only.some(part=>name.includes(part)))).sort();
 const timeout=Number(process.env.CHECK_TIMEOUT_MS||300000),parallel=Number(process.env.CHECK_PARALLEL||4);
 
 function run(command,args){
@@ -19,7 +19,7 @@ function run(command,args){
   });
 }
 
-const job=name=>[name,()=>run(process.execPath,['scripts/'+name])];
+const job=name=>[name,()=>run(process.execPath,['test/'+name])];
 // Browser tests assert on rendering timing; they run one at a time after the rest.
 const browser=name=>/-ui\.mjs$|ui-boot/.test(name);
 const fast=[...(only.length?[]:[['vitest',()=>run('npx',['vitest','run'])]]),...scripts.filter(name=>!browser(name)).map(job)];

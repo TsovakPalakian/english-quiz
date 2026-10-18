@@ -1,6 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {writeFileSync} from 'node:fs';
-import {applyLearningSchema} from './learning-test-schema.mjs';
+import {applyLearningSchema} from '../test/learning-test-schema.mjs';
 import {ExamService} from '../src/learning-exams.mjs';
 import {GroupService} from '../src/learning-groups.mjs';
 import {ArchiveService} from '../src/learning-archive.mjs';
@@ -28,7 +28,7 @@ try{
     ordered.push(next);pending.delete(next.name);
   }
   const indexes=sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL").all().map(row=>studyIndexDDL(row.sql));
-  const source='// Generated from the canonical SQLite schema and service migrations.\n// Regenerate with node scripts/build-neon-study-schema.mjs; never import business rows.\nexport const neonStudyTables='+JSON.stringify(ordered.map(({name,identity,text,columns,types})=>({name,identity,columns,types,ddl:text})),null,2)+';\nexport const neonStudyIndexes='+JSON.stringify(indexes,null,2)+';\n';
+  const source='// Generated from the canonical SQLite schema and service migrations.\n// Regenerate with node ops/build-neon-study-schema.mjs; never import business rows.\nexport const neonStudyTables='+JSON.stringify(ordered.map(({name,identity,text,columns,types})=>({name,identity,columns,types,ddl:text})),null,2)+';\nexport const neonStudyIndexes='+JSON.stringify(indexes,null,2)+';\n';
   writeFileSync(new URL('../src/neon-study-schema.mjs',import.meta.url),source);
   console.log(JSON.stringify({tables:ordered.length,indexes:indexes.length,dataCopied:false}));
 }finally{sqlite.close();}
