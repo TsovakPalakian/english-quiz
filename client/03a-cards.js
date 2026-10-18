@@ -448,12 +448,47 @@
     function guideBlock(title, text, jump, label, shot = '') {
       return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
     }
+    function guideVisitorKey() {
+      if (authUser?.id) return String(authUser.id).slice(0, 80);
+      try {
+        let key = localStorage.getItem('enquiz-guide-visitor');
+        if (!key || !/^[A-Za-z0-9._:-]{8,80}$/.test(key)) {
+          key = 'g' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+          localStorage.setItem('enquiz-guide-visitor', key.slice(0, 80));
+        }
+        return key.slice(0, 80);
+      } catch (e) {
+        return 'guest' + String(Date.now()).slice(-10);
+      }
+    }
+    function paintGuideVisits(stats) {
+      const el = document.getElementById('guideVisits');
+      if (!el || !stats) return;
+      const views = Number(stats.views) || 0;
+      const uniques = Number(stats.uniques) || 0;
+      el.hidden = false;
+      el.textContent = views + ' visits · ' + uniques + ' people';
+      el.title = 'Metric: page opens (visits) and distinct devices/accounts (people).';
+    }
+    async function recordGuideVisit() {
+      try {
+        const response = await fetch('/api/guide/visits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ visitor: guideVisitorKey() })
+        });
+        if (!response.ok) return;
+        paintGuideVisits(await response.json());
+      } catch (e) {}
+    }
     function paintGuide() {
       const box = document.getElementById('guideContent');
       if (!box) return;
       const ru = document.getElementById('guide').dataset.lang === 'ru';
       const role = (viewAccount || authUser)?.role || 'GUEST';
       const t = (en, russian) => ru ? russian : en;
+      recordGuideVisit();
       let html = '';
       if (role === 'GUEST') {
         html += guideBlock(t('Sign in or create an account', 'Вход и регистрация'), t('Open Account to sign in or register. Registration creates a student account; access may wait for teacher approval.', 'Откройте Account, чтобы войти или зарегистрироваться. Создаётся аккаунт ученика; доступ может ожидать подтверждения учителя.'), 'account', t('Open Account', 'Открыть Account'), guideShot(t('Account', 'Аккаунт'), [[t('Sign in', 'Войти'), 'account'], [t('Register', 'Регистрация'), 'account']]));
@@ -461,7 +496,7 @@
       } else {
         html += guideBlock(t('Learn from your classes', 'Обучение по занятиям'), t('Open a group, choose a lesson, then study its cards, rules and tasks. Exams are listed separately and results remain in your account.', 'Откройте группу, выберите занятие и изучайте его карточки, правила и задания. Экзамены находятся отдельно, результаты сохраняются в аккаунте.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Study', 'Обучение'), [['Groups', 'groups'], ['Exams', 'exams'], ['Study', 'groups']]));
         html += guideBlock(t('Cards: read, listen and practise', 'Карточки: смотреть, слушать и тренировать'), t('A card contains translation, part of speech, UK/US pronunciation and audio, examples and dictionary links. Study offers choice, typing, gaps, matching, listening and more.', 'Карточка содержит перевод, часть речи, британское и американское произношение и аудио, примеры и ссылки на словари. Есть выбор, ввод, пропуски, пары, аудирование и другие проверки.'), 'allwords', t('Open cards', 'Открыть карточки'), guideShot(t('Word card', 'Карточка слова'), [[t('Pronunciation', 'Произношение'), 'allwords'], [t('Examples', 'Примеры'), 'allwords'], [t('Study', 'Учить'), 'setup']]));
-        html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Library you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Library можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Library', 'Открыть Library'), guideShot(t('Library', 'Библиотека'), [[t('My cards', 'Мои карточки'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
+        html += guideBlock(t('Your materials and themes', 'Свои материалы и темы'), t('In Entertainment you can add words, texts and songs. Your materials can be edited or moved to Archive. Theme settings are under Account.', 'В Entertainment можно добавлять слова, тексты и песни. Свои материалы можно редактировать или перемещать в Archive. Настройки темы находятся в Account.'), 'library', t('Open Entertainment', 'Открыть Entertainment'), guideShot(t('Entertainment', 'Развлечения'), [[t('My cards', 'Мои карточки'), 'add'], [t('Add text', 'Добавить текст'), 'texts'], [t('Themes', 'Темы'), 'themes']]));
         html += guideBlock(t('Archive and account', 'Архив и аккаунт'), role === 'USER' ? t('Removing your material first moves it to Archive after confirmation. Restore brings it back. Remove from archive hides your own archived item without a password; it does not erase it permanently. Account contains statistics, details, password changes and sign-out.', 'Удаление своего материала сначала перемещает его в Archive после подтверждения. Restore возвращает его обратно. Remove from archive скрывает свой архивный материал без пароля, но не стирает окончательно. В Account находятся статистика, данные аккаунта, смена пароля и выход.') : t('Archive groups removed materials by type and shows who archived them. Restore returns material to its original section. Remove from archive hides an entry; teachers confirm this with their password. Account contains details, password changes and sign-out.', 'Archive группирует убранные материалы по типам и показывает, кто их перенёс. Restore возвращает материал в исходный раздел. Remove from archive скрывает запись; учитель подтверждает это паролем. В Account находятся данные аккаунта, смена пароля и выход.'), 'archive', t('Open Archive', 'Открыть Archive'), guideShot(t('Account tools', 'Управление'), [['Archive', 'archive'], [t('Account', 'Аккаунт'), 'profile'], [t('Statistics', 'Статистика'), 'stats']]));
         html += guideBlock(t('Statistics and progress', 'Статистика и прогресс'), t('Choose a period to see answers, accuracy, learned checks, study time, exams and added materials. Keep comparison enabled to compare the selected period with the previous period.', 'Выберите период, чтобы увидеть ответы, точность, выученные проверки, время, экзамены и добавленные материалы. Оставьте сравнение включённым, чтобы сопоставить выбранный период с предыдущим.'), 'stats', t('Open Statistics', 'Открыть статистику'), guideShot(t('Progress', 'Прогресс'), [[t('Period', 'Период'), 'stats'], [t('Learning', 'Обучение'), 'stats'], [t('Materials', 'Материалы'), 'stats']]));
         if (!viewAccount) html += guideBlock(t('Personal themes', 'Личные темы'), t('Open Account then Theme. Select a theme or use Add theme to choose its name, colours and background image. Edit or remove your own themes there. Your themes and selected theme are saved to your account and restored after signing in, including on another device.', 'Откройте Account, затем Theme. Выберите тему или нажмите Add theme: задайте название, цвета и фоновую картинку. Там же можно редактировать и удалять свои темы. Темы и выбранное оформление сохраняются в аккаунте и восстанавливаются после входа, в том числе на другом устройстве.'), 'themes', t('Open themes', 'Открыть темы'), guideShot(t('Themes', 'Темы'), [[t('Choose theme', 'Выбрать тему'), 'themes'], [t('Add theme', 'Добавить тему'), 'themes'], [t('Edit themes', 'Изменить темы'), 'themes']]));

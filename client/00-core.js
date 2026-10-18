@@ -57,12 +57,31 @@
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
-      return ['groups','exams','library','stats','profile','speakouteditor'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','exams','library','stats','profile','speakouteditor','days','allwords'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       document.querySelectorAll('[data-jump]').forEach(button=>{
-        if(['groups','exams','library','stats','profile'].includes(button.dataset.jump)||button.id==='homeStudy')button.hidden=!authUser;
+        if(['groups','exams','library','stats','profile','days','allwords','tenses'].includes(button.dataset.jump)||button.id==='homeStudy')button.hidden=!authUser;
       });
+    }
+    function chromeMark(id) {
+      const examish = id === "exams" || id === "examblocks" || (typeof lmState !== "undefined" && lmState && lmState.examOwned && id === "material");
+      const base = examish ? "exams" : (dayScreens[id] || id);
+      const student = !!(authUser && authUser.role === "USER" && !viewAccount);
+      const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
+      if (student) {
+        if (base === "groups" || id === "days") return "days";
+        if (["allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "allwords";
+        if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
+        if (id === "account" || id === "profile" || id === "stats" || id === "themes") return "account";
+        if (examish) return "exams";
+      }
+      if (staff && (base === "groups" || base === "exams" || id === "days")) return "groups";
+      return base;
+    }
+    function chromeMatches(button, mark) {
+      const listed = (button.dataset.chrome || button.dataset.jump || "").split(",").map((part) => part.trim()).filter(Boolean);
+      return listed.includes(mark);
     }
     paintGuestAccess();
     (function holdPlace() {
@@ -72,9 +91,9 @@
       const id = place && place.id;
       if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
-      const mark = dayScreens[id] || id;
+      const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
-        const on = b.dataset.jump === mark;
+        const on = chromeMatches(b, mark);
         b.classList.toggle("on", on);
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
@@ -117,14 +136,17 @@
       if (id === "demonstratives" && window.paintDemonstratives) window.paintDemonstratives();
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
+      if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
-      const mark = (id === "exams" || id === "examblocks" || (lmState && lmState.examOwned && id === "material")) ? "exams" : (dayScreens[id] || id);
+      const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
-        const on = b.dataset.jump === mark;
+        const on = chromeMatches(b, mark);
         b.classList.toggle("on", on);
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
       });
+      const settings = document.getElementById("shellSettings");
+      if (settings) settings.hidden = true;
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
       syncHomeBack();

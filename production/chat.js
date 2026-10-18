@@ -917,13 +917,21 @@
         for (const c of ['personal', 'learning']) unread[c] += r.unread?.[c] || 0;
     data.unread = unread;
     data.total = unread.personal + unread.learning;
+    try { window.__chatUnreadTotal = data.total; } catch (e) {}
+    if (typeof paintHomeStats === 'function') try { paintHomeStats(); } catch (e) {}
     document.querySelectorAll('[data-exam-unread]').forEach((node) => node.remove());
-    document.querySelectorAll('[data-jump="account"]:not(.brand-account)').forEach((button) => {
-      button.textContent = 'Settings' + (data.total ? ' \u00b7 ' + data.total : '');
+    document.querySelectorAll('.side-foot [data-jump="account"], .shell-settings [data-jump="account"], .mobile-tools [data-jump="account"]').forEach((button) => {
+      button.textContent = 'My account' + (data.total ? ' \u00b7 ' + data.total : '');
     });
-    document.querySelectorAll('[data-msg-open]').forEach((button) => {
-      button.textContent = 'Messages' + (data.total ? ' \u00b7 ' + data.total : '');
-      button.hidden = !current();
+    document.querySelectorAll('.side-foot [data-msg-open], .shell-settings [data-msg-open], .mobile-tools [data-msg-open], #homeUnreadTile').forEach((button) => {
+      if (button.id === 'homeUnreadTile') return;
+      const label = button.childElementCount ? null : 'Messages';
+      if (label) button.textContent = 'Messages' + (data.total ? ' \u00b7 ' + data.total : '');
+    });
+    document.querySelectorAll('.side nav [data-msg-open], .tabbar [data-msg-open]').forEach((button) => {
+      const base = 'Messages';
+      const text = button.childNodes[button.childNodes.length - 1];
+      if (text && text.nodeType === 3) text.textContent = base + (data.total ? ' · ' + data.total : '');
     });
     section.querySelectorAll('[data-msg-category]').forEach((button) => {
       const c = button.dataset.msgCategory;

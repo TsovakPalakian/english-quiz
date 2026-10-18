@@ -89,8 +89,14 @@
     function paintDeveloperChrome() {
       if (archivePreviewContext && (archivePreviewContext.actor !== authUser?.id || archivePreviewContext.generation !== viewGen || viewAccount)) closeArchivePreview();
       const allow = isDeveloper();
+      const student = !!(authUser && authUser.role === "USER" && !viewAccount);
+      const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
       document.querySelectorAll('[data-teacher-only]').forEach(el => { el.hidden = !isTeacher() || !!viewAccount; });
+      document.querySelectorAll("[data-nav-role]").forEach((el) => {
+        const role = el.dataset.navRole;
+        el.hidden = role === "student" ? !student : role === "staff" ? !staff : false;
+      });
       refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
     }

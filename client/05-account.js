@@ -284,9 +284,19 @@
       const pctEl = document.getElementById("homeLearnedPct");
       const ring = document.querySelector("#homeDemo .ring-fg");
       const learning = document.getElementById("homeLearningCount");
+      const unread = document.getElementById("homeUnreadCount");
+      const next = document.getElementById("homeNextLessonLabel");
       if (count) count.innerHTML = learned + " <span>of " + total + "</span>";
       if (pctEl) pctEl.textContent = pct + "%";
       if (learning) learning.textContent = String(buckets.learning.length);
+      if (unread) {
+        const totalUnread = Number(window.__chatUnreadTotal || 0);
+        unread.textContent = String(authUser ? totalUnread : 0);
+      }
+      if (next) {
+        const group = (typeof classGroups !== "undefined" && classGroups || []).find((row) => row.id === classGroupId) || (typeof classGroups !== "undefined" && classGroups || [])[0];
+        next.textContent = authUser && group ? String(group.title || "Lesson").slice(0, 12) : "—";
+      }
       if (ring) {
         const whole = total || 1;
         ring.setAttribute("pathLength", String(whole));
@@ -338,9 +348,10 @@
         return;
       }
       if (alt) alt.hidden = true;
+      const studyJump = authUser?.role === "USER" && !viewAccount ? "days" : "groups";
       if (!begun) {
         btn.textContent = "Start studying";
-        btn.dataset.jump = "days";
+        btn.dataset.jump = studyJump;
         return;
       }
       btn.textContent = "Continue studying";
@@ -349,7 +360,7 @@
         return row && !classFinished(row.place);
       });
       const next = CLASS_PAGES.find((row) => !classFinished(row.place));
-      btn.dataset.jump = recent || (next ? next.id : "days");
+      btn.dataset.jump = recent || (next ? next.id : studyJump);
     }
     let signedOutHello = false;
     function paintHomeHello() {

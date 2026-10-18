@@ -437,9 +437,7 @@ function stageMadeAnswer(type,key,ok,value){
 let stageActivity={tracked:false,seconds:0,examPass:0},stageTimeAt=0,stageTimeSeconds=0,stageProgressEpoch=0,stageListEpoch={cards:0,songs:0,texts:0,quizzes:0};
 function stageSetActivity(value){stageActivity=value||{tracked:false,seconds:0,examPass:0};stagePaintActivity();}
 function stagePaintActivity(){
-  const time=document.querySelector('#homeDemo .overview > div:nth-child(1) b'),exams=document.querySelector('#homeDemo .overview > div:nth-child(2) b');
-  if(time){time.textContent=!authUser?'0 min':stageActivity.tracked?Math.floor(stageActivity.seconds/60)+' min':'—';time.title='Только подтверждённое время в тестовой Learning; прежняя история не включена.';}
-  if(exams){exams.textContent=!authUser?'0':stageActivity.tracked?String(stageActivity.examPass):'—';exams.title='Клиентская учебная статистика, не сертифицированный экзамен.';}
+  if(typeof paintHomeStats==='function')paintHomeStats();
 }
 function stageRecordTime(flush=false){
   if(!stageOwnReady()){stageTimeAt=0;stageTimeSeconds=0;return;}

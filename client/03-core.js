@@ -166,12 +166,20 @@
       }
       const jump = e.target.closest("[data-jump]");
       if (jump) {
-        if(jump.id==='homeStudy'&&jump.dataset.jump!=='setup')jump.dataset.jump='groups';
-        if(jump.closest('.side,#home,.mobile-tools')&&['groups','exams'].includes(jump.dataset.jump)){
+        if(jump.id==='homeStudy'&&jump.dataset.jump!=='setup')jump.dataset.jump=authUser?.role==='USER'&&!viewAccount?'days':'groups';
+        if(jump.closest('.side,#home,.mobile-tools')&&['groups','exams','days'].includes(jump.dataset.jump)){
           pushHistory();
           if(jump.dataset.jump==='groups')groupViewLevel='';
+          else if(jump.dataset.jump==='days'){
+            if(typeof classGroups!=='undefined'&&classGroups?.length&&(!classGroupId||!classGroups.some(row=>row.id===classGroupId)))classGroupId=classGroups[0].id;
+          }
           else{examViewLevel='';examViewGroup=null;examSection=authUser?.role==='USER'&&!viewAccount?'assigned':'active';}
           show(jump.dataset.jump);return;
+        }
+        if(e.target.closest('[data-shell-settings-open]')){
+          const panel=document.getElementById('shellSettings');
+          if(panel)panel.hidden=!panel.hidden;
+          return;
         }
         if (jump.dataset.jump === "tenses") openHub();
         else if (jump.dataset.jump === "speakout") { openSpeak("levels", -1, -1, -1); return; }

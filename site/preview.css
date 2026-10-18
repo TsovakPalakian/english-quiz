@@ -1137,8 +1137,13 @@ img, video, iframe, table { max-width: 100%; }
 }
 .side nav button svg, .tabbar button svg { width: 22px; height: 22px; flex: none; }
 .side nav button.on { background: var(--acc-s); color: var(--acc); }
-.side-foot { margin-top: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 12px; }
+.side-foot { margin-top: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 12px; position: relative; }
 .side-foot .btn { justify-content: flex-start; max-width: 100%; white-space: normal; text-align: left; }
+.shell-settings { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; padding: 8px; border: 1px solid color-mix(in srgb, var(--line, #ccc) 80%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card, #fff) 92%, transparent); box-sizing: border-box; }
+.shell-settings[hidden] { display: none !important; }
+.home-top-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+#home .meta { display: flex; align-items: center; gap: 8px; }
+.guide-visits { margin-left: auto; color: var(--mute); font-size: 13px; font-weight: 600; }
 .theme-seg {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));

@@ -11,6 +11,7 @@ import {VisibilityService} from './learning-visibility.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {AccountGroupTeachers} from './account-group-teachers.mjs';
 import {AccountInvites} from './account-invites.mjs';
+import {GuideVisits} from './guide-visits.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './learning-media.mjs';
@@ -199,6 +200,16 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const created=await service.create(actor,value,users);
         try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
         return json(created);
+      }
+      if(path==='/api/guide/visits'){
+        const service=new GuideVisits(studyDatabase(env));
+        if(method==='GET')return json(await service.stats());
+        if(method!=='POST')throw new StudyError(405,'Use GET or POST.');
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,512,'Visit payload too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid visit.');}
+        const actor=await identify(accountEnv,request).catch(()=>null);
+        const visitor=actor?.id||value?.visitor;
+        return json(await service.hit(visitor));
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
