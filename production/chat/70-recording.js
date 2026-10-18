@@ -1,19 +1,24 @@
-  function paintRecordButton() {
-    recordButton.innerHTML = icon(recordMode === 'video' ? 'video' : 'mic');
-    recordButton.title =
-      recordMode === 'video'
-        ? 'Hold to record video; click to switch to audio'
-        : 'Hold to record audio; click to switch to video';
+  function paintRecordButtons() {
+    const recording = !!recordGesture && (recordGesture.awaitingPermission || recordGesture.recorder);
+    const mode = recordGesture?.mode || recordMode;
+    const audioActive = recording && mode !== 'video';
+    const videoActive = recording && mode === 'video';
+    recordButton.innerHTML = icon(audioActive ? 'square' : 'mic');
+    videoButton.innerHTML = icon(videoActive ? 'square' : 'video');
+    recordButton.title = audioActive ? 'Stop recording' : 'Record voice message';
+    videoButton.title = videoActive ? 'Stop recording' : 'Record video message';
     recordButton.setAttribute('aria-label', recordButton.title);
+    videoButton.setAttribute('aria-label', videoButton.title);
+    recordButton.hidden = videoActive;
+    videoButton.hidden = audioActive;
+    el('msgCancelRecording').hidden = !recording;
     icons();
   }
   function finishRecording(cancel = false) {
     const gesture = recordGesture;
     if (!gesture) return;
-    clearTimeout(gesture.hold);
     clearTimeout(recordTimer);
     clearInterval(recordProgressTimer);
-    gesture.held = false;
     gesture.awaitingPermission = false;
     gesture.cancelled ||= cancel;
     if (gesture.recorder?.state === 'recording') gesture.recorder.stop();
@@ -25,8 +30,7 @@
       recordPreview.hidden = true;
       recordFrame.hidden = true;
       el('msgSendState').textContent = '';
-      el('msgCancelRecording').hidden = true;
-      paintRecordButton();
+      paintRecordButtons();
       scheduleInputFit();
     }
   }
@@ -35,21 +39,36 @@
   }
   function interruptRecording() {
     if (recordGesture?.awaitingPermission) return;
+    if (!recordGesture) return;
     cancelRecording();
   }
   el('msgCancelRecording').onclick = cancelRecording;
-  async function startRecording(gesture) {
-    if (recordGesture !== gesture || gesture.cancelled) return;
-    gesture.started = true;
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      status('Recording is unavailable in this browser.');
-      finishRecording(true);
+  async function startRecording(mode) {
+    if (recordUploading || busy || !ready || !room || el('msgCompose').hidden) return;
+    if (recordGesture) {
+      if (recordGesture.awaitingPermission || recordGesture.recorder) finishRecording();
       return;
     }
-    const video = gesture.mode === 'video';
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      status('Recording is unavailable in this browser.');
+      return;
+    }
+    const video = mode === 'video';
+    const gesture = {
+      mode,
+      roomId: room,
+      gen: generation,
+      cancelled: false,
+      awaitingPermission: true,
+      recorder: null,
+      stream: null,
+      poster: '',
+    };
+    recordGesture = gesture;
+    recordMode = mode;
+    paintRecordButtons();
     let stream;
     try {
-      gesture.awaitingPermission = true;
       el('msgSendState').textContent = video
         ? 'Waiting for camera permission...'
         : 'Waiting for microphone permission...';
@@ -67,7 +86,7 @@
       const mime = (
         video
           ? ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
-          : ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
+          : ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm']
       ).find((type) => MediaRecorder.isTypeSupported(type));
       if (!mime) throw new Error('Recording format is unsupported in this browser.');
       const chunks = [];
@@ -101,9 +120,8 @@
           recordPreview.load();
           recordFrame.hidden = gesture.cancelled || !video;
           recordPreview.hidden = recordFrame.hidden;
-          el('msgCancelRecording').hidden = true;
           el('msgSendState').textContent = '';
-          paintRecordButton();
+          paintRecordButtons();
           scheduleInputFit();
         }
         if (gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || !active()) return;
@@ -111,9 +129,11 @@
         if (!blob.size) {
           recordFrame.hidden = true;
           recordPreview.hidden = true;
+          status('Recording was empty. Try again.');
           return;
         }
         recordUploading = true;
+        el('msgSendState').textContent = 'Sending recording...';
         try {
           const extension = mime.includes('mp4') ? '.mp4' : mime.includes('ogg') ? '.ogg' : '.webm';
           const file = new File([blob], (video ? 'video-' : 'voice-') + Date.now() + extension, { type: blob.type });
@@ -125,21 +145,14 @@
           recordUploading = false;
           recordFrame.hidden = true;
           recordPreview.hidden = true;
+          el('msgSendState').textContent = '';
         }
       };
       recording.start(250);
-      el('msgCancelRecording').hidden = false;
       el('msgSendState').textContent = video
-        ? gesture.released
-          ? 'Recording video... Tap stop when finished.'
-          : 'Recording video...'
-        : gesture.released
-          ? 'Recording audio... Tap stop when finished.'
-          : 'Recording audio...';
-      recordButton.innerHTML = icon('square');
-      recordButton.title = 'Stop recording';
-      recordButton.setAttribute('aria-label', recordButton.title);
-      icons();
+        ? 'Recording video... Tap stop when finished.'
+        : 'Recording audio... Tap stop when finished.';
+      paintRecordButtons();
       if (video) {
         const startedAt = performance.now();
         const progress = () => {
@@ -151,8 +164,7 @@
             String(Math.floor(elapsed / 60)).padStart(2, '0') +
             ':' +
             String(Math.floor(elapsed % 60)).padStart(2, '0') +
-            ' / 01:00' +
-            (gesture.released ? ' · Tap stop when finished.' : '');
+            ' / 01:00 · Tap stop when finished.';
         };
         progress();
         recordProgressTimer = setInterval(progress, 100);
@@ -173,73 +185,31 @@
       }
     }
   }
-  function beginRecordHold(pointerId) {
-    if (recordGesture?.recorder?.state === 'recording' && recordGesture.released) {
-      finishRecording();
+  function onRecordPress(mode, event) {
+    if (event?.button != null && event.button !== 0) return;
+    event?.preventDefault?.();
+    if (recordGesture && (recordGesture.awaitingPermission || recordGesture.recorder)) {
+      if (recordGesture.mode === mode || recordGesture.awaitingPermission) finishRecording();
       return;
     }
-    if (recordGesture || recordUploading || busy || !ready || !room || el('msgCompose').hidden) return;
-    const gesture = {
-      pointerId,
-      mode: recordMode,
-      roomId: room,
-      gen: generation,
-      held: true,
-      started: false,
-      cancelled: false,
-      awaitingPermission: false,
-      released: false,
-    };
-    recordGesture = gesture;
-    gesture.hold = setTimeout(() => startRecording(gesture), 250);
+    startRecording(mode);
   }
-  function releaseRecordHold() {
-    const gesture = recordGesture;
-    if (!gesture) return;
-    if (gesture.awaitingPermission) {
-      gesture.held = false;
-      gesture.released = true;
-      return;
-    }
-    const short = !gesture.started;
-    finishRecording();
-    if (short) {
-      recordMode = recordMode === 'audio' ? 'video' : 'audio';
-      paintRecordButton();
-    }
-  }
-  recordButton.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    beginRecordHold(event.pointerId);
-    if (recordGesture && !recordGesture.released) recordButton.setPointerCapture(event.pointerId);
-  });
-  recordButton.addEventListener('pointerup', (event) => {
-    if (recordGesture?.pointerId === event.pointerId) releaseRecordHold();
-  });
-  recordButton.addEventListener('pointercancel', interruptRecording);
-  recordButton.addEventListener('lostpointercapture', () => {
-    if (recordGesture?.held && !recordGesture.awaitingPermission) interruptRecording();
-  });
+  recordButton.addEventListener('pointerdown', (event) => onRecordPress('audio', event));
+  videoButton.addEventListener('pointerdown', (event) => onRecordPress('video', event));
   recordButton.addEventListener('contextmenu', (event) => event.preventDefault());
+  videoButton.addEventListener('contextmenu', (event) => event.preventDefault());
   recordButton.addEventListener('keydown', (event) => {
     if ([' ', 'Enter'].includes(event.key)) {
       event.preventDefault();
-      if (!event.repeat) beginRecordHold('keyboard');
+      if (!event.repeat) onRecordPress('audio', event);
     } else if (event.key === 'Escape') cancelRecording();
   });
-  recordButton.addEventListener('keyup', (event) => {
+  videoButton.addEventListener('keydown', (event) => {
     if ([' ', 'Enter'].includes(event.key)) {
       event.preventDefault();
-      if (recordGesture?.pointerId === 'keyboard') releaseRecordHold();
-    }
+      if (!event.repeat) onRecordPress('video', event);
+    } else if (event.key === 'Escape') cancelRecording();
   });
-  recordButton.onclick = (event) => {
-    if (event.detail === 0 && !recordGesture) {
-      recordMode = recordMode === 'audio' ? 'video' : 'audio';
-      paintRecordButton();
-    }
-  };
   window.addEventListener('blur', interruptRecording);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && recordGesture) cancelRecording();
@@ -247,4 +217,4 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') interruptRecording();
   });
-  paintRecordButton();
+  paintRecordButtons();

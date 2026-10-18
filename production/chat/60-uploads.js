@@ -354,6 +354,7 @@
     true,
   );
   const recordButton = el('msgMic');
+  const videoButton = el('msgVideo');
   const recordPreview = document.createElement('video');
   recordPreview.className = 'chat-record-preview';
   recordPreview.muted = true;

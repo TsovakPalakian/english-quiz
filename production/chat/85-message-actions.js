@@ -14,6 +14,42 @@
     link.click();
     link.remove();
   }
+  function isImageFile(file) {
+    return !!(
+      file &&
+      (String(file.mime || '').startsWith('image/') || /\.(heic|heif|avif|bmp|tiff?|jpe?g|png|gif|webp)$/i.test(file.name || ''))
+    );
+  }
+  async function copyMedia(file) {
+    if (!isImageFile(file) || !file?.url?.startsWith('/api/messages/file?'))
+      throw Error('Only photos can be copied.');
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined')
+      throw Error('Copy media is unavailable in this browser.');
+    const response = await fetch(file.url);
+    if (!response.ok) throw Error('Unable to copy media.');
+    let blob = await response.blob();
+    if (
+      (!blob.type.startsWith('image/') || /image\/hei[cf]/i.test(blob.type)) &&
+      /\.(heic|heif)$/i.test(file.name || '')
+    ) {
+      const module = await import('/heic-to-1.6.6.js');
+      blob = await module.heicTo({ blob, type: 'image/png', quality: 0.92 });
+    }
+    if (!blob.type.startsWith('image/')) throw Error('Only photos can be copied.');
+    if (blob.type !== 'image/png') {
+      const bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      bitmap.close?.();
+      blob = await new Promise((resolve, reject) =>
+        canvas.toBlob((value) => (value ? resolve(value) : reject(Error('Unable to copy media.'))), 'image/png'),
+      );
+    }
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    status('Photo copied.');
+  }
   function canEdit(message) {
     return message.canEdit ?? (message.senderId === account && !message.examId);
   }
@@ -43,6 +79,10 @@
     if (canReply && quote) items.push(['quote', 'quote', 'Quote selection']);
     if (el('selpop')) el('selpop').hidden = true;
     if (message.files?.length) items.push(['save', 'download', 'Save as...']);
+    const photo =
+      (fileId && message.files.find((f) => f.id === fileId && isImageFile(f))) ||
+      (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
+    if (photo) items.push(['copy-media', 'clipboard-plus', 'Copy media']);
     if (canEdit(message) && message.text) items.push(['edit', 'square-pen', 'Edit']);
     items.push(['pin', 'pin', data.rooms.find((r) => r.id === room)?.pinned?.id === message.id ? 'Unpin' : 'Pin']);
     if ((!study || canReply) && message.forwardTo !== account) items.push(['forward', 'forward', 'Forward']);
@@ -240,6 +280,13 @@
               }),
           );
         }
+      }
+      if (action === 'copy-media') {
+        const file =
+          message.files.find((f) => f.id === fileId && isImageFile(f)) ||
+          (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
+        if (!file) throw Error('Only photos can be copied.');
+        await copyMedia(file);
       }
     } catch (error) {
       status(error.message);
