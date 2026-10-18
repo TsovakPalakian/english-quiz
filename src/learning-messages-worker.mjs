@@ -27,7 +27,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
   return {async fetch(request,env,ctx) {
     const url = new URL(request.url), path = url.pathname;
     const messageRoute = path === '/api/messages' || path.startsWith('/api/messages/') || path==='/api/exams/assign';
-    const asset = (mode==='production'?['/messages.js','/messages.css']:['/messages-test.js','/messages-test.css']).includes(path)||(mode==='production'&&notificationAssets.has(path));
+    const asset = mode==='production'&&(['/messages.js','/messages.css'].includes(path)||notificationAssets.has(path));
     if (!messageRoute && !asset && !(['/api/groups/manage','/api/groups/members'].includes(path) && request.method==='POST')) return baseWorker.fetch(request,env,ctx);
     if (env.MESSAGES_ENABLED!=='true' && !messageRoute && !asset) return baseWorker.fetch(request,env,ctx);
     try {

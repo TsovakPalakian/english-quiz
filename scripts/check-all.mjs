@@ -2,8 +2,8 @@
 import {spawn} from 'node:child_process';
 import {readdirSync} from 'node:fs';
 
-// Need a live site, manual sign-in or the retired TEST messaging UI.
-const excluded=new Set(['test-settings-production-ui.mjs','test-messages-ui.mjs']);
+// Need a live site or manual sign-in.
+const excluded=new Set(['test-settings-production-ui.mjs']);
 const only=process.argv.slice(2);
 // Neon is optional and slow; include it with CHECK_NEON=1.
 const neon=process.env.CHECK_NEON==='1';
