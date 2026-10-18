@@ -21,6 +21,23 @@
       }
     }
     captureInviteFromLocation();
+    (function captureAuthFlashFromLocation() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const auth = params.get("auth");
+        if (!auth) return;
+        params.delete("auth");
+        const query = params.toString();
+        history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+        const messages = {
+          pending: "Google account saved. Waiting for teacher approval before you can sign in.",
+          google_denied: "Google sign-in was cancelled.",
+          google_error: "Google sign-in failed. Try again.",
+          invite_warning: "Signed in, but the group invite could not be applied."
+        };
+        if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
+      } catch (e) {}
+    })();
     function enterAccount(user) {
       signedOutHello = false;
       accountChecked = true;
@@ -174,17 +191,30 @@
         });
         return;
       }
-      if (form.id !== "loginForm" && form.id !== "registerForm") return;
+      if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
+      if (status) { status.textContent = ""; status.classList.remove("bad"); }
+      if (form.id === "otpLoginForm") {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        if (invite) data.invite = invite;
+        accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
+          if (result.inviteWarning) console.warn(result.inviteWarning);
+          try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
+          return enterAccount(result.user);
+        }).catch((err) => {
+          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        });
+        return;
+      }
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
       if (path === "/api/register") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
         if (invite) { data.invite = invite; data.role = "USER"; }
       }
-      if (status) { status.textContent = ""; status.classList.remove("bad"); }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
           paintAccountForm(false);
@@ -202,6 +232,40 @@
       });
     });
     document.body.addEventListener("click", (e) => {
+      const googleAuth = e.target.closest("[data-google-auth]");
+      if (googleAuth) {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        location.href = "/api/auth/google" + (invite ? "?invite=" + encodeURIComponent(invite) : "");
+        return;
+      }
+      const loginMode = e.target.closest("[data-login-mode]");
+      if (loginMode && !loginMode.closest("form")) {
+        const mode = loginMode.dataset.loginMode;
+        const gate = loginMode.closest(".account-gate");
+        if (gate) {
+          gate.querySelectorAll("[data-login-mode].chip").forEach((btn) => btn.classList.toggle("on", btn.dataset.loginMode === mode));
+          const passwordForm = gate.querySelector("#loginForm");
+          const otpForm = gate.querySelector("#otpLoginForm");
+          if (passwordForm) passwordForm.hidden = mode !== "password";
+          if (otpForm) otpForm.hidden = mode !== "otp";
+        }
+        return;
+      }
+      const otpSend = e.target.closest("[data-otp-send]");
+      if (otpSend) {
+        const form = otpSend.closest("#otpLoginForm");
+        const status = form && form.querySelector("[data-form-status]");
+        const email = form && form.querySelector('[name="email"]')?.value;
+        if (status) { status.textContent = ""; status.classList.remove("bad"); }
+        otpSend.disabled = true;
+        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
+          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
+        }).catch((err) => {
+          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        }).finally(() => { otpSend.disabled = false; });
+        return;
+      }
       const displayOpen = e.target.closest("[data-display-open]");
       if (displayOpen) {
         const dialog = document.getElementById("displayDialog");

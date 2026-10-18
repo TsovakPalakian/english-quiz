@@ -148,8 +148,8 @@
   - secret в БД как SHA-256 (`catalog_documents` / `account-invites`); group/teacher только на сервере;
   - студент открывает ссылку → логин/регистрация как сейчас → после входа auto-redeem → назначение в группу;
   - API: `GET/POST /api/accounts/invites` (peek без сессии по `?token=`).
-- [ ] **H5 (осталось).** Google OAuth — в коде нет, отдельный этап.
-- [ ] **H5 (осталось).** Email OTP / проверка рассылки кода — в коде нет (сейчас password register + teacher approval).
+- [x] **H5 (часть).** Google OAuth — `/api/auth/google` + callback; секреты `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`; с invite — create+redeem, без invite — pending.
+- [x] **H5 (часть).** Email OTP — вход по коду на email (`/api/auth/otp/request|verify`, `noreply@lumiscia.org` через Cloudflare Email Sending). Регистрация по-прежнему паролем (+ invite auto-approve).
 - [x] **H5 (часть).** QR для той же invite-ссылки (Accounts → группа → Create invite).
 - [x] **H5 (часть).** Redeem без предварительного Approve: валидный invite при register → auto-approve + session + join group.
 - [x] **H9.** В чате студент видит staff только из assigned teachers своей группы (dev всегда; если assignments пустые — legacy: все ADMIN).
@@ -172,4 +172,6 @@
 - [x] J: invite teacher/dev + chat visibility H9/H10 (без Google/OTP/QR).
 - [x] I: Home SaaS shell HM1–HM3, H1–H4, H6–H8 (Navigator visits = opens + unique devices/accounts).
 - [x] J: invite QR + auto-approve on register (Google/OTP еще отдельно).
+- [x] J: Email OTP login via Cloudflare Email Sending (Google OAuth еще отдельно).
+- [x] J: Google OAuth sign-in (secrets GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).
 

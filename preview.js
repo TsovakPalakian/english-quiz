@@ -10262,6 +10262,12 @@
     function paintAccountForm(register) {
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
+      let flash = "";
+      try {
+        flash = sessionStorage.getItem("enquiz-auth-flash") || "";
+        if (flash) sessionStorage.removeItem("enquiz-auth-flash");
+      } catch (e) {}
+      const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
@@ -10271,20 +10277,27 @@
         const roleField = invite
           ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
           : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + inviteHint +
+        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + flashHtml + inviteHint +
           '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
           roleField +
           '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
           '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
+          '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
           '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';
         return;
       }
-      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' +
-        '<form id="loginForm"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
+      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' + flashHtml +
+        '<div class="row" style="margin-bottom:10px"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
+        '<form id="loginForm" data-login-mode="password"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
         '<input name="password" type="password" maxlength="32" autocomplete="current-password" placeholder="Password" required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
+        '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
+        '<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
+        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Sign in with code</button></form>' +
+        '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
         '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-register">Create account</button></p></div></div>';
     }
     function paintProfile() {
@@ -11627,6 +11640,23 @@
       }
     }
     captureInviteFromLocation();
+    (function captureAuthFlashFromLocation() {
+      try {
+        const params = new URLSearchParams(location.search);
+        const auth = params.get("auth");
+        if (!auth) return;
+        params.delete("auth");
+        const query = params.toString();
+        history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+        const messages = {
+          pending: "Google account saved. Waiting for teacher approval before you can sign in.",
+          google_denied: "Google sign-in was cancelled.",
+          google_error: "Google sign-in failed. Try again.",
+          invite_warning: "Signed in, but the group invite could not be applied."
+        };
+        if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
+      } catch (e) {}
+    })();
     function enterAccount(user) {
       signedOutHello = false;
       accountChecked = true;
@@ -11780,17 +11810,30 @@
         });
         return;
       }
-      if (form.id !== "loginForm" && form.id !== "registerForm") return;
+      if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
+      if (status) { status.textContent = ""; status.classList.remove("bad"); }
+      if (form.id === "otpLoginForm") {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        if (invite) data.invite = invite;
+        accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
+          if (result.inviteWarning) console.warn(result.inviteWarning);
+          try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
+          return enterAccount(result.user);
+        }).catch((err) => {
+          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        });
+        return;
+      }
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
       if (path === "/api/register") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
         if (invite) { data.invite = invite; data.role = "USER"; }
       }
-      if (status) { status.textContent = ""; status.classList.remove("bad"); }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
           paintAccountForm(false);
@@ -11808,6 +11851,40 @@
       });
     });
     document.body.addEventListener("click", (e) => {
+      const googleAuth = e.target.closest("[data-google-auth]");
+      if (googleAuth) {
+        let invite = "";
+        try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
+        location.href = "/api/auth/google" + (invite ? "?invite=" + encodeURIComponent(invite) : "");
+        return;
+      }
+      const loginMode = e.target.closest("[data-login-mode]");
+      if (loginMode && !loginMode.closest("form")) {
+        const mode = loginMode.dataset.loginMode;
+        const gate = loginMode.closest(".account-gate");
+        if (gate) {
+          gate.querySelectorAll("[data-login-mode].chip").forEach((btn) => btn.classList.toggle("on", btn.dataset.loginMode === mode));
+          const passwordForm = gate.querySelector("#loginForm");
+          const otpForm = gate.querySelector("#otpLoginForm");
+          if (passwordForm) passwordForm.hidden = mode !== "password";
+          if (otpForm) otpForm.hidden = mode !== "otp";
+        }
+        return;
+      }
+      const otpSend = e.target.closest("[data-otp-send]");
+      if (otpSend) {
+        const form = otpSend.closest("#otpLoginForm");
+        const status = form && form.querySelector("[data-form-status]");
+        const email = form && form.querySelector('[name="email"]')?.value;
+        if (status) { status.textContent = ""; status.classList.remove("bad"); }
+        otpSend.disabled = true;
+        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
+          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
+        }).catch((err) => {
+          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        }).finally(() => { otpSend.disabled = false; });
+        return;
+      }
       const displayOpen = e.target.closest("[data-display-open]");
       if (displayOpen) {
         const dialog = document.getElementById("displayDialog");

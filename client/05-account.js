@@ -432,6 +432,12 @@
     function paintAccountForm(register) {
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
+      let flash = "";
+      try {
+        flash = sessionStorage.getItem("enquiz-auth-flash") || "";
+        if (flash) sessionStorage.removeItem("enquiz-auth-flash");
+      } catch (e) {}
+      const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
@@ -441,20 +447,27 @@
         const roleField = invite
           ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
           : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + inviteHint +
+        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + flashHtml + inviteHint +
           '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
           '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
           roleField +
           '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
           '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
+          '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
           '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';
         return;
       }
-      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' +
-        '<form id="loginForm"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
+      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' + flashHtml +
+        '<div class="row" style="margin-bottom:10px"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
+        '<form id="loginForm" data-login-mode="password"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
         '<input name="password" type="password" maxlength="32" autocomplete="current-password" placeholder="Password" required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
+        '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
+        '<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
+        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Sign in with code</button></form>' +
+        '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
         '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-register">Create account</button></p></div></div>';
     }
     function paintProfile() {

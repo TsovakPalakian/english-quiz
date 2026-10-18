@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Learning.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,completeGoogleSignIn} from './worker.js';
 import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './learning-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './learning-study.mjs';
@@ -12,6 +12,8 @@ import {GroupService} from './learning-groups.mjs';
 import {AccountGroupTeachers} from './account-group-teachers.mjs';
 import {AccountInvites} from './account-invites.mjs';
 import {GuideVisits} from './guide-visits.mjs';
+import {EmailOtp} from './email-otp.mjs';
+import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured} from './google-oauth.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './learning-media.mjs';
@@ -210,6 +212,126 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await identify(accountEnv,request).catch(()=>null);
         const visitor=actor?.id||value?.visitor;
         return json(await service.hit(visitor));
+      }
+      if(path==='/api/auth/google'&&method==='GET'){
+        if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
+        const invite=String(url.searchParams.get('invite')||'').trim();
+        if(invite)await new AccountInvites(studyDatabase(env)).peek(invite);
+        const {state}=await createGoogleState(env,invite?{invite}:{});
+        return Response.redirect(googleAuthorizeUrl(env,url,state),302);
+      }
+      if(path==='/api/auth/google/callback'&&method==='GET'){
+        if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
+        if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
+        const err=url.searchParams.get('error');
+        if(err)return Response.redirect(url.origin+'/?auth=google_denied',302);
+        const state=await readGoogleState(env,url.searchParams.get('state'));
+        const profile=await exchangeGoogleCode(env,url,url.searchParams.get('code'));
+        const inviteToken=typeof state.invite==='string'?state.invite.trim():'';
+        if(inviteToken)await new AccountInvites(studyDatabase(env)).peek(inviteToken);
+        const secure=url.protocol==='https:';
+        let response=await completeGoogleSignIn(accountEnv,request,profile,{create:!!inviteToken},secure);
+        if(response.status===200){
+          const value=await response.clone().json();
+          if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
+          if(value.user){
+            let inviteWarning='';
+            if(inviteToken&&value.user.role==='USER'&&env.STAGE_WRITES==='true'){
+              try{
+                await new AccountInvites(studyDatabase(env)).redeem(value.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
+                try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+              }catch(error){
+                inviteWarning=error instanceof StudyError?error.message:'Signed in, but the group invite could not be applied.';
+              }
+            }
+            if(env.STAGE_WRITES==='true'){
+              const twinId=await twinStudyAccountId(accountEnv.DB,value.user.login);
+              const db=studyDatabase(env);
+              const newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[value.user.id])).length;
+              await ensurePairedThemes(db,value.user,twinId);
+              try{await ensureStudyProfile(db,value.user,twinId);}
+              catch(error){
+                if(!(error instanceof StudyError)||error.status!==409)throw error;
+              }
+              const [seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[value.user.id]);
+              const recent=Number(value.user.createdAt)>Date.now()/1000-30*86400;
+              await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[value.user.id])]);
+              value.user.firstLogin=!seen&&recent&&newStudyAccount;
+            }
+            const headers=new Headers(response.headers);
+            const dest=new URL(url.origin+'/');
+            if(inviteWarning)dest.searchParams.set('auth','invite_warning');
+            else dest.searchParams.set('auth','google');
+            headers.set('Location',dest.toString());
+            headers.delete('Content-Length');
+            return new Response(null,{status:302,headers});
+          }
+        }
+        if(response.status===403){
+          const value=await response.clone().json().catch(()=>({}));
+          if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
+        }
+        return Response.redirect(url.origin+'/?auth=google_error',302);
+      }
+      if(path==='/api/auth/otp/request'&&method==='POST'){
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        if(!env.EMAIL||typeof env.EMAIL.send!=='function')throw new StudyError(503,'Email sending is not configured.');
+        let value;try{value=JSON.parse(await boundedText(request,1024,'OTP request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP request.');}
+        const issued=await new EmailOtp(studyDatabase(env)).issue(value?.email,{purpose:'login'});
+        const from=String(env.EMAIL_FROM||'noreply@lumiscia.org');
+        try{
+          await env.EMAIL.send({
+            to:issued.email,
+            from:{email:from,name:'Lumiscia'},
+            subject:'Your Lumiscia sign-in code',
+            text:'Your sign-in code is '+issued.code+'. It expires in '+issued.ttlSec+' seconds. If you did not request this, ignore the email.',
+            html:'<p>Your sign-in code is <b style="font-size:20px;letter-spacing:0.12em">'+issued.code+'</b>.</p><p>It expires in '+issued.ttlSec+' seconds.</p><p>If you did not request this, ignore the email.</p>',
+          });
+        }catch(error){
+          const code=error?.code||'';
+          if(code==='E_DAILY_LIMIT_EXCEEDED'||code==='E_RATE_LIMIT_EXCEEDED')throw new StudyError(429,'Email limit reached. Try again later.');
+          if(code==='E_SENDER_NOT_VERIFIED'||code==='E_SENDER_DOMAIN_NOT_AVAILABLE')throw new StudyError(503,'Sender domain is not ready.');
+          throw new StudyError(503,'Could not send the email. Try again shortly.');
+        }
+        return json({ok:true,email:issued.email,expiresAt:issued.expiresAt,ttlSec:issued.ttlSec});
+      }
+      if(path==='/api/auth/otp/verify'&&method==='POST'){
+        if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
+        let value;try{value=JSON.parse(await boundedText(request,2048,'OTP verify too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP verify.');}
+        const consumed=await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
+        const secure=url.protocol==='https:';
+        let response=await sessionForEmail(accountEnv,request,consumed.email,secure);
+        if(!response.ok)return response;
+        let inviteWarning='';
+        const inviteToken=typeof value?.invite==='string'?value.invite.trim():'';
+        const session=await response.clone().json();
+        if(inviteToken&&session.user?.role==='USER'&&env.STAGE_WRITES==='true'){
+          try{
+            await new AccountInvites(studyDatabase(env)).redeem(session.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
+            try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+          }catch(error){
+            inviteWarning=error instanceof StudyError?error.message:'Signed in, but the group invite could not be applied.';
+          }
+        }
+        // Reuse login post-processing (study profile / welcome).
+        if(env.STAGE_WRITES==='true'&&session.user){
+          const twinId=await twinStudyAccountId(accountEnv.DB,session.user.login);
+          const db=studyDatabase(env);
+          const newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[session.user.id])).length;
+          await ensurePairedThemes(db,session.user,twinId);
+          try{await ensureStudyProfile(db,session.user,twinId);}
+          catch(error){
+            if(!(error instanceof StudyError)||error.status!==409)throw error;
+            const headers=new Headers(response.headers);headers.delete('Content-Length');
+            return Response.json({...session,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined,migrationCapabilities:{legacyHistory:true,originalAccounts:true}},{status:response.status,headers});
+          }
+          const [seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[session.user.id]);
+          const recent=Number(session.user.createdAt)>Date.now()/1000-30*86400;
+          await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[session.user.id])]);
+          session.user.firstLogin=!seen&&recent&&newStudyAccount;
+        }
+        const headers=new Headers(response.headers);headers.delete('Content-Length');
+        return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:session.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

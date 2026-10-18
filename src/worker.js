@@ -3764,6 +3764,109 @@ export async function approveRegistration(env, actor, regId) {
   return decide(env, actor, regId, "approve");
 }
 
+export async function sessionForEmail(env, request, email, secure) {
+  const key = String(email || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(key) || key.length > 120) return json({ error: "Enter a valid email." }, 400);
+  const row = await env.DB.prepare(
+    "SELECT * FROM users WHERE is_personal_data_revoked = 0 AND email = ?"
+  ).bind(key).first();
+  if (!row) {
+    const pending = await env.DB.prepare(
+      "SELECT id FROM registrations WHERE status='pending' AND email=?"
+    ).bind(key).first();
+    if (pending) return json({ error: "Your account is awaiting approval." }, 403);
+    return json({ error: "No account with this email. Register first, then use email code to sign in." }, 404);
+  }
+  if (row.active === 0) return json({ error: "This account is deactivated." }, 403);
+  try { await copyStateOnce(env, row.id); } catch (e) {}
+  if (canReview(row)) {
+    try {
+      const directory = env.MEDIA && await env.MEDIA.head("directory/accounts.json");
+      if (!directory) await refreshDirectory(env);
+    } catch (e) {}
+  }
+  return startSession(env, row, { user: publicUser(row), authMethod: "email-otp" }, secure, request);
+}
+
+function googleLoginCandidate(email, name) {
+  const fromName = String(name || "").replace(/[^A-Za-z0-9_]/g, "").slice(0, 24);
+  const fromEmail = String(email || "").split("@")[0].replace(/[^A-Za-z0-9_]/g, "").slice(0, 24);
+  let base = fromName || fromEmail || "user";
+  if (base.length < 3) base = ("user" + base).slice(0, 32);
+  if (!SIGNUP_LOGIN_RE.test(base)) base = "user" + Math.random().toString(36).slice(2, 8);
+  return base.slice(0, 32);
+}
+
+async function uniqueGoogleLogin(db, email, name) {
+  let base = googleLoginCandidate(email, name);
+  for (let i = 0; i < 12; i++) {
+    const login = i === 0 ? base : (base.slice(0, 24) + String(i + 1)).slice(0, 32);
+    if (!SIGNUP_LOGIN_RE.test(login)) continue;
+    const taken = await db.prepare("SELECT id FROM users WHERE login = ?").bind(login).first();
+    const pending = await db.prepare("SELECT id FROM registrations WHERE status='pending' AND login=?").bind(login).first();
+    if (!taken && !pending) return login;
+  }
+  return ("g" + randomId().replace(/[^a-f0-9]/gi, "").slice(0, 15));
+}
+
+export async function completeGoogleSignIn(env, request, profile, { create = false } = {}, secure) {
+  const email = String(profile?.email || "").trim().toLowerCase();
+  const name = String(profile?.name || "").trim().slice(0, 80);
+  if (!EMAIL_RE.test(email) || email.length > 120) return json({ error: "Enter a valid email." }, 400);
+  const existing = await env.DB.prepare(
+    "SELECT * FROM users WHERE is_personal_data_revoked = 0 AND email = ?"
+  ).bind(email).first();
+  if (existing) {
+    if (existing.active === 0) return json({ error: "This account is deactivated." }, 403);
+    try { await copyStateOnce(env, existing.id); } catch (e) {}
+    return startSession(env, existing, { user: publicUser(existing), authMethod: "google" }, secure, request);
+  }
+  const pending = await env.DB.prepare(
+    "SELECT id FROM registrations WHERE status='pending' AND email=?"
+  ).bind(email).first();
+  if (pending && !create) return json({ status: "pending" });
+  if (!env.MEDIA) return json({ error: "Sign-in is not configured." }, 503);
+  const login = await uniqueGoogleLogin(env.DB, email, name);
+  const hashed = await hashPassword(randomId() + randomId());
+  const created = now();
+  const regId = randomId();
+  if (!create) {
+    try {
+      await provisionSignupUsername(env, "reserve", login, regId);
+      await env.DB.prepare(
+        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'USER', ?)"
+      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, created).run();
+    } catch (error) {
+      await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+      return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
+    }
+    await rememberRegistration(env, { id: regId, login, email, name, status: "pending", role: "USER", user_id: "", created_at: created, decided_at: 0 });
+    return json({ status: "pending" });
+  }
+  const userId = randomId();
+  try {
+    await provisionSignupUsername(env, "reserve", login, regId);
+    await provisionSignupUsername(env, "activate", login, regId, userId);
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'USER', 0, ?)"
+      ).bind(userId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, created),
+      env.DB.prepare(
+        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'USER', ?, ?, ?)"
+      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created),
+    ]);
+  } catch (error) {
+    await provisionSignupUsername(env, "rollback", login, regId, userId).catch(() => {});
+    await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+    return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
+  }
+  const user = { id: userId, login, email, name, role: "USER", password_hash: hashed.hash, is_personal_data_revoked: 0, created_at: created };
+  await rememberUser(env, user);
+  await rememberRegistration(env, { id: regId, login, email, name, status: "approved", role: "USER", user_id: userId, created_at: created, decided_at: created });
+  try { await copyStateOnce(env, userId); } catch (e) {}
+  return startSession(env, user, { user: publicUser(user), authMethod: "google", created: true }, secure, request);
+}
+
 async function decide(env, actor, regId, action) {
   const db = env.DB;
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);
