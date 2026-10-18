@@ -48,12 +48,13 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
 });
 test('icon rendering coalesces a burst of updates into one animation frame',()=>{
   let scans=0;const callbacks=[];
+  const section={querySelectorAll:()=>[]};
   const icons=runInNewContext('let iconFrame=0;'+definition('icons')+'\nicons',{
-    document:{querySelectorAll:()=>[]},window:{lucide:{createIcons(options){assert.equal(options.nameAttr,'data-chat-icon');scans++;}}},requestAnimationFrame(callback){callbacks.push(callback);return callbacks.length;}
+    section,document:{querySelectorAll:()=>[]},window:{lucide:{createIcons(options){assert.ok(options.nameAttr==='data-chat-icon'||options.nameAttr==='data-lucide');assert.equal(options.root,section);scans++;}}},requestAnimationFrame(callback){callbacks.push(callback);return callbacks.length;}
   });
   for(let i=0;i<100;i++)icons();
-  assert.equal(callbacks.length,1);assert.equal(scans,0);callbacks[0]();assert.equal(scans,1);
-  icons();assert.equal(callbacks.length,2);callbacks[1]();assert.equal(scans,2);
+  assert.equal(callbacks.length,1);assert.equal(scans,0);callbacks[0]();assert.equal(scans,2);
+  icons();assert.equal(callbacks.length,2);callbacks[1]();assert.equal(scans,4);
 });
 test('folder markers sum only current-user unread across visible member chats',()=>{
   const data={rooms:[{id:'a',unread:{personal:3}},{id:'b',unread:{personal:3}},{id:'muted',muted:true,unread:{learning:2}},{id:'archived',archived:true,unread:{personal:9}},{id:'blocked',access:{blockedByMe:true},unread:{personal:8}}]};

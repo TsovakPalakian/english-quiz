@@ -15,6 +15,12 @@ const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Contr
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
 const database=studyClient;
+async function mapPool(items,limit,fn){
+  const queue=[...items];
+  await Promise.all(Array.from({length:Math.min(limit,queue.length)||0},async()=>{
+    while(queue.length)await fn(queue.shift());
+  }));
+}
 
 export class ChatBridge{
   constructor(ctx,env,{studyDatabase=database}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.database=studyDatabase;this.sql=ctx.storage.sql;this.loading=null;this.flushing=null;this.importing=new Map();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='profiles'").toArray().length)return;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");}
@@ -23,8 +29,14 @@ export class ChatBridge{
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}
   async policy(force=false,release=false){
-    if(this.get('policyDirtyAt')&&!release)fail(503,'Permissions are being synchronized.');
-    const cached=this.get('policy');if(!force&&cached?.at>Date.now()-60000)return cached;
+    if(this.get('policyDirtyAt')&&!release){
+      const dirty=this.get('policy');
+      if(dirty){this.ctx.waitUntil(this.policy(true,true).catch(()=>{}));return dirty;}
+      fail(503,'Permissions are being synchronized.');
+    }
+    const cached=this.get('policy');
+    if(!force&&cached?.at>Date.now()-60000)return cached;
+    if(!force&&cached){if(!this.loading)this.ctx.waitUntil(this.policy(true,release).catch(()=>{}));return cached;}
     if(this.loading){const value=await this.loading;return force?this.policy(true,release):value;}
     this.loading=(async()=>{
       const db=this.database(this.env);await this.ensureJournal();
@@ -32,21 +44,23 @@ export class ChatBridge{
       const [groups,members]=await db.readMany([statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),statement('SELECT account_id,group_id FROM class_group_students')]);
       for(const user of users)user.groupId=members.find(m=>m.account_id===user.id)?.group_id??null;
       const active=users.filter(u=>u.active!==0&&!u.is_personal_data_revoked),allRooms=new Map(),configs=new Map();
-      for(const user of users){
+      await mapPool(users,8,async user=>{
         const old=await chatCall(this.env,'CHAT_INBOX',user.id,'/snapshot',{});for(const room of old.rooms)allRooms.set(room.id,room);
         const own=members.find(m=>m.account_id===user.id)?.group_id;
         const contacts=active.filter(u=>u.id!==user.id&&(!u.hidden||user.role==='DEVELOPER')&&(staff(user)||staff(u)||own&&members.some(m=>m.account_id===u.id&&m.group_id===own)));
         configs.set(user.id,{profile:{id:user.id,name:user.name,login:user.login,email:user.email,groupId:user.groupId,role:user.role,active:user.active!==0&&!user.is_personal_data_revoked},contacts,groups:groups.filter(g=>staff(user)||g.id===own)});
-      }
-      for(const group of groups)await chatCall(this.env,'CHAT_ROOM','group:'+group.id,'/configure',{room:{id:'group:'+group.id,kind:'group',groupId:group.id,title:group.title},members:active.filter(u=>staff(u)||members.some(m=>m.group_id===group.id&&m.account_id===u.id))});
-      for(const room of allRooms.values()){
+      });
+      await mapPool(groups,8,async group=>{
+        await chatCall(this.env,'CHAT_ROOM','group:'+group.id,'/configure',{room:{id:'group:'+group.id,kind:'group',groupId:group.id,title:group.title},members:active.filter(u=>staff(u)||members.some(m=>m.group_id===group.id&&m.account_id===u.id))});
+      });
+      await mapPool([...allRooms.values()],8,async room=>{
         if(room.kind==='group'&&!groups.some(g=>g.id===room.groupId))await chatCall(this.env,'CHAT_ROOM',room.id,'/configure',{room:{...room,active:false},members:[]});
         if(room.kind==='direct'){
           const ids=room.id.slice('direct:'.length).split(':');
           await chatCall(this.env,'CHAT_ROOM',room.id,'/configure',{room:{id:room.id,kind:'direct',title:'Private conversation'},members:users.filter(u=>ids.includes(u.id)).map(u=>({...u,active:active.some(a=>a.id===u.id)}))});
         }
-      }
-      for(const user of users)await chatCall(this.env,'CHAT_INBOX',user.id,'/configure',configs.get(user.id));
+      });
+      await mapPool(users,8,async user=>{await chatCall(this.env,'CHAT_INBOX',user.id,'/configure',configs.get(user.id));});
       const result={at:Date.now(),users,groups,members};this.set('policy',result);if(release)this.set('policyDirtyAt',null);return result;
     })().finally(()=>{this.loading=null;});return this.loading;
   }
@@ -78,14 +92,14 @@ export class ChatBridge{
     if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked)await this.policy(true);
     const activePolicy=this.get('policy'),db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?',[actor.id]);
     const groups=activePolicy.groups.filter(g=>staff(actor)||activePolicy.members.some(m=>m.account_id===actor.id&&m.group_id===g.id));
-    for(const id of new Set([...legacy.map(r=>r.id),...groups.map(g=>'group:'+g.id)])){
-      if(id.startsWith('group:')&&!groups.some(g=>'group:'+g.id===id))continue;
+    const roomIds=[...new Set([...legacy.map(r=>r.id),...groups.map(g=>'group:'+g.id)])].filter(id=>!(id.startsWith('group:')&&!groups.some(g=>'group:'+g.id===id)));
+    await mapPool(roomIds,8,async id=>{
       await this.migrate(id,activePolicy);
       const result=await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor});
       if(result.room)await chatCall(this.env,'CHAT_INBOX',actor.id,'/event',{key:'bootstrap:'+id+':'+result.room.revision,type:'room',room:result.room});
-    }
+    });
     const version=this.get('catalogVersion');if(version&&staff(actor))await chatCall(this.env,'CHAT_INBOX',actor.id,'/event',{key:'catalog:'+version,type:'catalog',catalogVersion:version});
-    await this.flush();return {ready:true};
+    this.ctx.waitUntil(this.flush().catch(()=>{}));return {ready:true};
   }
   async flush(){
     if(this.flushing)return this.flushing;

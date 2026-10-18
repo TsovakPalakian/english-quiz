@@ -16,8 +16,14 @@
     if (!iconFrame)
       iconFrame = requestAnimationFrame(() => {
         iconFrame = 0;
-        window.lucide?.createIcons({ nameAttr: 'data-chat-icon' });
-        document.querySelectorAll('svg[data-chat-icon]').forEach((node) => node.removeAttribute('data-chat-icon'));
+        window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: section });
+        window.lucide?.createIcons({ nameAttr: 'data-lucide', root: section });
+        section
+          .querySelectorAll('svg[data-chat-icon], svg[data-lucide]')
+          .forEach((node) => {
+            node.removeAttribute('data-chat-icon');
+            node.removeAttribute('data-lucide');
+          });
       });
   };
   const signedIn = () => (typeof authUser !== 'undefined' ? authUser : null);
