@@ -119,6 +119,8 @@
     kind = 'personal',
     rightMode = '',
     infoTab = 'members',
+    pinCycleRoom = '',
+    pinCycleIndex = 0,
     unreadOnly = false,
     examDirty = false,
     catalogVersion = 0;
@@ -1188,7 +1190,12 @@
             : access.state === 'rejected'
               ? 'The message request was declined.'
               : 'Your first message will be sent as a request. Wait for acceptance before sending more.';
-    const pinned = selected?.pinned;
+    const pins = selected?.pins?.length ? selected.pins : selected?.pinned ? [selected.pinned] : [];
+    const pinned = pins.length ? pins[pins.length - 1] : null;
+    if (pinCycleRoom !== room) {
+      pinCycleRoom = room;
+      pinCycleIndex = pins.length;
+    }
     el('msgPinned').hidden = !pinned;
     el('msgPinned').innerHTML = pinned ? icon('pin') + ' ' + escape(pinned.text || 'Attachment') : '';
     scheduleInputFit();
@@ -1653,6 +1660,14 @@
             .join('') +
           '</div>'
         : '') +
+      ((data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === m.id) ||
+      data.rooms.find((r) => r.id === room)?.pinned?.id === m.id
+        ? '<button type="button" class="chat-message-pin" data-msg-unpin="' +
+          m.id +
+          '" title="Pinned" aria-label="Pinned message">' +
+          icon('pin') +
+          '</button>'
+        : '') +
       '<div class="chat-message-foot">' +
       (m.editedMs ? '<span>Edited</span>' : '') +
       '<time datetime="' +
@@ -2047,6 +2062,8 @@
       m.deleted,
       m.editedMs,
       m.reactions,
+      (data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === m.id) ||
+        data.rooms.find((r) => r.id === room)?.pinned?.id === m.id,
     ]);
     if (node?.dataset.content === content) {
       const receipt = node.querySelector('.msg-receipt'),
@@ -4565,7 +4582,14 @@
       (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
     if (photo) items.push(['copy-media', 'clipboard-plus', 'Copy media']);
     if (canEdit(message) && message.text) items.push(['edit', 'square-pen', 'Edit']);
-    items.push(['pin', 'pin', data.rooms.find((r) => r.id === room)?.pinned?.id === message.id ? 'Unpin' : 'Pin']);
+    items.push([
+      'pin',
+      'pin',
+      (data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === message.id) ||
+      data.rooms.find((r) => r.id === room)?.pinned?.id === message.id
+        ? 'Unpin'
+        : 'Pin',
+    ]);
     if ((!study || canReply) && message.forwardTo !== account) items.push(['forward', 'forward', 'Forward']);
     items.push(['select', 'circle-check', 'Select']);
     if (canEdit(message)) items.push(['delete', 'trash-2', 'Delete']);
@@ -4722,13 +4746,21 @@
         else forwardMessage(message.id);
       }
       if (action === 'edit') editMessage(message, id);
-      if (action === 'delete') deleteMessages([message.id], id);
-      if (action === 'pin')
-        await request('pin', {
-          roomId: id,
-          id: message.id,
-          pinned: data.rooms.find((r) => r.id === id)?.pinned?.id !== message.id,
-        });
+      if (action === 'delete') {
+        if (selecting || selection.size) {
+          selection.add(message.id);
+          deleteMessages([...selection], id);
+        } else deleteMessages([message.id], id);
+      }
+      if (action === 'pin') {
+        const roomRow = data.rooms.find((r) => r.id === id);
+        const pinned = (roomRow?.pins || []).some((p) => p.id === message.id) || roomRow?.pinned?.id === message.id;
+        const result = await request('pin', { roomId: id, id: message.id, pinned: !pinned });
+        if (result.room) upsertRoom(result.room);
+        paintRooms();
+        const cache = state();
+        if (cache?.rows) for (const row of cache.rows) mergeNode(row);
+      }
       if (action === 'select') {
         selecting = true;
         selection.add(message.id);
@@ -4876,8 +4908,22 @@
     if (action === 'delete') deleteMessages([...selection], room);
   };
   el('msgPinned').onclick = () => {
-    const pinned = data.rooms.find((r) => r.id === room)?.pinned;
-    if (pinned) focusMessage(pinned.id, pinned.category).catch((error) => status(error.message));
+    const roomRow = data.rooms.find((r) => r.id === room);
+    const pins = roomRow?.pins?.length
+      ? roomRow.pins
+      : roomRow?.pinned
+        ? [roomRow.pinned]
+        : [];
+    if (!pins.length) return;
+    if (pinCycleRoom !== room) {
+      pinCycleRoom = room;
+      pinCycleIndex = pins.length;
+    }
+    pinCycleIndex = (pinCycleIndex - 1 + pins.length) % pins.length;
+    const pinned = pins[pinCycleIndex];
+    el('msgPinned').innerHTML = icon('pin') + ' ' + escape(pinned.text || 'Attachment');
+    icons();
+    focusMessage(pinned.id, pinned.category).catch((error) => status(error.message));
   };
   async function blockedUsers() {
     const result = await request('blocked'),
@@ -5858,7 +5904,7 @@
   };
   document.addEventListener('click', async (event) => {
     const target = event.target.closest(
-      '[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload]',
+      '[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload],[data-msg-unpin]',
     );
     if (!target) return;
     try {
@@ -5948,6 +5994,17 @@
       } else if (target.dataset.emojiCategory) paintEmoji(target.dataset.emojiCategory);
       else if (target.dataset.infoTab) await showInfo(target.dataset.infoTab);
       else if (target.dataset.searchId) await focusMessage(Number(target.dataset.searchId));
+      else if (target.dataset.msgUnpin) {
+        const result = await request('pin', {
+          roomId: room,
+          id: Number(target.dataset.msgUnpin),
+          pinned: false,
+        });
+        if (result.room) upsertRoom(result.room);
+        paintRooms();
+        const cache = state();
+        if (cache?.rows) for (const message of cache.rows) mergeNode(message);
+      }
     } catch (error) {
       status(error.message);
     }

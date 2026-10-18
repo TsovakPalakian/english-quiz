@@ -74,7 +74,8 @@ export class ChatRoom extends Store{
     const floor=this.visibilityFloor(account,m.joined),settings=this.settings(account);
     const last=this.one("SELECT * FROM messages WHERE deleted=0 AND (id>? OR category='learning') ORDER BY id DESC LIMIT 1",floor);
     const counts=this.get('counts',{personal:0,learning:0});
-    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,access:this.access(account),pinned:this.pinned(account),revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
+    const pins=this.pins(account);
+    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,access:this.access(account),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
   }
   access(account){
     if(this.get('room')?.kind==='group'&&this.get('settings:'+account,{})?.deletedGroup)return {protected:true,blocked:true,blockedByMe:true,state:'accepted',canSend:false};
@@ -82,7 +83,15 @@ export class ChatRoom extends Store{
     return {protected:protectedChat,blocked,blockedByMe:!protectedChat&&blocks.includes(account),state:protectedChat?'accepted':consent.state,requestedBy:consent.requestedBy,canAccept:!protectedChat&&!blocked&&consent.state==='pending'&&consent.requestedBy!==account,canSend:!blocked&&(protectedChat||consent.state==='accepted'||consent.state==='new'||consent.state==='pending'&&consent.requestedBy!==account)};
   }
   writable(actor){const access=this.access(actor.id);if(!access.canSend)fail(403,access.blocked?'This conversation is blocked.':access.state==='rejected'?'The message request was declined.':'Wait for this person to accept your message request.');}
-  pinned(account){const id=this.get('pinned'),m=this.one('SELECT joined FROM members WHERE id=?',account),row=id?this.one("SELECT id,body,category FROM messages WHERE id=? AND deleted=0 AND (id>? OR category='learning')",id,this.visibilityFloor(account,m?.joined||0)):null;return row?{id:row.id,text:row.body.slice(0,120),category:row.category}:null;}
+  pinIds(){const pins=this.get('pins');if(Array.isArray(pins))return pins.filter(id=>Number.isSafeInteger(id));const legacy=this.get('pinned');return Number.isSafeInteger(legacy)?[legacy]:[];}
+  pins(account){
+    const m=this.one('SELECT joined FROM members WHERE id=?',account),floor=this.visibilityFloor(account,m?.joined||0);
+    return this.pinIds().map(id=>{
+      const row=this.one("SELECT id,body,category FROM messages WHERE id=? AND deleted=0 AND (id>? OR category='learning')",id,floor);
+      return row?{id:row.id,text:row.body.slice(0,120),category:row.category}:null;
+    }).filter(Boolean);
+  }
+  pinned(account){const list=this.pins(account);return list.length?list[list.length-1]:null;}
   message(row,account){
     const peer=this.one('SELECT MIN(read_'+row.category+') read,MIN(delivered_'+row.category+') delivered FROM members WHERE active=1 AND id<>?',account);
     const member=this.one('SELECT joined FROM members WHERE id=?',account);if(member)member.joined=this.visibilityFloor(account,member.joined);
@@ -250,8 +259,13 @@ export class ChatRoom extends Store{
       }else if(action==='delete'){
         this.sql.exec('UPDATE messages SET body=\'\',format=NULL,deleted=1 WHERE id=?',row.id);
         this.sql.exec('UPDATE members SET unread_'+row.category+'=MAX(0,unread_'+row.category+'-1) WHERE id<>? AND read_'+row.category+'<? AND (joined<? OR ?=\'learning\')',row.sender,row.id,row.id,row.category);
-        const counts=this.get('counts',{personal:0,learning:0});counts[row.category]=Math.max(0,counts[row.category]-1);this.set('counts',counts);if(this.get('pinned')===row.id)this.set('pinned',null);
-      }else if(action==='pin'){this.set('pinned',body.pinned===false?null:row.id);}
+        const counts=this.get('counts',{personal:0,learning:0});counts[row.category]=Math.max(0,counts[row.category]-1);this.set('counts',counts);
+        const next=this.pinIds().filter(id=>id!==row.id);this.set('pins',next);this.set('pinned',next[next.length-1]??null);
+      }else if(action==='pin'){
+        let next=this.pinIds().filter(id=>id!==row.id);
+        if(body.pinned!==false)next.push(row.id);
+        this.set('pins',next);this.set('pinned',next[next.length-1]??null);
+      }
       else if(action==='react'){
         const emoji=String(body.emoji||'');if(emoji.length>16||!/^\p{Extended_Pictographic}[\p{Extended_Pictographic}\p{Emoji_Modifier}\u200d\ufe0f]*$/u.test(emoji))fail(400,'Choose an emoji reaction.');
         const reactions=this.get('reactions:'+row.id,{}),mine=!!reactions[emoji]?.includes(actor.id);

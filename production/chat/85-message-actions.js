@@ -84,7 +84,14 @@
       (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
     if (photo) items.push(['copy-media', 'clipboard-plus', 'Copy media']);
     if (canEdit(message) && message.text) items.push(['edit', 'square-pen', 'Edit']);
-    items.push(['pin', 'pin', data.rooms.find((r) => r.id === room)?.pinned?.id === message.id ? 'Unpin' : 'Pin']);
+    items.push([
+      'pin',
+      'pin',
+      (data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === message.id) ||
+      data.rooms.find((r) => r.id === room)?.pinned?.id === message.id
+        ? 'Unpin'
+        : 'Pin',
+    ]);
     if ((!study || canReply) && message.forwardTo !== account) items.push(['forward', 'forward', 'Forward']);
     items.push(['select', 'circle-check', 'Select']);
     if (canEdit(message)) items.push(['delete', 'trash-2', 'Delete']);
@@ -241,13 +248,21 @@
         else forwardMessage(message.id);
       }
       if (action === 'edit') editMessage(message, id);
-      if (action === 'delete') deleteMessages([message.id], id);
-      if (action === 'pin')
-        await request('pin', {
-          roomId: id,
-          id: message.id,
-          pinned: data.rooms.find((r) => r.id === id)?.pinned?.id !== message.id,
-        });
+      if (action === 'delete') {
+        if (selecting || selection.size) {
+          selection.add(message.id);
+          deleteMessages([...selection], id);
+        } else deleteMessages([message.id], id);
+      }
+      if (action === 'pin') {
+        const roomRow = data.rooms.find((r) => r.id === id);
+        const pinned = (roomRow?.pins || []).some((p) => p.id === message.id) || roomRow?.pinned?.id === message.id;
+        const result = await request('pin', { roomId: id, id: message.id, pinned: !pinned });
+        if (result.room) upsertRoom(result.room);
+        paintRooms();
+        const cache = state();
+        if (cache?.rows) for (const row of cache.rows) mergeNode(row);
+      }
       if (action === 'select') {
         selecting = true;
         selection.add(message.id);
@@ -395,6 +410,20 @@
     if (action === 'delete') deleteMessages([...selection], room);
   };
   el('msgPinned').onclick = () => {
-    const pinned = data.rooms.find((r) => r.id === room)?.pinned;
-    if (pinned) focusMessage(pinned.id, pinned.category).catch((error) => status(error.message));
+    const roomRow = data.rooms.find((r) => r.id === room);
+    const pins = roomRow?.pins?.length
+      ? roomRow.pins
+      : roomRow?.pinned
+        ? [roomRow.pinned]
+        : [];
+    if (!pins.length) return;
+    if (pinCycleRoom !== room) {
+      pinCycleRoom = room;
+      pinCycleIndex = pins.length;
+    }
+    pinCycleIndex = (pinCycleIndex - 1 + pins.length) % pins.length;
+    const pinned = pins[pinCycleIndex];
+    el('msgPinned').innerHTML = icon('pin') + ' ' + escape(pinned.text || 'Attachment');
+    icons();
+    focusMessage(pinned.id, pinned.category).catch((error) => status(error.message));
   };

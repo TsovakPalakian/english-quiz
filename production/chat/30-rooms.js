@@ -286,7 +286,12 @@
             : access.state === 'rejected'
               ? 'The message request was declined.'
               : 'Your first message will be sent as a request. Wait for acceptance before sending more.';
-    const pinned = selected?.pinned;
+    const pins = selected?.pins?.length ? selected.pins : selected?.pinned ? [selected.pinned] : [];
+    const pinned = pins.length ? pins[pins.length - 1] : null;
+    if (pinCycleRoom !== room) {
+      pinCycleRoom = room;
+      pinCycleIndex = pins.length;
+    }
     el('msgPinned').hidden = !pinned;
     el('msgPinned').innerHTML = pinned ? icon('pin') + ' ' + escape(pinned.text || 'Attachment') : '';
     scheduleInputFit();

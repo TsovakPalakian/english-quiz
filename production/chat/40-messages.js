@@ -312,6 +312,14 @@
             .join('') +
           '</div>'
         : '') +
+      ((data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === m.id) ||
+      data.rooms.find((r) => r.id === room)?.pinned?.id === m.id
+        ? '<button type="button" class="chat-message-pin" data-msg-unpin="' +
+          m.id +
+          '" title="Pinned" aria-label="Pinned message">' +
+          icon('pin') +
+          '</button>'
+        : '') +
       '<div class="chat-message-foot">' +
       (m.editedMs ? '<span>Edited</span>' : '') +
       '<time datetime="' +
@@ -706,6 +714,8 @@
       m.deleted,
       m.editedMs,
       m.reactions,
+      (data.rooms.find((r) => r.id === room)?.pins || []).some((p) => p.id === m.id) ||
+        data.rooms.find((r) => r.id === room)?.pinned?.id === m.id,
     ]);
     if (node?.dataset.content === content) {
       const receipt = node.querySelector('.msg-receipt'),

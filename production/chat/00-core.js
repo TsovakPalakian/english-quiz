@@ -119,6 +119,8 @@
     kind = 'personal',
     rightMode = '',
     infoTab = 'members',
+    pinCycleRoom = '',
+    pinCycleIndex = 0,
     unreadOnly = false,
     examDirty = false,
     catalogVersion = 0;

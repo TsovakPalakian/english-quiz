@@ -977,7 +977,7 @@
   };
   document.addEventListener('click', async (event) => {
     const target = event.target.closest(
-      '[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload]',
+      '[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload],[data-msg-unpin]',
     );
     if (!target) return;
     try {
@@ -1067,6 +1067,17 @@
       } else if (target.dataset.emojiCategory) paintEmoji(target.dataset.emojiCategory);
       else if (target.dataset.infoTab) await showInfo(target.dataset.infoTab);
       else if (target.dataset.searchId) await focusMessage(Number(target.dataset.searchId));
+      else if (target.dataset.msgUnpin) {
+        const result = await request('pin', {
+          roomId: room,
+          id: Number(target.dataset.msgUnpin),
+          pinned: false,
+        });
+        if (result.room) upsertRoom(result.room);
+        paintRooms();
+        const cache = state();
+        if (cache?.rows) for (const message of cache.rows) mergeNode(message);
+      }
     } catch (error) {
       status(error.message);
     }

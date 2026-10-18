@@ -94,6 +94,8 @@ body.chat-active #selpop{z-index:1300}
 #messages .msg-message.is-learning{border-left:3px solid var(--acc)}
 .msg-message header{display:flex;gap:8px;align-items:center;color:var(--acc);font-size:12px;margin-bottom:4px}
 #messages .msg-message p{white-space:pre-wrap;overflow-wrap:anywhere}
+#messages .chat-message-pin{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:4px 0 0;padding:0;border:0;border-radius:6px;background:var(--acc-s);color:var(--acc)}
+#messages .chat-message-pin svg{width:16px;height:16px}
 .chat-message-foot{display:flex;gap:6px;align-items:center;justify-content:flex-end;margin-top:6px;color:var(--mute);font-size:10px}
 .chat-message-foot time{font-size:10px;white-space:nowrap}
 #messages .chat-message-foot button{font-size:11px;color:var(--acc);margin-right:auto}
