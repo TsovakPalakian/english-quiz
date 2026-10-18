@@ -5,7 +5,7 @@
 - Accounts and authentication: separate Cloudflare D1, binding DB.
 - Chat: existing SQLite Durable Objects; object names and encryption keys retained.
 - Files: existing R2 buckets and object paths, unchanged.
-- Optional PostgreSQL provider: Neon; server-controlled selection, no fallback.
+- Database: Cloudflare D1 only.
 - The remote SQLite HTTP driver, credentials, dependencies and deployment tools
   have been removed. Application modules and browser APIs use Learning naming.
 - Production entry: src/learning-production-worker.mjs.

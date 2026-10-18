@@ -22,7 +22,6 @@ import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
-import {databaseStatus,databaseAction} from './database-administration.mjs';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
 export {StageAuthBudget};
@@ -141,21 +140,6 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.CHAT_INBOX)try{await chatCall(env,'CHAT_INBOX',actor.id,'/revoke-session',{sid:result.sid});}catch{console.error('Session socket closure deferred to revocation checks.');}
         const response=json({ended:result.ended,current:result.current});
         if(result.current)response.headers.set('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
-        return response;
-      }
-      if(path==='/api/developer/databases'){
-        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
-        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developers only.');
-        if(method==='GET')return json(databaseStatus(env));
-        if(method!=='POST')throw new StudyError(405,'Use GET or POST.');
-        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
-        let body;try{body=JSON.parse(await boundedText(request,512,'Database action too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid JSON.');}
-        const result=await databaseAction(env,body,{actor});
-        if(body.action==='activate'&&result.revision!==env.DATABASE_SELECTION?.revision){
-          if(env.CHAT_BRIDGE)ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/invalidate',{}).catch(()=>console.error('Previous database chat invalidation failed; epoch fencing remains active.')));
-        }
-        const response=json(result);
-        if(body.action==='activate')response.headers.set('X-Database-Context',result.active+':'+result.revision);
         return response;
       }
       if(path==='/api/everyday'&&method==='GET'){

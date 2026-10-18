@@ -30,7 +30,7 @@ export function compile(sql,params,provider,operation){
     }
     if(char==='?'){
       if(/[?0-9|&]/.test(rest[1]||' '))throw invalid('DB_PLACEHOLDERS','Use plain ? positional placeholders; JSON operators are outside the common SQL subset.');
-      count++;output+=provider==='neon'?'$'+count:'?';index++;continue;
+      count++;output+='?';index++;continue;
     }
     if(['$',':','@','`','[',']','\\'].includes(char))throw invalid('DB_SQL_DIALECT','Use the common SQL subset: ? placeholders, standard quotes and no provider-specific casts or operators.');
     if((match=/^[A-Za-z_][A-Za-z_0-9]*/.exec(rest))){

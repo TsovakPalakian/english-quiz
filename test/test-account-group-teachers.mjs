@@ -2,9 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
-import {PGlite} from '@electric-sql/pglite';
-import {NeonStudyClient} from '../src/neon-study.mjs';
-import {neonStudyMigration} from '../src/neon-study-migration.mjs';
 import {statement as s} from '../src/learning-study.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 const actor={id:'teacher',role:'ADMIN'},users=[actor,{id:'second',role:'ADMIN'},{id:'dev',role:'DEVELOPER'},{id:'student',role:'USER'},{id:'inactive',role:'ADMIN',active:false}];
@@ -47,11 +44,3 @@ test('Accounts teacher endpoint enforces authentication, roles, CSRF, write flag
  env.STAGE_WRITES='false';assert.equal((await post({groupId:1,teacherIds:['teacher'],expectedRevision:0})).status,503);env.STAGE_WRITES='true';
  assert.equal((await post({groupId:1,teacherIds:['teacher','second'],expectedRevision:0})).status,200);assert.equal((await (await get()).json()).assignments[0].teacherIds.length,2);
  }finally{f.close();}});
-test('isolated teacher assignments work through the PostgreSQL compiler without new tables',async()=>{const pg=new PGlite();try{
- for(const sql of neonStudyMigration)await pg.exec(sql);
- const db=new NeonStudyClient({}, {createSql:()=>({query:(text,params)=>({text,params}),async transaction(commands){return pg.transaction(async tx=>{const results=[];for(const cmd of commands){const result=await tx.query(cmd.text,cmd.params);results.push({...result,command:cmd.text.split(/\s/)[0],rowCount:result.affectedRows||0});}return results;});}})});
- await db.atomic([s("INSERT INTO class_groups(id,title) VALUES(1,'A1 Demo')")]);const service=new AccountGroupTeachers(db);
- await service.save(actor,{groupId:1,teacherIds:['teacher','second'],expectedRevision:0},users);assert.equal((await service.list(actor,users)).assignments[0].teacherIds.length,2);
- await service.save(actor,{groupId:1,teacherIds:['second'],expectedRevision:1},users);assert.deepEqual((await service.list(actor,users)).assignments[0].teacherIds,['second']);
- await assert.rejects(service.save(actor,{groupId:1,teacherIds:[],expectedRevision:1},users),e=>e.status===409);
- }finally{await pg.close();}});

@@ -206,22 +206,9 @@ try{
   await page.waitForFunction(()=>!document.getElementById('examSave').disabled);
   assert.equal(await page.locator('#examSave').isEnabled(),true);
   await page.evaluate(()=>window.enquizVisit('exams'));
-  await page.evaluate(()=>{authUser.id='a'.repeat(32);});
-  // The Neon database switcher is checked only with CHECK_NEON=1.
-  if(process.env.CHECK_NEON==='1'){
-  const databaseActions=[];
-  await page.route('**/api/developer/databases',async route=>{
-    const body=route.request().postDataJSON();if(body)databaseActions.push(body);
-    const data=body?(body.provider==='neon'?{provider:'neon',connected:true,database:'english',schemaVersion:body.action==='prepare'?1:0,dataTransferred:false}:{provider:'d1',connected:true}):{active:'d1',authentication:'cloudflare-d1',chat:'cloudflare-durable-objects',providers:[{id:'d1',configured:true,adapterReady:true,active:true},{id:'neon',configured:true,adapterReady:false,active:false,blocker:'PostgreSQL application adapter pending.'}]};
-    await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
-  });
-  await page.evaluate(()=>{authUser.role='DEVELOPER';window.enquizVisit('admin');paintDeveloperChrome();});await page.locator('[data-database-admin]').click();await page.locator('#databaseAdmin[open]').waitFor();await page.waitForFunction(()=>document.getElementById('databaseRegistry').textContent.includes('Configured'));
-  assert.equal(await page.locator('#databaseActivate').isDisabled(),true);assert.equal(await page.locator('#databaseAdmin input').count(),0,'No connection secret field in browser');
-  await page.locator('[data-database-action="check"]').click();await page.locator('#databaseResult').filter({hasText:'Connected'}).waitFor();
-  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-database-action="prepare"]').click();await page.locator('#databaseResult').filter({hasText:'Schema 1'}).waitFor();assert.equal(await page.locator('#databaseActivate').isDisabled(),true,'Schema does not enable runtime switching');
-  await page.setViewportSize({width:320,height:900});assert.ok(await page.locator('#databaseAdmin').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await page.screenshot({path:'/private/tmp/database-admin-mobile.png'});await page.locator('#databaseProvider').selectOption('d1');assert.equal(await page.locator('[data-database-action="prepare"]').isVisible(),false);assert.equal(await page.locator('#databaseActivate').isDisabled(),true);await page.locator('[data-database-close]').click();assert.deepEqual(databaseActions,[{provider:'neon',action:'check'},{provider:'neon',action:'prepare'}]);
-  }
-  await page.evaluate(()=>{authUser.role='ADMIN';paintDeveloperChrome();});assert.equal(await page.locator('[data-database-admin]').isVisible(),false);
+  await page.evaluate(()=>{authUser.id='a'.repeat(32);authUser.role='DEVELOPER';window.enquizVisit('admin');paintDeveloperChrome();});
+  assert.equal(await page.locator('[data-database-admin]').count(),0);
+  await page.evaluate(()=>{authUser.role='ADMIN';paintDeveloperChrome();});
   assert.equal(writes.filter(path=>['/api/groups','/api/lessons'].includes(path)).length,0,'Exam UI does not write Groups or Lessons: '+writes.join(','));
   let demoId=1000;
   for(const block of examWorkflowDemo(41).blocks){

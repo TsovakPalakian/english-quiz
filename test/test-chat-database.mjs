@@ -17,17 +17,17 @@ function fixture(provider='d1'){
   }};
 }
 
-for(const provider of ['d1','neon']){
+for(const provider of ['d1']){
   test(provider+': initial preparation persists both controls once',async()=>{
     const f=fixture(provider);const result=await prepareChatDatabase(f.store,f.request());
     assert.deepEqual(result,f.selection);assert.deepEqual(f.writes.map(row=>row.key),['_databaseScope','_databaseWritable']);
     assert.equal(f.store.env.CONTENT_WRITES,'true');assert.equal(f.store.env.DB_PROVIDER,provider);assert.equal(Object.isFrozen(f.store.env.DATABASE_SELECTION),true);
   });
-  test(provider+': 100 unchanged requests cause no metadata writes and still verify the live selection',async()=>{
+  test(provider+': 100 unchanged requests cause no metadata writes and no control storage reads',async()=>{
     const f=fixture(provider);await prepareChatDatabase(f.store,f.request());f.writes.length=0;
     const before=f.reads;
     for(let i=0;i<100;i++)await prepareChatDatabase(f.store,f.request());
-    assert.equal(f.writes.length,0);assert.equal(f.reads-before,100);assert.deepEqual(f.store.env.DATABASE_SELECTION,f.selection);
+    assert.equal(f.writes.length,0);assert.equal(f.reads-before,0);assert.deepEqual(f.store.env.DATABASE_SELECTION,f.selection);
   });
   test(provider+': reconstructed object reuses persisted controls without rewriting them',async()=>{
     const f=fixture(provider);await prepareChatDatabase(f.store,f.request());f.writes.length=0;
@@ -66,27 +66,15 @@ for(const writable of ['false','true','2',''])test('invalid write flag '+JSON.st
   await assert.rejects(prepareChatDatabase(f.store,f.request({revision:2,writable})),error=>error.status===403);
   assert.deepEqual(f.writes,[]);assert.equal(f.closed.length,0);assert.equal(f.values.get('_databaseScope').revision,1);assert.deepEqual(f.values.get('policy'),{allowed:true});
 });
-test('a stale websocket observes a live revision change before any write',async()=>{
-  const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;f.selection={...f.selection,revision:2};
-  await assert.rejects(prepareChatDatabase(f.store),error=>error.status===503&&error.inactiveDatabase);
-  assert.deepEqual(f.writes,[]);
-});
-test('revocation control routes remain available for the inactive scope without redundant writes',async()=>{
-  const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;f.selection={...f.selection,revision:2};
-  for(const path of ['/suspend','/revoke','/revoke-session','/invalidate'])await prepareChatDatabase(f.store,f.request({path}));
-  assert.deepEqual(f.writes,[]);assert.equal(f.reads,5);
-});
 test('foreign provider and invalid internal credentials fail without changing persisted state',async()=>{
   const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;
   for(const request of [f.request({database:'neon'}),f.request({secret:'wrong'}),f.request({database:'unknown'})])await assert.rejects(prepareChatDatabase(f.store,request),error=>[403,503].includes(error.status));
   assert.deepEqual(f.writes,[]);assert.equal(f.values.get('_databaseScope').provider,'d1');
 });
-test('unavailable control storage and a persistent migration fence remain fail-closed',async()=>{
-  const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;f.unavailable=true;
-  await assert.rejects(prepareChatDatabase(f.store,f.request()),error=>error.status===503);f.unavailable=false;
-  f.selection={...f.selection,accountTransferFrozen:true};
+test('the deployment migration fence remains fail-closed without reading control storage',async()=>{
+  const f=fixture();await prepareChatDatabase(f.store,f.request());f.writes.length=0;f.store.baseEnv.ACCOUNT_TRANSFER_FROZEN='true';
   await assert.rejects(prepareChatDatabase(f.store,f.request()),error=>error.status===503&&error.migrationFrozen);
-  assert.deepEqual(f.writes,[]);
+  assert.deepEqual(f.writes,[]);assert.equal(f.reads,0);
 });
 test('legacy scope without the site marker is normalized once, not on every request',async()=>{
   const f=fixture();f.values.set('_databaseScope',{provider:'d1',revision:1});f.values.set('_databaseWritable',true);

@@ -1,8 +1,0 @@
-<dialog id="databaseAdmin" aria-labelledby="databaseAdminTitle">
-  <header><h2 id="databaseAdminTitle">Databases</h2><button class="icon-btn" type="button" data-database-close aria-label="Close" title="Close"><i data-lucide="x"></i></button></header>
-  <dl id="databaseRegistry"></dl>
-  <label>Connection<select id="databaseProvider"><option value="d1">Cloudflare D1</option><option value="neon">Neon PostgreSQL</option><option value="learning">Learning</option></select></label>
-  <div class="row"><button class="btn" type="button" data-database-action="check"><i data-lucide="plug"></i>Check connection</button><button class="btn" type="button" data-database-action="prepare"><i data-lucide="database"></i>Prepare schema</button><button class="btn primary" type="button" id="databaseActivate" disabled>Activate</button></div>
-  <p id="databaseBlocker" class="label"></p>
-  <p id="databaseResult" role="status" aria-live="polite"></p>
-</dialog>

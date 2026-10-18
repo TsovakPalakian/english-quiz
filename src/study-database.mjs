@@ -9,10 +9,7 @@ export const STATIC_STUDY_DATABASE=Object.freeze({read:noContext,readMany:noCont
 
 export function studyClient(env){
   if(env[STUDY_DATABASE]===STATIC_STUDY_DATABASE)return STATIC_STUDY_DATABASE;
-  const provider=env.DATABASE_SELECTION?.provider||env.DB_PROVIDER||'d1';
-  if(!['neon','d1'].includes(provider))throw new StudyError(503,'Invalid study database provider. No fallback was used.');
-  if(env.DB_PROVIDER&&env.DB_PROVIDER!==provider)throw new StudyError(503,'Study database selection mismatch. No fallback was used.');
+  if(env.DB_PROVIDER&&env.DB_PROVIDER!=='d1')throw new StudyError(503,'Invalid study database provider. No fallback was used.');
   if(env[STUDY_DATABASE])return bindChatEncryption(env[STUDY_DATABASE],env);
-  if(provider==='d1')return bindChatEncryption(new D1StudyClient(env.STUDY_DB),env);
-  throw new StudyError(503,'Neon learning-data adapter is not ready. No fallback was used.');
+  return bindChatEncryption(new D1StudyClient(env.STUDY_DB),env);
 }

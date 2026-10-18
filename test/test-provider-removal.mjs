@@ -4,12 +4,12 @@ import {readFileSync,readdirSync,existsSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-test('application accepts only D1 and Neon and defaults to D1',async()=>{
-  const {readDatabaseSelection}=await import('../src/database-selection.mjs');
-  assert.equal((await readDatabaseSelection({get:async()=>null})).selection.provider,'d1');
-  await assert.rejects(readDatabaseSelection({get:async()=>({json:async()=>({provider:'legacy-provider',revision:0,scope:'site'})})}),e=>e.status===503);
-  const {databaseStatus}=await import('../src/database-administration.mjs');
-  assert.deepEqual(databaseStatus({}).providers.map(p=>p.id).sort(),['d1','neon']);
+test('application runs only on D1',async()=>{
+  const {ACTIVE_DATABASE}=await import('../src/database-selection.mjs');
+  assert.equal(ACTIVE_DATABASE.provider,'d1');
+  const pkg=JSON.parse(readFileSync(resolve(root,'package.json'),'utf8'));
+  assert.ok(!Object.keys({...pkg.dependencies,...pkg.devDependencies}).some(name=>name.startsWith('@neondatabase/')||name==='@electric-sql/pglite'));
+  assert.ok(!readdirSync(resolve(root,'src')).some(name=>name.startsWith('neon-')));
 });
 test('runtime no longer contains a remote SQLite HTTP transport or dependency',()=>{
   const pkg=JSON.parse(readFileSync(resolve(root,'package.json'),'utf8'));

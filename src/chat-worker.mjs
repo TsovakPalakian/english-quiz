@@ -8,7 +8,6 @@ import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from './chat-attachme
 import {chatLinkPreview,chatPreviewImage} from './chat-previews.mjs';
 import {readProfiles,setPresence,setAvatar,setUsername,signupUsername,profileDetails,setProfileDetails,publicProfile} from './chat-profiles.mjs';
 import {chatStorageName,chatDatabaseHeaders,prepareChatDatabase,assertChatRunning} from './chat-database.mjs';
-import {neonApplicationEnvironment} from './neon-application.mjs';
 import {chatCipher} from './chat-encryption.mjs';
 import {transferObject,trackTransferTask} from './account-transfer.mjs';
 export {ChatRoom,ChatInbox};
@@ -18,8 +17,8 @@ const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
 const database=studyClient;
 
 export class ChatBridge{
-  constructor(ctx,env,{studyDatabase=database,openNeon=neonApplicationEnvironment}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.openNeon=openNeon;this.database=studyDatabase;this.sql=ctx.storage.sql;this.loading=null;this.flushing=null;this.importing=new Map();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='profiles'").toArray().length)return;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");}
-  async prepare(request){const selected=await prepareChatDatabase(this,request);if(selected.provider==='neon')this.env=this.openNeon(this.env);}
+  constructor(ctx,env,{studyDatabase=database}={}){this.ctx=ctx;this.baseEnv={...env,STORAGE_MODE:'production'};this.env=this.baseEnv;this.database=studyDatabase;this.sql=ctx.storage.sql;this.loading=null;this.flushing=null;this.importing=new Map();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='profiles'").toArray().length)return;this.sql.exec('CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)');this.sql.exec("CREATE TABLE IF NOT EXISTS profiles(user_id TEXT PRIMARY KEY,phone TEXT NOT NULL DEFAULT '',phone_visible INTEGER NOT NULL DEFAULT 0,birthday TEXT NOT NULL DEFAULT '',birthday_visible INTEGER NOT NULL DEFAULT 0)");}
+  async prepare(request){await prepareChatDatabase(this,request);}
   get(key){const row=this.sql.exec('SELECT value FROM meta WHERE key=?',key).toArray()[0];return row?JSON.parse(row.value):null;}
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}

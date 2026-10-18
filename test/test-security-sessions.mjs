@@ -1,9 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {PGlite} from '@electric-sql/pglite';
-import {NeonStudyClient} from '../src/neon-study.mjs';
-import {neonStudyMigration} from '../src/neon-study-migration.mjs';
 import {observeSession,listSessions,endSession,finishSessionRecord,pruneSessionHistory,requestSessionMetadata,sessionRecordId} from '../src/security-sessions.mjs';
 
 function sqliteStore(){
@@ -36,13 +33,6 @@ async function exercise(db){
   const before=await db.read('SELECT id FROM security_sessions');await observeSession(db,request(),legacy);assert.equal((await db.read('SELECT id FROM security_sessions')).length,before.length);
 }
 test('Session history persists in SQLite with ownership, lifecycle and retention',async()=>{const db=sqliteStore();try{await exercise(db);}finally{db.close();}});
-test('The same session repository works with PostgreSQL and its real SQL compiler',async()=>{
-  const pg=new PGlite();try{
-    for(const sql of neonStudyMigration)await pg.exec(sql);
-    const db=new NeonStudyClient({}, {createSql:()=>({query:(text,params)=>({text,params}),async transaction(commands){return pg.transaction(async tx=>{const results=[];for(const cmd of commands){const result=await tx.query(cmd.text,cmd.params);results.push({...result,command:cmd.text.split(/\s/)[0],rowCount:result.affectedRows||0});}return results;});}})});
-    await exercise(db);
-  }finally{await pg.close();}
-});
 test('Location is taken only from trusted Cloudflare metadata',()=>{
   const origin=requestSessionMetadata(new Request('https://app.example',{headers:{'CF-Connecting-IP':'forged','X-Forwarded-For':'forged'}}));assert.equal(origin.ip,'');assert.equal(origin.latitude,null);assert.equal(origin.longitude,null);
   assert.throws(()=>sessionRecordId(identity({sid:'invalid'})),/Invalid session/);

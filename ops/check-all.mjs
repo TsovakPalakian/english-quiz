@@ -5,9 +5,7 @@ import {readdirSync} from 'node:fs';
 // Need a live site or manual sign-in.
 const excluded=new Set(['test-settings-production-ui.mjs']);
 const only=process.argv.slice(2);
-// Neon is optional and slow; include it with CHECK_NEON=1.
-const neon=process.env.CHECK_NEON==='1';
-const scripts=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)&&!excluded.has(name)&&(neon||!name.startsWith('test-neon-'))&&(!only.length||only.some(part=>name.includes(part)))).sort();
+const scripts=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)&&!excluded.has(name)&&(!only.length||only.some(part=>name.includes(part)))).sort();
 const timeout=Number(process.env.CHECK_TIMEOUT_MS||300000),parallel=Number(process.env.CHECK_PARALLEL||4);
 
 function run(command,args){

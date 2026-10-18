@@ -427,37 +427,6 @@ function stageSaveWord(place,input,status,button,openCard){
   },status).finally(()=>{if(duplicate&&popupDuplicate){status.textContent='';status.classList.remove('bad');window.LearningMain.notice('Эта карточка уже добавлена на страницу.',true);}});
 }
 let stageTextDraft=null,stageSongDraft=null;
-let stageDatabaseRegistry=null,stageDatabaseBusy=false;
-function stageDatabasePaint(){
-  const modal=document.getElementById('databaseAdmin');if(!modal)return;
-  const provider=stageDatabaseRegistry?.providers?.find(provider=>provider.id===document.getElementById('databaseProvider').value);
-  document.getElementById('databaseRegistry').innerHTML=[['Scope','Entire site · All users'],['Active content database',stageDatabaseRegistry?.active||'Unknown'],['Authentication',stageDatabaseRegistry?.authentication||'Unknown'],['Chat',stageDatabaseRegistry?.chat||'Unknown'],['Server connection secret',provider?.configured?'Configured':'Not configured'],['Authentication adapter',provider?.authenticationAdapterReady?'Ready':'Pending'],['Application adapter',provider?.adapterReady?'Ready':'Pending']].map(([label,value])=>'<dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd>').join('');
-  modal.querySelectorAll('[data-database-action]').forEach(button=>{button.disabled=stageDatabaseBusy||!provider?.configured;button.hidden=button.dataset.databaseAction==='prepare'&&provider?.id!=='neon';});
-  document.getElementById('databaseActivate').disabled=stageDatabaseBusy||!provider?.adapterReady||provider?.active;
-  document.getElementById('databaseBlocker').textContent=provider?.blocker||(provider?.active?'Already active.':'');
-}
-document.addEventListener('change',event=>{if(event.target.id==='databaseProvider'){document.getElementById('databaseResult').textContent='';stageDatabasePaint();}});
-document.addEventListener('click',async event=>{
-  const open=event.target.closest('[data-database-admin]'),close=event.target.closest('[data-database-close]'),action=event.target.closest('[data-database-action],#databaseActivate');
-  if(!open&&!close&&!action)return;
-  const modal=document.getElementById('databaseAdmin');if(close){modal.close();return;}
-  if(!authUser||authUser.role!=='DEVELOPER'||viewAccount||stageDatabaseBusy)return;
-  const actor=authUser.id,generation=viewGen,current=()=>authUser?.id===actor&&authUser?.role==='DEVELOPER'&&!viewAccount&&generation===viewGen;
-  const result=document.getElementById('databaseResult');
-  if(open){stageDatabaseRegistry=null;result.textContent='Loading...';modal.showModal();window.lucide?.createIcons({root:modal});}
-  const operation=action?.dataset.databaseAction||(action?'activate':null),provider=document.getElementById('databaseProvider').value;
-  if(operation==='prepare'&&!confirm('Create empty foundation tables in Neon? No data will be copied and Learning will remain active.'))return;
-  if(operation==='activate'&&!confirm('Switch the database for the entire site and all users? Data will not be copied between databases.'))return;
-  stageDatabaseBusy=true;stageDatabasePaint();
-  try{
-    const data=await accountFetch('/api/developer/databases',operation?{method:'POST',body:JSON.stringify({provider,action:operation,...(operation==='activate'?{expectedRevision:stageDatabaseRegistry?.revision}:{})})}:undefined);
-    if(!current()){modal.close();return;}
-    if(!operation){stageDatabaseRegistry=data;result.textContent='';}
-    else if(operation==='activate'){stageDatabaseRegistry=data;result.textContent=data.message||'Database switched.';}
-    else result.textContent=data.provider==='neon'?'Connected · '+data.database+' · Schema '+(data.schemaVersion||'not prepared')+(data.tableCount!=null?' · '+data.tableCount+' tables':'')+(data.authenticationSchemaReady?' · Auth ready':'')+' · No data transferred':data.message||'Connected';
-  }catch(error){if(current())result.textContent=error.message;}
-  finally{stageDatabaseBusy=false;if(current())stageDatabasePaint();}
-});
 const stageMadeAttempts=new Map();
 function stageMadeAnswer(type,key,ok,value){
   if(!stageOwnReady())return;

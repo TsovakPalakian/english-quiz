@@ -28,7 +28,7 @@ export async function transferMedia(request,env,body){
     if(action==='media-fence'){
       if(typeof body.frozen!=='boolean'||body.frozen!==(env.ACCOUNT_TRANSFER_ROLE==='source'))return reply({error:'Invalid fence direction.'},403);
       const bucket=storage(env,'CONTENT_MEDIA'),key='system/database-selection-v1.json',object=await bucket.get(key);if(!object)throw Error('Missing selection');
-      const selection=await object.json();if(!['d1','neon'].includes(selection.provider)||!Number.isSafeInteger(selection.revision))throw Error('Invalid selection');
+      const selection=await object.json();if(selection.provider!=='d1'||!Number.isSafeInteger(selection.revision))throw Error('Invalid selection');
       const next={...selection,accountTransferFrozen:body.frozen};
       if(!await bucket.put(key,JSON.stringify(next),{onlyIf:{etagMatches:object.etag},httpMetadata:object.httpMetadata,customMetadata:object.customMetadata}))return reply({error:'Database selection changed.'},409);
       return reply({frozen:body.frozen,provider:next.provider,revision:next.revision});

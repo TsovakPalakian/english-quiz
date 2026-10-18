@@ -117,8 +117,8 @@ export function accountTransferWorker(application){return {...application,async 
    const binding=env[{room:'CHAT_ROOM',inbox:'CHAT_INBOX',bridge:'CHAT_BRIDGE'}[body.kind]];
    if(body.action==='export'&&env.ACCOUNT_TRANSFER_ROLE==='source'&&/^[a-f0-9]{64}$/.test(body.objectId))return binding.get(binding.idFromString(body.objectId)).fetch(new Request('https://chat.internal/__account-transfer/export',{method:'POST',headers:{Authorization:request.headers.get('Authorization')}}));
    if(body.action==='import'&&env.ACCOUNT_TRANSFER_ROLE==='target'){
-    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['neon','d1','turso'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
-    const name=(snapshot.scope.provider==='neon'?'neon:v1:':'')+snapshot.logicalName;
+    const snapshot=body.snapshot;if(!snapshot?.logicalName||!['d1','turso'].includes(snapshot.scope?.provider))return reply({error:'Invalid logical object.'},400);
+    const name=snapshot.logicalName;
     return binding.get(binding.idFromName(name)).fetch(new Request('https://chat.internal/__account-transfer/import',{method:'POST',headers:{Authorization:request.headers.get('Authorization'),'Content-Type':'application/json',...(body.merge===true?{'X-Transfer-Merge':'1'}:{})},body:JSON.stringify(snapshot)}));
    }
    return reply({error:'Not found.'},404);

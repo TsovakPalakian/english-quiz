@@ -8,11 +8,9 @@
     "build:preview": "node ops/build-preview.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "1.2.0",
     "@noble/ciphers": "2.4.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.10",
     "@vitest/ui": "^1.6.0",
     "happy-dom": "^21.0.3",
     "jsdom": "^29.1.1",

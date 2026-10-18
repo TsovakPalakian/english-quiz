@@ -1,6 +1,20 @@
 // SQLite study-data contract over a dedicated Cloudflare D1 binding.
 import {StudyError} from './learning-study.mjs';
-import {studyTokens} from './neon-study-sql.mjs';
+
+const denied=()=>{throw new StudyError(500,'Unsupported study query.');};
+// This lexer handles trusted application SQL, never user-provided SQL or identifiers.
+export function studyTokens(source){
+  if(typeof source!=='string'||source.length>500000||source.includes('\0'))denied();
+  const tokens=[];
+  for(let offset=0;offset<source.length;){
+    const match=/^(?:\s+|--[^\r\n]*|\/\*[^]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|[A-Za-z_][A-Za-z_0-9]*|\d+(?:\.\d+)?|\?|\|\||<>|!=|<=|>=|[(),.*=<>+\-\/;%])/s.exec(source.slice(offset));
+    if(!match)denied();offset+=match[0].length;
+    if(!/^\s|^--|^\/\*/.test(match[0]))tokens.push(match[0]);
+  }
+  if(tokens.at(-1)===';')tokens.pop();
+  if(tokens.includes(';'))denied();
+  return tokens;
+}
 
 const scratch=new Set(['mutation_guard','created_rows','saved_ids','group_guard','chat_guard','assessment_guard','recording_guard','copy_ids','essential_guard']);
 // Existing application trigger; its internal semicolon is not a second query.

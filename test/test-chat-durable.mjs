@@ -173,39 +173,6 @@ test('ending one authenticated session closes only its sockets and blocks furthe
     inbox.broadcast({seq:3});await f.drain();assert.ok(a.closes.includes(4003));assert.equal(a.messages.length,2);assert.equal(b.messages.length,3);assert.equal(b.closes.length,0);
   }finally{f.close();}
 });
-test('database switching isolates rooms/inboxes and returning to Learning restores only its history',async()=>{
-  const f=fixture();let selected={provider:'d1',revision:0,scope:'site'};
-  try{
-    f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>selected})};
-    const room=directRoomId(f.alice.id,f.bob.id),members=[f.alice,f.bob],configure=async env=>{
-      for(const actor of members)await chatCall(env,'CHAT_INBOX',actor.id,'/configure',{profile:actor,contacts:members.filter(user=>user.id!==actor.id),groups:[]});
-      await chatCall(env,'CHAT_ROOM',room,'/configure',{room:{id:room,kind:'direct'},members});
-      await chatCall(env,'CHAT_ROOM',room,'/import',{initial:true,messages:[],complete:true});
-    };
-    await configure(f.env);await chatCall(f.env,'CHAT_ROOM',room,'/send',{actor:f.alice,text:'Learning only',clientKey:'same-key'});await f.drain();
-    const oldInbox=f.env.CHAT_INBOX.get(f.env.CHAT_INBOX.idFromName(f.alice.id));let closed=0;
-    oldInbox.ctx.getWebSockets().push({close(){closed++;},deserializeAttachment:()=>({expires:Date.now()+60000})});
-    selected={provider:'neon',revision:1,scope:'site'};
-    await oldInbox.alarm();assert.equal(closed,1);
-    await assert.rejects(chatCall(f.env,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'}),error=>error.status===503);
-    const neon={...f.env,DB_PROVIDER:'neon',DATABASE_SELECTION:selected};await configure(neon);
-    await chatCall(neon,'CHAT_ROOM',room,'/send',{actor:f.alice,text:'Neon only',clientKey:'same-key'});await f.drain();
-    assert.deepEqual((await chatCall(neon,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'})).messages.map(message=>message.text),['Neon only']);
-    selected={provider:'d1',revision:2,scope:'site'};const returned={...f.env,DATABASE_SELECTION:selected};
-    assert.deepEqual((await chatCall(returned,'CHAT_ROOM',room,'/history',{actor:f.alice,category:'personal'})).messages.map(message=>message.text),['Learning only']);
-    await assert.rejects(chatCall(neon,'CHAT_INBOX',f.alice.id,'/snapshot',{}),error=>error.status===503);
-    const response=await f.env.CHAT_ROOM.get(room).fetch(new Request('https://chat.internal/history',{method:'POST',headers:{'X-Chat-Internal':'fixture-secret','X-Chat-Database':'neon','X-Chat-Database-Revision':'1'},body:JSON.stringify({actor:f.alice})}));assert.equal(response.status,403);
-  }finally{await f.drain();f.close();}
-});
-test('inactive bridge alarms never access the original account or learning database',async()=>{
-  const f=fixture({});let selected={provider:'d1',revision:0,scope:'site'},reads=0;
-  try{
-    f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>selected})};
-    await chatCall(f.env,'CHAT_BRIDGE','global','/profiles',{actor:f.alice,ids:[]});
-    const bridge=f.env.CHAT_BRIDGE.get('global');bridge.database=()=>{reads++;throw Error('Inactive database must not be accessed');};
-    selected={provider:'neon',revision:1,scope:'site'};await bridge.alarm();assert.equal(reads,0);
-  }finally{await f.drain();f.close();}
-});
 test('Avatars are private, group photos require staff and presence updates subscribers',async()=>{
   const f=fixture({});try{
     await f.boot();const {env,alice,teacher}=f;

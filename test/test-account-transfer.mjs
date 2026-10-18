@@ -50,7 +50,7 @@ for(const kind of ['room','inbox','bridge'])test(kind+' reconstruction and froze
 });
 test('inbox transfer preserves folders, encrypted events, unread counters and deleted sequence gaps',async()=>{
  const a=fixture('a'.repeat(64),'source','inbox'),b=fixture('b'.repeat(64),'target','inbox');try{
-  a.store.set('profile',{id:'alice',name:'Alice',role:'USER',active:true});a.store.set('_databaseScope',{provider:'neon',revision:3,scope:'site'});
+  a.store.set('profile',{id:'alice',name:'Alice',role:'USER',active:true});a.store.set('_databaseScope',{provider:'d1',revision:3,scope:'site'});
   a.store.set('folders',[{id:'family',name:'Family',roomIds:['direct:alice:bob']}]);
   const room={id:'direct:alice:bob',kind:'direct',title:'Bob',revision:8,unread:{personal:6,learning:2},lastMessage:{id:9,text:'private preview'}};
   a.db.prepare('INSERT INTO rooms(id,data) VALUES(?,?)').run(room.id,a.store.seal(JSON.stringify(room),'data'));
@@ -129,9 +129,9 @@ test('frozen production cron exits before opening databases or scheduling cleanu
  let calls=0;const env={ACCOUNT_TRANSFER_FROZEN:'true',CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_ALLOWED_HOST:'site.example',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get(){calls++;throw Error('Must not read');},head(){},put(){}}};
  await productionWorker({scheduled:async()=>{calls++;}}).scheduled({},env,{waitUntil(){calls++;}});assert.equal(calls,0);
 });
-test('persisted freeze is observed by existing objects before metadata or encryption writes',async()=>{
+test('deployment freeze is observed by existing objects before metadata or encryption writes',async()=>{
  const f=fixture('a'.repeat(64),'target');try{
-  delete f.env.ACCOUNT_TRANSFER_ROLE;f.env.CONTENT_ENABLED='true';f.env.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})})};
+  delete f.env.ACCOUNT_TRANSFER_ROLE;f.env.CONTENT_ENABLED='true';f.env.ACCOUNT_TRANSFER_FROZEN='true';
   const before=f.metrics.writes;
   await assert.rejects(prepareChatDatabase(f.store),error=>error.status===503&&error.migrationFrozen===true);
   assert.equal(f.metrics.writes,before);
@@ -148,9 +148,9 @@ test('a frozen target defers restored alarms until a later authorized import ret
   const alarms=b.metrics.alarms;await transferObject(b.store,req(b.env,'import',snapshot),'room');assert.equal(b.metrics.alarms,alarms);
  }finally{a.db.close();b.db.close();}
 });
-for(const kind of ['room','inbox','bridge'])test(kind+' observes a persisted freeze in alarms without rescheduling',async()=>{
+for(const kind of ['room','inbox','bridge'])test(kind+' observes a deployment freeze in alarms without rescheduling',async()=>{
  const f=fixture('a'.repeat(64),'target',kind);try{
-  f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})})};
+  f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.ACCOUNT_TRANSFER_FROZEN='true';
   const before=f.metrics.writes;await f.store.alarm();await Promise.all(f.pending);
   assert.equal(f.metrics.writes,before);assert.equal(f.metrics.alarms,0);assert.equal(f.metrics.deletes,0);
  }finally{f.db.close();}
@@ -164,18 +164,18 @@ test('frozen room outbox is preserved and bridge flush never opens the study dat
   assert.equal(room.metrics.alarms+bridge.metrics.alarms,0);
  }finally{room.db.close();bridge.db.close();}
 });
-test('queued socket delivery preserves order and rechecks persistent freeze before sending',{timeout:2000},async()=>{
+test('queued socket delivery preserves order and rechecks deployment freeze before sending',{timeout:2000},async()=>{
  const f=fixture('a'.repeat(64),'target','inbox'),sent=[],closed=[];try{
-  let frozen=false;f.store.baseEnv.CONTENT_ENABLED='true';f.store.baseEnv.CONTENT_MEDIA={get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:frozen})})};
+  f.store.baseEnv.CONTENT_ENABLED='true';
   const ws={deserializeAttachment:()=>({expires:Date.now()+60000}),send:raw=>sent.push(JSON.parse(raw)),close:(...args)=>closed.push(args)};f.sockets.push(ws);
   f.store.broadcast({type:'event',seq:1});f.store.broadcast({type:'event',seq:2});await Promise.all(f.pending.splice(0));
   assert.deepEqual(sent.map(row=>row.seq),[1,2]);
-  frozen=true;f.store.broadcast({type:'event',seq:3});await Promise.all(f.pending.splice(0));
+  f.store.baseEnv.ACCOUNT_TRANSFER_FROZEN='true';f.store.broadcast({type:'event',seq:3});await Promise.all(f.pending.splice(0));
   assert.deepEqual(sent.map(row=>row.seq),[1,2]);assert.equal(closed.length,1);
  }finally{f.db.close();}
 });
-test('persistent freeze stops normal production HTTP and cron before application code',async()=>{
- let calls=0;const env={CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_ALLOWED_HOST:'site.example',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site',accountTransferFrozen:true})}),head(){},put(){}}};
+test('deployment freeze stops normal production HTTP and cron before application code',async()=>{
+ let calls=0;const env={ACCOUNT_TRANSFER_FROZEN:'true',CONTENT_ENABLED:'true',CONTENT_MEDIA_BUCKET:'learn-english-production-media',CONTENT_ALLOWED_HOST:'site.example',CONTENT_SESSION_SECRET:'fixture',DB:{},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get:async()=>({json:async()=>({provider:'d1',revision:0,scope:'site'})}),head(){},put(){}}};
  const worker=productionWorker({fetch:async()=>{calls++;return Response.json({});},scheduled:async()=>{calls++;}});
  assert.equal((await worker.fetch(new Request('https://site.example/api/me'),env,{})).status,503);
  await worker.scheduled({},env,{waitUntil(){calls++;}});assert.equal(calls,0);
