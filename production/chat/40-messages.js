@@ -100,15 +100,17 @@
       attr = ' class="chat-file" data-file-id="' + escape(file.id) + '"';
     if (file.mime.startsWith('image/') || /\.(heic|heif|avif|bmp|tiff?)$/i.test(file.name))
       return (
-        '<a' +
+        '<button type="button"' +
         attr +
-        ' href="' +
+        ' data-photo-preview="' +
         href +
-        '" target="_blank" rel="noopener"><img loading="lazy" src="' +
+        '" aria-label="' +
+        label +
+        '"><img loading="lazy" src="' +
         href +
         '" alt="' +
         label +
-        '"></a>'
+        '"></button>'
       );
     if (file.mime.startsWith('audio/'))
       return (
@@ -279,10 +281,19 @@
           escape((m.replyText || 'Attachment or unavailable message').slice(0, 240)) +
           '</button>'
         : '') +
-      '<p class="chat-message-text">' +
-      (window.TextColors ? window.TextColors.html(m.text, m.format) : escape(m.text)) +
-      '</p>' +
-      (m.files || []).map(attachment).join('') +
+      (() => {
+        const media = (m.files || []).map(attachment).join('');
+        const text =
+          '<p class="chat-message-text' +
+          (media && m.text?.trim() ? ' chat-media-caption' : '') +
+          '">' +
+          (window.TextColors ? window.TextColors.html(m.text, m.format) : escape(m.text)) +
+          '</p>';
+        const photos = (m.files || []).some(
+          (f) => String(f.mime || '').startsWith('image/') || /\.(heic|heif|jpe?g|png|gif|webp)$/i.test(f.name || ''),
+        );
+        return photos && m.text?.trim() ? media + text : text + media;
+      })() +
       (m.examId
         ? '<button type="button" class="chat-link" data-msg-exam="' +
           m.examId +
@@ -547,7 +558,7 @@
           if (!preview) {
             heicDecoder ||= import('/heic-to-1.6.6.js');
             const decoder = await heicDecoder;
-            const response = await fetch(link.href);
+            const response = await fetch(link.dataset.photoPreview || image.src);
             if (!response.ok) throw Error('Image download failed.');
             const blob = await decoder.heicTo({ blob: await response.blob(), type: 'image/jpeg', quality: 0.85 });
             preview = URL.createObjectURL(blob);

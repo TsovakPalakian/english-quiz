@@ -427,3 +427,37 @@
     icons();
     focusMessage(pinned.id, pinned.category).catch((error) => status(error.message));
   };
+  function closePhotoPreview() {
+    document.getElementById('chatPhotoPreview')?.remove();
+    section.classList.remove('chat-photo-blur');
+  }
+  function openPhotoPreview(src, alt) {
+    closePhotoPreview();
+    section.classList.add('chat-photo-blur');
+    const overlay = document.createElement('div');
+    overlay.id = 'chatPhotoPreview';
+    overlay.className = 'chat-photo-preview';
+    overlay.innerHTML =
+      '<button type="button" class="chat-photo-preview-close" aria-label="Close">' +
+      icon('x') +
+      '</button><img src="' +
+      escape(src) +
+      '" alt="' +
+      escape(alt || '') +
+      '">';
+    section.append(overlay);
+    icons();
+    overlay.querySelector('.chat-photo-preview-close').onclick = closePhotoPreview;
+    overlay.onclick = (event) => {
+      if (event.target === overlay) closePhotoPreview();
+    };
+  }
+  timeline.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-photo-preview]');
+    if (!button || !timeline.contains(button)) return;
+    event.preventDefault();
+    openPhotoPreview(button.dataset.photoPreview, button.querySelector('img')?.alt || '');
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.getElementById('chatPhotoPreview')) closePhotoPreview();
+  });

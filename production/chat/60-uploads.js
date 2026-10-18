@@ -171,13 +171,24 @@
       if (selected.some((file) => file.size > 25 * 1024 * 1024)) throw new Error('Maximum attachment size is 25 MB.');
       const results = await Promise.all(selected.map(queueUpload));
       const uploaded = selected.length > 0 && results.every(Boolean);
+      const hasPhoto = selected.some(
+        (file) =>
+          String(file.type || '').startsWith('image/') ||
+          /\.(heic|heif|avif|bmp|tiff?|jpe?g|png|gif|webp)$/i.test(file.name || ''),
+      );
       if (
         uploaded &&
+        !hasPhoto &&
         room === targetRoom &&
         generation === gen &&
         ![...uploads.values()].some((item) => item.roomId === room && !item.cancelled)
       )
         await send();
+      else if (uploaded && hasPhoto) {
+        paintDraft();
+        focusComposer();
+        status('Add a caption if you want, then press Enter to send.');
+      }
       return uploaded;
     } catch (error) {
       status(error.message);

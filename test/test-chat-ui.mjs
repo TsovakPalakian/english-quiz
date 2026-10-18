@@ -326,8 +326,8 @@ try{
   await page.locator('#msgSettings').click();await page.locator('[data-settings-tab="blocked"]').click();await page.locator('[data-settings-unblock]').click();await page.getByText('No blocked users.',{exact:true}).waitFor();await page.locator('.user-settings [data-msg-close]').click();assert.equal(await page.locator('#msgCompose').isVisible(),true);
   accessOverride=null;event('room');
   if(process.argv[2]){
-    await page.locator('#msgFile').setInputFiles({name:'Legacy.HEIC',mimeType:'image/heic',buffer:readFileSync(process.argv[2])});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0);
-    const photo=rows.find(r=>r.files?.[0]?.name==='Legacy.HEIC');assert.ok(photo,'HEIC is sent automatically');await page.locator('[data-msg-id="'+photo.id+'"] img').waitFor();await page.waitForFunction(id=>{const image=document.querySelector('[data-msg-id="'+id+'"] img');return image?.naturalWidth>0&&image.src.startsWith('blob:');},photo.id);
+    await page.locator('#msgFile').setInputFiles({name:'Legacy.HEIC',mimeType:'image/heic',buffer:readFileSync(process.argv[2])});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0&&document.querySelector('#msgAttachments')?.children.length);await page.locator('#msgText').press('Enter');await page.waitForFunction(()=>rows.some(r=>r.files?.[0]?.name==='Legacy.HEIC'));
+    const photo=rows.find(r=>r.files?.[0]?.name==='Legacy.HEIC');assert.ok(photo,'HEIC is sent after Enter');await page.locator('[data-msg-id="'+photo.id+'"] img').waitFor();await page.waitForFunction(id=>{const image=document.querySelector('[data-msg-id="'+id+'"] img');return image?.naturalWidth>0&&image.src.startsWith('blob:');},photo.id);
   }
   await page.evaluate(()=>{
     const leaf=(name,text)=>({name,isFile:true,isDirectory:false,file:resolve=>resolve(new File([text],name))});
@@ -343,18 +343,18 @@ try{
     Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async constraints=>{window.recordingConstraints.push(constraints);return new MediaStream();}});
     window.MediaRecorder=class{static isTypeSupported(){return true;}constructor(stream,options){this.mime=options.mimeType.split(';')[0];}state='inactive';start(){this.state='recording';}stop(){this.state='inactive';this.ondataavailable?.({data:new Blob(['record fixture'],{type:this.mime})});this.onstop?.();}};
   });
-  const startRecord=async(sel)=>{await page.locator(sel).dispatchEvent('pointerdown',{button:0});await page.waitForFunction(()=>/Recording|Waiting for/.test(document.querySelector('#msgSendState')?.textContent||''));};
-  const stopRecord=async(sel)=>{await page.locator(sel).dispatchEvent('pointerdown',{button:0});await page.waitForFunction(()=>!document.querySelector('#msgSendState').textContent&&document.querySelectorAll('.chat-upload').length===0);};
+  const startRecord=async(sel)=>{await page.locator(sel).dispatchEvent('pointerdown',{button:0,pointerId:1});await page.waitForFunction(()=>/Recording|Waiting for|locked/.test(document.querySelector('#msgSendState')?.textContent||''));};
+  const stopRecord=async(sel)=>{await page.locator(sel).dispatchEvent('pointerup',{button:0,pointerId:1});await page.waitForFunction(()=>!document.querySelector('#msgSendState').textContent&&document.querySelectorAll('.chat-upload').length===0);};
   const beforeVoice=rows.length;await startRecord('#msgMic');await stopRecord('#msgMic');
   assert.equal(rows.length,beforeVoice+1);assert.match(rows.at(-1).files[0].name,/^voice-/);
-  assert.match(await page.locator('#msgVideo').getAttribute('aria-label'),/Record video message/);assert.equal(rows.length,beforeVoice+1);
+  assert.match(await page.locator('#msgVideo').getAttribute('aria-label'),/Hold to record video/);assert.equal(rows.length,beforeVoice+1);
   await startRecord('#msgVideo');await page.locator('.chat-record-preview').waitFor();assert.ok(await page.locator('.chat-record-frame').evaluate(n=>{const rect=n.getBoundingClientRect(),parent=n.parentElement.getBoundingClientRect();return Math.abs(rect.x+rect.width/2-parent.x-parent.width/2)<1&&Math.abs(rect.y+rect.height/2-parent.y-parent.height/2)<1&&n.parentElement.classList.contains('chat-center');}));assert.equal(await page.locator('.chat-record-preview').evaluate(n=>n.getBoundingClientRect().width),240);await stopRecord('#msgVideo');assert.equal(rows.length,beforeVoice+2);assert.match(rows.at(-1).files[0].name,/^video-/);assert.equal(await page.locator('.chat-record-preview').isVisible(),false);
   assert.deepEqual(await page.evaluate(()=>recordingConstraints.map(c=>!!c.video)),[false,true]);
   await startRecord('#msgMic');await page.keyboard.press('Escape');await page.waitForTimeout(100);assert.equal(rows.length,beforeVoice+2);
   await page.evaluate(()=>{window.restoreMedia=navigator.mediaDevices.getUserMedia;Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:()=>new Promise(resolve=>window.resolveMedia=resolve)});});
   await page.locator('#msgMic').dispatchEvent('pointerdown',{button:0});await page.waitForFunction(()=>!!window.resolveMedia);
   await page.evaluate(()=>{window.resolveMedia(new MediaStream());Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:window.restoreMedia});});
-  await page.waitForFunction(()=>document.querySelector('#msgSendState')?.textContent?.startsWith('Recording audio'));
+  await page.waitForFunction(()=>/Recording/.test(document.querySelector('#msgSendState')?.textContent||''));
   await page.keyboard.press('Escape');await page.waitForTimeout(100);assert.equal(rows.length,beforeVoice+2);assert.equal(await page.locator('#msgCancelRecording').isVisible(),false);
   assert.equal(await page.locator('.chat-room-head').evaluate(n=>getComputedStyle(n).borderBottomWidth),'0px');
   await page.clock.install();const beforeTimedVideo=rows.length;await startRecord('#msgVideo');await page.clock.fastForward(30000);assert.equal(await page.locator('.chat-record-frame').getAttribute('aria-valuenow'),'30');assert.equal(rows.length,beforeTimedVideo);
