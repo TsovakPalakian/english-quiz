@@ -18,11 +18,17 @@
       colors.forEach(color=>{const swatch=document.createElement('button');swatch.type='button';swatch.style.background=color;swatch.title=color;swatch.setAttribute('aria-label',color);swatch.addEventListener('click',()=>apply(color));grid.append(swatch);});
       const spectrum=document.createElement('input');spectrum.type='color';spectrum.dataset.fullColorPicker='true';spectrum.value=field.value;spectrum.setAttribute('aria-label','Choose any color and shade');
       const spectrumLabel=document.createElement('label');spectrumLabel.textContent='All colors';spectrumLabel.append(spectrum);
-      spectrum.addEventListener('input',()=>{field.value=spectrum.value;input.value=spectrum.value;field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));sync();});
+      spectrum.addEventListener('input',()=>{
+        field.value=spectrum.value;input.value=spectrum.value;
+        field.dispatchEvent(new Event('input',{bubbles:true}));
+        field.dispatchEvent(new Event('change',{bubbles:true}));
+        sync();
+      });
       const label=document.createElement('label');label.textContent='HEX';const input=document.createElement('input');input.type='text';input.value=field.value;input.maxLength=7;input.setAttribute('aria-label','HEX color');label.append(input);popup.append(spectrumLabel,grid,label);
       input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(valid(input.value))apply(input.value);else input.setCustomValidity('Use #RRGGBB.');}});
       input.addEventListener('change',()=>{if(valid(input.value))apply(input.value);});input.addEventListener('input',()=>input.setCustomValidity(''));
-      document.body.append(popup);const rect=button.getBoundingClientRect();popup.style.left=Math.max(8,Math.min(rect.left,innerWidth-popup.offsetWidth-8))+'px';popup.style.top=Math.max(8,Math.min(rect.bottom+6,innerHeight-popup.offsetHeight-8))+'px';
+      const host=field.closest('dialog')||document.body;host.append(popup);
+      const rect=button.getBoundingClientRect();popup.style.left=Math.max(8,Math.min(rect.left,innerWidth-popup.offsetWidth-8))+'px';popup.style.top=Math.max(8,Math.min(rect.bottom+6,innerHeight-popup.offsetHeight-8))+'px';
       open={button,popup,field};button.setAttribute('aria-expanded','true');
     });
   }

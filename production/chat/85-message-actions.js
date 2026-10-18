@@ -164,29 +164,194 @@
     icons();
   }
   function editMessage(message, id) {
+    const roomRow = data.rooms.find((r) => r.id === id);
+    const isPinned =
+      (roomRow?.pins || []).some((p) => p.id === message.id) || roomRow?.pinned?.id === message.id;
     const node = dialog(
-      'Edit message',
-      '<label>Message<textarea name="text" required maxlength="4000" rows="4"></textarea></label>',
+      'Edit',
+      '<div class="chat-edit-composer"><textarea name="text" required maxlength="4000" rows="2" placeholder="Edit message" aria-label="Edit message"></textarea><div class="chat-edit-emoji" hidden></div><div class="chat-compose-tools"><button type="button" class="chat-icon" data-edit-emoji title="Smileys" aria-label="Smileys" aria-expanded="false">' +
+        icon('smile') +
+        '</button><button type="button" class="chat-icon" data-edit-stickers title="Emoji" aria-label="Emoji" aria-expanded="false">' +
+        icon('grid-2x2') +
+        '</button><button type="button" class="chat-icon" data-edit-pin title="' +
+        (isPinned ? 'Unpin' : 'Pin') +
+        '" aria-label="' +
+        (isPinned ? 'Unpin' : 'Pin') +
+        '" aria-pressed="' +
+        String(!!isPinned) +
+        '">' +
+        icon('pin') +
+        '</button><button type="button" class="chat-icon" data-edit-mic title="Record voice message" aria-label="Record voice message">' +
+        icon('mic') +
+        '</button><button type="button" class="chat-icon" data-edit-video title="Record video message" aria-label="Record video message">' +
+        icon('video') +
+        '</button><span class="chat-edit-spacer"></span><button type="submit" class="chat-icon chat-send" title="Save" aria-label="Save">' +
+        icon('send-horizontal') +
+        '</button></div></div>',
       async () => {
+        const text = area.value.trim();
+        if (!text) throw Error('Message cannot be empty.');
         await request('edit', {
           roomId: id,
           id: message.id,
-          text: area.value.trim(),
+          text,
           format: window.TextColors?.trim(format, area.value) || null,
           expectedEditedMs: message.editedMs || 0,
         });
       },
     );
+    node.classList.add('chat-edit-dialog');
+    node.style.maxWidth = '520px';
+    node.querySelector('form > button.primary')?.remove();
     const area = node.querySelector('textarea');
+    const emojiBox = node.querySelector('.chat-edit-emoji');
     let format = message.format || null;
+    let pinned = !!isPinned;
     area.value = message.text;
+    const fit = () => {
+      const rich = area.parentElement?.querySelector('.text-color-rich:not([hidden])') || area;
+      const base = 72;
+      rich.style.minHeight = base + 'px';
+      rich.style.maxHeight = base * 4 + 'px';
+      rich.style.height = 'auto';
+      rich.style.height = Math.min(base * 4, Math.max(base, rich.scrollHeight)) + 'px';
+      if (rich !== area) {
+        area.style.height = rich.style.height;
+        area.style.minHeight = rich.style.minHeight;
+        area.style.maxHeight = rich.style.maxHeight;
+      }
+    };
+    const focusEdit = () => {
+      const rich = area.parentElement?.querySelector('.text-color-rich:not([hidden])');
+      (rich || area).focus();
+    };
     window.TextColors?.mount(area, {
       onChange: (value) => {
         format = value;
+        fit();
       },
     });
     window.TextColors?.sync(area, format);
-    area.focus();
+    const colorTools = area.parentElement?.querySelector('.text-color-tools');
+    if (colorTools) node.querySelector('[data-edit-stickers]')?.after(colorTools);
+    const paintEditEmoji = (mode) => {
+      const sets = mode === 'smileys' ? ['smileys'] : Object.keys(emojiIcons);
+      const category = mode === 'smileys' ? 'smileys' : 'hands';
+      emojiBox.hidden = false;
+      emojiBox.innerHTML =
+        (mode === 'emoji'
+          ? '<div class="chat-emoji-tabs">' +
+            sets
+              .map(
+                (c) =>
+                  '<button type="button" data-edit-emoji-category="' +
+                  c +
+                  '" title="' +
+                  c +
+                  '" aria-label="' +
+                  c +
+                  '">' +
+                  icon(emojiIcons[c]) +
+                  '</button>',
+              )
+              .join('') +
+            '</div>'
+          : '') +
+        '<div class="chat-emoji-grid">' +
+        emojiSets[category]
+          .map(
+            ([code, label]) =>
+              '<button type="button" data-edit-insert-emoji="' +
+              emojiValue(code) +
+              '" title="' +
+              escape(label) +
+              '" aria-label="' +
+              escape(label) +
+              '">' +
+              emojiValue(code) +
+              '</button>',
+          )
+          .join('') +
+        '</div>';
+      window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: emojiBox });
+      emojiBox.querySelectorAll('svg[data-chat-icon]').forEach((n) => n.removeAttribute('data-chat-icon'));
+    };
+    node.querySelector('[data-edit-emoji]').onclick = () => {
+      const open = !emojiBox.hidden && emojiBox.dataset.mode === 'smileys';
+      if (open) {
+        emojiBox.hidden = true;
+        return;
+      }
+      emojiBox.dataset.mode = 'smileys';
+      paintEditEmoji('smileys');
+    };
+    node.querySelector('[data-edit-stickers]').onclick = () => {
+      const open = !emojiBox.hidden && emojiBox.dataset.mode === 'emoji';
+      if (open) {
+        emojiBox.hidden = true;
+        return;
+      }
+      emojiBox.dataset.mode = 'emoji';
+      paintEditEmoji('emoji');
+    };
+    emojiBox.onclick = (event) => {
+      const insert = event.target.closest('[data-edit-insert-emoji]');
+      if (insert) {
+        const value = insert.dataset.editInsertEmoji;
+        if (area.value.length + value.length > 4000) return;
+        if (!window.TextColors?.insert(area, value))
+          area.setRangeText(value, area.selectionStart, area.selectionEnd, 'end');
+        fit();
+        focusEdit();
+        return;
+      }
+      const cat = event.target.closest('[data-edit-emoji-category]');
+      if (cat) {
+        const category = cat.dataset.editEmojiCategory;
+        emojiBox.querySelector('.chat-emoji-grid').innerHTML = emojiSets[category]
+          .map(
+            ([code, label]) =>
+              '<button type="button" data-edit-insert-emoji="' +
+              emojiValue(code) +
+              '" title="' +
+              escape(label) +
+              '" aria-label="' +
+              escape(label) +
+              '">' +
+              emojiValue(code) +
+              '</button>',
+          )
+          .join('');
+      }
+    };
+    node.querySelector('[data-edit-pin]').onclick = async () => {
+      try {
+        const result = await request('pin', { roomId: id, id: message.id, pinned: !pinned });
+        pinned = !pinned;
+        const button = node.querySelector('[data-edit-pin]');
+        button.title = pinned ? 'Unpin' : 'Pin';
+        button.setAttribute('aria-label', button.title);
+        button.setAttribute('aria-pressed', String(pinned));
+        if (result.room) upsertRoom(result.room);
+        paintRooms();
+        const cache = state();
+        if (cache?.rows) for (const row of cache.rows) mergeNode(row);
+      } catch (error) {
+        node.querySelector('[role=status]').textContent = error.message;
+      }
+    };
+    const startMedia = (kind) => {
+      node.close();
+      if (kind === 'mic') el('msgMic').click();
+      else el('msgVideo').click();
+    };
+    node.querySelector('[data-edit-mic]').onclick = () => startMedia('mic');
+    node.querySelector('[data-edit-video]').onclick = () => startMedia('video');
+    area.addEventListener('input', fit);
+    fit();
+    window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: node });
+    node.querySelectorAll('svg[data-chat-icon]').forEach((n) => n.removeAttribute('data-chat-icon'));
+    focusEdit();
   }
   function deleteMessages(ids, id) {
     const node = dialog('Delete?', '', async () => {

@@ -159,6 +159,18 @@ body.chat-active #selpop{z-index:1300}
 .chat-member{display:flex;align-items:center;gap:12px;padding:10px 0}
 .chat-member small{display:block;color:var(--mute);margin-top:4px}
 .chat-member strong{font-size:14px;font-weight:500}
+.chat-search-options{display:grid;gap:8px;margin:0 12px 12px}
+.chat-search-options label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0;font-size:13px;color:var(--mute)}
+.chat-search-options select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--acc-s);color:var(--ink)}
+.chat-edit-dialog form{padding:0 16px 16px}
+.chat-edit-composer{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:8px 12px;display:flex;flex-direction:column;gap:4px}
+.chat-edit-composer textarea,.chat-edit-dialog .text-color-rich{display:block;width:100%;min-height:72px;max-height:288px;padding:8px 2px;resize:none;line-height:24px;font:16px Manrope,system-ui,sans-serif;background:var(--card);color:var(--ink);overflow-wrap:anywhere}
+.chat-edit-dialog .text-color-input{display:flex;flex-direction:column;min-width:0}
+.chat-edit-dialog .text-color-tools{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;margin:0}
+.chat-edit-dialog .chat-compose-tools{display:flex;gap:2px;align-items:center;min-height:36px}
+.chat-edit-dialog .chat-edit-spacer{flex:1}
+.chat-edit-dialog .chat-send{border-left:1px solid var(--line);border-radius:0;margin-left:8px;width:44px;flex-basis:44px;color:var(--acc)}
+.chat-edit-emoji{max-height:220px;overflow:auto;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
 #messages .chat-search-result{display:block;width:100%;text-align:left;padding:12px 8px;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
 .chat-search-result strong{display:block;color:var(--acc);margin-bottom:5px}
 .chat-search-result small{display:block;color:var(--mute);margin-top:5px}

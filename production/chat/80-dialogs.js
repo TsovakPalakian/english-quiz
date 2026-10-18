@@ -140,19 +140,38 @@
     el('msgRightTitle').textContent = 'Search';
     el('msgInfoContent').hidden = true;
     el('msgSearchContent').hidden = false;
+    if (!el('msgSearchOptions')) {
+      el('msgTextSearch')
+        .closest('label')
+        .insertAdjacentHTML(
+          'afterend',
+          '<div id="msgSearchOptions" class="chat-search-options"><label><span>Mode</span><select id="msgSearchMode" aria-label="Search mode"><option value="prefix">Words</option><option value="exact">Exact phrase</option><option value="regex">Regex</option></select></label><label class="chat-mute-choice"><span>Case sensitive</span><input id="msgSearchCase" type="checkbox"></label></div>',
+        );
+      el('msgSearchMode').onchange = () => search().catch((error) => status(error.message));
+      el('msgSearchCase').onchange = () => search().catch((error) => status(error.message));
+    }
     el('msgTextSearch').focus();
   }
   async function search(older = false) {
     const q = el('msgTextSearch').value.trim(),
       id = room,
       c = kind,
-      token = ++searchToken;
+      token = ++searchToken,
+      searchMode = el('msgSearchMode')?.value || 'prefix',
+      caseSensitive = !!el('msgSearchCase')?.checked;
     el('msgSearchMore').hidden = true;
     if (!q) {
       el('msgSearchResults').replaceChildren();
       return;
     }
-    const result = await request('history', { roomId: id, category: c, q, ...(older ? { before: searchBefore } : {}) });
+    const result = await request('history', {
+      roomId: id,
+      category: c,
+      q,
+      searchMode,
+      caseSensitive,
+      ...(older ? { before: searchBefore } : {}),
+    });
     if (token !== searchToken || id !== room || q !== el('msgTextSearch').value.trim()) return;
     const html = [...result.messages]
       .reverse()

@@ -1,6 +1,7 @@
 .color-picker-button{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;min-width:40px;padding:8px!important;border:1px solid var(--line);border-radius:8px;background:var(--card);vertical-align:middle}
 .color-picker-sample{display:block;width:22px;height:22px;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent);border-radius:0;pointer-events:none}
-.color-picker-popup{position:fixed;z-index:10000;width:232px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);box-shadow:0 8px 24px #0003}
+.color-picker-popup{position:fixed;z-index:10050;width:232px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);box-shadow:0 8px 24px #0003}
+dialog .color-picker-popup{z-index:1}
 .color-picker-swatches{display:grid;grid-template-columns:repeat(6,28px);gap:8px;margin-bottom:12px}
 .color-picker-swatches button{width:28px;height:28px;min-width:0;padding:0;border:1px solid var(--line);border-radius:0}
 .color-picker-popup label{display:flex;align-items:center;gap:10px;font-size:14px}.color-picker-popup input{width:130px;min-width:0;height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}

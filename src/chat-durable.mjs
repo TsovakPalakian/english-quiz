@@ -173,10 +173,24 @@ export class ChatRoom extends Store{
   }
   history(actor,body){
     const member=this.member(actor),kind=category(body.category||'personal'),before=integer(body.before||0),after=integer(body.after||0),q=String(body.q||'').trim().slice(0,120);
-    const terms=(q.match(/[\p{L}\p{N}_]+/gu)||[]).map(word=>word.toLocaleLowerCase());
+    const mode=['exact','regex','prefix'].includes(body.searchMode)?body.searchMode:'prefix';
+    const caseSensitive=!!body.caseSensitive;
+    const terms=mode==='prefix'?(q.match(/[\p{L}\p{N}_]+/gu)||[]).map(word=>caseSensitive?word:word.toLocaleLowerCase()):[];
+    let regex=null;
+    if(mode==='regex'&&q){
+      try{regex=new RegExp(q,caseSensitive?'':'i');}catch{fail(400,'Invalid regular expression.');}
+    }
+    const match=row=>{
+      if(!q)return true;
+      const bodyText=row.body||'';
+      if(mode==='exact')return caseSensitive?bodyText.includes(q):bodyText.toLocaleLowerCase().includes(q.toLocaleLowerCase());
+      if(mode==='regex')return regex.test(bodyText);
+      const words=(caseSensitive?bodyText:bodyText.toLocaleLowerCase()).match(/[\p{L}\p{N}_]+/gu)||[];
+      return terms.every(term=>words.some(word=>word.startsWith(term)));
+    };
     const rows=[];let cursor=0;
     do{const batch=this.rows("SELECT m.* FROM messages m WHERE m.category=? AND (m.id>? OR m.category='learning') AND (?=0 OR m.id<?) AND (?=0 OR m.id>?) AND (?=0 OR "+(after?'m.id>?':'m.id<?')+") ORDER BY m.id "+(after?'ASC':'DESC')+' LIMIT 100',kind,member.joined,before,before,after,after,cursor,cursor);
-      for(const row of batch){const words=terms.length?(row.body.toLocaleLowerCase().match(/[\p{L}\p{N}_]+/gu)||[]):[];if(terms.every(term=>words.some(word=>word.startsWith(term))))rows.push(row);if(rows.length===51)break;}
+      for(const row of batch){if(match(row))rows.push(row);if(rows.length===51)break;}
       if(rows.length===51||batch.length<100)break;cursor=batch.at(-1).id;
     }while(true);
     const page=rows.slice(0,50);if(!after)page.reverse();
