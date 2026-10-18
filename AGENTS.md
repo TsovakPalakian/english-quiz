@@ -8,3 +8,4 @@
 - Never commit or push; the user does that.
 - Right after each publication, mark the stage done in docs/refactoring-plan.md with the commit (if any) and the deployment version.
 - Edit site JavaScript only in client/; root preview.js is generated from client/*.js by `npm run build:preview` and is never edited by hand.
+- Edit chat JavaScript only in production/chat/; production/chat.js is generated from production/chat/*.js by the same command and is never edited by hand.

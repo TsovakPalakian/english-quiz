@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
-import {previewSource} from './build-preview.mjs';
+import {bundles,bundleSource} from './build-preview.mjs';
 
-assert.ok(readFileSync(new URL('../preview.js',import.meta.url),'utf8')===previewSource(),'preview.js is out of date with client/: run npm run build:preview');
-console.log('preview.js matches client/');
+for(const [target,dir] of Object.entries(bundles))
+  assert.ok(readFileSync(new URL('../'+target,import.meta.url),'utf8')===bundleSource(target),target+' is out of date with '+dir+'/: run npm run build:preview');
+console.log('Generated bundles match their parts');
