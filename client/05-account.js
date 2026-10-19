@@ -443,7 +443,7 @@
       const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
       const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" name="password" type="password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i></button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
       const decorate=()=>{const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
-      const google='<div class="auth-divider"><span>or</span></div><button class="btn auth-google" type="button" data-google-auth>Continue with Google</button>';
+      const google='<div class="auth-divider"><span>or</span></div><button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
@@ -470,8 +470,8 @@
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
         '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
-        '<label for="otpCode">Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Sign in with code</button></form>' +
+        '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
+        '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
         google+'</div></div>';
       decorate();
     }
@@ -560,6 +560,115 @@
         '<p class="label">Repeat new password</p><input name="repeat" type="password" minlength="8" maxlength="32" autocomplete="new-password" required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
+    const guestLogo = document.querySelector('.guest-brand');
+    let logoTaps = 0, logoLastTap = 0, logoHideTimer;
+    function scatterLogoMotto(motto) {
+      const bounds = motto.getBoundingClientRect();
+      const source = document.createElement('canvas');
+      source.width = Math.ceil(bounds.width);
+      source.height = Math.ceil(bounds.height);
+      const ink = source.getContext('2d', {willReadFrequently: true});
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!ink || !context || !source.width || !source.height) return;
+      // Sample the actual letter positions so particles originate in the lettering.
+      for (const line of motto.querySelectorAll('b, span')) {
+        const style = getComputedStyle(line);
+        ink.font = style.font;
+        ink.fillStyle = style.color;
+        ink.textBaseline = 'alphabetic';
+        const text = line.firstChild;
+        if (!text) continue;
+        const range = document.createRange();
+        for (let i = 0; i < text.length; i++) {
+          range.setStart(text, i); range.setEnd(text, i + 1);
+          const rect = range.getBoundingClientRect();
+          ink.fillText(text.textContent[i], rect.left - bounds.left,
+            rect.bottom - bounds.top - parseFloat(style.fontSize) * 0.18);
+        }
+      }
+      const pixels = ink.getImageData(0, 0, source.width, source.height).data;
+      const colors = ['#e86586', '#edb44b', '#53ba95', '#49b8db', '#a486df'];
+      const width = window.innerWidth, height = window.innerHeight;
+      const particles = [];
+      for (let y = 0; y < source.height; y += 2) {
+        for (let x = 0; x < source.width; x += 2) {
+          const offset = (y * source.width + x) * 4;
+          if (pixels[offset + 3] < 45) continue;
+          const angle = Math.random() * Math.PI * 2;
+          const originX = bounds.left + x, originY = bounds.top + y;
+          const dx = Math.cos(angle), dy = Math.sin(angle);
+          const edgeX = dx > 0 ? (width - originX) / dx : -originX / dx;
+          const edgeY = dy > 0 ? (height - originY) / dy : -originY / dy;
+          const distance = Math.min(edgeX, edgeY) * (0.75 + Math.random() * 0.4);
+          particles.push({x: originX, y: originY, vx: dx * distance, vy: dy * distance,
+            size: 0.7 + Math.random() * 1.1, delay: Math.random() * 0.18,
+            color: colors[Math.floor(Math.random() * colors.length)]});
+        }
+      }
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.ceil(width * ratio);
+      canvas.height = Math.ceil(height * ratio);
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      canvas.className = 'brand-motto-particles';
+      canvas.setAttribute('aria-hidden', 'true');
+      context.scale(ratio, ratio);
+      document.body.append(canvas);
+      const started = performance.now();
+      function frame(now) {
+        const progress = Math.min((now - started) / 1600, 1);
+        context.clearRect(0, 0, canvas.width / ratio, canvas.height / ratio);
+        for (const particle of particles) {
+          const age = Math.max(0, progress - particle.delay) / (1 - particle.delay);
+          const travel = 1 - Math.pow(1 - age, 2);
+          context.globalAlpha = Math.min(1, (1 - age) / 0.45);
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x + particle.vx * travel,
+            particle.y + particle.vy * travel,
+            particle.size * (1 - progress * 0.6), 0, Math.PI * 2);
+          context.fill();
+        }
+        if (progress < 1 && canvas.isConnected) requestAnimationFrame(frame);
+      }
+      frame(started);
+      return canvas;
+    }
+    function hideLogoMotto(motto) {
+      clearTimeout(logoHideTimer);
+      guestLogo.setAttribute('aria-expanded', 'false');
+      logoTaps = 0;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        motto.hidden = true;
+        return;
+      }
+      const particles = scatterLogoMotto(motto);
+      motto.classList.add('is-dissolving');
+      logoHideTimer = setTimeout(() => {
+        motto.hidden = true;
+        motto.classList.remove('is-dissolving');
+        particles?.remove();
+      }, 1600);
+    }
+    guestLogo?.addEventListener('click', () => {
+      const motto = document.getElementById('brandMotto');
+      if (!motto) return;
+      if (motto.classList.contains('is-dissolving')) return;
+      if (guestLogo.getAttribute('aria-expanded') === 'true') {
+        hideLogoMotto(motto);
+        return;
+      }
+      const now = Date.now();
+      logoTaps = now - logoLastTap < 1200 ? logoTaps + 1 : 1;
+      logoLastTap = now;
+      if (logoTaps < 3) return;
+      logoTaps = 0;
+      guestLogo.setAttribute('aria-expanded', 'true');
+      motto.hidden = false;
+      clearTimeout(logoHideTimer);
+      logoHideTimer = setTimeout(() => hideLogoMotto(motto), 3000);
+    });
     let ownAccountFlight = null;
     function loadOwnAccount() {
       const actor = authUser?.id, generation = viewGen;

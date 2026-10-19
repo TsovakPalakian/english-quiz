@@ -21,7 +21,7 @@ const api={
   '/api/exams':{exams:[]},'/api/exams/work':{work:[]},
   '/api/messages':{rooms:[],groups:[],contacts:[],unread:{},total:0},
 };
-const types={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.jpg':'image/jpeg','.ico':'image/x-icon','.ttf':'font/ttf'};
+const types={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.jpg':'image/jpeg','.ico':'image/x-icon','.svg':'image/svg+xml','.ttf':'font/ttf'};
 const server=createServer((request,response)=>{
   const path=new URL(request.url,'http://localhost').pathname;
   if(request.method!=='GET'){response.writeHead(405);response.end('Read-only preview');return;}

@@ -2,13 +2,19 @@
 import {readFileSync,writeFileSync,readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {createRequire} from 'node:module';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
+const require=createRequire(import.meta.url);
+export function inviteQrDependency(){
+  const library=readFileSync(require.resolve('qrcode-generator'),'utf8');
+  return 'const createInviteQr = (() => { const module = {exports:{}}; const exports = module.exports;\n'+library+'\nreturn module.exports; })();\n';
+}
 export const bundles={'preview.js':'client','production/chat.js':'production/chat'};
 // Plain scripts, not modules: parts share one scope, so each part must end with a newline.
 export function bundleSource(target){
   const dir=resolve(root,bundles[target]);
-  return readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
+  return (target==='preview.js'?inviteQrDependency():'')+readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
     const text=readFileSync(resolve(dir,name),'utf8');
     if(!text.endsWith('\n'))throw new Error(bundles[target]+'/'+name+' must end with a newline');
     return text;

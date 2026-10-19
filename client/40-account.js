@@ -1,3 +1,10 @@
+    document.addEventListener('input',event=>{
+      if(!event.target.matches('#otpLoginForm [name="email"]'))return;
+      const form=event.target.closest('form');
+      form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
+      form.querySelector('[name="code"]').value='';
+      form.querySelector('[data-form-status]').textContent='';
+    });
     function captureInviteFromLocation() {
       try {
         const params = new URLSearchParams(location.search);
@@ -193,6 +200,7 @@
       }
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
+      if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
@@ -263,12 +271,20 @@
       if (otpSend) {
         const form = otpSend.closest("#otpLoginForm");
         const status = form && form.querySelector("[data-form-status]");
-        const email = form && form.querySelector('[name="email"]')?.value;
+        const emailField=form?.querySelector('[name="email"]');
+        if(!emailField?.reportValidity())return;
+        const email = emailField.value;
+        form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
+        form.querySelector('[name="code"]').value='';
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
         otpSend.disabled = true;
         accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
+          if(!form.isConnected||emailField.value!==email)return;
           if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
+          form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=false;if('disabled' in field)field.disabled=false;});
+          form.querySelector('[name="code"]').focus();
         }).catch((err) => {
+          if(!form.isConnected||emailField.value!==email)return;
           if (status) { status.textContent = err.message; status.classList.add("bad"); }
         }).finally(() => { otpSend.disabled = false; });
         return;
