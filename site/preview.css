@@ -2964,6 +2964,7 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .home-group-meta > span { border: 1px solid var(--line); padding: 4px 8px; background: var(--bg); color: var(--mute); font-size: 12px; border-radius: 3px; }
 .home-group-body > .btn { width: 100%; }
 .site-copyright { margin-top: auto; padding-top: 26px; color: var(--mute); font-size: 12px; text-align: center; overflow-wrap: anywhere; }
+body[data-shell-pending] .shell { visibility: hidden; pointer-events: none; }
 .guest-brand { display: none; }
 .auth-brand { display: none; }
 body.guest-auth .side, body.guest-auth .mobile-tools, body.guest-auth .tabbar,
@@ -2971,7 +2972,7 @@ body.guest-auth #account > .meta, body.guest-auth #account .account-links, body.
 body.guest-auth .shell { display: block; width: 100%; max-width: none; margin: 0; padding: 0; }
 body.guest-auth .phone { width: 100%; min-height: 100dvh; background: transparent; border: 0; box-shadow: none; }
 body.guest-auth .wrap { min-height: 100dvh; padding: 24px 16px; }
-html:has(body.guest-auth) { scrollbar-gutter: stable; }
+html:has(body:not(.chat-active):not(.guest-home)) { scrollbar-gutter: stable; }
 body.guest-auth #account { flex: 0 0 auto; width: 100%; max-width: 440px; margin: 0 auto auto; overflow-anchor: none; }
 body.guest-auth .auth-brand { display: flex; justify-content: center; align-items: center; gap: 12px; align-self: center; padding: 0; margin: 0 0 24px; background: transparent; border: 0; }
 body.guest-auth .auth-brand .brand-mark { flex-basis: 50px; width: 50px; height: 50px; }
@@ -3053,11 +3054,15 @@ body.chat-active .site-copyright { display: none; }
 .resource-fold > summary { cursor: pointer; font-weight: 600; color: var(--acc); padding: 10px 0; }
 #groupList > .decks { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .group-person { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+button.group-person { width: 100%; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+button.group-person:hover { background: var(--acc-s); }
 .group-person b { font-size: 14px; font-weight: 600; }
 #groupList { margin-top: 16px; }
 .group-detail-destinations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 20px; }
 .group-exam-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; width: 100%; }
 .group-exam-summary > span { overflow-wrap: anywhere; }
+.group-exam-summary > .has-assigned-works { color: var(--acc); font-weight: 700; }
+#adminGroupDetail .accounts-invite-section, #groupDetailInvite .accounts-invite-section { display: block; margin-block: 24px; }
 @media (max-width: 480px) { .group-exam-summary { grid-template-columns: minmax(0, 1fr); } }
 .group-people-fold { margin: 12px 0; border-top: 1px solid var(--line); }
 .group-people-fold > summary { padding: 14px 0; font-size: 16px; font-weight: 600; cursor: pointer; }

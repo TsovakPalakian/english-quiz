@@ -21,9 +21,12 @@ try{
   const page=await browser.newPage(),errors=[];
   let user=null;
   let otpRequestFails=true;
+  let releaseInitialAccount;
+  const initialAccountGate = new Promise(resolve => { releaseInitialAccount = resolve; });
   page.on('pageerror',error=>errors.push(error.message));
-  await page.route('**/api/**',route=>{
+  await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
+    if(path==='/api/me') await initialAccountGate;
     let data={};
     if(path==='/api/auth/otp/request'){
       if(otpRequestFails){otpRequestFails=false;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic code delivery failure.'})});}
@@ -41,7 +44,11 @@ try{
     if(path.includes('catalogs'))data={documents:{},cards:[],next:null};
     return route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
-  await page.goto('http://127.0.0.1:'+server.address().port);
+  await page.goto('http://127.0.0.1:'+server.address().port, {waitUntil:'domcontentloaded'});
+  assert.equal(await page.locator('.shell').isVisible(), false, 'Shell stays hidden until initial account check finishes');
+  assert.equal(await page.locator('#homeDemo').isVisible(), false, 'No transient dashboard while account is loading');
+  releaseInitialAccount();
+  await page.waitForFunction(()=>!document.body.hasAttribute('data-shell-pending'));
   await page.waitForFunction(()=>document.querySelector('.hello')?.style.visibility!=='hidden');
   assert.deepEqual(errors,[],'Guest app must boot without uncaught exceptions');
   assert.equal(await page.locator('.side').isVisible(),false,'Guest home has no sidebar');

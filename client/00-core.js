@@ -166,6 +166,7 @@
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
       document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
+      if (accountChecked) document.body?.removeAttribute('data-shell-pending');
       syncRoleHomeControls();
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {

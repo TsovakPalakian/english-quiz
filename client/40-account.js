@@ -144,6 +144,7 @@
         paintHomeAccount();
         paintAccount();
         show("home");
+        document.body.removeAttribute('data-shell-pending');
       });
     }
     function performLogout() {

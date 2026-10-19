@@ -761,6 +761,9 @@
     node.dataset.clientKey = m.clientKey || '';
     node.dataset.content = content;
     node.dataset.day = dateLabel(m.createdMs || m.created * 1000);
+    node.dataset.senderId = m.senderId || '';
+    node.dataset.senderName = m.sender || '';
+    node.dataset.createdMs = String(m.createdMs || m.created * 1000);
     if (!m.deleted) decorateLinks(node);
     if (group) syncDays();
     icons();
@@ -796,10 +799,27 @@
       });
     }
   }
+  function sameSenderSeries(previous, message) {
+    const gap = Number(message.createdMs) - Number(previous?.createdMs);
+    return !!previous && !!message.senderId && previous.senderId === message.senderId &&
+      previous.day === message.day && Number.isFinite(gap) && gap >= 0 && gap <= 60000 &&
+      !previous.deleted && !message.deleted;
+  }
   function syncDays() {
     timeline.querySelectorAll('.chat-empty,.msg-day').forEach((n) => n.remove());
-    let day = '';
-    for (const node of timeline.querySelectorAll('.msg-message'))
+    const groupChat = isGroupChat(data.rooms.find(row => row.id === room));
+    let day = '', previous = null, addedAvatar = false;
+    for (const node of timeline.querySelectorAll('.msg-message')) {
+      const message = {...node.dataset, deleted: node.classList.contains('is-deleted')};
+      const continuation = sameSenderSeries(previous, message);
+      node.classList.toggle('is-series-continuation', continuation);
+      node.classList.toggle('is-group-message', groupChat);
+      const face = node.querySelector('.msg-sender-avatar');
+      if (groupChat && !continuation && !message.deleted && !face) {
+        node.insertAdjacentHTML('afterbegin', avatar(message.senderName, false, message.senderId));
+        node.firstElementChild.classList.add('msg-sender-avatar');
+        addedAvatar = true;
+      } else if ((!groupChat || continuation || message.deleted) && face) face.remove();
       if (node.dataset.day !== day) {
         day = node.dataset.day;
         const heading = document.createElement('p');
@@ -807,6 +827,9 @@
         heading.textContent = day;
         node.before(heading);
       }
+      previous = message;
+    }
+    if (addedAvatar) scheduleProfiles();
   }
   function paintMessages() {
     timelineResize.disconnect();

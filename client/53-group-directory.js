@@ -23,7 +23,10 @@
       return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login).localeCompare(b.name||b.login));
     }
     function groupPeopleHTML(users) {
-      return users.length?users.map(user=>'<div class="group-person"><b>'+esc(user.name||user.login)+'</b><span class="label">'+esc(roleLabel(user.role))+'</span></div>').join(''):'<p class="hint">None assigned.</p>';
+      return users.length?users.map(user=>{
+        const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
+        return '<'+tag+' class="group-person"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><b>'+esc(user.name||user.login)+'</b><span class="label">'+esc(roleLabel(user.role))+'</span></'+tag+'>';
+      }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
       const rows=examShown().filter(row=>String(row.groupId)===String(group.id)||group.examIds?.includes(row.id));
@@ -37,12 +40,19 @@
       document.getElementById('groupDetailRetry').hidden=!status.textContent;
       document.getElementById('groupDetailTitle').textContent=group?.title||'Group';
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
+      const invite=document.getElementById('groupDetailInvite'),inviteKey=groupDirectoryKey()+':'+group.id;
+      if(invite.dataset.key!==inviteKey){invite.replaceChildren();delete invite.dataset.key;}
+      if(groupDirectoryReady()&&!groupDirectory.error&&invite.dataset.key!==inviteKey){
+        const candidates=groupDirectory.users.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
+        invite.innerHTML=groupInviteHTML(group.id,candidates);
+        invite.dataset.key=inviteKey;
+      }
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;
       document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
-      document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
+      document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
       paintPagePath('groupdetail');
     }
     function prepareGroupDetail() {

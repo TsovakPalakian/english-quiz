@@ -91,6 +91,10 @@ body.chat-active #selpop{z-index:1300}
 .chat-timeline{flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 20px 24px;overscroll-behavior:contain;overflow-anchor:none;contain:paint;scroll-padding-bottom:24px}
 #messages .msg-message{width:fit-content;max-width:85%;min-width:110px;margin:10px 0;padding:10px 12px;border-radius:8px;background:var(--card);box-shadow:0 1px 2px color-mix(in srgb,var(--ink) 8%,transparent);overflow-wrap:anywhere;position:relative}
 #messages .msg-message.is-own{margin-left:auto;background:var(--acc-s)}
+#messages .msg-message.is-series-continuation>header{display:none}
+#messages .msg-message.is-group-message{margin-left:44px;margin-right:0;max-width:calc(85% - 44px);content-visibility:visible}
+#messages .msg-message>.msg-sender-avatar{position:absolute;left:-44px;top:0;width:34px;height:34px;font-size:13px}
+@media(max-width:700px){#messages .msg-message.is-group-message{max-width:calc(100% - 44px)}}
 #messages .msg-message.is-learning{border-left:3px solid var(--acc)}
 .msg-message header{display:flex;gap:8px;align-items:center;color:var(--acc);font-size:12px;margin-bottom:4px}
 #messages .msg-message p{white-space:pre-wrap;overflow-wrap:anywhere}

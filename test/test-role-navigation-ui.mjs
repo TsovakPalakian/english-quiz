@@ -30,6 +30,13 @@ try{
       if(path==='/api/lessons')data={materials:[{id:31,title:'Fixture lesson',date:'2026-10-19',published:true,stageRevision:1,blocks:[]}]};
       if(path==='/api/exams')data={exams:[{id:51,title:'Fixture exam',groupId:41,groupTitle:'A1 Fixture group',published:true,date:'2026-10-19',blocks:[{id:52,title:'Fixture block',published:true,materials:[{id:53,type:'text',tab:'overview',html:'<p>Fixture exam content</p>'}]}]}]};if(path==='/api/exams/work')data={work:[]};
       if(path==='/api/admin/users')data={users:[...teachers,student]};
+      if(path==='/api/admin/users/'+student.id)data={user:student};
+      if(path==='/api/accounts/invites'){
+        const body=route.request().postDataJSON();
+        assert.equal(body.groupId,41);
+        assert.ok(teachers.some(teacher=>teacher.id===body.teacherId));
+        data={token:'fixture-invite-token',groupTitle:'A1 Fixture group',expiresAt:Date.now()+86400000};
+      }
       if(path==='/api/groups/members')data={members:[{accountId:student.id,groupId:41}]};
       if(path==='/api/accounts/group-teachers')data={assignments:[{groupId:41,teacherIds:teachers.map(t=>t.id)}]};
       if(path.includes('/catalogs/'))data={documents:{},cards:[],next:null};
@@ -77,6 +84,17 @@ try{
     }else{
       await page.locator('.side nav [data-jump="groups"]').click();
       await page.locator('[data-group-level="A1"]').waitFor();
+      await page.locator('#groups').evaluate(node=>{node.style.minHeight='150vh';});
+      const shellPosition = () => page.locator('.phone').evaluate(node=>{
+        const box=node.getBoundingClientRect();return {x:box.x,width:box.width};
+      });
+      const groupsPosition = await shellPosition();
+      for(const destination of ['tenses','admin','groups']){
+        await page.locator('.side nav [data-jump="'+destination+'"]').click();
+        await page.locator('#'+destination+'.on').waitFor();
+        assert.deepEqual(await shellPosition(),groupsPosition,'Main panel must not shift between Groups, Grammar and Accounts');
+      }
+      await page.locator('#groups').evaluate(node=>{node.style.minHeight='';});
       assert.equal(await page.locator('#groupList > .decks').evaluate(n=>getComputedStyle(n).gridTemplateColumns.split(' ').length),3);
       await page.locator('[data-group-level="A1"]').click();
       assert.equal(await page.locator('#groups [data-jump="exams"], #groupOverview, #groupLevelTeachers').count(),0,'Groups has no separate Exams, overview or teacher list');
@@ -92,8 +110,19 @@ try{
       await page.locator('#groupdetail summary').filter({hasText:'Teachers'}).click();
       await page.locator('#groupDetailTeachers').getByText('First teacher',{exact:true}).waitFor();
       assert.equal(await page.locator('#groupDetailTeachers button').count(),0,'Teacher descriptions are not account links');
+      const groupInvite=page.locator('#groupDetailInvite');
+      await groupInvite.locator('[data-invite-create]').click();
+      await groupInvite.locator('[data-invite-url]:visible').waitFor();
+      assert.match(await groupInvite.locator('[data-invite-url]').inputValue(), /invite=fixture-invite-token/);
+      assert.equal(await groupInvite.locator('[data-invite-copy]').isVisible(),true);
+      assert.equal(await groupInvite.locator('[data-invite-qr] img').isVisible(),true,'Groups invite uses local QR generation');
       await page.locator('#groupdetail summary').filter({hasText:'Students'}).click();
       await page.locator('#groupDetailStudents').getByText('Group student',{exact:true}).waitFor();
+      await page.locator('#groupDetailStudents button[data-account="user"]').click();
+      await page.locator('#adminuser.on').waitFor();
+      await page.locator('#adminUser').getByText('student',{exact:true}).waitFor();
+      await page.locator('#adminuser [data-nav-back]').click();
+      await page.locator('#groupdetail.on').waitFor();
       await page.locator('[data-detail-exams]').click();await page.locator('#exams.on').waitFor();
       await page.locator('#examList [data-exam-assign="51"] svg').waitFor();
       await page.locator('#examList [data-exam-open="51"]').click();await page.locator('#examblocks.on').waitFor();
@@ -107,6 +136,13 @@ try{
       await page.reload();await page.locator('#groupdetail.on').waitFor();
       await page.locator('#groupdetail summary').filter({hasText:'Teachers'}).click();
       await page.locator('#groupDetailTeachers').getByText('Second teacher',{exact:true}).waitFor();
+      await page.locator('.side nav [data-jump="admin"]').click();
+      await page.locator('[data-admin-level="A1"]').click();
+      await page.locator('[data-admin-group="41"]').click();
+      await page.locator('#admingroup.on').waitFor();
+      assert.equal(await page.locator('#adminGroupDetail [data-group-invites]').isVisible(),true,'Invite link section is visible to staff');
+      assert.equal(await page.locator('#adminGroupDetail [data-invite-create]').isVisible(),true,'Create invite is available to teachers and developers');
+      assert.ok(await page.locator('#adminGroupDetail [data-invite-teacher] option').count()>0);
     }
     for(const width of [1440,390]){
       await page.setViewportSize({width,height:1000});
