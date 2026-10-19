@@ -13,7 +13,7 @@ function pascal(kebab){
 }
 
 function collectNames(){
-  const names=new Set(['circle-minus','circle-plus','mic','video','square']);
+  const names=new Set(['circle-minus','circle-plus','mic','video','square','user-plus','eye-off']);
   const scan=(text)=>{
     for(const match of text.matchAll(/data-(?:lucide|chat-icon)="([a-z0-9-]+)"/g))names.add(match[1]);
     for(const match of text.matchAll(/\bicon\(([^)]*)\)/g))

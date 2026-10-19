@@ -125,7 +125,7 @@ body.chat-active #selpop{z-index:1300}
 #messages .chat-attachment-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;text-align:left;border-radius:6px}
 #messages .chat-attachment-menu button:hover{background:var(--acc-s)}
 #messages .chat-media-fallback{display:block;padding:10px;color:var(--acc);font-size:13px}
-#messages #msgMic{touch-action:none;user-select:none;-webkit-touch-callout:none}
+#messages #msgMic{touch-action:none;user-select:none;-webkit-touch-callout:none;min-width:44px;min-height:44px}
 #messages .chat-record-preview{display:block;align-self:center;width:160px;height:120px;object-fit:cover;border-radius:8px;margin-bottom:8px;transform:scaleX(-1)}
 #msgSendState{flex:1;min-width:0;font-size:11px;overflow-wrap:anywhere;padding:0 8px;color:var(--mute)}
 #messages .chat-send{border-left:1px solid var(--line);border-radius:0;margin-left:8px;width:44px;flex-basis:44px;color:var(--acc)}

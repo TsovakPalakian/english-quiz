@@ -57,11 +57,17 @@
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
-      return ['groups','exams','library','stats','profile','speakouteditor','days','allwords'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
+      document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
+      document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll('[data-jump]').forEach(button=>{
-        if(['groups','exams','library','stats','profile','days','allwords','tenses'].includes(button.dataset.jump)||button.id==='homeStudy')button.hidden=!authUser;
+        if(['groups','exams','library','stats','profile','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
+          const role=button.dataset.navRole;
+          const allowed=!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role));
+          button.hidden=!authUser||!allowed;
+        }
       });
     }
     function chromeMark(id) {
@@ -69,6 +75,10 @@
       const base = examish ? "exams" : (dayScreens[id] || id);
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
+      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
+      if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
+      if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
+      if(id==='groupdetail')return 'groups';
       if (student) {
         if (base === "groups" || id === "days") return "days";
         if (["allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "allwords";
@@ -84,7 +94,7 @@
       return listed.includes(mark);
     }
     paintGuestAccess();
-    (function holdPlace() {
+    function holdPlace() {
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
@@ -98,18 +108,33 @@
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
       });
-    })();
+    }
+    function roleHome() {
+      if(viewAccount)return 'home';
+      return authUser?.role==='DEVELOPER'?'bugs':authUser?.role==='ADMIN'?'groups':'home';
+    }
+    function syncRoleHomeControls() {
+      const home=roleHome();
+      for(const id of ['groups','bugs']){
+        const root=document.getElementById(id),crumb=root?.querySelector('.meta .crumb');
+        if(crumb)crumb.hidden=id===home&&(id!=='groups'||!groupViewLevel);
+      }
+    }
     function show(id) {
+      if(id==='home'){id=roleHome();if(id==='groups')groupViewLevel='';}
+      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (["admin","adminuser","admingroup","admingrouplevel"].includes(id) && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
       if (id === "account" && authUser) id = "profile";
+      if(id==='home')id=roleHome();
+      if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();
@@ -117,6 +142,7 @@
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
       if (id === "material" && window.paintMaterial) window.paintMaterial();
       if (id === "groups" && window.paintGroups) window.paintGroups();
+      if (id === "groupdetail" && typeof prepareGroupDetail==='function') prepareGroupDetail();
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
@@ -138,6 +164,9 @@
       if (id === "library") paintTextCount();
       if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
+      document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
+      syncRoleHomeControls();
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);
@@ -149,7 +178,6 @@
       if (settings) settings.hidden = true;
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
-      syncHomeBack();
       hideSelpop();
       rememberPlace();
       const shown = document.getElementById(id);
@@ -163,6 +191,10 @@
       const group=classGroups.find(row=>String(row.id)===String(groupId));
       const title=group?.title||exam?.groupTitle||'Unassigned';
       const level=group?accountGroupLevel(group):exam?accountGroupLevel({title}):examViewLevel;
+      if(isTeacher()&&!viewAccount)return [{id:'groups',label:'Groups',level:''},
+        ...(group?[{id:'groups',label:level==='unassigned'?'Unassigned':level,level},{id:'groupdetail',label:title,groupId:group.id}]:[]),
+        {id:'exams',label:'Exams',examLevel:level,examGroup:groupId,examSection},
+        ...(exam?[{id:'examblocks',label:exam.title||'Exam'}]:[])];
       return [{id:'exams',label:'Exams',examLevel:''},
         ...(level&&authUser?.role!=='USER'?[{id:'exams',label:level==='unassigned'?'Unassigned':level,examLevel:level}]:[]),
         ...(groupId!==null&&groupId!==undefined?[{id:'exams',label:title,examLevel:level,examGroup:groupId}]:[]),
@@ -177,6 +209,7 @@
       if (!root) return [];
       const group = classGroups.find((row) => row.id === classGroupId);
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return groupPath(group);
       if (id.startsWith('grammar')) {
@@ -207,7 +240,7 @@
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", add: "library", allwords: "library", tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
+      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -237,7 +270,7 @@
       if(target.dataset.pathAdminBucket!==undefined){pushHistory();adminBucket=target.dataset.pathAdminBucket;adminTab='accounts';show('admin');paintAdminAccounts();return;}
       if(target.dataset.pathExamLevel!==undefined){const index=[...target.closest('ol').children].indexOf(target.parentElement),section=pagePathItems(document.querySelector('section.on')?.id)[index]?.examSection;pushHistory();examViewLevel=target.dataset.pathExamLevel;examViewGroup=target.dataset.pathExamGroup??null;examSection=section||'active';show('exams');return;}
       if(target.dataset.pathLevel!==undefined){pushHistory();groupViewLevel=target.dataset.pathLevel;show('groups');return;}
-      if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show('days');return;}
+      if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show(target.dataset.pagePath==='groupdetail'?'groupdetail':'days');return;}
       if (target.dataset.pagePath === "material") {
         pushHistory();
         lmState.tab = target.dataset.pageTab || "overview";
@@ -249,13 +282,6 @@
       const spot = document.querySelector("#songUser [data-lyric-return]");
       if (!spot) return;
       requestAnimationFrame(() => spot.scrollIntoView({ block: "center", inline: "nearest" }));
-    }
-    function syncHomeBack() {
-      const hidden = navStack.length === 0;
-      const btn = document.getElementById("homeBack");
-      const house = document.getElementById("homeHouse");
-      if (btn) btn.hidden = hidden;
-      if (house) house.hidden = hidden;
     }
     const backArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
     function mountCrumbs(scope = document) {
@@ -270,10 +296,6 @@
         home.dataset.jump = "home";
         home.setAttribute("aria-label", "Home");
         home.innerHTML = house;
-        if (btn.id === "homeBack") {
-          home.id = "homeHouse";
-          home.hidden = true;
-        }
         const wrap = document.createElement("span");
         wrap.className = "crumb";
         btn.before(wrap);
@@ -392,6 +414,7 @@
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
+      if (place.id === 'groupdetail' || place.id === 'days') return [place.id,place.classGroupId].join('|');
       if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
       if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
       if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
@@ -410,6 +433,7 @@
         adminGroupLevel: typeof adminGroupLevel === 'undefined' ? null : adminGroupLevel,
         adminBucket: typeof adminBucket === 'undefined' ? '' : adminBucket,
         groupViewLevel: typeof groupViewLevel === 'undefined' ? '' : groupViewLevel,
+        classGroupId: typeof classGroupId === 'undefined' ? '' : classGroupId,
         examViewLevel: typeof examViewLevel === 'undefined' ? '' : examViewLevel,
         examViewGroup: typeof examViewGroup === 'undefined' ? null : examViewGroup,
         examSection: typeof examSection === 'undefined' ? 'active' : examSection,
@@ -447,7 +471,6 @@
       if (last && placeKey(last) === placeKey(place)) return;
       navStack.push(place);
       if (navStack.length > 40) navStack.shift();
-      syncHomeBack();
     }
     function visit(id) {
       if (id === (document.querySelector("section.on") || {}).id && id !== "tenses" && id !== "tense" && id !== "marker") return;
@@ -465,7 +488,8 @@
         adminBucket = place.adminBucket || '';
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
-      if (place.id === 'groups') groupViewLevel = place.groupViewLevel || '';
+      if (place.id === 'groups'||place.id==='groupdetail') groupViewLevel = place.groupViewLevel || '';
+      if (['groupdetail','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
       if (place.id === 'exams'||place.examId) { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; examSection=place.examSection||'active'; }
       if(place.examId){
         examCurrentId=place.examId;
@@ -516,7 +540,6 @@
       if (!prev) {
         const here = (document.querySelector("section.on") || {}).id;
         if (fallback && fallback !== here) show(fallback);
-        else syncHomeBack();
         return;
       }
       restore(prev);
@@ -10133,6 +10156,7 @@
         ring.setAttribute("stroke-dasharray", learned + " " + (whole - learned));
         ring.style.strokeLinecap = learned ? "round" : "butt";
       }
+      if (typeof paintHomeDashboard === 'function') paintHomeDashboard({learned,total,pct});
     }
     const CLASS_PAGES = [
       { id: "lesson07", place: "lesson-07" },
@@ -10202,6 +10226,7 @@
       if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
     }
     function paintHomeAccount() {
+      document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&document.querySelector('section.on')?.id==='home');
       document.querySelectorAll('#home [data-stat]').forEach(button=>button.disabled=!authUser);
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
@@ -10209,7 +10234,7 @@
       demo.classList.toggle('guest-progress', !authUser);
       who.hidden = true;
       who.innerHTML = "";
-      demo.hidden = false;
+      demo.hidden = !authUser;
       paintHomeHello();
       paintHomeStats();
       paintHomeStudy();
@@ -10268,37 +10293,40 @@
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
+      const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" name="password" type="password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i></button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const decorate=()=>{const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
+      const google='<div class="auth-divider"><span>or</span></div><button class="btn auth-google" type="button" data-google-auth>Continue with Google</button>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
         const inviteHint = invite
           ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
-          : '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>';
+          : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
           ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
-          : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + flashHtml + inviteHint +
-          '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
-          '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
-          '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
+          : '<fieldset class="auth-role"><legend>Role</legend><div><label><input type="radio" name="role" value="USER" checked required />Student</label><label><input type="radio" name="role" value="ADMIN" required />Teacher</label></div></fieldset>';
+        box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1>' + flashHtml +
+          '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
+          '<label for="authEmail">Email</label><input id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+          '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
           roleField +
-          '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
-          '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
-          '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
-          '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';
+          passwordField(true)+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +google+inviteHint+'</div></div>';
+        decorate();
         return;
       }
-      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' + flashHtml +
+      box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
         '<div class="row" style="margin-bottom:10px"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
-        '<input name="password" type="password" maxlength="32" autocomplete="current-password" placeholder="Password" required />' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
+        passwordField(false)+
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
-        '<form id="otpLoginForm" data-login-mode="otp" hidden><input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
-        '<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
+        '<label for="otpCode">Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Sign in with code</button></form>' +
-        '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
-        '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-register">Create account</button></p></div></div>';
+        google+'</div></div>';
+      decorate();
     }
     function paintProfile() {
       const box = document.getElementById("profileBody");
@@ -10807,6 +10835,9 @@
       const allow = isDeveloper();
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
+      document.querySelectorAll('[data-shell-settings-open]').forEach(button=>{button.hidden=!authUser;});
+      document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
+      document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
       document.querySelectorAll('[data-teacher-only]').forEach(el => { el.hidden = !isTeacher() || !!viewAccount; });
       document.querySelectorAll("[data-nav-role]").forEach((el) => {
@@ -10814,7 +10845,8 @@
         el.hidden = role === "student" ? !student : role === "staff" ? !staff : false;
       });
       refreshAccountsCount();
-      document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
+      document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
+      const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
     }
     function archiveLabel(type) {
       return { lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
@@ -11672,7 +11704,7 @@
       paintAccount();
       const on = document.querySelector("section.on");
       if (on && (on.id === "account" || on.id === "profile")) show("home");
-      else if (on && on.id === "home") paintHomeAccount();
+      else if (on && on.id === "home") show("home");
       examPreload();
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
@@ -11852,6 +11884,13 @@
     });
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
+      const passwordToggle=e.target.closest('[data-auth-password]');
+      if(passwordToggle){
+        const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
+        field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));
+        passwordToggle.title=reveal?'Hide password':'Show password';passwordToggle.setAttribute('aria-label',passwordToggle.title);
+        passwordToggle.innerHTML='<i data-lucide="'+(reveal?'eye-off':'eye')+'" aria-hidden="true"></i>';window.lucide?.createIcons({root:passwordToggle});return;
+      }
       if (googleAuth) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
@@ -12141,6 +12180,7 @@
     function finishPlace() {
       placeBoot = true;
       resumePlace();
+      if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
     }
     function cardIdentity(item) {
       const word = String(item && item.word || "").trim().toLowerCase();
@@ -12922,6 +12962,8 @@
         paintGroups();
         paintLmDays();
         if(document.querySelector('section.on')?.id==='exams')examPaintList();
+        if(typeof paintHomeStats==='function'&&document.querySelector('section.on')?.id==='home')paintHomeStats();
+        if(typeof paintGroupDetail==='function'&&document.querySelector('section.on')?.id==='groupdetail')paintGroupDetail();
       }).catch((error) => window.LearningMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
     }
     function groupSave() {
@@ -12966,14 +13008,14 @@
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
       document.querySelector('#groups .meta h1').textContent=groupViewLevel?(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel):'Groups';
       paintPagePath('groups');
+      syncRoleHomeControls();
       const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
       const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
-      const overview=document.getElementById('groupOverview');if(overview)overview.innerHTML=metricPairs([['groups',levelRows.length],['students',levelRows.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',levelRows.reduce((sum,g)=>sum+g.lessonIds.length,0)]]);
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
       const query=document.getElementById('groupSearch')?.value.trim().toLocaleLowerCase()||'';
       const rows=levelRows.filter(group=>group.title.toLocaleLowerCase().includes(query));
-      box.innerHTML = rows.map((group) => {
+      box.innerHTML = '<h2>Study groups</h2>'+rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
@@ -12992,7 +13034,7 @@
       id = domEntityId(id);
       if (!classGroups.some((group) => group.id === id)) return;
       classGroupId = id;
-      visit("days");
+      visit(isTeacher()&&!viewAccount?'groupdetail':'days');
     }
     function groupCreate() {
       if (!canEditLessons()) return;
@@ -13324,6 +13366,7 @@
       try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
       paintLmDays();
       if (opts && opts.push) lmSchedulePush();
+      if(typeof paintHomeStats==='function'&&document.querySelector('section.on')?.id==='home')paintHomeStats();
     }
     function lmPullFromServer() {
       if (!authUser || viewSwitching) return Promise.resolve();
@@ -14498,6 +14541,7 @@
     }
     function paintLmDays() {
       const box = document.getElementById("lmDayList");
+      document.getElementById('days')?.classList.toggle('staff-group-lessons',isTeacher()&&!viewAccount);
       const newer = document.getElementById("lmNew");
       if (newer) newer.hidden = !canEditLessons();
       if (!box) return;
@@ -15077,6 +15121,74 @@
       paintLmDays();
     }
 
+    let groupDirectory = null, groupDirectoryJob = null;
+    function groupDirectoryKey() { return authUser?.id+':'+viewGen; }
+    function groupDirectoryReady() { return isTeacher()&&!viewAccount&&groupDirectory?.key===groupDirectoryKey()&&groupDirectory.ready&&Date.now()-groupDirectory.at<30000; }
+    function loadGroupDirectory() {
+      if(!isTeacher()||viewAccount)return Promise.resolve(null);
+      const key=groupDirectoryKey();
+      if(groupDirectoryReady())return Promise.resolve(groupDirectory);
+      if(groupDirectoryJob?.key===key)return groupDirectoryJob.promise;
+      const state={key,at:Date.now(),ready:false,users:[],members:[],assignments:[],error:''};
+      groupDirectory=state;
+      const job={key};groupDirectoryJob=job;
+      job.promise=Promise.all([accountFetch('/api/admin/users'),accountFetch('/api/groups/members'),accountFetch('/api/accounts/group-teachers')]).then(([users,members,teachers])=>{
+        if(key!==groupDirectoryKey()||groupDirectory!==state||!isTeacher()||viewAccount)return null;
+        Object.assign(state,{ready:true,users:(users.users||[]).filter(accountVisible),members:members.members||[],assignments:teachers.assignments||[]});
+        return state;
+      }).catch(error=>{if(groupDirectory===state){state.ready=true;state.error=error.message;}return null;}).finally(()=>{if(groupDirectoryJob===job)groupDirectoryJob=null;});
+      return job.promise;
+    }
+    function groupDirectoryPeople(groups,teachers=true) {
+      if(!groupDirectoryReady()||groupDirectory.error)return [];
+      const ids=new Set(groups.map(group=>String(group.id)));
+      const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
+      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login).localeCompare(b.name||b.login));
+    }
+    function groupPeopleHTML(users) {
+      return users.length?users.map(user=>'<div class="group-person"><b>'+esc(user.name||user.login)+'</b><span class="label">'+esc(roleLabel(user.role))+'</span></div>').join(''):'<p class="hint">None assigned.</p>';
+    }
+    function groupExamMetrics(group) {
+      const rows=examShown().filter(row=>String(row.groupId)===String(group.id)||group.examIds?.includes(row.id));
+      return [['exam',rows.filter(row=>!row.studentId).length],['assigned works',rows.filter(row=>row.instanceStatus==='active').length],['ready for review',rows.filter(row=>typeof examNeedsReview==='function'?examNeedsReview(row):row.instanceStatus==='ready').length],['completed',rows.filter(row=>row.instanceStatus==='completed').length]];
+    }
+    function paintGroupDetail() {
+      if(!isTeacher()||viewAccount)return;
+      const group=classGroups.find(row=>row.id===classGroupId);
+      const status=document.getElementById('groupDetailStatus');
+      status.textContent=groupDirectory?.key===groupDirectoryKey()?groupDirectory.error:'';
+      document.getElementById('groupDetailRetry').hidden=!status.textContent;
+      document.getElementById('groupDetailTitle').textContent=group?.title||'Group';
+      if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
+      for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
+      const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
+      const metrics=groupExamMetrics(group);
+      document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;
+      document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
+      document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
+      paintPagePath('groupdetail');
+    }
+    function prepareGroupDetail() {
+      if(!isTeacher()||viewAccount)return;
+      const key=groupDirectoryKey(),id=classGroupId;
+      paintGroupDetail();
+      Promise.all([loadGroupDirectory(),!lmServerReady&&typeof stageQueueLessons==='function'?stageQueueLessons():Promise.resolve(),!examReady?examPull():Promise.resolve(),!classGroupsReady?groupPull():Promise.resolve()]).then(()=>{
+        if(key===groupDirectoryKey()&&id===classGroupId&&document.querySelector('section.on')?.id==='groupdetail')paintGroupDetail();
+      }).catch(error=>{if(key===groupDirectoryKey())window.LearningMain?.notice?.(error.message,true);});
+    }
+    document.addEventListener('click',event=>{
+      if(!isTeacher()||viewAccount)return;
+      const group=classGroups.find(row=>row.id===classGroupId);
+      if(event.target.closest('[data-group-directory-retry]')){groupDirectory=null;if(document.querySelector('section.on')?.id==='groupdetail')prepareGroupDetail();else paintGroups();return;}
+      if(!group)return;
+      if(event.target.closest('[data-detail-lessons]'))visit('days');
+      const exam=event.target.closest('[data-detail-exam]');
+      if(exam||event.target.closest('[data-detail-exams]')){
+        examViewGroup=group.id;examViewLevel=accountGroupLevel(group);examSection='active';
+        if(exam){examCurrentId=domEntityId(exam.dataset.detailExam);visit('examblocks');}else visit('exams');
+      }
+      if(event.target.closest('[data-account-teacher-toggle],[data-account-group]'))groupDirectory=null;
+    });
     let examHold = null;
     let examCurrentId = "";
     let examKnown = null;
@@ -16360,6 +16472,25 @@
       document.addEventListener("input", (event) => examRemember(event.target));
       document.addEventListener("change", (event) => examRemember(event.target));
     }
+    function installLibrarySearch() {
+      const root = document.getElementById('library');
+      const input = document.getElementById('librarySearch');
+      if (!root || !input) return;
+      const status = document.getElementById('librarySearchStatus');
+      const apply = () => {
+        const query = input.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        root.querySelectorAll('.file-card').forEach(card => {
+          card.hidden = !!query && !card.textContent.toLocaleLowerCase().includes(query);
+          if (!card.hidden) matches++;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' results' : 'No matches.';
+      };
+      input.addEventListener('input', apply);
+      apply();
+    }
+    installLibrarySearch();
     function installListSearch(id, label, selector, scopeKey) {
       const list = document.getElementById(id);
       if (!list) return;
@@ -16504,6 +16635,84 @@
       clearTimeout(textSearchTimer); textSearch.value = ''; delete textSearch.dataset.searching;
       textSearchStatus.hidden = true; textSearchNav.hidden = true; textMatches = []; textMatchIndex = -1;
     }).observe(document.getElementById('textReadTitle'), {childList: true});
+    let screenAssetGeneration = 0;
+    function deferScreenAssets(id) {
+      const generation = ++screenAssetGeneration;
+      if (!['material', 'days', 'exam', 'exams', 'examblocks', 'setup', 'speak', 'speaklesson', 'lyricadd', 'textedit'].includes(id)) return false;
+      const jobs = [];
+      if (!window.MaterialQuiz && window.ensureMaterialQuiz) jobs.push(window.ensureMaterialQuiz());
+      if (!window.ColorPicker && window.ensureColorPicker) jobs.push(window.ensureColorPicker());
+      if (!jobs.length) return false;
+      Promise.all(jobs).then(() => {
+        if (generation !== screenAssetGeneration) return;
+        if (!window.MaterialQuiz || !window.ColorPicker) throw new Error('Unable to load editor controls. Please retry.');
+        show(id);
+      }).catch(error => {
+        if (generation === screenAssetGeneration) window.LearningMain?.notice?.(error.message, true);
+      });
+      return true;
+    }
+    document.addEventListener('click', event => {
+      if (!authUser || window.MessagesReady || !window.ensureMessages) return;
+      const target = event.target.closest('.brand-account,[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"]');
+      if (!target || target.closest('.user-settings')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.ensureMessages().then(() => {
+        if (authUser && target.isConnected) target.click();
+      }).catch(error => window.LearningMain?.notice?.(error.message, true));
+    }, true);
+    const homeScreenLabels = {days:'Lessons',exams:'Exams',allwords:'Words',tenses:'Grammar',library:'Entertainment'};
+    function homeRecentItems() {
+      if (!authUser || viewAccount) return [];
+      try {
+        const rows = JSON.parse(sessionStorage.getItem('enquiz-home-recent:'+authUser.id)||'[]');
+        return Array.isArray(rows) ? rows.filter(row=>row&&Object.hasOwn(homeScreenLabels,row.screen)&&Number.isFinite(row.at)&&row.at>0&&row.at<=Date.now()+60000).slice(0,4) : [];
+      } catch { return []; }
+    }
+    function rememberHomeNavigation(id) {
+      if (!authUser || viewAccount || !Object.hasOwn(homeScreenLabels,id)) return;
+      try {
+        const rows = [{screen:id,at:Date.now()},...homeRecentItems().filter(row=>row.screen!==id)].slice(0,4);
+        sessionStorage.setItem('enquiz-home-recent:'+authUser.id,JSON.stringify(rows));
+      } catch {}
+    }
+    function paintHomeDashboard({learned,total,pct}) {
+      const text = (id,value) => { const node=document.getElementById(id);if(node)node.textContent=value; };
+      text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
+      const bar=document.getElementById('shellProgressBar');
+      if(bar){bar.style.width=pct+'%';bar.parentElement.setAttribute('aria-valuenow',String(pct));}
+      const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!(authUser?.role==='USER'&&!viewAccount);
+      const dashboard=document.getElementById('homeDashboard');if(!dashboard)return;
+      dashboard.hidden=!authUser;
+      const groups=(authUser&&typeof classGroups!=='undefined'?classGroups:[]).filter(row=>Number.isSafeInteger(row.id));
+      const group=groups.find(row=>row.id===classGroupId)||groups[0];
+      text('homeGroupTitle',group?.title||'No group assigned');
+      const lessons=group&&(typeof lmLibrary!=='undefined'?lmLibrary?.materials:[])?.filter(row=>group.lessonIds?.includes(row.id)&&lmLessonVisibleToViewer(row))||[];
+      const metrics=document.getElementById('homeGroupMetrics');
+      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span>'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
+      const today=new Date(),date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+      const next=lessons.filter(row=>row.published&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&row.date>=date).sort((a,b)=>a.date.localeCompare(b.date))[0];
+      text('homeNextLessonLabel',next?next.date.split('-').reverse().join('.'):'\u2014');
+      text('homeNextLessonNote',next?.title||'No upcoming lessons');
+      const recent=document.getElementById('homeRecentList'),rows=homeRecentItems();
+      if(recent)recent.innerHTML=rows.length?rows.map(row=>'<button class="home-recent-row" type="button" data-jump="'+row.screen+'"><span class="home-recent-mark" aria-hidden="true">'+homeScreenLabels[row.screen].slice(0,2).toUpperCase()+'</span><span><b>'+homeScreenLabels[row.screen]+'</b><small>Opened on this device</small></span><time datetime="'+new Date(row.at).toISOString()+'">'+esc(new Date(row.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}))+'</time></button>').join(''):'<p class="hint">No recent activity on this device.</p>';
+      const student=authUser?.role==='USER'&&!viewAccount;
+      document.querySelectorAll('[data-home-continue],[data-home-groups],[data-home-group-open]').forEach(node=>{node.dataset.jump=student?'days':'groups';node.hidden=!authUser;});
+      const open=document.querySelector('[data-home-group-open]');if(open)open.disabled=!group;
+    }
+    function installShellBranding() {
+      document.querySelectorAll('[data-copyright-year]').forEach(node=>{node.textContent=String(new Date().getFullYear());});
+      const input=document.getElementById('shellSearch');
+      input?.addEventListener('input',()=>{
+        const query=input.value.trim().toLocaleLowerCase();
+        document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
+      });
+      const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
+      if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();
+    }
+    installShellBranding();
+    holdPlace();
     examBoot();
     paintTextCount();
     paintHomeStats();

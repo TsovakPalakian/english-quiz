@@ -45,22 +45,28 @@
       const size=document.createElement('input');size.type='number';size.min='10';size.max='96';size.value='17';size.className='lm-font-size';size.setAttribute('aria-label','Font size');size.addEventListener('pointerdown',capture);size.addEventListener('change',()=>{rich.focus();if(range&&rich.contains(range.commonAncestorContainer)){const span=document.createElement('span');span.style.fontSize=Math.min(96,Math.max(10,Number(size.value)||17))+'px';span.append(range.extractContents());range.insertNode(span);range.selectNodeContents(span);const selected=getSelection();selected.removeAllRanges();selected.addRange(range);capture();update();}});tools.insertBefore(size,palette);
       for(const [label,command] of [['B','bold'],['I','italic'],['U','underline'],['List','insertUnorderedList']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.title=command;button.setAttribute('aria-label',command);button.addEventListener('pointerdown',event=>{capture();event.preventDefault();});button.addEventListener('click',()=>apply(command));tools.insertBefore(button,palette);}
     }
-    palette.addEventListener('pointerdown',()=>{
+    function captureColorSelection(){
       if(!state.active){start=field.selectionStart||0;end=field.selectionEnd||0;return;}
       const selected=getSelection();
       if(selected.rangeCount&&rich.contains(selected.anchorNode)){
         const next=selected.getRangeAt(0).cloneRange();
-        if(!next.collapsed||!range)range=next;
+        const prefix=document.createRange();prefix.selectNodeContents(rich);
+        prefix.setEnd(next.startContainer,next.startOffset);start=prefix.toString().length;
+        prefix.setEnd(next.endContainer,next.endOffset);end=prefix.toString().length;
+        range=next;
       }
-    });
+    }
+    palette.addEventListener('pointerdown',captureColorSelection);
+    rich.addEventListener('pointerup',captureColorSelection);
+    rich.addEventListener('keyup',captureColorSelection);
     palette.addEventListener('input',()=>{
       if(field.disabled||field.readOnly)return;
       const color=valid(palette.value)?palette.value.toLowerCase():'';
       if(!color)return;
-      const wasActive=state.active;activate();rich.focus();const selected=getSelection();
-      const restore=range&&rich.contains(range.commonAncestorContainer)?range:state.range&&rich.contains(state.range.commonAncestorContainer)?state.range:null;
-      if(wasActive&&restore){selected.removeAllRanges();selected.addRange(restore);range=restore;}
-      else if(!wasActive){
+      activate();rich.focus();const selected=getSelection();
+      // Native color dialogs emit repeatedly; DOM ranges change when formatting is applied.
+      // Rebuild from text offsets so each shade updates the same selection.
+      {
         const walker=document.createTreeWalker(rich,NodeFilter.SHOW_TEXT),nodes=[];let node;while((node=walker.nextNode()))nodes.push(node);
         let offset=0;const next=document.createRange();next.selectNodeContents(rich);next.collapse(false);
         for(const text of nodes){if(start>=offset&&start<=offset+text.length){next.setStart(text,start-offset);break;}offset+=text.length;}
@@ -69,6 +75,7 @@
       }
       const previous=document.queryCommandState('styleWithCSS');
       try{document.execCommand('styleWithCSS',false,true);document.execCommand('foreColor',false,color);}finally{document.execCommand('styleWithCSS',false,previous);}
+      if(selected.rangeCount){range=selected.getRangeAt(0).cloneRange();state.range=range.cloneRange();}
       update();
     });
     rich.addEventListener('input',update);

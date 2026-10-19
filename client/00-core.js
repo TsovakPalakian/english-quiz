@@ -57,11 +57,17 @@
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
-      return ['groups','exams','library','stats','profile','speakouteditor','days','allwords'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
+      document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
+      document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll('[data-jump]').forEach(button=>{
-        if(['groups','exams','library','stats','profile','days','allwords','tenses'].includes(button.dataset.jump)||button.id==='homeStudy')button.hidden=!authUser;
+        if(['groups','exams','library','stats','profile','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
+          const role=button.dataset.navRole;
+          const allowed=!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role));
+          button.hidden=!authUser||!allowed;
+        }
       });
     }
     function chromeMark(id) {
@@ -69,6 +75,10 @@
       const base = examish ? "exams" : (dayScreens[id] || id);
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
+      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
+      if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
+      if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
+      if(id==='groupdetail')return 'groups';
       if (student) {
         if (base === "groups" || id === "days") return "days";
         if (["allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "allwords";
@@ -84,7 +94,7 @@
       return listed.includes(mark);
     }
     paintGuestAccess();
-    (function holdPlace() {
+    function holdPlace() {
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
       catch (e) { place = null; }
@@ -98,18 +108,33 @@
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
       });
-    })();
+    }
+    function roleHome() {
+      if(viewAccount)return 'home';
+      return authUser?.role==='DEVELOPER'?'bugs':authUser?.role==='ADMIN'?'groups':'home';
+    }
+    function syncRoleHomeControls() {
+      const home=roleHome();
+      for(const id of ['groups','bugs']){
+        const root=document.getElementById(id),crumb=root?.querySelector('.meta .crumb');
+        if(crumb)crumb.hidden=id===home&&(id!=='groups'||!groupViewLevel);
+      }
+    }
     function show(id) {
+      if(id==='home'){id=roleHome();if(id==='groups')groupViewLevel='';}
+      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (["admin","adminuser","admingroup","admingrouplevel"].includes(id) && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
       if (id === "account" && authUser) id = "profile";
+      if(id==='home')id=roleHome();
+      if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();
@@ -117,6 +142,7 @@
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
       if (id === "material" && window.paintMaterial) window.paintMaterial();
       if (id === "groups" && window.paintGroups) window.paintGroups();
+      if (id === "groupdetail" && typeof prepareGroupDetail==='function') prepareGroupDetail();
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
@@ -138,6 +164,9 @@
       if (id === "library") paintTextCount();
       if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
+      document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
+      syncRoleHomeControls();
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);
@@ -149,7 +178,6 @@
       if (settings) settings.hidden = true;
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
-      syncHomeBack();
       hideSelpop();
       rememberPlace();
       const shown = document.getElementById(id);
@@ -163,6 +191,10 @@
       const group=classGroups.find(row=>String(row.id)===String(groupId));
       const title=group?.title||exam?.groupTitle||'Unassigned';
       const level=group?accountGroupLevel(group):exam?accountGroupLevel({title}):examViewLevel;
+      if(isTeacher()&&!viewAccount)return [{id:'groups',label:'Groups',level:''},
+        ...(group?[{id:'groups',label:level==='unassigned'?'Unassigned':level,level},{id:'groupdetail',label:title,groupId:group.id}]:[]),
+        {id:'exams',label:'Exams',examLevel:level,examGroup:groupId,examSection},
+        ...(exam?[{id:'examblocks',label:exam.title||'Exam'}]:[])];
       return [{id:'exams',label:'Exams',examLevel:''},
         ...(level&&authUser?.role!=='USER'?[{id:'exams',label:level==='unassigned'?'Unassigned':level,examLevel:level}]:[]),
         ...(groupId!==null&&groupId!==undefined?[{id:'exams',label:title,examLevel:level,examGroup:groupId}]:[]),
@@ -177,6 +209,7 @@
       if (!root) return [];
       const group = classGroups.find((row) => row.id === classGroupId);
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return groupPath(group);
       if (id.startsWith('grammar')) {
@@ -207,7 +240,7 @@
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", add: "library", allwords: "library", tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
+      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -237,7 +270,7 @@
       if(target.dataset.pathAdminBucket!==undefined){pushHistory();adminBucket=target.dataset.pathAdminBucket;adminTab='accounts';show('admin');paintAdminAccounts();return;}
       if(target.dataset.pathExamLevel!==undefined){const index=[...target.closest('ol').children].indexOf(target.parentElement),section=pagePathItems(document.querySelector('section.on')?.id)[index]?.examSection;pushHistory();examViewLevel=target.dataset.pathExamLevel;examViewGroup=target.dataset.pathExamGroup??null;examSection=section||'active';show('exams');return;}
       if(target.dataset.pathLevel!==undefined){pushHistory();groupViewLevel=target.dataset.pathLevel;show('groups');return;}
-      if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show('days');return;}
+      if(target.dataset.pathGroup){pushHistory();classGroupId=domEntityId(target.dataset.pathGroup);show(target.dataset.pagePath==='groupdetail'?'groupdetail':'days');return;}
       if (target.dataset.pagePath === "material") {
         pushHistory();
         lmState.tab = target.dataset.pageTab || "overview";
@@ -249,13 +282,6 @@
       const spot = document.querySelector("#songUser [data-lyric-return]");
       if (!spot) return;
       requestAnimationFrame(() => spot.scrollIntoView({ block: "center", inline: "nearest" }));
-    }
-    function syncHomeBack() {
-      const hidden = navStack.length === 0;
-      const btn = document.getElementById("homeBack");
-      const house = document.getElementById("homeHouse");
-      if (btn) btn.hidden = hidden;
-      if (house) house.hidden = hidden;
     }
     const backArrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>';
     function mountCrumbs(scope = document) {
@@ -270,10 +296,6 @@
         home.dataset.jump = "home";
         home.setAttribute("aria-label", "Home");
         home.innerHTML = house;
-        if (btn.id === "homeBack") {
-          home.id = "homeHouse";
-          home.hidden = true;
-        }
         const wrap = document.createElement("span");
         wrap.className = "crumb";
         btn.before(wrap);
@@ -392,6 +414,7 @@
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
+      if (place.id === 'groupdetail' || place.id === 'days') return [place.id,place.classGroupId].join('|');
       if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
       if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
       if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
@@ -410,6 +433,7 @@
         adminGroupLevel: typeof adminGroupLevel === 'undefined' ? null : adminGroupLevel,
         adminBucket: typeof adminBucket === 'undefined' ? '' : adminBucket,
         groupViewLevel: typeof groupViewLevel === 'undefined' ? '' : groupViewLevel,
+        classGroupId: typeof classGroupId === 'undefined' ? '' : classGroupId,
         examViewLevel: typeof examViewLevel === 'undefined' ? '' : examViewLevel,
         examViewGroup: typeof examViewGroup === 'undefined' ? null : examViewGroup,
         examSection: typeof examSection === 'undefined' ? 'active' : examSection,
@@ -447,7 +471,6 @@
       if (last && placeKey(last) === placeKey(place)) return;
       navStack.push(place);
       if (navStack.length > 40) navStack.shift();
-      syncHomeBack();
     }
     function visit(id) {
       if (id === (document.querySelector("section.on") || {}).id && id !== "tenses" && id !== "tense" && id !== "marker") return;
@@ -465,7 +488,8 @@
         adminBucket = place.adminBucket || '';
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
-      if (place.id === 'groups') groupViewLevel = place.groupViewLevel || '';
+      if (place.id === 'groups'||place.id==='groupdetail') groupViewLevel = place.groupViewLevel || '';
+      if (['groupdetail','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
       if (place.id === 'exams'||place.examId) { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; examSection=place.examSection||'active'; }
       if(place.examId){
         examCurrentId=place.examId;
@@ -516,7 +540,6 @@
       if (!prev) {
         const here = (document.querySelector("section.on") || {}).id;
         if (fallback && fallback !== here) show(fallback);
-        else syncHomeBack();
         return;
       }
       restore(prev);

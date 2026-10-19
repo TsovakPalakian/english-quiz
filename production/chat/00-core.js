@@ -16,14 +16,16 @@
     if (!iconFrame)
       iconFrame = requestAnimationFrame(() => {
         iconFrame = 0;
-        window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: section });
-        window.lucide?.createIcons({ nameAttr: 'data-lucide', root: section });
-        section
-          .querySelectorAll('svg[data-chat-icon], svg[data-lucide]')
-          .forEach((node) => {
+        const roots = [section, ...document.querySelectorAll('.chat-context,.chat-dialog')]
+          .filter((root) => root === section || !section.contains(root));
+        for (const root of roots) {
+          window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root });
+          window.lucide?.createIcons({ nameAttr: 'data-lucide', root });
+          root.querySelectorAll('svg[data-chat-icon], svg[data-lucide]').forEach((node) => {
             node.removeAttribute('data-chat-icon');
             node.removeAttribute('data-lucide');
           });
+        }
       });
   };
   const signedIn = () => (typeof authUser !== 'undefined' ? authUser : null);

@@ -79,40 +79,6 @@
     if (!response.ok) throw new Error(value.error || 'Request failed.');
     return value;
   }
-  el('msgAssign').onclick = async () => {
-    try {
-      await examPull(examDirty);
-      examDirty = false;
-      const exams = examLoad().filter((e) => !e.instanceStatus);
-      dialog(
-        'Assign exam',
-        '<label>Exam<select name="exam" required>' +
-          exams.map((e) => '<option value="' + e.id + '">' + escape(e.title) + '</option>').join('') +
-          '</select></label><label>Recipient<select name="target">' +
-          data.groups.map((g) => '<option value="group:' + g.id + '">' + escape(g.title) + '</option>').join('') +
-          data.contacts
-            .filter((p) => p.role === 'Student')
-            .map((p) => '<option value="student:' + p.id + '">' + escape(p.name) + '</option>')
-            .join('') +
-          '</select></label><label>Action<select name="action"><option value="assign">Assign</option><option value="unassign">Unassign</option></select></label>',
-        async (form) => {
-          const target = String(form.get('target')),
-            at = target.indexOf(':');
-          await domain('/assignment', {
-            targetKind: target.slice(0, at),
-            targetId: target.slice(at + 1),
-            examId: Number(form.get('exam')),
-            action: form.get('action'),
-            clientKey: crypto.randomUUID(),
-          });
-          await examPull(true);
-          if (target.startsWith('group:')) await groupPull(true);
-        },
-      );
-    } catch (error) {
-      status(error.message);
-    }
-  };
   function settingsSoundEditor(root) {
     const form = root.querySelector('form');
     if (!form || form.dataset.settingsWired) return;
@@ -424,22 +390,22 @@
       escape(profile.role) +
       '</small></span></div><h3>Common</h3>' +
       [
-        ['profile', 'user-round', 'Profile'],
-        ['notifications', 'bell', 'Notifications'],
-        ['theme', 'palette', 'Theme'],
-        ['statistics', 'chart-no-axes-combined', 'Statistics'],
-        ['messages', 'messages-square', 'Messages'],
-        ['blocked', 'user-round-x', 'Blocked users'],
-        ['security', 'shield', 'Security'],
-        ['display', 'type', 'Display'],
-        ['help', 'circle-help', 'Help'],
+        ['profile', icon('user-round'), 'Profile'],
+        ['notifications', icon('bell'), 'Notifications'],
+        ['theme', icon('palette'), 'Theme'],
+        ['statistics', icon('chart-no-axes-combined'), 'Statistics'],
+        ['messages', icon('messages-square'), 'Messages'],
+        ['blocked', icon('user-round-x'), 'Blocked users'],
+        ['security', icon('shield'), 'Security'],
+        ['display', '', 'Display'],
+        ['help', icon('circle-help'), 'Help'],
       ]
         .map(
           ([id, image, title]) =>
             '<button type="button" data-settings-tab="' +
             id +
             '">' +
-            (id === 'display' ? '<span class="settings-display-symbol" aria-hidden="true">Aa</span>' : icon(image)) +
+            (id === 'display' ? '<span class="settings-display-symbol" aria-hidden="true">Aa</span>' : image) +
             escape(title) +
             '</button>',
         )
@@ -1084,6 +1050,7 @@
   });
   // Keep account navigation owned by the application; chat adds only its entry points.
   for (const button of document.querySelectorAll('[data-jump="stats"]')) {
+    if (document.body.dataset.roleNavigation && !button.closest('#account,#profile')) continue;
     if (button.parentElement?.querySelector('[data-msg-open]')) continue;
     const next = document.createElement('button');
     next.type = 'button';
@@ -1093,7 +1060,7 @@
     button.after(next);
   }
   for (const root of document.querySelectorAll('.side-foot,.mobile-tools'))
-    if (!root.querySelector('[data-msg-open]')) {
+    if (!document.body.dataset.roleNavigation && !root.querySelector('[data-msg-open]')) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'btn ghost';

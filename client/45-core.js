@@ -94,6 +94,7 @@
     function finishPlace() {
       placeBoot = true;
       resumePlace();
+      if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
     }
     function cardIdentity(item) {
       const word = String(item && item.word || "").trim().toLowerCase();

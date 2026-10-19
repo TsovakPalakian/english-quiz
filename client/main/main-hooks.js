@@ -1004,7 +1004,6 @@ function stageHomeBuckets(rows){
 function stagePaintWeakCount(buckets){
   const count=document.querySelector('#homeDemo [data-stat="weak"] b');
   if(count)count.textContent=String(buckets.weak.length);
-  stagePaintActivity();
 }
 // The appended staging hooks are read afresh for every script request. Install
 // here so this UI-only change does not require restarting auth/session storage.
@@ -1499,8 +1498,8 @@ function stageDemand(id){
     if(['lyricadd','song','textedit'].includes(id))stageGrowTextEditors();
     if(['grammarcategories','grammarcategory','grammarrule'].includes(id))stageGrammarPaint();
     if(['everyday','everydaygroup','everydaytopic'].includes(id))stageEverydayLoad();
-    if(['library','allwords','home'].includes(id)&&authUser)stageEverydayLoad();
-    if(id==='library'){stageLibrarySummary().catch(error=>window.LearningMain.notice(error.message,true));if(typeof authUser!=='undefined'&&authUser)stageKick('cards:first-wave',stageCardFirstWave);}
+    if(['library','wordcollections','allwords','home'].includes(id)&&authUser)stageEverydayLoad();
+    if(id==='library'||id==='wordcollections'){stageLibrarySummary().catch(error=>window.LearningMain.notice(error.message,true));if(typeof authUser!=='undefined'&&authUser)stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.LearningMain.notice(error.message,true)));
     if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.LearningMain.notice(error.message,true)));
     if(id==='allwords')stageLibrarySection(id);

@@ -28,7 +28,8 @@ for(const name of ['preview.css','almond-blossom.jpg','theme-init.js','demonstra
 writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'main-stage.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/notification.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/material-upgrades.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/essential.css'),'utf8')+'\n'+readFileSync(resolve(root,'production/exams.css'),'utf8'));
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
-for(const name of ['speakout-editor.js','speakout-editor.css','text-colors.js','material-quiz.js','color-picker.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
+for(const name of ['speakout-editor.js','speakout-editor.css','material-quiz.js','color-picker.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
+copyFileSync(resolve(root,'client/shared/text-colors.js'),resolve(target,'text-colors.js'));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));
 assert.ok(soundCatalog.length>=100&&new Set(soundCatalog.map(sound=>sound.id)).size===soundCatalog.length);
@@ -64,10 +65,13 @@ const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categor
   .replace("window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');","window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js?v="+version('color-picker.js')+"');");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
+const navigation=html.match(/<nav aria-label="Primary">([\s\S]*?)<\/nav>/)?.[1];
+assert.ok(navigation,'Canonical role navigation missing');
+html=html.replace(/(<nav class="tabbar" aria-label="Primary">)[\s\S]*?(<\/nav>)/,(_,start,end)=>start+navigation+end);
 html=html.replace('>Approved accounts</button>','>Approved accounts &amp; Groups</button>').replace('<button type="button" role="tab" data-admin-tab="groups" aria-selected="false">Groups</button>','');
 html=html.replace('<head>','<head><script src="/database-context.js?v='+version('database-context.js')+'"></script>'+['preview.js','chat-icons.js'].map(name=>'<link rel="preload" as="script" href="/'+name+'?v='+version(name)+'">').join(''));
 html=html.replace(/<section id="groups">[\s\S]*?<\/section>/,section=>section.replace('<p class="sub">In date order.</p>','').replace('<button class="btn primary" type="button" id="groupNew">+ New group</button>',''));
-html=html.replace('<div id="groupList"></div>','<p class="sub" id="groupOverview"></p><div id="groupControls" hidden><button class="btn primary" type="button" id="groupNew">+ Add subgroup</button><input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups"></div><div id="groupList"></div>');
+html=html.replace('<div id="groupList"></div>','<div id="groupControls" hidden><button class="btn primary" type="button" id="groupNew">+ Add subgroup</button><input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups"></div><div id="groupList"></div>');
 html=html.replace('<section id="admingroup">','<section id="admingrouplevel"><div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="admin">Back</button><h1 id="adminLevelTitle">Groups</h1></div><div id="adminLevelBody"></div></section>\n<section id="admingroup">');
 const everydayAnchor='      <h2 class="lib-h">Words</h2>\n      <div class="decks">';
 assert.equal(html.split(everydayAnchor).length,2);
@@ -80,11 +84,7 @@ html=html.replace('<section id="library">',readFileSync(resolve(root,'production
 const irregularAnchor='<button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>';
 assert.equal(html.split(irregularAnchor).length,2);
 html=html.replace(irregularAnchor,irregularAnchor+'\n        <button class="file-card" type="button" data-jump="grammarcategories"><span class="num">7</span><b>Grammatical Categories</b><span class="label">word classes · syntax · meaning</span></button>');
-const brandRow=readFileSync(resolve(root,'preview.html'),'utf8').match(/^    <div class="brand-row">.*<\/div>$/m)?.[0];
-assert.ok(brandRow,'Account avatar header missing');
-const oldBrand='    <button class="brand" type="button" data-jump="home">English</button>';
-assert.equal(html.split(oldBrand).length,2);
-html=html.replace(oldBrand,brandRow).replace(/(<div class="side-foot">\s*)<button class="btn ghost" type="button" data-jump="account">My account<\/button>/,'$1');
+assert.ok(html.includes('class="brand-mark"')&&html.includes('data-shell-settings-open'),'Brand and Settings controls must come from site/');
 assert.ok(!/<div class="side-foot">\s*<button[^>]+data-jump="account"/.test(html));
 assert.equal(html.split('<section id="account">').length,2);
 html=html.replace('<section id="account">',readFileSync(resolve(root,'production/chat.html'),'utf8')+'\n<section id="account">')
@@ -99,7 +99,7 @@ const productionHtml=html.replace(banner,'')
 const pagedHtml=productionHtml.replace(/<script src="(?:grammar|irregular|lesson-data|speakout|preview)\.js(?:\?[^"<>]*)?"><\/script>/g,'')+'\n';
 assert.ok(!/<script[^>]+src="\/?preview\.js(?:\?|"|$)/.test(pagedHtml));
 assert.ok(pagedHtml.includes('</body>'));
-const versionedHtml=pagedHtml.replace(/((?:src|href)="\/?)(preview\.css|theme-init\.js|main-bridge\.js|main-stage\.css)(?:\?[^"<>]*)?"/g,(_,prefix,name)=>prefix+name+'?v='+version(name)+'"');
+const versionedHtml=pagedHtml.replace(/((?:src|href)="\/?)(preview\.css|theme-init\.js|main-bridge\.js|main-stage\.css|text-colors\.js)(?:\?[^"<>]*)?"/g,(_,prefix,name)=>prefix+name+'?v='+version(name)+'"');
 for(const name of ['preview.html','index.html'])writeFileSync(resolve(target,name),versionedHtml.replace('</body>','<script src="/catalog-loader.js?v='+version('catalog-loader.js')+'"></script></body>'));
 for(const path of pdfAssetPaths()){
   const file=resolve(target,path.slice(1));mkdirSync(resolve(file,'..'),{recursive:true,mode:0o700});copyFileSync(pdfAssetFile(path).file,file);

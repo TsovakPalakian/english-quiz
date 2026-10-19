@@ -37,12 +37,12 @@ test('chat names use public roles, preserve group titles and do not invent inter
 });
 test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const message={id:1,text:'hello',senderId:'me',createdMs:1,delivered:true};
-  const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions]);
+  const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
   let writes=0,scans=0;
   const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;}},set innerHTML(value){writes++;},set title(value){writes++;}};
   const node={dataset:{content,msgId:'1'},querySelector:()=>receipt};
   const timeline={querySelector:()=>node,querySelectorAll:()=>[node]};
-  const merge=runInNewContext(source.slice(source.indexOf('  function mergeNode('),source.indexOf('  function syncDays('))+'\nmergeNode',{timeline,CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
+  const merge=runInNewContext(source.slice(source.indexOf('  function mergeNode('),source.indexOf('  function syncDays('))+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
   for(let i=0;i<100;i++)merge(message);
   assert.equal(writes,0);assert.equal(scans,0);
 });
@@ -61,6 +61,15 @@ test('folder markers sum only current-user unread across visible member chats',(
   const line=definition('folderUnread');assert.ok(line);
   const count=runInNewContext(line+'\nfolderUnread',{data});
   assert.equal(count({roomIds:['a','b','a']}),6);assert.equal(count({roomIds:['muted','archived','blocked','missing']}),2);assert.equal(count({roomIds:[]}),0);
+});
+test('chat context menus outside the chat section also receive icons',()=>{
+  const scans=[],callbacks=[],portal={querySelectorAll:()=>[]};
+  const section={contains:()=>false,querySelectorAll:()=>[]};
+  const icons=runInNewContext('let iconFrame=0;'+definition('icons')+'\nicons',{
+    section,document:{querySelectorAll:()=>[portal]},window:{lucide:{createIcons:options=>scans.push(options.root)}},
+    requestAnimationFrame(callback){callbacks.push(callback);return callbacks.length;},
+  });
+  icons();callbacks[0]();assert.equal(scans.filter(root=>root===portal).length,2);
 });
 test('chat previews shorten words and unbroken text without altering messages',()=>{
   const line=definition('roomPreview');assert.ok(line);

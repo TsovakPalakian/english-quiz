@@ -1,3 +1,22 @@
+    function installLibrarySearch() {
+      const root = document.getElementById('library');
+      const input = document.getElementById('librarySearch');
+      if (!root || !input) return;
+      const status = document.getElementById('librarySearchStatus');
+      const apply = () => {
+        const query = input.value.trim().toLocaleLowerCase();
+        let matches = 0;
+        root.querySelectorAll('.file-card').forEach(card => {
+          card.hidden = !!query && !card.textContent.toLocaleLowerCase().includes(query);
+          if (!card.hidden) matches++;
+        });
+        status.hidden = !query;
+        status.textContent = matches ? matches + ' results' : 'No matches.';
+      };
+      input.addEventListener('input', apply);
+      apply();
+    }
+    installLibrarySearch();
     function installListSearch(id, label, selector, scopeKey) {
       const list = document.getElementById(id);
       if (!list) return;

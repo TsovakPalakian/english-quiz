@@ -35,6 +35,7 @@ async function assignLegacyExam(f,id,account='student'){
   f.sqlite.prepare('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES(?,?,?,?)').run('fixture-assignment-'+id+'-'+account,id,'student',account);
 }
 function runInNewContext(code,scope){
+  if(scope.document){scope.document.addEventListener??=()=>{};scope.document.scripts??=[];}
   scope.viewAccount??=null;
   scope.hiddenCardIds??=new Set();
   scope.hideStudentSongs??=()=>!!(scope.viewAccount&&scope.authUser?.role==='ADMIN');
@@ -762,7 +763,7 @@ test('Catalog loader starts the shell before catalogs and shares one in-flight l
   const calls=[],window={};
   const scope={window,Map,Promise,AbortSignal,encodeURIComponent,
     fetch:async path=>{calls.push(path);const key=path.split('?')[0].split('/').at(-1);return {ok:true,json:async()=>({documents:{[key]:[{cardId:key}]},cards:[{stageId:key,en:key}],next:null})};},
-    document:{getElementById:()=>null,createElement:()=>({src:''}),body:{append:script=>{assert.equal(calls.length,0);assert.match(script.src,/^\/preview\.js(?:\?v=[a-z0-9-]+)?$/);}}}};
+    document:{getElementById:()=>null,createElement:()=>({src:'',dataset:{}}),body:{append:script=>{assert.equal(calls.length,0);assert.match(script.src,/^\/(?:preview|chat-icons)\.js(?:\?v=[a-z0-9-]+)?$/);script.onload?.();}}}};
   runInNewContext(readFileSync(new URL('../production/catalog-loader.js',import.meta.url),'utf8'),scope);
   await window.LearningCatalogReady;
   assert.ok(Array.isArray(window.LESSON_DATA.words));assert.equal(calls.length,0);
@@ -2284,7 +2285,7 @@ test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
   const part=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
   const visits=[],exam={id:9,blocks:[{id:10,doc:{title:'Published block'}}]};
-  const scope={classGroups:[{id:7,lessonIds:[8]}],classGroupId:'',visit:id=>visits.push(id),
+  const scope={classGroups:[{id:7,lessonIds:[8]}],classGroupId:'',isTeacher:()=>false,visit:id=>visits.push(id),
     lmLoadLibrary(){throw Error('Must preserve loaded server lessons');},lmLibrary:{materials:[{id:8,published:true}]},lmLessonVisibleToViewer:()=>true,canEditLessons:()=>false,lmState:null,
     localStorage:{getItem:key=>key==='enquiz-exams'?JSON.stringify([{id:9,title:'Published exam'}]):null},
     examLoad:()=>[{id:9,title:'Published exam'}],examCurrentId:9,examView:id=>id===9?structuredClone(exam):null,examHold:null};

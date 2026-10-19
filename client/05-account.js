@@ -303,6 +303,7 @@
         ring.setAttribute("stroke-dasharray", learned + " " + (whole - learned));
         ring.style.strokeLinecap = learned ? "round" : "butt";
       }
+      if (typeof paintHomeDashboard === 'function') paintHomeDashboard({learned,total,pct});
     }
     const CLASS_PAGES = [
       { id: "lesson07", place: "lesson-07" },
@@ -372,6 +373,7 @@
       if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
     }
     function paintHomeAccount() {
+      document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&document.querySelector('section.on')?.id==='home');
       document.querySelectorAll('#home [data-stat]').forEach(button=>button.disabled=!authUser);
       const who = document.getElementById("homeWho");
       const demo = document.getElementById("homeDemo");
@@ -379,7 +381,7 @@
       demo.classList.toggle('guest-progress', !authUser);
       who.hidden = true;
       who.innerHTML = "";
-      demo.hidden = false;
+      demo.hidden = !authUser;
       paintHomeHello();
       paintHomeStats();
       paintHomeStudy();
@@ -438,37 +440,40 @@
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
+      const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" name="password" type="password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i></button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const decorate=()=>{const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
+      const google='<div class="auth-divider"><span>or</span></div><button class="btn auth-google" type="button" data-google-auth>Continue with Google</button>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
         const inviteHint = invite
           ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
-          : '<p class="hint">Choose student or teacher. A teacher approves the account before you can sign in. No email is sent.</p>';
+          : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
           ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
-          : '<p class="label">Role</p><select name="role" required><option value="USER">Student</option><option value="ADMIN">Teacher</option></select>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Register</p>' + flashHtml + inviteHint +
-          '<form id="registerForm"><input name="login" type="text" autocomplete="username" placeholder="Login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
-          '<input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
-          '<input name="name" type="text" autocomplete="name" placeholder="Name" />' +
+          : '<fieldset class="auth-role"><legend>Role</legend><div><label><input type="radio" name="role" value="USER" checked required />Student</label><label><input type="radio" name="role" value="ADMIN" required />Teacher</label></div></fieldset>';
+        box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1>' + flashHtml +
+          '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
+          '<label for="authEmail">Email</label><input id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+          '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
           roleField +
-          '<input name="password" type="password" maxlength="32" minlength="8" autocomplete="new-password" placeholder="Password, 8 to 32 characters" required />' +
-          '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +
-          '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
-          '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-login">Log in</button></p></div></div>';
+          passwordField(true)+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +google+inviteHint+'</div></div>';
+        decorate();
         return;
       }
-      box.innerHTML = '<div class="account-gate"><div class="card"><p class="label">Log in</p>' + flashHtml +
+      box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
         '<div class="row" style="margin-bottom:10px"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><input name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
-        '<input name="password" type="password" maxlength="32" autocomplete="current-password" placeholder="Password" required />' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
+        passwordField(false)+
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
-        '<form id="otpLoginForm" data-login-mode="otp" hidden><input name="email" type="email" maxlength="120" autocomplete="email" placeholder="Email" required />' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
-        '<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
+        '<label for="otpCode">Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Sign in with code</button></form>' +
-        '<p class="hint" style="margin-top:12px"><button class="btn" type="button" data-google-auth>Continue with Google</button></p>' +
-        '<p class="hint" style="margin-top:10px"><button class="account-link" type="button" data-account="show-register">Create account</button></p></div></div>';
+        google+'</div></div>';
+      decorate();
     }
     function paintProfile() {
       const box = document.getElementById("profileBody");

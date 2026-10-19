@@ -91,6 +91,9 @@
       const allow = isDeveloper();
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
+      document.querySelectorAll('[data-shell-settings-open]').forEach(button=>{button.hidden=!authUser;});
+      document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
+      document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll("[data-developer-only]").forEach((el) => { el.hidden = !allow; });
       document.querySelectorAll('[data-teacher-only]').forEach(el => { el.hidden = !isTeacher() || !!viewAccount; });
       document.querySelectorAll("[data-nav-role]").forEach((el) => {
@@ -98,5 +101,6 @@
         el.hidden = role === "student" ? !student : role === "staff" ? !staff : false;
       });
       refreshAccountsCount();
-      document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount; });
+      document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
+      const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
     }

@@ -987,6 +987,7 @@
     if (bottom()) el('msgLatest').hidden = true;
   });
   async function send() {
+    if(recordGesture){finishRecording(false);return;}
     if ([...uploads.values()].some((item) => item.roomId === room && !item.cancelled)) {
       status('Wait for the attachments to finish uploading, or cancel them.');
       return;

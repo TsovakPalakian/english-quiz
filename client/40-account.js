@@ -53,7 +53,7 @@
       paintAccount();
       const on = document.querySelector("section.on");
       if (on && (on.id === "account" || on.id === "profile")) show("home");
-      else if (on && on.id === "home") paintHomeAccount();
+      else if (on && on.id === "home") show("home");
       examPreload();
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
@@ -233,6 +233,13 @@
     });
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
+      const passwordToggle=e.target.closest('[data-auth-password]');
+      if(passwordToggle){
+        const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
+        field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));
+        passwordToggle.title=reveal?'Hide password':'Show password';passwordToggle.setAttribute('aria-label',passwordToggle.title);
+        passwordToggle.innerHTML='<i data-lucide="'+(reveal?'eye-off':'eye')+'" aria-hidden="true"></i>';window.lucide?.createIcons({root:passwordToggle});return;
+      }
       if (googleAuth) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}

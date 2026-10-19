@@ -71,6 +71,7 @@ try{
   assert.equal(await page.locator('#examListSearch').isVisible(),true);
   assert.equal(await page.locator('#examNew').isVisible(),true);
   assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1\nA1 Group');
+  await page.locator('[data-exam-open="11"]').scrollIntoViewIfNeeded();
   assert.match(await page.locator('[data-exam-open="11"]').innerText(),/1 examination block/);
   assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Assigned copies are not templates');
   assert.equal(await page.locator('[data-exam-hide="exam:11"] + [data-exam-assign="11"]').count(),1,'Assign follows visibility');
@@ -110,14 +111,15 @@ try{
   await page.locator('[data-exam-block="22"]').click();
   await page.reload();
   await page.locator('#material.on').waitFor();
+  await page.waitForFunction(()=>lmState?.examId===21&&lmState?.blockId===22);
   assert.deepEqual(await page.evaluate(()=>({exam:lmState.examId,block:lmState.blockId,student:lmState.reviewStudentId,section:examSection})),{exam:21,block:22,student:'b'.repeat(32),section:'ready'},'Block refresh retains teacher review and its section');
   await page.locator('#material [data-page-path="examblocks"]').click();
   await page.waitForFunction(()=>!examWorkPulling);
-  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Not submitted/,'Review list does not confuse content publication with submission');
+  assert.match(await page.locator('[data-exam-block="22"]').textContent(),/Not submitted/,'Review list does not confuse content publication with submission');
   await page.evaluate(()=>{examWorkBag()['21/22']={saved:true,state:'published',points:{},answers:{}};examPaintBlocks();});
-  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Results published/,'Published results retain their distinct label');
+  assert.match(await page.locator('[data-exam-block="22"]').textContent(),/Results published/,'Published results retain their distinct label');
   await page.evaluate(()=>{examWorkBag()['21/22']={saved:true,state:'submitted',points:{},answers:{}};examPaintBlocks();});
-  assert.match(await page.locator('[data-exam-block="22"]').innerText(),/Submitted/,'Submitted work has its own status');
+  assert.match(await page.locator('[data-exam-block="22"]').textContent(),/Submitted/,'Submitted work has its own status');
   await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-section="completed"]').click();
   assert.equal(await page.locator('#examNew').isVisible(),false);
@@ -270,8 +272,8 @@ try{
   await page.setViewportSize({width:1280,height:900});
   if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
   await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
-  await page.locator('.side [data-jump="exams"]').click();
-  assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['',null,'active'],'Main navigation resets Exams to its root even within Exams');
+  await page.locator('.side [data-jump="groups"]').click();
+  assert.equal(await page.evaluate(()=>groupViewLevel),'','Combined Classes navigation opens the Groups root');
   await page.evaluate(()=>goBack('home'));
   assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['A1',41,'completed'],'Back retains the previous nested exam location');
   await page.evaluate(()=>{groupViewLevel='A1';window.enquizVisit('home');});

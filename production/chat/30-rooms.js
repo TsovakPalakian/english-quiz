@@ -299,7 +299,6 @@
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;
     }
-    el('msgAssign').hidden = !reviewer();
     el('msgCompose').hidden = !selected || selected.access?.canSend === false || (kind === 'learning' && !reviewer());
     el('msgSearch').disabled = !selected;
     el('msgInfo').disabled = !selected;

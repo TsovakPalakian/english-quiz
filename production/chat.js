@@ -16,14 +16,16 @@
     if (!iconFrame)
       iconFrame = requestAnimationFrame(() => {
         iconFrame = 0;
-        window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root: section });
-        window.lucide?.createIcons({ nameAttr: 'data-lucide', root: section });
-        section
-          .querySelectorAll('svg[data-chat-icon], svg[data-lucide]')
-          .forEach((node) => {
+        const roots = [section, ...document.querySelectorAll('.chat-context,.chat-dialog')]
+          .filter((root) => root === section || !section.contains(root));
+        for (const root of roots) {
+          window.lucide?.createIcons({ nameAttr: 'data-chat-icon', root });
+          window.lucide?.createIcons({ nameAttr: 'data-lucide', root });
+          root.querySelectorAll('svg[data-chat-icon], svg[data-lucide]').forEach((node) => {
             node.removeAttribute('data-chat-icon');
             node.removeAttribute('data-lucide');
           });
+        }
       });
   };
   const signedIn = () => (typeof authUser !== 'undefined' ? authUser : null);
@@ -1204,7 +1206,6 @@
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;
     }
-    el('msgAssign').hidden = !reviewer();
     el('msgCompose').hidden = !selected || selected.access?.canSend === false || (kind === 'learning' && !reviewer());
     el('msgSearch').disabled = !selected;
     el('msgInfo').disabled = !selected;
@@ -2369,6 +2370,7 @@
     if (bottom()) el('msgLatest').hidden = true;
   });
   async function send() {
+    if(recordGesture){finishRecording(false);return;}
     if ([...uploads.values()].some((item) => item.roomId === room && !item.cancelled)) {
       status('Wait for the attachments to finish uploading, or cancel them.');
       return;
@@ -3430,28 +3432,20 @@
   recordPreview.addEventListener('loadeddata', () => {
     if (recordGesture && !recordGesture.poster) recordGesture.poster = videoFirstFrame(recordPreview);
   });
+  let recordPress = null;
   function paintRecordButtons() {
     const recording = !!recordGesture && (recordGesture.awaitingPermission || recordGesture.recorder);
     const mode = recordGesture?.mode || recordMode;
-    const audioActive = recording && mode !== 'video';
-    const videoActive = recording && mode === 'video';
     const locked = !!(recordGesture?.locked && recording);
-    recordButton.innerHTML = icon(audioActive ? (locked ? 'send-horizontal' : 'mic') : 'mic');
-    videoButton.innerHTML = icon(videoActive ? (locked ? 'send-horizontal' : 'video') : 'video');
-    recordButton.title = audioActive
-      ? locked
-        ? 'Send recording'
-        : 'Hold to record'
-      : 'Hold to record voice';
-    videoButton.title = videoActive
-      ? locked
-        ? 'Send recording'
-        : 'Hold to record'
-      : 'Hold to record video';
+    recordButton.innerHTML = icon(locked ? 'send-horizontal' : mode === 'video' ? 'video' : 'mic');
+    recordButton.title = locked ? 'Send recording' : mode === 'video'
+      ? 'Hold to record video; click to switch to voice'
+      : 'Hold to record voice; click to switch to video';
     recordButton.setAttribute('aria-label', recordButton.title);
     videoButton.setAttribute('aria-label', videoButton.title);
-    recordButton.hidden = videoActive;
-    videoButton.hidden = audioActive;
+    recordButton.hidden = false;
+    videoButton.hidden = true;
+    recordButton.dataset.recordMode = mode;
     el('msgCancelRecording').hidden = !recording;
     el('msgCancelRecording').title = locked ? 'Delete recording' : 'Cancel recording';
     el('msgCancelRecording').setAttribute('aria-label', el('msgCancelRecording').title);
@@ -3460,6 +3454,7 @@
   function finishRecording(cancel = false) {
     const gesture = recordGesture;
     if (!gesture) return;
+    if(gesture.awaitingPermission&&!cancel){gesture.released=true;gesture.locked=false;return;}
     clearTimeout(recordTimer);
     clearInterval(recordProgressTimer);
     gesture.awaitingPermission = false;
@@ -3478,9 +3473,12 @@
     }
   }
   function cancelRecording() {
+    if(recordPress)clearTimeout(recordPress.timer);
+    recordPress=null;
     finishRecording(true);
   }
   function interruptRecording() {
+    if(recordPress&&!recordPress.started){clearTimeout(recordPress.timer);recordPress=null;}
     if (recordGesture?.awaitingPermission) return;
     if (!recordGesture) return;
     if (recordGesture.locked) return;
@@ -3490,7 +3488,7 @@
     if (recordGesture?.locked) cancelRecording();
     else cancelRecording();
   };
-  async function startRecording(mode, pointerId) {
+  async function startRecording(mode, pointerId, startX = 0, startY = 0) {
     if (recordUploading || busy || !ready || !room || el('msgCompose').hidden) return;
     if (recordGesture) return;
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -3509,8 +3507,9 @@
       poster: '',
       locked: false,
       pointerId,
-      startX: 0,
-      startY: 0,
+      startX,
+      startY,
+      released: false,
     };
     recordGesture = gesture;
     recordMode = mode;
@@ -3529,6 +3528,10 @@
         stream.getTracks().forEach((t) => t.stop());
         if (recordGesture === gesture) finishRecording(true);
         return;
+      }
+      if(gesture.released&&!gesture.locked){
+        stream.getTracks().forEach(track=>track.stop());recordGesture=null;paintRecordButtons();
+        el('msgSendState').textContent='';status('Permission granted. Hold again to record.');return;
       }
       gesture.stream = stream;
       const mime = (
@@ -3586,14 +3589,15 @@
           const extension = mime.includes('mp4') ? '.mp4' : mime.includes('ogg') ? '.ogg' : '.webm';
           const file = new File([blob], (video ? 'video-' : 'voice-') + Date.now() + extension, { type: blob.type });
           file.chatPoster = gesture.poster;
-          await upload(file);
+          const uploaded=await upload(file);
+          if(!uploaded)return;
         } catch (error) {
           status(error.message);
         } finally {
           recordUploading = false;
           recordFrame.hidden = true;
           recordPreview.hidden = true;
-          el('msgSendState').textContent = '';
+          if(!pending)el('msgSendState').textContent = '';
         }
       };
       recording.start(250);
@@ -3638,86 +3642,86 @@
         recordPreview.play().catch(() => {});
         scheduleInputFit();
       }
-      recordTimer = setTimeout(() => finishRecording(), video ? 60000 : 120000);
+      if(video)recordTimer = setTimeout(() => finishRecording(), 60000);
+      if(gesture.released&&!gesture.locked)finishRecording(false);
     } catch (error) {
       gesture.awaitingPermission = false;
       stream?.getTracks().forEach((t) => t.stop());
       if (recordGesture === gesture) {
-        status(error.message || 'Camera or microphone unavailable.');
+        status(error.name==='NotAllowedError'?'Allow microphone'+(video?' and camera':'')+' access in your browser settings.':error.name==='NotFoundError'?'No microphone'+(video?' or camera':'')+' was found.':error.message || 'Camera or microphone unavailable.');
         finishRecording(true);
       }
     }
   }
-  function onRecordPointerDown(mode, event) {
+  function onRecordPointerDown(event) {
     if (event.button != null && event.button !== 0) return;
     event.preventDefault();
-    if (recordGesture?.locked && recordGesture.mode === mode) {
+    if (recordGesture?.locked) {
       finishRecording(false);
       return;
     }
-    if (recordGesture) return;
-    const button = mode === 'video' ? videoButton : recordButton;
-    button.setPointerCapture?.(event.pointerId);
-    startRecording(mode, event.pointerId);
-    if (recordGesture) {
-      recordGesture.startX = event.clientX;
-      recordGesture.startY = event.clientY;
-    }
+    if (recordGesture||recordPress||recordUploading||busy) return;
+    if(!ready||!room){status('Open a connected conversation before recording.');return;}
+    try{recordButton.setPointerCapture?.(event.pointerId);}catch{}
+    const press={pointerId:event.pointerId,x:event.clientX,y:event.clientY,started:false};
+    recordPress=press;
+    press.timer=setTimeout(()=>{
+      if(recordPress!==press)return;
+      press.started=true;
+      startRecording(recordMode,press.pointerId,press.x,press.y);
+    },200);
   }
   function onRecordPointerMove(event) {
+    const press=recordPress;
+    if(press&&!press.started&&press.pointerId===event.pointerId&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>56){
+      clearTimeout(press.timer);press.started=true;startRecording(recordMode,press.pointerId,press.x,press.y);
+    }
     const gesture = recordGesture;
-    if (!gesture?.recorder || gesture.locked || gesture.awaitingPermission) return;
+    if (!gesture || gesture.locked) return;
     if (gesture.pointerId != null && event.pointerId !== gesture.pointerId) return;
     const dx = event.clientX - gesture.startX;
     const dy = event.clientY - gesture.startY;
-    if (dy < -56 || (Math.abs(dx) > 72 && dy < -24)) {
+    if (Math.hypot(dx,dy)>56) {
       gesture.locked = true;
       paintRecordButtons();
       el('msgSendState').textContent =
         (gesture.mode === 'video' ? 'Video locked' : 'Audio locked') + ' · Delete or send';
-    } else if (dx < -72 && dy > -24) {
-      cancelRecording();
     }
   }
   function onRecordPointerUp(event) {
+    if(recordPress){
+      if(event.pointerId!==recordPress.pointerId)return;
+      const press=recordPress;recordPress=null;clearTimeout(press.timer);
+      if(!press.started){recordMode=recordMode==='audio'?'video':'audio';paintRecordButtons();return;}
+    }
     const gesture = recordGesture;
     if (!gesture) return;
     if (gesture.pointerId != null && event.pointerId !== gesture.pointerId) return;
-    if (gesture.awaitingPermission) return;
+    if (gesture.awaitingPermission) {gesture.released=true;return;}
     if (gesture.locked) return;
     finishRecording(false);
   }
-  recordButton.addEventListener('pointerdown', (event) => onRecordPointerDown('audio', event));
-  videoButton.addEventListener('pointerdown', (event) => onRecordPointerDown('video', event));
+  recordButton.addEventListener('pointerdown', onRecordPointerDown);
   recordButton.addEventListener('pointermove', onRecordPointerMove);
-  videoButton.addEventListener('pointermove', onRecordPointerMove);
   recordButton.addEventListener('pointerup', onRecordPointerUp);
-  videoButton.addEventListener('pointerup', onRecordPointerUp);
   recordButton.addEventListener('pointercancel', () => {
-    if (recordGesture && !recordGesture.locked) cancelRecording();
-  });
-  videoButton.addEventListener('pointercancel', () => {
-    if (recordGesture && !recordGesture.locked) cancelRecording();
+    if (!recordGesture?.locked) cancelRecording();
   });
   recordButton.addEventListener('contextmenu', (event) => event.preventDefault());
-  videoButton.addEventListener('contextmenu', (event) => event.preventDefault());
   recordButton.addEventListener('keydown', (event) => {
     if ([' ', 'Enter'].includes(event.key)) {
       event.preventDefault();
       if (!event.repeat) {
         if (recordGesture?.locked) finishRecording(false);
-        else if (!recordGesture) startRecording('audio');
+        else if (!recordGesture) startRecording(recordMode);
       }
     } else if (event.key === 'Escape') cancelRecording();
   });
-  videoButton.addEventListener('keydown', (event) => {
-    if ([' ', 'Enter'].includes(event.key)) {
-      event.preventDefault();
-      if (!event.repeat) {
-        if (recordGesture?.locked) finishRecording(false);
-        else if (!recordGesture) startRecording('video');
-      }
-    } else if (event.key === 'Escape') cancelRecording();
+  recordButton.addEventListener('keyup', (event) => {
+    if([' ','Enter'].includes(event.key)&&recordGesture&&!recordGesture.locked){
+      if(recordGesture.awaitingPermission)recordGesture.released=true;
+      else finishRecording(false);
+    }
   });
   window.addEventListener('blur', interruptRecording);
   document.addEventListener('keydown', (event) => {
@@ -5464,40 +5468,6 @@
     if (!response.ok) throw new Error(value.error || 'Request failed.');
     return value;
   }
-  el('msgAssign').onclick = async () => {
-    try {
-      await examPull(examDirty);
-      examDirty = false;
-      const exams = examLoad().filter((e) => !e.instanceStatus);
-      dialog(
-        'Assign exam',
-        '<label>Exam<select name="exam" required>' +
-          exams.map((e) => '<option value="' + e.id + '">' + escape(e.title) + '</option>').join('') +
-          '</select></label><label>Recipient<select name="target">' +
-          data.groups.map((g) => '<option value="group:' + g.id + '">' + escape(g.title) + '</option>').join('') +
-          data.contacts
-            .filter((p) => p.role === 'Student')
-            .map((p) => '<option value="student:' + p.id + '">' + escape(p.name) + '</option>')
-            .join('') +
-          '</select></label><label>Action<select name="action"><option value="assign">Assign</option><option value="unassign">Unassign</option></select></label>',
-        async (form) => {
-          const target = String(form.get('target')),
-            at = target.indexOf(':');
-          await domain('/assignment', {
-            targetKind: target.slice(0, at),
-            targetId: target.slice(at + 1),
-            examId: Number(form.get('exam')),
-            action: form.get('action'),
-            clientKey: crypto.randomUUID(),
-          });
-          await examPull(true);
-          if (target.startsWith('group:')) await groupPull(true);
-        },
-      );
-    } catch (error) {
-      status(error.message);
-    }
-  };
   function settingsSoundEditor(root) {
     const form = root.querySelector('form');
     if (!form || form.dataset.settingsWired) return;
@@ -5809,22 +5779,22 @@
       escape(profile.role) +
       '</small></span></div><h3>Common</h3>' +
       [
-        ['profile', 'user-round', 'Profile'],
-        ['notifications', 'bell', 'Notifications'],
-        ['theme', 'palette', 'Theme'],
-        ['statistics', 'chart-no-axes-combined', 'Statistics'],
-        ['messages', 'messages-square', 'Messages'],
-        ['blocked', 'user-round-x', 'Blocked users'],
-        ['security', 'shield', 'Security'],
-        ['display', 'type', 'Display'],
-        ['help', 'circle-help', 'Help'],
+        ['profile', icon('user-round'), 'Profile'],
+        ['notifications', icon('bell'), 'Notifications'],
+        ['theme', icon('palette'), 'Theme'],
+        ['statistics', icon('chart-no-axes-combined'), 'Statistics'],
+        ['messages', icon('messages-square'), 'Messages'],
+        ['blocked', icon('user-round-x'), 'Blocked users'],
+        ['security', icon('shield'), 'Security'],
+        ['display', '', 'Display'],
+        ['help', icon('circle-help'), 'Help'],
       ]
         .map(
           ([id, image, title]) =>
             '<button type="button" data-settings-tab="' +
             id +
             '">' +
-            (id === 'display' ? '<span class="settings-display-symbol" aria-hidden="true">Aa</span>' : icon(image)) +
+            (id === 'display' ? '<span class="settings-display-symbol" aria-hidden="true">Aa</span>' : image) +
             escape(title) +
             '</button>',
         )
@@ -6469,6 +6439,7 @@
   });
   // Keep account navigation owned by the application; chat adds only its entry points.
   for (const button of document.querySelectorAll('[data-jump="stats"]')) {
+    if (document.body.dataset.roleNavigation && !button.closest('#account,#profile')) continue;
     if (button.parentElement?.querySelector('[data-msg-open]')) continue;
     const next = document.createElement('button');
     next.type = 'button';
@@ -6478,7 +6449,7 @@
     button.after(next);
   }
   for (const root of document.querySelectorAll('.side-foot,.mobile-tools'))
-    if (!root.querySelector('[data-msg-open]')) {
+    if (!document.body.dataset.roleNavigation && !root.querySelector('[data-msg-open]')) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'btn ghost';

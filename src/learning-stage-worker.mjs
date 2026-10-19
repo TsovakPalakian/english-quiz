@@ -150,7 +150,7 @@ export default {async fetch(request,env){
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
-    const publicAsset=publicPaths.includes(path)||path==='/database-context.js'||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
+    const publicAsset=publicPaths.includes(path)||['/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css'].includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
     if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
     const db=studyClient(env);

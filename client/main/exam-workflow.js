@@ -142,3 +142,10 @@ document.addEventListener('click',async event=>{
     };
   }catch(error){window.LearningMain.notice(error.message,true);}finally{button.disabled=false;}
 });
+const roleExamListBefore=examPaintList;
+examPaintList=function(){
+  roleExamListBefore();
+  document.querySelectorAll('nav [data-exam-menu-label]').forEach(label=>{
+    const text=[...label.childNodes].find(node=>node.nodeType===3);if(text)text.textContent='Exam';
+  });
+};

@@ -20,11 +20,11 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.CH
 try{
   const databaseContext=()=>{try{localStorage.setItem('app-database-context-v1','d1:1');}catch{}};
   const page=await browser.newPage();await page.addInitScript(databaseContext);const errors=[],requests=[];
-  const openSettings=async tab=>{await page.locator('[data-jump="account"]:visible').first().click();const dialog=page.locator('dialog.user-settings[open]');await dialog.waitFor();if(tab)await dialog.locator('[data-settings-tab="'+tab+'"]').click();return dialog;};
+  const openSettings=async tab=>{await page.locator('[data-user-settings]:visible, [data-shell-settings-open]:visible').first().click();const dialog=page.locator('dialog.user-settings[open]');await dialog.waitFor();if(tab)await dialog.locator('[data-settings-tab="'+tab+'"]').click();return dialog;};
   const groupLevel=async target=>{const level=target.locator('[data-group-level="unassigned"]');if(await level.isVisible())await level.click();};
   const drillExams=async(target,section='')=>{await target.locator('#exams.on').waitFor();
     for(const selector of ['[data-exam-level="unassigned"]','[data-exam-group-view="unassigned"]',...(section?['[data-exam-section="'+section+'"]']:[])]){const node=target.locator(selector);if(await node.isVisible())await node.click();}};
-  const openExams=async target=>{await target.locator('[data-jump="exams"]:visible').click();await drillExams(target);};
+  const openExams=async target=>{await target.evaluate(()=>window.enquizVisit('exams'));await drillExams(target);};
   const closeSettings=async()=>{await page.keyboard.press('Escape');await page.locator('dialog.user-settings').waitFor({state:'detached'});};
   page.on('pageerror',error=>{errors.push(error.message);console.log('PAGE ERROR',error.stack);});
   const user={id:'a'.repeat(32),login:'fixture_dev',name:'Fixture',email:'fixture@example.invalid',role:'DEVELOPER'};
@@ -177,7 +177,7 @@ try{
   await settings.locator('[data-settings-password]').click();
   assert.equal(await settings.locator('#ownPasswordForm').isVisible(),true);
   await closeSettings();
-  assert.equal(await page.locator('[data-jump="account"]:visible').first().getAttribute('title'),'My account');
+  assert.equal(await page.locator('.side .brand-account').count(),0);
   await page.locator('[data-jump="admin"]:visible').first().click();
   assert.equal(await page.locator('[data-jump="admin"] svg').count(),2);
   assert.equal(await page.locator('[data-admin-tab]').count(),3);
@@ -250,19 +250,22 @@ try{
   await page.locator('[data-jump="library"]:visible').click();
   await page.locator('[data-jump="archive"]:visible').click();
   assert.equal(requests.filter(path=>path==='/api/archive').length,archiveRequests);
-  await page.locator('[data-jump="groups"]:visible').click();
+  await page.locator('.side nav [data-jump="groups"]:visible').click();
   await groupLevel(page);await page.locator('[data-group-open="41"]').click();
+  await page.locator('#groupdetail.on').waitFor();
+  await page.locator('[data-detail-lessons]').click();
+  await page.locator('#days.on').waitFor();
   assert.equal(await page.locator('section.on').getAttribute('id'),'days');
   assert.equal(await page.locator('#lmGroupTitle').innerText(),'Fixture group');
   assert.match(await page.locator('#lmGroupName').innerText(),/lessons · 1/);
   assert.deepEqual(await page.locator('#days .page-path li').allTextContents(),['Groups','Unassigned','Fixture group']);
-  await page.locator('[data-lm-open="31"]').click();
+  await page.locator('#days [data-lm-open="31"]').click();
   await page.locator('#material.on').waitFor();
   await page.waitForFunction(()=>document.querySelector('#material .page-path')?.textContent.includes('Fixture lesson'));
   assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Groups','Unassigned','Fixture group','Fixture lesson']);
   await page.locator('#material [data-page-path="days"]').click();
   await page.locator('#days.on').waitFor();
-  await page.locator('[data-lm-open="31"]').click();
+  await page.locator('#days [data-lm-open="31"]').click();
   await openExams(page);
   await page.locator('#examListSearch').fill('No such exam');
   assert.equal(await page.locator('#examList .day-row:visible').count(),0);
@@ -274,9 +277,9 @@ try{
   await page.locator('#examBlocksSearch').fill('No such block');
   assert.equal(await page.locator('#examBlocks .day-row:visible').count(),0);
   await page.locator('#examBlocksSearch').fill('');
-  assert.deepEqual(await page.locator('#examblocks .page-path li').allTextContents(),['Exams','Unassigned','Unassigned','Fixture exam']);
+  assert.deepEqual(await page.locator('#examblocks .page-path li').allTextContents(),['Groups','Exams','Fixture exam']);
   await page.locator('[data-exam-block="12"]').click();
-  assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Exams','Unassigned','Unassigned','Fixture exam','Fixture examination block','Edit']);
+  assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Groups','Exams','Fixture exam','Fixture examination block','Edit']);
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'/private/tmp/english-quiz-breadcrumb-mobile.png'});
   assert.ok(await page.locator('#material .page-path').evaluate(node=>node.scrollWidth<=node.clientWidth),'Breadcrumbs fit mobile');
@@ -350,14 +353,13 @@ try{
     await page.evaluate(id=>window.enquizVisit(id),destination);
     assert.equal(await page.locator('section.on').getAttribute('id'),'account');
   }
-  await page.locator('[data-jump="account"]:visible').first().click();
   await page.locator('#loginForm [name="login"]').fill(user.login);
   await page.locator('#loginForm [name="password"]').fill('fixture-only');
   await page.locator('#loginForm button[type="submit"]').click();
   await page.waitForFunction(()=>accountReady&&document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
   assert.equal(signedIn,true);assert.equal(selectedTheme,'user-second');
   assert.equal(await page.locator('.side nav [data-jump="groups"]').isVisible(),true);
-  assert.equal(await page.locator('.side nav [data-jump="exams"]').isVisible(),true);
+  assert.equal(await page.locator('.side nav [data-jump="exams"]').isVisible(),false,'Staff use combined Classes instead of the student Exams entry');
   assert.equal(await page.locator('.side nav [data-jump="library"]').isVisible(),true);
   signedIn=true;holdLessonSummary=true;
   exam.blocks[0].published=false;exam.published=false;lesson={...lesson,id:12};
@@ -476,6 +478,8 @@ try{
   assert.equal(copyWrites,1);assert.equal(JSON.stringify(exam.blocks.find(row=>row.id===90)),originalBlock);
   await page.evaluate(()=>window.enquizVisit('groups'));
   await groupLevel(page);await page.locator('[data-group-open="42"]').click();
+  await page.locator('#groupdetail.on').waitFor();
+  await page.locator('[data-detail-lessons]').click();
   assert.equal(await page.locator('[data-group-move]').count(),0);
   await page.locator('[data-lm-open="51"]').click();
   await page.locator('#lmPreview').getByText('Sources and credits',{exact:true}).waitFor();

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>English</title>
+  <title>Lumiscia</title>
   <script src="/theme-init.js"></script>
   <link rel="icon" href="/favicon.ico?v=2" sizes="128x128" />
   <link rel="icon" href="/favicon.png?v=2" type="image/png" sizes="128x128" />
@@ -12,26 +12,28 @@
   
   <link rel="stylesheet" href="preview.css" />
 <link rel="stylesheet" href="/main-stage.css"></head>
-<body><div id="learning-main-banner"><p>TEST Learning — отдельный Worker. Рабочий сайт не переключён. <button id="learning-main-refresh">Проверить сервер</button><button id="learning-main-retry">Повторить</button></p><div id="learning-main-status" role="status"></div></div>
+<body data-role-navigation="true"><div id="learning-main-banner"><p>TEST Learning — отдельный Worker. Рабочий сайт не переключён. <button id="learning-main-refresh">Проверить сервер</button><button id="learning-main-retry">Повторить</button></p><div id="learning-main-status" role="status"></div></div>
   <div class="shell">
   <aside class="side">
-    <button class="brand" type="button" data-jump="home">English</button>
+    <div class="brand-row"><button class="brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true">L</span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button></div>
+    <label class="side-search"><i data-lucide="search" aria-hidden="true"></i><input id="shellSearch" type="search" placeholder="Search" aria-label="Search navigation" autocomplete="off" /></label>
     <nav aria-label="Primary">
-      <button type="button" data-jump="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9a1 1 0 0 0 1 1h4v-5h2v5h4a1 1 0 0 0 1-1v-9"/></svg>Home</button>
-      <button type="button" data-jump="days" data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Lessons</button>
-      <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Classes</button>
-      <button type="button" data-jump="exams" data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3h8l4 4v14H8z"/><path d="M16 3v4h4M10 12h6M10 16h6"/></svg>Exams</button>
-      <button type="button" data-jump="allwords" data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Words</button>
-      <button type="button" data-jump="tenses" data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5"/><path d="M4 12h8"/><path d="M12 19V5"/><path d="M16 8h4"/><path d="M18 6v4"/></svg>Grammar</button>
-      <button type="button" data-jump="admin" data-teacher-only hidden><svg class="lucide lucide-users-round" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/></svg>Accounts</button>
-      <button type="button" data-jump="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h4v16H4zM10 4h4v16h-4zM16 7h4v13h-4z"/></svg>Entertainment</button>
-      <button type="button" data-jump="archive" data-archive-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M5 6v14h14V6M9 10h6"/></svg>Archive</button>
-      <button type="button" data-jump="bugs" data-developer-only hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M8 8h8v8a4 4 0 0 1-8 0V8z"/><path d="M5 10H3M21 10h-2M5 15H3M21 15h-2M8 21l1.5-2M16 21l-1.5-2"/></svg>Bugs</button>
-      <button type="button" data-msg-open data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Messages</button>
-      <button type="button" data-jump="account" data-nav-role="student" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>Account</button>
+      <button type="button" data-jump="home" data-nav-role="student" class="on"><i data-lucide="house" aria-hidden="true"></i>Home</button>
+      <button type="button" data-jump="days" data-nav-role="student" hidden><i data-lucide="calendar-days" aria-hidden="true"></i>Lessons</button>
+      <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days,groupdetail" hidden><i data-lucide="users-round" aria-hidden="true"></i>Groups</button>
+      <button type="button" data-jump="exams" data-nav-role="student" hidden><i data-lucide="clipboard-check" aria-hidden="true"></i><span data-exam-menu-label>Exam</span></button>
+      <button type="button" data-jump="wordcollections"><i data-lucide="book-open" aria-hidden="true"></i>Words</button>
+      <button type="button" data-jump="tenses"><i data-lucide="languages" aria-hidden="true"></i>Grammar</button>
+      <button type="button" data-jump="library"><i data-lucide="music" aria-hidden="true"></i>Entertainment</button>
+      <button type="button" data-jump="speakout"><i data-lucide="headphones" aria-hidden="true"></i>Speakout</button>
+      <button type="button" data-msg-open data-chrome="messages"><i data-lucide="messages-square" aria-hidden="true"></i>Messages</button>
+      <button type="button" data-jump="admin" data-teacher-only hidden><i data-lucide="users-round" aria-hidden="true"></i>Accounts</button>
+      <button type="button" data-jump="archive" data-archive-only data-nav-role="staff" hidden><i data-lucide="archive" aria-hidden="true"></i>Archive</button>
+      <button type="button" data-jump="bugs" data-developer-only hidden><i data-lucide="bug" aria-hidden="true"></i>Bugs</button>
+      <button class="shell-settings-open" type="button" data-user-settings data-shell-settings-open aria-label="Settings" hidden><i data-lucide="settings" aria-hidden="true"></i>Settings</button>
     </nav>
+    <div class="shell-progress" hidden><div><b>Learning progress</b><span id="shellProgressPercent">0%</span></div><div class="shell-progress-track" role="progressbar" aria-label="Learned cards" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="shellProgressBar"></i></div><p id="shellProgressCount">0 of 0 cards learned</p><button class="btn" type="button" data-jump="days" data-home-continue>Continue studying</button></div>
     <div class="side-foot">
-      <button class="btn ghost shell-settings-open" type="button" data-shell-settings-open aria-label="Settings" aria-haspopup="dialog">⚙ <span>Settings</span></button>
       <div id="shellSettings" class="shell-settings" hidden>
         <button class="btn ghost" type="button" data-jump="guide">Navigate</button>
         <button class="btn ghost" type="button" data-msg-open data-nav-role="staff" hidden>Messages</button>
@@ -56,20 +58,18 @@
   </aside>
   <div class="phone"><div class="wrap">
     <div class="mobile-tools">
-      <button class="btn ghost shell-settings-open" type="button" data-shell-settings-open aria-label="Settings">⚙</button>
-      <button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa</button>
-      <button class="btn ghost" type="button" data-theme-cycle>Theme</button>
+      <button class="brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true">L</span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
+      <button class="btn ghost shell-settings-open" type="button" data-shell-settings-open aria-label="Settings" hidden><i data-lucide="settings" aria-hidden="true"></i></button>
     </div>
 
     <section id="home" class="on">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home" id="homeBack" hidden>Back</button>
+      <div class="guest-brand brand"><span class="brand-mark" aria-hidden="true">L</span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></div>
+      <div class="home-heading"><div><h1 class="hello" style="visibility:hidden">Hello!</h1><p class="sub">Classes are organized in groups.</p></div>
         <div class="home-top-actions">
           <button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button>
           <button class="btn ghost" type="button" data-theme-cycle data-home-theme><span class="theme-kicker">Theme</span></button>
         </div>
       </div>
-      <h1 class="hello" style="visibility:hidden">Hello!</h1>
-      <p class="sub">Classes are organized in groups.</p>
       <div id="homeAuth" class="row" hidden style="margin-bottom:16px">
         <button class="btn primary" type="button" data-account="show-login">Log in</button>
         <button class="btn" type="button" data-account="show-register">Create account</button>
@@ -90,11 +90,15 @@
         </div>
       </div>
       <div class="overview">
-        <button class="stat-tile" type="button" data-msg-open id="homeUnreadTile"><b id="homeUnreadCount">0</b><span>Unread messages</span></button>
-        <button class="stat-tile" type="button" data-jump="days" id="homeNextLesson"><b id="homeNextLessonLabel">—</b><span>Next lesson</span></button>
-        <button class="stat-tile" type="button" data-stat="weak"><b class="bad">0</b><span>Weak cards</span></button>
-        <button class="stat-tile" type="button" data-stat="learning"><b id="homeLearningCount">0</b><span>Still learning</span></button>
+        <button class="stat-tile" type="button" data-msg-open id="homeUnreadTile"><span>Unread messages</span><b id="homeUnreadCount">0</b><small>in Messages</small></button>
+        <button class="stat-tile" type="button" data-jump="days" id="homeNextLesson"><span>Next lesson</span><b id="homeNextLessonLabel">—</b><small id="homeNextLessonNote">No upcoming lessons</small></button>
+        <button class="stat-tile" type="button" data-stat="weak"><span>Weak cards</span><b class="bad">0</b><small>needs review</small></button>
+        <button class="stat-tile" type="button" data-stat="learning"><span>Still learning</span><b id="homeLearningCount">0</b><small>in progress</small></button>
       </div>
+      </div>
+      <div id="homeDashboard" class="home-dashboard" hidden>
+        <div class="home-activity"><div class="home-panel-head"><h2>Recent activity</h2><button class="home-text-link" type="button" data-jump="stats">View all</button></div><div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div></div>
+        <div class="home-group"><div class="home-panel-head"><h2>Your group</h2><button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button></div><div class="home-group-body"><p id="homeGroupTitle">No group assigned</p><div id="homeGroupMetrics" class="home-group-meta"></div><button class="btn primary" type="button" data-jump="groups" data-home-group-open>Open group</button></div></div>
       </div>
     </section>
 
@@ -105,22 +109,13 @@
       <div id="cardStatList"></div>
     </section>
 
-    <section id="allwords">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1 id="allWordTitle">All words</h1></div>
-      <p class="sub" id="allWordSub">Every word card, once. The line under a word shows where it lives.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-all-study>Study</button></div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
-      <div id="allWordGrid"></div>
-    </section>
-
-    <section id="library">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Entertainment</h1></div>
-      <p class="sub">Decks, days and songs. A word that already exists is a path, not a second card.</p>
-      <div class="here-add" data-place="classify" style="margin-bottom:12px">
-        <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
+    <section id="wordcollections">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Words</h1></div>
+      <div class="here-add" data-place="classify">
+        <button class="add-link" type="button" data-add-open aria-label="Add a card" title="Add a card">+</button>
         <div data-add-form hidden>
-          <input type="text" placeholder="a word or a phrase" autocomplete="off" data-add-input />
-          <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+          <input type="text" placeholder="Word or expression" autocomplete="off" data-add-input />
+          <div class="row"><button class="btn primary" type="button" data-add-go>Add</button></div>
           <p class="hint" data-add-status></p>
         </div>
       </div>
@@ -131,18 +126,25 @@
         <button class="file-card" type="button" data-jump="phrasal"><span class="num" id="phrasalCount">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
         <button class="file-card" type="button" data-jump="idioms"><span class="num" id="idiomCount">3</span><b>Idioms</b><span class="label">cards</span></button>
       </div>
-      <h2 class="lib-h">Grammar</h2>
-      <div class="decks">
-        <button class="file-card active" type="button" data-jump="tenses"><span class="num">12</span><b>Grammar</b><span class="label">tenses, then other structures</span></button>
-        <button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>
-        <button class="file-card" type="button" data-jump="articles"><span class="num">3</span><b>Articles</b><span class="label">examples</span></button>
-        <button class="file-card" type="button" data-jump="demonstratives"><span class="num">4</span><b>Demonstratives</b><span class="label" id="demoLibLabel">this, that, these, those</span><i class="mini"><i id="demoLibBar" style="width:0%"></i></i></button>
+    </section>
+    <section id="allwords">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="wordcollections">Back</button><h1 id="allWordTitle">All words</h1></div>
+      <p class="sub" id="allWordSub">Every word card, once. The line under a word shows where it lives.</p>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-all-study>Study</button></div>
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div id="allWordGrid"></div>
+    </section>
+
+    <section id="library">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Entertainment</h1></div>
+      <p class="sub">Songs and texts</p>
+      <div class="library-toolbar">
+        <input id="librarySearch" type="search" placeholder="Search entertainment" aria-label="Search entertainment" autocomplete="off" />
+        <p id="librarySearchStatus" class="hint" role="status" hidden></p>
       </div>
-      <h2 class="lib-h">Materials</h2>
       <div class="decks">
         <button class="file-card" type="button" data-jump="music"><span class="num" id="lyricCount">1</span><b>Song lyrics</b><span class="label">songs</span></button>
         <button class="file-card" type="button" data-jump="texts"><span class="num" id="textCount">0</span><b>Text</b><span class="label">articles and notes</span></button>
-        <button class="file-card" type="button" data-jump="speakout"><span class="num">8</span><b>Speakout</b><span class="label">levels · 32 lessons each</span></button>
       </div>
     </section>
 
@@ -495,6 +497,11 @@
 
     <section id="tenses">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Grammar</h1></div>
+      <details class="resource-fold"><summary>Grammar collections</summary><div class="decks">
+        <button class="file-card" type="button" data-jump="verbs"><span class="num" id="verbCount">0</span><b>Irregular verbs</b><span class="label">three forms</span></button>
+        <button class="file-card" type="button" data-jump="articles"><span class="num">3</span><b>Articles</b><span class="label">examples</span></button>
+        <button class="file-card" type="button" data-jump="demonstratives"><span class="num">4</span><b>Demonstratives</b><span class="label" id="demoLibLabel">this, that, these, those</span><i class="mini"><i id="demoLibBar" style="width:0%"></i></i></button>
+      </div></details>
       <p class="sub">Twelve tenses are one part of the system. Future forms, conditionals and modals are not extra tenses.</p>
       <input type="search" placeholder="Search" data-card-search autocomplete="off" style="margin-bottom:10px" />
       <div class="words" id="tenseAdded" style="margin-bottom:8px"></div>
@@ -518,9 +525,7 @@
     </section>
 
     <section id="groups">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Groups</h1>
-        <button class="btn ghost" type="button" data-jump="exams" data-nav-role="staff" hidden>Exams</button>
-      </div>
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Groups</h1></div>
       <p class="sub">In date order.</p>
       <div>
         <button class="btn primary" type="button" id="groupNew">+ New group</button>
@@ -528,6 +533,17 @@
       </div>
     </section>
 
+    <section id="groupdetail">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groups">Back</button><h1 id="groupDetailTitle">Group</h1></div>
+      <p id="groupDetailStatus" class="hint" role="status"></p>
+      <button id="groupDetailRetry" class="btn" type="button" data-group-directory-retry hidden>Retry</button>
+      <div class="group-detail-destinations">
+        <button class="file-card" type="button" data-detail-lessons><b id="groupDetailLessonCount">Lessons</b></button>
+        <button class="file-card" type="button" data-detail-exams><b id="groupDetailExamCount">Exams</b><span class="label group-exam-summary" id="groupDetailExamSummary"></span></button>
+      </div>
+      <details class="group-people-fold"><summary>Teachers</summary><div id="groupDetailTeachers"></div></details>
+      <details class="group-people-fold"><summary>Students</summary><div id="groupDetailStudents"></div></details>
+    </section>
     <section id="days">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groups">Back</button><div class="page-heading"><h1 id="lmGroupTitle">Lessons</h1><p id="lmGroupName" class="page-context"></p></div></div>
       <p class="sub">In date order. One date can hold as many lessons as you add.</p>
@@ -1701,6 +1717,7 @@
     </section>
 
     <section id="account">
+      <button class="auth-brand brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true">L</span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
       <div class="account-stage">
         <div class="account-main">
@@ -1730,6 +1747,7 @@
       <div id="adminGroupDetail"></div>
     </section>
 
+    <footer class="site-copyright">&copy; <span data-copyright-year>2026</span> Lumiscia. All rights reserved.</footer>
   </div></div>
   <div class="display-dialog archive-preview-dialog" id="archivePreviewDialog" hidden>
     <button class="display-backdrop" type="button" data-archive-close aria-label="Close archive preview"></button>

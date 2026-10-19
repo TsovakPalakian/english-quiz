@@ -1,3 +1,5 @@
+    installShellBranding();
+    holdPlace();
     examBoot();
     paintTextCount();
     paintHomeStats();

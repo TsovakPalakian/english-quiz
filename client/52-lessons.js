@@ -82,6 +82,8 @@
         paintGroups();
         paintLmDays();
         if(document.querySelector('section.on')?.id==='exams')examPaintList();
+        if(typeof paintHomeStats==='function'&&document.querySelector('section.on')?.id==='home')paintHomeStats();
+        if(typeof paintGroupDetail==='function'&&document.querySelector('section.on')?.id==='groupdetail')paintGroupDetail();
       }).catch((error) => window.LearningMain?.notice(error.message, true)).finally(() => { if (token === groupPullToken) classGroupsPulling = false; });
     }
     function groupSave() {
@@ -126,14 +128,14 @@
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
       document.querySelector('#groups .meta h1').textContent=groupViewLevel?(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel):'Groups';
       paintPagePath('groups');
+      syncRoleHomeControls();
       const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
       const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
-      const overview=document.getElementById('groupOverview');if(overview)overview.innerHTML=metricPairs([['groups',levelRows.length],['students',levelRows.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',levelRows.reduce((sum,g)=>sum+g.lessonIds.length,0)]]);
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
       const query=document.getElementById('groupSearch')?.value.trim().toLocaleLowerCase()||'';
       const rows=levelRows.filter(group=>group.title.toLocaleLowerCase().includes(query));
-      box.innerHTML = rows.map((group) => {
+      box.innerHTML = '<h2>Study groups</h2>'+rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
@@ -152,7 +154,7 @@
       id = domEntityId(id);
       if (!classGroups.some((group) => group.id === id)) return;
       classGroupId = id;
-      visit("days");
+      visit(isTeacher()&&!viewAccount?'groupdetail':'days');
     }
     function groupCreate() {
       if (!canEditLessons()) return;
@@ -484,6 +486,7 @@
       try { localStorage.setItem(LM_KEY, JSON.stringify(lmLibrary)); } catch (e) {}
       paintLmDays();
       if (opts && opts.push) lmSchedulePush();
+      if(typeof paintHomeStats==='function'&&document.querySelector('section.on')?.id==='home')paintHomeStats();
     }
     function lmPullFromServer() {
       if (!authUser || viewSwitching) return Promise.resolve();
@@ -1658,6 +1661,7 @@
     }
     function paintLmDays() {
       const box = document.getElementById("lmDayList");
+      document.getElementById('days')?.classList.toggle('staff-group-lessons',isTeacher()&&!viewAccount);
       const newer = document.getElementById("lmNew");
       if (newer) newer.hidden = !canEditLessons();
       if (!box) return;
