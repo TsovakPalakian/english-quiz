@@ -16,7 +16,7 @@ export function studyTokens(source){
   return tokens;
 }
 
-const scratch=new Set(['mutation_guard','created_rows','saved_ids','group_guard','chat_guard','assessment_guard','recording_guard','copy_ids','essential_guard']);
+const scratch=new Set(['mutation_guard','created_rows','saved_ids','group_guard','chat_guard','assessment_guard','recording_guard','copy_ids','essential_guard','invite_guard','email_otp_guard']);
 // Existing application trigger; its internal semicolon is not a second query.
 const noticeTrigger="CREATE TRIGGER IF NOT EXISTS chat_notice_outbox AFTER INSERT ON chat_messages WHEN NEW.category='learning' BEGIN INSERT OR IGNORE INTO chat_delivery_outbox(message_id) VALUES(NEW.id); END";
 const fail=()=>{throw new StudyError(500,'Unsupported D1 study query or binding.');};

@@ -2966,6 +2966,8 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .site-copyright { margin-top: auto; padding-top: 26px; color: var(--mute); font-size: 12px; text-align: center; overflow-wrap: anywhere; }
 body[data-shell-pending] .shell { visibility: hidden; pointer-events: none; }
 .guest-brand { display: none; }
+body:is(.guest-home,.guest-auth) { -webkit-user-select: none; user-select: none; }
+body:is(.guest-home,.guest-auth) :is(input,textarea) { -webkit-user-select: text; user-select: text; }
 .auth-brand { display: none; }
 body.guest-auth .side, body.guest-auth .mobile-tools, body.guest-auth .tabbar,
 body.guest-auth #account > .meta, body.guest-auth #account .account-links, body.guest-auth #account > .page-path { display: none !important; }
@@ -3063,6 +3065,14 @@ button.group-person:hover { background: var(--acc-s); }
 .group-exam-summary > span { overflow-wrap: anywhere; }
 .group-exam-summary > .has-assigned-works { color: var(--acc); font-weight: 700; }
 #adminGroupDetail .accounts-invite-section, #groupDetailInvite .accounts-invite-section { display: block; margin-block: 24px; }
+.invite-form { display: grid; gap: 14px; padding: 14px 0; min-width: 0; }
+.invite-form label { display: grid; gap: 6px; min-width: 0; }
+.invite-form [hidden] { display: none !important; }
+.invite-form [data-invite-url] { width: 100%; cursor: copy; }
+.invite-form [data-invite-qr] { justify-self: start; padding: 0; border: 0; background: transparent; cursor: copy; }
+.invite-form [data-invite-qr] img { display: block; }
+.invite-accept-dialog { width: min(440px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
+.invite-accept-dialog::backdrop { background: rgb(0 0 0 / 40%); }
 @media (max-width: 480px) { .group-exam-summary { grid-template-columns: minmax(0, 1fr); } }
 .group-people-fold { margin: 12px 0; border-top: 1px solid var(--line); }
 .group-people-fold > summary { padding: 14px 0; font-size: 16px; font-weight: 600; cursor: pointer; }

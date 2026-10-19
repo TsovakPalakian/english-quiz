@@ -3760,8 +3760,8 @@ async function setUserRole(env, actor, userId, body) {
   return json({ ok: true });
 }
 
-export async function approveRegistration(env, actor, regId) {
-  return decide(env, actor, regId, "approve");
+export async function approveRegistration(env, actor, regId, invitation = null) {
+  return decide(env, actor, regId, "approve", invitation);
 }
 
 export async function sessionForEmail(env, request, email, secure) {
@@ -3809,7 +3809,7 @@ async function uniqueGoogleLogin(db, email, name) {
   return ("g" + randomId().replace(/[^a-f0-9]/gi, "").slice(0, 15));
 }
 
-export async function completeGoogleSignIn(env, request, profile, { create = false } = {}, secure) {
+export async function completeGoogleSignIn(env, request, profile, { create = false, role = 'USER' } = {}, secure) {
   const email = String(profile?.email || "").trim().toLowerCase();
   const name = String(profile?.name || "").trim().slice(0, 80);
   if (!EMAIL_RE.test(email) || email.length > 120) return json({ error: "Enter a valid email." }, 400);
@@ -3834,13 +3834,13 @@ export async function completeGoogleSignIn(env, request, profile, { create = fal
     try {
       await provisionSignupUsername(env, "reserve", login, regId);
       await env.DB.prepare(
-        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'USER', ?)"
-      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, created).run();
+        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
+      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, role==='ADMIN'?'ADMIN':'USER', created).run();
     } catch (error) {
       await provisionSignupUsername(env, "release", login, regId).catch(() => {});
       return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
     }
-    await rememberRegistration(env, { id: regId, login, email, name, status: "pending", role: "USER", user_id: "", created_at: created, decided_at: 0 });
+    await rememberRegistration(env, { id: regId, login, email, name, status: "pending", role: role==='ADMIN'?'ADMIN':'USER', user_id: "", created_at: created, decided_at: 0 });
     return json({ status: "pending" });
   }
   const userId = randomId();
@@ -3867,7 +3867,7 @@ export async function completeGoogleSignIn(env, request, profile, { create = fal
   return startSession(env, user, { user: publicUser(user), authMethod: "google", created: true }, secure, request);
 }
 
-async function decide(env, actor, regId, action) {
+async function decide(env, actor, regId, action, invitation = null) {
   const db = env.DB;
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);
   if (action !== "approve" && action !== "reject") return json({ error: "Not found." }, 404);
@@ -3876,7 +3876,8 @@ async function decide(env, actor, regId, action) {
   // Same visibility as GET /api/admin/registrations — no approve-by-id for hidden-linked rows.
   const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
   if (!visible.length) return json({ error: "No such account." }, 404);
-  if(action==='approve'&&reg.role==='ADMIN'&&actor.role!=='DEVELOPER')return json({error:'Only a developer can approve a teacher account.'},403);
+  const invitedTeacher=invitation?.kind==='teacher'&&!invitation.revoked&&invitation.createdBy===actor.id&&invitation.pendingRegistrationId===regId&&invitation.registrationEmail===String(reg.email).toLowerCase()&&invitation.uses===1&&!!invitation.acceptedAt;
+  if(action==='approve'&&reg.role==='ADMIN'&&actor.role!=='DEVELOPER'&&!invitedTeacher)return json({error:'Only the inviting teacher or a developer can approve this teacher account.'},403);
   const decided = now();
   if (action === "reject") {
     await db.prepare("UPDATE registrations SET status = 'rejected', decided_at = ? WHERE id = ? AND status = 'pending'").bind(decided, regId).run();

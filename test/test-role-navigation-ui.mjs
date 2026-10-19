@@ -16,6 +16,7 @@ try{
   browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
   for(const role of ['DEVELOPER','ADMIN','USER']){
     const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
+    await page.context().grantPermissions(['clipboard-read','clipboard-write']);
     page.on('pageerror',error=>errors.push(error.message));
     const user={id:'a'.repeat(32),login:'fixture',name:'Fixture',role};
     const teachers=[{id:'b'.repeat(32),name:'First teacher',login:'teacher1',role:'ADMIN',active:1},{id:'c'.repeat(32),name:'Second teacher',login:'teacher2',role:'ADMIN',active:1}];
@@ -29,16 +30,16 @@ try{
       if(path==='/api/groups')data={groups:[{id:41,title:'A1 Fixture group',date:'2026-10-19',revision:1,studentCount:1,lessonIds:[31],examIds:[51]}]};
       if(path==='/api/lessons')data={materials:[{id:31,title:'Fixture lesson',date:'2026-10-19',published:true,stageRevision:1,blocks:[]}]};
       if(path==='/api/exams')data={exams:[{id:51,title:'Fixture exam',groupId:41,groupTitle:'A1 Fixture group',published:true,date:'2026-10-19',blocks:[{id:52,title:'Fixture block',published:true,materials:[{id:53,type:'text',tab:'overview',html:'<p>Fixture exam content</p>'}]}]}]};if(path==='/api/exams/work')data={work:[]};
-      if(path==='/api/admin/users')data={users:[...teachers,student]};
+      if(path==='/api/admin/users')data={users:[...teachers,student,...(role==='ADMIN'?[user]:[])]};
       if(path==='/api/admin/users/'+student.id)data={user:student};
       if(path==='/api/accounts/invites'){
         const body=route.request().postDataJSON();
         assert.equal(body.groupId,41);
-        assert.ok(teachers.some(teacher=>teacher.id===body.teacherId));
+        assert.ok([...teachers,user].some(teacher=>teacher.id===body.teacherId));
         data={token:'fixture-invite-token',groupTitle:'A1 Fixture group',expiresAt:Date.now()+86400000};
       }
       if(path==='/api/groups/members')data={members:[{accountId:student.id,groupId:41}]};
-      if(path==='/api/accounts/group-teachers')data={assignments:[{groupId:41,teacherIds:teachers.map(t=>t.id)}]};
+      if(path==='/api/accounts/group-teachers')data={assignments:[{groupId:41,teacherIds:[...teachers.map(t=>t.id),...(role==='ADMIN'?[user.id]:[])]}]};
       if(path.includes('/catalogs/'))data={documents:{},cards:[],next:null};
       await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
     });
@@ -111,11 +112,23 @@ try{
       await page.locator('#groupDetailTeachers').getByText('First teacher',{exact:true}).waitFor();
       assert.equal(await page.locator('#groupDetailTeachers button').count(),0,'Teacher descriptions are not account links');
       const groupInvite=page.locator('#groupDetailInvite');
+      assert.equal(await groupInvite.locator('[data-group-invites]').getAttribute('open'),null,'Invite starts collapsed');
+      await groupInvite.locator('summary').click();
       await groupInvite.locator('[data-invite-create]').click();
       await groupInvite.locator('[data-invite-url]:visible').waitFor();
       assert.match(await groupInvite.locator('[data-invite-url]').inputValue(), /invite=fixture-invite-token/);
-      assert.equal(await groupInvite.locator('[data-invite-copy]').isVisible(),true);
+      assert.equal(await groupInvite.locator('[data-invite-copy]').count(),0,'Copy link button removed');
       assert.equal(await groupInvite.locator('[data-invite-qr] img').isVisible(),true,'Groups invite uses local QR generation');
+      await groupInvite.locator('[data-invite-url]').click();
+      assert.match(await page.evaluate(()=>navigator.clipboard.readText()),/invite=fixture-invite-token/);
+      await groupInvite.locator('[data-invite-qr]').click();
+      await page.waitForFunction(()=>document.querySelector('#groupDetailInvite [data-invite-status]').textContent==='QR image copied.');
+      assert.ok(await page.evaluate(async()=>{const items=await navigator.clipboard.read();return items.some(item=>item.types.includes('image/png'));}));
+      await groupInvite.locator('[data-invite-kind]').selectOption('teacher');
+      await groupInvite.locator('[data-invite-email]').fill('colleague@example.invalid');
+      await groupInvite.locator('[data-invite-create]').click();
+      await groupInvite.locator('[data-invite-url]:visible').waitFor();
+      assert.equal(await groupInvite.locator('[data-invite-teacher]').isVisible(),false);
       await page.locator('#groupdetail summary').filter({hasText:'Students'}).click();
       await page.locator('#groupDetailStudents').getByText('Group student',{exact:true}).waitFor();
       await page.locator('#groupDetailStudents button[data-account="user"]').click();
@@ -141,8 +154,11 @@ try{
       await page.locator('[data-admin-group="41"]').click();
       await page.locator('#admingroup.on').waitFor();
       assert.equal(await page.locator('#adminGroupDetail [data-group-invites]').isVisible(),true,'Invite link section is visible to staff');
+      await page.locator('#adminGroupDetail [data-group-invites] summary').click();
       assert.equal(await page.locator('#adminGroupDetail [data-invite-create]').isVisible(),true,'Create invite is available to teachers and developers');
       assert.ok(await page.locator('#adminGroupDetail [data-invite-teacher] option').count()>0);
+      assert.equal(await page.locator('#adminGroupDetail > [data-group-teachers-list]').getAttribute('open'),null,'Teachers starts collapsed');
+      assert.equal(await page.locator('#adminGroupDetail > :last-child').getAttribute('data-group-invites'),'','Invite is last in Accounts');
     }
     for(const width of [1440,390]){
       await page.setViewportSize({width,height:1000});

@@ -12524,7 +12524,7 @@ return module.exports; })();
       hello.textContent = authUser ? (authUser.firstLogin ? "Welcome! Let's get started" : "Welcome back") : signedOutHello ? "See you soon" : "Hello!";
       hello.style.visibility = accountChecked ? "" : "hidden";
       const guestActions = document.getElementById("homeAuth");
-      if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
+      if (guestActions) guestActions.hidden = !!authUser || !accountChecked;
     }
     function paintHomeAccount() {
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&document.querySelector('section.on')?.id==='home');
@@ -12541,6 +12541,7 @@ return module.exports; })();
       paintHomeStudy();
       paintGuestAccess();
       refreshAccountsCount();
+      offerTeacherInvite();
     }
     let accountsCountActor = '', accountsCountAt = 0, accountsCountFlight = null;
     function paintAccountsCount(count) {
@@ -12601,11 +12602,16 @@ return module.exports; })();
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
+        if(invite&&!inviteDetails){
+          box.innerHTML='<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+          return;
+        }
+        const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
-          ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
+          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. ':'')+'Your account needs approval by the inviting teacher or a developer before you join the group.</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
-          ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
+          ? '<input type="hidden" name="role" value="'+(teacherInvite?'ADMIN':'USER')+'" /><p class="hint">Role: '+(teacherInvite?'Teacher':'Student')+' (from invite)</p>'
           : '<fieldset class="auth-role"><legend>Role</legend><div><label><input type="radio" name="role" value="USER" checked required />Student</label><label><input type="radio" name="role" value="ADMIN" required />Teacher</label></div></fieldset>';
         box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1>' + flashHtml +
           '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
@@ -12613,6 +12619,7 @@ return module.exports; })();
           '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
           roleField +
           passwordField(true)+
+          (teacherInvite?'<button class="btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
           '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +google+inviteHint+'</div></div>';
         decorate();
         return;
@@ -12715,7 +12722,15 @@ return module.exports; })();
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
     const guestLogo = document.querySelector('.guest-brand');
-    let logoTaps = 0, logoLastTap = 0, logoHideTimer;
+    let logoTaps = 0, logoLastTap = 0, logoHideTimer, logoReloadTimer;
+    function reloadGuestHome(){
+      try{sessionStorage.removeItem('enquiz-place');}catch{}
+      location.reload();
+    }
+    document.addEventListener('click',event=>{
+      if(authUser||!event.target.closest('.auth-brand'))return;
+      event.preventDefault();event.stopImmediatePropagation();reloadGuestHome();
+    },true);
     function scatterLogoMotto(motto) {
       const bounds = motto.getBoundingClientRect();
       const source = document.createElement('canvas');
@@ -12806,17 +12821,17 @@ return module.exports; })();
       }, 1600);
     }
     guestLogo?.addEventListener('click', () => {
+      clearTimeout(logoReloadTimer);
+      logoReloadTimer=setTimeout(reloadGuestHome,450);
       const motto = document.getElementById('brandMotto');
       if (!motto) return;
       if (motto.classList.contains('is-dissolving')) return;
-      if (guestLogo.getAttribute('aria-expanded') === 'true') {
-        hideLogoMotto(motto);
-        return;
-      }
       const now = Date.now();
-      logoTaps = now - logoLastTap < 1200 ? logoTaps + 1 : 1;
+      logoTaps = now - logoLastTap < 450 ? logoTaps + 1 : 1;
       logoLastTap = now;
       if (logoTaps < 3) return;
+      clearTimeout(logoReloadTimer);
+      if (motto.classList.contains('is-dissolving')) return;
       logoTaps = 0;
       guestLogo.setAttribute('aria-expanded', 'true');
       motto.hidden = false;
@@ -12938,16 +12953,34 @@ return module.exports; })();
       if (document.querySelector('section.on')?.id === 'admingrouplevel') paintAdminGroupLevel();
       if (document.querySelector('section.on')?.id === 'admingroup') paintAdminGroup();
     }
-    function groupInviteHTML(groupId,candidates) {
-      return '<section class="accounts-invite-section" data-group-invites data-group-id="'+groupId+'"><h3>Invite link</h3><p class="hint">Student opens the link or scans the QR, registers or signs in, and joins this group. A valid invite auto-approves a new student account.</p><label><span>Teacher or developer</span><select data-invite-teacher aria-label="Invite teacher">'+candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('')+'</select></label><div class="row"><button class="btn primary" type="button" data-invite-create>Create invite</button><button class="btn" type="button" data-invite-copy hidden>Copy link</button></div><input type="text" readonly hidden data-invite-url aria-label="Invite URL"><div class="invite-qr" data-invite-qr hidden></div><p class="hint" role="status" data-invite-status></p></section>';
+    function groupInviteHTML(groupId,candidates,groups=adminGroups,mayInvite=true) {
+      const options=candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
+      return '<details class="accounts-fold accounts-invite-section" data-group-invites data-group-id="'+groupId+'"><summary>Invite link</summary><div class="invite-form"><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher'+(!candidates.length?' disabled':'')+'>'+options+'</select></label><p class="hint" data-invite-unassigned'+(candidates.length?' hidden':'')+'>Assign a teacher to this group first.</p><label hidden data-invite-staff><span>Group</span><select data-invite-group>'+groups.map(group=>'<option value="'+group.id+'"'+(group.id===groupId?' selected':'')+'>'+esc(group.title)+'</option>').join('')+'</select></label><label hidden data-invite-staff><span>Teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create'+(!candidates.length||!mayInvite?' disabled':'')+'>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div></details>';
     }
+    document.addEventListener('change',event=>{
+      const box=event.target.closest('[data-group-invites]');if(!box)return;
+      const teacher=box.querySelector('[data-invite-kind]').value==='teacher';
+      box.querySelectorAll('[data-invite-staff]').forEach(node=>node.hidden=!teacher);
+      box.querySelector('[data-invite-student]').hidden=teacher;
+      const select=box.querySelector('[data-invite-teacher]');
+      box.querySelector('[data-invite-unassigned]').hidden=teacher||select.options.length>0;
+      box.querySelector('[data-invite-email]').required=teacher;
+      box.querySelector('[data-invite-create]').disabled=!teacher&&(!select.options.length||!(sessionIsDeveloper()||[...select.options].some(option=>option.value===authUser?.id)));
+      box.querySelector('[data-invite-url]').hidden=true;
+      box.querySelector('[data-invite-url]').value='';
+      box.querySelector('[data-invite-qr]').hidden=true;
+      box.querySelector('[data-invite-status]').textContent='';
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key==='Enter'&&event.target.matches('[data-invite-url]')){event.preventDefault();event.target.click();}
+    });
     function paintAdminGroup() {
       if (!isTeacher() || viewAccount) return;
       const selected = adminGroups.find(group => group.id === adminGroupId);
       if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
-      const folds=Object.fromEntries(['students','lessons','exams','teachers'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
+      const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list','invites'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
@@ -12958,7 +12991,9 @@ return module.exports; })();
       }).join('');
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<section class="accounts-teacher-section"><h3>'+esc(accountCount('Teachers',teachers.length))+'</h3>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></section>'+groupInviteHTML(selected.id,candidates));
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
+      const inviteTeachers=teachers.filter(user=>user.active!==false&&user.active!==0);
+      detail.insertAdjacentHTML('beforeend',groupInviteHTML(selected.id,inviteTeachers,adminGroups,sessionIsDeveloper()||inviteTeachers.some(user=>user.id===authUser?.id)));
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -12976,29 +13011,41 @@ return module.exports; })();
     });
     document.addEventListener('click',async event=>{
       const create=event.target.closest('#adminGroupDetail [data-invite-create],#groupDetailInvite [data-invite-create]');
-      const copy=event.target.closest('#adminGroupDetail [data-invite-copy],#groupDetailInvite [data-invite-copy]');
+      const copy=event.target.closest('#adminGroupDetail [data-invite-url],#groupDetailInvite [data-invite-url],#adminGroupDetail [data-invite-qr],#groupDetailInvite [data-invite-qr]');
       if(!create&&!copy||!isTeacher()||viewAccount)return;
       const box=event.target.closest('[data-group-invites]');if(!box)return;
-      const status=box.querySelector('[data-invite-status]'),urlInput=box.querySelector('[data-invite-url]'),copyBtn=box.querySelector('[data-invite-copy]');
+      const status=box.querySelector('[data-invite-status]'),urlInput=box.querySelector('[data-invite-url]');
       if(copy){
         if(!urlInput?.value)return;
-        try{await navigator.clipboard.writeText(urlInput.value);status.textContent='Link copied.';}catch{urlInput.hidden=false;urlInput.select();status.textContent='Copy the link from the field.';}
+        try{
+          if(copy.matches('[data-invite-qr]')){
+            const image=copy.querySelector('img');if(!image)return;
+            const imageBlob=image.decode().then(()=>new Promise((resolve,reject)=>{
+              const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+              canvas.getContext('2d').drawImage(image,0,0);
+              canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Image copy unavailable.')),'image/png');
+            }));
+            await navigator.clipboard.write([new ClipboardItem({'image/png':imageBlob})]);status.textContent='QR image copied.';
+          }else{await navigator.clipboard.writeText(urlInput.value);status.textContent='Link copied.';}
+        }catch{urlInput.hidden=false;urlInput.select();status.textContent='Clipboard unavailable. Copy the selected link.';}
         return;
       }
       const teacherId=box.querySelector('[data-invite-teacher]')?.value||authUser?.id;
-      const groupId=Number(box.dataset.groupId);
+      const inviteKind=box.querySelector('[data-invite-kind]').value;
+      const email=box.querySelector('[data-invite-email]');
+      if(inviteKind==='teacher'){email.required=true;if(!email.reportValidity())return;}
+      const groupId=Number(inviteKind==='teacher'?box.querySelector('[data-invite-group]').value:box.dataset.groupId);
+      const controls=[...box.querySelectorAll('select,[data-invite-email]')].map(node=>({node,disabled:node.disabled}));
+      controls.forEach(({node})=>node.disabled=true);
       create.disabled=true;status.textContent='Creating…';
       try{
-        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId})});
+        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?email.value:undefined})});
         const link=location.origin+'/?invite='+encodeURIComponent(result.token);
-        urlInput.value=link;urlInput.hidden=false;copyBtn.hidden=false;
+        urlInput.value=link;urlInput.hidden=false;
         status.textContent='Invite for '+result.groupTitle+' · expires '+new Date(result.expiresAt).toLocaleDateString();
         if(typeof paintInviteQr==='function')paintInviteQr(box.querySelector('[data-invite-qr]'),link);
-        const assignment=adminTeacherAssignments.find(row=>row.groupId===groupId);
-        if(assignment&&!assignment.teacherIds.includes(teacherId)){assignment.teacherIds=[...assignment.teacherIds,teacherId];assignment.revision+=1;}
-        else if(!assignment)adminTeacherAssignments.push({groupId,revision:1,teacherIds:[teacherId]});
       }catch(error){status.textContent=error.message;}
-      finally{create.disabled=false;}
+      finally{create.disabled=false;controls.forEach(({node,disabled})=>node.disabled=disabled);}
     });
     async function saveAccountGroup(body) {
       const actor = authUser?.id, generation = viewGen;
@@ -13083,7 +13130,7 @@ return module.exports; })();
         const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
             '<div class="account-approval-row" data-list-row><div><b>' + esc(row.login) + '</b><br><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
-            (row.role==='ADMIN'?'<span class="hint">Teachers and staff</span>':'<select aria-label="Student group" data-registration-group="' + esc(row.id) + '">' + adminGroupOptions(null) + '</select>')+'<button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '"'+(row.role==='ADMIN'&&!sessionIsDeveloper()?' disabled title="Only a developer can approve teachers"':'')+'>Approve</button>' +
+            (row.role==='ADMIN'?'<span class="hint">Teachers and staff</span>':'<select aria-label="Student group" data-registration-group="' + esc(row.id) + '"'+(row.inviteGroupId?' disabled':'')+'>' + adminGroupOptions(row.inviteGroupId||null) + '</select>')+'<button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '"'+(row.inviteCanApprove===false||row.role==='ADMIN'&&!sessionIsDeveloper()&&row.inviteCanApprove!==true?' disabled title="Only the inviting teacher or a developer can approve"':'')+'>Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
           '</div>';
@@ -14063,21 +14110,56 @@ return module.exports; })();
       URL.revokeObjectURL(link.href);
     }
     document.addEventListener('input',event=>{
-      if(!event.target.matches('#otpLoginForm [name="email"]'))return;
+      if(!event.target.matches('#otpLoginForm [name="email"],#registerForm [name="email"]'))return;
       const form=event.target.closest('form');
+      if(!form.querySelector('[data-otp-step]'))return;
       form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
-      form.querySelector('[name="code"]').value='';
+      form.querySelector('[name="code"],[name="emailCode"]').value='';
       form.querySelector('[data-form-status]').textContent='';
     });
+    let inviteDetails=null,inviteDetailsError='',teacherInviteOffered=false;
+    function offerTeacherInvite(){
+      if(teacherInviteOffered||inviteDetails?.kind!=='teacher'||!accountChecked||!authUser)return;
+      teacherInviteOffered=true;
+      let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
+      if(!token)return;
+      const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+      dialog.innerHTML='<form class="invite-form"><h2>Accept teacher invitation</h2><label>Email<input name="email" type="email" required autocomplete="email"></label><button type="button" class="btn" data-send>Send code</button><label hidden data-code>Email code<input name="code" inputmode="numeric" autocomplete="one-time-code"></label><p role="status" class="hint"></p><button type="submit" class="btn primary" hidden data-accept>Accept invite</button><button type="button" class="btn" data-google>Continue with Google</button><button type="button" class="btn" data-close>Cancel</button></form>';
+      document.body.append(dialog);dialog.showModal();
+      const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');form.elements.email.value=authUser.email||'';
+      form.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
+      form.querySelector('[data-google]').onclick=()=>{location.href='/api/auth/google?invite='+encodeURIComponent(token);};
+      form.elements.email.oninput=()=>{form.querySelector('[data-code]').hidden=true;form.querySelector('[data-accept]').hidden=true;form.elements.code.value='';};
+      form.querySelector('[data-send]').onclick=async()=>{
+        if(!form.elements.email.reportValidity())return;
+        const email=form.elements.email.value,button=form.querySelector('[data-send]');button.disabled=true;
+        try{await accountFetch('/api/auth/otp/request',{method:'POST',body:JSON.stringify({email})});if(email!==form.elements.email.value)return;
+          form.querySelector('[data-code]').hidden=false;form.querySelector('[data-accept]').hidden=false;form.elements.code.required=true;form.elements.code.focus();status.textContent='Code sent.';
+        }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+      };
+      form.onsubmit=async event=>{
+        event.preventDefault();const button=form.querySelector('[data-accept]');button.disabled=true;
+        try{const result=await accountFetch('/api/auth/otp/verify',{method:'POST',body:JSON.stringify({email:form.elements.email.value,code:form.elements.code.value,invite:token})});
+          if(result.inviteWarning)throw new Error(result.inviteWarning);
+          sessionStorage.removeItem('enquiz-invite');dialog.close();await enterAccount(result.user);
+        }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+      };
+    }
     function captureInviteFromLocation() {
       try {
         const params = new URLSearchParams(location.search);
         const token = params.get('invite');
-        if (!token) return;
-        sessionStorage.setItem('enquiz-invite', token);
-        params.delete('invite');
-        const query = params.toString();
-        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+        if (token) {
+          sessionStorage.setItem('enquiz-invite', token);
+          params.delete('invite');
+          const query = params.toString();
+          history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+        }
+        const saved=token||sessionStorage.getItem('enquiz-invite');
+        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
+          if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
+          offerTeacherInvite();
+        });
       } catch (e) {}
     }
     async function redeemPendingInvite() {
@@ -14107,6 +14189,7 @@ return module.exports; })();
           invite_warning: "Signed in, but the group invite could not be applied."
         };
         if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
+        if(auth==='pending')sessionStorage.removeItem('enquiz-invite');
       } catch (e) {}
     })();
     function enterAccount(user) {
@@ -14266,6 +14349,7 @@ return module.exports; })();
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
+      if(form.id==='registerForm'&&form.querySelector('[name="emailCode"]')?.disabled){form.querySelector('[data-invite-email-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
@@ -14274,7 +14358,7 @@ return module.exports; })();
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
         if (invite) data.invite = invite;
         accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
-          if (result.inviteWarning) console.warn(result.inviteWarning);
+          if (result.inviteWarning) throw new Error(result.inviteWarning);
           try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
           return enterAccount(result.user);
         }).catch((err) => {
@@ -14283,16 +14367,24 @@ return module.exports; })();
         return;
       }
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
+      let hasInvite=false;try{hasInvite=!!sessionStorage.getItem('enquiz-invite');}catch{}
+      if(path==='/api/login'&&hasInvite&&inviteDetails?.kind==='teacher'){
+        if(status)status.textContent='Accept this teacher invite using email code or Google.';
+        return;
+      }
       if (path === "/api/register") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
-        if (invite) { data.invite = invite; data.role = "USER"; }
+        if (invite) { data.invite = invite; data.role = inviteDetails?.kind==='teacher'?'ADMIN':'USER'; }
       }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
+          if(path==='/api/register'&&hasInvite){
+            try { sessionStorage.removeItem('enquiz-invite'); } catch {}
+          }
           paintAccountForm(false);
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = "Waiting for approval. You can sign in after the teacher accepts this account.";
+          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher or a developer. Your group invitation has been accepted.':"Waiting for approval. You can sign in after the teacher accepts this account.";
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -14332,22 +14424,22 @@ return module.exports; })();
         }
         return;
       }
-      const otpSend = e.target.closest("[data-otp-send]");
+      const otpSend = e.target.closest("[data-otp-send],[data-invite-email-send]");
       if (otpSend) {
-        const form = otpSend.closest("#otpLoginForm");
+        const form = otpSend.closest("#otpLoginForm,#registerForm");
         const status = form && form.querySelector("[data-form-status]");
         const emailField=form?.querySelector('[name="email"]');
         if(!emailField?.reportValidity())return;
         const email = emailField.value;
         form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
-        form.querySelector('[name="code"]').value='';
+        const code=form.querySelector('[name="code"],[name="emailCode"]');code.value='';
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
         otpSend.disabled = true;
         accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
           if(!form.isConnected||emailField.value!==email)return;
           if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
           form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=false;if('disabled' in field)field.disabled=false;});
-          form.querySelector('[name="code"]').focus();
+          code.focus();
         }).catch((err) => {
           if(!form.isConnected||emailField.value!==email)return;
           if (status) { status.textContent = err.message; status.classList.add("bad"); }
@@ -17597,11 +17689,15 @@ return module.exports; })();
       const invite=document.getElementById('groupDetailInvite'),inviteKey=groupDirectoryKey()+':'+group.id;
       if(invite.dataset.key!==inviteKey){invite.replaceChildren();delete invite.dataset.key;}
       if(groupDirectoryReady()&&!groupDirectory.error&&invite.dataset.key!==inviteKey){
-        const candidates=groupDirectory.users.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-        invite.innerHTML=groupInviteHTML(group.id,candidates);
+        const candidates=groupDirectoryPeople([group],true).filter(user=>user.active!==false&&user.active!==0);
+        invite.innerHTML=groupInviteHTML(group.id,candidates,classGroups,sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id));
         invite.dataset.key=inviteKey;
       }
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
+      if(groupDirectoryReady()&&!groupDirectory.error){
+        document.querySelector('#groupDetailTeachers').previousElementSibling.textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
+        document.querySelector('#groupDetailStudents').previousElementSibling.textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+      }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;

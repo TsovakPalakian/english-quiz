@@ -43,11 +43,15 @@
       const invite=document.getElementById('groupDetailInvite'),inviteKey=groupDirectoryKey()+':'+group.id;
       if(invite.dataset.key!==inviteKey){invite.replaceChildren();delete invite.dataset.key;}
       if(groupDirectoryReady()&&!groupDirectory.error&&invite.dataset.key!==inviteKey){
-        const candidates=groupDirectory.users.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-        invite.innerHTML=groupInviteHTML(group.id,candidates);
+        const candidates=groupDirectoryPeople([group],true).filter(user=>user.active!==false&&user.active!==0);
+        invite.innerHTML=groupInviteHTML(group.id,candidates,classGroups,sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id));
         invite.dataset.key=inviteKey;
       }
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
+      if(groupDirectoryReady()&&!groupDirectory.error){
+        document.querySelector('#groupDetailTeachers').previousElementSibling.textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
+        document.querySelector('#groupDetailStudents').previousElementSibling.textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+      }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;

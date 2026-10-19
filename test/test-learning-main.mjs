@@ -1172,7 +1172,7 @@ test('Home greets guests, says goodbye only after explicit logout, and welcomes 
     source.slice(leaveStart,source.indexOf('    document.body.addEventListener("change"',leaveStart));
   function page(user=null){
     const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',viewCache:new Map(),
-      document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}}},
+      document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}},body:{removeAttribute(){}}},
       clearOwnBrowserData:async()=>{},clearTimeout(){},examResetAccount(){},window:{},paintHomeAccount:()=>scope.paintHomeHello(),show:()=>scope.paintHomeHello()};
     for(const name of ['paintDeveloperChrome','stopAccountPull','paintViewBar','paintAdded','paintLyrics','refreshCatalog','applyTheme','settleThemeAudience','paintAccount'])scope[name]=()=>{};
     runInNewContext(code,scope);
@@ -1182,7 +1182,7 @@ test('Home greets guests, says goodbye only after explicit logout, and welcomes 
   signedIn.scope.paintHomeHello();assert.equal(signedIn.hello.textContent,'Welcome back');assert.equal(signedIn.actions.hidden,true);
   const newcomer=page({id:'new',firstLogin:true});newcomer.scope.paintHomeHello();assert.equal(newcomer.hello.textContent,"Welcome! Let's get started");
   await signedIn.scope.leaveAccount({signedOut:true});
-  assert.equal(signedIn.hello.textContent,'See you soon');assert.equal(signedIn.actions.hidden,true);
+  assert.equal(signedIn.hello.textContent,'See you soon');assert.equal(signedIn.actions.hidden,false);
   const reopened=page();reopened.scope.paintHomeHello();
   assert.equal(reopened.hello.textContent,'Hello!');assert.equal(reopened.actions.hidden,false);
   reopened.scope.accountChecked=false;reopened.scope.paintHomeHello();

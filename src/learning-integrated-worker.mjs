@@ -228,17 +228,25 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const state=await readGoogleState(env,url.searchParams.get('state'));
         const profile=await exchangeGoogleCode(env,url,url.searchParams.get('code'));
         const inviteToken=typeof state.invite==='string'?state.invite.trim():'';
-        if(inviteToken)await new AccountInvites(studyDatabase(env)).peek(inviteToken);
+        if(inviteToken&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        const inviteInfo=inviteToken?await new AccountInvites(studyDatabase(env)).peek(inviteToken,profile.email):null;
         const secure=url.protocol==='https:';
-        let response=await completeGoogleSignIn(accountEnv,request,profile,{create:!!inviteToken},secure);
+        let response=await completeGoogleSignIn(accountEnv,request,profile,{create:false,role:inviteInfo?.kind==='teacher'?'ADMIN':'USER'},secure);
         if(response.status===200){
           const value=await response.clone().json();
-          if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
+          if(value.status==='pending'){
+            if(inviteInfo){
+              const reg=await accountEnv.DB.prepare("SELECT id,role FROM registrations WHERE status='pending' AND email=?").bind(profile.email.toLowerCase()).first();
+              if(!reg||reg.role!==(inviteInfo.kind==='teacher'?'ADMIN':'USER'))throw new StudyError(403,'The registration role does not match this invite.');
+              await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(inviteToken,profile.email,reg.id,inviteInfo.kind);
+            }
+            return Response.redirect(url.origin+'/?auth=pending',302);
+          }
           if(value.user){
             let inviteWarning='';
-            if(inviteToken&&value.user.role==='USER'&&env.STAGE_WRITES==='true'){
+            if(inviteToken&&env.STAGE_WRITES==='true'){
               try{
-                await new AccountInvites(studyDatabase(env)).redeem(value.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
+                await new AccountInvites(studyDatabase(env)).redeem(value.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId),{verifiedEmail:profile.email,users:[value.user]});
                 try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
               }catch(error){
                 inviteWarning=error instanceof StudyError?error.message:'Signed in, but the group invite could not be applied.';
@@ -305,9 +313,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let inviteWarning='';
         const inviteToken=typeof value?.invite==='string'?value.invite.trim():'';
         const session=await response.clone().json();
-        if(inviteToken&&session.user?.role==='USER'&&env.STAGE_WRITES==='true'){
+        if(inviteToken&&session.user&&env.STAGE_WRITES==='true'){
           try{
-            await new AccountInvites(studyDatabase(env)).redeem(session.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
+            await new AccountInvites(studyDatabase(env)).redeem(session.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId),{verifiedEmail:consumed.email,users:[session.user]});
             try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
           }catch(error){
             inviteWarning=error instanceof StudyError?error.message:'Signed in, but the group invite could not be applied.';
@@ -632,22 +640,32 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(accountRoute(path,method)){
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
-        let approvalGroup=null,approvalActor=null,approvalGroups=null;
-        let forward=request,inviteToken='',effectivePath=path,inviteWarning='',signupBody=null;
+        let approvalGroup=null,approvalActor=null,approvalGroups=null,approvalInvite=null;
+        let forward=request,inviteToken='',effectivePath=path,inviteWarning='',signupBody=null,signupInvite=null;
         if(path==='/api/register'&&method==='POST'){
           let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
           inviteToken=typeof body?.invite==='string'?body.invite.trim():'';
           if(inviteToken){
-            await new AccountInvites(studyDatabase(env)).peek(inviteToken);
-            body={...body,role:'USER'};
+            if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+            signupInvite=await new AccountInvites(studyDatabase(env)).peek(inviteToken,body.email);
+            if(signupInvite.kind==='teacher'){
+              const proof=await new EmailOtp(studyDatabase(env)).consume(body.email,body.emailCode);
+              if(proof.email!==String(body.email).trim().toLowerCase())throw new StudyError(403,'Verify the invited email.');
+            }
+            body={...body,role:signupInvite.kind==='teacher'?'ADMIN':'USER'};
             delete body.invite;
+            delete body.emailCode;
           }
           signupBody=body;
           forward=new Request(request.url,{method:'POST',headers:request.headers,body:JSON.stringify(body)});
         }
         if(method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
           const body=await request.clone().json();
-          if(body.groupId!=null){
+          const reviewer=await identify(accountEnv,request);
+          approvalActor=reviewer;
+          approvalInvite=await new AccountInvites(studyDatabase(env)).registrationInvite(reviewer,path.split('/')[4]);
+          if(approvalInvite&&body.groupId!=null&&Number(body.groupId)!==approvalInvite.groupId)throw new StudyError(400,'Use the group selected by the invitation.');
+          if(body.groupId!=null&&!approvalInvite){
             const [actor,pending]=await Promise.all([identify(accountEnv,request),accountEnv.DB.prepare('SELECT role FROM registrations WHERE id=?').bind(path.split('/')[4]).first()]);
             approvalActor=actor;if(!approvalActor||!['ADMIN','DEVELOPER'].includes(approvalActor.role))throw new StudyError(403,'Teachers only.');
             if(pending?.role!=='ADMIN'){
@@ -656,30 +674,33 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             }
           }
         }
-        let response=await accountWorker.fetch(forward,accountEnv,ctx);
+        let response=approvalInvite?.kind==='teacher'&&approvalActor?.role==='ADMIN'
+          ?await approveReg(accountEnv,approvalActor,path.split('/')[4],approvalInvite)
+          :await accountWorker.fetch(forward,accountEnv,ctx);
+        if(response.ok&&path==='/api/admin/registrations'&&method==='GET'){
+          const value=await response.json(),reviewer=await identify(accountEnv,request);
+          response=json({...value,registrations:await new AccountInvites(studyDatabase(env)).registrationPermissions(reviewer,value.registrations||[])});
+        }
         if(response.ok&&inviteToken&&signupBody){
-          const pending=await response.clone().json();
-          if(pending.status==='pending'){
-            const loginKey=String(signupBody.login||'').trim();
-            const reg=await accountEnv.DB.prepare("SELECT id FROM registrations WHERE status='pending' AND login=?").bind(loginKey).first();
-            if(!reg?.id)throw new StudyError(500,'Invite registration was not saved.');
-            const peek=await new AccountInvites(studyDatabase(env)).peek(inviteToken);
-            const teacherRow=await accountEnv.DB.prepare("SELECT id,role FROM users WHERE id=? AND COALESCE(is_personal_data_revoked,0)=0").bind(peek.teacherId).first();
-            if(!teacherRow||!['ADMIN','DEVELOPER'].includes(teacherRow.role))throw new StudyError(503,'Invite teacher is unavailable.');
-            const approved=await approveReg(accountEnv,{id:teacherRow.id,role:teacherRow.role},reg.id);
-            if(!approved.ok)return approved;
-            const loginTarget=new URL(request.url);loginTarget.pathname='/api/login';
-            response=await accountWorker.fetch(new Request(loginTarget,{method:'POST',headers:request.headers,body:JSON.stringify({login:signupBody.login,password:signupBody.password})}),accountEnv,ctx);
-            if(!response.ok)return response;
-            effectivePath='/api/login';
-            const session=await response.clone().json();
-            if(session.user?.id&&session.user.role==='USER'&&env.STAGE_WRITES==='true'){
-              try{
-                await new AccountInvites(studyDatabase(env)).redeem(session.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId));
-                try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
-              }catch(error){
-                inviteWarning=error instanceof StudyError?error.message:'Account created, but the group invite could not be applied.';
-              }
+          const result=await response.clone().json();
+          if(result.status==='pending'){
+            const reg=await accountEnv.DB.prepare("SELECT id FROM registrations WHERE status='pending' AND login=?").bind(String(signupBody.login).trim()).first();
+            if(!reg)throw new StudyError(500,'Invite registration was not saved.');
+            await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(inviteToken,signupBody.email,reg.id,signupInvite.kind);
+          }
+        }
+        if(response.ok&&approvalInvite&&method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
+          const approved=await response.clone().json();
+          if(approved.userId){
+            try{
+              if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+              const reviewer=await identify(accountEnv,request);
+              const person=await accountEnv.DB.prepare('SELECT id,email,role,active FROM users WHERE id=?').bind(approved.userId).first();
+              const groups=new GroupService(studyDatabase(env));
+              await new AccountInvites(studyDatabase(env)).completeApproval(reviewer,path.split('/')[4],person,[person],(teacher,id,group)=>groups.assignStudent(teacher,id,group));
+            }catch(error){
+              const headers=new Headers(response.headers);headers.delete('Content-Length');
+              response=Response.json({...approved,groupWarning:'Account approved, but the invited group could not be assigned. Assign it in Accounts.'},{headers});
             }
           }
         }

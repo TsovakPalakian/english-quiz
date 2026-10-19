@@ -4,6 +4,8 @@ import {createRequire} from 'node:module';
 import {D1StudyClient} from '../src/d1-study.mjs';
 import {statement as s} from '../src/learning-study.mjs';
 import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
+import {AccountInvites} from '../src/account-invites.mjs';
+import {EmailOtp} from '../src/email-otp.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {StudyService} from '../src/learning-study.mjs';
@@ -82,6 +84,18 @@ test('Accounts teacher service preserves assignments, revisions and student memb
   assert.deepEqual((await service.list(actor,users)).assignments[0].teacherIds,['teacher']);
   await assert.rejects(service.save(actor,{groupId:1,teacherIds:[],expectedRevision:0},users),e=>e.status===409);
   assert.equal((await db.read('SELECT group_id FROM class_group_students'))[0].group_id,1);
+});
+test('invite and email-code CAS guards work on actual D1 without TEMP tables',async()=>{
+  await db.atomic([s("ALTER TABLE class_groups ADD COLUMN title TEXT NOT NULL DEFAULT 'A1'")]);
+  const teacher={id:'teacher',role:'ADMIN'},service=new AccountInvites(db);
+  const invite=await service.create(teacher,{groupId:1},[teacher]);
+  await service.redeem({id:'student',role:'USER'},invite.token,async()=>{});
+  await assert.rejects(service.peek(invite.token),error=>error.status===410);
+  const otp=new EmailOtp(db),proof=await otp.issue('fixture@example.invalid');
+  const wrong=proof.code==='100000'?'100001':'100000';
+  await assert.rejects(otp.consume(proof.email,wrong),error=>error.status===401);
+  assert.equal((await otp.consume(proof.email,proof.code)).email,proof.email);
+  assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name IN ('_study_batch_invite_guard','_study_batch_email_otp_guard')"),[]);
 });
 test('read-only calls reject writes before executing any part of a batch',async()=>{
   for(const action of [()=>db.read("DELETE FROM records"),()=>db.readMany([s('SELECT 1'),s('DELETE FROM records')]),()=>db.atomic([s('DELETE FROM records')],{readOnly:true}),()=>db.read('PRAGMA foreign_keys=OFF')])await assert.rejects(action,e=>e.status===500);

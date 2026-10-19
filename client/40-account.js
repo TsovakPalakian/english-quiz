@@ -1,19 +1,54 @@
     document.addEventListener('input',event=>{
-      if(!event.target.matches('#otpLoginForm [name="email"]'))return;
+      if(!event.target.matches('#otpLoginForm [name="email"],#registerForm [name="email"]'))return;
       const form=event.target.closest('form');
+      if(!form.querySelector('[data-otp-step]'))return;
       form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
-      form.querySelector('[name="code"]').value='';
+      form.querySelector('[name="code"],[name="emailCode"]').value='';
       form.querySelector('[data-form-status]').textContent='';
     });
+    let inviteDetails=null,inviteDetailsError='',teacherInviteOffered=false;
+    function offerTeacherInvite(){
+      if(teacherInviteOffered||inviteDetails?.kind!=='teacher'||!accountChecked||!authUser)return;
+      teacherInviteOffered=true;
+      let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
+      if(!token)return;
+      const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+      dialog.innerHTML='<form class="invite-form"><h2>Accept teacher invitation</h2><label>Email<input name="email" type="email" required autocomplete="email"></label><button type="button" class="btn" data-send>Send code</button><label hidden data-code>Email code<input name="code" inputmode="numeric" autocomplete="one-time-code"></label><p role="status" class="hint"></p><button type="submit" class="btn primary" hidden data-accept>Accept invite</button><button type="button" class="btn" data-google>Continue with Google</button><button type="button" class="btn" data-close>Cancel</button></form>';
+      document.body.append(dialog);dialog.showModal();
+      const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');form.elements.email.value=authUser.email||'';
+      form.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());
+      form.querySelector('[data-google]').onclick=()=>{location.href='/api/auth/google?invite='+encodeURIComponent(token);};
+      form.elements.email.oninput=()=>{form.querySelector('[data-code]').hidden=true;form.querySelector('[data-accept]').hidden=true;form.elements.code.value='';};
+      form.querySelector('[data-send]').onclick=async()=>{
+        if(!form.elements.email.reportValidity())return;
+        const email=form.elements.email.value,button=form.querySelector('[data-send]');button.disabled=true;
+        try{await accountFetch('/api/auth/otp/request',{method:'POST',body:JSON.stringify({email})});if(email!==form.elements.email.value)return;
+          form.querySelector('[data-code]').hidden=false;form.querySelector('[data-accept]').hidden=false;form.elements.code.required=true;form.elements.code.focus();status.textContent='Code sent.';
+        }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+      };
+      form.onsubmit=async event=>{
+        event.preventDefault();const button=form.querySelector('[data-accept]');button.disabled=true;
+        try{const result=await accountFetch('/api/auth/otp/verify',{method:'POST',body:JSON.stringify({email:form.elements.email.value,code:form.elements.code.value,invite:token})});
+          if(result.inviteWarning)throw new Error(result.inviteWarning);
+          sessionStorage.removeItem('enquiz-invite');dialog.close();await enterAccount(result.user);
+        }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
+      };
+    }
     function captureInviteFromLocation() {
       try {
         const params = new URLSearchParams(location.search);
         const token = params.get('invite');
-        if (!token) return;
-        sessionStorage.setItem('enquiz-invite', token);
-        params.delete('invite');
-        const query = params.toString();
-        history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+        if (token) {
+          sessionStorage.setItem('enquiz-invite', token);
+          params.delete('invite');
+          const query = params.toString();
+          history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+        }
+        const saved=token||sessionStorage.getItem('enquiz-invite');
+        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
+          if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
+          offerTeacherInvite();
+        });
       } catch (e) {}
     }
     async function redeemPendingInvite() {
@@ -43,6 +78,7 @@
           invite_warning: "Signed in, but the group invite could not be applied."
         };
         if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
+        if(auth==='pending')sessionStorage.removeItem('enquiz-invite');
       } catch (e) {}
     })();
     function enterAccount(user) {
@@ -202,6 +238,7 @@
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
+      if(form.id==='registerForm'&&form.querySelector('[name="emailCode"]')?.disabled){form.querySelector('[data-invite-email-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
@@ -210,7 +247,7 @@
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
         if (invite) data.invite = invite;
         accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
-          if (result.inviteWarning) console.warn(result.inviteWarning);
+          if (result.inviteWarning) throw new Error(result.inviteWarning);
           try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
           return enterAccount(result.user);
         }).catch((err) => {
@@ -219,16 +256,24 @@
         return;
       }
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
+      let hasInvite=false;try{hasInvite=!!sessionStorage.getItem('enquiz-invite');}catch{}
+      if(path==='/api/login'&&hasInvite&&inviteDetails?.kind==='teacher'){
+        if(status)status.textContent='Accept this teacher invite using email code or Google.';
+        return;
+      }
       if (path === "/api/register") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
-        if (invite) { data.invite = invite; data.role = "USER"; }
+        if (invite) { data.invite = invite; data.role = inviteDetails?.kind==='teacher'?'ADMIN':'USER'; }
       }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
+          if(path==='/api/register'&&hasInvite){
+            try { sessionStorage.removeItem('enquiz-invite'); } catch {}
+          }
           paintAccountForm(false);
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = "Waiting for approval. You can sign in after the teacher accepts this account.";
+          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher or a developer. Your group invitation has been accepted.':"Waiting for approval. You can sign in after the teacher accepts this account.";
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -268,22 +313,22 @@
         }
         return;
       }
-      const otpSend = e.target.closest("[data-otp-send]");
+      const otpSend = e.target.closest("[data-otp-send],[data-invite-email-send]");
       if (otpSend) {
-        const form = otpSend.closest("#otpLoginForm");
+        const form = otpSend.closest("#otpLoginForm,#registerForm");
         const status = form && form.querySelector("[data-form-status]");
         const emailField=form?.querySelector('[name="email"]');
         if(!emailField?.reportValidity())return;
         const email = emailField.value;
         form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=true;if('disabled' in field)field.disabled=true;});
-        form.querySelector('[name="code"]').value='';
+        const code=form.querySelector('[name="code"],[name="emailCode"]');code.value='';
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
         otpSend.disabled = true;
         accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
           if(!form.isConnected||emailField.value!==email)return;
           if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
           form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=false;if('disabled' in field)field.disabled=false;});
-          form.querySelector('[name="code"]').focus();
+          code.focus();
         }).catch((err) => {
           if(!form.isConnected||emailField.value!==email)return;
           if (status) { status.textContent = err.message; status.classList.add("bad"); }

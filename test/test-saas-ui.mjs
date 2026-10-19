@@ -34,6 +34,12 @@ try{
     }
     if(path==='/api/database-context')data={provider:'d1',revision:3,scope:'site'};
     if(path==='/api/me'||path==='/api/me/account')data={user};
+    if(path==='/api/accounts/invites')data={kind:'teacher',groupTitle:'A1 Fixture group',expiresAt:Date.now()+3*86400000};
+    if(path==='/api/register'){
+      const body=route.request().postDataJSON();
+      assert.equal(body.role,'ADMIN');assert.equal(body.emailCode,'123456');assert.equal(body.invite,'teacher-fixture');
+      data={status:'pending'};
+    }
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}};
     if(path==='/api/me/themes')data={theme:'light',themes:[],revision:0,customRevision:0};
     if(path==='/api/groups')data={groups:[{id:41,title:'A1 Fixture group',studentCount:2,lessonIds:[31],examIds:[],date:'2026-10-19',revision:1}]};
@@ -53,7 +59,7 @@ try{
   assert.deepEqual(errors,[],'Guest app must boot without uncaught exceptions');
   assert.equal(await page.locator('.side').isVisible(),false,'Guest home has no sidebar');
   assert.equal(await page.locator('#homeDemo').isVisible(),false,'Guest home has no statistics');
-  assert.equal(await page.locator('#homeAuth button:visible').count(),2);
+  assert.equal(await page.locator('#homeAuth button:visible').count(),1);
   assert.equal(await page.locator('.guest-brand').isVisible(),true);
   const logo = page.locator('.guest-brand');
   const homeBeforeMotto = await page.locator('#homeAuth').boundingBox();
@@ -63,13 +69,7 @@ try{
   assert.equal(await page.locator('#brandMotto').isVisible(), true);
   assert.match(await page.locator('#brandMotto').innerText(), /Lumen ex Scientia/);
   assert.deepEqual(await page.locator('#homeAuth').boundingBox(), homeBeforeMotto, 'Easter egg must not shift the login buttons');
-  await logo.click();
-  assert.equal(await page.locator('#brandMotto').evaluate(node=>node.classList.contains('is-dissolving')), true);
-  await page.waitForTimeout(1700);
-  assert.equal(await page.locator('#brandMotto').isVisible(), false);
-  await logo.click({clickCount: 3});
-  assert.equal(await logo.getAttribute('aria-expanded'), 'true');
-  await page.waitForTimeout(3200);
+  await page.waitForTimeout(2450);
   assert.equal(await page.locator('#brandMotto').evaluate(node=>node.classList.contains('is-dissolving')), true);
   assert.ok(await page.locator('.brand-motto-particles').evaluate(canvas => {
     const box = canvas.getBoundingClientRect();
@@ -82,6 +82,10 @@ try{
   assert.equal(await logo.getAttribute('aria-expanded'), 'false');
   assert.equal(await page.locator('#brandMotto').isVisible(), false, 'Motto disperses as colored light after three seconds');
   assert.equal(await page.locator('.brand-motto-particles').count(), 0, 'Particle canvas is removed after animation');
+  assert.equal(await page.locator('#home').evaluate(node=>getComputedStyle(node).userSelect),'none');
+  await Promise.all([page.waitForEvent('domcontentloaded'),logo.click()]);
+  await page.waitForFunction(()=>!document.body.hasAttribute('data-shell-pending'));
+  assert.equal(await page.locator('#home .hello').innerText(),'Hello!');
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:960});
     const box=await page.locator('#home').boundingBox();assert.ok(Math.abs(box.x+box.width/2-width/2)<2,'Guest home centered');
@@ -91,6 +95,8 @@ try{
   }
   await page.setViewportSize({width:1440,height:960});
   await page.evaluate(()=>window.enquizVisit('account'));
+  assert.equal(await page.locator('#account').evaluate(node=>getComputedStyle(node).userSelect),'none');
+  assert.equal(await page.locator('#loginForm input').first().evaluate(node=>getComputedStyle(node).userSelect),'text');
   assert.equal(await page.locator('.side .brand-mark svg path').count(),2);
   assert.equal(await page.locator('.side .brand b').innerText(),'Lumiscia');
   assert.equal(await page.locator('.side .brand small').innerText(),'Learning studio');
@@ -210,6 +216,22 @@ try{
     await page.evaluate(()=>window.enquizVisit('home'));
     assert.match(await page.locator('#homeRecentList').innerText(),/Lessons/);
   }
+  user=null;
+  await page.evaluate(()=>{localStorage.clear();sessionStorage.clear();});
+  await page.goto('http://127.0.0.1:'+server.address().port+'/?invite=teacher-fixture');
+  await page.waitForFunction(()=>accountChecked);
+  await page.evaluate(()=>window.enquizVisit('account'));
+  await page.locator('#account [data-account="show-register"]').click();
+  await page.locator('[data-invite-email-send]').waitFor();
+  await page.locator('#registerForm [name="login"]').fill('InvitedTeacher');
+  await page.locator('#registerForm [name="email"]').fill('preview@example.invalid');
+  await page.locator('#registerForm [name="password"]').fill('password1');
+  await page.locator('[data-invite-email-send]').click();
+  await page.locator('[name="emailCode"]:visible').waitFor();
+  await page.locator('[name="emailCode"]').fill('123456');
+  await page.locator('#registerForm [type="submit"]').click();
+  await page.waitForFunction(()=>document.querySelector('#loginForm [data-form-status]')?.textContent.includes('inviting teacher or a developer'));
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
   assert.deepEqual(errors,[]);
   console.log('SaaS: boot, desktop/mobile, light/dark, filters and accessibility passed. Screenshots: '+screenshots);
 }finally{await browser?.close();await new Promise(done=>server.close(done));}

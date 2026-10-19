@@ -370,7 +370,7 @@
       hello.textContent = authUser ? (authUser.firstLogin ? "Welcome! Let's get started" : "Welcome back") : signedOutHello ? "See you soon" : "Hello!";
       hello.style.visibility = accountChecked ? "" : "hidden";
       const guestActions = document.getElementById("homeAuth");
-      if (guestActions) guestActions.hidden = !!authUser || signedOutHello || !accountChecked;
+      if (guestActions) guestActions.hidden = !!authUser || !accountChecked;
     }
     function paintHomeAccount() {
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&document.querySelector('section.on')?.id==='home');
@@ -387,6 +387,7 @@
       paintHomeStudy();
       paintGuestAccess();
       refreshAccountsCount();
+      offerTeacherInvite();
     }
     let accountsCountActor = '', accountsCountAt = 0, accountsCountFlight = null;
     function paintAccountsCount(count) {
@@ -447,11 +448,16 @@
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
+        if(invite&&!inviteDetails){
+          box.innerHTML='<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+          return;
+        }
+        const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
-          ? '<p class="hint">Invite link detected. Register as a student — the account is approved automatically and you join the group.</p>'
+          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. ':'')+'Your account needs approval by the inviting teacher or a developer before you join the group.</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
-          ? '<input type="hidden" name="role" value="USER" /><p class="hint">Role: Student (from invite)</p>'
+          ? '<input type="hidden" name="role" value="'+(teacherInvite?'ADMIN':'USER')+'" /><p class="hint">Role: '+(teacherInvite?'Teacher':'Student')+' (from invite)</p>'
           : '<fieldset class="auth-role"><legend>Role</legend><div><label><input type="radio" name="role" value="USER" checked required />Student</label><label><input type="radio" name="role" value="ADMIN" required />Teacher</label></div></fieldset>';
         box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1>' + flashHtml +
           '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
@@ -459,6 +465,7 @@
           '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
           roleField +
           passwordField(true)+
+          (teacherInvite?'<button class="btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
           '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +google+inviteHint+'</div></div>';
         decorate();
         return;
@@ -561,7 +568,15 @@
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
     const guestLogo = document.querySelector('.guest-brand');
-    let logoTaps = 0, logoLastTap = 0, logoHideTimer;
+    let logoTaps = 0, logoLastTap = 0, logoHideTimer, logoReloadTimer;
+    function reloadGuestHome(){
+      try{sessionStorage.removeItem('enquiz-place');}catch{}
+      location.reload();
+    }
+    document.addEventListener('click',event=>{
+      if(authUser||!event.target.closest('.auth-brand'))return;
+      event.preventDefault();event.stopImmediatePropagation();reloadGuestHome();
+    },true);
     function scatterLogoMotto(motto) {
       const bounds = motto.getBoundingClientRect();
       const source = document.createElement('canvas');
@@ -652,17 +667,17 @@
       }, 1600);
     }
     guestLogo?.addEventListener('click', () => {
+      clearTimeout(logoReloadTimer);
+      logoReloadTimer=setTimeout(reloadGuestHome,450);
       const motto = document.getElementById('brandMotto');
       if (!motto) return;
       if (motto.classList.contains('is-dissolving')) return;
-      if (guestLogo.getAttribute('aria-expanded') === 'true') {
-        hideLogoMotto(motto);
-        return;
-      }
       const now = Date.now();
-      logoTaps = now - logoLastTap < 1200 ? logoTaps + 1 : 1;
+      logoTaps = now - logoLastTap < 450 ? logoTaps + 1 : 1;
       logoLastTap = now;
       if (logoTaps < 3) return;
+      clearTimeout(logoReloadTimer);
+      if (motto.classList.contains('is-dissolving')) return;
       logoTaps = 0;
       guestLogo.setAttribute('aria-expanded', 'true');
       motto.hidden = false;

@@ -18,11 +18,16 @@ function fixture(){
   const sqlite=new DatabaseSync(':memory:');
   sqlite.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,login TEXT UNIQUE,email TEXT UNIQUE,name TEXT DEFAULT '',password_salt TEXT,password_hash TEXT,password_iterations INTEGER,role TEXT DEFAULT 'USER',is_personal_data_revoked INTEGER DEFAULT 0,revoked_at INTEGER,hidden INTEGER DEFAULT 0,active INTEGER DEFAULT 1,created_at INTEGER);
     CREATE TABLE registrations(id TEXT PRIMARY KEY,login TEXT,email TEXT,name TEXT,password_salt TEXT,password_hash TEXT,password_iterations INTEGER,status TEXT,role TEXT DEFAULT 'USER',user_id TEXT,created_at INTEGER,decided_at INTEGER);
-    CREATE TABLE account_changes(id TEXT PRIMARY KEY,user_id TEXT,login TEXT,email TEXT,name TEXT DEFAULT '',from_login TEXT,from_email TEXT,from_name TEXT,role TEXT DEFAULT 'USER',status TEXT,created_at INTEGER,decided_at INTEGER);`);
+    CREATE TABLE account_changes(id TEXT PRIMARY KEY,user_id TEXT,login TEXT,email TEXT,name TEXT DEFAULT '',from_login TEXT,from_email TEXT,from_name TEXT,role TEXT DEFAULT 'USER',status TEXT,created_at INTEGER,decided_at INTEGER);
+    CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key));`);
   const salt='1'.repeat(32),hash=pbkdf2Sync(password,Buffer.from(salt,'hex'),100000,32,'sha256').toString('hex');
   sqlite.prepare("INSERT INTO users(id,login,email,name,password_salt,password_hash,password_iterations,role,created_at) VALUES(?,'FixtureDev','dev@example.invalid','Fixture',?,?,100000,'DEVELOPER',0)").run(devId,salt,hash);
   const DB={prepare(sql){const statement=args=>({bind:(...values)=>statement(values),first:async()=>sqlite.prepare(sql).get(...args)||null,
-    all:async()=>({results:sqlite.prepare(sql).all(...args)}),run:async()=>({success:true,meta:{changes:Number(sqlite.prepare(sql).run(...args).changes)}})});return statement([]);},
+    all:async()=>({results:sqlite.prepare(sql).all(...args)}),run:async()=>{
+      const prepared=sqlite.prepare(sql);
+      if(prepared.columns().length)return {success:true,results:prepared.all(...args),meta:{changes:0}};
+      return {success:true,results:[],meta:{changes:Number(prepared.run(...args).changes)}};
+    }});return statement([]);},
     async batch(commands){sqlite.exec('BEGIN');try{const results=[];for(const command of commands)results.push(await command.run());sqlite.exec('COMMIT');return results;}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
   const objects=new Map();let version=0,queries=0;
   const value=key=>{const item=objects.get(key);return item&&{key,size:Buffer.byteLength(item.text),etag:item.etag,httpEtag:`"${item.etag}"`,text:async()=>item.text,json:async()=>JSON.parse(item.text),writeHttpMetadata(){}};};
@@ -34,6 +39,7 @@ function fixture(){
     list:async({prefix})=>({objects:[...objects.keys()].filter(key=>key.startsWith(prefix)).map(key=>({key})),truncated:false})};
   const env={DB,MEDIA,SESSION_SECRET:'synthetic-fixture-secret-only',STAGE_ENABLED:'true',STAGE_WRITES:'false',ACCOUNT_MUTATIONS_ENABLED:'true',STAGE_ALLOWED_HOST:'fixture.invalid',
     AUTH_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>{if(queries>=50)return new Response(null,{status:503});queries++;return new Response(null);}})}};
+  env.STUDY_DB=DB;
   const worker=integratedWorker();
   const client=()=>{let cookie='';return {get cookie(){return cookie;},async call(path,method='GET',body=null,override=null){
     const headers={Origin:'https://fixture.invalid',...(override!==null?{Cookie:override}:cookie?{Cookie:cookie}:{})};if(body)headers['Content-Type']='application/json';
@@ -78,6 +84,36 @@ test('Pending teacher login checks the password and only a developer can approve
     assert.equal(f.sqlite.prepare('SELECT status FROM registrations WHERE id=?').get(nextId).status,'pending');
   }finally{f.close();}
 });
+test('only the verified-invite sender or a developer can approve an invited teacher',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
+    const inviterId='b'.repeat(32),otherId='c'.repeat(32);
+    for(const [id,login,email] of [[inviterId,'Inviter','inviter@example.invalid'],[otherId,'OtherTeacher','other@example.invalid']]){
+      f.sqlite.prepare("INSERT INTO users(id,login,email,name,password_salt,password_hash,password_iterations,role,created_at) SELECT ?,?,?,?,password_salt,password_hash,password_iterations,'ADMIN',0 FROM users WHERE id=?").run(id,login,email,login,devId);
+    }
+    f.sqlite.exec("CREATE TABLE class_groups(id INTEGER PRIMARY KEY,title TEXT,deleted_at INTEGER,revision INTEGER);INSERT INTO class_groups VALUES(1,'A1',NULL,1)");
+    const inviter=f.client(),other=f.client(),applicant=f.client();
+    assert.equal((await inviter.call('/api/login','POST',{login:'Inviter',password})).status,200);
+    assert.equal((await other.call('/api/login','POST',{login:'OtherTeacher',password})).status,200);
+    assert.equal((await applicant.call('/api/register','POST',{login:'InvitedTeacher',email:'invited@example.invalid',password,role:'ADMIN'})).status,200);
+    const reg=f.sqlite.prepare("SELECT id FROM registrations WHERE login='InvitedTeacher'").get();
+    const invite={kind:'teacher',createdBy:inviterId,groupId:1,email:'invited@example.invalid',registrationEmail:'invited@example.invalid',pendingRegistrationId:reg.id,uses:1,acceptedAt:Date.now(),revoked:false};
+    f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('account-invites','accepted-fixture',JSON.stringify(invite));
+    f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('accounts-group-teachers','1',JSON.stringify({revision:1,teacherIds:[inviterId]}));
+    const own=await inviter.call('/api/admin/registrations');
+    assert.equal(own.value.registrations.find(row=>row.id===reg.id).inviteCanApprove,true);
+    assert.equal((await other.call('/api/admin/registrations')).value.registrations.find(row=>row.id===reg.id).inviteCanApprove,false);
+    f.env.STAGE_WRITES='true';
+    assert.equal((await other.call('/api/admin/registrations/'+reg.id+'/approve','POST',{invitation:invite})).status,403);
+    assert.equal(f.sqlite.prepare('SELECT status FROM registrations WHERE id=?').get(reg.id).status,'pending');
+    const approved=await inviter.call('/api/admin/registrations/'+reg.id+'/approve','POST',{});
+    assert.equal(approved.status,200,JSON.stringify(approved.value));assert.equal(approved.value.groupWarning,undefined);
+    assert.equal(f.sqlite.prepare('SELECT role FROM users WHERE id=?').get(approved.value.userId).role,'ADMIN');
+    const group=JSON.parse(f.sqlite.prepare("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key='1'").get().value_json);
+    assert.ok(group.teacherIds.includes(inviterId)&&group.teacherIds.includes(approved.value.userId));
+  }finally{f.close();}
+});
+
 test('Registration is not blocked by failed logins and retains its separate flood limit',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
