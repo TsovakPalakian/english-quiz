@@ -162,6 +162,69 @@
     }
     el('msgTextSearch').focus();
   }
+  function chatSearchRanges(text) {
+    const query = el('msgTextSearch').value.trim().slice(0, 120);
+    if (!query) return [];
+    const mode = el('msgSearchMode')?.value || 'prefix';
+    const sensitive = !!el('msgSearchCase')?.checked;
+    const ranges = [];
+    if (mode === 'prefix') {
+      const terms = (query.match(/[\p{L}\p{N}_]+/gu) || []).map(term => sensitive ? term : term.toLocaleLowerCase());
+      for (const word of text.matchAll(/[\p{L}\p{N}_]+/gu)) {
+        const value = sensitive ? word[0] : word[0].toLocaleLowerCase();
+        if (terms.some(term => value.startsWith(term))) ranges.push([word.index, word.index + word[0].length]);
+        if (ranges.length >= 1000) break;
+      }
+    } else {
+      const pattern = mode === 'regex' ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      try {
+        for (const match of text.matchAll(new RegExp(pattern, sensitive ? 'g' : 'gi'))) {
+          if (match[0]) ranges.push([match.index, match.index + match[0].length]);
+          if (ranges.length >= 1000) break;
+        }
+      } catch {}
+    }
+    return ranges;
+  }
+  function chatSearchSnippet(text) {
+    const first = chatSearchRanges(text)[0]?.[0] || 0;
+    const start = Math.max(0, first - 60), end = Math.min(text.length, start + 240);
+    const snippet = text.slice(start, end);
+    let html = start ? '…' : '', offset = 0;
+    for (const [from, to] of chatSearchRanges(snippet)) {
+      html += escape(snippet.slice(offset, from)) + '<mark class="chat-search-highlight">' + escape(snippet.slice(from, to)) + '</mark>';
+      offset = to;
+    }
+    return html + escape(snippet.slice(offset)) + (end < text.length ? '…' : '');
+  }
+  function highlightChatSearch(root = timeline) {
+    root.querySelectorAll('mark.chat-search-highlight').forEach(mark => {
+      const parent = mark.parentNode;
+      mark.replaceWith(...mark.childNodes);
+      parent.normalize();
+    });
+    root.querySelectorAll('.chat-message-text').forEach(text => {
+      const ranges = chatSearchRanges(text.textContent);
+      const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+      const parts = [];
+      let part, offset = 0;
+      while ((part = walker.nextNode())) {
+        parts.push({node:part,offset,length:part.length});
+        offset += part.length;
+      }
+      for (const {node,offset,length} of parts) {
+        // Work backwards so earlier offsets remain valid within this text node.
+        for (const [from, to] of ranges.slice().reverse()) {
+          if (to <= offset || from >= offset + length) continue;
+          const range = document.createRange();
+          range.setStart(node, Math.max(0, from - offset));
+          range.setEnd(node, Math.min(length, to - offset));
+          const mark = document.createElement('mark');mark.className = 'chat-search-highlight';
+          range.surroundContents(mark);
+        }
+      }
+    });
+  }
   async function search(older = false) {
     const q = el('msgTextSearch').value.trim(),
       id = room,
@@ -170,6 +233,7 @@
       searchMode = el('msgSearchMode')?.value || 'prefix',
       caseSensitive = !!el('msgSearchCase')?.checked;
     el('msgSearchMore').hidden = true;
+    highlightChatSearch();
     if (!q) {
       el('msgSearchResults').replaceChildren();
       return;
@@ -192,7 +256,7 @@
           '"><strong>' +
           escape(m.sender) +
           '</strong>' +
-          escape(m.text.slice(0, 240)) +
+          chatSearchSnippet(m.text) +
           '<small>' +
           escape(stamp(m.createdMs || m.created * 1000)) +
           '</small></button>',
@@ -238,7 +302,7 @@
     }
   }
   timeline.addEventListener('click', clearMessageFocus);
-  async function focusMessage(id, category = kind, quote = '') {
+  async function focusMessage(id, category = kind, quote = '', fromSearch = false) {
     if (category !== kind) {
       kind = category;
       badge();
@@ -258,6 +322,7 @@
     clearMessageFocus();
     node.classList.add('is-focused');
     highlightQuote(node, quote);
+    if (fromSearch) highlightChatSearch(node);
     messageFocusTimer = setTimeout(clearMessageFocus, 1500);
     node.scrollIntoView({ block: 'center' });
     node.focus({ preventScroll: true });

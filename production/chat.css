@@ -405,6 +405,15 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .settings-action{display:flex;align-items:center;gap:10px;padding:12px 14px;margin:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);font-size:15px;text-align:start;min-height:44px}
 .user-settings .settings-action svg{width:20px;height:20px;flex:none}
 .user-settings .settings-action.danger{color:var(--bad)}
+.user-settings .security-passkeys{display:grid;gap:12px;max-width:560px}
+.user-settings .security-passkeys h3{font-size:18px;line-height:1.4;margin:0;text-align:start}
+.user-settings .security-passkeys label{display:grid;gap:6px}
+.user-settings .security-passkeys label input{width:100%}
+.user-settings .security-passkeys .settings-action{margin:0;justify-self:start}
+.user-settings .security-passkey-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.user-settings .security-passkey-row>div{display:grid;gap:4px;overflow-wrap:anywhere}
+.user-settings .security-passkey-row .settings-action{width:44px;height:44px;padding:10px}
+.user-settings .security-passkeys [role=status]:empty{display:none}
 .user-settings section{padding:0;margin:0;max-width:100%;min-width:0}
 .user-settings section>.meta,.user-settings section>.sub{display:none}
 .user-settings .notification-sounds-inline{width:100%;max-height:none;padding:18px 0;border:0;border-radius:0;overflow:visible}
@@ -505,4 +514,5 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-manage-dialog :is(input:not([type=checkbox]):not([type=radio]),select){box-sizing:border-box;min-width:0;width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
 .chat-manage-dialog form>button{margin:12px 8px 0 0}
 #messages mark.chat-quote-highlight{background:var(--acc);color:var(--on-acc);border-radius:2px;box-shadow:0 0 0 2px var(--acc)}
+#messages mark.chat-search-highlight{color:#172b27;background:#ffe08a;border-radius:2px}
 #messages.chat-detached .chat-rail,#messages.chat-detached #msgListBack{display:none}

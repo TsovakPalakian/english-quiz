@@ -179,28 +179,31 @@ test('register rejects invalid invite before creating a pending account',async()
   }finally{f.close();}
 });
 
-test('register with valid invite stays pending and joins only after approval by its inviter',async()=>{
+test('register with valid student invite approves automatically, joins and logs in',async()=>{
   const f=fixture();try{
     const created=await f.service.create(actor,{groupId:1,teacherId:actor.id},users);
-    const calls=[],assigned=[];
+    f.sql.exec("ALTER TABLE class_groups ADD COLUMN revision INTEGER DEFAULT 1;ALTER TABLE class_groups ADD COLUMN lesson_date TEXT DEFAULT '2026-10-20';CREATE TABLE lessons(id INTEGER PRIMARY KEY,deleted_at INTEGER);CREATE TABLE class_group_setup(key TEXT PRIMARY KEY);INSERT INTO class_group_setup VALUES('levels-v1'),('level-names-v2')");
+    const calls=[];
     const env={STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',
-      DB:{prepare(){return {bind(){return {async first(){return {id:'reg-1'};}};}};}}};
-    const app=integratedWorker({authenticate:async()=>null,studyDatabase:()=>f.db,accountWorker:{async fetch(request){
+      DB:{prepare(sql){return {bind(){return {async first(){return sql.includes('FROM users')?{...student,email:'i@example.invalid'}:{id:'reg-1',role:'USER',email:'i@example.invalid'};}};}};}}};
+    const app=integratedWorker({authenticate:async()=>null,studyDatabase:()=>f.db,
+      approveRegistration:async(env,sender,id)=>{assert.equal(sender.id,actor.id);assert.equal(id,'reg-1');return Response.json({userId:student.id,role:'USER'});},
+      accountWorker:{async fetch(request){
       calls.push(new URL(request.url).pathname);
-      const body=await request.json();assert.equal(body.role,'USER');assert.equal(body.invite,undefined);
+      const body=await request.json();
+      if(new URL(request.url).pathname==='/api/login'){
+        assert.equal(body.login,'Invitee');assert.equal(body.password,'password1');
+        return Response.json({signedIn:true},{headers:{'Set-Cookie':'session=fixture; Secure; HttpOnly'}});
+      }
+      assert.equal(body.role,'USER');assert.equal(body.invite,undefined);
       return Response.json({status:'pending'});
     }}});
     const response=await app.fetch(new Request('https://accounts.example/api/register',{method:'POST',headers:{Origin:'https://accounts.example'},body:JSON.stringify({login:'Invitee',email:'i@example.invalid',password:'password1',invite:created.token})}),env,{});
     assert.equal(response.status,200,await response.clone().text());
-    assert.equal((await response.json()).status,'pending');
-    assert.deepEqual(calls,['/api/register'],'No automatic approval or login');
+    assert.equal((await response.json()).signedIn,true);
+    assert.match(response.headers.get('set-cookie'),/session=fixture/);
+    assert.deepEqual(calls,['/api/register','/api/login']);
     await assert.rejects(f.service.peek(created.token),error=>error.status===410);
-    const person={...student,email:'i@example.invalid'};
-    await assert.rejects(f.service.completeApproval(users[1],'reg-1',person,[person],async()=>{}),error=>error.status===403);
-    await f.service.completeApproval(actor,'reg-1',person,[person],async(teacher,accountId,groupId)=>assigned.push({teacher:teacher.id,accountId,groupId}));
-    assert.deepEqual(assigned,[{teacher:actor.id,accountId:student.id,groupId:1}]);
-    const permissions=await f.service.registrationPermissions(users[1],[{id:'reg-1'}]);
-    assert.equal(permissions[0].inviteCanApprove,false);
-    assert.equal((await f.service.registrationPermissions(actor,[{id:'reg-1'}]))[0].inviteCanApprove,true);
+    assert.equal(f.sql.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get(student.id).group_id,1);
   }finally{f.close();}
 });

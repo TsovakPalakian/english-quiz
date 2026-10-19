@@ -37,5 +37,31 @@ try{
     await page.evaluate(()=>{const field=document.getElementById('field'),format=TextColors.format(field);TextColors.sync(field,format);});
     await check('#2563eb');await page.close();
   }
-  console.log('Color selection: native repeated shades, HEX, swatches, reparented toolbar and formatting persistence passed');
+  const page=await browser.newPage();
+  await page.setContent('<main></main>');
+  await page.addScriptTag({content:readFileSync('rollback/production-assets/text-colors.js','utf8')});
+  const actions=readFileSync('production/chat/85-message-actions.js','utf8');
+  const edit=actions.slice(actions.indexOf('  function editMessage('),actions.indexOf('  function deleteMessages('));
+  await page.addScriptTag({content:`
+    const data={rooms:[]},icon=()=>'';
+    let message={id:1,text:'alpha beta gamma',format:{runs:[{text:'alpha ',marks:{}},{text:'beta',marks:{color:'#3aebee'}},{text:' gamma',marks:{color:'#ff2244'}}]}};
+    async function request(action,value){message={...message,...value};}
+    function dialog(title,html,save){
+      const node=document.createElement('div');node.innerHTML='<form>'+html+'</form>';
+      document.querySelector('main').replaceChildren(node);window.saveEdit=save;return node;
+    }
+    ${edit}
+    window.openEdit=()=>editMessage(message,'room');
+  `});
+  for(let attempt=0;attempt<3;attempt++){
+    await page.evaluate(()=>openEdit());
+    assert.equal(await page.locator('.text-color-rich').isVisible(),true,'Reopened Edit displays saved formatting');
+    assert.equal(await page.locator('textarea').isVisible(),false);
+    const colors=await page.locator('.text-color-rich span').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent,color:node.style.color})));
+    assert.ok(colors.some(run=>run.text==='beta'&&run.color==='rgb(58, 235, 238)'));
+    assert.ok(colors.some(run=>run.text===' gamma'&&run.color==='rgb(255, 34, 68)'));
+    await page.evaluate(()=>saveEdit());
+  }
+  await page.close();
+  console.log('Color selection and repeated chat Edit preserve saved colors');
 }finally{await browser.close();}

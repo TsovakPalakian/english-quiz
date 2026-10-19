@@ -582,7 +582,7 @@
           '<button class="btn" type="button" data-settings-chat>Open messages</button>';
       if (id === 'security')
         html =
-          '<div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password>' +
+          '<div data-security-passkeys></div><hr><div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password>' +
           icon('key-round') +
           'Change password</button><div data-settings-password-slot></div><hr><button type="button" class="settings-action danger" data-account="revoke">' +
           icon('trash-2') +
@@ -652,7 +652,10 @@
         paintGuide();
       }
       if (id === 'notifications') await window.NotificationSounds?.mount(pane.querySelector('[data-settings-sounds]'));
-      if (id === 'security') void settingsSessions(pane.querySelector('[data-security-sessions]'), node);
+      if (id === 'security') {
+        void settingsSessions(pane.querySelector('[data-security-sessions]'), node);
+        void window.LumisciaPasskeys?.mount(pane.querySelector('[data-security-passkeys]'));
+      }
       if (!node.open || version !== tabVersion || gen !== generation) return;
       if (id === 'profile') {
         const form = pane.querySelector('.chat-edit-profile'),
@@ -1032,7 +1035,7 @@
         focusComposer();
       } else if (target.dataset.emojiCategory) paintEmoji(target.dataset.emojiCategory);
       else if (target.dataset.infoTab) await showInfo(target.dataset.infoTab);
-      else if (target.dataset.searchId) await focusMessage(Number(target.dataset.searchId));
+      else if (target.dataset.searchId) await focusMessage(Number(target.dataset.searchId), kind, '', true);
       else if (target.dataset.msgUnpin) {
         const result = await request('pin', {
           roomId: room,

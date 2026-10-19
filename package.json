@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@noble/ciphers": "2.4.0",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.0.3",
     "qrcode-generator": "2.0.4"
   },
   "devDependencies": {

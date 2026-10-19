@@ -226,6 +226,7 @@
       (rich || area).focus();
     };
     window.TextColors?.mount(area, {
+      format,
       onChange: (value) => {
         format = value;
         fit();

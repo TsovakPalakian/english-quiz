@@ -63,12 +63,15 @@ try{
   assert.equal(await page.locator('.guest-brand').isVisible(),true);
   const logo = page.locator('.guest-brand');
   const homeBeforeMotto = await page.locator('#homeAuth').boundingBox();
+  const logoBeforeMotto = await logo.boundingBox();
+  assert.equal(await page.locator('#home .home-heading .sub').isVisible(),false,'Guest subtitle is removed');
   await logo.click({clickCount: 3});
   await page.waitForTimeout(750);
   assert.equal(await logo.getAttribute('aria-expanded'), 'true');
-  assert.equal(await page.locator('#brandMotto').isVisible(), true);
+  assert.equal(await page.locator('#brandMotto b').isVisible(), true);
   assert.match(await page.locator('#brandMotto').innerText(), /Lumen ex Scientia/);
-  assert.deepEqual(await page.locator('#homeAuth').boundingBox(), homeBeforeMotto, 'Easter egg must not shift the login buttons');
+  assert.ok((await page.locator('#homeAuth').boundingBox()).y>homeBeforeMotto.y+40,'Login moves down to make room for the motto');
+  assert.deepEqual(await logo.boundingBox(),logoBeforeMotto,'Logo stays fixed while motto opens');
   await page.waitForTimeout(2450);
   assert.equal(await page.locator('#brandMotto').evaluate(node=>node.classList.contains('is-dissolving')), true);
   assert.ok(await page.locator('.brand-motto-particles').evaluate(canvas => {
@@ -80,7 +83,9 @@ try{
   await page.screenshot({path: '/private/tmp/lumiscia-motto-particles.png'});
   await page.waitForTimeout(1500);
   assert.equal(await logo.getAttribute('aria-expanded'), 'false');
-  assert.equal(await page.locator('#brandMotto').isVisible(), false, 'Motto disperses as colored light after three seconds');
+  assert.equal(await page.locator('#brandMotto b').isVisible(), false, 'Motto disperses as colored light after three seconds');
+  assert.deepEqual(await page.locator('#homeAuth').boundingBox(),homeBeforeMotto,'Login returns after the motto dissolves');
+  assert.deepEqual(await logo.boundingBox(),logoBeforeMotto,'Logo stays fixed while motto closes');
   assert.equal(await page.locator('.brand-motto-particles').count(), 0, 'Particle canvas is removed after animation');
   assert.equal(await page.locator('#home').evaluate(node=>getComputedStyle(node).userSelect),'none');
   await Promise.all([page.waitForEvent('domcontentloaded'),logo.click()]);
@@ -92,6 +97,17 @@ try{
     const footer=await page.locator('.site-copyright').boundingBox();assert.ok(footer.y+footer.height<=960,'Guest copyright fits viewport: '+JSON.stringify({footer,home:box}));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
     await page.screenshot({path:'/private/tmp/lumiscia-guest-'+width+'.png'});
+    if(width===390){
+      const mark=await logo.boundingBox(),button=await page.locator('#homeAuth').boundingBox();
+      await logo.click({clickCount:3});await page.waitForTimeout(750);
+      assert.deepEqual(await logo.boundingBox(),mark,'Mobile logo stays fixed');
+      const textBottom=await page.locator('#brandMotto span').evaluate(node=>node.getBoundingClientRect().bottom);
+      const hello=await page.locator('#home .hello').boundingBox();
+      assert.ok(hello.y>=textBottom,'Motto and greeting do not overlap on mobile');
+      await page.screenshot({path:'/private/tmp/lumiscia-guest-motto-390.png'});
+      await page.waitForTimeout(4000);
+      assert.deepEqual(await page.locator('#homeAuth').boundingBox(),button,'Mobile login returns to its original position');
+    }
   }
   await page.setViewportSize({width:1440,height:960});
   await page.evaluate(()=>window.enquizVisit('account'));

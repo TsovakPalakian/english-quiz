@@ -2,7 +2,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {pbkdf2Sync} from 'node:crypto';
+import {pbkdf2Sync,createHash} from 'node:crypto';
+import accounts from '../src/worker.js';
+import {sessionForPasskey} from '../src/worker.js';
 import {integratedWorker,accountMedia} from '../src/learning-integrated-worker.mjs';
 import {signupUsername} from '../src/chat-profiles.mjs';
 const devId='a'.repeat(32),password='FixturePassword1';
@@ -14,7 +16,7 @@ test('Account directory CAS uses raw ETag without removing the precondition or t
   await wrapped.put('other.json','value',{onlyIf:{etagMatches:'"abc"'}});assert.equal(calls[1][2].onlyIf.etagMatches,'"abc"');
   await wrapped.put('directory/accounts.json','value',{onlyIf:{etagDoesNotMatch:'*'}});assert.equal(calls[2][2].onlyIf.etagDoesNotMatch,'*');assert.ok(wrapped.get());
 });
-function fixture(){
+function fixture(options={}){
   const sqlite=new DatabaseSync(':memory:');
   sqlite.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,login TEXT UNIQUE,email TEXT UNIQUE,name TEXT DEFAULT '',password_salt TEXT,password_hash TEXT,password_iterations INTEGER,role TEXT DEFAULT 'USER',is_personal_data_revoked INTEGER DEFAULT 0,revoked_at INTEGER,hidden INTEGER DEFAULT 0,active INTEGER DEFAULT 1,created_at INTEGER);
     CREATE TABLE registrations(id TEXT PRIMARY KEY,login TEXT,email TEXT,name TEXT,password_salt TEXT,password_hash TEXT,password_iterations INTEGER,status TEXT,role TEXT DEFAULT 'USER',user_id TEXT,created_at INTEGER,decided_at INTEGER);
@@ -40,7 +42,7 @@ function fixture(){
   const env={DB,MEDIA,SESSION_SECRET:'synthetic-fixture-secret-only',STAGE_ENABLED:'true',STAGE_WRITES:'false',ACCOUNT_MUTATIONS_ENABLED:'true',STAGE_ALLOWED_HOST:'fixture.invalid',
     AUTH_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>{if(queries>=50)return new Response(null,{status:503});queries++;return new Response(null);}})}};
   env.STUDY_DB=DB;
-  const worker=integratedWorker();
+  const worker=integratedWorker(options);
   const client=()=>{let cookie='';return {get cookie(){return cookie;},async call(path,method='GET',body=null,override=null){
     const headers={Origin:'https://fixture.invalid',...(override!==null?{Cookie:override}:cookie?{Cookie:cookie}:{})};if(body)headers['Content-Type']='application/json';
     const response=await worker.fetch(new Request('https://fixture.invalid'+path,{method,headers,...(body?{body:JSON.stringify(body)}:{})}),env,{});
@@ -65,6 +67,62 @@ test('Signup rejects spaces and non-Latin symbols and assigns @login after teach
     const approved=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{});assert.equal(approved.status,200);
     assert.equal(names.get('username:'+approved.value.userId),'@123_student');
     assert.equal(names.get('username-owner:@123_student'),approved.value.userId);
+  }finally{f.close();}
+});
+test('student invite approves a real registration and assigns its group without a reviewer request',async()=>{
+  const f=fixture({accountWorker:{async fetch(request,...args){
+    if(new URL(request.url).pathname==='/api/login')return Response.json({signedIn:true});
+    return accounts.fetch(request,...args);
+  }}});
+  try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
+    f.sqlite.exec("CREATE TABLE class_groups(id INTEGER PRIMARY KEY,title TEXT,deleted_at INTEGER,revision INTEGER DEFAULT 1,lesson_date TEXT DEFAULT '2026-10-20');INSERT INTO class_groups(id,title) VALUES(1,'A1');CREATE TABLE lessons(id INTEGER PRIMARY KEY,deleted_at INTEGER);CREATE TABLE class_group_setup(key TEXT PRIMARY KEY);INSERT INTO class_group_setup VALUES('levels-v1'),('level-names-v2')");
+    const id='1'.repeat(16),secret='2'.repeat(48),now=Date.now();
+    const invite={kind:'student',createdBy:devId,teacherId:devId,groupId:1,secretHash:createHash('sha256').update(secret).digest('hex'),createdAt:now,expiresAt:now+3*86400000,uses:0,revoked:false};
+    f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('account-invites',id,JSON.stringify(invite));
+    f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('accounts-group-teachers','1',JSON.stringify({revision:1,teacherIds:[devId]}));
+    const response=await f.client().call('/api/register','POST',{login:'InvitedStudent',email:'invitedstudent@example.invalid',password,role:'ADMIN',invite:id+'.'+secret});
+    assert.equal(response.status,200,JSON.stringify(response.value));assert.equal(response.value.signedIn,true);
+    const registration=f.sqlite.prepare("SELECT * FROM registrations WHERE login='InvitedStudent'").get();
+    assert.equal(registration.status,'approved');assert.equal(registration.role,'USER');
+    assert.equal(f.sqlite.prepare('SELECT role FROM users WHERE id=?').get(registration.user_id).role,'USER');
+    assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get(registration.user_id).group_id,1);
+    const consumed=JSON.parse(f.sqlite.prepare("SELECT value_json FROM catalog_documents WHERE namespace='account-invites' AND key=?").get(id).value_json);
+    assert.equal(consumed.uses,1);assert.ok(consumed.assignedAt);
+    const ordinary=await f.client().call('/api/register','POST',{login:'OrdinaryStudent',email:'ordinary@example.invalid',password});
+    assert.equal(ordinary.value.status,'pending');
+  }finally{f.close();}
+});
+test('passkeys management requires a live session and its own email proof; login never creates accounts',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
+    const guest=f.client(),dev=f.client();let sent;
+    f.env.EMAIL={send:async mail=>{sent=mail;}};
+    assert.equal((await guest.call('/api/me/passkeys')).status,401);
+    f.env.STAGE_WRITES='false';
+    assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
+    f.env.STAGE_WRITES='true';
+    const cookie=dev.cookie;
+    assert.deepEqual((await dev.call('/api/me/passkeys')).value.passkeys,[]);
+    assert.equal((await dev.call('/api/me/passkeys/options','POST',{emailCode:'123456'})).status,400);
+    assert.equal((await dev.call('/api/me/passkeys/code','POST',{email:'attacker@example.invalid'})).status,200);
+    assert.equal(sent.to,'dev@example.invalid');
+    const emailCode=sent.text.match(/\b\d{6}\b/)[0];
+    const wrongPurpose=await dev.call('/api/auth/otp/verify','POST',{email:'dev@example.invalid',code:emailCode});
+    assert.equal(wrongPurpose.status,403);
+    // Reissue the fixture code without the resend interval; no external email is sent.
+    f.sqlite.prepare("DELETE FROM catalog_documents WHERE namespace='email-otp'").run();
+    await dev.call('/api/me/passkeys/code','POST',{});
+    const options=await dev.call('/api/me/passkeys/options','POST',{emailCode:sent.text.match(/\b\d{6}\b/)[0]});
+    assert.equal(options.status,200,JSON.stringify(options.value));
+    assert.equal(options.value.options.authenticatorSelection.userVerification,'required');
+    assert.equal(options.value.options.authenticatorSelection.residentKey,'required');
+    const request=new Request('https://fixture.invalid/api/auth/passkeys/verify',{headers:{Cookie:cookie}});
+    const approved=await sessionForPasskey(f.env,request,devId,true);
+    assert.equal(approved.status,200);assert.equal((await approved.json()).authMethod,'passkey');
+    f.sqlite.prepare('UPDATE users SET active=0 WHERE id=?').run(devId);
+    assert.equal((await sessionForPasskey(f.env,request,devId,true)).status,403);
+    assert.equal((await sessionForPasskey(f.env,request,'unapproved-account',true)).status,403);
   }finally{f.close();}
 });
 test('Pending teacher login checks the password and only a developer can approve the requested role',async()=>{

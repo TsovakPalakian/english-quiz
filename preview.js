@@ -2298,6 +2298,9 @@ var qrcode = function() {
 }));
 
 return module.exports; })();
+/* [@simplewebauthn/browser@14.0.0] */
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).SimpleWebAuthnBrowser={})}(this,(function(e){"use strict";function t(e){const t=new Uint8Array(e);let n="";for(const e of t)n+=String.fromCharCode(e);return btoa(n).replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"")}function n(e){const t=e.replace(/-/g,"+").replace(/_/g,"/"),n=(4-t.length%4)%4,r=t.padEnd(t.length+n,"="),i=atob(r),o=new ArrayBuffer(i.length),a=new Uint8Array(o);for(let e=0;e<i.length;e++)a[e]=i.charCodeAt(e);return o}function r(){return i.stubThis(void 0!==globalThis?.PublicKeyCredential&&"function"==typeof globalThis.PublicKeyCredential)}const i={stubThis:e=>e};function o(e){const{id:t}=e;return{...e,id:n(t),transports:e.transports,type:e.type}}function a(e){return"localhost"===e||/^((xn--[a-z0-9-]+|[a-z0-9]+(-[a-z0-9]+)*)\.)+([a-z]{2,}|xn--[a-z0-9-]+)$/i.test(e)}class s extends Error{constructor({message:e,code:t,cause:n,name:r}){super(e,{cause:n}),Object.defineProperty(this,"code",{enumerable:!0,configurable:!0,writable:!0,value:void 0}),this.name=r??n.name,this.code=t}}const l=new class{constructor(){Object.defineProperty(this,"controller",{enumerable:!0,configurable:!0,writable:!0,value:void 0})}createNewAbortSignal(){if(this.controller){const e=new Error("Cancelling existing WebAuthn API call for new one");e.name="AbortError",this.controller.abort(e)}const e=new AbortController;return this.controller=e,e.signal}cancelCeremony(){if(this.controller){const e=new Error("Manually cancelling existing WebAuthn API call");e.name="AbortError",this.controller.abort(e),this.controller=void 0}}},c=["cross-platform","platform"];function u(e){if(e&&!(c.indexOf(e)<0))return e}function d(e,t){console.warn(`The browser extension that intercepted this WebAuthn API call incorrectly implemented ${e}. You should report this error to them.\n`,t)}function p(){if(!r())return h.stubThis(new Promise((e=>e(!1))));const e=globalThis.PublicKeyCredential;return void 0===e?.isConditionalMediationAvailable?h.stubThis(new Promise((e=>e(!1)))):h.stubThis(e.isConditionalMediationAvailable())}const h={stubThis:e=>e};function f({error:e,options:t}){if("SecurityError"===e.name){return a(globalThis.location.hostname)?new s({message:`The browser does not support Related Origins to enable signals for RP ID "${t.rpID}" on domain "${globalThis.location.hostname}"`,code:"ERROR_INVALID_RP_ID",cause:e}):new s({message:`"${globalThis.location.hostname}" is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e})}if("unknownCredential"===t.signalName){if("TypeError"===e.name)return new s({message:"credentialID is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e})}else if("allAcceptedCredentials"===t.signalName){if("TypeError"===e.name)return new s({message:"userID, or an entry in allAcceptedCredentialIDs, is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e})}else if("currentUserDetails"===t.signalName&&"TypeError"===e.name)return new s({message:"userID is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e});return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e})}async function g(){if("function"==typeof PublicKeyCredential.getClientCapabilities){const e=await PublicKeyCredential.getClientCapabilities();let t=w(e.userVerifyingPlatformAuthenticator);if("unknown"===t&&"function"==typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){t=await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()?"supported":"unsupported"}let n=w(e.conditionalGet);if("unknown"===n&&"function"==typeof PublicKeyCredential.isConditionalMediationAvailable){n=await PublicKeyCredential.isConditionalMediationAvailable()?"supported":"unsupported"}return b.stubThis({conditionalCreate:w(e.conditionalCreate),conditionalGet:n,hybridTransport:w(e.hybridTransport),passkeyPlatformAuthenticator:w(e.passkeyPlatformAuthenticator),userVerifyingPlatformAuthenticator:t,relatedOrigins:w(e.relatedOrigins),signalAllAcceptedCredentials:w(e.signalAllAcceptedCredentials),signalCurrentUserDetails:w(e.signalCurrentUserDetails),signalUnknownCredential:w(e.signalUnknownCredential)})}return b.stubThis({conditionalCreate:"unknown",conditionalGet:"unknown",hybridTransport:"unknown",passkeyPlatformAuthenticator:"unknown",userVerifyingPlatformAuthenticator:"unknown",relatedOrigins:"unknown",signalAllAcceptedCredentials:"unknown",signalCurrentUserDetails:"unknown",signalUnknownCredential:"unknown"})}function w(e){if(!0===e)return"supported";if(!1===e)return"unsupported";if(void 0===e)return"unknown";throw new Error("Unexpected capability value:",e)}const b={stubThis:e=>e};e.WebAuthnAbortService=l,e.WebAuthnError=s,e._browserSupportsWebAuthnAutofillInternals=h,e._browserSupportsWebAuthnInternals=i,e._getBrowserCapabilitiesInternals=b,e.base64URLStringToBuffer=n,e.browserSupportsPasskeys=async function(){if(!r())return new Promise((e=>e(!1)));const e=await g(),{passkeyPlatformAuthenticator:t,userVerifyingPlatformAuthenticator:n,hybridTransport:i}=e;return"supported"===t||"supported"===i||"supported"===n},e.browserSupportsWebAuthn=r,e.browserSupportsWebAuthnAutofill=p,e.bufferToBase64URLString=t,e.getBrowserCapabilities=g,e.platformAuthenticatorIsAvailable=function(){return r()?PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable():new Promise((e=>e(!1)))},e.sendSignal=async function(e){const{signalName:t}=e;if("unknownCredential"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalUnknownCredential)throw new Error("This browser does not support PublicKeyCredential.signalUnknownCredential()");try{await t.signalUnknownCredential({rpId:e.rpID,credentialId:e.credentialID})}catch(t){throw f({error:t,options:e})}return}(e);if("allAcceptedCredentials"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalAllAcceptedCredentials)throw new Error("This browser does not support PublicKeyCredential.signalAllAcceptedCredentials()");try{await t.signalAllAcceptedCredentials({rpId:e.rpID,userId:e.userID,allAcceptedCredentialIds:e.allAcceptedCredentialIDs})}catch(t){throw f({error:t,options:e})}return}(e);if("currentUserDetails"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalCurrentUserDetails)throw new Error("This browser does not support PublicKeyCredential.signalCurrentUserDetails()");try{await t.signalCurrentUserDetails({rpId:e.rpID,userId:e.userID,name:e.userName,displayName:e.userDisplayName??""})}catch(t){throw f({error:t,options:e})}return}(e);throw new Error(`Received unrecognized signalName "${e.signalName}"`)},e.startAuthentication=async function(e){!e.optionsJSON&&e.challenge&&(console.warn("startAuthentication() was not called correctly. It will try to continue with the provided options, but this call should be refactored to use the expected call structure instead. See https://simplewebauthn.dev/docs/packages/browser#typeerror-cannot-read-properties-of-undefined-reading-challenge for more information."),e={optionsJSON:e});const{optionsJSON:i,useBrowserAutofill:c=!1,verifyBrowserAutofillInput:d=!0}=e;if(!r())throw new Error("WebAuthn is not supported in this browser");let h;0!==i.allowCredentials?.length&&(h=i.allowCredentials?.map(o));const f={...i,challenge:n(i.challenge),allowCredentials:h},g={};if(c){if(!await p())throw Error("Browser does not support WebAuthn autofill");if(document.querySelectorAll("input[autocomplete$='webauthn']").length<1&&d)throw Error('No <input> with "webauthn" as the only or last value in its `autocomplete` attribute was detected');g.mediation="conditional",f.allowCredentials=[]}let w;g.publicKey=f,g.signal=l.createNewAbortSignal();try{w=await navigator.credentials.get(g)}catch(e){throw function({error:e,options:t}){const{publicKey:n}=t;if(!n)throw Error("options was missing required publicKey property");if("AbortError"===e.name){if(t.signal instanceof AbortSignal)return new s({message:"Authentication ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:e})}else{if("NotAllowedError"===e.name)return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e});if("SecurityError"===e.name){const t=globalThis.location.hostname;if(!a(t))return new s({message:`${globalThis.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e});if(n.rpId!==t)return new s({message:`The RP ID "${n.rpId}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:e})}else if("UnknownError"===e.name)return new s({message:"The authenticator was unable to process the specified options, or could not create a new assertion signature",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:e})}return e}({error:e,options:g})}if(!w)throw new Error("Authentication was not completed");const{id:b,rawId:A,response:R,type:m}=w;let y;return R.userHandle&&(y=t(R.userHandle)),{id:b,rawId:t(A),response:{authenticatorData:t(R.authenticatorData),clientDataJSON:t(R.clientDataJSON),signature:t(R.signature),userHandle:y},type:m,clientExtensionResults:w.getClientExtensionResults(),authenticatorAttachment:u(w.authenticatorAttachment)}},e.startRegistration=async function(e){!e.optionsJSON&&e.challenge&&(console.warn("startRegistration() was not called correctly. It will try to continue with the provided options, but this call should be refactored to use the expected call structure instead. See https://simplewebauthn.dev/docs/packages/browser#typeerror-cannot-read-properties-of-undefined-reading-challenge for more information."),e={optionsJSON:e});const{optionsJSON:i,useAutoRegister:c=!1}=e;if(!r())throw new Error("WebAuthn is not supported in this browser");const p={...i,challenge:n(i.challenge),user:{...i.user,id:n(i.user.id)},excludeCredentials:i.excludeCredentials?.map(o)},h={};let f;c&&(h.mediation="conditional"),h.publicKey=p,h.signal=l.createNewAbortSignal();try{f=await navigator.credentials.create(h)}catch(e){throw function({error:e,options:t}){const{publicKey:n}=t;if(!n)throw Error("options was missing required publicKey property");if("AbortError"===e.name){if(t.signal instanceof AbortSignal)return new s({message:"Registration ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:e})}else if("ConstraintError"===e.name){if(!0===n.authenticatorSelection?.requireResidentKey)return new s({message:"Discoverable credentials were required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT",cause:e});if("conditional"===t.mediation&&"required"===n.authenticatorSelection?.userVerification)return new s({message:"User verification was required during automatic registration but it could not be performed",code:"ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE",cause:e});if("required"===n.authenticatorSelection?.userVerification)return new s({message:"User verification was required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT",cause:e})}else{if("InvalidStateError"===e.name)return new s({message:"The authenticator was previously registered",code:"ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED",cause:e});if("NotAllowedError"===e.name)return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e});if("NotSupportedError"===e.name)return 0===n.pubKeyCredParams.filter((e=>"public-key"===e.type)).length?new s({message:'No entry in pubKeyCredParams was of type "public-key"',code:"ERROR_MALFORMED_PUBKEYCREDPARAMS",cause:e}):new s({message:"No available authenticator supported any of the specified pubKeyCredParams algorithms",code:"ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG",cause:e});if("SecurityError"===e.name){const t=globalThis.location.hostname;if(!a(t))return new s({message:`${globalThis.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e});if(n.rp.id!==t)return new s({message:`The RP ID "${n.rp.id}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:e})}else if("TypeError"===e.name){if(n.user.id.byteLength<1||n.user.id.byteLength>64)return new s({message:"User ID was not between 1 and 64 characters",code:"ERROR_INVALID_USER_ID_LENGTH",cause:e})}else if("UnknownError"===e.name)return new s({message:"The authenticator was unable to process the specified options, or could not create a new credential",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:e})}return e}({error:e,options:h})}if(!f)throw new Error("Registration was not completed");const{id:g,rawId:w,response:b,type:A}=f;let R,m,y,E;if("function"==typeof b.getTransports&&(R=b.getTransports()),"function"==typeof b.getPublicKeyAlgorithm)try{m=b.getPublicKeyAlgorithm()}catch(e){d("getPublicKeyAlgorithm()",e)}if("function"==typeof b.getPublicKey)try{const e=b.getPublicKey();null!==e&&(y=t(e))}catch(e){d("getPublicKey()",e)}if("function"==typeof b.getAuthenticatorData)try{E=t(b.getAuthenticatorData())}catch(e){d("getAuthenticatorData()",e)}return{id:g,rawId:t(w),response:{attestationObject:t(b.attestationObject),clientDataJSON:t(b.clientDataJSON),transports:R,publicKeyAlgorithm:m,publicKey:y,authenticatorData:E},type:A,clientExtensionResults:f.getClientExtensionResults(),authenticatorAttachment:u(f.authenticatorAttachment)}}}));
+
     const sections = document.querySelectorAll("section");
     const chromeButtons = document.querySelectorAll(".side nav button, .tabbar button");
     const navStack = [];
@@ -12608,7 +12611,7 @@ return module.exports; })();
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
-          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. ':'')+'Your account needs approval by the inviting teacher or a developer before you join the group.</p>'
+          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
           ? '<input type="hidden" name="role" value="'+(teacherInvite?'ADMIN':'USER')+'" /><p class="hint">Role: '+(teacherInvite?'Teacher':'Student')+' (from invite)</p>'
@@ -12633,7 +12636,7 @@ return module.exports; })();
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        google+'</div></div>';
+        (window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login><i data-lucide="fingerprint" aria-hidden="true"></i>Log in with passkey</button><p class="hint" role="status" data-passkey-status></p>':'')+google+'</div></div>';
       decorate();
     }
     function paintProfile() {
@@ -12731,11 +12734,22 @@ return module.exports; })();
       if(authUser||!event.target.closest('.auth-brand'))return;
       event.preventDefault();event.stopImmediatePropagation();reloadGuestHome();
     },true);
+    function logoMottoHeight(motto) {
+      const top=motto.getBoundingClientRect().top;
+      return Math.max(0,...[...motto.querySelectorAll('b,span')].map(node=>node.getBoundingClientRect().bottom-top));
+    }
+    function positionLogoMotto(motto) {
+      document.getElementById('home').style.setProperty('--guest-motto-offset',Math.ceil(logoMottoHeight(motto)+16)+'px');
+    }
+    window.addEventListener('resize',()=>{
+      const motto=document.getElementById('brandMotto');
+      if(motto&&!motto.hidden&&!motto.classList.contains('is-dissolving'))positionLogoMotto(motto);
+    });
     function scatterLogoMotto(motto) {
       const bounds = motto.getBoundingClientRect();
       const source = document.createElement('canvas');
       source.width = Math.ceil(bounds.width);
-      source.height = Math.ceil(bounds.height);
+      source.height = Math.ceil(Math.max(bounds.height,logoMottoHeight(motto)));
       const ink = source.getContext('2d', {willReadFrequently: true});
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -12807,6 +12821,7 @@ return module.exports; })();
     function hideLogoMotto(motto) {
       clearTimeout(logoHideTimer);
       guestLogo.setAttribute('aria-expanded', 'false');
+      document.getElementById('home').style.removeProperty('--guest-motto-offset');
       logoTaps = 0;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         motto.hidden = true;
@@ -12835,6 +12850,7 @@ return module.exports; })();
       logoTaps = 0;
       guestLogo.setAttribute('aria-expanded', 'true');
       motto.hidden = false;
+      positionLogoMotto(motto);
       clearTimeout(logoHideTimer);
       logoHideTimer = setTimeout(() => hideLogoMotto(motto), 3000);
     });
@@ -12852,6 +12868,67 @@ return module.exports; })();
       ownAccountFlight = flight;
       return flight.promise;
     }
+    window.LumisciaPasskeys=(()=>{
+      const supported=()=>!!(window.isSecureContext&&window.PublicKeyCredential&&navigator.credentials&&window.SimpleWebAuthnBrowser);
+      const api=async(path,body)=>{
+        const response=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});
+        const result=await response.json();if(!response.ok)throw Error(result.error||'Passkey request failed.');return result;
+      };
+      const message=error=>['NotAllowedError','AbortError'].includes(error.name)?'Passkey request cancelled.':error.message||'Passkey unavailable on this device.';
+      async function login(){
+        const {options}=await api('/api/auth/passkeys/options',{});
+        const response=await window.SimpleWebAuthnBrowser.startAuthentication({optionsJSON:options});
+        let invite='';try{invite=sessionStorage.getItem('enquiz-invite')||'';}catch{}
+        const result=await api('/api/auth/passkeys/verify',{response,invite});
+        if(!result.inviteWarning)try{sessionStorage.removeItem('enquiz-invite');}catch{}
+        return result;
+      }
+      async function mount(host){
+        if(!host)return;
+        host.classList.add('security-passkeys');
+        host.innerHTML='<h3>Passkeys</h3><div data-passkey-list></div><label>Passkey name<input type="text" data-passkey-label maxlength="80" value="My device"></label><button class="settings-action" type="button" data-passkey-code>Send confirmation code</button><label hidden data-passkey-code-step>Email code<input type="text" data-passkey-code-value inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label><button class="settings-action" type="button" data-passkey-add'+(supported()?'':' disabled')+'><i data-lucide="fingerprint" aria-hidden="true"></i>Add passkey</button><p class="hint" role="status" data-passkey-status></p>';
+        const status=host.querySelector('[data-passkey-status]'),code=host.querySelector('[data-passkey-code-value]');
+        const draw=()=>window.lucide?.createIcons({root:host});
+        const run=async(button,action)=>{
+          button.disabled=true;status.textContent='';
+          try{await action();}catch(error){status.textContent=message(error);}finally{if(button.isConnected)button.disabled=false;}
+        };
+        async function load(){
+          const {passkeys}=await api('/api/me/passkeys');
+          if(!host.isConnected)return;
+          const list=host.querySelector('[data-passkey-list]');list.replaceChildren();
+          for(const key of passkeys){
+            const row=document.createElement('div');row.className='security-passkey-row';
+            const name=document.createElement('span');name.textContent=key.label;
+            const date=document.createElement('small');date.className='hint';date.textContent=key.lastUsedAt?'Last used '+new Date(key.lastUsedAt).toLocaleDateString():'Not used yet';
+            const remove=document.createElement('button');remove.type='button';remove.className='settings-action danger';remove.title='Remove passkey';remove.setAttribute('aria-label','Remove '+key.label);remove.innerHTML='<i data-lucide="trash-2" aria-hidden="true"></i>';
+            remove.onclick=()=>run(remove,async()=>{requireCode();await api('/api/me/passkeys/delete',{id:key.id,emailCode:code.value});code.value='';await load();status.textContent='Passkey removed.';});
+            const details=document.createElement('div');details.append(name,date);row.append(details,remove);list.append(row);
+          }
+          if(!passkeys.length)list.textContent='No passkeys added.';draw();
+        }
+        function requireCode(){if(!/^\d{6}$/.test(code.value)){code.focus();throw Error('Send a confirmation code to your account email and enter it here.');}}
+        host.querySelector('[data-passkey-code]').onclick=event=>run(event.currentTarget,async()=>{await api('/api/me/passkeys/code',{});host.querySelector('[data-passkey-code-step]').hidden=false;code.focus();status.textContent='Confirmation code sent to your account email.';});
+        host.querySelector('[data-passkey-add]').onclick=event=>run(event.currentTarget,async()=>{
+          requireCode();const {options}=await api('/api/me/passkeys/options',{emailCode:code.value});code.value='';
+          const response=await window.SimpleWebAuthnBrowser.startRegistration({optionsJSON:options});
+          await api('/api/me/passkeys/verify',{response,label:host.querySelector('[data-passkey-label]').value});await load();status.textContent='Passkey added.';
+        });
+        if(!supported())status.textContent='This browser does not support adding passkeys.';
+        try{await load();}catch(error){status.textContent=message(error);}draw();
+      }
+      return {supported,login,mount,message};
+    })();
+    document.addEventListener('click',async event=>{
+      const button=event.target.closest('[data-passkey-login]');if(!button)return;
+      const status=button.parentElement.querySelector('[data-passkey-status]');button.disabled=true;status.textContent='';
+      try{
+        if(inviteDetails?.kind==='teacher')throw Error('Accept this teacher invite using email code or Google.');
+        const result=await window.LumisciaPasskeys.login();
+        if(result.inviteWarning)console.warn(result.inviteWarning);
+        await enterAccount(result.user);
+      }catch(error){status.textContent=window.LumisciaPasskeys.message(error);}finally{button.disabled=false;}
+    });
     function statusLabel(status) {
       if (status === "pending") return "Waiting";
       if (status === "approved") return "Approved";
@@ -12955,7 +13032,7 @@ return module.exports; })();
     }
     function groupInviteHTML(groupId,candidates,groups=adminGroups,mayInvite=true) {
       const options=candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
-      return '<details class="accounts-fold accounts-invite-section" data-group-invites data-group-id="'+groupId+'"><summary>Invite link</summary><div class="invite-form"><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher'+(!candidates.length?' disabled':'')+'>'+options+'</select></label><p class="hint" data-invite-unassigned'+(candidates.length?' hidden':'')+'>Assign a teacher to this group first.</p><label hidden data-invite-staff><span>Group</span><select data-invite-group>'+groups.map(group=>'<option value="'+group.id+'"'+(group.id===groupId?' selected':'')+'>'+esc(group.title)+'</option>').join('')+'</select></label><label hidden data-invite-staff><span>Teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create'+(!candidates.length||!mayInvite?' disabled':'')+'>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div></details>';
+      return '<details class="accounts-fold accounts-invite-section" data-group-invites data-group-id="'+groupId+'"><summary>Invite link</summary><div class="invite-form"><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher'+(!candidates.length?' disabled':'')+'>'+options+'</select></label><p class="hint" data-invite-unassigned'+(candidates.length?' hidden':'')+'>Assign a teacher to this group first.</p><label hidden data-invite-staff><span>Group</span><select data-invite-group>'+groups.map(group=>'<option value="'+group.id+'"'+(group.id===groupId?' selected':'')+'>'+esc(group.title)+'</option>').join('')+'</select></label><label hidden data-invite-staff><span>Invited teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create'+(!candidates.length||!mayInvite?' disabled':'')+'>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div></details>';
     }
     document.addEventListener('change',event=>{
       const box=event.target.closest('[data-group-invites]');if(!box)return;

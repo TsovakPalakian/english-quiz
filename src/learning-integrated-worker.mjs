@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Learning.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,completeGoogleSignIn} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,sessionForPasskey,completeGoogleSignIn} from './worker.js';
 import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './learning-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './learning-study.mjs';
@@ -13,6 +13,7 @@ import {AccountGroupTeachers} from './account-group-teachers.mjs';
 import {AccountInvites} from './account-invites.mjs';
 import {GuideVisits} from './guide-visits.mjs';
 import {EmailOtp} from './email-otp.mjs';
+import {Passkeys,passkeyCookie,passkeyCookieHeader} from './passkeys.mjs';
 import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured} from './google-oauth.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
@@ -108,6 +109,21 @@ export function accountDatabase(db,reserve,{allowWrites=false}={}){
 }
 export function integratedWorker({accountWorker=accounts,authenticate=currentUser,studyWorker=study,
   authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration}={}){
+  async function approveInvitedStudent(env,accountEnv,registrationId){
+    const invites=new AccountInvites(studyDatabase(env));
+    // Only a server-claimed student invitation may authorize automatic approval.
+    const invitation=await invites.registrationInvite({role:'DEVELOPER'},registrationId);
+    if(!invitation||(invitation.kind||'student')!=='student'||invitation.uses!==1||!invitation.acceptedAt)throw new StudyError(403,'A valid student invitation is required.');
+    const registration=await accountEnv.DB.prepare('SELECT role,email FROM registrations WHERE id=?').bind(registrationId).first();
+    if(registration?.role!=='USER'||String(registration.email).toLowerCase()!==invitation.registrationEmail)throw new StudyError(403,'The registration does not match this student invite.');
+    const sender={id:invitation.createdBy,role:'ADMIN'};
+    const response=await approveReg(accountEnv,sender,registrationId);
+    const result=await response.json();
+    if(!response.ok)throw new StudyError(response.status,result.error||'The invited account could not be approved.');
+    const person=await accountEnv.DB.prepare('SELECT id,email,role,active FROM users WHERE id=?').bind(result.userId).first();
+    await invites.completeApproval(sender,registrationId,person,[person],(teacher,id,group)=>new GroupService(studyDatabase(env)).assignStudent(teacher,id,group));
+    try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
+  }
   return {async fetch(request,env,ctx){
     const bugProbe=env.BUG_LOG==='true'&&bugWatch(request)?request.clone():null;
     let bugActor=null;
@@ -129,6 +145,34 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(path.startsWith('/api/me/passkeys')&&path!=='/api/me/passkeys/code'||path==='/api/auth/passkeys/options'){
+        if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Passkeys unavailable.');
+        const service=new Passkeys(studyDatabase(env),url.origin);
+        const login=path==='/api/auth/passkeys/options';
+        const actor=login?null:await identify(accountEnv,request);
+        if(!login&&!actor)throw new StudyError(401,'Sign in first.');
+        if(path==='/api/me/passkeys'&&method==='GET'){
+          const rows=await service.list(actor.id);
+          return json({passkeys:rows.map(({id,label,createdAt,lastUsedAt})=>({id,label,createdAt,lastUsedAt}))});
+        }
+        if(method!=='POST')throw new StudyError(405,'Use POST.');
+        let body;try{body=JSON.parse(await boundedText(request,32768,'Passkey response too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid passkey request.');}
+        if(login){
+          const issued=await service.issue('login',{rateKey:request.headers.get('CF-Connecting-IP')||'unknown'});
+          const response=json({options:issued.options});response.headers.set('Set-Cookie',passkeyCookieHeader(issued.token));return response;
+        }
+        const session=await sessionIdentity(accountEnv,request);
+        if(!session||session.id!==actor.id)throw new StudyError(401,'Sign in first.');
+        if(path==='/api/me/passkeys/options'||path==='/api/me/passkeys/delete'){
+          const proof=await new EmailOtp(studyDatabase(env)).consume(actor.email,body.emailCode);
+          if(proof.purpose!=='passkey')throw new StudyError(403,'Request a passkey confirmation code.');
+          if(path.endsWith('/delete'))return json(await service.remove(actor.id,body.id));
+          const issued=await service.issue('register',{actor,session,rateKey:actor.id});
+          const response=json({options:issued.options});response.headers.set('Set-Cookie',passkeyCookieHeader(issued.token));return response;
+        }
+        if(path==='/api/me/passkeys/verify')return json(await service.register(passkeyCookie(request),body.response,actor,session,body.label));
+        throw new StudyError(404,'Not found.');
+      }
       if(path==='/api/me/sessions'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const session=await sessionIdentity(accountEnv,request);if(!session||session.id!==actor.id)throw new StudyError(401,'Sign in first.');
@@ -233,18 +277,25 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const secure=url.protocol==='https:';
         let response=await completeGoogleSignIn(accountEnv,request,profile,{create:false,role:inviteInfo?.kind==='teacher'?'ADMIN':'USER'},secure);
         if(response.status===200){
-          const value=await response.clone().json();
+          let value=await response.clone().json(),inviteAccepted=false;
           if(value.status==='pending'){
             if(inviteInfo){
               const reg=await accountEnv.DB.prepare("SELECT id,role FROM registrations WHERE status='pending' AND email=?").bind(profile.email.toLowerCase()).first();
               if(!reg||reg.role!==(inviteInfo.kind==='teacher'?'ADMIN':'USER'))throw new StudyError(403,'The registration role does not match this invite.');
               await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(inviteToken,profile.email,reg.id,inviteInfo.kind);
+              if(inviteInfo.kind==='student'){
+                await approveInvitedStudent(env,accountEnv,reg.id);
+                response=await completeGoogleSignIn(accountEnv,request,profile,{create:false},secure);
+                if(!response.ok)return response;
+                value=await response.clone().json();
+                inviteAccepted=true;
+              }
             }
-            return Response.redirect(url.origin+'/?auth=pending',302);
+            if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
           }
           if(value.user){
             let inviteWarning='';
-            if(inviteToken&&env.STAGE_WRITES==='true'){
+            if(inviteToken&&!inviteAccepted&&env.STAGE_WRITES==='true'){
               try{
                 await new AccountInvites(studyDatabase(env)).redeem(value.user,inviteToken,(teacher,accountId,groupId)=>new GroupService(studyDatabase(env)).assignStudent(teacher,accountId,groupId),{verifiedEmail:profile.email,users:[value.user]});
                 try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
@@ -281,19 +332,23 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return Response.redirect(url.origin+'/?auth=google_error',302);
       }
-      if(path==='/api/auth/otp/request'&&method==='POST'){
+      if(['/api/auth/otp/request','/api/me/passkeys/code'].includes(path)&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         if(!env.EMAIL||typeof env.EMAIL.send!=='function')throw new StudyError(503,'Email sending is not configured.');
         let value;try{value=JSON.parse(await boundedText(request,1024,'OTP request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP request.');}
-        const issued=await new EmailOtp(studyDatabase(env)).issue(value?.email,{purpose:'login'});
+        const passkey=path==='/api/me/passkeys/code';
+        if(passkey&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Passkeys unavailable.');
+        const actor=passkey?await identify(accountEnv,request):null;
+        if(passkey&&!actor)throw new StudyError(401,'Sign in first.');
+        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:passkey?'passkey':'login'});
         const from=String(env.EMAIL_FROM||'noreply@lumiscia.org');
         try{
           await env.EMAIL.send({
             to:issued.email,
             from:{email:from,name:'Lumiscia'},
-            subject:'Your Lumiscia sign-in code',
-            text:'Your sign-in code is '+issued.code+'. It expires in '+issued.ttlSec+' seconds. If you did not request this, ignore the email.',
-            html:'<p>Your sign-in code is <b style="font-size:20px;letter-spacing:0.12em">'+issued.code+'</b>.</p><p>It expires in '+issued.ttlSec+' seconds.</p><p>If you did not request this, ignore the email.</p>',
+            subject:passkey?'Confirm your Lumiscia passkey change':'Your Lumiscia sign-in code',
+            text:'Your '+(passkey?'passkey confirmation':'sign-in')+' code is '+issued.code+'. It expires in '+issued.ttlSec+' seconds. If you did not request this, ignore the email.',
+            html:'<p>Your '+(passkey?'passkey confirmation':'sign-in')+' code is <b style="font-size:20px;letter-spacing:0.12em">'+issued.code+'</b>.</p><p>It expires in '+issued.ttlSec+' seconds.</p><p>If you did not request this, ignore the email.</p>',
           });
         }catch(error){
           const code=error?.code||'';
@@ -303,12 +358,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return json({ok:true,email:issued.email,expiresAt:issued.expiresAt,ttlSec:issued.ttlSec});
       }
-      if(path==='/api/auth/otp/verify'&&method==='POST'){
+      if(['/api/auth/otp/verify','/api/auth/passkeys/verify'].includes(path)&&method==='POST'){
         if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
-        let value;try{value=JSON.parse(await boundedText(request,2048,'OTP verify too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP verify.');}
-        const consumed=await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
+        const passkey=path==='/api/auth/passkeys/verify';
+        if(passkey&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Passkeys unavailable.');
+        let value;try{value=JSON.parse(await boundedText(request,passkey?32768:2048,'Authentication response too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid authentication response.');}
+        const consumed=passkey?await new Passkeys(studyDatabase(env),url.origin).authenticate(passkeyCookie(request),value?.response,request.headers.get('CF-Connecting-IP')||'unknown'):await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
+        if(!passkey&&consumed.purpose!=='login')throw new StudyError(403,'Request a sign-in code.');
         const secure=url.protocol==='https:';
-        let response=await sessionForEmail(accountEnv,request,consumed.email,secure);
+        let response=passkey?await sessionForPasskey(accountEnv,request,consumed.accountId,secure):await sessionForEmail(accountEnv,request,consumed.email,secure);
         if(!response.ok)return response;
         let inviteWarning='';
         const inviteToken=typeof value?.invite==='string'?value.invite.trim():'';
@@ -642,6 +700,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
         let approvalGroup=null,approvalActor=null,approvalGroups=null,approvalInvite=null;
         let forward=request,inviteToken='',effectivePath=path,inviteWarning='',signupBody=null,signupInvite=null;
+        const passkeysAccount=path==='/api/me/revoke'&&method==='POST'?(await identify(accountEnv,request))?.id:method==='DELETE'&&new RegExp('^/api/admin/users/'+identity+'$').test(path)?path.split('/')[4]:null;
         if(path==='/api/register'&&method==='POST'){
           let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
           inviteToken=typeof body?.invite==='string'?body.invite.trim():'';
@@ -677,6 +736,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let response=approvalInvite?.kind==='teacher'&&approvalActor?.role==='ADMIN'
           ?await approveReg(accountEnv,approvalActor,path.split('/')[4],approvalInvite)
           :await accountWorker.fetch(forward,accountEnv,ctx);
+        if(response.ok&&passkeysAccount){
+          try{await new Passkeys(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Passkey cleanup unavailable; revoked account remains blocked.');}
+        }
         if(response.ok&&path==='/api/admin/registrations'&&method==='GET'){
           const value=await response.json(),reviewer=await identify(accountEnv,request);
           response=json({...value,registrations:await new AccountInvites(studyDatabase(env)).registrationPermissions(reviewer,value.registrations||[])});
@@ -687,6 +749,12 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             const reg=await accountEnv.DB.prepare("SELECT id FROM registrations WHERE status='pending' AND login=?").bind(String(signupBody.login).trim()).first();
             if(!reg)throw new StudyError(500,'Invite registration was not saved.');
             await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(inviteToken,signupBody.email,reg.id,signupInvite.kind);
+            if(signupInvite.kind==='student'){
+              await approveInvitedStudent(env,accountEnv,reg.id);
+              const loginUrl=new URL(request.url);loginUrl.pathname='/api/login';
+              response=await accountWorker.fetch(new Request(loginUrl,{method:'POST',headers:request.headers,body:JSON.stringify({login:signupBody.login,password:signupBody.password})}),accountEnv,ctx);
+              effectivePath='/api/login';
+            }
           }
         }
         if(response.ok&&approvalInvite&&method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){

@@ -3764,6 +3764,14 @@ export async function approveRegistration(env, actor, regId, invitation = null) 
   return decide(env, actor, regId, "approve", invitation);
 }
 
+export async function sessionForPasskey(env,request,accountId,secure){
+  const row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND is_personal_data_revoked=0').bind(accountId).first();
+  if(!row||row.active===0||!['USER','ADMIN','DEVELOPER'].includes(row.role))return json({error:'This account is unavailable.'},403);
+  if(env.MEDIA&&await env.MEDIA.head('gone/'+row.id))return json({error:'This account is unavailable.'},403);
+  try{await copyStateOnce(env,row.id);}catch{}
+  return startSession(env,row,{user:publicUser(row),authMethod:'passkey'},secure,request);
+}
+
 export async function sessionForEmail(env, request, email, secure) {
   const key = String(email || "").trim().toLowerCase();
   if (!EMAIL_RE.test(key) || key.length > 120) return json({ error: "Enter a valid email." }, 400);

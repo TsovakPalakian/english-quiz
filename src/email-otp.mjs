@@ -76,7 +76,7 @@ export class EmailOtp{
     const current=await this.#load(key);
     const now=Date.now();
     if(current?.sentAt&&now-current.sentAt<RESEND_MS)fail(429,'Wait a moment before requesting another code.');
-    const code=String(100000+Math.floor(Math.random()*900000));
+    const code=String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000);
     const next={
       email,
       codeHash:await sha256Hex(code+':'+email),

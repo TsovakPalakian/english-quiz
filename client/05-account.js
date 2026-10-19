@@ -454,7 +454,7 @@
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
-          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. ':'')+'Your account needs approval by the inviting teacher or a developer before you join the group.</p>'
+          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         const roleField = invite
           ? '<input type="hidden" name="role" value="'+(teacherInvite?'ADMIN':'USER')+'" /><p class="hint">Role: '+(teacherInvite?'Teacher':'Student')+' (from invite)</p>'
@@ -479,7 +479,7 @@
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        google+'</div></div>';
+        (window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login><i data-lucide="fingerprint" aria-hidden="true"></i>Log in with passkey</button><p class="hint" role="status" data-passkey-status></p>':'')+google+'</div></div>';
       decorate();
     }
     function paintProfile() {
@@ -577,11 +577,22 @@
       if(authUser||!event.target.closest('.auth-brand'))return;
       event.preventDefault();event.stopImmediatePropagation();reloadGuestHome();
     },true);
+    function logoMottoHeight(motto) {
+      const top=motto.getBoundingClientRect().top;
+      return Math.max(0,...[...motto.querySelectorAll('b,span')].map(node=>node.getBoundingClientRect().bottom-top));
+    }
+    function positionLogoMotto(motto) {
+      document.getElementById('home').style.setProperty('--guest-motto-offset',Math.ceil(logoMottoHeight(motto)+16)+'px');
+    }
+    window.addEventListener('resize',()=>{
+      const motto=document.getElementById('brandMotto');
+      if(motto&&!motto.hidden&&!motto.classList.contains('is-dissolving'))positionLogoMotto(motto);
+    });
     function scatterLogoMotto(motto) {
       const bounds = motto.getBoundingClientRect();
       const source = document.createElement('canvas');
       source.width = Math.ceil(bounds.width);
-      source.height = Math.ceil(bounds.height);
+      source.height = Math.ceil(Math.max(bounds.height,logoMottoHeight(motto)));
       const ink = source.getContext('2d', {willReadFrequently: true});
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -653,6 +664,7 @@
     function hideLogoMotto(motto) {
       clearTimeout(logoHideTimer);
       guestLogo.setAttribute('aria-expanded', 'false');
+      document.getElementById('home').style.removeProperty('--guest-motto-offset');
       logoTaps = 0;
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         motto.hidden = true;
@@ -681,6 +693,7 @@
       logoTaps = 0;
       guestLogo.setAttribute('aria-expanded', 'true');
       motto.hidden = false;
+      positionLogoMotto(motto);
       clearTimeout(logoHideTimer);
       logoHideTimer = setTimeout(() => hideLogoMotto(motto), 3000);
     });

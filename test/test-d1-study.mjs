@@ -6,6 +6,7 @@ import {statement as s} from '../src/learning-study.mjs';
 import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
 import {AccountInvites} from '../src/account-invites.mjs';
 import {EmailOtp} from '../src/email-otp.mjs';
+import {Passkeys} from '../src/passkeys.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {StudyService} from '../src/learning-study.mjs';
@@ -96,6 +97,17 @@ test('invite and email-code CAS guards work on actual D1 without TEMP tables',as
   await assert.rejects(otp.consume(proof.email,wrong),error=>error.status===401);
   assert.equal((await otp.consume(proof.email,proof.code)).email,proof.email);
   assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name IN ('_study_batch_invite_guard','_study_batch_email_otp_guard')"),[]);
+});
+test('passkey rate limits and single-use challenges work through actual D1 guards',async()=>{
+  const service=new Passkeys(db,'https://fixture.invalid');
+  const challenge=await service.issue('login',{rateKey:'d1-passkey'});
+  assert.equal(challenge.options.userVerification,'required');
+  const stored=await service.challenge(challenge.token,'login');
+  await service.atomic(service.consume(challenge.token,stored));
+  await assert.rejects(service.atomic(service.consume(challenge.token,stored)),error=>error.status===409);
+  for(let i=0;i<20;i++)await service.limit('limited-fixture');
+  await assert.rejects(service.limit('limited-fixture'),error=>error.status===429);
+  assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name='_study_batch_passkey_guard'"),[]);
 });
 test('read-only calls reject writes before executing any part of a batch',async()=>{
   for(const action of [()=>db.read("DELETE FROM records"),()=>db.readMany([s('SELECT 1'),s('DELETE FROM records')]),()=>db.atomic([s('DELETE FROM records')],{readOnly:true}),()=>db.read('PRAGMA foreign_keys=OFF')])await assert.rejects(action,e=>e.status===500);
