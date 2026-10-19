@@ -2901,13 +2901,13 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
   font-weight: 600; line-height: 1.4; min-width: 0;
 }
 .brand-mark {
-  display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px;
+  display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px;
   color: var(--acc); --brand-leaf: color-mix(in srgb, var(--acc) 60%, var(--card));
 }
 .brand-mark svg { display: block; width: 100%; height: 100%; }
 .brand-copy { min-width: 0; text-align: left; }
-.brand-copy b { display: block; font-size: 14px; font-weight: 700; color: var(--ink); }
-.brand-copy small { display: block; font-size: 12px; font-weight: 400; color: var(--mute); }
+.brand-copy b { display: block; font-size: 16px; font-weight: 700; color: var(--ink); }
+.brand-copy small { display: block; font-size: 13px; font-weight: 400; color: var(--mute); }
 .side-search { display: flex; align-items: center; gap: 8px; min-height: 40px; margin: 0 4px 14px; padding: 0 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
 .side-search :is(i, svg) { width: 16px; height: 16px; flex: 0 0 16px; color: var(--mute); }
 .side-search input[type="search"] { width: 100%; min-width: 0; min-height: 38px; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: inherit; }
@@ -2974,6 +2974,9 @@ body.guest-auth .wrap { min-height: 100dvh; padding: 24px 16px; }
 html:has(body.guest-auth) { scrollbar-gutter: stable; }
 body.guest-auth #account { flex: 0 0 auto; width: 100%; max-width: 440px; margin: 0 auto auto; overflow-anchor: none; }
 body.guest-auth .auth-brand { display: flex; justify-content: center; align-items: center; gap: 12px; align-self: center; padding: 0; margin: 0 0 24px; background: transparent; border: 0; }
+body.guest-auth .auth-brand .brand-mark { flex-basis: 50px; width: 50px; height: 50px; }
+body.guest-auth .auth-brand .brand-copy b { font-size: 20px; }
+body.guest-auth .auth-brand .brand-copy small { font-size: 16.25px; }
 body.guest-auth #account .account-stage { width: 100%; }
 body.guest-auth #account .account-main { gap: 0; }
 body.guest-auth .account-gate .card { padding: 24px; border-radius: 6px; background: var(--card); }
