@@ -113,6 +113,14 @@ try{
   await page.evaluate(()=>window.enquizVisit('account'));
   assert.equal(await page.locator('#account').evaluate(node=>getComputedStyle(node).userSelect),'none');
   assert.equal(await page.locator('#loginForm input').first().evaluate(node=>getComputedStyle(node).userSelect),'text');
+  for(const width of [390,1440]){
+    await page.setViewportSize({width,height:960});
+    const divider=await page.locator('.auth-divider').boundingBox();
+    const passkey=await page.locator('[data-passkey-login]').boundingBox();
+    const google=await page.locator('[data-google-auth]').boundingBox();
+    assert.ok(passkey.y>=divider.y+divider.height,'Passkey follows the or divider');
+    assert.ok(Math.abs(google.y-passkey.y-passkey.height-8)<=1,'Google follows passkey with an 8px gap');
+  }
   assert.equal(await page.locator('.side .brand-mark svg path').count(),2);
   assert.equal(await page.locator('.side .brand b').innerText(),'Lumiscia');
   assert.equal(await page.locator('.side .brand small').innerText(),'Learning studio');

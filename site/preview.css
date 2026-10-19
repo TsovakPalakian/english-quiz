@@ -3006,6 +3006,7 @@ body.guest-auth .account-gate .card { padding: 24px; border-radius: 6px; backgro
 .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 .account-gate .auth-google { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 46px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .auth-google-icon { flex: 0 0 20px; width: 20px; height: 20px; }
+.account-gate [data-passkey-login] { margin-bottom: 8px; }
 body.guest-auth .site-copyright { margin-top: 0; padding: 24px 0 0; }
 @media (max-width: 480px) { body.guest-auth .account-gate .card { padding: 20px; } }
 body.guest-home .side, body.guest-home .mobile-tools, body.guest-home .tabbar,
