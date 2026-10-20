@@ -14,6 +14,7 @@ import {AccountInvites} from './account-invites.mjs';
 import {GuideVisits} from './guide-visits.mjs';
 import {EmailOtp} from './email-otp.mjs';
 import {Passkeys,passkeyCookie,passkeyCookieHeader} from './passkeys.mjs';
+import {isSensitiveFileProbe,sensitiveFileNotFound} from './sensitive-paths.mjs';
 import {MicrosoftOAuth,microsoftConfigured,microsoftCookie,microsoftCookieHeader,microsoftAuthorizeUrl,exchangeMicrosoftCode} from './microsoft-oauth.mjs';
 import {TelegramOAuth,telegramConfigured,telegramCookie,telegramCookieHeader,telegramAuthorizeUrl,exchangeTelegramCode} from './telegram-oauth.mjs';
 const oauthProviders={
@@ -152,6 +153,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
     return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:session.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
   }
   return {async fetch(request,env,ctx){
+    if(isSensitiveFileProbe(request))return sensitiveFileNotFound(request);
     const bugProbe=env.BUG_LOG==='true'&&bugWatch(request)?request.clone():null;
     let bugActor=null;
     const originalAuth=authenticate;

@@ -9,6 +9,7 @@ import {STUDY_DATABASE,STATIC_STUDY_DATABASE} from './study-database.mjs';
 import {pruneSessionHistory} from './security-sessions.mjs';
 import {accountTransferWorker} from './account-transfer.mjs';
 import {assertAccountTransferRunning} from './account-transfer-guard.mjs';
+import {isSensitiveFileProbe,sensitiveFileNotFound} from './sensitive-paths.mjs';
 export {ChatRoom,ChatInbox,ChatBridge} from './chat-worker.mjs';
 export {StageAuthBudget};
 const unavailable=()=>Response.json({error:'Production content not activated.'},{status:503,headers:{'Cache-Control':'no-store'}});
@@ -39,6 +40,7 @@ export function productionWorker(application=integrated){
       if(application.scheduled)await application.scheduled(event,configured,ctx);
     }
   },async fetch(request,env,ctx){
+  if(isSensitiveFileProbe(request))return sensitiveFileNotFound(request);
   try{assertAccountTransferRunning(env);}catch(error){return Response.json({error:error.message},{status:503,headers:{'Cache-Control':'no-store'}});}
   if(env.CONTENT_ENABLED!=='true')return unavailable();
   let configured=productionEnvironment(env);
