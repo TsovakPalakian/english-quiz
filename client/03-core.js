@@ -129,7 +129,7 @@
       if (groupHideBtn) { groupHide(groupHideBtn.dataset.groupHide); return; }
       const groupDeleteBtn = e.target.closest("[data-group-delete]");
       if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
-      const bugTabBtn = e.target.closest("[data-bug-tab]");
+      const bugTabBtn = e.target.closest("button[data-bug-tab]");
       if (bugTabBtn) {
         bugTab = bugTabBtn.dataset.bugTab === "done" ? "done" : "open";
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
@@ -144,24 +144,27 @@
       }
       const bugResolve = e.target.closest("[data-bug-resolve]");
       if (bugResolve) {
-        accountFetch("/api/bugs/resolve", { method: "POST", body: JSON.stringify({ id: bugResolve.dataset.bugResolve }) }).then(() => {
+        if(bugResolve.disabled)return;
+        bugResolve.disabled=true;
+        accountFetch("/api/bugs/resolve", { method: "POST", body: JSON.stringify({ id: bugResolve.dataset.bugResolve }) }).then((data) => {
           if (bugCache) {
             const row = bugCache.find((item) => item.id === bugResolve.dataset.bugResolve);
-            if (row) row.resolved = true;
+            if (row) Object.assign(row,data?.bug||{resolved:true});
             paintBugs(bugCache);
           } else paintBugs();
         }).catch((err) => {
           const box = document.getElementById("bugList");
           if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
-        });
+        }).finally(()=>{bugResolve.disabled=false;});
         return;
       }
       const bugBtn = e.target.closest("[data-bug]");
       if (bugBtn) {
         const item = bugBtn.closest(".bug-item");
-        const detail = item && item.querySelector(".bug-detail");
+        const detail = item && item.querySelector(".bug-body");
         if (detail) detail.hidden = !detail.hidden;
         bugBtn.classList.toggle("active", !!(detail && !detail.hidden));
+        bugBtn.setAttribute('aria-expanded',String(!!(detail&&!detail.hidden)));
         return;
       }
       const jump = e.target.closest("[data-jump]");

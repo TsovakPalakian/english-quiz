@@ -606,7 +606,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const raw=await request.text();if(raw.length>200)throw new StudyError(413,'Bug request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!await resolveBug(studyDatabase(env),body.id))throw new StudyError(404,'Bug not found.');
-        return new Response(null,{status:204});
+        return json({bug:(await listBugsByIds(studyDatabase(env),[body.id]))[0]});
       }
       if(path==='/api/bugs'&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

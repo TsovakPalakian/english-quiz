@@ -1,32 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {saveBug,listBugs,recordHttpBug,resolveBug,headerMap,resetBugStoreForTests} from '../src/bug-log.mjs';
+import {DatabaseSync} from 'node:sqlite';
+import {saveBug,listBugs,listBugHeads,recordHttpBug,resolveBug,headerMap,resetBugStoreForTests} from '../src/bug-log.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 const plain=value=>value&&typeof value==='object'&&'type' in value?value.value:value;
 function memory(){
-  const rows=[];
+  const sql=new DatabaseSync(':memory:');
   return {
-    rows,
-    async read(sql,args=[]){
-      if(sql.includes('signature IN'))return rows.filter(row=>args.includes(row.signature));
-      if(sql.includes('WHERE signature')){
-        const found=rows.find(row=>row.signature===args[0]);
-        return found?[found]:[];
-      }
-      return rows.slice().sort((a,b)=>b.last_at-a.last_at);
-    },
-    async atomic(statements){
-      for(const command of statements){
-        const args=(command.args||[]).map(plain);
-        if(command.sql.startsWith('CREATE'))continue;
-        if(command.sql.startsWith('INSERT'))rows.push({signature:args[0],method:args[1],path:args[2],status:Number(args[3]),error:args[4],hits:Number(args[5]),accounts_json:args[6],request_json:args[7],response_json:args[8],first_at:Number(args[9]),last_at:Number(args[10]),time_zone:args[11]||''});
-        if(command.sql.includes('resolved=0')){const row=rows.find(item=>item.signature===args[0]);if(row)row.resolved=0;continue;}
-        if(command.sql.includes('resolved=1')){const row=rows.find(item=>item.signature===args[0]);if(row)row.resolved=1;continue;}
-        if(command.sql.startsWith('UPDATE')){
-          const row=rows.find(item=>item.signature===args[7]);
-          Object.assign(row,{hits:Number(args[0]),accounts_json:args[1],request_json:args[2],response_json:args[3],error:args[4],last_at:Number(args[5]),time_zone:args[6]});
-        }
-      }
+    sql,
+    get rows(){try{return sql.prepare('SELECT * FROM bug_reports').all();}catch{return [];}},
+    async read(query,args=[]){return sql.prepare(query).all(...args);},
+    async atomic(commands){
+      sql.exec('BEGIN');
+      try{for(const c of commands)sql.prepare(c.sql).run(...(c.args||[]).map(plain));sql.exec('COMMIT');}
+      catch(error){sql.exec('ROLLBACK');throw error;}
     }
   };
 }
@@ -135,9 +122,43 @@ test('the browser can file an unconfirmed operation without opening the journal'
   const one=await(await worker.fetch(new Request('https://test.invalid/api/bugs?ids='+body.bugs[0].id),env)).json();
   assert.equal(one.bugs.length,1);assert.equal(one.bugs[0].error,body.bugs[0].error);
   assert.equal((await worker.fetch(new Request('https://test.invalid/api/bugs?ids=zz'),env)).status,400);
-  assert.equal(await resolveBug(db,body.bugs[0].id),true);
+  const resolved=await worker.fetch(new Request('https://test.invalid/api/bugs/resolve',{method:'POST',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},body:JSON.stringify({id:body.bugs[0].id})}),env);
+  assert.equal(resolved.status,200);assert.ok((await resolved.json()).bug.resolvedAt);
   assert.equal((await listBugs(db))[0].resolved,true);
   await saveBug(db,{method:'POST',path:'/api/lessons/lesson_1',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',account:{login:'Tsovak'},request:{},response:{}});
   assert.equal((await listBugs(db))[0].resolved,false);
   assert.equal((await listBugs(db))[0].hits,2);
+});
+test('occurrences keep every timestamp and resolving/reopening preserves prior closures',async()=>{
+  resetBugStoreForTests();const db=memory(),original=Date.now;let now=Date.parse('2026-10-18T10:00:00Z');
+  Date.now=()=>now;
+  try{
+    const event={method:'POST',path:'/api/example',status:500,error:'Fixture failure',request:{},response:{}};
+    await saveBug(db,event);now+=1000;await saveBug(db,event);
+    let [bug]=await listBugs(db);assert.equal(bug.hits,2);assert.equal(bug.occurrences.length,2);assert.equal(bug.undatedOccurrences,0);
+    now=Date.parse('2026-10-19T10:00:00Z');await resolveBug(db,bug.id);
+    [bug]=await listBugs(db);assert.equal(bug.resolvedAt,now);assert.equal(bug.resolutions.length,1);
+    const resolvedAt=now;now+=1000;await resolveBug(db,bug.id);
+    [bug]=await listBugs(db);assert.equal(bug.resolvedAt,resolvedAt);assert.equal(bug.resolutions.length,1,'Repeated resolve is idempotent');
+    now=Date.parse('2026-10-20T10:00:00Z');await saveBug(db,event);
+    [bug]=await listBugs(db);assert.equal(bug.resolved,false);assert.equal(bug.resolvedAt,null);assert.equal(bug.hits,3);
+    assert.equal(bug.occurrences.length,3);assert.equal(bug.resolutions[0].at,resolvedAt);
+    await resolveBug(db,bug.id);[bug]=await listBugs(db);assert.equal(bug.resolutions.length,2);assert.equal(bug.resolvedAt,now);
+    assert.equal((await listBugHeads(db))[0].resolvedAt,now);
+  }finally{Date.now=original;db.sql.close();}
+});
+test('legacy history recovers only known occurrence dates and does not invent resolution dates',async()=>{
+  resetBugStoreForTests();const db=memory();
+  db.sql.exec(`CREATE TABLE bug_reports(signature TEXT PRIMARY KEY,method TEXT,path TEXT,status INTEGER,error TEXT,hits INTEGER,accounts_json TEXT,request_json TEXT,response_json TEXT,first_at INTEGER,last_at INTEGER,time_zone TEXT,resolved INTEGER)`);
+  const first=Date.parse('2026-10-15T12:00:00Z'),last=Date.parse('2026-10-18T12:00:00Z');
+  db.sql.prepare('INSERT INTO bug_reports VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run('a'.repeat(32),'GET','/api/legacy',500,'Old',10,'[]',JSON.stringify({history:[{at:first},{at:last-1000},{at:last-1000}]}),'{}',first,last,'UTC',1);
+  const [bug]=await listBugs(db);assert.equal(bug.occurrences.length,3);assert.equal(bug.undatedOccurrences,7);assert.equal(bug.resolvedAt,null);assert.deepEqual(bug.resolutions,[]);
+  assert.ok(bug.occurrences.every(event=>event.inferred));
+  resetBugStoreForTests();const [again]=await listBugs(db);assert.equal(again.occurrences.length,3,'Backfill does not duplicate history');db.sql.close();
+});
+test('simultaneous first reports preserve hit counts and distinct occurrence records',async()=>{
+  resetBugStoreForTests();const db=memory();await listBugs(db);
+  const event={method:'GET',path:'/api/race',status:500,error:'Concurrent failure',request:{},response:{}};
+  await Promise.all(Array.from({length:8},()=>saveBug(db,event)));
+  const [bug]=await listBugs(db);assert.equal(bug.hits,8);assert.equal(bug.occurrences.length,8);assert.equal(bug.undatedOccurrences,0);db.sql.close();
 });

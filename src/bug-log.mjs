@@ -90,6 +90,22 @@ async function ensure(db){
   await db.atomic([statement(CREATE)]);
   try{await db.atomic([statement("ALTER TABLE bug_reports ADD COLUMN time_zone TEXT NOT NULL DEFAULT ''")]);}catch{/* column already exists */}
   try{await db.atomic([statement('ALTER TABLE bug_reports ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0')]);}catch{/* column already exists */}
+  try{await db.atomic([statement('ALTER TABLE bug_reports ADD COLUMN resolved_at INTEGER NOT NULL DEFAULT 0')]);}catch{/* column already exists */}
+  try{await db.atomic([statement('ALTER TABLE bug_reports ADD COLUMN history_seeded INTEGER NOT NULL DEFAULT 0')]);}catch{/* column already exists */}
+  await db.atomic([
+    statement('CREATE TABLE IF NOT EXISTS bug_history(signature TEXT NOT NULL,event_id TEXT NOT NULL,kind TEXT NOT NULL,at INTEGER NOT NULL,inferred INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(signature,event_id))'),
+    statement('CREATE INDEX IF NOT EXISTS bug_history_signature_at ON bug_history(signature,at)'),
+    // Old reports retained only the endpoints and a short request history, not every occurrence.
+    statement(`INSERT OR IGNORE INTO bug_history(signature,event_id,kind,at,inferred)
+      SELECT signature,'legacy-'||first_at,'occurrence',first_at,1 FROM bug_reports WHERE history_seeded=0 AND first_at>0`),
+    statement(`INSERT OR IGNORE INTO bug_history(signature,event_id,kind,at,inferred)
+      SELECT signature,'legacy-'||last_at,'occurrence',last_at,1 FROM bug_reports WHERE history_seeded=0 AND last_at>0`),
+    statement(`INSERT OR IGNORE INTO bug_history(signature,event_id,kind,at,inferred)
+      SELECT b.signature,'legacy-'||CAST(json_extract(h.value,'$.at') AS INTEGER),'occurrence',CAST(json_extract(h.value,'$.at') AS INTEGER),1
+      FROM bug_reports b,json_each(b.request_json,'$.history') h
+      WHERE b.history_seeded=0 AND json_extract(h.value,'$.at')>0`),
+    statement('UPDATE bug_reports SET history_seeded=1 WHERE history_seeded=0'),
+  ]);
   ready=true;
 }
 export async function saveBug(db,event){
@@ -114,16 +130,18 @@ export async function saveBug(db,event){
     if(login&&!accounts.includes(login))accounts=accounts.concat(login).slice(-8);
     const hits=Number(existing[0].hits)+1;
     await db.atomic([
-      statement('UPDATE bug_reports SET hits=?, accounts_json=?, request_json=?, response_json=?, error=?, last_at=?, time_zone=? WHERE signature=?',
-        [hits,JSON.stringify(accounts),requestJson,responseJson,error,now,timeZone,signature]),
-      statement('UPDATE bug_reports SET resolved=0 WHERE signature=?',[signature])
+      statement('UPDATE bug_reports SET hits=hits+1, accounts_json=?, request_json=?, response_json=?, error=?, last_at=MAX(last_at,?), time_zone=?,resolved=0,resolved_at=0 WHERE signature=?',
+        [JSON.stringify(accounts),requestJson,responseJson,error,now,timeZone,signature]),
+      statement("INSERT INTO bug_history(signature,event_id,kind,at) VALUES(?,?,'occurrence',?)",[signature,crypto.randomUUID(),now]),
     ]);
     return {signature,hits};
   }
   await db.atomic([statement(
-    `INSERT INTO bug_reports(signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone)
-     VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [signature,method,routeKey(path),status,error,1,JSON.stringify(login?[login]:[]),requestJson,responseJson,now,now,timeZone])]);
+    `INSERT INTO bug_reports(signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,history_seeded)
+     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1)
+     ON CONFLICT(signature) DO UPDATE SET hits=bug_reports.hits+1,accounts_json=excluded.accounts_json,request_json=excluded.request_json,response_json=excluded.response_json,last_at=MAX(bug_reports.last_at,excluded.last_at),time_zone=excluded.time_zone,resolved=0,resolved_at=0`,
+    [signature,method,routeKey(path),status,error,1,JSON.stringify(login?[login]:[]),requestJson,responseJson,now,now,timeZone]),
+    statement("INSERT INTO bug_history(signature,event_id,kind,at) VALUES(?,?,'occurrence',?)",[signature,crypto.randomUUID(),now])]);
   return {signature,hits:1};
 }
 export async function resolveBug(db,signature){
@@ -131,36 +149,49 @@ export async function resolveBug(db,signature){
   if(!/^[a-f0-9]{32}$/.test(String(signature||'')))return false;
   const existing=await db.read('SELECT signature FROM bug_reports WHERE signature=?',[signature]);
   if(!existing.length)return false;
-  await db.atomic([statement('UPDATE bug_reports SET resolved=1 WHERE signature=?',[signature])]);
+  const now=Date.now();
+  await db.atomic([
+    statement("INSERT INTO bug_history(signature,event_id,kind,at) SELECT ?,?,'resolved',? FROM bug_reports WHERE signature=? AND resolved=0",[signature,crypto.randomUUID(),now,signature]),
+    statement('UPDATE bug_reports SET resolved=1,resolved_at=? WHERE signature=? AND resolved=0',[now,signature]),
+  ]);
   return true;
 }
-function bugView(row){
+function bugView(row,history=[]){
+  const occurrences=history.filter(event=>event.kind==='occurrence').map(event=>({at:Number(event.at),inferred:Number(event.inferred)===1}));
   return {
     id:row.signature,method:row.method,path:row.path,status:Number(row.status),error:row.error,hits:Number(row.hits),
     accounts:JSON.parse(row.accounts_json||'[]'),request:JSON.parse(row.request_json||'{}'),response:JSON.parse(row.response_json||'{}'),
     firstAt:Number(row.first_at),lastAt:Number(row.last_at),timeZone:zoneName(row.time_zone),
     when:formatBugTime(row.last_at,row.time_zone),firstWhen:formatBugTime(row.first_at,row.time_zone),
-    resolved:Number(row.resolved)===1
+    resolved:Number(row.resolved)===1,resolvedAt:Number(row.resolved_at)||null,
+    occurrences,undatedOccurrences:Math.max(0,Number(row.hits)-occurrences.length),
+    resolutions:history.filter(event=>event.kind==='resolved').map(event=>({at:Number(event.at)})),
   };
+}
+async function bugViews(db,rows){
+  if(!rows.length)return [];
+  const events=await db.read(`SELECT signature,kind,at,inferred FROM bug_history WHERE signature IN (${rows.map(()=>'?').join(',')}) ORDER BY at DESC`,rows.map(row=>row.signature));
+  const history=new Map();for(const event of events){if(!history.has(event.signature))history.set(event.signature,[]);history.get(event.signature).push(event);}
+  return rows.map(row=>bugView(row,history.get(row.signature)||[]));
 }
 export async function listBugs(db){
   await ensure(db);
-  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
-    FROM bug_reports ORDER BY resolved, last_at DESC, hits DESC LIMIT 100`);
-  return rows.map(bugView);
+  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved,resolved_at
+    FROM bug_reports ORDER BY resolved, last_at DESC, hits DESC`);
+  return bugViews(db,rows);
 }
 export async function listBugHeads(db){
   await ensure(db);
-  const rows=await db.read(`SELECT signature,hits,last_at,resolved FROM bug_reports ORDER BY last_at DESC LIMIT 100`);
-  return rows.map(row=>({id:row.signature,hits:Number(row.hits),lastAt:Number(row.last_at),resolved:Number(row.resolved)===1}));
+  const rows=await db.read(`SELECT signature,hits,last_at,resolved,resolved_at FROM bug_reports ORDER BY last_at DESC`);
+  return rows.map(row=>({id:row.signature,hits:Number(row.hits),lastAt:Number(row.last_at),resolved:Number(row.resolved)===1,resolvedAt:Number(row.resolved_at)||null}));
 }
 export async function listBugsByIds(db,ids){
   await ensure(db);
   const wanted=[...new Set(ids)];
   if(!wanted.length)return [];
-  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved
+  const rows=await db.read(`SELECT signature,method,path,status,error,hits,accounts_json,request_json,response_json,first_at,last_at,time_zone,resolved,resolved_at
     FROM bug_reports WHERE signature IN (${wanted.map(()=>'?').join(',')})`,wanted);
-  const byId=new Map(rows.map(row=>[row.signature,bugView(row)]));
+  const byId=new Map((await bugViews(db,rows)).map(row=>[row.id,row]));
   return wanted.map(id=>byId.get(id)).filter(Boolean);
 }
 export async function recordHttpBug(db,actor,request,response,application={}){

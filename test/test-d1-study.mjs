@@ -8,6 +8,7 @@ import {AccountInvites} from '../src/account-invites.mjs';
 import {EmailOtp} from '../src/email-otp.mjs';
 import {Passkeys} from '../src/passkeys.mjs';
 import {MicrosoftOAuth} from '../src/microsoft-oauth.mjs';
+import {saveBug,listBugs,resolveBug,resetBugStoreForTests} from '../src/bug-log.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {StudyService} from '../src/learning-study.mjs';
@@ -33,6 +34,14 @@ before(async()=>{
 after(async()=>{if(mf)await mf.dispose();});
 
 test('requires a dedicated D1 binding',()=>{for(const value of [null,{}, {prepare(){}}])assert.throws(()=>new D1StudyClient(value),e=>e.status===503);});
+test('bug occurrence history, legacy backfill and resolution dates work on actual D1',async()=>{
+  resetBugStoreForTests();
+  const event={method:'GET',path:'/api/fixture-bug',status:500,error:'D1 fixture failure',request:{},response:{}};
+  await saveBug(db,event);const [first]=await listBugs(db);
+  await resolveBug(db,first.id);const [closed]=await listBugs(db);assert.ok(closed.resolvedAt);assert.equal(closed.resolutions.length,1);
+  await saveBug(db,event);const [again]=await listBugs(db);assert.equal(again.resolved,false);assert.equal(again.resolvedAt,null);assert.equal(again.occurrences.length,2);assert.equal(again.resolutions.length,1);
+  resetBugStoreForTests();assert.equal((await listBugs(db))[0].occurrences.length,2);
+});
 test('real D1 rejects TEMP tables, so unadapted Learning transactions cannot be activated',async()=>{
   await assert.rejects(binding.prepare('CREATE TEMP TABLE unsupported_temp(id INTEGER)').all(),/not authorized/);
 });

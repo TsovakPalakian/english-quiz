@@ -1,7 +1,8 @@
-// Local visual preview only: synthetic data, no production credentials or writes.
+// Synthetic preview only; resolving a bug changes in-memory fixtures, never production.
 import {createServer} from 'node:http';
 import {readFileSync,existsSync,statSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {previewBugs} from './preview-bugs.mjs';
 const root=resolve('rollback/production-assets');
 const role=process.env.PREVIEW_ROLE||'DEVELOPER';
 if(!['DEVELOPER','ADMIN','USER','GUEST'].includes(role))throw new Error('Invalid PREVIEW_ROLE');
@@ -9,6 +10,7 @@ const teachers=[{id:'b'.repeat(32),login:'teacher1',name:'Preview teacher 1',rol
 const students=[{id:'c'.repeat(32),login:'student1',name:'Preview student 1',role:'USER',active:1},{id:'d'.repeat(32),login:'student2',name:'Preview student 2',role:'USER',active:1}];
 const user=role==='GUEST'?null:role==='ADMIN'?teachers[0]:role==='USER'?students[0]:{id:'a'.repeat(32),login:'preview',name:'Preview',role};
 const api={
+  '/api/bugs':{bugs:previewBugs()},
   '/api/database-context':{provider:'d1',revision:3,scope:'site'},
   '/api/me':{user},'/api/me/account':{user},
   '/api/me/state':{bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}},
@@ -23,12 +25,28 @@ const api={
 };
 const types={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.jpg':'image/jpeg','.ico':'image/x-icon','.svg':'image/svg+xml','.ttf':'font/ttf'};
 const server=createServer((request,response)=>{
-  const path=new URL(request.url,'http://localhost').pathname;
+  const url=new URL(request.url,'http://localhost'),path=url.pathname;
+  if(path==='/api/bugs/resolve'&&request.method==='POST'&&role==='DEVELOPER'){
+    let body='';request.on('data',chunk=>{body+=chunk;if(body.length>200)request.destroy();});
+    request.on('end',()=>{
+      try{
+        const bug=api['/api/bugs'].bugs.find(bug=>bug.id===JSON.parse(body).id);if(!bug){response.writeHead(404);response.end();return;}
+        if(!bug.resolved){bug.resolved=true;bug.resolvedAt=Date.now();bug.resolutions.push({at:bug.resolvedAt});}
+        response.setHeader('Content-Type','application/json');response.end(JSON.stringify({bug}));
+      }catch{response.writeHead(400);response.end();}
+    });return;
+  }
   if(request.method!=='GET'){response.writeHead(405);response.end('Read-only preview');return;}
   if(path.startsWith('/api/')){
     response.setHeader('Content-Type','application/json');
     if(!user&&!['/api/me','/api/me/account','/api/me/themes','/api/database-context'].includes(path)){
       response.writeHead(401);response.end(JSON.stringify({error:'Sign in required.'}));return;
+    }
+    if(path==='/api/bugs'){
+      if(role!=='DEVELOPER'){response.writeHead(403);response.end(JSON.stringify({error:'Developer only.'}));return;}
+      const bugs=api[path].bugs;
+      const value=url.searchParams.has('heads')?{heads:bugs.map(bug=>({id:bug.id,hits:bug.hits,lastAt:bug.lastAt,resolved:bug.resolved,resolvedAt:bug.resolvedAt}))}:url.searchParams.has('ids')?{bugs:bugs.filter(bug=>url.searchParams.get('ids').split(',').includes(bug.id))}:api[path];
+      response.end(JSON.stringify(value));return;
     }
     response.end(JSON.stringify(api[path]||(path.includes('/catalogs/')?{documents:{},cards:[],next:null}:{})));return;
   }
@@ -39,4 +57,4 @@ const server=createServer((request,response)=>{
   response.setHeader('Content-Type',types[file.slice(file.lastIndexOf('.'))]||'application/octet-stream');
   response.end(readFileSync(file));
 });
-server.listen(Number(process.env.PORT||0),'127.0.0.1',()=>console.log('Read-only visual preview: http://127.0.0.1:'+server.address().port));
+server.listen(Number(process.env.PORT||0),'127.0.0.1',()=>console.log('Local visual preview: http://127.0.0.1:'+server.address().port));

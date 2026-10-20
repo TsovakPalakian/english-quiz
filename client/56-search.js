@@ -50,7 +50,7 @@
           row.hidden = originalHidden.get(row) || !!query && !row.textContent.toLocaleLowerCase().includes(query);
           if (!row.hidden) matches++;
         });
-        list.querySelectorAll('.accounts-fold, .archive-group').forEach(group => {
+        list.querySelectorAll('.accounts-fold, .archive-group, .bug-day').forEach(group => {
           const children = rows.filter(row => group.contains(row));
           if (!children.length) return;
           group.hidden = !!query && children.every(row => row.hidden);

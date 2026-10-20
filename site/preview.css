@@ -1555,6 +1555,22 @@ a.btn { text-decoration: none; }
 #material.is-exam-locked .lm-sheet, #material.is-exam-locked .lm-add-wrap, #material.is-exam-locked .lm-preview-btn, #material.is-exam-locked .lm-actions { pointer-events: none; }
 #material.is-exam-locked #examSave { pointer-events: auto; }
 .bug-item .day-row { align-items: center; }
+.bug-day { margin: 0 0 12px; border-bottom: 1px solid var(--line); }
+.bug-day > summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 12px 0; cursor: pointer; color: var(--ink); font-weight: 700; list-style: none; }
+.bug-day > summary::before { content: '\25B8'; color: var(--mute); }
+.bug-day[open] > summary::before { content: '\25BE'; }
+.bug-day > summary small { margin-left: auto; color: var(--mute); font-weight: 400; }
+.bug-day-list { padding: 8px 0; }
+.bug-body[hidden] { display: none; }
+.bug-body { min-width: 0; }
+.bug-stamp { display: block; font-size: 11px; font-weight: 400; }
+.bug-history { margin: 0 0 12px; font-size: 13px; }
+.bug-history summary { padding: 8px 0; color: var(--acc); cursor: pointer; }
+.bug-history ul { margin: 4px 0 12px; padding-left: 22px; color: var(--mute); }
+.bug-history li { padding: 4px 0; overflow-wrap: anywhere; }
+.bug-day > summary::-webkit-details-marker { display: none; }
+.bug-day > summary:focus-visible, .bug-history > summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.bug-body .bug-detail { border-radius: 6px; margin-top: 0; }
 .bug-item .day-row .btn { flex: none; }
 .bug-item .day { align-items: start; }
 .bug-item .day > b, .bug-item .day .about { overflow-wrap: anywhere; white-space: normal; }
