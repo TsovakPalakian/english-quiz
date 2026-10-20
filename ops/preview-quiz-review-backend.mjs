@@ -3,6 +3,8 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {fixture,actors,body} from '../test/quiz-review-fixture.mjs';
+import {QuizGenerationService} from '../src/quiz-generation.mjs';
+import {localQuizGenerator} from './quiz-generation-local-provider.mjs';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 function fail(status,message){throw Object.assign(new Error(message),{status});}
@@ -15,6 +17,8 @@ async function jsonBody(req){
 }
 export async function createQuizReviewPreview({port=0}={}){
   const f=await fixture({approval:true}),service=f.service;
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
+  const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate:localQuizGenerator,backoffMs:400});
   await service.linkCard(actors.dev,body({cardId:3,senseId:f.senseId}));
   await service.linkCard(actors.dev,body({cardId:4,senseId:f.senseId}));
   const bank=await service.createSense(actors.dev,body({cardId:2,meaning:{partOfSpeech:'noun',translation:'банк',definition:'An institution that keeps and lends money.'}}));
@@ -56,11 +60,15 @@ export async function createQuizReviewPreview({port=0}={}){
         }
         if(path==='/local/mine'){send(200,{quizzes:await service.mine(actor)});return;}
         if(path==='/local/queue'){send(200,{quizzes:await service.queue(actor)});return;}
+        if(path==='/local/generation'){send(200,{jobs:await generation.list(actor)});return;}
         const shared=/^\/local\/shared\/(\d+)$/.exec(path);if(shared){send(200,{quizzes:await service.sharedForCard(actor,Number(shared[1]))});return;}
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
         const data=await jsonBody(req);
         if(path==='/local/quizzes'){send(201,await service.createDraft(actor,data));return;}
+        if(path==='/local/generation'){send(202,await generation.enqueue(actor,data));return;}
+        const retry=/^\/local\/generation\/([a-f0-9-]{36})\/retry$/.exec(path);
+        if(retry){send(200,await generation.retry(actor,retry[1],data));return;}
         const operation=/^\/local\/quizzes\/([a-f0-9-]{36})\/(edit|submit|return|approve|revise)$/.exec(path);
         if(operation){const methods={edit:'editDraft',submit:'submit',return:'requestChanges',approve:'approve',revise:'proposeRevision'};send(200,await service[methods[operation[2]]](actor,operation[1],data));return;}
       }
@@ -69,7 +77,9 @@ export async function createQuizReviewPreview({port=0}={}){
   });
   server.requestTimeout=15000;server.headersTimeout=10000;
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){f.close();throw error;}
-  server.once('close',()=>f.close());
+  let processing=null,closing=false;
+  const timer=setInterval(()=>{if(processing||closing)return;processing=generation.runOne().catch(()=>console.error('Local generation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
+  server.once('close',()=>{closing=true;clearInterval(timer);if(processing)processing.finally(()=>f.close());else f.close();});
   return {server,url:'http://127.0.0.1:'+server.address().port};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){

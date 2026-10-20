@@ -27,6 +27,7 @@ CREATE TABLE qr_versions (
   content_json TEXT NOT NULL CHECK(json_valid(content_json) AND json_type(content_json)='object'),
   state TEXT NOT NULL CHECK(state IN ('draft','submitted','returned','approved')),
   author_id TEXT NOT NULL REFERENCES account_refs(id),
+  author_kind TEXT NOT NULL DEFAULT 'human' CHECK(author_kind IN ('human','automatic')),
   author_name TEXT NOT NULL,
   author_group TEXT NOT NULL,
   group_id INTEGER NOT NULL REFERENCES class_groups(id),

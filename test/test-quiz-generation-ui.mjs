@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+test('local preparation shows retries, teacher issues and automatic provenance without publishing templates',async()=>{
+  const {server,url}=await createQuizReviewPreview();let browser;
+  try{
+    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
+    page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
+    await page.goto(url);await page.locator('[data-action="prepare"]').waitFor();await page.locator('[data-action="prepare"]').click();
+    await page.waitForFunction(async()=>{const response=await fetch('/local/generation'),{jobs}=await response.json();return jobs.length===16&&jobs.every(j=>!['queued','running','retry'].includes(j.state));},{},{timeout:20000});
+    await page.waitForFunction(()=>document.querySelectorAll('[data-job]').length===16&&![...document.querySelectorAll('[data-job]')].some(n=>['queued','running','retry'].includes(n.dataset.jobState)));
+    const {jobs}=await page.evaluate(async()=>await(await fetch('/local/generation')).json());
+    assert.equal(jobs.find(j=>j.type==='Choice').attempts,3);assert.equal(jobs.find(j=>j.type==='Choice').state,'review');
+    assert.equal(jobs.find(j=>j.type==='Gap').attempts,2);assert.equal(jobs.find(j=>j.type==='Gap').state,'submitted');
+    assert.equal(jobs.find(j=>j.type==='Listen').attempts,1);assert.equal(jobs.find(j=>j.type==='Match').attempts,0);
+    const shared=await page.evaluate(async()=>await(await fetch('/local/shared/1')).json());assert.equal(shared.quizzes.length,1,'Only the pre-approved seed is shared');
+    await page.locator('[data-action="prepare"]').click();
+    assert.equal((await page.evaluate(async()=>await(await fetch('/local/generation')).json())).jobs.length,16,'Enqueue is deduplicated');
+    const gap=jobs.find(j=>j.type==='Gap');await page.locator('[data-job="'+gap.id+'"] > summary').click();
+    await page.locator('[data-job="'+gap.id+'"] [data-action="open-generated"]').click();
+    await page.locator('[data-item="'+gap.versionId+'"]').waitFor({state:'visible'});
+    assert.match(await page.locator('[data-item="'+gap.versionId+'"]').innerText(),/Automatic generator/);
+    assert.equal(await page.locator('[data-item="'+gap.versionId+'"] .verified').count(),0);
+    assert.equal(await page.locator('.generation-job[data-job-state="review"]').count(),2);
+    const choice=jobs.find(j=>j.type==='Choice');await page.locator('[data-job="'+choice.id+'"] > summary').click();
+    await page.screenshot({path:'/private/tmp/lumiscia-quiz-generation-desktop.png',fullPage:false});
+    await page.setViewportSize({width:390,height:844});await page.locator('[data-job="'+choice.id+'"]').scrollIntoViewIfNeeded();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:'/private/tmp/lumiscia-quiz-generation-mobile.png',fullPage:false});
+    await page.locator('[data-job="'+choice.id+'"] [data-action="retry-job"]').click();
+    await page.waitForFunction(async id=>(await(await fetch('/local/generation')).json()).jobs.find(j=>j.id===id).cycle===1,choice.id);
+    const boot=await page.evaluate(async()=>await(await fetch('/local/boot')).json()),c=boot.contexts[0];
+    const denied=await fetch(url+'/local/generation',{method:'POST',headers:{Origin:url,'Content-Type':'application/json',Cookie:'qr-preview=student'},body:JSON.stringify({mutationId:crypto.randomUUID(),groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types:['Gap']})});assert.equal(denied.status,403);
+    await page.evaluate(async id=>{
+      const {quiz}=await(await fetch('/local/quizzes/'+id)).json();
+      const response=await fetch('/local/quizzes/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:quiz.revision,checks:{meaning:true,answers:true,level:true}})});if(!response.ok)throw new Error('Approval failed');
+    },gap.versionId);
+    await page.locator('[data-view="word"]').click();await page.locator('[data-job="'+gap.id+'"]').waitFor({state:'attached'});
+    await page.locator('[data-job="'+gap.id+'"]').evaluate(n=>n.open=true);
+    await page.locator('[data-job="'+gap.id+'"] [data-action="open-generated"]').click();
+    await page.locator('[data-item="'+gap.versionId+'"] .verified').waitFor({state:'visible'});
+    assert.deepEqual(errors,[]);assert.ok(requests.every(u=>u.startsWith(url)));
+  }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
+});
