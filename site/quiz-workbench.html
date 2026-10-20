@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Lumiscia · Quiz workbench preview</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/workbench.css">
+  <script type="module" src="/workbench.js"></script>
+</head>
+<body>
+  <aside>
+    <div class="brand"><img src="/favicon.svg" alt="" width="44" height="44"><div><strong>Lumiscia</strong><span>Learning studio</span></div></div>
+    <nav aria-label="Words"><button data-view="word" aria-current="page">Words</button><button data-view="review">Review queue <span id="nav-count"></span></button><button data-view="proposals">My proposals</button><button data-view="shared">Shared templates</button></nav>
+    <div class="aside-bottom"><label>Preview role<select id="role"><option value="teacher">Teacher</option><option value="student">Student · Anna</option></select></label><label>Theme<select id="theme"><option value="light">Light</option><option value="ocean">Ocean</option></select></label><p>Local preview · Sample data</p></div>
+  </aside>
+  <main>
+    <div class="preview-note">UI preview · Changes reset on reload · No production connection</div>
+    <header><div><p class="breadcrumb">Words / <span id="crumb">drizzle</span></p><h1 id="title">drizzle</h1></div><span class="role" id="role-label">Teacher view</span></header>
+    <div id="content"></div>
+  </main>
+  <p id="notice" role="status" aria-live="polite"></p>
+  <dialog id="editor" aria-labelledby="editor-title">
+    <form id="edit-form"><div class="section-heading"><h2 id="editor-title">Edit quiz</h2><button type="button" data-close="editor" aria-label="Close">×</button></div><label>Question<textarea id="edit-prompt" required></textarea></label><label>Correct answer<input id="edit-answer" required></label><label id="options-field">Options · one per line<textarea id="edit-options"></textarea></label><label>Answer explanation<textarea id="edit-explanation" required></textarea></label><p class="muted">Only this draft changes. Approved versions are never overwritten.</p><div class="actions"><button type="button" data-close="editor">Cancel</button><button class="primary" type="submit">Save changes</button></div></form>
+  </dialog>
+  <dialog id="decision" aria-labelledby="decision-title"><form id="decision-form"><h2 id="decision-title"></h2><div id="decision-body"></div><div class="actions"><button type="button" data-close="decision">Cancel</button><button class="primary" type="submit" id="decision-submit">Confirm</button></div></form></dialog>
+  <dialog id="report" aria-labelledby="report-title"><form id="report-form"><h2 id="report-title">Report or suggest an improvement</h2><p>To: <strong>info@lumiscia.org</strong></p><p id="report-context" class="muted"></p><label>Category<select id="report-category"><option>Issue</option><option>Complaint</option><option>Comment</option><option>Suggestion</option></select></label><label>Description<textarea id="report-description" required></textarea></label><label>Attachments<input type="file" id="report-files" multiple accept="image/*,audio/*,video/*,.pdf,.txt"></label><ul id="attachment-list"></ul><label class="check"><input type="checkbox" required> I reviewed the description, context and attachments.</label><p class="muted">Preview only. Files and messages are not uploaded or emailed.</p><div class="actions"><button type="button" data-close="report">Cancel</button><button class="primary" type="submit">Preview message</button></div><div id="report-result" role="status"></div></form></dialog>
+</body>
+</html>
