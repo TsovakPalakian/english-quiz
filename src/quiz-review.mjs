@@ -105,6 +105,12 @@ export class QuizReviewService extends StudyService{
     });
   }
   async get(actor,id){signed(actor);const q=await this.version(id);await this.access(actor,q);const events=await this.db.read('SELECT action,actor_name,event_date,details_json FROM qr_events WHERE version_id=? ORDER BY revision',[id]);return {...dto(q),history:events.map(e=>({action:e.action,actor:e.actor_name,date:e.event_date,details:JSON.parse(e.details_json)}))};}
+  async mine(actor){
+    signed(actor);
+    const candidates=await this.db.read('SELECT * FROM qr_versions WHERE author_id=? ORDER BY created_date DESC,id LIMIT 100',[actor.id]),result=[];
+    for(const q of candidates){try{await this.access(actor,q);result.push(dto(q));}catch(error){if(error.status!==403)throw error;}}
+    return result;
+  }
   async queue(actor,{limit=100,offset=0}={}){
     teacher(actor);if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(offset)||offset<0)fail(400,'Invalid page.');
     const list=await this.db.read(`SELECT q.* FROM qr_versions q JOIN class_groups g ON g.id=q.group_id JOIN lessons l ON l.id=q.lesson_id

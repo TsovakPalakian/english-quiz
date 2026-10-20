@@ -159,3 +159,11 @@ test('all 17 supported types accept structurally complete payloads',()=>{
 test('unauthenticated access fails before revealing version existence',async()=>{
   const f=await fixture();try{await rejects(()=>f.service.get(null,crypto.randomUUID()),401);}finally{f.close();}
 });
+test('my proposals list is account-scoped and drops inaccessible lesson contexts',async()=>{
+  const f=await fixture();try{
+    const q=await f.draft();assert.equal((await f.service.mine(a.student)).length,1);assert.deepEqual(await f.service.mine(a.other),[]);
+    assert.equal((await f.service.mine(a.student))[0].id,q.id);
+    f.sql.exec("DELETE FROM class_group_students WHERE account_id='u1'");assert.deepEqual(await f.service.mine(a.student),[]);
+    await rejects(()=>f.service.mine(null),401);
+  }finally{f.close();}
+});
