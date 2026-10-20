@@ -435,6 +435,8 @@
     function paintAccountForm(register) {
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
+      if(window.MicrosoftSignIn?.pending()){window.MicrosoftSignIn.paint(box);return;}
+      if(window.TelegramSignIn?.pending()){window.TelegramSignIn.paint(box);return;}
       let flash = "";
       try {
         flash = sessionStorage.getItem("enquiz-auth-flash") || "";
@@ -443,8 +445,10 @@
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
       const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" name="password" type="password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i></button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
-      const decorate=()=>{const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
+      const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>or</span></div>';
+      const microsoft='<button class="btn auth-google" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
+      const telegram='<button class="btn auth-google" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
       const google='<button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
       if (register) {
         let invite = "";
@@ -466,8 +470,8 @@
           '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
           roleField +
           passwordField(true)+
-          (teacherInvite?'<button class="btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +authDivider+google+inviteHint+'</div></div>';
+          (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +inviteHint+'</div></div>';
         decorate();
         return;
       }
@@ -480,7 +484,7 @@
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        authDivider+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login><i data-lucide="fingerprint" aria-hidden="true"></i>Log in with passkey</button>':'')+google+'<p class="hint" role="status" data-passkey-status></p></div></div>';
+        authDivider+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login><i data-lucide="fingerprint" aria-hidden="true"></i>Log in with passkey</button>':'')+google+microsoft+telegram+'<p class="hint" role="status" data-passkey-status></p></div></div>';
       decorate();
     }
     function paintProfile() {

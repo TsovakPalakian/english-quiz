@@ -3764,13 +3764,16 @@ export async function approveRegistration(env, actor, regId, invitation = null) 
   return decide(env, actor, regId, "approve", invitation);
 }
 
-export async function sessionForPasskey(env,request,accountId,secure){
+async function sessionForApprovedIdentity(env,request,accountId,secure,authMethod){
   const row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND is_personal_data_revoked=0').bind(accountId).first();
   if(!row||row.active===0||!['USER','ADMIN','DEVELOPER'].includes(row.role))return json({error:'This account is unavailable.'},403);
   if(env.MEDIA&&await env.MEDIA.head('gone/'+row.id))return json({error:'This account is unavailable.'},403);
   try{await copyStateOnce(env,row.id);}catch{}
-  return startSession(env,row,{user:publicUser(row),authMethod:'passkey'},secure,request);
+  return startSession(env,row,{user:publicUser(row),authMethod},secure,request);
 }
+export const sessionForPasskey=(env,request,id,secure)=>sessionForApprovedIdentity(env,request,id,secure,'passkey');
+export const sessionForMicrosoft=(env,request,id,secure)=>sessionForApprovedIdentity(env,request,id,secure,'microsoft');
+export const sessionForFederated=(env,request,id,secure,provider)=>sessionForApprovedIdentity(env,request,id,secure,provider);
 
 export async function sessionForEmail(env, request, email, secure) {
   const key = String(email || "").trim().toLowerCase();
@@ -3817,7 +3820,7 @@ async function uniqueGoogleLogin(db, email, name) {
   return ("g" + randomId().replace(/[^a-f0-9]/gi, "").slice(0, 15));
 }
 
-export async function completeGoogleSignIn(env, request, profile, { create = false, role = 'USER' } = {}, secure) {
+export async function completeFederatedSignIn(env, request, profile, { create = false, role = 'USER',authMethod='google' } = {}, secure) {
   const email = String(profile?.email || "").trim().toLowerCase();
   const name = String(profile?.name || "").trim().slice(0, 80);
   if (!EMAIL_RE.test(email) || email.length > 120) return json({ error: "Enter a valid email." }, 400);
@@ -3827,7 +3830,7 @@ export async function completeGoogleSignIn(env, request, profile, { create = fal
   if (existing) {
     if (existing.active === 0) return json({ error: "This account is deactivated." }, 403);
     try { await copyStateOnce(env, existing.id); } catch (e) {}
-    return startSession(env, existing, { user: publicUser(existing), authMethod: "google" }, secure, request);
+    return startSession(env, existing, { user: publicUser(existing), authMethod }, secure, request);
   }
   const pending = await env.DB.prepare(
     "SELECT id FROM registrations WHERE status='pending' AND email=?"
@@ -3872,8 +3875,9 @@ export async function completeGoogleSignIn(env, request, profile, { create = fal
   await rememberUser(env, user);
   await rememberRegistration(env, { id: regId, login, email, name, status: "approved", role: "USER", user_id: userId, created_at: created, decided_at: created });
   try { await copyStateOnce(env, userId); } catch (e) {}
-  return startSession(env, user, { user: publicUser(user), authMethod: "google", created: true }, secure, request);
+  return startSession(env, user, { user: publicUser(user), authMethod, created: true }, secure, request);
 }
+export const completeGoogleSignIn=completeFederatedSignIn;
 
 async function decide(env, actor, regId, action, invitation = null) {
   const db = env.DB;

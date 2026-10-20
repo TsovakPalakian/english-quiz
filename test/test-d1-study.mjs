@@ -7,6 +7,7 @@ import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
 import {AccountInvites} from '../src/account-invites.mjs';
 import {EmailOtp} from '../src/email-otp.mjs';
 import {Passkeys} from '../src/passkeys.mjs';
+import {MicrosoftOAuth} from '../src/microsoft-oauth.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {StudyService} from '../src/learning-study.mjs';
@@ -108,6 +109,16 @@ test('passkey rate limits and single-use challenges work through actual D1 guard
   for(let i=0;i<20;i++)await service.limit('limited-fixture');
   await assert.rejects(service.limit('limited-fixture'),error=>error.status===429);
   assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name='_study_batch_passkey_guard'"),[]);
+});
+test('Microsoft authorization state and identity linking use transactional D1 guards',async()=>{
+  const service=new MicrosoftOAuth(db,'https://fixture.invalid');
+  const {token}=await service.start('','microsoft-fixture');
+  const outcomes=await Promise.allSettled([service.consume(token,'authorize'),service.consume(token,'authorize')]);
+  assert.equal(outcomes.filter(outcome=>outcome.status==='fulfilled').length,1);
+  await service.link('fixture-microsoft-subject',{registrationId:'pending-microsoft',accountId:''});
+  await service.approved('pending-microsoft','microsoft-user');
+  assert.equal((await service.identity('fixture-microsoft-subject')).accountId,'microsoft-user');
+  await service.removeAccount('microsoft-user');assert.equal(await service.identity('fixture-microsoft-subject'),null);
 });
 test('read-only calls reject writes before executing any part of a batch',async()=>{
   for(const action of [()=>db.read("DELETE FROM records"),()=>db.readMany([s('SELECT 1'),s('DELETE FROM records')]),()=>db.atomic([s('DELETE FROM records')],{readOnly:true}),()=>db.read('PRAGMA foreign_keys=OFF')])await assert.rejects(action,e=>e.status===500);

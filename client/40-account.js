@@ -72,13 +72,27 @@
         const query = params.toString();
         history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
         const messages = {
-          pending: "Google account saved. Waiting for teacher approval before you can sign in.",
+          pending: "Account saved. Waiting for teacher approval before you can sign in.",
           google_denied: "Google sign-in was cancelled.",
           google_error: "Google sign-in failed. Try again.",
-          invite_warning: "Signed in, but the group invite could not be applied."
+          invite_warning: "Signed in, but the group invite could not be applied.",
+          microsoft_denied: "Microsoft sign-in was cancelled.",
+          microsoft_error: "Microsoft sign-in failed. Try again.",
+          telegram_denied: "Telegram sign-in was cancelled.",
+          telegram_error: "Telegram sign-in failed. Try again."
         };
         if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
         if(auth==='pending')sessionStorage.removeItem('enquiz-invite');
+        if(auth==='microsoft_verify')sessionStorage.setItem('enquiz-microsoft-verify','1');
+        if(auth.startsWith('microsoft')||auth==='pending')sessionStorage.setItem('enquiz-place',JSON.stringify({id:'account'}));
+        if(['microsoft','microsoft_denied','microsoft_error'].includes(auth))sessionStorage.removeItem('enquiz-microsoft-verify');
+        if(auth==='telegram_verify'){
+          sessionStorage.removeItem('enquiz-microsoft-verify');
+          sessionStorage.setItem('enquiz-telegram-verify','1');
+        }
+        if(auth==='microsoft_verify')sessionStorage.removeItem('enquiz-telegram-verify');
+        if(auth.startsWith('telegram'))sessionStorage.setItem('enquiz-place',JSON.stringify({id:'account'}));
+        if(['telegram','telegram_denied','telegram_error'].includes(auth))sessionStorage.removeItem('enquiz-telegram-verify');
       } catch (e) {}
     })();
     function enterAccount(user) {

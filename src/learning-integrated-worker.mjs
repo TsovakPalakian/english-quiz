@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Learning.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,sessionForPasskey,completeGoogleSignIn} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,sessionForPasskey,sessionForFederated,completeGoogleSignIn,completeFederatedSignIn} from './worker.js';
 import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './learning-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './learning-study.mjs';
@@ -14,6 +14,12 @@ import {AccountInvites} from './account-invites.mjs';
 import {GuideVisits} from './guide-visits.mjs';
 import {EmailOtp} from './email-otp.mjs';
 import {Passkeys,passkeyCookie,passkeyCookieHeader} from './passkeys.mjs';
+import {MicrosoftOAuth,microsoftConfigured,microsoftCookie,microsoftCookieHeader,microsoftAuthorizeUrl,exchangeMicrosoftCode} from './microsoft-oauth.mjs';
+import {TelegramOAuth,telegramConfigured,telegramCookie,telegramCookieHeader,telegramAuthorizeUrl,exchangeTelegramCode} from './telegram-oauth.mjs';
+const oauthProviders={
+  microsoft:{Service:MicrosoftOAuth,configured:microsoftConfigured,cookie:microsoftCookie,cookieHeader:microsoftCookieHeader,authorize:microsoftAuthorizeUrl,exchange:exchangeMicrosoftCode,label:'Microsoft'},
+  telegram:{Service:TelegramOAuth,configured:telegramConfigured,cookie:telegramCookie,cookieHeader:telegramCookieHeader,authorize:telegramAuthorizeUrl,exchange:exchangeTelegramCode,label:'Telegram'},
+};
 import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured} from './google-oauth.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
@@ -124,6 +130,27 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
     await invites.completeApproval(sender,registrationId,person,[person],(teacher,id,group)=>new GroupService(studyDatabase(env)).assignStudent(teacher,id,group));
     try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{}
   }
+  async function finishIdentitySignIn(response,env,accountEnv,inviteWarning=''){
+    const session=await response.clone().json();
+    if(env.STAGE_WRITES==='true'&&session.user){
+      const twinId=await twinStudyAccountId(accountEnv.DB,session.user.login);
+      const db=studyDatabase(env);
+      const newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[session.user.id])).length;
+      await ensurePairedThemes(db,session.user,twinId);
+      try{await ensureStudyProfile(db,session.user,twinId);}
+      catch(error){
+        if(!(error instanceof StudyError)||error.status!==409)throw error;
+        const headers=new Headers(response.headers);headers.delete('Content-Length');
+        return Response.json({...session,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined,migrationCapabilities:{legacyHistory:true,originalAccounts:true}},{status:response.status,headers});
+      }
+      const [seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[session.user.id]);
+      const recent=Number(session.user.createdAt)>Date.now()/1000-30*86400;
+      await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[session.user.id])]);
+      session.user.firstLogin=!seen&&recent&&newStudyAccount;
+    }
+    const headers=new Headers(response.headers);headers.delete('Content-Length');
+    return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:session.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
+  }
   return {async fetch(request,env,ctx){
     const bugProbe=env.BUG_LOG==='true'&&bugWatch(request)?request.clone():null;
     let bugActor=null;
@@ -145,6 +172,57 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      const provider=path.match(/^\/api\/auth\/(microsoft|telegram)(?:\/|$)/)?.[1],oauth=oauthProviders[provider];
+      if(path==='/api/auth/providers'&&method==='GET')return json({google:googleConfigured(env),...Object.fromEntries(Object.entries(oauthProviders).map(([key,value])=>[key,value.configured(env)&&env.STAGE_WRITES==='true'&&env.ACCOUNT_MUTATIONS_ENABLED==='true']))});
+      if(oauth&&path!=='/api/auth/'+provider+'/code'&&path!=='/api/auth/'+provider+'/verify'){
+        if(!oauth.configured(env)||env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,oauth.label+' sign-in is not configured.');
+        if(method!=='GET')throw new StudyError(405,'Use GET.');
+        const service=new oauth.Service(studyDatabase(env),url.origin);
+        const redirect=(auth,token='',headers=new Headers())=>{headers.set('Location',url.origin+'/?auth='+auth);headers.append('Set-Cookie',oauth.cookieHeader(token));headers.delete('Content-Length');return new Response(null,{status:302,headers});};
+        if(path==='/api/auth/'+provider){
+          const invite=String(url.searchParams.get('invite')||'').trim();if(invite)await new AccountInvites(studyDatabase(env)).peek(invite);
+          const {token,state}=await service.start(invite,request.headers.get('CF-Connecting-IP')||'unknown');
+          return new Response(null,{status:302,headers:{Location:await oauth.authorize(env,url,token,state),'Set-Cookie':oauth.cookieHeader(token)}});
+        }
+        if(path==='/api/auth/'+provider+'/profile'){
+          const {value}=await service.peek(oauth.cookie(request),'email');return json({email:value.email||value.profile.emailSuggestion,name:value.profile.name});
+        }
+        if(path==='/api/auth/'+provider+'/callback'){
+          try{
+            const token=url.searchParams.get('state');
+            if(!token||token!==oauth.cookie(request))throw new StudyError(403,oauth.label+' sign-in browser does not match.');
+            const state=await service.consume(token,'authorize');
+            if(url.searchParams.get('error'))return redirect(provider+'_denied');
+            const profile=await oauth.exchange(env,url,url.searchParams.get('code'),state);
+            const linked=await service.identity(profile.subject);
+            const invite=state.invite?await new AccountInvites(studyDatabase(env)).peek(state.invite):null;
+            let accountId=linked?.accountId,inviteAccepted=false;
+            if(linked?.registrationId&&!accountId){
+              const reg=await accountEnv.DB.prepare('SELECT id,status,user_id,role,email FROM registrations WHERE id=?').bind(linked.registrationId).first();
+              if(reg?.status==='pending'&&invite?.kind==='student'&&reg.role==='USER'){
+                await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(state.invite,reg.email,reg.id,'student');
+                await approveInvitedStudent(env,accountEnv,reg.id);
+                const approved=await accountEnv.DB.prepare('SELECT user_id FROM registrations WHERE id=?').bind(reg.id).first();
+                accountId=approved.user_id;inviteAccepted=true;await service.approved(reg.id,accountId);
+              }else if(reg?.status==='pending')return redirect('pending');
+              else if(reg?.status==='approved'){accountId=reg.user_id;await service.approved(reg.id,accountId);}
+              else return redirect(provider+'_error');
+            }
+            if(accountId&&invite?.kind!=='teacher'){
+              let response=await sessionForFederated(accountEnv,request,accountId,true,provider);if(!response.ok)return redirect(provider+'_error');
+              let warning='';
+              if(state.invite&&!inviteAccepted){
+                try{const {user}=await response.clone().json();await new AccountInvites(studyDatabase(env)).redeem(user,state.invite,(teacher,id,group)=>new GroupService(studyDatabase(env)).assignStudent(teacher,id,group));}
+                catch(error){warning=error instanceof StudyError?error.message:'Group invite could not be applied.';}
+              }
+              response=await finishIdentitySignIn(response,env,accountEnv,warning);
+              return redirect(warning?'invite_warning':provider,'',new Headers(response.headers));
+            }
+            const pending=await service.newFlow({kind:'email',profile,invite:state.invite});return redirect(provider+'_verify',pending);
+          }catch{return redirect(provider+'_error');}
+        }
+        throw new StudyError(404,'Not found.');
+      }
       if(path.startsWith('/api/me/passkeys')&&path!=='/api/me/passkeys/code'||path==='/api/auth/passkeys/options'){
         if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Passkeys unavailable.');
         const service=new Passkeys(studyDatabase(env),url.origin);
@@ -332,15 +410,20 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return Response.redirect(url.origin+'/?auth=google_error',302);
       }
-      if(['/api/auth/otp/request','/api/me/passkeys/code'].includes(path)&&method==='POST'){
+      if(['/api/auth/otp/request','/api/me/passkeys/code','/api/auth/microsoft/code','/api/auth/telegram/code'].includes(path)&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         if(!env.EMAIL||typeof env.EMAIL.send!=='function')throw new StudyError(503,'Email sending is not configured.');
         let value;try{value=JSON.parse(await boundedText(request,1024,'OTP request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP request.');}
         const passkey=path==='/api/me/passkeys/code';
+        const federated=!!oauth;
+        if(federated&&(!oauth.configured(env)||env.ACCOUNT_MUTATIONS_ENABLED!=='true'))throw new StudyError(503,oauth.label+' sign-in is not configured.');
         if(passkey&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Passkeys unavailable.');
         const actor=passkey?await identify(accountEnv,request):null;
         if(passkey&&!actor)throw new StudyError(401,'Sign in first.');
-        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:passkey?'passkey':'login'});
+        const federatedToken=federated?oauth.cookie(request):'';
+        if(federated)await new oauth.Service(studyDatabase(env),url.origin).peek(federatedToken,'email');
+        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:passkey?'passkey':federated?provider+':'+federatedToken:'login'});
+        if(federated)await new oauth.Service(studyDatabase(env),url.origin).setEmail(federatedToken,issued.email);
         const from=String(env.EMAIL_FROM||'noreply@lumiscia.org');
         try{
           await env.EMAIL.send({
@@ -357,6 +440,48 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           throw new StudyError(503,'Could not send the email. Try again shortly.');
         }
         return json({ok:true,email:issued.email,expiresAt:issued.expiresAt,ttlSec:issued.ttlSec});
+      }
+      if(oauth&&path==='/api/auth/'+provider+'/verify'&&method==='POST'){
+        if(!oauth.configured(env)||env.ACCOUNT_MUTATIONS_ENABLED!=='true'||env.STAGE_WRITES!=='true')throw new StudyError(503,oauth.label+' sign-in is not configured.');
+        let body;try{body=JSON.parse(await boundedText(request,2048,'Verification too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid verification.');}
+        const service=new oauth.Service(studyDatabase(env),url.origin),token=oauth.cookie(request);
+        const {value:flow}=await service.peek(token,'email');
+        if(String(body.email||'').trim().toLowerCase()!==flow.email)throw new StudyError(400,'Request a code for this email first.');
+        const proof=await new EmailOtp(studyDatabase(env)).consume(flow.email,body.code);
+        if(proof.purpose!==provider+':'+token)throw new StudyError(403,'Request a '+oauth.label+' confirmation code.');
+        const linked=await service.identity(flow.profile.subject);
+        if(linked){
+          const person=linked.accountId?await accountEnv.DB.prepare('SELECT email FROM users WHERE id=?').bind(linked.accountId).first():await accountEnv.DB.prepare('SELECT email FROM registrations WHERE id=?').bind(linked.registrationId).first();
+          if(!person||person.email.toLowerCase()!==proof.email)throw new StudyError(403,'Use the email of the connected Lumiscia account.');
+        }
+        const invite=flow.invite?await new AccountInvites(studyDatabase(env)).peek(flow.invite,proof.email):null;
+        await service.consume(token,'email');
+        let response=await completeFederatedSignIn(accountEnv,request,{email:proof.email,name:flow.profile.name},{create:false,role:invite?.kind==='teacher'?'ADMIN':'USER',authMethod:provider},true);
+        if(!response.ok)return response;
+        let result=await response.clone().json(),registrationId='',inviteAccepted=false;
+        if(result.status==='pending'){
+          const reg=await accountEnv.DB.prepare("SELECT id,role FROM registrations WHERE status='pending' AND email=?").bind(proof.email).first();
+          if(!reg)throw new StudyError(500,'Registration was not saved.');registrationId=reg.id;
+          if(invite){
+            if(reg.role!==(invite.kind==='teacher'?'ADMIN':'USER'))throw new StudyError(403,'The registration role does not match this invite.');
+            await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(flow.invite,proof.email,reg.id,invite.kind);
+            if(invite.kind==='student'){
+              await approveInvitedStudent(env,accountEnv,reg.id);inviteAccepted=true;
+              const approved=await accountEnv.DB.prepare('SELECT user_id FROM registrations WHERE id=?').bind(reg.id).first();
+              response=await sessionForFederated(accountEnv,request,approved.user_id,true,provider);if(!response.ok)return response;
+              result=await response.clone().json();
+            }
+          }
+        }
+        await service.link(flow.profile.subject,{accountId:result.user?.id||'',registrationId:linked?.registrationId||registrationId});
+        let warning='';
+        if(result.user&&flow.invite&&!inviteAccepted){
+          try{await new AccountInvites(studyDatabase(env)).redeem(result.user,flow.invite,(teacher,id,group)=>new GroupService(studyDatabase(env)).assignStudent(teacher,id,group),{verifiedEmail:proof.email,users:[result.user]});}
+          catch(error){warning=error instanceof StudyError?error.message:'Group invite could not be applied.';}
+        }
+        response=await finishIdentitySignIn(response,env,accountEnv,warning);
+        const headers=new Headers(response.headers);headers.append('Set-Cookie',oauth.cookieHeader());
+        return new Response(response.body,{status:response.status,headers});
       }
       if(['/api/auth/otp/verify','/api/auth/passkeys/verify'].includes(path)&&method==='POST'){
         if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
@@ -379,25 +504,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             inviteWarning=error instanceof StudyError?error.message:'Signed in, but the group invite could not be applied.';
           }
         }
-        // Reuse login post-processing (study profile / welcome).
-        if(env.STAGE_WRITES==='true'&&session.user){
-          const twinId=await twinStudyAccountId(accountEnv.DB,session.user.login);
-          const db=studyDatabase(env);
-          const newStudyAccount=!(await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[session.user.id])).length;
-          await ensurePairedThemes(db,session.user,twinId);
-          try{await ensureStudyProfile(db,session.user,twinId);}
-          catch(error){
-            if(!(error instanceof StudyError)||error.status!==409)throw error;
-            const headers=new Headers(response.headers);headers.delete('Content-Length');
-            return Response.json({...session,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined,migrationCapabilities:{legacyHistory:true,originalAccounts:true}},{status:response.status,headers});
-          }
-          const [seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[session.user.id]);
-          const recent=Number(session.user.createdAt)>Date.now()/1000-30*86400;
-          await db.atomic([s("INSERT OR IGNORE INTO account_settings(account_id,key,value_json) VALUES(?,'welcomeSeen','true')",[session.user.id])]);
-          session.user.firstLogin=!seen&&recent&&newStudyAccount;
-        }
-        const headers=new Headers(response.headers);headers.delete('Content-Length');
-        return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:session.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
+        return finishIdentitySignIn(response,env,accountEnv,inviteWarning);
       }
       if(['/api/groups/manage','/api/groups/members'].includes(path)&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -738,6 +845,11 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           :await accountWorker.fetch(forward,accountEnv,ctx);
         if(response.ok&&passkeysAccount){
           try{await new Passkeys(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Passkey cleanup unavailable; revoked account remains blocked.');}
+          for(const value of Object.values(oauthProviders))try{await new value.Service(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Federated identity cleanup unavailable; revoked account remains blocked.');}
+        }
+        if(response.ok&&env.STAGE_WRITES==='true'&&method==='POST'&&new RegExp('^/api/admin/registrations/'+identity+'/approve$').test(path)){
+          const approved=await response.clone().json();
+          if(approved.userId)for(const value of Object.values(oauthProviders))try{await new value.Service(studyDatabase(env),url.origin).approved(path.split('/')[4],approved.userId);}catch{console.error('Federated account mapping update deferred until sign-in.');}
         }
         if(response.ok&&path==='/api/admin/registrations'&&method==='GET'){
           const value=await response.json(),reviewer=await identify(accountEnv,request);
@@ -844,7 +956,8 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
   }};
 }
 function bugWatch(request){
-  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.endsWith('/media');}
+  // Authentication payloads contain one-time codes, OAuth state and credentials.
+  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!path.endsWith('/media');}
   catch{return false;}
 }
 export default integratedWorker();

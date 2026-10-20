@@ -1,5 +1,5 @@
 // Real account-handler code; ONLY synthetic in-memory D1/R2, never Cloudflare.
-import test from 'node:test';
+import test,{mock} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync,createHash} from 'node:crypto';
@@ -7,6 +7,12 @@ import accounts from '../src/worker.js';
 import {sessionForPasskey} from '../src/worker.js';
 import {integratedWorker,accountMedia} from '../src/learning-integrated-worker.mjs';
 import {signupUsername} from '../src/chat-profiles.mjs';
+import {MicrosoftOAuth,verifyMicrosoftIdToken} from '../src/microsoft-oauth.mjs';
+import {TelegramOAuth,verifyTelegramIdToken} from '../src/telegram-oauth.mjs';
+import {D1StudyClient} from '../src/d1-study.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
+import {generateKeyPair,exportJWK,SignJWT,createLocalJWKSet} from 'jose';
+import {AccountInvites} from '../src/account-invites.mjs';
 const devId='a'.repeat(32),password='FixturePassword1';
 test('Account directory CAS uses raw ETag without removing the precondition or touching other keys',async()=>{
   const calls=[],bucket={put:async(...args)=>{calls.push(args);return true;},get(){return this===bucket;}};
@@ -124,6 +130,124 @@ test('passkeys management requires a live session and its own email proof; login
     assert.equal((await sessionForPasskey(f.env,request,devId,true)).status,403);
     assert.equal((await sessionForPasskey(f.env,request,'unapproved-account',true)).status,403);
   }finally{f.close();}
+});
+test('Microsoft confirms email before linking, preserves pending approval and signs in by stable identity afterwards',async()=>{
+  const f=fixture();let mockedFetch;
+  try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
+    f.env.MICROSOFT_CLIENT_ID='11111111-1111-4111-8111-111111111111';f.env.MICROSOFT_CLIENT_SECRET='fixture-secret';
+    f.sqlite.exec('DROP TABLE catalog_documents');applyLearningSchema(f.sqlite);
+    const db=new D1StudyClient(f.env.STUDY_DB),service=new MicrosoftOAuth(db,'https://fixture.invalid');
+    const {privateKey,publicKey}=await generateKeyPair('RS256');
+    const tenant='9188040d-6c67-4c5b-b112-36a304b66dad',issuer='https://login.microsoftonline.com/'+tenant+'/v2.0';
+    const key={...await exportJWK(publicKey),kid:'microsoft-fixture',issuer:'https://login.microsoftonline.com/{tenantid}/v2.0'};
+    const sign=(nonce,email)=>new SignJWT({tid:tenant,ver:'2.0',nonce,email,name:'Microsoft Fixture'}).setProtectedHeader({alg:'RS256',kid:key.kid}).setSubject('fixture-ms-user').setIssuer(issuer).setAudience(f.env.MICROSOFT_CLIENT_ID).setIssuedAt().setExpirationTime('5m').sign(privateKey);
+    const profile=await verifyMicrosoftIdToken(f.env,await sign('initial','dev@example.invalid'),'initial',{jwks:{keys:[key]}});
+    const flow=await service.newFlow({kind:'email',profile,invite:''}),cookie='__Host-lumiscia-microsoft='+flow,guest=f.client();
+    let sent;f.env.EMAIL={send:async mail=>{sent=mail;}};
+    assert.equal((await guest.call('/api/auth/providers')).value.microsoft,true);
+    assert.equal((await guest.call('/api/auth/microsoft/verify','POST',{email:'dev@example.invalid',code:'123456'},cookie)).status,400);
+    assert.equal((await guest.call('/api/auth/microsoft/code','POST',{email:'msnew@example.invalid'},cookie)).status,200);
+    assert.equal(sent.to,'msnew@example.invalid');
+    const verified=await guest.call('/api/auth/microsoft/verify','POST',{email:'msnew@example.invalid',code:sent.text.match(/\b\d{6}\b/)[0]},cookie);
+    assert.equal(verified.status,200,JSON.stringify(verified.value));assert.equal(verified.value.status,'pending');
+    assert.equal(f.sqlite.prepare("SELECT count(*) AS n FROM users WHERE email='msnew@example.invalid'").get().n,0);
+    const reg=f.sqlite.prepare("SELECT id FROM registrations WHERE email='msnew@example.invalid'").get();
+    assert.equal((await service.identity(profile.subject)).registrationId,reg.id);
+    f.env.STAGE_WRITES='false';const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});f.env.STAGE_WRITES='true';
+    const approval=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{});assert.equal(approval.status,200);
+    assert.equal((await service.identity(profile.subject)).accountId,approval.value.userId);
+    const next=await service.start('','second-signin'),idToken=await sign(next.state.nonce,'dev@example.invalid');
+    mockedFetch=mock.method(globalThis,'fetch',async input=>{
+      const url=String(input);
+      if(url.endsWith('/token'))return Response.json({id_token:idToken});
+      if(url.endsWith('/keys'))return Response.json({keys:[key]});
+      throw Error('Unexpected outbound request '+url);
+    });
+    const app=integratedWorker(),request=()=>new Request('https://fixture.invalid/api/auth/microsoft/callback?code=fixture&state='+next.token,{headers:{Cookie:'__Host-lumiscia-microsoft='+next.token}});
+    const callback=await app.fetch(request(),f.env,{});
+    assert.equal(callback.status,302);assert.equal(new URL(callback.headers.get('Location')).searchParams.get('auth'),'microsoft');
+    const sessionCookie=callback.headers.get('Set-Cookie').split(';')[0];
+    const me=await f.client().call('/api/me','GET',null,sessionCookie);
+    assert.equal(me.value.user.id,approval.value.userId,'Changed Microsoft email must not sign into the developer account');
+    const replay=await app.fetch(request(),f.env,{});
+    assert.equal(new URL(replay.headers.get('Location')).searchParams.get('auth'),'microsoft_error');
+    assert.ok(!replay.headers.get('Set-Cookie').includes('enquiz_sid='));
+    for(const kind of ['student','teacher']){
+      if(kind==='student')f.sqlite.prepare("INSERT INTO class_groups(id,title,lesson_date) VALUES(1,'A1','2026-10-20')").run();
+      f.sqlite.prepare('INSERT OR REPLACE INTO catalog_documents VALUES(?,?,?)').run('accounts-group-teachers','1',JSON.stringify({revision:1,teacherIds:[devId]}));
+      const email=kind+'-ms@example.invalid',inviter={id:devId,role:'DEVELOPER'};
+      const invite=await new AccountInvites(db).create(inviter,{groupId:1,kind,teacherId:devId,email},[inviter]);
+      const token=await service.newFlow({kind:'email',profile:{...profile,subject:profile.subject+'-'+kind},invite:invite.token});
+      const headers='__Host-lumiscia-microsoft='+token;
+      await guest.call('/api/auth/microsoft/code','POST',{email},headers);
+      const result=await guest.call('/api/auth/microsoft/verify','POST',{email,code:sent.text.match(/\b\d{6}\b/)[0]},headers);
+      assert.equal(result.status,200,JSON.stringify(result.value));
+      const registration=f.sqlite.prepare('SELECT status,user_id,role FROM registrations WHERE email=?').get(email);
+      assert.equal(registration.status,kind==='student'?'approved':'pending');
+      assert.equal(registration.role,kind==='student'?'USER':'ADMIN');
+      if(kind==='student')assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get(registration.user_id).group_id,1);
+    }
+  }finally{mockedFetch?.mock.restore();f.close();}
+});
+test('Telegram confirms email before linking, preserves pending approval and signs in by stable identity afterwards',async()=>{
+  const f=fixture();let mockedFetch;
+  try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
+    f.env.TELEGRAM_CLIENT_ID='123456789';f.env.TELEGRAM_CLIENT_SECRET='fixture-secret';
+    f.sqlite.exec('DROP TABLE catalog_documents');applyLearningSchema(f.sqlite);
+    const db=new D1StudyClient(f.env.STUDY_DB),service=new TelegramOAuth(db,'https://fixture.invalid');
+    const {privateKey,publicKey}=await generateKeyPair('RS256');
+    const issuer='https://oauth.telegram.org';
+    const key={...await exportJWK(publicKey),kid:'telegram-fixture'};
+    const sign=(nonce,email)=>new SignJWT({nonce,email,name:'Telegram Fixture'}).setProtectedHeader({alg:'RS256',kid:key.kid}).setSubject('fixture-telegram-user').setIssuer(issuer).setAudience(f.env.TELEGRAM_CLIENT_ID).setIssuedAt().setExpirationTime('5m').sign(privateKey);
+    const profile=await verifyTelegramIdToken(f.env,await sign('initial','dev@example.invalid'),'initial',{keySet:createLocalJWKSet({keys:[key]})});
+    const flow=await service.newFlow({kind:'email',profile,invite:''}),cookie='__Host-lumiscia-telegram='+flow,guest=f.client();
+    let sent;f.env.EMAIL={send:async mail=>{sent=mail;}};
+    assert.equal((await guest.call('/api/auth/providers')).value.telegram,true);
+    assert.equal((await guest.call('/api/auth/telegram/verify','POST',{email:'dev@example.invalid',code:'123456'},cookie)).status,400);
+    assert.equal((await guest.call('/api/auth/telegram/code','POST',{email:'tgnew@example.invalid'},cookie)).status,200);
+    assert.equal(sent.to,'tgnew@example.invalid');
+    const verified=await guest.call('/api/auth/telegram/verify','POST',{email:'tgnew@example.invalid',code:sent.text.match(/\b\d{6}\b/)[0]},cookie);
+    assert.equal(verified.status,200,JSON.stringify(verified.value));assert.equal(verified.value.status,'pending');
+    assert.equal(f.sqlite.prepare("SELECT count(*) AS n FROM users WHERE email='tgnew@example.invalid'").get().n,0);
+    const reg=f.sqlite.prepare("SELECT id FROM registrations WHERE email='tgnew@example.invalid'").get();
+    assert.equal((await service.identity(profile.subject)).registrationId,reg.id);
+    f.env.STAGE_WRITES='false';const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});f.env.STAGE_WRITES='true';
+    const approval=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{});assert.equal(approval.status,200);
+    assert.equal((await service.identity(profile.subject)).accountId,approval.value.userId);
+    const next=await service.start('','second-signin'),idToken=await sign(next.state.nonce,'dev@example.invalid');
+    mockedFetch=mock.method(globalThis,'fetch',async input=>{
+      const url=String(input);
+      if(url.endsWith('/token'))return Response.json({id_token:idToken});
+      if(url.endsWith('/.well-known/jwks.json'))return Response.json({keys:[key]});
+      throw Error('Unexpected outbound request '+url);
+    });
+    const app=integratedWorker(),request=()=>new Request('https://fixture.invalid/api/auth/telegram/callback?code=fixture&state='+next.token,{headers:{Cookie:'__Host-lumiscia-telegram='+next.token}});
+    const callback=await app.fetch(request(),f.env,{});
+    assert.equal(callback.status,302);assert.equal(new URL(callback.headers.get('Location')).searchParams.get('auth'),'telegram');
+    const sessionCookie=callback.headers.get('Set-Cookie').split(';')[0];
+    const me=await f.client().call('/api/me','GET',null,sessionCookie);
+    assert.equal(me.value.user.id,approval.value.userId,'Changed Telegram email must not sign into the developer account');
+    const replay=await app.fetch(request(),f.env,{});
+    assert.equal(new URL(replay.headers.get('Location')).searchParams.get('auth'),'telegram_error');
+    assert.ok(!replay.headers.get('Set-Cookie').includes('enquiz_sid='));
+    for(const kind of ['student','teacher']){
+      if(kind==='student')f.sqlite.prepare("INSERT INTO class_groups(id,title,lesson_date) VALUES(1,'A1','2026-10-20')").run();
+      f.sqlite.prepare('INSERT OR REPLACE INTO catalog_documents VALUES(?,?,?)').run('accounts-group-teachers','1',JSON.stringify({revision:1,teacherIds:[devId]}));
+      const email=kind+'-ms@example.invalid',inviter={id:devId,role:'DEVELOPER'};
+      const invite=await new AccountInvites(db).create(inviter,{groupId:1,kind,teacherId:devId,email},[inviter]);
+      const token=await service.newFlow({kind:'email',profile:{...profile,subject:profile.subject+'-'+kind},invite:invite.token});
+      const headers='__Host-lumiscia-telegram='+token;
+      await guest.call('/api/auth/telegram/code','POST',{email},headers);
+      const result=await guest.call('/api/auth/telegram/verify','POST',{email,code:sent.text.match(/\b\d{6}\b/)[0]},headers);
+      assert.equal(result.status,200,JSON.stringify(result.value));
+      const registration=f.sqlite.prepare('SELECT status,user_id,role FROM registrations WHERE email=?').get(email);
+      assert.equal(registration.status,kind==='student'?'approved':'pending');
+      assert.equal(registration.role,kind==='student'?'USER':'ADMIN');
+      if(kind==='student')assert.equal(f.sqlite.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get(registration.user_id).group_id,1);
+    }
+  }finally{mockedFetch?.mock.restore();f.close();}
 });
 test('Pending teacher login checks the password and only a developer can approve the requested role',async()=>{
   const f=fixture();try{
