@@ -24,6 +24,9 @@ try{
   await page.locator('[data-action="retry"][data-id="rain-12"]').click();
   await page.waitForFunction(()=>document.querySelector('[data-quiz="rain-12"]>summary').textContent.includes('Needs review'));
   await page.locator('[data-view="review"]').click();
+  const searchBox=await page.locator('#search').boundingBox(),filterBox=await page.locator('#filter').boundingBox();
+  assert.equal(searchBox.y,filterBox.y,'Search and status filter share a top edge');
+  assert.equal(searchBox.height,filterBox.height,'Search and status filter have equal height');
   assert.equal(await page.locator('.queue-group').count(),3);
   assert.equal(await page.locator('.queue-lesson').count(),3);
   assert.equal(await page.locator('.queue-word').count(),3);
