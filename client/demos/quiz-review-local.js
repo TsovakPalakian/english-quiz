@@ -1,13 +1,16 @@
 // Local-only pilot. No imports into the app bundle; all requests stay on this origin.
+import {defaultReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview} from './review-editor.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
 const types=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman'];
 let boot,view='word',contextId='',quizzes=[],shared=[],editing=null,decision=null,busy=false,noticeTimer;
+let editorType='Gap';
+const editorDrafts=new Map();
 const expansion=new Map(),pending=new Map();
 const teacher=()=>boot?.actor.role!=='USER';
 const selected=()=>boot?.contexts.find(c=>c.id===contextId)||boot?.contexts[0];
-function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
+function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(error&&$('#editor').open){$('#edit-error').hidden=false;$('#edit-error').textContent=text;}if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
 async function api(path,payload){
   const options={};let pendingKey;
   if(payload!==undefined){
@@ -22,8 +25,8 @@ async function api(path,payload){
 }
 async function run(work){
   if(busy)return;busy=true;
-  const buttons=[...document.querySelectorAll('button,select')];buttons.forEach(b=>b.disabled=true);
-  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(b=>b.isConnected).forEach(b=>b.disabled=false);$('#edit-type').disabled=!!editing?.id;}
+  const buttons=[...document.querySelectorAll('button,select')].map(node=>({node,disabled:node.disabled}));buttons.forEach(({node})=>node.disabled=true);
+  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!editing?.id;}
 }
 async function loadSession(){
   boot=await api('/local/boot');
@@ -47,11 +50,7 @@ function buttons(q){
   return '<div class="actions">'+out+'</div>';
 }
 function entry(q){
-  const items=q.content.items.map(item=>{
-    const prompt=item.shown||item.prompt||item.front||item.text||item.word||'';
-    const answer=item.back??(item.options?item.options[item.answer]:item.answer);
-    return '<div class="quiz-preview"><strong class="quiz-content">'+esc(prompt)+'</strong>'+(item.options?'<ol class="options">'+item.options.map((o,i)=>'<li class="'+(i===item.answer?'correct':'')+'">'+esc(o)+(i===item.answer?' ✓':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(answer)+'</p>')+'</div>';
-  }).join('');
+  const items=q.content.items.map(item=>reviewItemPreview(q.type,item)).join('');
   return '<details class="review-item" data-item="'+q.id+'" data-expand="item-'+q.id+'"><summary><span><strong>'+esc(q.type)+' · v'+q.version+'</strong><span class="locked">'+esc(q.author.name)+' · '+esc(q.author.date)+'</span></span><span class="status '+q.state+'">'+labels[q.state]+'</span></summary><div class="detail">'+identity(q)+items+'<p class="muted">'+esc(q.content.explanation)+'</p>'+(q.feedback?'<blockquote class="feedback">'+esc(q.feedback)+'</blockquote>':'')+(q.state==='approved'?'<p class="muted small">Shared template · This approved version is locked.</p>':'')+buttons(q)+'</div></details>';
 }
 function groupBy(list,key){const result=new Map();list.forEach(q=>{const k=key(q);if(!result.has(k))result.set(k,[]);result.get(k).push(q);});return [...result];}
@@ -71,31 +70,28 @@ function render(){
 }
 document.addEventListener('toggle',e=>{if(e.target.dataset?.expand)expansion.set(e.target.dataset.expand,e.target.open);},true);
 function setupType(){
-  const c=selected(),type=$('#edit-type').value;
-  $('#options-label').hidden=type!=='Choice';
   if(editing?.id)return;
-  $('#edit-prompt').value=type==='Gap'?(c.word==='bank'?'She opened an account at the ____.':'A fine ____ started falling.'):type==='Type'?c.translation:c.word;
-  $('#edit-answer').value=['Gap','Type'].includes(type)?c.word:c.translation;
-  $('#edit-options').value=c.translation+(c.word==='bank'?'\nмагазин\nаптека':'\nгроза\nснег');$('#edit-explanation').value=c.meaning;
+  editorDrafts.set(editorType,readReviewItems(editorType,$('#edit-items')));
+  editorType=$('#edit-type').value;
+  const items=editorDrafts.get(editorType)||defaultReviewItems(editorType,editing.context);
+  renderEditorItems(items);$('#editor').scrollTop=0;
 }
+function renderEditorItems(items){editorDrafts.set(editorType,items);$('#edit-items').innerHTML=renderReviewItems(editorType,items);$('#add-quiz-item').disabled=items.length>=50;$('#edit-error').hidden=true;}
 function openEditor(q){
   editing=q||{context:{...selected()}};$('#edit-type').disabled=!!q;
   $('#edit-title').textContent=q?'Edit draft · v'+q.version:'Propose a lesson quiz';
   $('#edit-context').textContent=q?String(q.author.group):selected().group+' / '+selected().lesson;
-  $('#edit-type').value=q?.type||'Gap';
-  if(q){const item=q.content.items[0];$('#edit-prompt').value=item.shown||item.prompt||item.front;$('#edit-answer').value=item.back??(item.options?item.options[item.answer]:item.answer);$('#edit-options').value=item.options?.join('\n')||'';$('#edit-explanation').value=q.content.explanation;$('#options-label').hidden=q.type!=='Choice';}else setupType();
-  $('#editor').showModal();
+  editorType=q?.type||'Gap';$('#edit-type').value=editorType;editorDrafts.clear();
+  renderEditorItems(q?structuredClone(q.content.items):defaultReviewItems(editorType,editing.context));
+  $('#edit-explanation').value=q?.content.explanation||editing.context.meaning;
+  $('#editor').showModal();$('#editor').scrollTop=0;
 }
 function contentFromForm(){
-  const type=$('#edit-type').value,prompt=$('#edit-prompt').value.trim(),answer=$('#edit-answer').value.trim(),explanation=$('#edit-explanation').value.trim();
-  let item;
-  if(type==='Flip')item={front:prompt,back:answer};
-  else if(type==='Gap')item={shown:prompt,answer};
-  else if(type==='Type')item={prompt,answer};
-  else{const options=$('#edit-options').value.split('\n').map(v=>v.trim()).filter(Boolean);const index=options.indexOf(answer);if(index<0)throw new Error('Include the correct answer in the options.');item={prompt,options,answer:index};}
-  return {type,content:{explanation,items:[item]}};
+  return {type:editorType,content:{explanation:$('#edit-explanation').value.trim(),items:readReviewItems(editorType,$('#edit-items'))}};
 }
 document.addEventListener('click',e=>{
+  const editorAction=e.target.closest('[data-remove-item],[data-add-option],[data-remove-option],#add-quiz-item');
+  if(editorAction){if(!busy)renderEditorItems(editReviewItems(editorType,readReviewItems(editorType,$('#edit-items')),editorAction));return;}
   const close=e.target.closest('[data-close]');if(close){if(!busy)$('#'+close.dataset.close).close();return;}
   const nav=e.target.closest('[data-view]');if(nav){run(async()=>{view=nav.dataset.view;await refresh();});return;}
   const b=e.target.closest('[data-action]');if(!b||busy)return;
@@ -128,4 +124,5 @@ $('#decision-form').addEventListener('submit',e=>{e.preventDefault();run(async()
   const {q,action}=decision,payload={expectedRevision:q.revision,...(action==='return'?{comment:$('#feedback').value.trim()}:{checks:{meaning:true,answers:true,level:true}})};
   await api('/local/quizzes/'+q.id+'/'+action,payload);$('#decision').close();await refresh();message(action==='return'?'Returned with feedback.':'Approved shared template. The version is locked.');
 });});
+$('#edit-type').innerHTML=types.map(type=>'<option>'+type+'</option>').join('');
 run(loadSession);

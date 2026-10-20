@@ -3,7 +3,7 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {fixture,actors,body} from '../test/quiz-review-fixture.mjs';
-const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
+const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
