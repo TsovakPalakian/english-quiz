@@ -12628,7 +12628,7 @@ return module.exports; })();
           roleField +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +inviteHint+'</div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +authDivider+google+inviteHint+'</div></div>';
         decorate();
         return;
       }

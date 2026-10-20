@@ -34,7 +34,9 @@ try{
       await page.evaluate(()=>MicrosoftSignIn.decorate(document.getElementById('accountBody')));
       assert.equal(await page.locator('[data-microsoft-auth]').isVisible(),enabled&&!register);
       if(register){
-        assert.equal(await page.locator('[data-google-auth],[data-microsoft-auth],[data-telegram-auth],[data-passkey-login],.auth-divider').count(),0,'Registration has no sign-in providers or divider');
+        assert.equal(await page.locator('[data-google-auth]').isVisible(),true,'Google registration remains available');
+        assert.equal(await page.locator('.auth-divider').count(),1);
+        assert.equal(await page.locator('[data-microsoft-auth],[data-telegram-auth],[data-passkey-login]').count(),0,'Other sign-in providers stay on Log in');
       }
       if(enabled&&!register)for(const width of [390,1000]){
         await page.setViewportSize({width,height:1000});
