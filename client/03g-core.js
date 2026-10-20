@@ -2236,19 +2236,22 @@
       e.stopPropagation();
       if (examStudentRestricted()) return;
       const button = e.currentTarget;
+      if(button.disabled)return;
       const word = document.getElementById("selpopWord").textContent.trim();
       const inChat=document.querySelector('section.on')?.id==='messages';if(inChat){button.disabled=true;try{await saveChatWord(word);button.hidden=true;}catch(error){document.getElementById('selpopBody').textContent=error.message;}finally{button.disabled=false;}return;}
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
       button.disabled = true;
-      let data = {};
       try {
+        const actor=authUser?.id,generation=viewGen,target=viewAccount?.id||'';
         const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
-        const body = await res.json();
-        if (res.ok && body) data = body;
-      } catch (err) {}
-      if (!dictionaryOwned(word)) dictionarySaveWord(word, data);
-      button.hidden = true;
-      button.disabled = false;
+        if(!res.ok)throw new Error('The dictionary did not answer.');
+        const data = await res.json();
+        if(actor!==authUser?.id||generation!==viewGen||target!==(viewAccount?.id||''))throw new Error('Account changed.');
+        if (!dictionaryOwned(word)) await dictionarySaveWord(word, data);
+        if(document.getElementById('selpopWord').textContent.trim()===word)button.hidden = true;
+      } catch (error) {
+        document.getElementById("selpopBody").textContent=error.message;
+      } finally { button.disabled = false; }
     });
     document.addEventListener("mousedown", (e) => {
       if (!e.target.closest("#selpop")) hideSelpop();

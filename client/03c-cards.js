@@ -115,7 +115,11 @@
       if (!item || dictionaryOwned(item.word)) return "";
       return '<button class="btn primary dict-add" type="button" data-dict-add="' + dictionaryPlace(item) + '">Add word</button>';
     }
-    function dictionarySaveWord(word, data) {
+    async function dictionarySaveWord(word, data) {
+      if(window.LearningMain){
+        if(typeof stageSaveDictionaryWord!=='function')throw new Error('Wait for the account to finish loading.');
+        return stageSaveDictionaryWord(word,data);
+      }
       const source = data || {};
       const item = { word: midTitle(word), ru: source.ru || "", data: source, place: dictionaryPlace({ word: word, data: source, expressionType: source.expressionType || "" }) };
       if (source.expressionType) item.expressionType = source.expressionType;
@@ -267,12 +271,17 @@
       if ((document.querySelector("section.on") || {}).id !== "made") pushHistory();
       show("made");
     }
-    document.getElementById("madeView").addEventListener("click", (e) => {
+    document.getElementById("madeView").addEventListener("click", async (e) => {
       if (handleCardQuizClick(e)) return;
       const dictAdd = e.target.closest("[data-dict-add]");
       if (dictAdd && madeItem && !dictionaryOwned(madeItem.word)) {
-        dictionarySaveWord(madeItem.word, Object.assign({}, madeItem.data || {}, { ru: madeItem.ru || "", expressionType: madeItem.expressionType || "" }));
-        renderMade(madeItem);
+        if(dictAdd.disabled)return;
+        const current=madeItem;dictAdd.disabled=true;
+        try{
+          await dictionarySaveWord(current.word, Object.assign({}, current.data || {}, { ru: current.ru || "", expressionType: current.expressionType || "" }));
+          if(madeItem===current)renderMade(current);
+        }catch(error){window.LearningMain?.notice(error.message,true);}
+        finally{dictAdd.disabled=false;}
         return;
       }
       const view = document.getElementById("madeView");

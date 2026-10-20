@@ -611,6 +611,23 @@ async function stageKeepExpression(card,managed=stageManagedSongReady(),resolved
   }
 }
 function stageManagedCardReady(){return !!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);}
+async function stageSaveDictionaryWord(word,data){
+  const managed=stageManagedCardReady();
+  if(!stageOwnReady()&&!managed)throw new Error('Wait for the account to finish loading.');
+  const actor=authUser.id,generation=viewGen,target=viewAccount?.id||'';
+  const current=()=>actor===authUser?.id&&generation===viewGen&&target===(viewAccount?.id||'')&&!viewSwitching;
+  const source=data||{},item={word:midTitle(word),ru:String(source.ru||source.wiktionary?.ru||source.wikdict?.ru||'').trim(),data:source};
+  item.place=dictionaryPlace({word:item.word,data:source,expressionType:source.expressionType||''});
+  if(source.expressionType)item.expressionType=source.expressionType;
+  await window.LearningMain.flushPersonal();
+  if(!current())throw new Error('Account changed.');
+  if(dictionaryOwned(item.word))return null;
+  const saved=await stageKeepExpression(item,managed);
+  if(!current())throw new Error('Account changed.');
+  if(!saved&&!dictionaryOwned(item.word))throw new Error('No translation came back for this word.');
+  if(saved&&!managed)trackEvent('card',cardArea(item.place),'add');
+  return saved?item:null;
+}
 function stageStoreTextExpression(expr,button,item){
   const place=item.fromText&&(!item.place||item.place==='mine')?'text':(item.place||expressionPlace(expr)),fromText=!!item.fromText;
   const deck=expressionDeckName(place,fromText),status=document.getElementById('textReadStatus');
