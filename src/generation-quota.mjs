@@ -23,7 +23,7 @@ export class GenerationQuota{
     const {provider,windowMs,requestLimit}=policy;
     await this.db.atomic([...guard,
       s('INSERT OR IGNORE INTO qr_quota_policies(provider,window_ms,request_limit,created_by,created_at) VALUES(?,?,?,?,?)',[provider,windowMs,requestLimit,actor.id,this.time()]),
-      s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_quota_policies WHERE provider=? AND window_ms=? AND request_limit=?)',[provider,windowMs,requestLimit]),
+      s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_quota_policies WHERE provider=? AND window_ms=? AND (revision>1 OR request_limit=?))',[provider,windowMs,requestLimit]),
       s('DROP TABLE mutation_guard')]);
     return this.inspect(actor,provider);
   }
@@ -32,7 +32,40 @@ export class GenerationQuota{
     if(!policy)fail('quota_not_configured');
     const at=this.time(),windowStart=Math.floor(at/policy.window_ms)*policy.window_ms;
     const [row]=await this.db.read("SELECT COUNT(*) AS used FROM qr_quota_reservations WHERE provider=? AND window_start=? AND state<>'released'",[provider,windowStart]);
-    return {provider,windowMs:policy.window_ms,requestLimit:policy.request_limit,windowStart,windowEnd:windowStart+policy.window_ms,used:Number(row.used),remaining:Math.max(0,policy.request_limit-Number(row.used))};
+    return {provider,revision:policy.revision,windowMs:policy.window_ms,requestLimit:policy.request_limit,windowStart,windowEnd:windowStart+policy.window_ms,used:Number(row.used),remaining:Math.max(0,policy.request_limit-Number(row.used))};
+  }
+  async updateLimit(actor,provider,body){
+    developer(actor);
+    if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['mutationId','expectedRevision','requestLimit','reason'].includes(k))||
+      !id(body.mutationId)||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1||body.expectedRevision>=Number.MAX_SAFE_INTEGER||
+      !Number.isSafeInteger(body.requestLimit)||body.requestLimit<1||body.requestLimit>1000000||
+      typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>500)fail('invalid_request');
+    const reason=body.reason.trim(),result={revision:body.expectedRevision+1,requestLimit:body.requestLimit};
+    const replay=async()=>{
+      const [row]=await this.db.read('SELECT * FROM qr_quota_limit_changes WHERE mutation_id=?',[body.mutationId]);
+      if(!row)return null;
+      if(row.provider!==provider||row.actor_id!==actor.id||row.revision!==result.revision||row.new_limit!==body.requestLimit||row.reason!==reason)fail('quota_mutation_conflict');
+      return {revision:row.revision,requestLimit:row.new_limit};
+    };
+    const previous=await replay();if(previous)return previous;
+    try{
+      await this.db.atomic([...guard,s(`UPDATE qr_quota_policies SET request_limit=?,revision=revision+1,
+        updated_by=?,updated_at=MAX(created_at,updated_at,?),change_reason=?,mutation_id=?
+        WHERE provider=? AND revision=? AND request_limit<>?`,[body.requestLimit,actor.id,this.time(),reason,body.mutationId,provider,body.expectedRevision,body.requestLimit]),
+        s('INSERT INTO mutation_guard SELECT changes()=1'),s('DROP TABLE mutation_guard')]);
+    }catch(error){
+      const saved=await replay();if(saved)return saved;
+      if(error.status===409||/constraint|quota policy revision/i.test(error.message))fail('quota_configuration_conflict');
+      fail('quota_unavailable');
+    }
+    return result;
+  }
+  async changes(actor,provider,{before=null,limit=50}={}){
+    developer(actor);
+    if(!Number.isSafeInteger(limit)||limit<1||limit>100||before!==null&&(!Number.isSafeInteger(before)||before<2))fail('invalid_request');
+    const rows=await this.db.read(`SELECT * FROM qr_quota_limit_changes WHERE provider=? ${before===null?'':'AND revision<?'} ORDER BY revision DESC LIMIT ?`,[provider,...(before===null?[]:[before]),limit+1]);
+    const page=rows.slice(0,limit);
+    return {changes:page.map(row=>({revision:row.revision,actorId:row.actor_id,oldLimit:row.old_limit,newLimit:row.new_limit,reason:row.reason,changedAt:row.changed_at})),next:rows.length>limit?page.at(-1).revision:null};
   }
   async history(actor,provider,{cursor='',limit=50}={}){
     developer(actor);

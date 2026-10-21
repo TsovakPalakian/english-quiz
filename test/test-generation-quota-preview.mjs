@@ -23,3 +23,21 @@ test('local preview enforces its synthetic quota and keeps budget details develo
     const history=await (await get('/local/quota/history','dev')).json();assert.equal(history.reservations.length,1);assert.equal(history.reservations[0].state,'started');assert.equal(history.next,null);
   }finally{await new Promise(resolve=>server.close(resolve));}
 });
+test('local limit updates enforce roles, CSRF, exact fields, revision conflicts and immutable audit',async()=>{
+  const {server,url}=await createQuizReviewPreview({requestLimit:3});
+  const get=path=>fetch(url+path,{headers:{Cookie:'qr-preview=dev'}});
+  const post=(data,role='dev',origin=url)=>fetch(url+'/local/quota',{method:'POST',headers:{Cookie:'qr-preview='+role,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(data)});
+  try{
+    const data={mutationId:crypto.randomUUID(),expectedRevision:1,requestLimit:2,reason:'Lower after review.'};
+    for(const role of ['student','teacher','outsider'])assert.equal((await post(data,role)).status,403);
+    assert.equal((await post(data,'dev','https://other.invalid')).status,403);
+    assert.equal((await post({...data,windowMs:1000})).status,400);
+    const response=await post(data);assert.equal(response.status,200);assert.deepEqual(await response.json(),{revision:2,requestLimit:2});
+    assert.equal((await post(data)).status,200);
+    assert.equal((await post({...data,mutationId:crypto.randomUUID(),requestLimit:4})).status,409);
+    const summary=await (await get('/local/quota')).json();assert.equal(summary.requestLimit,2);assert.equal(summary.revision,2);assert.equal(summary.used,0);
+    const history=await (await get('/local/quota/changes')).json();assert.equal(history.changes.length,1);assert.equal(history.changes[0].reason,data.reason);assert.equal(history.changes[0].oldLimit,3);
+    assert.equal((await get('/local/quota/changes?before=invalid')).status,400);
+    for(const role of ['student','teacher','outsider'])assert.equal((await fetch(url+'/local/quota/changes',{headers:{Cookie:'qr-preview='+role}})).status,403);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+});

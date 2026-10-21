@@ -55,7 +55,7 @@ const attemptStates={running:['Preparing','pending'],accepted:['Candidate prepar
 const attemptDate=value=>Number.isFinite(value)?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Yerevan',dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'Not reported';
 async function loadQuota(){
   if(!developer())return;
-  const epoch=sessionEpoch,entry={status:'loading',rows:[],historyStatus:'idle',next:null};quotaState=entry;render();
+  const epoch=sessionEpoch,entry={status:'loading',rows:[],historyStatus:'idle',next:null,changes:[],changesStatus:'idle',changesNext:null};quotaState=entry;render();
   try{const data=await api('/local/quota');if(epoch!==sessionEpoch||quotaState!==entry||!developer())return;Object.assign(entry,{status:'ready',summary:data});}
   catch(error){if(epoch!==sessionEpoch||quotaState!==entry||!developer())return;Object.assign(entry,{status:'error',error:error.message});}
   if(view==='quota')render();
@@ -77,12 +77,48 @@ function quotaHistoryRows(){
     (entry.historyStatus==='loading'?'<p role="status">Loading reservations...</p>':entry.historyStatus==='error'?'<p class="local-error" role="alert">'+esc(entry.historyError)+'</p><button data-action="quota-history-retry">Retry loading</button>':entry.next?'<button data-action="quota-history-more">Load more</button>':'');
 }
 function renderQuotaHistory(){const node=$('#quota-history-body');if(!node)return;node.innerHTML=quotaHistoryRows();node.setAttribute('aria-busy',String(quotaState.historyStatus==='loading'));}
+async function loadQuotaChanges(more=false){
+  const entry=quotaState;if(!developer()||view!=='quota'||entry?.status!=='ready'||entry.changesStatus==='loading'||more&&!entry.changesNext)return;
+  const epoch=sessionEpoch;entry.changesStatus='loading';renderQuotaChanges();
+  try{
+    const data=await api('/local/quota/changes'+(more?'?before='+entry.changesNext:''));
+    if(epoch!==sessionEpoch||quotaState!==entry||!developer())return;
+    entry.changes=more?[...entry.changes,...data.changes]:data.changes;entry.changesNext=data.next;entry.changesStatus='ready';
+  }catch(error){if(epoch!==sessionEpoch||quotaState!==entry||!developer())return;entry.changesStatus='error';entry.changesError=error.message;entry.retryChangesMore=more;}
+  if(view==='quota')renderQuotaChanges();
+}
+function quotaChangeRows(){
+  const entry=quotaState;
+  return (entry.changes.length?'<ol class="attempt-list">'+entry.changes.map(row=>'<li class="attempt-entry"><div class="attempt-heading"><strong>Revision '+esc(row.revision)+' · '+esc(row.oldLimit)+' → '+esc(row.newLimit)+'</strong><span>'+esc(attemptDate(row.changedAt))+'</span></div><p class="small muted">'+esc(boot.roles.find(actor=>actor.id===row.actorId)?.name||row.actorId)+'</p><p>'+esc(row.reason)+'</p></li>').join('')+'</ol>':entry.changesStatus==='ready'?'<p class="muted">No limit changes.</p>':'')+
+    (entry.changesStatus==='loading'?'<p role="status">Loading limit changes...</p>':entry.changesStatus==='error'?'<p class="local-error" role="alert">'+esc(entry.changesError)+'</p><button data-action="quota-changes-retry">Retry loading</button>':entry.changesNext?'<button data-action="quota-changes-more">Load more</button>':'');
+}
+function renderQuotaChanges(){const node=$('#quota-changes-body');if(!node)return;node.innerHTML=quotaChangeRows();node.setAttribute('aria-busy',String(quotaState.changesStatus==='loading'));}
+function updateQuotaSaveButton(){
+  const form=$('#quota-limit-form');if(!form)return;
+  const limit=Number(form.elements.requestLimit.value);
+  form.querySelector('button').disabled=!developer()||quotaState?.saving||!Number.isSafeInteger(quotaState?.summary?.revision)||!Number.isSafeInteger(limit)||limit<1||limit>1000000||limit===quotaState.summary.requestLimit||!form.elements.reason.value.trim();
+}
+async function saveQuotaLimit(form){
+  const entry=quotaState;if(!developer()||entry?.status!=='ready'||!Number.isSafeInteger(entry.summary.revision)||entry.saving||!form.reportValidity())return;
+  const requestLimit=Number(form.elements.requestLimit.value),reason=form.elements.reason.value.trim();
+  if(!reason||requestLimit===entry.summary.requestLimit)return;
+  const epoch=sessionEpoch;entry.saving=true;
+  const controls=[...form.querySelectorAll('input,textarea,button'),$('[data-action="quota-refresh"]')];controls.forEach(node=>node.disabled=true);$('#quota-save-error').hidden=true;
+  try{
+    await api('/local/quota',{expectedRevision:entry.summary.revision,requestLimit,reason});
+    if(epoch!==sessionEpoch||quotaState!==entry||!developer())return;
+    if(view==='quota'){await loadQuota();message('Request limit saved.');}
+  }catch(error){
+    if(epoch!==sessionEpoch||quotaState!==entry||!developer()||view!=='quota')return;
+    const node=$('#quota-save-error');if(node){node.textContent=error.message;node.hidden=false;}
+  }finally{entry.saving=false;controls.filter(node=>node.isConnected).forEach(node=>node.disabled=false);updateQuotaSaveButton();}
+}
 function quotaPanel(){
   const entry=quotaState;
   if(!entry||entry.status==='loading')return '<p role="status">Loading quota...</p>';
   if(entry.status==='error')return '<p class="local-error" role="alert">'+esc(entry.error)+'</p><button data-action="quota-refresh">Retry loading</button>';
   const q=entry.summary;
-  return '<section class="quota-panel"><div class="quota-heading"><h2>Local fixture</h2><button data-action="quota-refresh" class="quota-refresh" aria-label="Refresh quota" title="Refresh quota">&#8635;</button></div><p class="muted">Request quota · '+esc(q.provider)+'</p><dl class="quota-counts"><div><dt>Remaining</dt><dd>'+esc(q.remaining)+'</dd></div><div><dt>Used / reserved</dt><dd>'+esc(q.used)+'</dd></div><div><dt>Limit</dt><dd>'+esc(q.requestLimit)+'</dd></div></dl><p class="'+(q.remaining===0?'local-error':'muted')+'">'+(q.remaining===0?'Quota exhausted':'Quota available')+'</p><dl class="attempt-meta"><dt>Window start</dt><dd>'+esc(attemptDate(q.windowStart))+'</dd><dt>Window end</dt><dd>'+esc(attemptDate(q.windowEnd))+'</dd><dt>Time zone</dt><dd>Asia/Yerevan</dd></dl><details id="quota-history" data-expand="quota-history"><summary><strong>Reservation history</strong></summary><div id="quota-history-body" aria-busy="'+(entry.historyStatus==='loading')+'">'+quotaHistoryRows()+'</div></details></section>';
+  return '<section class="quota-panel"><div class="quota-heading"><h2>Local fixture</h2><button data-action="quota-refresh" class="quota-refresh" aria-label="Refresh quota" title="Refresh quota">&#8635;</button></div><p class="muted">Request quota · '+esc(q.provider)+'</p><dl class="quota-counts"><div><dt>Remaining</dt><dd>'+esc(q.remaining)+'</dd></div><div><dt>Used / reserved</dt><dd>'+esc(q.used)+'</dd></div><div><dt>Limit</dt><dd>'+esc(q.requestLimit)+'</dd></div></dl><p class="'+(q.remaining===0?'local-error':'muted')+'">'+(q.remaining===0?'Quota exhausted':'Quota available')+'</p><dl class="attempt-meta"><dt>Window start</dt><dd>'+esc(attemptDate(q.windowStart))+'</dd><dt>Window end</dt><dd>'+esc(attemptDate(q.windowEnd))+'</dd><dt>Time zone</dt><dd>Asia/Yerevan</dd><dt>Settings revision</dt><dd>'+esc(q.revision??'Not reported')+'</dd></dl><form id="quota-limit-form"><h3>Request limit</h3><label>Requests per window<input type="number" name="requestLimit" min="1" max="1000000" step="1" value="'+esc(q.requestLimit)+'" required></label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><p id="quota-save-error" class="local-error" role="alert" hidden></p><button type="submit"'+(!Number.isSafeInteger(q.revision)?' disabled':'')+'>Save limit</button></form><details id="quota-changes" data-expand="quota-changes"><summary><strong>Limit changes</strong></summary><div id="quota-changes-body">'+quotaChangeRows()+'</div></details><details id="quota-history" data-expand="quota-history"><summary><strong>Reservation history</strong></summary><div id="quota-history-body" aria-busy="'+(entry.historyStatus==='loading')+'">'+quotaHistoryRows()+'</div></details></section>';
 }
 const attemptTokens=(usage,key)=>Number.isSafeInteger(usage?.[key])?String(usage[key]):'Not reported';
 function attemptRows(rows){
@@ -164,7 +200,9 @@ function render(){
   document.querySelectorAll('[data-view]').forEach(b=>{b.hidden=b.dataset.view==='quota'?!developer():b.dataset.view==='queue'&&!teacher();if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   if(view==='quota'){
     $('#content').innerHTML=developer()?quotaPanel():'';
+    updateQuotaSaveButton();
     const history=$('#quota-history');if(history){history.open=expansion.get('quota-history')===true;if(history.open&&quotaState.historyStatus==='idle')loadQuotaHistory();}
+    const changes=$('#quota-changes');if(changes){changes.open=expansion.get('quota-changes')===true;if(changes.open&&quotaState.changesStatus==='idle')loadQuotaChanges();}
     $('#content').setAttribute('aria-busy','false');return;
   }
   if(view==='word'){
@@ -180,6 +218,7 @@ document.addEventListener('toggle',e=>{
   if(e.target.dataset?.expand)expansion.set(e.target.dataset.expand,e.target.open);
   if(e.target.open&&e.target.dataset?.attemptHistory)loadAttempts(e.target.dataset.attemptHistory);
   if(e.target.open&&e.target.id==='quota-history'&&quotaState?.historyStatus==='idle')loadQuotaHistory();
+  if(e.target.open&&e.target.id==='quota-changes'&&quotaState?.changesStatus==='idle')loadQuotaChanges();
 },true);
 function setupType(){
   if(editing?.id||editing?.repairJob)return;
@@ -212,6 +251,7 @@ document.addEventListener('click',e=>{
   const action=b.dataset.action,q=[...quizzes,...shared].find(row=>row.id===b.dataset.id);
   if(action==='quota-refresh'){loadQuota();return;}
   if(action==='quota-history-more'||action==='quota-history-retry'){loadQuotaHistory(action==='quota-history-more'||quotaState.retryMore);return;}
+  if(action==='quota-changes-more'||action==='quota-changes-retry'){loadQuotaChanges(action==='quota-changes-more'||quotaState.retryChangesMore);return;}
   if(action==='reload-attempts'){loadAttempts(b.dataset.jobId,true);return;}
   if(action==='repair-job'){const job=jobs.find(j=>j.id===b.dataset.jobId);if(job)openEditor(null,job);return;}
   if(action==='prepare'){run(async()=>{const c=selected();await api('/local/generation',{groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types});pollFailures=0;await refresh();message('Queued locally. Existing approved templates are not replaced.');});return;}
@@ -259,5 +299,7 @@ $('#decision-form').addEventListener('submit',e=>{e.preventDefault();run(async()
   await api('/local/quizzes/'+q.id+'/'+action,payload);$('#decision').close();await refresh();message(action==='return'?'Returned with feedback.':'Approved shared template. The version is locked.');
 });});
 $('#edit-type').innerHTML=types.map(type=>'<option>'+type+'</option>').join('');
+document.addEventListener('submit',event=>{if(event.target.id==='quota-limit-form'){event.preventDefault();saveQuotaLimit(event.target);}});
+document.addEventListener('input',event=>{if(event.target.closest('#quota-limit-form'))updateQuotaSaveButton();});
 setInterval(()=>{if(view!=='quota'&&!busy&&!document.querySelector('dialog[open]')&&pollFailures<3&&jobs.some(j=>['queued','running','retry'].includes(j.state)))run(async()=>{try{await refresh();pollFailures=0;}catch(error){pollFailures++;throw error;}});},1000);
 run(loadSession);

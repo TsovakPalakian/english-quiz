@@ -20,6 +20,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
   const f=await fixture({approval:true}),service=f.service;
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/004_quota_limit_changes.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const quotaSource={task:'generation',adapterId:'local-fixture',provider:'local-fixture',model:'synthetic',version:'v1',locale:'en-US',mode:'text',configurationRevision:1};
@@ -70,6 +71,14 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
       }
       if(req.method==='GET'){
         if(path==='/local/quota'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await quota.inspect(actor,'local-fixture'));return;}
+        if(path==='/local/quota/changes'){
+          if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
+          const params=new URL(req.url,'http://'+host).searchParams,before=params.get('before');
+          if([...params.keys()].some(key=>key!=='before')||params.getAll('before').length>1||before!==null&&!/^[1-9]\d*$/.test(before))fail(400,'Invalid change history query.');
+          try{send(200,await quota.changes(actor,'local-fixture',{before:before===null?null:Number(before)}));}
+          catch(error){if(error.code==='invalid_request')fail(400,'Invalid change history cursor.');throw error;}
+          return;
+        }
         if(path==='/local/quota/history'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
           const params=new URL(req.url,'http://'+host).searchParams;
@@ -92,6 +101,15 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
         const data=await jsonBody(req);
+        if(path==='/local/quota'){
+          if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
+          try{send(200,await quota.updateLimit(actor,'local-fixture',data));}
+          catch(error){
+            if(error.code==='invalid_request')fail(400,'Enter a whole request limit from 1 to 1000000 and a reason.');
+            if(['quota_configuration_conflict','quota_mutation_conflict'].includes(error.code))fail(409,'Quota settings changed. Refresh before saving again.');
+            throw error;
+          }return;
+        }
         if(path==='/local/quizzes'){send(201,await service.createDraft(actor,data));return;}
         if(path==='/local/generation'){send(202,await generation.enqueue(actor,data));return;}
         const retry=/^\/local\/generation\/([a-f0-9-]{36})\/retry$/.exec(path);
