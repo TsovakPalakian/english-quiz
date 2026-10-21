@@ -5,7 +5,7 @@ import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 test('local preparation shows retries, teacher issues and automatic provenance without publishing templates',async()=>{
-  const {server,url}=await createQuizReviewPreview();let browser;
+  const {server,url}=await createQuizReviewPreview({generationEnabled:true});let browser;
   try{
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
@@ -19,7 +19,7 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     assert.equal(jobs.find(j=>j.type==='Listen').attempts,1);assert.equal(jobs.find(j=>j.type==='Match').attempts,0);
     const attemptPath='/local/generation/'+jobs.find(j=>j.type==='Choice').id+'/attempts';
     const attemptLog=await page.evaluate(async path=>(await(await fetch(path)).json()).attempts,attemptPath);
-    assert.equal(attemptLog.length,3);assert.ok(attemptLog.every(a=>a.state==='rejected'&&a.usage===null));
+    assert.equal(attemptLog.length,3);assert.ok(attemptLog.every(a=>a.state==='rejected'&&Object.keys(a.usage).length===0&&a.source.model==='local-fixture-a'));
     assert.equal((await fetch(url+attemptPath,{headers:{Cookie:'qr-preview=student'}})).status,403);
     const shared=await page.evaluate(async()=>await(await fetch('/local/shared/1')).json());assert.equal(shared.quizzes.length,1,'Only the pre-approved seed is shared');
     await page.locator('[data-action="prepare"]').click();

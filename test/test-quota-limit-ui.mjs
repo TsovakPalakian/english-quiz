@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 test('developer changes quota without resetting usage; conflicts, audit, lost responses and mobile layout stay safe',async()=>{
-  const {server,url}=await createQuizReviewPreview({requestLimit:3});let browser;
+  const {server,url}=await createQuizReviewPreview({requestLimit:3,generationEnabled:true});let browser;
   try{
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1280,height:1050}}),errors=[],requests=[];

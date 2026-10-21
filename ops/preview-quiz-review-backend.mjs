@@ -17,7 +17,8 @@ async function jsonBody(req){
   for await(const chunk of req){size+=chunk.length;if(size>60000)fail(413,'Request is too large.');chunks.push(chunk);}
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail(400,'Invalid JSON.');}
 }
-export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
+export async function createQuizReviewPreview({port=0,requestLimit=100,generationEnabled=false}={}){
+  if(typeof generationEnabled!=='boolean')throw new Error('Invalid synthetic generation setting.');
   const f=await fixture({approval:true}),service=f.service;
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
@@ -25,23 +26,28 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/005_provider_settings.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
-  // Settings pilot only; the existing synthetic worker is not switched here.
   const providers=new StoredLanguageProviders(f.db,{quota,authorize:async()=>true,adapters:['local-fixture-a','local-fixture-b'].map(id=>({
     id,provider:'local-fixture',model:id,version:'v1',billing:'self-hosted',
-    capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],invoke:localQuizGenerator,validate:value=>value,
+    capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],
+    invoke:async input=>{try{return {content:await localQuizGenerator(input)};}catch(error){if(error instanceof GenerationIssue)return {issue:error.code,retryable:error.retryable};throw error;}},
+    validate:value=>value,
   }))});
   await providers.initialize(actors.dev);
-  const quotaSource={task:'generation',adapterId:'local-fixture',provider:'local-fixture',model:'synthetic',version:'v1',locale:'en-US',mode:'text',configurationRevision:1};
+  // Explicit opt-in for old deterministic test scenarios, not a production default.
+  if(generationEnabled)await providers.configure(actors.dev,body({expectedRevision:1,selections:{generation:{adapterId:'local-fixture-a',locale:'en-US',mode:'text'}},reason:'Enable the synthetic generator for this test fixture.'}));
   const generate=async input=>{
-    const reservation=await quota.reserve(quotaSource,{signal:input.signal}).catch(error=>{
-      if(error.code==='quota_or_access_denied')throw new GenerationIssue('quota_exceeded',false);throw error;
-    });
     try{
-      if(input.signal?.aborted)throw new GenerationIssue('cancelled',false);
-      await quota.start(reservation);
-      if(input.signal?.aborted)throw new GenerationIssue('cancelled',false);
-      return await localQuizGenerator(input);
-    }finally{await quota.release(reservation);}
+      const result=await providers.execute('generation',{type:input.type,meaning:input.meaning,attempt:input.attempt},{signal:input.signal});
+      input.onObservation?.({source:result.source,usage:null});
+      if(result.data.issue)throw new GenerationIssue(result.data.issue,result.data.retryable);
+      return {content:result.data.content,generation:{source:result.source,usage:{},instructionVersion:'local-fixture-v1',generatedAt:new Date().toISOString(),contentRevision:1}};
+    }catch(error){
+      if(error.source)input.onObservation?.({source:error.source,usage:error.usage??null});
+      if(error.code==='quota_or_access_denied')throw new GenerationIssue('quota_exceeded',false);
+      if(['provider_disabled','provider_configuration_changed','adapter_not_registered','paid_provider_blocked','unsupported_capability'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
+      if(['timeout','cancelled'].includes(error.code))throw new GenerationIssue(error.code,error.code==='timeout');
+      throw error;
+    }
   };
   const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate,backoffMs:400});
   await service.linkCard(actors.dev,body({cardId:3,senseId:f.senseId}));

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 test('local preview enforces its synthetic quota and keeps budget details developer-only',async()=>{
-  const {server,url}=await createQuizReviewPreview({requestLimit:1});
+  const {server,url}=await createQuizReviewPreview({requestLimit:1,generationEnabled:true});
   const get=(path,role='teacher')=>fetch(url+path,{headers:{Cookie:'qr-preview='+role}});
   try{
     for(const role of ['student','teacher','outsider'])for(const path of ['/local/quota','/local/quota/history'])assert.equal((await get(path,role)).status,403);

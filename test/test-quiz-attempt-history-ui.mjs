@@ -6,7 +6,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 
 test('attempt history is lazy, collapsible, refreshed by revision, escaped and account-scoped on desktop/mobile',async()=>{
-  const {server,url}=await createQuizReviewPreview();let browser;
+  const {server,url}=await createQuizReviewPreview({generationEnabled:true});let browser;
   try{
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
