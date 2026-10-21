@@ -6,7 +6,7 @@ import {QuizReviewService} from '../src/quiz-review.mjs';
 export const actors={student:{id:'u1',name:'Anna',role:'USER'},other:{id:'u2',name:'Mark',role:'USER'},teacher:{id:'teacher',name:'Elena',role:'ADMIN'},second:{id:'second',name:'Second reviewer',role:'ADMIN'},outsider:{id:'outsider',name:'Other teacher',role:'ADMIN'},dev:{id:'dev',name:'Developer',role:'DEVELOPER'}};
 export const body=values=>({mutationId:crypto.randomUUID(),...values});
 export const content={explanation:'Drizzle means light rain in this context.',items:[{shown:'A fine ____ started falling.',answer:'drizzle',hint:'Light rain'}]};
-export async function fixture({d1=false,approval=true,filename=':memory:'}={}){
+export async function fixture({d1=false,approval=true,filename=':memory:',extendedLifecycle=false}={}){
   const sql=new DatabaseSync(filename);applyLearningSchema(sql);
   sql.exec(`PRAGMA foreign_keys=ON;
     INSERT INTO account_refs(id) VALUES('u1'),('u2'),('teacher'),('second'),('outsider'),('dev');
@@ -31,7 +31,7 @@ export async function fixture({d1=false,approval=true,filename=':memory:'}={}){
     async read(query,args=[]){return sql.prepare(query).all(...args);},
     async atomic(commands){atomic(commands.map(c=>()=>sql.prepare(c.sql).run(...c.args.map(a=>a.type==='null'?null:['integer','float'].includes(a.type)?Number(a.value):a.value))));},
   };
-  const service=new QuizReviewService(db,{allowGlobalApproval:approval});
+  const service=new QuizReviewService(db,{allowGlobalApproval:approval,extendedLifecycle});
   const {senseId}=await service.createSense(actors.dev,body({cardId:1,meaning:{partOfSpeech:'noun',translation:'изморось',definition:'Light rain in very small drops.'}}));
   const draft=(actor=actors.student,extra={})=>service.createDraft(actor,body({groupId:1,lessonId:1,cardId:1,senseId,type:'Gap',content,...extra}));
   return {sql,db,service,senseId,draft,close:()=>sql.close()};

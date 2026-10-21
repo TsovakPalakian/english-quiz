@@ -15,16 +15,26 @@ export class QuizGenerationService{
     if(worker?.role!=='DEVELOPER'||typeof resolveActor!=='function'||typeof generate!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<1||leaseMs<=timeoutMs||backoffMs<0)throw new Error('Invalid isolated generation dependencies.');
     Object.assign(this,{review,db:review.db,worker,resolveActor,generate,now,timeoutMs,leaseMs,backoffMs});
   }
-  async enqueue(actor,body){
+  async enqueue(actor,body,{skipProposals=false,retryFailed=false,excludeTypes=[],beforeEnqueue=null}={}){
     reviewer(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','types']);
     if(!Array.isArray(body.types)||!body.types.length||body.types.length>17||new Set(body.types).size!==body.types.length||body.types.some(t=>!QUIZ_TYPES.includes(t)))fail(400,'Choose valid, distinct quiz types.');
-    return this.review.mutation(actor,body,['generation-enqueue'],async()=>{
+    return this.review.mutation(actor,body,[skipProposals?'generation-fill':'generation-enqueue'],async()=>{
+      if(beforeEnqueue)await beforeEnqueue();
       await this.review.checkContext(actor,body);const statements=[this.review.accessGuard(actor,body)],ids=[];
       for(const type of body.types){
+        if(excludeTypes.includes(type))continue;
+        if(skipProposals){const [proposal]=await this.db.read("SELECT id FROM qr_versions WHERE sense_id=? AND type=? AND state IN ('draft','submitted','returned') LIMIT 1",[body.senseId,type]);if(proposal)continue;}
         const [existing]=await this.db.read('SELECT id FROM qr_generation_jobs WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=? AND type=?',[body.groupId,body.lessonId,body.cardId,body.senseId,type]);
-        if(existing){ids.push(existing.id);continue;}
+        if(existing){
+          if(retryFailed){const [job]=await this.db.read('SELECT * FROM qr_generation_jobs WHERE id=?',[existing.id]);
+            if(job.state==='review'&&!job.version_id&&job.cycle<2){
+              statements.push(s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND version_id IS NULL AND cycle<2 AND NOT EXISTS(SELECT 1 FROM qr_versions WHERE sense_id=? AND type=? AND state IN ('draft','submitted','returned','approved'))",[actor.id,job.id,job.revision,body.senseId,type]),this.review.guard());ids.push(job.id);
+            }
+          }else ids.push(existing.id);continue;
+        }
         const [approved]=await this.db.read("SELECT id FROM qr_versions WHERE sense_id=? AND type=? AND state='approved' LIMIT 1",[body.senseId,type]);if(approved)continue;
         const id=crypto.randomUUID();ids.push(id);
+        if(skipProposals)statements.push(s("INSERT INTO mutation_guard SELECT NOT EXISTS(SELECT 1 FROM qr_versions WHERE sense_id=? AND type=? AND state IN ('draft','submitted','returned','approved'))",[body.senseId,type]));
         statements.push(s(`INSERT INTO qr_generation_jobs(id,group_id,lesson_id,card_id,sense_id,type,requested_by,state)
           VALUES(?,?,?,?,?,?,?,?)`,[id,body.groupId,body.lessonId,body.cardId,body.senseId,type,actor.id,contextTypes.includes(type)?'context':'queued']),this.review.guard());
       }

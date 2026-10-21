@@ -11,10 +11,13 @@ import {localQuizReviewer} from './quiz-review-local-provider.mjs';
 import {StoredQuizIndependentReview} from '../src/stored-quiz-independent-review.mjs';
 import {IndependentReviewIssue,validateIndependentReviewResult} from '../src/quiz-independent-review.mjs';
 import {QuizPreparationPipeline} from '../src/quiz-preparation-pipeline.mjs';
+import {LearningKits} from '../src/learning-kits.mjs';
+import {KitSessions} from '../src/kit-sessions.mjs';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/provider-settings.js':['client/demos/provider-settings-ui.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 files['/independent-review.js']=['client/demos/independent-review-ui.js','text/javascript'];
 files['/preparation-pipeline.js']=['client/demos/preparation-pipeline-ui.js','text/javascript'];
+files['/learning-kit.js']=['client/demos/learning-kit-ui.js','text/javascript'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
   const length=Number(req.headers['content-length']);if(Number.isFinite(length)&&length>60000)fail(413,'Request is too large.');
@@ -25,7 +28,7 @@ async function jsonBody(req){
 }
 export async function createQuizReviewPreview({port=0,requestLimit=100,generationEnabled=false}={}){
   if(typeof generationEnabled!=='boolean')throw new Error('Invalid synthetic generation setting.');
-  const f=await fixture({approval:true}),service=f.service;
+  const f=await fixture({approval:true,extendedLifecycle:true}),service=f.service;
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/004_quota_limit_changes.sql',import.meta.url),'utf8'));
@@ -33,6 +36,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/006_independent_reviews.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/008_preparation_pipeline.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/009_learning_kits.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
@@ -66,6 +70,11 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     }
   };
   const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate,backoffMs:400});
+  const kits=new LearningKits(service,{generation,availability:async()=>{
+    const settings=await providers.inspect(actors.dev),summary=await quota.summary(actors.dev,'local-fixture');
+    return {enabled:settings.selections.generation!==null&&!settings.unavailable.some(row=>row.task==='generation'),remaining:summary.remaining};
+  }});
+  const sessions=new KitSessions(kits); // Exam release stays denied until a real exam policy is injected.
   const independent=new StoredQuizIndependentReview(service,{reviewer:async({signal,...input})=>{
     try{
       const response=await providers.execute('review',input,{signal});
@@ -117,6 +126,20 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/kit'){
+          const params=new URL(req.url,'http://'+host).searchParams;
+          if([...params.keys()].some(key=>!['cardId','senseId','groupId','lessonId'].includes(key))||['cardId','senseId','groupId','lessonId'].some(key=>params.getAll(key).length>1)||
+            params.has('groupId')!==params.has('lessonId')||!/^[1-9]\d*$/.test(params.get('cardId')||'')||['groupId','lessonId'].some(key=>params.has(key)&&!/^[1-9]\d*$/.test(params.get(key))))fail(400,'Invalid kit context.');
+          send(200,await kits.coverage(actor,{cardId:Number(params.get('cardId')),senseId:params.get('senseId')||null,groupId:params.has('groupId')?Number(params.get('groupId')):null,lessonId:params.has('lessonId')?Number(params.get('lessonId')):null}));return;
+        }
+        if(path==='/local/kits/queue'){
+          const params=new URL(req.url,'http://'+host).searchParams;
+          if([...params.keys()].some(key=>key!=='offset')||params.getAll('offset').length>1||params.has('offset')&&!/^\d+$/.test(params.get('offset')))fail(400,'Invalid kit page.');
+          send(200,await kits.queue(actor,{offset:Number(params.get('offset')||0)}));return;
+        }
+        const opinions=/^\/local\/quizzes\/([a-f0-9-]{36})\/opinions$/.exec(path);
+        if(opinions){send(200,{opinions:await kits.opinions(actor,opinions[1])});return;}
+        const session=/^\/local\/kit-sessions\/([a-f0-9-]{36})$/.exec(path);if(session){send(200,await sessions.get(actor,session[1]));return;}
         if(path==='/local/pipeline'){send(200,await pipeline.list(actor));return;}
         const pipelineHistory=/^\/local\/pipeline\/([a-f0-9-]{36})\/history$/.exec(path);
         if(pipelineHistory){
@@ -174,6 +197,15 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
         const data=await jsonBody(req);
+        if(path==='/local/kit/fill'){send(200,await kits.fill(actor,data));return;}
+        if(path==='/local/kit/metadata'){send(200,await kits.setMetadata(actor,data));return;}
+        if(path==='/local/kit/meaning'){send(201,await service.createSense(actor,data));return;}
+        if(path==='/local/kit/link'){send(200,await service.linkCard(actor,data));return;}
+        if(path==='/local/kit-sessions'){send(201,await sessions.start(actor,data));return;}
+        const sessionAction=/^\/local\/kit-sessions\/([a-f0-9-]{36})\/(submit|release)$/.exec(path);
+        if(sessionAction){send(200,await sessions[sessionAction[2]](actor,sessionAction[1],data));return;}
+        const lifecycle=/^\/local\/quizzes\/([a-f0-9-]{36})\/(publication|opinions|opinion-decision)$/.exec(path);
+        if(lifecycle){send(200,await kits[{publication:'publication',opinions:'requestOpinion','opinion-decision':'decideOpinion'}[lifecycle[2]]](actor,lifecycle[1],data));return;}
         if(path==='/local/pipeline'){send(200,await pipeline.configure(actor,data));return;}
         if(path==='/local/providers'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');

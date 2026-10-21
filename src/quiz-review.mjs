@@ -30,7 +30,7 @@ function context(actor,value){
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
 const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),generation:q.generation_json?JSON.parse(q.generation_json):null,state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
 export class QuizReviewService extends StudyService{
-  constructor(db,{allowGlobalApproval=false}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;}
+  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;}
   async mutation(actor,body,identity,build){
     signed(actor);
     try{return await this.mutate(actor,body,['quiz-review',...identity],build,{personal:true});}
@@ -97,10 +97,15 @@ export class QuizReviewService extends StudyService{
       const q=await this.version(id);await this.access(actor,q);
       if(action==='submit'?(q.author_id!==actor.id||!['draft','returned'].includes(q.state)):q.state!=='submitted')fail(409,'This transition is not available.');
       if(action==='approve'&&q.author_id===actor.id)fail(403,'A different teacher must approve this version.');
+      if(action==='approve'&&this.extendedLifecycle){const [unresolved]=await this.db.read(`SELECT o.id FROM qr_opinions o LEFT JOIN qr_opinion_decisions d ON d.opinion_id=o.id
+        WHERE o.version_id=? AND o.content_revision=? AND (d.decision IS NULL OR d.decision<>'confirm') LIMIT 1`,[id,body.expectedRevision]);if(unresolved)fail(409,'Resolve the independent opinion or return this version for changes before approval.');}
       const content=validateReviewContent(q.type,JSON.parse(q.content_json)),state=action==='submit'?'submitted':action==='return'?'returned':'approved',next=body.expectedRevision+1;
       const assignments=action==='approve'?'reviewer_id=?,reviewer_name=?,approved_date=?':action==='submit'?'submitted_date=?':'feedback=?';
       const values=action==='approve'?[actor.id,name(actor),date()]:[action==='submit'?date():comment];
-      return {statements:[this.accessGuard(actor,origin(q)),s(`UPDATE qr_versions SET state=?,revision=revision+1,${assignments} WHERE id=? AND revision=? AND state=?`,[state,...values,id,body.expectedRevision,q.state]),this.guard(),this.event({id,revision:next},actor,action,{content,...(action==='approve'?{checks:body.checks}:{}),...(comment?{comment}:{})})],result:{id,state,revision:next}};
+      const opinionGuard=action==='approve'&&this.extendedLifecycle?[s(`INSERT INTO mutation_guard SELECT NOT EXISTS(
+        SELECT 1 FROM qr_opinions o LEFT JOIN qr_opinion_decisions d ON d.opinion_id=o.id
+        WHERE o.version_id=? AND o.content_revision=? AND (d.decision IS NULL OR d.decision<>'confirm'))`,[id,body.expectedRevision])]:[];
+      return {statements:[this.accessGuard(actor,origin(q)),...opinionGuard,s(`UPDATE qr_versions SET state=?,revision=revision+1,${assignments} WHERE id=? AND revision=? AND state=?`,[state,...values,id,body.expectedRevision,q.state]),this.guard(),this.event({id,revision:next},actor,action,{content,...(action==='approve'?{checks:body.checks}:{}),...(comment?{comment}:{})})],result:{id,state,revision:next}};
     });
   }
   async proposeRevision(actor,id,body){
@@ -131,6 +136,7 @@ export class QuizReviewService extends StudyService{
     const list=await this.db.read(`SELECT q.*,original.author_name AS original_name,original.author_group AS original_group,original.created_date AS original_date
       FROM qr_versions q JOIN qr_versions original ON original.id=q.family_id JOIN qr_card_senses cs ON cs.sense_id=q.sense_id WHERE cs.card_id=? AND q.state='approved'
       AND NOT EXISTS(SELECT 1 FROM qr_versions newer WHERE newer.family_id=q.family_id AND newer.state='approved' AND newer.version>q.version)
+      ${this.extendedLifecycle?"AND NOT EXISTS(SELECT 1 FROM qr_publication p WHERE p.version_id=q.id AND p.available=0)":''}
       ORDER BY q.type,q.family_id`,[cardId]);
     // No private lesson IDs, account IDs, review feedback or internal audit content.
     return list.map(q=>({id:q.id,familyId:q.family_id,version:q.version,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),teacherChecked:true,author:{name:q.author_name,group:q.author_group,date:q.created_date},originalAuthor:{name:q.original_name,group:q.original_group,date:q.original_date},reviewer:{name:q.reviewer_name,date:q.approved_date}}));

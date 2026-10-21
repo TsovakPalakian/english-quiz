@@ -6,14 +6,16 @@ export function exactFields(value,keys){
 }
 export function reviewText(value,max=2000){if(typeof value!=='string'||!value.trim()||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))bad();return value.trim();}
 const distinct=values=>new Set(values.map(v=>v.trim().toLowerCase())).size===values.length;
-export function validateReviewContent(type,value){
-  if(!QUIZ_TYPES.includes(type))bad();
+export function validateReviewContent(type,value,{mediaQuizzes=false}={}){
+  if(!QUIZ_TYPES.includes(type)&&!(mediaQuizzes&&type==='Video choice'))bad();
   exactFields(value,['explanation','items']);reviewText(value.explanation,4000);
   if(!Array.isArray(value.items)||!value.items.length||value.items.length>50||JSON.stringify(value).length>50000)bad();
   const pairs=['Match','Memory'].includes(type);
   if(pairs&&value.items.length<2)bad();
   for(const item of value.items){
     const fields={Flip:['front','back'],Reverse:['front','back','options','answer'],Choice:['prompt','options','answer'],Listen:['prompt','word','options','answer'],Definition:['prompt','word','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],Match:['left','right'],Memory:['left','right'],'True / false':['prompt','answer'],Tap:['text','answer'],'Select all':['prompt','options','answers'],Spell:['word','hint'],Letters:['word','hint'],Hangman:['word','hint'],'Odd one out':['prompt','options','answer']}[type];
+    if(mediaQuizzes&&type==='Listen')fields.push('mediaId');
+    if(mediaQuizzes&&type==='Video choice')fields=['prompt','options','answer','mediaId','transcript'];
     exactFields(item,fields);
     for(const key of fields.filter(k=>!['options','answers','answer','word','hint','back'].includes(k)))reviewText(item[key]);
     if(['Flip','Reverse'].includes(type))reviewText(item.back);
