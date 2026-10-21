@@ -103,7 +103,7 @@ export class QuizGenerationService{
         if(current?.lease_token!==job.lease_token||current.lease_until<=this.now())return true;
         error=new GenerationIssue('write_conflict',false);
       }
-      const codes=['timeout','audio_unavailable','temporary_failure','attempt_limit','write_conflict'];
+      const codes=['timeout','audio_unavailable','temporary_failure','attempt_limit','write_conflict','provider_not_configured','context_required','quality_check_failed','invalid_model_response'];
       const issue=error.status===400?'invalid_content':[401,403].includes(error.status)?'access_changed':error instanceof GenerationIssue&&codes.includes(error.code)?error.code:'generator_failed';
       const retryable=error.status===400||!(error instanceof GenerationIssue)&&![401,403].includes(error.status)||error instanceof GenerationIssue&&error.retryable;
       try{await this.change(job,{state:retryable&&job.attempts<3?'retry':'review',issue,...(error.status===400?{candidate_json:null}:{}),next_at:this.now()+this.backoffMs*2**Math.max(0,job.attempts-1),lease_token:null,lease_until:0});}catch(leaseError){if(leaseError.status!==409)throw leaseError;}
