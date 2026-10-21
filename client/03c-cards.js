@@ -265,7 +265,7 @@
       }
       html += usageQuizzes(usages);
       html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
-      document.getElementById("madeView").innerHTML = html;
+      document.getElementById("madeView").innerHTML = (window.LearningWorkbench?.cardButton(item) || '') + html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
       if ((document.querySelector("section.on") || {}).id !== "made") pushHistory();

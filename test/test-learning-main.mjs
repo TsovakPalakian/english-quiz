@@ -35,6 +35,7 @@ async function assignLegacyExam(f,id,account='student'){
   f.sqlite.prepare('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES(?,?,?,?)').run('fixture-assignment-'+id+'-'+account,id,'student',account);
 }
 function runInNewContext(code,scope){
+  scope.window??={};
   if(scope.document){scope.document.addEventListener??=()=>{};scope.document.scripts??=[];}
   scope.viewAccount??=null;
   scope.hiddenCardIds??=new Set();

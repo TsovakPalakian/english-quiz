@@ -679,7 +679,9 @@
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
-      return '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
+      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
+      const kit = window.LearningWorkbench?.lessonButton(block) || '';
+      return kit ? '<div class="learning-kit-entry">' + content + kit + '</div>' : content;
     }
     function lmRuleCardHtml(block, link) {
       const topic = block.compare ? null : topicById(block.topic);

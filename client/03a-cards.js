@@ -316,7 +316,7 @@
         (w.deck
           ? '<button class="btn primary" type="button" data-deck-study="' + esc(w.deck) + '">Study</button>'
           : '<button class="btn primary" type="button" data-day-quiz="' + esc((w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21")) + '">This day\'s quiz</button>') +
-        '</div>' + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+        '</div>' + (window.LearningWorkbench?.cardButton(w) || '') + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
       if (wordBack) wordBack.dataset.fallback = w.deck || "lesson";

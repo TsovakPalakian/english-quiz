@@ -245,9 +245,12 @@
       const value=await api(path,options);
       if(path==='/api/me' || path==='/api/login'){
         const nextActor=value.user?.id||'';
+        const workbenchChanged=nextActor!==actorId||backendCapabilities.learningWorkbench!==(value.user?value.migrationCapabilities?.learningWorkbench:undefined);
         if(nextActor!==actorId){confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;}
         actorId=nextActor;backendCapabilities=value.user?value.migrationCapabilities||{}:{};
+        if(workbenchChanged)window.LearningWorkbench?.reset();
       }
+      if(path==='/api/logout'){backendCapabilities={};window.LearningWorkbench?.reset();}
       if((path==='/api/me'||path==='/api/login')&&value.user&&!pending&&!personalQueue.length)notice('Вход подтверждён. Подключено к тестовой Learning.');
       const bare=path.split('?')[0];
       if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value,bare==='/api/me/state');void drainPersonal();}

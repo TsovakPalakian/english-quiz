@@ -118,6 +118,7 @@ export function accountDatabase(db,reserve,{allowWrites=false}={}){
 }
 export function integratedWorker({accountWorker=accounts,authenticate=currentUser,studyWorker=study,
   authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration,openWorkbench=null}={}){
+  const capabilities=(env,user)=>user?{legacyHistory:true,originalAccounts:true,...(env.LEARNING_WORKBENCH_ENABLED==='true'&&typeof openWorkbench==='function'?{learningWorkbench:true}:{})}:{};
   async function approveInvitedStudent(env,accountEnv,registrationId){
     const invites=new AccountInvites(studyDatabase(env));
     // Only a server-claimed student invitation may authorize automatic approval.
@@ -144,7 +145,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       catch(error){
         if(!(error instanceof StudyError)||error.status!==409)throw error;
         const headers=new Headers(response.headers);headers.delete('Content-Length');
-        return Response.json({...session,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined,migrationCapabilities:{legacyHistory:true,originalAccounts:true}},{status:response.status,headers});
+        return Response.json({...session,studyPairNeedsMerge:true,inviteWarning:inviteWarning||undefined,migrationCapabilities:capabilities(env,session.user)},{status:response.status,headers});
       }
       const [seen]=await db.read("SELECT value_json FROM account_settings WHERE account_id=? AND key='welcomeSeen'",[session.user.id]);
       const recent=Number(session.user.createdAt)>Date.now()/1000-30*86400;
@@ -152,7 +153,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       session.user.firstLogin=!seen&&recent&&newStudyAccount;
     }
     const headers=new Headers(response.headers);headers.delete('Content-Length');
-    return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:session.user?{legacyHistory:true,originalAccounts:true}:{}},{status:response.status,headers});
+    return Response.json({...session,inviteWarning:inviteWarning||undefined,migrationCapabilities:capabilities(env,session.user)},{status:response.status,headers});
   }
   return {async fetch(request,env,ctx){
     if(isSensitiveFileProbe(request))return sensitiveFileNotFound(request);
@@ -947,7 +948,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         if(response.ok&&['/api/me','/api/login'].includes(effectivePath)){
           const value=await response.clone().json(),headers=new Headers(response.headers);headers.delete('Content-Length');
-          return Response.json({...value,migrationCapabilities:value.user?{legacyHistory:true,originalAccounts:true}:{},inviteWarning:inviteWarning||undefined},{status:response.status,headers});
+          return Response.json({...value,migrationCapabilities:capabilities(env,value.user),inviteWarning:inviteWarning||undefined},{status:response.status,headers});
         }
         return response;
       }

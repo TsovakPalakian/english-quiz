@@ -7,6 +7,13 @@ import {learningWorkbenchReadiness} from '../src/learning-workbench-schema.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 import {learningWorkbenchAPI} from '../src/learning-workbench-api.mjs';
 import {quizR2MediaStore,WORKBENCH_TEST_BUCKET} from '../src/quiz-r2-media-store.mjs';
+import {createLearningWorkbenchFactory} from '../src/learning-workbench-services.mjs';
+import {DatabaseSync} from 'node:sqlite';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {applyLearningSchema} from './learning-test-schema.mjs';
+import {rehearseWorkbench} from '../ops/rehearse-learning-workbench.mjs';
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 async function readyFixture(){
   const f=await fixture({d1:true,extendedLifecycle:true});
@@ -51,6 +58,49 @@ test('API rejects malformed queries, unsupported methods and absent services',as
   const call=(path,method='GET')=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method}),{actor:actors.student,services:{}});
   await rejects(call('/kit?cardId=1&cardId=2'),400);await rejects(call('/kit?cardId=1&groupId=1'),400);
   await rejects(call('/status','DELETE'),405);await rejects(call('/queue'),503);await rejects(call('/status','HEAD'),405);
+});
+test('main session advertises the UI only when the server flag and trusted factory both exist',async()=>{
+  const env={DB:{prepare(){throw Error('Unexpected SQL.');}},STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'},request=new Request('https://test.invalid/api/me');
+  const base={accountWorker:{fetch:async()=>Response.json({user:actors.student})},studyDatabase:()=>{throw Error('Session capability must not query Study.');}};
+  const unwired=integratedWorker(base),wired=integratedWorker({...base,openWorkbench:async()=>{throw Error('Session must not construct services.');}});
+  for(const [app,settings,expected] of [[unwired,env,undefined],[unwired,{...env,LEARNING_WORKBENCH_ENABLED:'true'},undefined],[wired,env,undefined],[wired,{...env,LEARNING_WORKBENCH_ENABLED:'true'},true]]){
+    const response=await app.fetch(request,settings);assert.equal(response.status,200);assert.equal((await response.json()).migrationCapabilities.learningWorkbench,expected);
+  }
+});
+test('session media links use authenticated routes instead of isolated preview routes',async()=>{
+  const id=crypto.randomUUID();
+  const response=await learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench/sessions/'+id),{actor:actors.student,services:{sessions:{get:async()=>({questions:[{prompt:'Watch',mediaUrl:'/local/kit-sessions/'+id+'/media/0'}]})}}});
+  assert.equal((await response.json()).questions[0].mediaUrl,'/api/learning-workbench/sessions/'+id+'/media/0');
+});
+test('trusted composition serves pinned practice sessions without changing legacy quizzes or enabling providers',async()=>{
+  const f=await readyFixture();try{
+    assert.throws(()=>createLearningWorkbenchFactory(),/inspector/);
+    const open=createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media inspection expected.');}}),services=await open({db:f.db,actor:actors.student});
+    assert.deepEqual(Object.keys(services).sort(),['kits','media','review','sessions']);
+    const proposal=await f.draft();await f.service.submit(actors.student,proposal.id,body({expectedRevision:1}));
+    await f.service.approve(actors.teacher,proposal.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
+    const call=async(path,data,actor=actors.student)=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method:data?'POST':'GET',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},...(data?{body:JSON.stringify(data)}:{})}),{actor,services,writable:true});
+    const operation=body({cardId:1,senseId:f.senseId,versionId:proposal.id,mode:'practice'}),created=await(await call('/sessions',operation)).json();
+    assert.equal((await(await call('/sessions',operation)).json()).id,created.id);
+    const session=await(await call('/sessions/'+created.id)).json();assert.equal(session.content,undefined);assert.equal(session.type,'Gap');
+    await rejects(call('/sessions/'+created.id,null,actors.other),404);
+    await call('/sessions/'+created.id+'/submit',body({expectedRevision:session.revision,responses:['drizzle']}));
+    assert.equal((await(await call('/sessions/'+created.id)).json()).correctCount,1);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM quizzes').get().n,1);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_provider_configuration').get().n,0);
+    await rejects(services.review.createDraft(actors.student,body({cardId:3,senseId:f.senseId})),400);
+  }finally{f.close();}
+});
+test('local migration rehearsal preserves source/schema/rows and verifies restore on disposable clones',async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'workbench-source-test-')),sourcePath=join(directory,'source.sqlite');let report;
+  try{
+    const source=new DatabaseSync(sourcePath);applyLearningSchema(source);
+    source.exec("INSERT INTO cards(id,scope,en,word_key,ru) VALUES(1,'shared','legacy','legacy','example')");source.close();
+    const before=readFileSync(sourcePath);report=await rehearseWorkbench(sourcePath);
+    assert.deepEqual(readFileSync(sourcePath),before);assert.equal(report.legacyRowsUnchanged,true);assert.equal(report.legacySchemaUnchanged,true);assert.equal(report.backupRestoreVerified,true);assert.equal(report.productionApproved,false);
+    const copy=new DatabaseSync(join(report.directory,'candidate.sqlite'),{readOnly:true});assert.equal(copy.prepare('SELECT en FROM cards').get().en,'legacy');copy.close();
+    await assert.rejects(rehearseWorkbench(join(report.directory,'candidate.sqlite')),/baseline\/upgrade/);
+  }finally{if(report)rmSync(report.directory,{recursive:true,force:true});rmSync(directory,{recursive:true,force:true});}
 });
 function bucketFixture(){
   const objects=new Map();return {objects,

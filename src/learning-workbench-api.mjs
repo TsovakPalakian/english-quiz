@@ -29,6 +29,12 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     if(path==='/status'){params(url,[]);return json({enabled:true,writable,features:Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key))});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
+    const session=new RegExp('^/sessions/'+id+'$').exec(path);
+    if(session){params(url,[]);const result=await service('sessions').get(actor,session[1]);
+      // The service also supports the isolated pilot; authenticated routes never expose pilot URLs.
+      if(Array.isArray(result.questions))result.questions=result.questions.map((question,index)=>({...question,...(question.mediaUrl?{mediaUrl:WORKBENCH_PREFIX+'/sessions/'+session[1]+'/media/'+index}:{})}));
+      return json(result);
+    }
     if(path==='/queue'||path==='/mine'){params(url,[]);return json({quizzes:await service('review')[path==='/queue'?'queue':'mine'](actor)});}
     if(path==='/speech/tasks'){const p=params(url,['groupId','lessonId','cardId','senseId']);return json({tasks:await service('speech').listTasks(actor,{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId')),cardId:integer(p.get('cardId')),senseId:p.get('senseId')})});}
     const speech=new RegExp('^/speech/(tasks|attempts)/'+id+'(?:/(history|progress|recipients|shared|text-reviews))?$').exec(path);
