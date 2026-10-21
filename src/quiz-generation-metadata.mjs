@@ -3,11 +3,14 @@ import {exactFields} from './quiz-review-content.mjs';
 const bad=()=>{throw new StudyError(400,'Invalid generation metadata.');};
 const identifier=value=>typeof value==='string'&&/^[a-zA-Z0-9@][a-zA-Z0-9_./:@-]{0,199}$/.test(value);
 
-export function validateGenerationSource(source){
+export function validateLanguageRequestSource(source){
   exactFields(source,['task','adapterId','locale','mode','provider','model','version','configurationRevision']);
-  if(source.task!=='generation'||source.mode!=='text'||!['adapterId','locale','provider','model','version'].every(key=>identifier(source[key]))||
+  if(!['generation','review'].includes(source.task)||source.mode!=='text'||!['adapterId','locale','provider','model','version'].every(key=>identifier(source[key]))||
     !Number.isSafeInteger(source.configurationRevision)||source.configurationRevision<1)bad();
   return structuredClone(source);
+}
+export function validateGenerationSource(source){
+  const result=validateLanguageRequestSource(source);if(result.task!=='generation')bad();return result;
 }
 export function validateGenerationUsage(usage){
   exactFields(usage,['prompt_tokens','completion_tokens','total_tokens']);

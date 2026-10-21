@@ -16,6 +16,7 @@ const reviewer=complete=>createIndependentQuizReviewer({enabled:true,source,comp
 async function setup(options={}){
   const f=await fixture(options);
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/006_independent_reviews.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
   const draft=await f.draft();
   return {...f,id:draft.id,stored:new StoredQuizIndependentReview(f.service,{reviewer:reviewer()})};
 }
@@ -154,18 +155,111 @@ test('completed and pending records survive closing and reopening the SQLite fil
   try{
     f=await setup({filename});
     const saved=await f.stored.run(actors.teacher,f.id,request());
-    let started;
-    const entered=new Promise(resolve=>started=resolve);
-    const interrupted=new StoredQuizIndependentReview(f.service,{reviewer:async()=>{started();return new Promise(()=>{});}});
-    // Simulate a worker disappearing after its durable reservation, before an outcome.
-    void interrupted.run(actors.teacher,f.id,request());await entered;
+    // Seed the durable reservation left by a worker that disappeared without an outcome.
+    const pendingId=crypto.randomUUID();
+    f.sql.prepare(`INSERT INTO qr_independent_requests(id,version_id,revision,requested_by,mutation_id,request_json,checked_json,requested_at)
+      SELECT ?,version_id,revision,requested_by,?,request_json,checked_json,requested_at FROM qr_independent_requests WHERE id=?`).run(pendingId,crypto.randomUUID(),saved.id);
+    f.sql.prepare('INSERT INTO qr_independent_leases(request_id,expires_at,retry_of,retry_count) VALUES(?,?,NULL,0)').run(pendingId,Date.now()+12000);
     f.close();
     sql=new DatabaseSync(filename);
-    const db={async read(query,args=[]){return sql.prepare(query).all(...args);}};
+    const db={async read(query,args=[]){return sql.prepare(query).all(...args);},async atomic(commands){
+      sql.exec('BEGIN IMMEDIATE');try{for(const command of commands)sql.prepare(command.sql).run(...command.args.map(arg=>arg.type==='null'?null:['integer','float'].includes(arg.type)?Number(arg.value):arg.value));sql.exec('COMMIT');}
+      catch(error){sql.exec('ROLLBACK');throw error;}
+    }};
     const reopened=new StoredQuizIndependentReview(new QuizReviewService(db));
     const history=await reopened.history(actors.dev,f.id,{level:'A1'});
     assert.equal(history.attempts[0].state,'pending');assert.equal(history.attempts[0].current,false);
     assert.deepEqual(history.attempts[1].result,saved.result);assert.equal(history.attempts[1].current,true);
     assert.equal((await reopened.latest(actors.dev,f.id,{level:'A1'})).result,null);
   }finally{sql?.close();if(f?.sql.isOpen)f.close();rmSync(directory,{recursive:true,force:true});}
+});
+
+test('deadline recovery is atomic, preserved across instances and cannot be overwritten by a late answer',async()=>{
+  const f=await setup({d1:true});let release;
+  try{
+    let time=1000,started;
+    const entered=new Promise(resolve=>started=resolve),gate=new Promise(resolve=>release=resolve);
+    const stored=new StoredQuizIndependentReview(f.service,{now:()=>time,timeoutMs:10000,reviewer:reviewer(async input=>{started();await gate;return report(input);})});
+    const operation=request(),running=stored.run(actors.teacher,f.id,operation);await entered;
+    const before=await stored.history(actors.dev,f.id,{level:'A1'});assert.equal(before.attempts[0].state,'pending');assert.equal(before.attempts[0].expiresAt,11000);
+    time=10999;assert.equal((await stored.history(actors.dev,f.id)).attempts[0].state,'pending');
+    time=11000;
+    const recovered=new StoredQuizIndependentReview(f.service,{now:()=>time});
+    const [a,b]=await Promise.all([stored.history(actors.teacher,f.id,{level:'A1'}),recovered.history(actors.outsider,f.id,{level:'A1'})]);
+    assert.equal(a.attempts[0].error,'interrupted');assert.equal(b.attempts[0].error,'interrupted');assert.equal(a.attempts[0].canRetry,true);
+    release();const late=await running;assert.equal(late.error,'interrupted');assert.equal(late.result,null);
+    assert.equal((await stored.run(actors.teacher,f.id,operation)).id,late.id);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_independent_outcomes').get().n,1);
+    assert.equal((await stored.latest(actors.dev,f.id,{level:'A1'})).result,null);
+  }finally{release?.();f.close();}
+});
+
+test('service bounds a hanging transport and aborts it even when the transport ignores its signal',async()=>{
+  const f=await setup();try{
+    let signal;
+    const stored=new StoredQuizIndependentReview(f.service,{timeoutMs:20,reviewer:async input=>{signal=input.signal;return new Promise(()=>{});}});
+    const result=await stored.run(actors.teacher,f.id,request());
+    assert.equal(result.error,'interrupted');assert.equal(result.result,null);assert.equal(result.canRetry,true);assert.equal(signal.aborted,true);
+  }finally{f.close();}
+});
+
+test('only one active check per quiz revision is reserved, even with different request IDs',async()=>{
+  const f=await setup();let release;
+  try{
+    let started,calls=0;const entered=new Promise(resolve=>started=resolve),gate=new Promise(resolve=>release=resolve);
+    const stored=new StoredQuizIndependentReview(f.service,{reviewer:reviewer(async input=>{calls++;started();await gate;return report(input);})});
+    const running=stored.run(actors.teacher,f.id,request());await entered;
+    await denied(stored.run(actors.dev,f.id,request()),409);assert.equal(calls,1);
+    release();await running;
+  }finally{release?.();f.close();}
+});
+
+test('manual retry is explicit, linked, idempotent and limited to two per chain',async()=>{
+  const f=await setup({d1:true});try{
+    const stored=new StoredQuizIndependentReview(f.service);
+    const original=await stored.run(actors.teacher,f.id,request());assert.equal(original.canRetry,true);
+    const operation=body({expectedRevision:1});
+    const retry=await stored.retry(actors.outsider,f.id,original.id,operation);
+    assert.equal(retry.retryOf,original.id);assert.equal(retry.retryCount,1);assert.equal(retry.checked.level,'A1');
+    assert.deepEqual(await stored.retry(actors.outsider,f.id,original.id,operation),retry);
+    await denied(stored.retry(actors.dev,f.id,original.id,body({expectedRevision:1})),409);
+    const last=await stored.retry(actors.dev,f.id,retry.id,body({expectedRevision:1}));
+    assert.equal(last.retryCount,2);assert.equal(last.canRetry,false);
+    await denied(stored.retry(actors.teacher,f.id,last.id,body({expectedRevision:1})),409);
+    const history=(await stored.history(actors.teacher,f.id,{level:'A1'})).attempts;
+    assert.equal(history.length,3);assert.ok(history.every(attempt=>!attempt.canRetry));
+    assert.equal((await stored.history(actors.teacher,f.id,{level:'A2'})).attempts[0].canRetry,false);
+    for(const actor of [actors.student,{...actors.teacher,revoked:true}])await assert.rejects(stored.retry(actor,f.id,last.id,body({expectedRevision:1})),error=>[401,403].includes(error.status));
+    await f.service.editDraft(actors.student,f.id,body({expectedRevision:1,content:{...content,explanation:'Updated.'}}));
+    await denied(stored.retry(actors.dev,f.id,retry.id,body({expectedRevision:2})),409);
+    assert.equal((await stored.history(actors.dev,f.id,{level:'A1'})).attempts[0].canRetry,false);
+  }finally{f.close();}
+});
+
+test('concurrent manual retries create a single child and preserve the failed parent',async()=>{
+  const f=await setup({d1:true});try{
+    const failed=await new StoredQuizIndependentReview(f.service).run(actors.teacher,f.id,request());let calls=0;
+    const stored=new StoredQuizIndependentReview(f.service,{reviewer:reviewer(async input=>{calls++;return report(input);})});
+    const results=await Promise.allSettled([stored.retry(actors.teacher,f.id,failed.id,body({expectedRevision:1})),stored.retry(actors.dev,f.id,failed.id,body({expectedRevision:1}))]);
+    assert.equal(results.filter(result=>result.status==='fulfilled').length,1);assert.equal(calls,1);
+    const rows=(await stored.history(actors.dev,f.id,{level:'A1'})).attempts;
+    assert.equal(rows.length,2);assert.equal(rows[0].current,true);assert.equal(rows[1].error,'review_not_configured');assert.equal(rows[1].canRetry,false);
+    for(const statement of ['DELETE FROM qr_independent_leases','UPDATE qr_independent_leases SET expires_at=0'])assert.throws(()=>f.sql.exec(statement),/append only/);
+  }finally{f.close();}
+});
+
+test('migration gives old pending reservations a fixed deadline without rewriting their history',async()=>{
+  const f=await fixture();try{
+    const q=await f.draft();
+    f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/006_independent_reviews.sql',import.meta.url),'utf8'));
+    const id=crypto.randomUUID(),checked={type:'Gap',revision:1,level:null,content,
+      meaning:{en:'drizzle',translation:'изморось',definition:'Light rain in very small drops.',part_of_speech:'noun'}};
+    f.sql.prepare('INSERT INTO qr_independent_requests(id,version_id,revision,requested_by,mutation_id,request_json,checked_json,requested_at) VALUES(?,?,1,?,?,?,?,1000)').run(id,q.id,actors.teacher.id,crypto.randomUUID(),'{}',JSON.stringify(checked));
+    const original=f.sql.prepare('SELECT * FROM qr_independent_requests WHERE id=?').get(id);
+    f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
+    const stored=new StoredQuizIndependentReview(f.service,{now:()=>31000});
+    const row=(await stored.history(actors.dev,q.id)).attempts[0];
+    assert.equal(row.expiresAt,31000);assert.equal(row.error,'interrupted');assert.equal(row.canRetry,true);
+    assert.deepEqual(f.sql.prepare('SELECT * FROM qr_independent_requests WHERE id=?').get(id),original);
+  }finally{f.close();}
 });

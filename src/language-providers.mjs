@@ -89,17 +89,19 @@ export class LanguageProviders{
     });
     try{
       const result=await Promise.race([stopped,(async()=>{
-        // The injected gate authenticates callers. Optional local quota is generation-only.
+        // Clone before reserving: invalid payloads must not consume a started request.
+        const input=structuredClone(payload);
+        // The injected gate authenticates callers. Both text tasks share a provider quota.
         // Declaring an adapter free-tier does not prove its account cannot be billed.
         if(await this.#authorize({...source,billing:adapter.billing,freeOnly:this.#freeOnly},{signal:controller.signal})!==true)fail('quota_or_access_denied');
         if(controller.signal.aborted)fail('cancelled');
-        if(this.#quota&&task==='generation'){
+        if(this.#quota&&['generation','review'].includes(task)){
           reservation=await this.#quota.reserve(source,{signal:controller.signal});
           if(controller.signal.aborted){await this.#quota.release(reservation);fail('cancelled');}
           try{await this.#quota.start(reservation);}catch(error){await this.#quota.release(reservation);throw error;}
           if(controller.signal.aborted)fail('cancelled');
         }
-        const raw=await adapter.invoke(structuredClone(payload),{source,signal:controller.signal});
+        const raw=await adapter.invoke(input,{source,signal:controller.signal});
         if(controller.signal.aborted)fail('cancelled');
         const data=await adapter.validate(raw,{source,signal:controller.signal});
         if(data===undefined)fail('invalid_provider_result');

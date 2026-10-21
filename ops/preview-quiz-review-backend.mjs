@@ -7,8 +7,12 @@ import {QuizGenerationService,GenerationIssue} from '../src/quiz-generation.mjs'
 import {GenerationQuota} from '../src/generation-quota.mjs';
 import {StoredLanguageProviders} from '../src/stored-language-providers.mjs';
 import {localQuizGenerator} from './quiz-generation-local-provider.mjs';
+import {localQuizReviewer} from './quiz-review-local-provider.mjs';
+import {StoredQuizIndependentReview} from '../src/stored-quiz-independent-review.mjs';
+import {IndependentReviewIssue,validateIndependentReviewResult} from '../src/quiz-independent-review.mjs';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/provider-settings.js':['client/demos/provider-settings-ui.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
+files['/independent-review.js']=['client/demos/independent-review-ui.js','text/javascript'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
   const length=Number(req.headers['content-length']);if(Number.isFinite(length)&&length>60000)fail(413,'Request is too large.');
@@ -24,14 +28,23 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/004_quota_limit_changes.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/005_provider_settings.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/006_independent_reviews.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
-  const providers=new StoredLanguageProviders(f.db,{quota,authorize:async()=>true,adapters:['local-fixture-a','local-fixture-b'].map(id=>({
+  const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
+    const check=localQuizReviewer(id);
+    return {id,provider:'local-fixture',model:id,version:'v1',billing:'self-hosted',
+      capabilities:[{task:'review',locales:['en-US'],modes:['text']}],
+      invoke:async(input,{signal})=>{try{return {result:await check({...input,signal})};}catch(error){if(error instanceof IndependentReviewIssue)return {issue:error.code};throw error;}},
+      validate:value=>value};
+  });
+  const providers=new StoredLanguageProviders(f.db,{quota,authorize:async()=>true,adapters:[...['local-fixture-a','local-fixture-b'].map(id=>({
     id,provider:'local-fixture',model:id,version:'v1',billing:'self-hosted',
     capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],
     invoke:async input=>{try{return {content:await localQuizGenerator(input)};}catch(error){if(error instanceof GenerationIssue)return {issue:error.code,retryable:error.retryable};throw error;}},
     validate:value=>value,
-  }))});
+  })),...reviewAdapters]});
   await providers.initialize(actors.dev);
   // Explicit opt-in for old deterministic test scenarios, not a production default.
   if(generationEnabled)await providers.configure(actors.dev,body({expectedRevision:1,selections:{generation:{adapterId:'local-fixture-a',locale:'en-US',mode:'text'}},reason:'Enable the synthetic generator for this test fixture.'}));
@@ -50,6 +63,21 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     }
   };
   const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate,backoffMs:400});
+  const independent=new StoredQuizIndependentReview(service,{reviewer:async({signal,...input})=>{
+    try{
+      const response=await providers.execute('review',input,{signal});
+      if(response.data.issue)throw new IndependentReviewIssue(response.data.issue);
+      const result=await validateIndependentReviewResult(response.data.result,input);
+      if(['provider','model','version'].some(key=>result.source[key]!==response.source[key]))throw new IndependentReviewIssue('invalid_review_response');
+      return result;
+    }catch(error){
+      if(error instanceof IndependentReviewIssue)throw error;
+      if(error.code==='quota_or_access_denied')throw new IndependentReviewIssue('quota_exceeded');
+      if(['quota_unavailable','quota_not_configured'].includes(error.code))throw new IndependentReviewIssue('quota_unavailable');
+      if(['provider_disabled','provider_configuration_changed','adapter_not_registered','paid_provider_blocked','unsupported_capability'].includes(error.code))throw new IndependentReviewIssue('review_not_configured');
+      throw new IndependentReviewIssue(['cancelled','timeout'].includes(error.code)?error.code:'review_unavailable');
+    }
+  }});
   await service.linkCard(actors.dev,body({cardId:3,senseId:f.senseId}));
   await service.linkCard(actors.dev,body({cardId:4,senseId:f.senseId}));
   const bank=await service.createSense(actors.dev,body({cardId:2,meaning:{partOfSpeech:'noun',translation:'банк',definition:'An institution that keeps and lends money.'}}));
@@ -84,6 +112,10 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/review-quota'){
+          if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Teacher access required.');
+          try{send(200,await quota.summary(actor,'local-fixture'));}catch{fail(503,'Request quota is unavailable.');}return;
+        }
         if(path==='/local/providers'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await providers.inspect(actor));return;}
         if(path==='/local/providers/history'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
@@ -117,6 +149,13 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         if(path==='/local/mine'){send(200,{quizzes:await service.mine(actor)});return;}
         if(path==='/local/queue'){send(200,{quizzes:await service.queue(actor)});return;}
         if(path==='/local/generation'){send(200,{jobs:await generation.list(actor)});return;}
+        const reviewHistory=/^\/local\/quizzes\/([a-f0-9-]{36})\/independent$/.exec(path);
+        if(reviewHistory){
+          const params=new URL(req.url,'http://'+host).searchParams;
+          if([...params.keys()].some(key=>!['level','before','limit'].includes(key))||['level','before','limit'].some(key=>params.getAll(key).length>1)||
+            ['before','limit'].some(key=>params.has(key)&&!/^[1-9]\d*$/.test(params.get(key))))fail(400,'Invalid review history query.');
+          send(200,await independent.history(actor,reviewHistory[1],{level:params.get('level')||null,before:params.has('before')?Number(params.get('before')):null,limit:params.has('limit')?Number(params.get('limit')):10}));return;
+        }
         const attempts=/^\/local\/generation\/([a-f0-9-]{36})\/attempts$/.exec(path);
         if(attempts){send(200,{attempts:await generation.attemptHistory(actor,attempts[1])});return;}
         const shared=/^\/local\/shared\/(\d+)$/.exec(path);if(shared){send(200,{quizzes:await service.sharedForCard(actor,Number(shared[1]))});return;}
@@ -143,6 +182,10 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         }
         if(path==='/local/quizzes'){send(201,await service.createDraft(actor,data));return;}
         if(path==='/local/generation'){send(202,await generation.enqueue(actor,data));return;}
+        const runReview=/^\/local\/quizzes\/([a-f0-9-]{36})\/independent$/.exec(path);
+        if(runReview){send(200,await independent.run(actor,runReview[1],data));return;}
+        const retryReview=/^\/local\/quizzes\/([a-f0-9-]{36})\/independent\/([a-f0-9-]{36})\/retry$/.exec(path);
+        if(retryReview){send(200,await independent.retry(actor,retryReview[1],retryReview[2],data));return;}
         const retry=/^\/local\/generation\/([a-f0-9-]{36})\/retry$/.exec(path);
         if(retry){send(200,await generation.retry(actor,retry[1],data));return;}
         const repair=/^\/local\/generation\/([a-f0-9-]{36})\/repair$/.exec(path);

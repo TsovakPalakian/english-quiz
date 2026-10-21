@@ -1,6 +1,7 @@
 // Local-only pilot. No imports into the app bundle; all requests stay on this origin.
 import {defaultReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview} from './review-editor.js';
 import {createProviderSettingsUI} from './provider-settings.js';
+import {createIndependentReviewUI} from './independent-review.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
@@ -15,6 +16,7 @@ const developer=()=>boot?.actor.role==='DEVELOPER';
 const teacher=()=>boot?.actor.role!=='USER';
 const selected=()=>boot?.contexts.find(c=>c.id===contextId)||boot?.contexts[0];
 const providerSettingsUI=createProviderSettingsUI({api,isDeveloper:developer,sessionKey:()=>sessionEpoch,active:()=>view==='providers',renderPage:render,notify:message,actorName:id=>boot?.roles.find(row=>row.id===id)?.name||id,date:value=>attemptDate(value)});
+const independentUI=createIndependentReviewUI({api,isTeacher:()=>['ADMIN','DEVELOPER'].includes(boot?.actor.role),sessionKey:()=>sessionEpoch,getQuiz:id=>[...quizzes,...shared].find(q=>q.id===id),date:value=>attemptDate(value)});
 function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(error&&$('#editor').open){$('#edit-error').hidden=false;$('#edit-error').textContent=text;}if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
 async function api(path,payload){
   const options={};let pendingKey;
@@ -34,7 +36,7 @@ async function run(work){
   try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
 }
 async function loadSession(){
-  sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();
+  sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();
   if(view==='providers'){$('#content').innerHTML='';$('[data-view="providers"]').hidden=true;}
   if(view==='quota'){$('#content').innerHTML='';$('[data-view="quota"]').hidden=true;}
   boot=await api('/local/boot');
@@ -80,7 +82,7 @@ async function loadQuotaHistory(more=false){
 }
 function quotaHistoryRows(){
   const entry=quotaState,states={reserved:'Reserved',started:'Started',released:'Released'};
-  return (entry.rows.length?'<ol class="attempt-list">'+entry.rows.map(row=>'<li class="attempt-entry"><div class="attempt-heading"><strong>'+esc(states[row.state]||'Unknown')+'</strong><span>'+esc(attemptDate(row.createdAt))+'</span></div><dl class="attempt-meta"><dt>Reservation</dt><dd>'+esc(row.id)+'</dd><dt>Model</dt><dd>'+esc(row.source.model)+'</dd><dt>Provider</dt><dd>'+esc(row.source.provider)+'</dd><dt>Version</dt><dd>'+esc(row.source.version)+'</dd><dt>Settings revision</dt><dd>'+esc(row.source.configurationRevision)+'</dd><dt>Window start</dt><dd>'+esc(attemptDate(row.windowStart))+'</dd><dt>Updated</dt><dd>'+esc(attemptDate(row.changedAt))+'</dd></dl></li>').join('')+'</ol>':entry.historyStatus==='ready'?'<p class="muted">No reservations.</p>':'')+
+  return (entry.rows.length?'<ol class="attempt-list">'+entry.rows.map(row=>'<li class="attempt-entry"><div class="attempt-heading"><strong>'+esc(states[row.state]||'Unknown')+'</strong><span>'+esc(attemptDate(row.createdAt))+'</span></div><dl class="attempt-meta"><dt>Reservation</dt><dd>'+esc(row.id)+'</dd><dt>Task</dt><dd>'+esc(row.source.task)+'</dd><dt>Model</dt><dd>'+esc(row.source.model)+'</dd><dt>Provider</dt><dd>'+esc(row.source.provider)+'</dd><dt>Version</dt><dd>'+esc(row.source.version)+'</dd><dt>Settings revision</dt><dd>'+esc(row.source.configurationRevision)+'</dd><dt>Window start</dt><dd>'+esc(attemptDate(row.windowStart))+'</dd><dt>Updated</dt><dd>'+esc(attemptDate(row.changedAt))+'</dd></dl></li>').join('')+'</ol>':entry.historyStatus==='ready'?'<p class="muted">No reservations.</p>':'')+
     (entry.historyStatus==='loading'?'<p role="status">Loading reservations...</p>':entry.historyStatus==='error'?'<p class="local-error" role="alert">'+esc(entry.historyError)+'</p><button data-action="quota-history-retry">Retry loading</button>':entry.next?'<button data-action="quota-history-more">Load more</button>':'');
 }
 function renderQuotaHistory(){const node=$('#quota-history-body');if(!node)return;node.innerHTML=quotaHistoryRows();node.setAttribute('aria-busy',String(quotaState.historyStatus==='loading'));}
@@ -191,7 +193,7 @@ function buttons(q){
   if(teacher()&&q.state==='submitted'&&!mine)out+=action('return',q,'Request changes')+action('approve',q,'Review & approve');
   if(teacher()&&q.state==='approved')out+=action('revise',q,'Propose new version');
   if(q.author.id||teacher())out+=action('history',q,'Version history');
-  return '<div class="actions">'+out+'</div>';
+  return '<div class="actions">'+out+'</div>'+independentUI.panel(q);
 }
 function entry(q){
   const items=q.content.items.map(item=>reviewItemPreview(q.type,item)).join('');
@@ -220,6 +222,7 @@ function render(){
   }else $('#content').innerHTML='<section><p class="muted">'+(view==='queue'?'Submitted and returned work in your assigned groups.':'Your drafts and submitted versions. Editing during review is blocked by the server.')+'</p>'+groups(quizzes)+(!quizzes.length?'<p class="empty">No proposals.</p>':'')+'</section>';
   $('#content').insertAdjacentHTML('beforeend',generationPanel());
   document.querySelectorAll('[data-expand]').forEach(d=>{if(expansion.has(d.dataset.expand))d.open=expansion.get(d.dataset.expand);});$('#content').setAttribute('aria-busy','false');
+  independentUI.afterRender();
 }
 document.addEventListener('toggle',e=>{
   if(!e.target.isConnected)return;

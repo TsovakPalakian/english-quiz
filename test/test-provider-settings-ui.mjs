@@ -13,7 +13,7 @@ test('provider settings UI persists selections, disables tasks, preserves audit 
   const read=async path=>(await fetch(url+path,{headers:{Cookie:'qr-preview=dev'}})).json();
   await page.goto(url);await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('[data-view="providers"]').isVisible(),false);assert.equal(requests.some(r=>r.includes('/local/providers')),false);
   await page.selectOption('#account','dev');await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="providers"]').click();await page.locator('#provider-settings-form').waitFor();
-  assert.equal(await page.locator('[data-provider-task]').count(),6);assert.equal(await page.locator('#provider-review').isDisabled(),true);assert.equal(await page.locator('#provider-settings-form [type="submit"]').isDisabled(),true);
+  assert.equal(await page.locator('[data-provider-task]').count(),6);assert.equal(await page.locator('#provider-review').isDisabled(),false);assert.equal(await page.locator('#provider-review').inputValue(),'off');assert.equal(await page.locator('#provider-settings-form [type="submit"]').isDisabled(),true);
   assert.equal(requests.some(r=>r.includes('/local/providers/history')),false);
   const save=async(value,reason)=>{await page.selectOption('#provider-generation',value);await page.locator('#provider-reason').fill(reason);await page.locator('#provider-settings-form [type="submit"]').click();};
   const saved=async value=>page.waitForFunction(expected=>document.querySelector('#provider-generation')?.value===expected&&document.querySelector('#provider-reason')?.value==='',value);
