@@ -66,11 +66,13 @@ test('final attempts cannot be changed or deleted; unfinished identity and times
     assert.throws(()=>f.sql.prepare("UPDATE qr_generation_attempts SET state='error',finished_at=NULL WHERE job_id=?").run(other[0]),/constraint/i);
   }finally{f.close();}
 });
-test('history requires a teacher assigned to the group and rechecks revoked access',async()=>{
+test('history is shared by all teachers but rejects students, revoked accounts and deleted contexts',async()=>{
   const f=await setup();try{const {ids}=await f.enqueue();await f.generation.runOne();
-    for(const actor of [actors.student,actors.outsider])await assert.rejects(f.generation.attemptHistory(actor,ids[0]),e=>e.status===403);
+    await assert.rejects(f.generation.attemptHistory(actors.student,ids[0]),e=>e.status===403);
+    assert.deepEqual(await f.generation.attemptHistory(actors.outsider,ids[0]),await f.history(ids[0]));
+    await assert.rejects(f.generation.attemptHistory({...actors.outsider,revoked:true},ids[0]),e=>e.status===403);
     assert.equal((await f.generation.attemptHistory(actors.dev,ids[0])).length,1);await assert.rejects(f.history(crypto.randomUUID()),e=>e.status===404);
-    f.sql.exec("UPDATE catalog_documents SET value_json='{\"teacherIds\":[]}' WHERE namespace='accounts-group-teachers' AND key='1'");await assert.rejects(f.history(ids[0]),e=>e.status===403);
+    f.sql.exec('UPDATE lessons SET deleted_at=1 WHERE id=1');await assert.rejects(f.history(ids[0]),e=>e.status===403);
   }finally{f.close();}
 });
 test('rejected Workers AI answers preserve valid usage; network and quota errors keep it unknown',async()=>{

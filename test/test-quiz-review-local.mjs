@@ -15,8 +15,8 @@ test('local backend UI saves to SQLite and enforces review workflow without prod
     };
     assert.equal((await call('/local/session',{role:'dev'},'teacher','https://evil.invalid')).status,403);
     assert.equal((await call('/local/queue',null,'student')).status,403);
-    assert.equal((await call('/local/queue',null,'outsider')).data.quizzes.length,1);
-    assert.equal((await call('/local/queue',null,'teacher')).data.quizzes.length,3);
+    assert.equal((await call('/local/queue',null,'outsider')).data.quizzes.length,4);
+    assert.equal((await call('/local/queue',null,'teacher')).data.quizzes.length,4);
     assert.equal((await call('/local/queue',null,'dev')).data.quizzes.length,4);
     assert.equal((await call('/local/session',{role:'constructor'})).status,400);
     assert.equal((await call('/local/session',[])).status,400);

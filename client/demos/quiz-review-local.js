@@ -8,6 +8,7 @@ let boot,view='word',contextId='',quizzes=[],shared=[],jobs=[],editing=null,deci
 let editorType='Gap';
 const editorDrafts=new Map();
 const expansion=new Map(),pending=new Map();
+const attemptCache=new Map();let sessionEpoch=0;
 const teacher=()=>boot?.actor.role!=='USER';
 const selected=()=>boot?.contexts.find(c=>c.id===contextId)||boot?.contexts[0];
 function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(error&&$('#editor').open){$('#edit-error').hidden=false;$('#edit-error').textContent=text;}if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
@@ -29,6 +30,7 @@ async function run(work){
   try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
 }
 async function loadSession(){
+  sessionEpoch++;attemptCache.clear();
   boot=await api('/local/boot');
   $('#account').innerHTML=boot.roles.map(r=>'<option value="'+r.id+'" '+(r.id===boot.role?'selected':'')+'>'+esc(r.name)+' · '+esc(r.role)+'</option>').join('');
   if(!boot.contexts.some(c=>c.id===contextId))contextId=boot.contexts[0]?.id||'';
@@ -41,11 +43,54 @@ async function refresh(){
   render();
 }
 const jobLabels={queued:'Queued',running:'Preparing',retry:'Waiting to retry',review:'Needs teacher attention',submitted:'Sent for review',context:'Needs a word set',skipped:'Already approved'};
-const jobIssues={invalid_content:'The generated content failed structural validation.',temporary_failure:'Temporary test-generator failure.',timeout:'The generator timed out.',audio_unavailable:'Audio preparation is not connected.',access_changed:'The requesting account no longer has access.',generator_failed:'The test generator could not complete this type.',attempt_limit:'The automatic attempt limit was reached.',write_conflict:'The saved state requires checking before another attempt.'};
+const jobIssues={invalid_content:'The generated content failed structural validation.',temporary_failure:'Temporary test-generator failure.',timeout:'The generator timed out.',audio_unavailable:'Audio preparation is not connected.',access_changed:'The requesting account no longer has access.',generator_failed:'The test generator could not complete this type.',attempt_limit:'The automatic attempt limit was reached.',write_conflict:'The saved state requires checking before another attempt.',quality_check_failed:'The candidate failed quality checks.',invalid_model_response:'The model response could not be validated.',quota_exceeded:'The quota or access check stopped preparation.',provider_not_configured:'The generator is not configured.',cancelled:'Preparation was cancelled.',worker_interrupted:'The worker stopped before completing this attempt.'};
+const attemptStates={running:['Preparing','pending'],accepted:['Candidate prepared','ready'],rejected:['Rejected','failed'],error:['Failed','failed'],interrupted:['Interrupted','review']};
+const attemptDate=value=>Number.isFinite(value)?new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Yerevan',dateStyle:'medium',timeStyle:'short'}).format(new Date(value)):'Not reported';
+const attemptTokens=(usage,key)=>Number.isSafeInteger(usage?.[key])?String(usage[key]):'Not reported';
+function attemptRows(rows){
+  if(!rows.length)return '<p class="muted small">No attempts recorded.</p>';
+  return '<ol class="attempt-list">'+rows.map(row=>{
+    const [label,color]=attemptStates[row.state]||['Unknown status','pending'],source=row.source;
+    return '<li class="attempt-entry"><div class="attempt-heading"><strong>Cycle '+esc(row.cycle+1)+' · Attempt '+esc(row.attempt)+'</strong><span class="status '+color+'">'+label+'</span></div>'+
+      '<dl class="attempt-meta"><dt>Started</dt><dd>'+esc(attemptDate(row.startedAt))+'</dd><dt>Finished</dt><dd>'+esc(row.finishedAt===null?(row.state==='running'?'In progress':'Not reported'):attemptDate(row.finishedAt))+'</dd>'+
+      '<dt>Provider</dt><dd>'+esc(source?.provider||'Not reported')+'</dd><dt>Model</dt><dd>'+esc(source?.model||'Not reported')+'</dd>'+
+      '<dt>Version</dt><dd>'+esc(source?.version||'Not reported')+'</dd><dt>Settings revision</dt><dd>'+esc(source?.configurationRevision??'Not reported')+'</dd></dl>'+
+      '<dl class="attempt-tokens">'+[['Input tokens','prompt_tokens'],['Output tokens','completion_tokens'],['Total tokens','total_tokens']].map(([title,key])=>'<div><dt>'+title+'</dt><dd>'+esc(attemptTokens(row.usage,key))+'</dd></div>').join('')+'</dl>'+
+      (row.issue?'<p class="small attempt-issue">'+esc(jobIssues[row.issue]||'Preparation needs checking.')+'</p>':'')+'</li>';
+  }).join('')+'</ol>';
+}
+function attemptPane(job){
+  const cached=attemptCache.get(job.id);
+  if(cached?.revision===job.revision){
+    if(cached.state==='ready')return attemptRows(cached.rows);
+    if(cached.state==='error')return '<p class="local-error small" role="alert">'+esc(cached.error)+'</p><button data-action="reload-attempts" data-job-id="'+job.id+'">Retry loading</button>';
+  }
+  return '<p class="muted small" role="status">Loading attempts...</p>';
+}
+function updateAttemptPane(job){
+  const node=$('[data-attempt-body="'+job.id+'"]');if(!node)return;
+  node.innerHTML=attemptPane(job);node.setAttribute('aria-busy',String(attemptCache.get(job.id)?.state==='loading'));
+}
+async function loadAttempts(id,force=false){
+  if(!teacher())return;const job=jobs.find(row=>row.id===id);if(!job)return;
+  const existing=attemptCache.get(id);
+  if(existing?.revision===job.revision&&(!force||existing.state==='loading'))return;
+  const epoch=sessionEpoch,entry={revision:job.revision,state:'loading'};attemptCache.set(id,entry);updateAttemptPane(job);
+  try{
+    const {attempts}=await api('/local/generation/'+id+'/attempts');
+    if(!Array.isArray(attempts))throw new Error('Attempt history is unavailable.');
+    if(epoch!==sessionEpoch||attemptCache.get(id)!==entry||!jobs.some(row=>row.id===id&&row.revision===entry.revision))return;
+    entry.rows=attempts;entry.state='ready';
+  }catch(error){
+    if(epoch!==sessionEpoch||attemptCache.get(id)!==entry||!jobs.some(row=>row.id===id&&row.revision===entry.revision))return;
+    entry.state='error';entry.error=error.message;
+  }
+  updateAttemptPane(job);
+}
 function generationRows(list){return list.map(job=>{
   const replacement=job.state==='review'&&job.versionId,approved=replacement&&job.quizState==='approved';
   const label=replacement?(approved?'Replacement approved':job.quizState==='submitted'?'Replacement under review':job.quizState==='returned'?'Replacement needs changes':'Manual draft created'):jobLabels[job.state];
-  return '<details class="generation-job" data-job="'+job.id+'" data-job-state="'+job.state+'" data-expand="job-'+job.id+'"><summary><strong>'+esc(job.type)+'</strong><span class="status '+(approved?'approved':['review','submitted'].includes(job.state)?'review':'pending')+'">'+label+'</span></summary><div class="detail"><p class="muted small">Attempts: '+job.attempts+' / 3 · Manual retries: '+job.cycle+' / 2</p>'+(job.issue?'<p>'+esc(jobIssues[job.issue]||'This type already has an approved template.')+'</p>':'')+(job.state==='context'?'<p class="muted">A word set and an explicit grouping rule are needed.</p>':'')+'<div class="actions">'+(job.state==='review'&&!job.versionId?'<button data-action="repair-job" data-job-id="'+job.id+'">Create corrected draft</button>':'')+(job.state==='review'&&!job.versionId&&job.cycle<2?'<button data-action="retry-job" data-job-id="'+job.id+'">Retry preparation</button>':'')+(job.versionId?'<button data-action="open-generated" data-job-id="'+job.id+'">Open linked quiz</button>':'')+'</div></div></details>';
+  return '<details class="generation-job" data-job="'+job.id+'" data-job-state="'+job.state+'" data-expand="job-'+job.id+'"><summary><strong>'+esc(job.type)+'</strong><span class="status '+(approved?'approved':['review','submitted'].includes(job.state)?'review':'pending')+'">'+label+'</span></summary><div class="detail"><p class="muted small">Attempts: '+job.attempts+' / 3 · Manual retries: '+job.cycle+' / 2</p>'+(job.issue?'<p>'+esc(jobIssues[job.issue]||'Preparation needs checking.')+'</p>':'')+(job.state==='context'?'<p class="muted">A word set and an explicit grouping rule are needed.</p>':'')+'<div class="actions">'+(job.state==='review'&&!job.versionId?'<button data-action="repair-job" data-job-id="'+job.id+'">Create corrected draft</button>':'')+(job.state==='review'&&!job.versionId&&job.cycle<2?'<button data-action="retry-job" data-job-id="'+job.id+'">Retry preparation</button>':'')+(job.versionId?'<button data-action="open-generated" data-job-id="'+job.id+'">Open linked quiz</button>':'')+'</div><details class="attempt-history" data-attempt-history="'+job.id+'" data-expand="attempts-'+job.id+'"><summary><strong>Attempt history</strong></summary><div data-attempt-body="'+job.id+'">'+attemptPane(job)+'</div></details></div></details>';
 }).join('');}
 function generationPanel(){
   const c=selected();
@@ -87,7 +132,11 @@ function render(){
   $('#content').insertAdjacentHTML('beforeend',generationPanel());
   document.querySelectorAll('[data-expand]').forEach(d=>{if(expansion.has(d.dataset.expand))d.open=expansion.get(d.dataset.expand);});$('#content').setAttribute('aria-busy','false');
 }
-document.addEventListener('toggle',e=>{if(e.target.dataset?.expand)expansion.set(e.target.dataset.expand,e.target.open);},true);
+document.addEventListener('toggle',e=>{
+  if(!e.target.isConnected)return;
+  if(e.target.dataset?.expand)expansion.set(e.target.dataset.expand,e.target.open);
+  if(e.target.open&&e.target.dataset?.attemptHistory)loadAttempts(e.target.dataset.attemptHistory);
+},true);
 function setupType(){
   if(editing?.id||editing?.repairJob)return;
   editorDrafts.set(editorType,readReviewItems(editorType,$('#edit-items')));
@@ -117,6 +166,7 @@ document.addEventListener('click',e=>{
   const nav=e.target.closest('[data-view]');if(nav){run(async()=>{view=nav.dataset.view;await refresh();});return;}
   const b=e.target.closest('[data-action]');if(!b||busy)return;
   const action=b.dataset.action,q=[...quizzes,...shared].find(row=>row.id===b.dataset.id);
+  if(action==='reload-attempts'){loadAttempts(b.dataset.jobId,true);return;}
   if(action==='repair-job'){const job=jobs.find(j=>j.id===b.dataset.jobId);if(job)openEditor(null,job);return;}
   if(action==='prepare'){run(async()=>{const c=selected();await api('/local/generation',{groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types});pollFailures=0;await refresh();message('Queued locally. Existing approved templates are not replaced.');});return;}
   if(['retry-job','open-generated'].includes(action)){

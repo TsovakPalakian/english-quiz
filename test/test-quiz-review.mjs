@@ -34,15 +34,23 @@ test('student creation is lesson-only, with real membership, visibility and sens
     f.sql.exec('DELETE FROM lesson_access; UPDATE lesson_blocks SET deleted_at=1 WHERE id=1');await rejects(()=>f.draft(),403);
   }finally{f.close();}
 });
-test('reviewers need group assignment; students cannot review or read other proposals',async()=>{
+test('all reviewers share the queue across groups; students cannot review or read other proposals',async()=>{
   const f=await fixture();try{
     const q=await f.draft();await f.service.submit(a.student,q.id,body({expectedRevision:1}));
-    assert.equal((await f.service.queue(a.teacher)).length,1);assert.equal((await f.service.queue(a.outsider)).length,0);
+    const {senseId}=await f.service.createSense(a.dev,body({cardId:2,meaning:{partOfSpeech:'noun',translation:'банк',definition:'An institution that keeps money.'}}));
+    const other=await f.service.createDraft(a.other,body({groupId:2,lessonId:2,cardId:2,senseId,type:'Gap',content:{explanation:'A bank keeps money.',items:[{shown:'The ____ keeps money.',answer:'bank'}]}}));
+    await f.service.submit(a.other,other.id,body({expectedRevision:1}));
+    f.sql.exec("DELETE FROM catalog_documents WHERE namespace='accounts-group-teachers'");
+    assert.equal((await f.service.queue(a.teacher)).length,2);
+    assert.deepEqual(await f.service.queue(a.outsider),await f.service.queue(a.teacher));
+    assert.deepEqual(await f.service.queue(a.dev),await f.service.queue(a.teacher));
+    assert.equal((await f.service.get(a.outsider,q.id)).id,q.id);
     await rejects(()=>f.service.get(a.other,q.id),403);
     await rejects(()=>f.service.queue(a.student),403);
     await rejects(()=>f.service.approve(a.student,q.id,body({expectedRevision:2,checks})),403);
-    await rejects(()=>f.service.approve(a.outsider,q.id,body({expectedRevision:2,checks})),403);
-    await rejects(()=>f.service.requestChanges(a.outsider,q.id,body({expectedRevision:2,comment:'No.'})),403);
+    await f.service.requestChanges(a.outsider,q.id,body({expectedRevision:2,comment:'Please clarify.'}));
+    await f.service.submit(a.student,q.id,body({expectedRevision:3}));
+    await f.service.approve(a.outsider,q.id,body({expectedRevision:4,checks}));
     await rejects(()=>f.service.get({...a.student,active:false},q.id),401);
   }finally{f.close();}
 });
@@ -54,6 +62,15 @@ test('approval is opt-in, requires every review check and forbids self approval'
     await rejects(()=>disabled.approve(a.second,q.id,body({expectedRevision:2,checks})),503);
     await rejects(()=>f.service.approve(a.second,q.id,body({expectedRevision:2,checks:{...checks,level:false}})),400);
     await f.service.approve(a.second,q.id,body({expectedRevision:2,checks}));
+  }finally{f.close();}
+});
+test('a developer shares teacher review rights but cannot approve their own version',async()=>{
+  const f=await fixture();try{
+    const q=await f.draft(a.dev);await f.service.submit(a.dev,q.id,body({expectedRevision:1}));
+    await rejects(()=>f.service.approve(a.dev,q.id,body({expectedRevision:2,checks})),403);
+    await f.service.approve(a.outsider,q.id,body({expectedRevision:2,checks}));
+    const student=await f.draft();await f.service.submit(a.student,student.id,body({expectedRevision:1}));
+    await f.service.approve(a.dev,student.id,body({expectedRevision:2,checks}));
   }finally{f.close();}
 });
 test('approved content and audit history cannot be updated or deleted, even using direct SQL',async()=>{
@@ -114,10 +131,10 @@ test('racing edits yield one success and one conflict without partial history or
     assert.equal((await f.service.get(a.student,q.id)).history.length,2);
   }finally{f.close();}
 });
-test('permission revocation during a mutation is rechecked inside its transaction',async()=>{
+test('deleted lesson context during a mutation is rechecked inside its transaction',async()=>{
   const f=await fixture();try{
     const q=await f.draft();await f.service.submit(a.student,q.id,body({expectedRevision:1}));
-    const atomic=f.db.atomic.bind(f.db);f.db.atomic=async commands=>{f.sql.exec("UPDATE catalog_documents SET value_json='{\"teacherIds\":[]}' WHERE key='1' AND namespace='accounts-group-teachers'");return atomic(commands);};
+    const atomic=f.db.atomic.bind(f.db);f.db.atomic=async commands=>{f.sql.exec('UPDATE lessons SET deleted_at=1 WHERE id=1');return atomic(commands);};
     await rejects(()=>f.service.approve(a.teacher,q.id,body({expectedRevision:2,checks})),409);
     assert.equal(f.sql.prepare('SELECT state FROM qr_versions WHERE id=?').get(q.id).state,'submitted');
     assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_events WHERE version_id=?').get(q.id).n,2);

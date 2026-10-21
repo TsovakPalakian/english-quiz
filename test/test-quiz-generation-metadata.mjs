@@ -81,7 +81,7 @@ test('metadata stays immutable after approval, remains private, and is not inher
   const f=await fixture();try{
     const q=await f.service.createGeneratedDraft(actors.dev,actors.teacher,input(f,{generation:metadata()}));
     assert.throws(()=>f.sql.prepare('UPDATE qr_versions SET generation_json=NULL WHERE id=?').run(q.id),/immutable/);
-    await assert.rejects(f.service.get(actors.outsider,q.id),error=>error.status===403);await assert.rejects(f.service.get(actors.student,q.id),error=>error.status===403);
+    assert.deepEqual((await f.service.get(actors.outsider,q.id)).generation,metadata());await assert.rejects(f.service.get(actors.student,q.id),error=>error.status===403);
     await f.service.approve(actors.teacher,q.id,body({expectedRevision:1,checks:{meaning:true,answers:true,level:true}}));
     const [shared]=await f.service.sharedForCard(actors.student,1);assert.equal(Object.hasOwn(shared,'generation'),false);assert.equal(JSON.stringify(shared).includes('prompt_tokens'),false);
     const revision=await f.service.proposeRevision(actors.teacher,q.id,body({expectedRevision:2}));

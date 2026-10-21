@@ -12,8 +12,7 @@ const name=actor=>reviewText(actor.name||actor.login||actor.id,200);
 const uuid=()=>crypto.randomUUID();
 const key=value=>{if(typeof value!=='string'||!/^[a-f0-9-]{36}$/.test(value))fail(400,'Invalid review identity.');return value;};
 const revision=value=>{if(!Number.isSafeInteger(value)||value<1)fail(400,'A current expectedRevision is required.');return value;};
-const groupAccess=`(?='DEVELOPER' OR EXISTS(SELECT 1 FROM catalog_documents d,json_each(d.value_json,'$.teacherIds') t
-  WHERE d.namespace='accounts-group-teachers' AND d.key=CAST(g.id AS TEXT) AND t.value=?))`;
+const reviewAccess=`? IN ('ADMIN','DEVELOPER')`;
 function context(actor,value){
   [value.groupId,value.lessonId,value.cardId].forEach(recordId);key(value.senseId);
   let sql=`SELECT c.id AS card_id,g.title AS group_name,l.title AS lesson_name FROM class_groups g
@@ -25,7 +24,7 @@ function context(actor,value){
   if(actor.role==='USER'){
     sql+=` AND g.hidden_from_students=0 AND EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=g.id AND gs.account_id=?) AND ${lessonAccess} AND ${cardAccess}`;
     args.push(actor.id,0,actor.id,actor.id,...accessArgs(actor));
-  }else{sql+=' AND '+groupAccess;args.push(actor.role,actor.id);}
+  }else{sql+=' AND '+reviewAccess;args.push(actor.role);}
   return {sql,args};
 }
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
@@ -123,8 +122,8 @@ export class QuizReviewService extends StudyService{
   async queue(actor,{limit=100,offset=0}={}){
     teacher(actor);if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(offset)||offset<0)fail(400,'Invalid page.');
     const list=await this.db.read(`SELECT q.* FROM qr_versions q JOIN class_groups g ON g.id=q.group_id JOIN lessons l ON l.id=q.lesson_id
-      WHERE g.deleted_at IS NULL AND l.deleted_at IS NULL AND q.state IN ('submitted','returned') AND ${groupAccess}
-      ORDER BY q.group_id,q.lesson_id,q.sense_id,q.type,q.created_date,q.id LIMIT ? OFFSET ?`,[actor.role,actor.id,limit,offset]);
+      WHERE g.deleted_at IS NULL AND l.deleted_at IS NULL AND q.state IN ('submitted','returned') AND ${reviewAccess}
+      ORDER BY q.group_id,q.lesson_id,q.sense_id,q.type,q.created_date,q.id LIMIT ? OFFSET ?`,[actor.role,limit,offset]);
     return list.map(dto);
   }
   async sharedForCard(actor,cardId){

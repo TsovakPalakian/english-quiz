@@ -41,7 +41,7 @@ test('manual retries have a hard cycle cap and use current revisions',async()=>{
   const f=await setup(async()=>{throw new GenerationIssue('audio_unavailable',false);});try{
     await f.enqueue(['Listen']);for(let i=0;i<3;i++){
       await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);
-      if(i<2){await assert.rejects(f.generation.retry(actors.teacher,job.id,body({expectedRevision:1})),e=>e.status===409);await f.generation.retry(actors.teacher,job.id,body({expectedRevision:job.revision}));}
+      if(i<2){await assert.rejects(f.generation.retry(actors.outsider,job.id,body({expectedRevision:1})),e=>e.status===409);await f.generation.retry(actors.outsider,job.id,body({expectedRevision:job.revision}));}
       else await assert.rejects(f.generation.retry(actors.teacher,job.id,body({expectedRevision:job.revision})),e=>e.status===409);
     }
   }finally{f.close();}
@@ -58,15 +58,14 @@ test('parallel workers claim one task once and an expired lease is recoverable',
 test('timeout aborts the generator and revocation prevents subsequent generation',async()=>{
   let aborted=false;const f=await setup(({signal})=>new Promise(()=>{signal.addEventListener('abort',()=>aborted=true);}));try{
     await f.enqueue();await f.generation.runOne();assert.equal(aborted,true);assert.equal((await f.generation.list(actors.teacher))[0].issue,'timeout');
-    f.sql.exec("UPDATE catalog_documents SET value_json='{\"teacherIds\":[]}' WHERE namespace='accounts-group-teachers' AND key='1'");f.advance(100);await f.generation.runOne();
-    assert.deepEqual(await f.generation.list(actors.teacher),[]);
+    f.generation.resolveActor=async()=>({...actors.teacher,active:false});f.advance(100);await f.generation.runOne();
     assert.equal((await f.generation.list(actors.dev))[0].issue,'access_changed');assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,0);
   }finally{f.close();}
 });
-test('students and unrelated teachers cannot enqueue or inspect jobs; approved types are skipped',async()=>{
+test('all teachers can enqueue and inspect jobs across groups; students cannot; approved types are skipped',async()=>{
   const f=await setup();try{
-    for(const actor of [actors.student,actors.outsider])await assert.rejects(f.enqueue(['Gap'],actor),e=>e.status===403);
-    const {ids}=await f.enqueue();const result=await f.service.createDraft(actors.student,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,type:'Gap',content}));
+    await assert.rejects(f.enqueue(['Gap'],actors.student),e=>e.status===403);
+    const {ids}=await f.enqueue(['Gap'],actors.outsider);assert.deepEqual(await f.generation.list(actors.outsider),await f.generation.list(actors.dev));const result=await f.service.createDraft(actors.student,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,type:'Gap',content}));
     await f.service.submit(actors.student,result.id,body({expectedRevision:1}));await f.service.approve(actors.teacher,result.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
     await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);assert.equal(job.id,ids[0]);assert.equal(job.state,'skipped');assert.equal(job.attempts,0);
     await assert.rejects(f.generation.list(actors.student),e=>e.status===403);
@@ -102,14 +101,16 @@ test('manual replacement is linked atomically, preserves the issue, and needs an
     const record=await f.service.get(actors.teacher,q.id);assert.equal(record.author.kind,'human');assert.equal(record.history[0].details.generationJobId,job.id);
   }finally{f.close();}
 });
-test('replacement enforces group rights, validation and stale revision rollback',async()=>{
+test('replacement enforces staff rights, validation and stale revision rollback across groups',async()=>{
   const f=await setup(async()=>{throw new GenerationIssue('temporary_failure',false);});try{
     await f.enqueue();await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);
-    for(const actor of [actors.student,actors.outsider])await assert.rejects(f.generation.repair(actor,job.id,body({expectedRevision:job.revision,content})),e=>e.status===403);
+    await assert.rejects(f.generation.repair(actors.student,job.id,body({expectedRevision:job.revision,content})),e=>e.status===403);
     await assert.rejects(f.generation.repair(actors.teacher,job.id,body({expectedRevision:job.revision,content:{explanation:'Bad',items:[]}})),e=>e.status===400);
     await assert.rejects(f.generation.repair(actors.teacher,job.id,body({expectedRevision:1,content})),e=>e.status===409);
     assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,0);
     assert.equal(f.sql.prepare('SELECT version_id FROM qr_generation_jobs').get().version_id,null);
+    await f.generation.repair(actors.outsider,job.id,body({expectedRevision:job.revision,content}));
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,1);
   }finally{f.close();}
 });
 test('racing replacement saves create exactly one linked draft',async()=>{
