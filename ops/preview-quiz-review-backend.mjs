@@ -16,6 +16,8 @@ import {KitSessions} from '../src/kit-sessions.mjs';
 import {QuizMedia,memoryQuizMediaStore} from '../src/quiz-media.mjs';
 import {QuizFeedback} from '../src/quiz-feedback.mjs';
 import {QuizLanguageMaterials} from '../src/quiz-language-materials.mjs';
+import {SpeechPractice} from '../src/speech-practice.mjs';
+import {LOCAL_SPEECH_RUBRIC,localSpeechAdapter} from './local-speech-provider.mjs';
 import {inspectQuizMedia,localSpeech} from './quiz-media-native.mjs';
 import {boundedMediaBytes} from '../src/learning-r2-media.mjs';
 import {Readable} from 'node:stream';
@@ -25,6 +27,7 @@ files['/independent-review.js']=['client/demos/independent-review-ui.js','text/j
 files['/preparation-pipeline.js']=['client/demos/preparation-pipeline-ui.js','text/javascript'];
 files['/learning-kit.js']=['client/demos/learning-kit-ui.js','text/javascript'];
 files['/quiz-materials.js']=['client/demos/quiz-materials-ui.js','text/javascript'];
+files['/speech-practice.js']=['client/demos/speech-practice-ui.js','text/javascript'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
   const length=Number(req.headers['content-length']);if(Number.isFinite(length)&&length>60000)fail(413,'Request is too large.');
@@ -45,6 +48,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/008_preparation_pipeline.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/009_learning_kits.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/010_quiz_media.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/012_speech_practice.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
@@ -65,7 +69,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   },{
     id:'local-dictionary-fixture',provider:'local-fixture',model:'dictionary-fixture',version:'v1',billing:'self-hosted',capabilities:[{task:'dictionary',locales:['en-US'],modes:['text']}],
     invoke:async input=>({entries:[{word:input.word,partOfSpeech:input.meaning.part_of_speech,definition:input.meaning.definition,translation:input.meaning.translation,ipa:null,forms:[],examples:[],source:{title:'Synthetic dictionary fixture; not an external dictionary',url:'https://example.org/local-fixture',license:'Local test data only'}}]}),validate:value=>value,
-  }]});
+  },localSpeechAdapter()]});
   await providers.initialize(actors.dev);
   // Explicit opt-in for old deterministic test scenarios, not a production default.
   if(generationEnabled)await providers.configure(actors.dev,body({expectedRevision:1,selections:{generation:{adapterId:'local-fixture-a',locale:'en-US',mode:'text'}},reason:'Enable the synthetic generator for this test fixture.'}));
@@ -92,6 +96,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   const media=new QuizMedia(kits,{store:memoryQuizMediaStore(),inspect:inspectQuizMedia});
   service.mediaQuizzes=true;service.contentPolicy=media;
   const feedback=new QuizFeedback(kits,media);
+  const speech=new SpeechPractice(kits,media,{enabled:true,providers,worker:actors.dev,rubrics:[LOCAL_SPEECH_RUBRIC],budgets:{audio:{day:600,month:1800},language:{day:20,month:100}},resolveActor:async id=>Object.values(actors).find(actor=>actor.id===id)});
   const materials=new QuizLanguageMaterials(kits,media,{providers,worker:actors.dev,voices:[{id:'Samantha',locale:'en-US'},{id:'Daniel',locale:'en-GB'}],budgets:{tts:{day:2000,month:10000},dictionary:{day:20,month:100}}});
   const independent=new StoredQuizIndependentReview(service,{reviewer:async({signal,...input})=>{
     try{
@@ -117,6 +122,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     {id:'weather',groupId:1,group:'A1 Monday',lessonId:1,lesson:'Weather',cardId:1,senseId:f.senseId,word:'drizzle',translation:'изморось',meaning:'Light rain in very small drops.',personal:false},
     {id:'money',groupId:2,group:'A2 Friday',lessonId:2,lesson:'Money',cardId:2,senseId:bank.senseId,word:'bank',translation:'банк',meaning:'An institution that keeps and lends money.',personal:false},
   ];
+  for(const mode of ['pronunciation','free','retelling','dialogue'])await speech.createTask(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,mode,locale:'en-US',prompt:mode==='pronunciation'?'Read the word drizzle aloud.':mode==='retelling'?'Describe the weather lesson in your own words.':mode==='dialogue'?'You are arranging an outdoor meeting. Explain the weather and suggest a plan.':'Talk about today\'s weather.',reference:mode==='pronunciation'?'drizzle':null,referenceMediaId:null,rubricId:LOCAL_SPEECH_RUBRIC.id,evaluation:'pronunciation',languageReview:false,level:'A1'}));
   const flip=await f.draft(actors.student,{type:'Flip',content:{explanation:'Drizzle means light rain.',items:[{front:'drizzle',back:'изморось'}]}});
   await service.submit(actors.student,flip.id,body({expectedRevision:1}));await service.approve(actors.teacher,flip.id,body({expectedRevision:2,checks}));
   const gap=await f.draft();await service.submit(actors.student,gap.id,body({expectedRevision:1}));
@@ -140,7 +146,8 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
       const role=/\bqr-preview=([a-z]+)(?:;|$)/.exec(req.headers.cookie||'')?.[1]||'teacher',actor=Object.hasOwn(actors,role)?actors[role]:null;
       if(!actor)fail(401,'Choose a test account.');
       const sendMedia=async response=>{res.writeHead(response.status,Object.fromEntries(response.headers));res.end(response.body?Buffer.from(await response.arrayBuffer()):undefined);};
-      const mediaRead=/^\/local\/media\/([a-f0-9-]{36})$/.exec(path),sessionMedia=/^\/local\/kit-sessions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(path);
+      const mediaRead=/^\/local\/media\/([a-f0-9-]{36})$/.exec(path),sessionMedia=/^\/local\/kit-sessions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(path),speechAudio=/^\/local\/speech\/(attempts|tasks)\/([a-f0-9-]{36})\/audio$/.exec(path);
+      if(['GET','HEAD'].includes(req.method)&&speechAudio){const request=new Request('http://'+host+req.url,{method:req.method,headers:req.headers});await sendMedia(await speech[speechAudio[1]==='tasks'?'reference':'recording'](actor,speechAudio[2],request));return;}
       if(['GET','HEAD'].includes(req.method)&&(mediaRead||sessionMedia)){
         const request=new Request('http://'+host+req.url,{method:req.method,headers:req.headers});
         await sendMedia(mediaRead?await media.response(actor,mediaRead[1],request):await sessions.media(actor,sessionMedia[1],Number(sessionMedia[2]),request));return;
@@ -151,6 +158,20 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/speech'){
+          const params=new URL(req.url,'http://'+host).searchParams;if([...params.keys()].some(key=>!['groupId','lessonId','cardId','senseId'].includes(key))||[...params.keys()].some(key=>params.getAll(key).length!==1))fail(400,'Invalid speech context.');
+          const context={groupId:Number(params.get('groupId')),lessonId:Number(params.get('lessonId')),cardId:Number(params.get('cardId')),senseId:params.get('senseId')};
+          send(200,{tasks:await speech.listTasks(actor,context),rubrics:speech.rubrics.map(({id,version})=>({id,version})),synthetic:true});return;
+        }
+        const speechGet=/^\/local\/speech\/(attempts|tasks)\/([a-f0-9-]{36})(?:\/(history|progress|recipients|shared))?$/.exec(path);
+        if(speechGet){
+          if(speechGet[1]==='attempts'&&!speechGet[3]){send(200,await speech.get(actor,speechGet[2]));return;}
+          if(speechGet[1]==='tasks'&&['history','progress','recipients','shared'].includes(speechGet[3])){
+            const params=new URL(req.url,'http://'+host).searchParams;if([...params.keys()].some(key=>key!=='before')||params.getAll('before').length>1)fail(400,'Invalid speech query.');
+            let before=null;if(params.has('before'))try{before=JSON.parse(params.get('before'));}catch{fail(400,'Invalid speech cursor.');}
+            send(200,await speech[speechGet[3]](actor,speechGet[2],{before}));return;
+          }
+        }
         if(path==='/local/media'){send(200,{media:await media.list(actor,new URL(req.url,'http://'+host).searchParams.get('purpose'))});return;}
         if(path==='/local/feedback'){send(200,{reports:await feedback.mine(actor)});return;}
         if(path==='/local/materials'){send(200,await materials.status(actor));return;}
@@ -208,7 +229,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         if(path==='/local/boot'){
           const available=[];for(const c of contexts){try{await service.checkContext(actor,c);available.push(c);}catch(error){if(error.status!==403)throw error;}}
           if(actor.role==='USER')available.push({...contexts[0],id:'personal',personal:true,groupId:null,lessonId:null,group:'Personal cards',lesson:'',cardId:actor.id==='u1'?3:4});
-          send(200,{role,actor,roles:Object.entries(actors).map(([id,a])=>({id,name:a.name,role:a.role})),contexts:available,mediaQuizzes:true});return;
+          send(200,{role,actor,roles:Object.entries(actors).map(([id,a])=>({id,name:a.name,role:a.role})),contexts:available,mediaQuizzes:true,speechPractice:true});return;
         }
         if(path==='/local/mine'){send(200,{quizzes:await service.mine(actor)});return;}
         if(path==='/local/queue'){send(200,{quizzes:await service.queue(actor)});return;}
@@ -225,6 +246,13 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         const shared=/^\/local\/shared\/(\d+)$/.exec(path);if(shared){send(200,{quizzes:await service.sharedForCard(actor,Number(shared[1]))});return;}
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
+        const speechUpload=/^\/local\/speech\/tasks\/([a-f0-9-]{36})\/upload$/.exec(path);
+        if(speechUpload){
+          let metadata;try{const header=req.headers['x-upload-metadata'];if(typeof header!=='string'||header.length>1000)throw Error();metadata=JSON.parse(decodeURIComponent(header));}catch{fail(400,'Invalid speech upload metadata.');}
+          if(metadata.mime!==req.headers['content-type'])fail(415,'Upload format mismatch.');
+          const request=new Request('http://'+host+req.url,{method:'POST',headers:req.headers,body:Readable.toWeb(req),duplex:'half'});
+          send(201,await speech.upload(actor,speechUpload[1],metadata,await boundedMediaBytes(request)));return;
+        }
         if(path==='/local/media'){
           let metadata;try{const header=req.headers['x-upload-metadata'];if(typeof header!=='string'||header.length>4000)throw Error();metadata=JSON.parse(decodeURIComponent(header));}catch{fail(400,'Invalid upload metadata.');}
           if(metadata.mime!==req.headers['content-type'])fail(415,'Upload format mismatch.');
@@ -232,6 +260,9 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
           send(201,await media.upload(actor,metadata,await boundedMediaBytes(request)));return;
         }
         const data=await jsonBody(req);
+        if(path==='/local/speech/tasks'){send(201,await speech.createTask(actor,data));return;}
+        const speechAction=/^\/local\/speech\/(tasks|attempts)\/([a-f0-9-]{36})\/(analyze|correct|share|revoke|cancel|remove)$/.exec(path);
+        if(speechAction){if((speechAction[1]==='tasks')!==(speechAction[3]==='analyze'))fail(404,'Unknown speech action.');send(200,await speech[speechAction[3]](actor,speechAction[2],data,...(speechAction[3]==='analyze'?[{background:true}]:[])));return;}
         if(path==='/local/feedback'){send(201,await feedback.create(actor,data));return;}
         const prepareMaterial=/^\/local\/materials\/(tts|dictionary)$/.exec(path);if(prepareMaterial){send(200,await materials.create(actor,prepareMaterial[1],data));return;}
         if(mediaRead){send(200,await media.remove(actor,mediaRead[1],data));return;}
@@ -283,7 +314,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){f.close();throw error;}
   let processing=null,closing=false;
   const timer=setInterval(()=>{if(processing||closing)return;processing=(async()=>{await generation.runOne();await pipeline.runOne();})().catch(()=>console.error('Local preparation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
-  server.once('close',()=>{closing=true;clearInterval(timer);if(processing)processing.finally(()=>f.close());else f.close();});
+  server.once('close',()=>{closing=true;clearInterval(timer);Promise.allSettled([processing,speech.close()]).finally(()=>f.close());});
   return {server,url:'http://127.0.0.1:'+server.address().port};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){

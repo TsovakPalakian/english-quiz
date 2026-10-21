@@ -1,6 +1,6 @@
 -- Isolated draft. No production schema changes.
 CREATE TABLE qr_media (
- id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES account_refs(id),purpose TEXT NOT NULL CHECK(purpose IN ('quiz','feedback')),
+ id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES account_refs(id),purpose TEXT NOT NULL CHECK(purpose IN ('quiz','feedback','speech')),
  digest TEXT NOT NULL,mime TEXT NOT NULL,bytes INTEGER NOT NULL,name TEXT NOT NULL,
  descriptor_json TEXT NOT NULL CHECK(json_valid(descriptor_json)),source_json TEXT NOT NULL CHECK(json_valid(source_json)),
  created_at INTEGER NOT NULL,deleted_at INTEGER

@@ -5,6 +5,7 @@ import {createIndependentReviewUI} from './independent-review.js';
 import {createPreparationPipelineUI} from './preparation-pipeline.js';
 import {createLearningKitUI} from './learning-kit.js';
 import {createQuizMaterialsUI} from './quiz-materials.js';
+import {createSpeechPracticeUI} from './speech-practice.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
@@ -27,6 +28,7 @@ const kitUI=createLearningKitUI({api,run,selected,isTeacher:teacher,isDeveloper:
   onOpenContext:async row=>{let c=boot.contexts.find(c=>c.cardId===row.cardId&&c.groupId===row.groupId&&c.lessonId===row.lessonId);if(!c){c={id:'kit-'+row.groupId+'-'+row.lessonId+'-'+row.cardId,groupId:row.groupId,group:row.groupName,lessonId:row.lessonId,lesson:row.lessonName,cardId:row.cardId,word:row.word,personal:false};boot.contexts.push(c);}contextId=c.id;c.senseId=row.senseId;view='word';await refresh();},
   onOpenVersion:openKitVersion,onRevise:revise,preview:reviewItemPreview});
 const materialsUI=createQuizMaterialsUI({api,run,sessionKey:()=>sessionEpoch,context:selected,isTeacher:teacher,getQuizzes:()=>[...shared,...quizzes],refresh,notify:message});
+const speechUI=createSpeechPracticeUI({api,run,context:selected,isTeacher:teacher,sessionKey:()=>sessionEpoch,renderPage:render,notify:message});
 async function revise(id){const current=(await api('/local/quizzes/'+id)).quiz;const result=await api('/local/quizzes/'+id+'/revise',{expectedRevision:current.revision});view='mine';await refresh();openEditor(quizzes.find(row=>row.id===result.id));}
 async function openKitVersion(id){
   const q=shared.find(row=>row.id===id)||(await api('/local/quizzes/'+id)).quiz;
@@ -59,6 +61,7 @@ async function run(work){
 async function loadSession(){
   sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();pipelineUI.reset();kitUI.reset();Object.keys(queueFilters).forEach(key=>queueFilters[key]='');
   materialsUI.reset();
+  speechUI.reset();
   $('#content').textContent='Loading test account...';
   if(view==='providers'){$('#content').innerHTML='';$('[data-view="providers"]').hidden=true;}
   if(view==='quota'){$('#content').innerHTML='';$('[data-view="quota"]').hidden=true;}
@@ -69,6 +72,8 @@ async function loadSession(){
   if(view==='queue'&&!teacher())view='mine';await refresh();
 }
 async function refresh(){
+  if(view!=='speech')speechUI.deactivate();
+  if(view==='speech'){await speechUI.load();render();return;}
   if(view==='providers'){
     if(!developer()){view='word';return refresh();}
     return providerSettingsUI.load();
@@ -239,8 +244,9 @@ function queueFilterPanel(){
   return '<div class="kit-filters"><label>Search<input type="search" data-queue-filter="search" value="'+esc(queueFilters.search)+'" placeholder="Group, lesson, word or author"></label>'+options('state','Status',Object.entries(labels))+options('group','Group',quizzes.map(q=>[q.groupId,q.author.group]))+options('lesson','Lesson',quizzes.map(q=>[q.lessonId,boot.contexts.find(c=>c.lessonId===q.lessonId)?.lesson||'Lesson '+q.lessonId]))+options('author','Author',quizzes.map(q=>[q.author.id,q.author.name]))+'</div><p id="queue-result-count" class="muted small">'+filteredQueue().length+' / '+quizzes.length+' proposals</p>';
 }
 function render(){
-  const c=selected();$('#title').textContent=view==='providers'?'Language providers':view==='quota'?'Generation quota':view==='word'?(c?.word||'Words'):view==='queue'?'Review queue':'My proposals';
+  const c=selected();$('#title').textContent=view==='speech'?'Speech practice':view==='providers'?'Language providers':view==='quota'?'Generation quota':view==='word'?(c?.word||'Words'):view==='queue'?'Review queue':'My proposals';
   document.querySelectorAll('[data-view]').forEach(b=>{b.hidden=['quota','providers'].includes(b.dataset.view)?!developer():b.dataset.view==='queue'&&!teacher();if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  if(view==='speech'){$('#content').innerHTML='<div class="context-picker"><label>Lesson word<select id="context">'+boot.contexts.map(row=>'<option value="'+row.id+'" '+(row.id===c?.id?'selected':'')+'>'+esc(row.personal?'Personal card · '+row.word:row.group+' / '+row.lesson+' / '+row.word)+'</option>').join('')+'</select></label></div>'+speechUI.render();speechUI.afterRender();$('#content').setAttribute('aria-busy','false');return;}
   if(view==='providers'){$('#content').innerHTML=providerSettingsUI.render();providerSettingsUI.afterRender();$('#content').setAttribute('aria-busy','false');return;}
   if(view==='quota'){
     $('#content').innerHTML=developer()?quotaPanel():'';

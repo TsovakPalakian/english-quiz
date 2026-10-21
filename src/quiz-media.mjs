@@ -28,35 +28,36 @@ export function memoryQuizMediaStore(){
 export class QuizMedia{
   constructor(kits,{store,inspect,now=Date.now}={}){
     if(!store||typeof inspect!=='function'||!['putImmutable','get','head','delete'].every(key=>typeof store[key]==='function'))fail(503,'Private validated media storage is required.');
-    this.kits=kits;this.review=kits.review;this.db=kits.db;this.store=store;this.inspect=inspect;this.now=now;
+    this.kits=kits;this.review=kits.review;this.db=kits.db;this.store=store;this.inspect=inspect;this.now=now;this.referenceGuards=[];
   }
   async upload(actor,body,bytes,source={kind:'manual'}){
     kitSigned(actor);exactFields(body,['mutationId','purpose','cardId','senseId','groupId','lessonId','mime','name','rights','sourceUrl']);
-    if(!['quiz','feedback'].includes(body.purpose)||!Object.hasOwn(kinds,body.mime))fail(415,'Use PNG, JPEG, WAV, MP3 or MP4.');
+    if(!['quiz','feedback','speech'].includes(body.purpose)||!Object.hasOwn(kinds,body.mime))fail(415,'Use PNG, JPEG, WAV, MP3 or MP4.');
+    if(body.purpose==='speech'&&(source.kind!=='speech-recording'||!validId(source.taskId)||![30,120].includes(source.maxSeconds)||kinds[body.mime]!=='audio'))fail(400,'Upload speech through its lesson task.');
     const name=reviewText(body.name,160);if(/[\x00-\x1f\x7f/\\]/.test(name))fail(400,'Invalid filename.');
     const rights=body.purpose==='quiz'?reviewText(body.rights,500):null;
     let sourceUrl=null;if(body.sourceUrl){try{const url=new URL(body.sourceUrl);if(url.protocol!=='https:'||url.username||url.password||body.sourceUrl.length>1000)throw Error();sourceUrl=url.href;}catch{fail(400,'Use an HTTPS source URL without credentials.');}}
     source={...source,rights,sourceUrl,rightsIndependentlyVerified:false};
     if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>QUIZ_MEDIA_LIMITS[kinds[body.mime]])fail(413,'Media exceeds its file-size limit.');
     if(chatFileMime(bytes,body.mime)!==body.mime)fail(415,'File contents do not match the declared format.');
-    await this.kits.card(actor,body.cardId);if(body.purpose==='quiz')await this.review.checkContext(actor,body);
+    await this.kits.card(actor,body.cardId);if(body.purpose!=='feedback')await this.review.checkContext(actor,body);
     const sha256=await digest(bytes),at=this.now();
     return this.review.mutation(actor,{...body,sha256},['media-upload'],async()=>{
       const descriptor=await this.inspect(bytes,body.mime);
-      if(descriptor.kind!==kinds[body.mime]||!Number.isFinite(descriptor.duration)||descriptor.duration<0||descriptor.kind!=='image'&&descriptor.duration<=0||descriptor.duration>(descriptor.kind==='video'?60:180))fail(415,'Media duration or type could not be verified.');
+      if(descriptor.kind!==kinds[body.mime]||!Number.isFinite(descriptor.duration)||descriptor.duration<0||descriptor.kind!=='image'&&descriptor.duration<=0||descriptor.duration>(body.purpose==='speech'?source.maxSeconds:descriptor.kind==='video'?60:180))fail(415,'Media duration or type could not be verified.');
       if(![descriptor.width,descriptor.height].every(value=>Number.isSafeInteger(value)&&value>=0)||descriptor.kind==='video'&&(!descriptor.width||!descriptor.height||descriptor.width>1920||descriptor.height>1920)||descriptor.kind==='image'&&(!descriptor.width||!descriptor.height||descriptor.width>8192||descriptor.height>8192||descriptor.width*descriptor.height>24000000))fail(415,'Media dimensions could not be verified.');
       const id=crypto.randomUUID(),key='quiz-media/'+id+'/'+sha256;
       const [usage]=await this.db.read('SELECT count(*) AS count,COALESCE(sum(bytes),0) AS bytes FROM qr_media WHERE owner_id=? AND created_at>?',[actor.id,at-86400000]);
       if(usage.count>=QUIZ_MEDIA_LIMITS.uploadsPerDay||usage.bytes+bytes.length>QUIZ_MEDIA_LIMITS.bytesPerDay)fail(429,'Daily media upload limit reached.');
       await this.store.putImmutable(key,bytes,{mime:body.mime});
-      return {statements:[this.kits.cardGuard(actor,body.cardId),...(body.purpose==='quiz'?[this.review.accessGuard(actor,body)]:[]),
+      return {statements:[this.kits.cardGuard(actor,body.cardId),...(body.purpose!=='feedback'?[this.review.accessGuard(actor,body)]:[]),
         s('INSERT INTO mutation_guard SELECT count(*)<? AND COALESCE(sum(bytes),0)+?<=? FROM qr_media WHERE owner_id=? AND created_at>?',[QUIZ_MEDIA_LIMITS.uploadsPerDay,bytes.length,QUIZ_MEDIA_LIMITS.bytesPerDay,actor.id,at-86400000]),
         s('INSERT INTO qr_media(id,owner_id,purpose,digest,mime,bytes,name,descriptor_json,source_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,actor.id,body.purpose,sha256,body.mime,bytes.length,name,JSON.stringify(descriptor),JSON.stringify(source),at])],
       result:{id,mime:body.mime,name,bytes:bytes.length,descriptor,source}};
     });
   }
   async row(id,{includeDeleted=false}={}){if(!validId(id))fail(404,'Media unavailable.');const [row]=await this.db.read('SELECT * FROM qr_media WHERE id=?'+(includeDeleted?'':' AND deleted_at IS NULL'),[id]);if(!row)fail(404,'Media unavailable.');return row;}
-  async list(actor,purpose){kitSigned(actor);if(!['quiz','feedback'].includes(purpose))fail(400,'Invalid media purpose.');return this.db.read('SELECT id,name,mime,bytes,descriptor_json AS descriptor,source_json AS source FROM qr_media WHERE owner_id=? AND purpose=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100',[actor.id,purpose]).then(rows=>rows.map(row=>({...row,descriptor:JSON.parse(row.descriptor),source:JSON.parse(row.source)})));}
+  async list(actor,purpose){kitSigned(actor);if(!['quiz','feedback','speech'].includes(purpose))fail(400,'Invalid media purpose.');return this.db.read('SELECT id,name,mime,bytes,descriptor_json AS descriptor,source_json AS source FROM qr_media WHERE owner_id=? AND purpose=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100',[actor.id,purpose]).then(rows=>rows.map(row=>({...row,descriptor:JSON.parse(row.descriptor),source:JSON.parse(row.source)})));}
   async response(actor,id,request,{session=null,itemIndex=null}={}){
     kitSigned(actor);const row=await this.row(id);
     if(session){
@@ -72,7 +73,7 @@ export class QuizMedia{
   }
   async remove(actor,id,body){
     kitSigned(actor);exactFields(body,['mutationId']);const row=await this.row(id,{includeDeleted:true});if(row.owner_id!==actor.id)fail(403,'Only the uploader may remove unused media.');
-    const result=await this.review.mutation(actor,body,['media-delete',id],async()=>({statements:[s('INSERT INTO mutation_guard SELECT NOT EXISTS('+refs+')',[id,id,id]),s('UPDATE qr_media SET deleted_at=? WHERE id=? AND owner_id=? AND deleted_at IS NULL',[this.now(),id,actor.id]),this.review.guard()],result:{id,deleted:true}}));
+    const result=await this.review.mutation(actor,body,['media-delete',id],async()=>({statements:[s('INSERT INTO mutation_guard SELECT NOT EXISTS('+refs+')',[id,id,id]),...this.referenceGuards.flatMap(guard=>guard(id)),s('UPDATE qr_media SET deleted_at=? WHERE id=? AND owner_id=? AND deleted_at IS NULL',[this.now(),id,actor.id]),this.review.guard()],result:{id,deleted:true}}));
     await this.store.delete('quiz-media/'+id+'/'+row.digest);return result;
   }
   async available(type,content){
