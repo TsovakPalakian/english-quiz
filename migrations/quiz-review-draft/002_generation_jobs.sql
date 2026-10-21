@@ -15,6 +15,7 @@ CREATE TABLE qr_generation_jobs (
   lease_token TEXT,
   lease_until INTEGER NOT NULL DEFAULT 0,
   candidate_json TEXT CHECK(candidate_json IS NULL OR json_valid(candidate_json)),
+  candidate_generation_json TEXT CHECK(candidate_generation_json IS NULL OR (candidate_json IS NOT NULL AND json_valid(candidate_generation_json) AND json_type(candidate_generation_json)='object')),
   version_id TEXT REFERENCES qr_versions(id),
   issue TEXT NOT NULL DEFAULT '',
   UNIQUE(group_id,lesson_id,card_id,sense_id,type)

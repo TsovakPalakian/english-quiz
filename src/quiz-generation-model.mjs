@@ -1,6 +1,7 @@
 // Provider-neutral boundary. Only the explicitly injected transport may call a model.
 import {GenerationIssue} from './quiz-generation.mjs';
 import {exactFields,reviewText,validateReviewContent} from './quiz-review-content.mjs';
+export const MODEL_QUIZ_INSTRUCTION_VERSION='quiz-contract-v1';
 
 const fields={Flip:['front','back'],Choice:['prompt','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],'True / false':['prompt','answer'],Tap:['text','answer'],Reverse:['front','back','options','answer'],Spell:['word','hint'],Letters:['word','hint'],Definition:['prompt','word','options','answer'],Hangman:['word','hint']};
 const meaningKeys=['en','translation','definition','part_of_speech'];

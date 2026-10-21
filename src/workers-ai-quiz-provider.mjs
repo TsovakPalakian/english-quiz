@@ -1,7 +1,8 @@
 // Opt-in REST transport. No implicit fetch, environment secrets or production wiring.
 import {LanguageProviderError} from './language-providers.mjs';
-import {createModelQuizGenerator} from './quiz-generation-model.mjs';
+import {createModelQuizGenerator,MODEL_QUIZ_INSTRUCTION_VERSION} from './quiz-generation-model.mjs';
 import {GenerationIssue} from './quiz-generation.mjs';
+import {validateGenerationMetadata} from './quiz-generation-metadata.mjs';
 
 export const WORKERS_QUIZ_MODEL='@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const itemFields={Flip:['front','back'],Choice:['prompt','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],'True / false':['prompt','answer'],Tap:['text','answer'],Reverse:['front','back','options','answer'],Spell:['word','hint'],Letters:['word','hint'],Definition:['prompt','word','options','answer'],Hangman:['word','hint']};
@@ -93,17 +94,25 @@ export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false
   };
 }
 
-export function createRoutedQuizGenerator({providers,timeoutMs=20000}={}){
-  if(typeof providers?.execute!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000)throw new Error('A language-provider registry and valid timeout are required.');
-  return createModelQuizGenerator({enabled:true,complete:async(request,{signal})=>{
-    try{return (await providers.execute('generation',request,{signal,timeoutMs})).data.text;}
-    catch(error){
-      if(['rate_limited','quota_or_access_denied'].includes(error.code))throw new GenerationIssue('quota_exceeded',false);
-      if(['provider_disabled','provider_not_configured','provider_access_denied','provider_request_rejected','invalid_request'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
-      if(error.code==='invalid_provider_result')throw new GenerationIssue('invalid_model_response');
-      if(error.code==='timeout')throw new GenerationIssue('timeout');
-      if(error.code==='cancelled')throw new GenerationIssue('cancelled',false);
-      throw new GenerationIssue('temporary_failure');
-    }
-  }});
+export function createRoutedQuizGenerator({providers,timeoutMs=20000,includeMetadata=false}={}){
+  if(typeof providers?.execute!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||typeof includeMetadata!=='boolean')throw new Error('A language-provider registry and valid options are required.');
+  return async input=>{
+    let generation;
+    const generate=createModelQuizGenerator({enabled:true,complete:async(request,{signal})=>{
+      try{
+        const result=await providers.execute('generation',request,{signal,timeoutMs});
+        if(includeMetadata)generation=validateGenerationMetadata({source:result.source,usage:result.data.usage,instructionVersion:MODEL_QUIZ_INSTRUCTION_VERSION,generatedAt:new Date().toISOString(),contentRevision:1});
+        return result.data.text;
+      }catch(error){
+        if(['rate_limited','quota_or_access_denied'].includes(error.code))throw new GenerationIssue('quota_exceeded',false);
+        if(['provider_disabled','provider_not_configured','provider_access_denied','provider_request_rejected','invalid_request'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
+        if(error.code==='invalid_provider_result'||error.status===400)throw new GenerationIssue('invalid_model_response');
+        if(error.code==='timeout')throw new GenerationIssue('timeout');
+        if(error.code==='cancelled')throw new GenerationIssue('cancelled',false);
+        throw new GenerationIssue('temporary_failure');
+      }
+    }});
+    const content=await generate(input);
+    return includeMetadata?{content,generation}:content;
+  };
 }

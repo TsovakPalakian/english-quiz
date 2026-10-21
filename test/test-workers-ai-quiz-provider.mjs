@@ -102,10 +102,11 @@ test('mocked Workers AI candidate reaches teacher review without changing existi
       const {type,meaning:context}=JSON.parse(JSON.parse(options.body).messages[1].content);
       return reply({type,meaning:context,content:{explanation:'From the supplied meaning.',items:[{front:context.en,back:context.translation}]}});
     }})]);
-    const generation=new QuizGenerationService({review:f.service,worker:actors.dev,resolveActor:async()=>actors.teacher,generate:createRoutedQuizGenerator({providers})});
+    const generation=new QuizGenerationService({review:f.service,worker:actors.dev,resolveActor:async()=>actors.teacher,generate:createRoutedQuizGenerator({providers,includeMetadata:true})});
     await generation.enqueue(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,types:['Flip']}));await generation.runOne();
     const [job]=await generation.list(actors.teacher);assert.equal(job.state,'submitted');
     assert.equal((await f.service.get(actors.teacher,job.versionId)).author.kind,'automatic');
+    const saved=await f.service.get(actors.teacher,job.versionId);assert.equal(saved.generation.source.model,WORKERS_QUIZ_MODEL);assert.equal(saved.generation.usage.total_tokens,50);
     assert.deepEqual(await f.service.sharedForCard(actors.teacher,1),[]);assert.equal(JSON.stringify(f.sql.prepare('SELECT * FROM quizzes').all()),before);
   }finally{f.close();}
 });

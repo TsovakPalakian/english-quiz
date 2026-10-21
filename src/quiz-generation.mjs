@@ -1,6 +1,7 @@
 // Isolated orchestration. No provider, credentials, timers or production imports.
 import {StudyError,statement as s,QUIZ_TYPES} from './learning-study.mjs';
 import {exactFields,reviewText,validateReviewContent} from './quiz-review-content.mjs';
+import {validateGenerationMetadata} from './quiz-generation-metadata.mjs';
 const contextTypes=['Match','Memory','Select all','Odd one out'];
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>{if(!actor?.id||!['ADMIN','DEVELOPER'].includes(actor.role)||actor.active===false||actor.active===0||actor.revoked)fail(403,'An active teacher is required.');};
@@ -83,6 +84,7 @@ export class QuizGenerationService{
       const [approved]=await this.db.read("SELECT id FROM qr_versions WHERE sense_id=? AND type=? AND state='approved' LIMIT 1",[job.sense_id,job.type]);
       if(approved){await this.change(job,{state:'skipped',issue:'already_approved',lease_token:null,lease_until:0});return true;}
       let candidate=job.candidate_json?JSON.parse(job.candidate_json):null;
+      let generation=job.candidate_generation_json?validateGenerationMetadata(JSON.parse(job.candidate_generation_json)):null;
       if(!candidate){
         if(job.attempts>=3)throw new GenerationIssue('attempt_limit',false);
         job=await this.change(job,{attempts:job.attempts+1});
@@ -91,11 +93,15 @@ export class QuizGenerationService{
         try{
           candidate=await Promise.race([Promise.resolve().then(()=>this.generate({type:job.type,meaning,attempt:job.attempts,signal:controller.signal})),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new GenerationIssue('timeout'));},this.timeoutMs);})]);
         }finally{clearTimeout(timer);}
+        if(candidate&&Object.hasOwn(candidate,'content')){
+          exactFields(candidate,['content','generation']);
+          generation=validateGenerationMetadata(candidate.generation);candidate=candidate.content;
+        }
         candidate=validateReviewContent(job.type,candidate);
-        job=await this.change(job,{candidate_json:JSON.stringify(candidate)});
+        job=await this.change(job,{candidate_json:JSON.stringify(candidate),candidate_generation_json:generation?JSON.stringify(generation):null});
       }
       // Stable mutation + saved candidate recover a crash after creating the version.
-      const version=await this.review.createGeneratedDraft(this.worker,actor,{mutationId:job.id,...origin(job),type:job.type,content:candidate});
+      const version=await this.review.createGeneratedDraft(this.worker,actor,{mutationId:job.id,...origin(job),type:job.type,content:candidate,...(generation?{generation}:{})});
       await this.change(job,{state:'submitted',version_id:version.id,issue:'',lease_token:null,lease_until:0});
     }catch(error){
       if(error.status===409){
@@ -106,7 +112,7 @@ export class QuizGenerationService{
       const codes=['timeout','audio_unavailable','temporary_failure','attempt_limit','write_conflict','provider_not_configured','context_required','quality_check_failed','invalid_model_response','quota_exceeded','cancelled'];
       const issue=error.status===400?'invalid_content':[401,403].includes(error.status)?'access_changed':error instanceof GenerationIssue&&codes.includes(error.code)?error.code:'generator_failed';
       const retryable=error.status===400||!(error instanceof GenerationIssue)&&![401,403].includes(error.status)||error instanceof GenerationIssue&&error.retryable;
-      try{await this.change(job,{state:retryable&&job.attempts<3?'retry':'review',issue,...(error.status===400?{candidate_json:null}:{}),next_at:this.now()+this.backoffMs*2**Math.max(0,job.attempts-1),lease_token:null,lease_until:0});}catch(leaseError){if(leaseError.status!==409)throw leaseError;}
+      try{await this.change(job,{state:retryable&&job.attempts<3?'retry':'review',issue,...(error.status===400?{candidate_json:null,candidate_generation_json:null}:{}),next_at:this.now()+this.backoffMs*2**Math.max(0,job.attempts-1),lease_token:null,lease_until:0});}catch(leaseError){if(leaseError.status!==409)throw leaseError;}
     }
     return true;
   }

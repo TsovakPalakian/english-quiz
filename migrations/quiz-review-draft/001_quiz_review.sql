@@ -28,6 +28,7 @@ CREATE TABLE qr_versions (
   state TEXT NOT NULL CHECK(state IN ('draft','submitted','returned','approved')),
   author_id TEXT NOT NULL REFERENCES account_refs(id),
   author_kind TEXT NOT NULL DEFAULT 'human' CHECK(author_kind IN ('human','automatic')),
+  generation_json TEXT CHECK(generation_json IS NULL OR (author_kind='automatic' AND json_valid(generation_json) AND json_type(generation_json)='object')),
   author_name TEXT NOT NULL,
   author_group TEXT NOT NULL,
   group_id INTEGER NOT NULL REFERENCES class_groups(id),
@@ -58,6 +59,8 @@ CREATE TABLE qr_events (
 );
 CREATE TRIGGER qr_approved_no_update BEFORE UPDATE ON qr_versions WHEN OLD.state='approved'
 BEGIN SELECT RAISE(ABORT,'Approved quiz versions are immutable'); END;
+CREATE TRIGGER qr_generation_no_update BEFORE UPDATE OF generation_json ON qr_versions WHEN NEW.generation_json IS NOT OLD.generation_json
+BEGIN SELECT RAISE(ABORT,'Generation provenance is immutable'); END;
 CREATE TRIGGER qr_approved_no_delete BEFORE DELETE ON qr_versions WHEN OLD.state='approved'
 BEGIN SELECT RAISE(ABORT,'Approved quiz versions are immutable'); END;
 CREATE TRIGGER qr_event_no_update BEFORE UPDATE ON qr_events

@@ -2,6 +2,7 @@
 // actor comes from trusted authentication, never a JSON request body.
 import {StudyService,StudyError,statement as s,recordId,lessonAccess,cardAccess,accessArgs} from './learning-study.mjs';
 import {exactFields,reviewText,validateReviewContent} from './quiz-review-content.mjs';
+import {validateGenerationMetadata} from './quiz-generation-metadata.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const signed=actor=>{if(!actor?.id||!['USER','ADMIN','DEVELOPER'].includes(actor.role)||actor.active===false||actor.active===0||actor.revoked)fail(401,'Sign in with an active account.');};
 const teacher=actor=>{signed(actor);if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Teacher access required.');};
@@ -28,7 +29,7 @@ function context(actor,value){
   return {sql,args};
 }
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
-const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
+const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),generation:q.generation_json?JSON.parse(q.generation_json):null,state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
 export class QuizReviewService extends StudyService{
   constructor(db,{allowGlobalApproval=false}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;}
   async mutation(actor,body,identity,build){
@@ -64,12 +65,13 @@ export class QuizReviewService extends StudyService{
     developer(worker);signed(requester);return this.#newDraft(worker,requester,body,'automatic');
   }
   async #newDraft(actor,requester,body,kind){
-    signed(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','type','content']);const content=validateReviewContent(body.type,body.content);
+    signed(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','type','content',...(kind==='automatic'?['generation']:[])]);const content=validateReviewContent(body.type,body.content);
+    const generation=body.generation===undefined?null:validateGenerationMetadata(body.generation);
     const state=kind==='automatic'?'submitted':'draft';
     return this.mutation(actor,body,['create',kind,requester.id],async()=>{
       const ctx=await this.checkContext(requester,body),id=uuid(),q={id,revision:1};
-      return {statements:[this.accessGuard(requester,body),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
-        VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[id,id,body.senseId,body.type,JSON.stringify(content),state,actor.id,kind,kind==='automatic'?'Automatic generator':name(actor),ctx.group_name,body.groupId,body.lessonId,body.cardId,date(),kind==='automatic'?date():null]),this.guard(),this.event(q,actor,kind==='automatic'?'generated-for-review':'created',{content,requestedBy:requester.id})],result:{id,version:1,revision:1,state}};
+      return {statements:[this.accessGuard(requester,body),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,generation_json,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
+        VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[id,id,body.senseId,body.type,JSON.stringify(content),state,actor.id,kind,generation?JSON.stringify(generation):null,kind==='automatic'?'Automatic generator':name(actor),ctx.group_name,body.groupId,body.lessonId,body.cardId,date(),kind==='automatic'?date():null]),this.guard(),this.event(q,actor,kind==='automatic'?'generated-for-review':'created',{content,requestedBy:requester.id,...(generation?{generation}:{})})],result:{id,version:1,revision:1,state}};
     });
   }
   async editDraft(actor,id,body){
