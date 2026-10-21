@@ -25,7 +25,8 @@ export class LanguageProviders{
     this.#authorize=authorize;this.#freeOnly=freeOnly;
     for(const adapter of adapters){
       if(!exact(adapter,['id','provider','model','version','capabilities','billing','invoke','validate'])||
-        !['id','provider','model','version'].every(key=>token(adapter[key]))||this.#adapters.has(adapter.id)||
+        !['id','provider','version'].every(key=>token(adapter[key]))||
+        !(token(adapter.model)||(typeof adapter.model==='string'&&adapter.model.startsWith('@')&&token(adapter.model.slice(1))))||this.#adapters.has(adapter.id)||
         !billings.has(adapter.billing)||typeof adapter.invoke!=='function'||typeof adapter.validate!=='function'||
         !Array.isArray(adapter.capabilities)||!adapter.capabilities.length)fail('invalid_adapter');
       for(const cap of adapter.capabilities){
