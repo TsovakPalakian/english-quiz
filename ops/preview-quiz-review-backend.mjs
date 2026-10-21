@@ -70,6 +70,14 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
       }
       if(req.method==='GET'){
         if(path==='/local/quota'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await quota.inspect(actor,'local-fixture'));return;}
+        if(path==='/local/quota/history'){
+          if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
+          const params=new URL(req.url,'http://'+host).searchParams;
+          if([...params.keys()].some(key=>key!=='cursor')||params.getAll('cursor').length>1)fail(400,'Invalid history query.');
+          try{send(200,await quota.history(actor,'local-fixture',{cursor:params.get('cursor')||''}));}
+          catch(error){if(error.code==='invalid_request')fail(400,'Invalid history cursor.');throw error;}
+          return;
+        }
         if(path==='/local/boot'){
           const available=[];for(const c of contexts){try{await service.checkContext(actor,c);available.push(c);}catch(error){if(error.status!==403)throw error;}}
           if(actor.role==='USER')available.push({...contexts[0],id:'personal',personal:true,groupId:null,lessonId:null,group:'Personal cards',lesson:'',cardId:actor.id==='u1'?3:4});

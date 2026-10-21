@@ -139,3 +139,17 @@ test('queue exhaustion stops without transport or retries while the first candid
     assert.deepEqual(await f.service.sharedForCard(actors.student,1),[]);
   }finally{f.close();}
 });
+test('developer history is paginated with a stable timestamp/id cursor across equal timestamps',async()=>{
+  for(const d1 of [false,true]){const f=await setup({d1});try{
+    for(let i=0;i<7;i++){const id=await f.quota.reserve(source);await f.quota.release(id);}
+    const first=await f.quota.history(actors.dev,'fixture',{limit:3});assert.equal(first.reservations.length,3);assert.ok(first.next);
+    const second=await f.quota.history(actors.dev,'fixture',{limit:3,cursor:first.next});
+    const third=await f.quota.history(actors.dev,'fixture',{limit:3,cursor:second.next});
+    assert.equal(third.reservations.length,1);assert.equal(third.next,null);
+    assert.equal(new Set([...first.reservations,...second.reservations,...third.reservations].map(r=>r.id)).size,7);
+    assert.deepEqual(first.reservations[0].source,source);assert.equal(first.reservations[0].state,'released');
+    assert.equal((await f.quota.inspect(actors.dev,'fixture')).windowEnd,11000);
+    for(const actor of [actors.teacher,actors.student,{...actors.dev,revoked:true}])await assert.rejects(f.quota.history(actor,'fixture'),code('developer_required'));
+    for(const options of [{cursor:'invalid'},{limit:101},{limit:0},{cursor:'9999999999999999:'+crypto.randomUUID()}])await assert.rejects(f.quota.history(actors.dev,'fixture',options),code('invalid_request'));
+  }finally{f.close();}}
+});

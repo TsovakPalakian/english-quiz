@@ -32,7 +32,18 @@ export class GenerationQuota{
     if(!policy)fail('quota_not_configured');
     const at=this.time(),windowStart=Math.floor(at/policy.window_ms)*policy.window_ms;
     const [row]=await this.db.read("SELECT COUNT(*) AS used FROM qr_quota_reservations WHERE provider=? AND window_start=? AND state<>'released'",[provider,windowStart]);
-    return {provider,windowMs:policy.window_ms,requestLimit:policy.request_limit,windowStart,used:Number(row.used),remaining:Math.max(0,policy.request_limit-Number(row.used))};
+    return {provider,windowMs:policy.window_ms,requestLimit:policy.request_limit,windowStart,windowEnd:windowStart+policy.window_ms,used:Number(row.used),remaining:Math.max(0,policy.request_limit-Number(row.used))};
+  }
+  async history(actor,provider,{cursor='',limit=50}={}){
+    developer(actor);
+    if(!Number.isSafeInteger(limit)||limit<1||limit>100||typeof cursor!=='string'||cursor.length>60)fail('invalid_request');
+    const match=cursor?/^(\d{1,16}):([a-f0-9-]{36})$/.exec(cursor):null;
+    if(cursor&&(!match||!Number.isSafeInteger(Number(match[1]))))fail('invalid_request');
+    const rows=await this.db.read(`SELECT id,state,window_start,created_at,changed_at,source_json FROM qr_quota_reservations
+      WHERE provider=? ${match?'AND (created_at<? OR (created_at=? AND id<?))':''}
+      ORDER BY created_at DESC,id DESC LIMIT ?`,[provider,...(match?[Number(match[1]),Number(match[1]),match[2]]:[]),limit+1]);
+    const page=rows.slice(0,limit),last=page.at(-1);
+    return {reservations:page.map(row=>({id:row.id,state:row.state,windowStart:row.window_start,createdAt:row.created_at,changedAt:row.changed_at,source:validateGenerationSource(JSON.parse(row.source_json))})),next:rows.length>limit?last.created_at+':'+last.id:null};
   }
   async reserve(source,{signal}={}){
     validateGenerationSource(source);if(signal?.aborted)fail('cancelled');
