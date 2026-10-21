@@ -6,9 +6,11 @@ const fail=(status,message)=>{throw new StudyError(status,message);};
 export function validateDictionaryResult(value){
   exactFields(value,['entries']);if(!Array.isArray(value.entries)||value.entries.length<1||value.entries.length>8)fail(400,'Dictionary result unavailable.');
   return {entries:value.entries.map(entry=>{
-    exactFields(entry,['word','partOfSpeech','definition','translation','ipa','forms','examples','source']);
-    const metadata=validateSenseMetadata({level:null,forms:entry.forms,examples:entry.examples,source:entry.source});if(!metadata.source)fail(400,'Dictionary provenance and reuse conditions are required.');
-    return {word:reviewText(entry.word,200),partOfSpeech:reviewText(entry.partOfSpeech,100),definition:reviewText(entry.definition),translation:reviewText(entry.translation),ipa:entry.ipa===null?null:reviewText(entry.ipa,200),...metadata};
+    exactFields(entry,['word','referenceId','partOfSpeech','definition','translation','ipa','forms','examples','source','level']);
+    const metadata=validateSenseMetadata({level:null,forms:entry.forms,examples:[],source:entry.source});if(!metadata.source)fail(400,'Dictionary provenance and reuse conditions are required.');
+    if(entry.level!==undefined&&entry.level!==null||!Array.isArray(entry.examples)||entry.examples.length>20)fail(400,'Invalid dictionary examples or level.');
+    const examples=entry.examples.map(example=>{exactFields(example,['en','translation']);return {en:reviewText(example.en),translation:example.translation===null?null:reviewText(example.translation)};});
+    return {word:reviewText(entry.word,200),referenceId:entry.referenceId==null?null:reviewText(entry.referenceId,200),partOfSpeech:reviewText(entry.partOfSpeech,100),definition:reviewText(entry.definition),translation:entry.translation===null?null:reviewText(entry.translation),ipa:entry.ipa===null?null:reviewText(entry.ipa,200),...metadata,examples};
   })};
 }
 export class QuizLanguageMaterials{
@@ -62,8 +64,9 @@ export class QuizLanguageMaterials{
         result={...validateDictionaryResult(output.data),source:output.source};
         if(result.entries.some(entry=>entry.word.toLowerCase()!==request.sense.en.toLowerCase()))fail(400,'Dictionary returned a different word.');
       }else{
-        exactFields(output.data,['bytes','mime','voice']);if(!(output.data.bytes instanceof Uint8Array)||output.data.voice!==request.voice||output.data.mime!=='audio/wav')fail(400,'Invalid speech result.');
-        const media=await this.media.upload(actor,{mutationId:crypto.randomUUID(),purpose:'quiz',...request.context,mime:'audio/wav',name:'reference.wav',rights:'Installed local voice; production reuse terms require separate verification.'},output.data.bytes,{kind:'tts',...output.source,voice:request.voice,text:request.sense.en});
+        exactFields(output.data,['bytes','mime','voice','rights']);if(!(output.data.bytes instanceof Uint8Array)||output.data.voice!==request.voice||!['audio/wav','audio/mpeg'].includes(output.data.mime))fail(400,'Invalid speech result.');
+        const rights=output.data.rights===undefined?'Provider-produced reference; production reuse terms require separate verification.':reviewText(output.data.rights,500);
+        const media=await this.media.upload(actor,{mutationId:crypto.randomUUID(),purpose:'quiz',...request.context,mime:output.data.mime,name:output.data.mime==='audio/wav'?'reference.wav':'reference.mp3',rights},output.data.bytes,{kind:'tts',...output.source,voice:request.voice,text:request.sense.en});
         result={media,source:output.source,voice:request.voice,text:request.sense.en,teacherCheckRequired:true};
       }
       await this.db.atomic([s("UPDATE qr_language_usage SET state='complete',result_json=? WHERE id=? AND state='started'",[JSON.stringify(result),row.id])]);
