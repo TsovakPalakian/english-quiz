@@ -5,8 +5,9 @@ import {fileURLToPath} from 'node:url';
 import {fixture,actors,body} from '../test/quiz-review-fixture.mjs';
 import {QuizGenerationService,GenerationIssue} from '../src/quiz-generation.mjs';
 import {GenerationQuota} from '../src/generation-quota.mjs';
+import {StoredLanguageProviders} from '../src/stored-language-providers.mjs';
 import {localQuizGenerator} from './quiz-generation-local-provider.mjs';
-const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
+const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/provider-settings.js':['client/demos/provider-settings-ui.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
@@ -21,8 +22,15 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/004_quota_limit_changes.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/005_provider_settings.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
+  // Settings pilot only; the existing synthetic worker is not switched here.
+  const providers=new StoredLanguageProviders(f.db,{quota,authorize:async()=>true,adapters:['local-fixture-a','local-fixture-b'].map(id=>({
+    id,provider:'local-fixture',model:id,version:'v1',billing:'self-hosted',
+    capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],invoke:localQuizGenerator,validate:value=>value,
+  }))});
+  await providers.initialize(actors.dev);
   const quotaSource={task:'generation',adapterId:'local-fixture',provider:'local-fixture',model:'synthetic',version:'v1',locale:'en-US',mode:'text',configurationRevision:1};
   const generate=async input=>{
     const reservation=await quota.reserve(quotaSource,{signal:input.signal}).catch(error=>{
@@ -70,6 +78,14 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/providers'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await providers.inspect(actor));return;}
+        if(path==='/local/providers/history'){
+          if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
+          const params=new URL(req.url,'http://'+host).searchParams,before=params.get('before');
+          if([...params.keys()].some(key=>key!=='before')||params.getAll('before').length>1||before!==null&&!/^[1-9]\d*$/.test(before))fail(400,'Invalid provider history query.');
+          try{send(200,await providers.history(actor,{before:before===null?null:Number(before)}));}
+          catch(error){if(error.code==='invalid_request')fail(400,'Invalid provider history cursor.');throw error;}return;
+        }
         if(path==='/local/quota'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await quota.inspect(actor,'local-fixture'));return;}
         if(path==='/local/quota/changes'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
@@ -101,6 +117,15 @@ export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
         const data=await jsonBody(req);
+        if(path==='/local/providers'){
+          if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
+          try{send(200,await providers.configure(actor,data));}
+          catch(error){
+            if(['configuration_conflict','provider_configuration_changed'].includes(error.code))fail(409,'Provider settings changed. Refresh and confirm the selection.');
+            if(['invalid_configuration','invalid_selection','adapter_not_registered','paid_provider_blocked','unsupported_capability'].includes(error.code))fail(400,'Choose a registered compatible model and provide a reason.');
+            if(error.code==='provider_configuration_unavailable')fail(503,'Provider settings are unavailable.');throw error;
+          }return;
+        }
         if(path==='/local/quota'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
           try{send(200,await quota.updateLimit(actor,'local-fixture',data));}

@@ -1,5 +1,6 @@
 // Local-only pilot. No imports into the app bundle; all requests stay on this origin.
 import {defaultReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview} from './review-editor.js';
+import {createProviderSettingsUI} from './provider-settings.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
@@ -13,6 +14,7 @@ let quotaState=null;
 const developer=()=>boot?.actor.role==='DEVELOPER';
 const teacher=()=>boot?.actor.role!=='USER';
 const selected=()=>boot?.contexts.find(c=>c.id===contextId)||boot?.contexts[0];
+const providerSettingsUI=createProviderSettingsUI({api,isDeveloper:developer,sessionKey:()=>sessionEpoch,active:()=>view==='providers',renderPage:render,notify:message,actorName:id=>boot?.roles.find(row=>row.id===id)?.name||id,date:value=>attemptDate(value)});
 function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(error&&$('#editor').open){$('#edit-error').hidden=false;$('#edit-error').textContent=text;}if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
 async function api(path,payload){
   const options={};let pendingKey;
@@ -32,7 +34,8 @@ async function run(work){
   try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
 }
 async function loadSession(){
-  sessionEpoch++;attemptCache.clear();quotaState=null;
+  sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();
+  if(view==='providers'){$('#content').innerHTML='';$('[data-view="providers"]').hidden=true;}
   if(view==='quota'){$('#content').innerHTML='';$('[data-view="quota"]').hidden=true;}
   boot=await api('/local/boot');
   $('#account').innerHTML=boot.roles.map(r=>'<option value="'+r.id+'" '+(r.id===boot.role?'selected':'')+'>'+esc(r.name)+' · '+esc(r.role)+'</option>').join('');
@@ -40,6 +43,10 @@ async function loadSession(){
   if(view==='queue'&&!teacher())view='mine';await refresh();
 }
 async function refresh(){
+  if(view==='providers'){
+    if(!developer()){view='word';return refresh();}
+    return providerSettingsUI.load();
+  }
   if(view==='quota'){
     if(!developer()){view='word';return refresh();}
     return loadQuota();
@@ -196,8 +203,9 @@ function groups(list){
   return groupBy(list,q=>q.groupId).map(([groupId,groupRows])=>'<details class="queue-group" open data-expand="group-'+groupId+'"><summary><strong>'+esc(groupRows[0].author.group)+'</strong><span>'+groupRows.length+'</span></summary><div class="group-content">'+groupBy(groupRows,q=>q.lessonId).map(([lessonId,lessonRows])=>'<details class="queue-lesson" open data-expand="lesson-'+lessonId+'"><summary><strong>'+esc(boot.contexts.find(c=>c.lessonId===lessonId)?.lesson||'Lesson '+lessonId)+'</strong></summary>'+groupBy(lessonRows,q=>q.senseId).map(([senseId,words])=>'<details class="queue-word" open data-expand="word-'+lessonId+'-'+senseId+'"><summary><strong>'+esc(boot.contexts.find(c=>c.senseId===senseId)?.word||'Word')+'</strong></summary>'+byType(words,lessonId+'-'+senseId)+'</details>').join('')+'</details>').join('')+'</div></details>').join('');
 }
 function render(){
-  const c=selected();$('#title').textContent=view==='quota'?'Generation quota':view==='word'?(c?.word||'Words'):view==='queue'?'Review queue':'My proposals';
-  document.querySelectorAll('[data-view]').forEach(b=>{b.hidden=b.dataset.view==='quota'?!developer():b.dataset.view==='queue'&&!teacher();if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  const c=selected();$('#title').textContent=view==='providers'?'Language providers':view==='quota'?'Generation quota':view==='word'?(c?.word||'Words'):view==='queue'?'Review queue':'My proposals';
+  document.querySelectorAll('[data-view]').forEach(b=>{b.hidden=['quota','providers'].includes(b.dataset.view)?!developer():b.dataset.view==='queue'&&!teacher();if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  if(view==='providers'){$('#content').innerHTML=providerSettingsUI.render();providerSettingsUI.afterRender();$('#content').setAttribute('aria-busy','false');return;}
   if(view==='quota'){
     $('#content').innerHTML=developer()?quotaPanel():'';
     updateQuotaSaveButton();
@@ -301,5 +309,5 @@ $('#decision-form').addEventListener('submit',e=>{e.preventDefault();run(async()
 $('#edit-type').innerHTML=types.map(type=>'<option>'+type+'</option>').join('');
 document.addEventListener('submit',event=>{if(event.target.id==='quota-limit-form'){event.preventDefault();saveQuotaLimit(event.target);}});
 document.addEventListener('input',event=>{if(event.target.closest('#quota-limit-form'))updateQuotaSaveButton();});
-setInterval(()=>{if(view!=='quota'&&!busy&&!document.querySelector('dialog[open]')&&pollFailures<3&&jobs.some(j=>['queued','running','retry'].includes(j.state)))run(async()=>{try{await refresh();pollFailures=0;}catch(error){pollFailures++;throw error;}});},1000);
+setInterval(()=>{if(!['quota','providers'].includes(view)&&!busy&&!document.querySelector('dialog[open]')&&pollFailures<3&&jobs.some(j=>['queued','running','retry'].includes(j.state)))run(async()=>{try{await refresh();pollFailures=0;}catch(error){pollFailures++;throw error;}});},1000);
 run(loadSession);

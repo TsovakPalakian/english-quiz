@@ -21,7 +21,7 @@ export class LanguageProviders{
   #authorize;
   #freeOnly;
   #quota;
-  constructor({adapters=[],freeOnly=true,authorize=async()=>false,quota=null}={}){
+  constructor({adapters=[],freeOnly=true,authorize=async()=>false,quota=null,snapshot=null}={}){
     if(!Array.isArray(adapters)||typeof freeOnly!=='boolean'||typeof authorize!=='function'||
       quota!==null&&!['reserve','start','release'].every(key=>typeof quota?.[key]==='function'))fail('invalid_configuration');
     this.#quota=quota;
@@ -39,6 +39,11 @@ export class LanguageProviders{
       const {invoke,validate,...metadata}=adapter;
       this.#adapters.set(adapter.id,{...structuredClone(metadata),invoke,validate});
     }
+    // Snapshots come from trusted server storage, never directly from a request.
+    if(snapshot!==null){
+      if(!exact(snapshot,['revision','selections'])||!Number.isSafeInteger(snapshot.revision)||snapshot.revision<1||Object.keys(snapshot.selections||{}).length!==LANGUAGE_TASKS.length)fail('invalid_configuration');
+      this.#selections=this.#validateSelections(snapshot.selections);this.#revision=snapshot.revision;
+    }
   }
   inspect(actor){
     teacherConfig(actor);
@@ -46,9 +51,7 @@ export class LanguageProviders{
       adapters:[...this.#adapters.values()].map(({invoke,validate,...metadata})=>metadata)});
   }
   history(actor){teacherConfig(actor);return structuredClone(this.#history);}
-  configure(actor,{expectedRevision,selections}={}){
-    teacherConfig(actor);
-    if(expectedRevision!==this.#revision)fail('configuration_conflict');
+  #validateSelections(selections){
     if(!exact(selections,LANGUAGE_TASKS)||!Object.keys(selections).length)fail('invalid_configuration');
     const next=structuredClone(this.#selections);
     for(const [task,selection] of Object.entries(selections)){
@@ -60,6 +63,12 @@ export class LanguageProviders{
       if(!adapter.capabilities.some(cap=>cap.task===task&&cap.locales.includes(selection.locale)&&cap.modes.includes(selection.mode)))fail('unsupported_capability');
       next[task]=structuredClone(selection);
     }
+    return next;
+  }
+  configure(actor,{expectedRevision,selections}={}){
+    teacherConfig(actor);
+    if(expectedRevision!==this.#revision)fail('configuration_conflict');
+    const next=this.#validateSelections(selections);
     this.#selections=next;this.#revision++;
     this.#history.push({revision:this.#revision,actorId:actor.id,date:new Date().toISOString(),selections:structuredClone(next)});
     // Durable production configuration/audit must be supplied by a later integration.
