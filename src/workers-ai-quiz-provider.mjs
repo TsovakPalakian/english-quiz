@@ -2,7 +2,7 @@
 import {LanguageProviderError} from './language-providers.mjs';
 import {createModelQuizGenerator,MODEL_QUIZ_INSTRUCTION_VERSION} from './quiz-generation-model.mjs';
 import {GenerationIssue} from './quiz-generation.mjs';
-import {validateGenerationMetadata} from './quiz-generation-metadata.mjs';
+import {validateGenerationMetadata,validateGenerationUsage} from './quiz-generation-metadata.mjs';
 
 export const WORKERS_QUIZ_MODEL='@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const itemFields={Flip:['front','back'],Choice:['prompt','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],'True / false':['prompt','answer'],Tap:['text','answer'],Reverse:['front','back','options','answer'],Spell:['word','hint'],Letters:['word','hint'],Definition:['prompt','word','options','answer'],Hangman:['word','hint']};
@@ -54,7 +54,7 @@ export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false
       if(!enabled)fail('provider_disabled');
       if(typeof fetchImpl!=='function'||!/^[a-f0-9]{32}$/.test(accountId)||typeof apiToken!=='string'||!apiToken.trim()||/[\r\n]/.test(apiToken))fail('provider_not_configured');
       if(signal?.aborted)fail('cancelled');
-      const input=buildInput(request,maxTokens),controller=new AbortController();let abort,timer;
+      const input=buildInput(request,maxTokens),controller=new AbortController();let abort,timer,observedUsage;
       const stopped=new Promise((_,reject)=>{
         abort=()=>{controller.abort();reject(new LanguageProviderError('cancelled'));};signal?.addEventListener('abort',abort,{once:true});
         timer=setTimeout(()=>{controller.abort();reject(new LanguageProviderError('timeout'));},timeoutMs);
@@ -73,18 +73,23 @@ export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false
           const envelope=await limitedJSON(response,100000);
           if(controller.signal.aborted)fail('cancelled');
           if(!object(envelope)||envelope.success!==true||!object(envelope.result)||envelope.errors?.length)fail('invalid_provider_result');
+          const usage={};
+          for(const key of ['prompt_tokens','completion_tokens','total_tokens']){
+            const value=envelope.result.usage?.[key];if(value!==undefined)usage[key]=value;
+          }
+          try{observedUsage=validateGenerationUsage(usage);}catch{fail('invalid_provider_result');}
           const raw=envelope.result.response;
           const text=typeof raw==='string'?raw:object(raw)?JSON.stringify(raw):null;
           if(!text||text.length>request.maxOutputChars)fail('invalid_provider_result');
           let parsed;try{parsed=JSON.parse(text);}catch{fail('invalid_provider_result');}
           if(!object(parsed))fail('invalid_provider_result');
-          const usage={};
-          for(const key of ['prompt_tokens','completion_tokens','total_tokens']){
-            const value=envelope.result.usage?.[key];if(value!==undefined){if(!Number.isSafeInteger(value)||value<0)fail('invalid_provider_result');usage[key]=value;}
-          }
-          return {text,usage};
+          return {text,usage:observedUsage};
         })()]);
-      }catch(error){if(error instanceof LanguageProviderError)throw error;fail('provider_unavailable');}
+      }catch(error){
+        const failure=error instanceof LanguageProviderError?error:new LanguageProviderError('provider_unavailable');
+        if(observedUsage)failure.usage=structuredClone(observedUsage);
+        throw failure;
+      }
       finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
     },
     validate(result){
@@ -98,12 +103,15 @@ export function createRoutedQuizGenerator({providers,timeoutMs=20000,includeMeta
   if(typeof providers?.execute!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000||typeof includeMetadata!=='boolean')throw new Error('A language-provider registry and valid options are required.');
   return async input=>{
     let generation;
+    const observe=value=>{if(typeof input.onObservation==='function')input.onObservation(value);};
     const generate=createModelQuizGenerator({enabled:true,complete:async(request,{signal})=>{
       try{
         const result=await providers.execute('generation',request,{signal,timeoutMs});
+        observe({source:result.source,usage:result.data.usage});
         if(includeMetadata)generation=validateGenerationMetadata({source:result.source,usage:result.data.usage,instructionVersion:MODEL_QUIZ_INSTRUCTION_VERSION,generatedAt:new Date().toISOString(),contentRevision:1});
         return result.data.text;
       }catch(error){
+        if(error.source)observe({source:error.source,usage:error.usage??null});
         if(['rate_limited','quota_or_access_denied'].includes(error.code))throw new GenerationIssue('quota_exceeded',false);
         if(['provider_disabled','provider_not_configured','provider_access_denied','provider_request_rejected','invalid_request'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
         if(error.code==='invalid_provider_result'||error.status===400)throw new GenerationIssue('invalid_model_response');

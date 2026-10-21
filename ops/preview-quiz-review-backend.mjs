@@ -61,6 +61,8 @@ export async function createQuizReviewPreview({port=0}={}){
         if(path==='/local/mine'){send(200,{quizzes:await service.mine(actor)});return;}
         if(path==='/local/queue'){send(200,{quizzes:await service.queue(actor)});return;}
         if(path==='/local/generation'){send(200,{jobs:await generation.list(actor)});return;}
+        const attempts=/^\/local\/generation\/([a-f0-9-]{36})\/attempts$/.exec(path);
+        if(attempts){send(200,{attempts:await generation.attemptHistory(actor,attempts[1])});return;}
         const shared=/^\/local\/shared\/(\d+)$/.exec(path);if(shared){send(200,{quizzes:await service.sharedForCard(actor,Number(shared[1]))});return;}
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{

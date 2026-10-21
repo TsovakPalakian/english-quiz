@@ -89,8 +89,9 @@ export class LanguageProviders{
       })()]);
       return result;
     }catch(error){
-      if(error instanceof LanguageProviderError)throw error;
-      fail('provider_failed');
+      const failure=error instanceof LanguageProviderError?error:new LanguageProviderError('provider_failed');
+      failure.source={...source};
+      throw failure;
     }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
   }
 }

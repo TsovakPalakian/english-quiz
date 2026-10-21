@@ -17,6 +17,10 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     assert.equal(jobs.find(j=>j.type==='Choice').attempts,3);assert.equal(jobs.find(j=>j.type==='Choice').state,'review');
     assert.equal(jobs.find(j=>j.type==='Gap').attempts,2);assert.equal(jobs.find(j=>j.type==='Gap').state,'submitted');
     assert.equal(jobs.find(j=>j.type==='Listen').attempts,1);assert.equal(jobs.find(j=>j.type==='Match').attempts,0);
+    const attemptPath='/local/generation/'+jobs.find(j=>j.type==='Choice').id+'/attempts';
+    const attemptLog=await page.evaluate(async path=>(await(await fetch(path)).json()).attempts,attemptPath);
+    assert.equal(attemptLog.length,3);assert.ok(attemptLog.every(a=>a.state==='rejected'&&a.usage===null));
+    assert.equal((await fetch(url+attemptPath,{headers:{Cookie:'qr-preview=student'}})).status,403);
     const shared=await page.evaluate(async()=>await(await fetch('/local/shared/1')).json());assert.equal(shared.quizzes.length,1,'Only the pre-approved seed is shared');
     await page.locator('[data-action="prepare"]').click();
     assert.equal((await page.evaluate(async()=>await(await fetch('/local/generation')).json())).jobs.length,16,'Enqueue is deduplicated');

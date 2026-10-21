@@ -21,3 +21,24 @@ CREATE TABLE qr_generation_jobs (
   UNIQUE(group_id,lesson_id,card_id,sense_id,type)
 );
 CREATE INDEX qr_generation_due ON qr_generation_jobs(state,next_at,lease_until);
+
+CREATE TABLE qr_generation_attempts (
+  job_id TEXT NOT NULL REFERENCES qr_generation_jobs(id),
+  cycle INTEGER NOT NULL CHECK(cycle BETWEEN 0 AND 2),
+  attempt INTEGER NOT NULL CHECK(attempt BETWEEN 1 AND 3),
+  lease_token TEXT NOT NULL,
+  state TEXT NOT NULL CHECK(state IN ('running','accepted','rejected','error','interrupted')),
+  started_at INTEGER NOT NULL,
+  finished_at INTEGER,
+  issue TEXT NOT NULL DEFAULT '',
+  source_json TEXT CHECK(source_json IS NULL OR (json_valid(source_json) AND json_type(source_json)='object')),
+  usage_json TEXT CHECK(usage_json IS NULL OR (json_valid(usage_json) AND json_type(usage_json)='object')),
+  PRIMARY KEY(job_id,cycle,attempt),
+  CHECK((state='running' AND finished_at IS NULL) OR (state<>'running' AND finished_at IS NOT NULL AND finished_at>=started_at))
+);
+CREATE TRIGGER qr_attempt_no_delete BEFORE DELETE ON qr_generation_attempts
+BEGIN SELECT RAISE(ABORT,'Generation attempts are append only'); END;
+CREATE TRIGGER qr_attempt_final_once BEFORE UPDATE ON qr_generation_attempts
+WHEN OLD.state<>'running' OR NEW.state='running' OR NEW.job_id<>OLD.job_id OR NEW.cycle<>OLD.cycle
+  OR NEW.attempt<>OLD.attempt OR NEW.lease_token<>OLD.lease_token OR NEW.started_at<>OLD.started_at
+BEGIN SELECT RAISE(ABORT,'Generation attempt identity and final results are immutable'); END;
