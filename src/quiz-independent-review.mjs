@@ -25,6 +25,20 @@ export async function isIndependentReviewCurrent(result,input){
   catch{return false;}
 }
 
+export async function validateIndependentReviewResult(result,input){
+  try{
+    exactFields(result,['dimensions','findings','status','fingerprint','revision','source','instructionVersion','checkedAt','usage','requiresTeacherReview']);
+    const checked=await snapshot(input);
+    const parsed=parseResponse(JSON.stringify({fingerprint:result.fingerprint,revision:result.revision,status:'reviewed',dimensions:result.dimensions,findings:result.findings}),checked,50000);
+    exactFields(result.source,['provider','model','version']);
+    if(!['provider','model','version'].every(key=>typeof result.source[key]==='string'&&/^[a-zA-Z0-9@][a-zA-Z0-9_./:@-]{0,199}$/.test(result.source[key]))||
+      result.instructionVersion!==QUIZ_REVIEW_INSTRUCTION_VERSION||result.requiresTeacherReview!==true||result.status!==parsed.status||
+      typeof result.checkedAt!=='string'||!Number.isFinite(Date.parse(result.checkedAt))||new Date(result.checkedAt).toISOString()!==result.checkedAt)fail('invalid_review_response');
+    validateGenerationUsage(result.usage);
+    return structuredClone(result);
+  }catch(error){if(error instanceof IndependentReviewIssue)throw error;fail('invalid_review_response');}
+}
+
 function parseResponse(raw,checked,maxOutputChars){
   try{
     if(typeof raw!=='string'||raw.length>maxOutputChars)fail('invalid_review_response');

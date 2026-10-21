@@ -6,8 +6,8 @@ import {QuizReviewService} from '../src/quiz-review.mjs';
 export const actors={student:{id:'u1',name:'Anna',role:'USER'},other:{id:'u2',name:'Mark',role:'USER'},teacher:{id:'teacher',name:'Elena',role:'ADMIN'},second:{id:'second',name:'Second reviewer',role:'ADMIN'},outsider:{id:'outsider',name:'Other teacher',role:'ADMIN'},dev:{id:'dev',name:'Developer',role:'DEVELOPER'}};
 export const body=values=>({mutationId:crypto.randomUUID(),...values});
 export const content={explanation:'Drizzle means light rain in this context.',items:[{shown:'A fine ____ started falling.',answer:'drizzle',hint:'Light rain'}]};
-export async function fixture({d1=false,approval=true}={}){
-  const sql=new DatabaseSync(':memory:');applyLearningSchema(sql);
+export async function fixture({d1=false,approval=true,filename=':memory:'}={}){
+  const sql=new DatabaseSync(filename);applyLearningSchema(sql);
   sql.exec(`PRAGMA foreign_keys=ON;
     INSERT INTO account_refs(id) VALUES('u1'),('u2'),('teacher'),('second'),('outsider'),('dev');
     INSERT INTO study_profiles(id,kind) VALUES(1,'personal'),(2,'personal');
