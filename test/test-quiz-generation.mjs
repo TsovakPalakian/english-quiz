@@ -87,3 +87,37 @@ test('cached invalid content is discarded and an owned write conflict stops for 
     await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);assert.equal(job.state,'review');assert.equal(job.issue,'write_conflict');assert.equal(await f.generation.runOne(),false);
   }finally{f.close();}
 });
+test('manual replacement is linked atomically, preserves the issue, and needs another teacher approval',async()=>{
+  const f=await setup(async()=>{throw new GenerationIssue('temporary_failure',false);},{d1:true});try{
+    await f.enqueue();await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);
+    const input=body({expectedRevision:job.revision,content});
+    const q=await f.generation.repair(actors.teacher,job.id,input);assert.deepEqual(await f.generation.repair(actors.teacher,job.id,input),q);
+    const linked=(await f.generation.list(actors.teacher))[0];assert.equal(linked.versionId,q.id);assert.equal(linked.quizState,'draft');assert.equal(linked.issue,'temporary_failure');assert.equal(linked.attempts,1);
+    await assert.rejects(f.generation.retry(actors.teacher,job.id,body({expectedRevision:linked.revision})),e=>e.status===409);
+    await assert.rejects(f.generation.repair(actors.second,job.id,body({expectedRevision:linked.revision,content})),e=>e.status===409);
+    await f.service.submit(actors.teacher,q.id,body({expectedRevision:1}));
+    await assert.rejects(f.service.approve(actors.teacher,q.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}})),e=>e.status===403);
+    await f.service.approve(actors.second,q.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
+    assert.equal((await f.generation.list(actors.teacher))[0].quizState,'approved');
+    const record=await f.service.get(actors.teacher,q.id);assert.equal(record.author.kind,'human');assert.equal(record.history[0].details.generationJobId,job.id);
+  }finally{f.close();}
+});
+test('replacement enforces group rights, validation and stale revision rollback',async()=>{
+  const f=await setup(async()=>{throw new GenerationIssue('temporary_failure',false);});try{
+    await f.enqueue();await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);
+    for(const actor of [actors.student,actors.outsider])await assert.rejects(f.generation.repair(actor,job.id,body({expectedRevision:job.revision,content})),e=>e.status===403);
+    await assert.rejects(f.generation.repair(actors.teacher,job.id,body({expectedRevision:job.revision,content:{explanation:'Bad',items:[]}})),e=>e.status===400);
+    await assert.rejects(f.generation.repair(actors.teacher,job.id,body({expectedRevision:1,content})),e=>e.status===409);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,0);
+    assert.equal(f.sql.prepare('SELECT version_id FROM qr_generation_jobs').get().version_id,null);
+  }finally{f.close();}
+});
+test('racing replacement saves create exactly one linked draft',async()=>{
+  const f=await setup(async()=>{throw new GenerationIssue('temporary_failure',false);});try{
+    await f.enqueue();await f.generation.runOne();const [job]=await f.generation.list(actors.teacher);
+    const results=await Promise.allSettled([actors.teacher,actors.second].map(actor=>f.generation.repair(actor,job.id,body({expectedRevision:job.revision,content}))));
+    assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.find(r=>r.status==='rejected').reason.status,409);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,1);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_events').get().n,1);
+  }finally{f.close();}
+});

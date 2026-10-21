@@ -69,6 +69,8 @@ export async function createQuizReviewPreview({port=0}={}){
         if(path==='/local/generation'){send(202,await generation.enqueue(actor,data));return;}
         const retry=/^\/local\/generation\/([a-f0-9-]{36})\/retry$/.exec(path);
         if(retry){send(200,await generation.retry(actor,retry[1],data));return;}
+        const repair=/^\/local\/generation\/([a-f0-9-]{36})\/repair$/.exec(path);
+        if(repair){send(201,await generation.repair(actor,repair[1],data));return;}
         const operation=/^\/local\/quizzes\/([a-f0-9-]{36})\/(edit|submit|return|approve|revise)$/.exec(path);
         if(operation){const methods={edit:'editDraft',submit:'submit',return:'requestChanges',approve:'approve',revise:'proposeRevision'};send(200,await service[methods[operation[2]]](actor,operation[1],data));return;}
       }

@@ -26,7 +26,7 @@ async function api(path,payload){
 async function run(work){
   if(busy)return;busy=true;
   const buttons=[...document.querySelectorAll('button,select')].map(node=>({node,disabled:node.disabled}));buttons.forEach(({node})=>node.disabled=true);
-  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!editing?.id;}
+  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
 }
 async function loadSession(){
   boot=await api('/local/boot');
@@ -42,13 +42,17 @@ async function refresh(){
 }
 const jobLabels={queued:'Queued',running:'Preparing',retry:'Waiting to retry',review:'Needs teacher attention',submitted:'Sent for review',context:'Needs a word set',skipped:'Already approved'};
 const jobIssues={invalid_content:'The generated content failed structural validation.',temporary_failure:'Temporary test-generator failure.',timeout:'The generator timed out.',audio_unavailable:'Audio preparation is not connected.',access_changed:'The requesting account no longer has access.',generator_failed:'The test generator could not complete this type.',attempt_limit:'The automatic attempt limit was reached.',write_conflict:'The saved state requires checking before another attempt.'};
-function generationRows(list){return list.map(job=>'<details class="generation-job" data-job="'+job.id+'" data-job-state="'+job.state+'" data-expand="job-'+job.id+'"><summary><strong>'+esc(job.type)+'</strong><span class="status '+(['review','submitted'].includes(job.state)?'review':'pending')+'">'+jobLabels[job.state]+'</span></summary><div class="detail"><p class="muted small">Attempts: '+job.attempts+' / 3 · Manual retries: '+job.cycle+' / 2</p>'+(job.issue?'<p>'+esc(jobIssues[job.issue]||'This type already has an approved template.')+'</p>':'')+(job.state==='context'?'<p class="muted">A word set and an explicit grouping rule are needed.</p>':'')+'<div class="actions">'+(job.state==='review'&&job.cycle<2?'<button data-action="retry-job" data-job-id="'+job.id+'">Retry preparation</button>':'')+(job.versionId?'<button data-action="open-generated" data-job-id="'+job.id+'">Open submitted quiz</button>':'')+'</div></div></details>').join('');}
+function generationRows(list){return list.map(job=>{
+  const replacement=job.state==='review'&&job.versionId,approved=replacement&&job.quizState==='approved';
+  const label=replacement?(approved?'Replacement approved':job.quizState==='submitted'?'Replacement under review':job.quizState==='returned'?'Replacement needs changes':'Manual draft created'):jobLabels[job.state];
+  return '<details class="generation-job" data-job="'+job.id+'" data-job-state="'+job.state+'" data-expand="job-'+job.id+'"><summary><strong>'+esc(job.type)+'</strong><span class="status '+(approved?'approved':['review','submitted'].includes(job.state)?'review':'pending')+'">'+label+'</span></summary><div class="detail"><p class="muted small">Attempts: '+job.attempts+' / 3 · Manual retries: '+job.cycle+' / 2</p>'+(job.issue?'<p>'+esc(jobIssues[job.issue]||'This type already has an approved template.')+'</p>':'')+(job.state==='context'?'<p class="muted">A word set and an explicit grouping rule are needed.</p>':'')+'<div class="actions">'+(job.state==='review'&&!job.versionId?'<button data-action="repair-job" data-job-id="'+job.id+'">Create corrected draft</button>':'')+(job.state==='review'&&!job.versionId&&job.cycle<2?'<button data-action="retry-job" data-job-id="'+job.id+'">Retry preparation</button>':'')+(job.versionId?'<button data-action="open-generated" data-job-id="'+job.id+'">Open linked quiz</button>':'')+'</div></div></details>';
+}).join('');}
 function generationPanel(){
   const c=selected();
   if(!teacher())return '';
   if(view==='word'&&c&&!c.personal){const list=jobs.filter(j=>j.groupId===c.groupId&&j.lessonId===c.lessonId&&j.senseId===c.senseId);return '<section><div class="section-heading"><h2>Preparation</h2><button data-action="prepare">Prepare missing types</button></div><p class="muted small">Local test generator · No AI requests · Prepared drafts still need teacher approval</p>'+generationRows(list)+'</section>';}
   if(view==='queue'){
-    const list=jobs.filter(j=>j.state==='review');
+    const list=jobs.filter(j=>j.state==='review'&&j.quizState!=='approved');
     return '<section><h2>Preparation issues · '+list.length+'</h2>'+groupBy(list,j=>j.groupId).map(([id,entries])=>'<details class="queue-group" open><summary><strong>'+esc(boot.contexts.find(c=>c.groupId===id)?.group||'Group')+'</strong></summary>'+groupBy(entries,j=>j.lessonId).map(([lesson,lessonJobs])=>'<details class="queue-lesson" open><summary><strong>'+esc(boot.contexts.find(c=>c.lessonId===lesson)?.lesson||'Lesson')+'</strong></summary>'+groupBy(lessonJobs,j=>j.senseId).map(([sense,wordJobs])=>'<details class="queue-word" open><summary><strong>'+esc(boot.contexts.find(c=>c.senseId===sense)?.word||'Word')+'</strong></summary>'+generationRows(wordJobs)+'</details>').join('')+'</details>').join('')+'</details>').join('')+'</section>';
   }
   return '';
@@ -85,18 +89,20 @@ function render(){
 }
 document.addEventListener('toggle',e=>{if(e.target.dataset?.expand)expansion.set(e.target.dataset.expand,e.target.open);},true);
 function setupType(){
-  if(editing?.id)return;
+  if(editing?.id||editing?.repairJob)return;
   editorDrafts.set(editorType,readReviewItems(editorType,$('#edit-items')));
   editorType=$('#edit-type').value;
   const items=editorDrafts.get(editorType)||defaultReviewItems(editorType,editing.context);
   renderEditorItems(items);$('#editor').scrollTop=0;
 }
 function renderEditorItems(items){editorDrafts.set(editorType,items);$('#edit-items').innerHTML=renderReviewItems(editorType,items);$('#add-quiz-item').disabled=items.length>=50;$('#edit-error').hidden=true;}
-function openEditor(q){
-  editing=q||{context:{...selected()}};$('#edit-type').disabled=!!q;
-  $('#edit-title').textContent=q?'Edit draft · v'+q.version:'Propose a lesson quiz';
-  $('#edit-context').textContent=q?String(q.author.group):selected().group+' / '+selected().lesson;
-  editorType=q?.type||'Gap';$('#edit-type').value=editorType;editorDrafts.clear();
+function openEditor(q,repairJob=null){
+  const context=repairJob?boot.contexts.find(c=>c.lessonId===repairJob.lessonId&&c.senseId===repairJob.senseId):selected();
+  if(!q&&!context){message('This lesson context is no longer available.',true);return;}
+  editing=q||{context:{...context},repairJob};$('#edit-type').disabled=!!(q||repairJob);
+  $('#edit-title').textContent=q?'Edit draft · v'+q.version:repairJob?'Correct a preparation issue':'Propose a lesson quiz';
+  $('#edit-context').textContent=q?String(q.author.group):context.group+' / '+context.lesson;
+  editorType=q?.type||repairJob?.type||'Gap';$('#edit-type').value=editorType;editorDrafts.clear();
   renderEditorItems(q?structuredClone(q.content.items):defaultReviewItems(editorType,editing.context));
   $('#edit-explanation').value=q?.content.explanation||editing.context.meaning;
   $('#editor').showModal();$('#editor').scrollTop=0;
@@ -111,6 +117,7 @@ document.addEventListener('click',e=>{
   const nav=e.target.closest('[data-view]');if(nav){run(async()=>{view=nav.dataset.view;await refresh();});return;}
   const b=e.target.closest('[data-action]');if(!b||busy)return;
   const action=b.dataset.action,q=[...quizzes,...shared].find(row=>row.id===b.dataset.id);
+  if(action==='repair-job'){const job=jobs.find(j=>j.id===b.dataset.jobId);if(job)openEditor(null,job);return;}
   if(action==='prepare'){run(async()=>{const c=selected();await api('/local/generation',{groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types});pollFailures=0;await refresh();message('Queued locally. Existing approved templates are not replaced.');});return;}
   if(['retry-job','open-generated'].includes(action)){
     const job=jobs.find(j=>j.id===b.dataset.jobId);if(!job)return;
@@ -118,7 +125,8 @@ document.addEventListener('click',e=>{
       if(action==='retry-job')await api('/local/generation/'+job.id+'/retry',{expectedRevision:job.revision});
       else{
         const generated=(await api('/local/quizzes/'+job.versionId)).quiz;
-        view=generated.state==='approved'?'word':'queue';
+        if(['draft','returned'].includes(generated.state)&&generated.author.id!==boot.actor.id){$('#history-content').innerHTML=identity(generated)+'<p class="muted">Awaiting changes or submission by the author.</p>'+generated.content.items.map(item=>reviewItemPreview(generated.type,item)).join('');$('#history').showModal();return;}
+        view=generated.state==='approved'?'word':generated.state==='submitted'?'queue':'mine';
         if(view==='word')contextId=boot.contexts.find(c=>c.cardId===job.cardId&&c.lessonId===job.lessonId)?.id||contextId;
         expansion.set('type-'+(view==='word'?contextId:job.lessonId+'-'+job.senseId)+'-'+job.type,true);expansion.set('item-'+job.versionId,true);
       }
@@ -146,6 +154,7 @@ document.addEventListener('change',e=>{
 $('#edit-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{
   const value=contentFromForm();
   if(editing.id)await api('/local/quizzes/'+editing.id+'/edit',{expectedRevision:editing.revision,content:value.content});
+  else if(editing.repairJob)await api('/local/generation/'+editing.repairJob.id+'/repair',{expectedRevision:editing.repairJob.revision,content:value.content});
   else{const c=editing.context;await api('/local/quizzes',{groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,...value});}
   $('#editor').close();view='mine';await refresh();message('Saved in the local test database.');
 });});

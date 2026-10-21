@@ -1,11 +1,11 @@
 // Isolated orchestration. No provider, credentials, timers or production imports.
 import {StudyError,statement as s,QUIZ_TYPES} from './learning-study.mjs';
-import {exactFields,validateReviewContent} from './quiz-review-content.mjs';
+import {exactFields,reviewText,validateReviewContent} from './quiz-review-content.mjs';
 const contextTypes=['Match','Memory','Select all','Odd one out'];
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>{if(!actor?.id||!['ADMIN','DEVELOPER'].includes(actor.role)||actor.active===false||actor.active===0||actor.revoked)fail(403,'An active teacher is required.');};
 const origin=job=>({groupId:job.group_id,lessonId:job.lesson_id,cardId:job.card_id,senseId:job.sense_id});
-const dto=j=>({id:j.id,type:j.type,state:j.state,revision:j.revision,attempts:j.attempts,cycle:j.cycle,issue:j.issue,versionId:j.version_id,...origin(j)});
+const dto=j=>({id:j.id,type:j.type,state:j.state,revision:j.revision,attempts:j.attempts,cycle:j.cycle,issue:j.issue,versionId:j.version_id,quizState:j.quiz_state||null,...origin(j)});
 export class GenerationIssue extends Error{
   constructor(code,retryable=true){super(code);this.code=code;this.retryable=retryable;}
 }
@@ -31,7 +31,7 @@ export class QuizGenerationService{
     });
   }
   async list(actor){
-    reviewer(actor);const rows=await this.db.read('SELECT * FROM qr_generation_jobs ORDER BY group_id,lesson_id,type,id LIMIT 300'),out=[];
+    reviewer(actor);const rows=await this.db.read('SELECT j.*,q.state AS quiz_state FROM qr_generation_jobs j LEFT JOIN qr_versions q ON q.id=j.version_id ORDER BY j.group_id,j.lesson_id,j.type,j.id LIMIT 300'),out=[];
     for(const row of rows){try{await this.review.checkContext(actor,origin(row));out.push(dto(row));}catch(error){if(error.status!==403)throw error;}}
     return out;
   }
@@ -40,8 +40,25 @@ export class QuizGenerationService{
     if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)fail(400,'Use the current revision.');
     return this.review.mutation(actor,body,['generation-retry',id],async()=>{
       const [job]=await this.db.read('SELECT * FROM qr_generation_jobs WHERE id=?',[id]);if(!job)fail(404,'Task not found.');await this.review.checkContext(actor,origin(job));
-      if(job.state!=='review'||job.cycle>=2)fail(409,'This task cannot be retried again.');
-      return {statements:[this.review.accessGuard(actor,origin(job)),s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND cycle<2",[actor.id,id,body.expectedRevision]),this.review.guard()],result:{id,state:'queued',revision:body.expectedRevision+1}};
+      if(job.state!=='review'||job.cycle>=2||job.version_id)fail(409,'This task cannot be retried again.');
+      return {statements:[this.review.accessGuard(actor,origin(job)),s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND cycle<2 AND version_id IS NULL",[actor.id,id,body.expectedRevision]),this.review.guard()],result:{id,state:'queued',revision:body.expectedRevision+1}};
+    });
+  }
+  async repair(actor,id,body){
+    reviewer(actor);exactFields(body,['mutationId','expectedRevision','content']);
+    if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)fail(400,'Use the current revision.');
+    return this.review.mutation(actor,body,['generation-repair',id],async()=>{
+      const [job]=await this.db.read('SELECT * FROM qr_generation_jobs WHERE id=?',[id]);if(!job)fail(404,'Task not found.');
+      const ctx=await this.review.checkContext(actor,origin(job));
+      if(job.state!=='review'||job.version_id)fail(409,'A replacement is already linked or the task is not ready for repair.');
+      const content=validateReviewContent(job.type,body.content),versionId=crypto.randomUUID(),author=reviewText(actor.name||actor.login||actor.id,200);
+      const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Yerevan',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      return {statements:[this.review.accessGuard(actor,origin(job)),
+        s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_name,author_group,group_id,lesson_id,card_id,created_date)
+          VALUES(?,?,1,?,?,?,'draft',?,?,?,?,?,?,?)`,[versionId,versionId,job.sense_id,job.type,JSON.stringify(content),actor.id,author,ctx.group_name,job.group_id,job.lesson_id,job.card_id,date]),this.review.guard(),
+        s("UPDATE qr_generation_jobs SET version_id=?,revision=revision+1 WHERE id=? AND revision=? AND state='review' AND version_id IS NULL",[versionId,id,body.expectedRevision]),this.review.guard(),
+        this.review.event({id:versionId,revision:1},actor,'manual-replacement-created',{generationJobId:id,originalIssue:job.issue,content})],
+      result:{id:versionId,jobId:id,revision:1,state:'draft',jobRevision:body.expectedRevision+1}};
     });
   }
   async atomic(commands){
