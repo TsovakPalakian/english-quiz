@@ -3,7 +3,8 @@ import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {fixture,actors,body} from '../test/quiz-review-fixture.mjs';
-import {QuizGenerationService} from '../src/quiz-generation.mjs';
+import {QuizGenerationService,GenerationIssue} from '../src/quiz-generation.mjs';
+import {GenerationQuota} from '../src/generation-quota.mjs';
 import {localQuizGenerator} from './quiz-generation-local-provider.mjs';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
@@ -15,10 +16,25 @@ async function jsonBody(req){
   for await(const chunk of req){size+=chunk.length;if(size>60000)fail(413,'Request is too large.');chunks.push(chunk);}
   try{return JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail(400,'Invalid JSON.');}
 }
-export async function createQuizReviewPreview({port=0}={}){
+export async function createQuizReviewPreview({port=0,requestLimit=100}={}){
   const f=await fixture({approval:true}),service=f.service;
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/002_generation_jobs.sql',import.meta.url),'utf8'));
-  const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate:localQuizGenerator,backoffMs:400});
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/003_generation_quota.sql',import.meta.url),'utf8'));
+  const quota=new GenerationQuota(f.db);
+  await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
+  const quotaSource={task:'generation',adapterId:'local-fixture',provider:'local-fixture',model:'synthetic',version:'v1',locale:'en-US',mode:'text',configurationRevision:1};
+  const generate=async input=>{
+    const reservation=await quota.reserve(quotaSource,{signal:input.signal}).catch(error=>{
+      if(error.code==='quota_or_access_denied')throw new GenerationIssue('quota_exceeded',false);throw error;
+    });
+    try{
+      if(input.signal?.aborted)throw new GenerationIssue('cancelled',false);
+      await quota.start(reservation);
+      if(input.signal?.aborted)throw new GenerationIssue('cancelled',false);
+      return await localQuizGenerator(input);
+    }finally{await quota.release(reservation);}
+  };
+  const generation=new QuizGenerationService({review:service,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(a=>a.id===id),generate,backoffMs:400});
   await service.linkCard(actors.dev,body({cardId:3,senseId:f.senseId}));
   await service.linkCard(actors.dev,body({cardId:4,senseId:f.senseId}));
   const bank=await service.createSense(actors.dev,body({cardId:2,meaning:{partOfSpeech:'noun',translation:'банк',definition:'An institution that keeps and lends money.'}}));
@@ -53,6 +69,7 @@ export async function createQuizReviewPreview({port=0}={}){
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/quota'){if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');send(200,await quota.inspect(actor,'local-fixture'));return;}
         if(path==='/local/boot'){
           const available=[];for(const c of contexts){try{await service.checkContext(actor,c);available.push(c);}catch(error){if(error.status!==403)throw error;}}
           if(actor.role==='USER')available.push({...contexts[0],id:'personal',personal:true,groupId:null,lessonId:null,group:'Personal cards',lesson:'',cardId:actor.id==='u1'?3:4});

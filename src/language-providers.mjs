@@ -20,8 +20,11 @@ export class LanguageProviders{
   #history=[];
   #authorize;
   #freeOnly;
-  constructor({adapters=[],freeOnly=true,authorize=async()=>false}={}){
-    if(!Array.isArray(adapters)||typeof freeOnly!=='boolean'||typeof authorize!=='function')fail('invalid_configuration');
+  #quota;
+  constructor({adapters=[],freeOnly=true,authorize=async()=>false,quota=null}={}){
+    if(!Array.isArray(adapters)||typeof freeOnly!=='boolean'||typeof authorize!=='function'||
+      quota!==null&&!['reserve','start','release'].every(key=>typeof quota?.[key]==='function'))fail('invalid_configuration');
+    this.#quota=quota;
     this.#authorize=authorize;this.#freeOnly=freeOnly;
     for(const adapter of adapters){
       if(!exact(adapter,['id','provider','model','version','capabilities','billing','invoke','validate'])||
@@ -69,7 +72,7 @@ export class LanguageProviders{
     const adapter=this.#adapters.get(selection.adapterId);
     const source=Object.freeze({task,...selection,provider:adapter.provider,model:adapter.model,version:adapter.version,configurationRevision:this.#revision});
     if(signal?.aborted)fail('cancelled');
-    const controller=new AbortController();let timer,abort;
+    const controller=new AbortController();let timer,abort,reservation;
     const stopped=new Promise((_,reject)=>{
       abort=()=>{controller.abort();reject(new LanguageProviderError('cancelled'));};
       signal?.addEventListener('abort',abort,{once:true});
@@ -77,10 +80,16 @@ export class LanguageProviders{
     });
     try{
       const result=await Promise.race([stopped,(async()=>{
-        // The injected gate must authenticate callers and atomically reserve quotas.
+        // The injected gate authenticates callers. Optional local quota is generation-only.
         // Declaring an adapter free-tier does not prove its account cannot be billed.
         if(await this.#authorize({...source,billing:adapter.billing,freeOnly:this.#freeOnly},{signal:controller.signal})!==true)fail('quota_or_access_denied');
         if(controller.signal.aborted)fail('cancelled');
+        if(this.#quota&&task==='generation'){
+          reservation=await this.#quota.reserve(source,{signal:controller.signal});
+          if(controller.signal.aborted){await this.#quota.release(reservation);fail('cancelled');}
+          try{await this.#quota.start(reservation);}catch(error){await this.#quota.release(reservation);throw error;}
+          if(controller.signal.aborted)fail('cancelled');
+        }
         const raw=await adapter.invoke(structuredClone(payload),{source,signal:controller.signal});
         if(controller.signal.aborted)fail('cancelled');
         const data=await adapter.validate(raw,{source,signal:controller.signal});
