@@ -126,4 +126,10 @@ export class StoredQuizIndependentReview{
     const attempt=attempts[0]??null;
     return {attempt,result:attempt?.current?attempt.result:null};
   }
+  async attempt(actor,id,attemptId,{level=null}={}){
+    const q=await this.version(actor,id);await this.expire(id);
+    const [row]=await this.db.read(select+' WHERE r.id=? AND r.version_id=?',[attemptId,id]);
+    if(!row)fail(404,'Review attempt not found.');
+    return this.entry(row,await this.input(q,level));
+  }
 }

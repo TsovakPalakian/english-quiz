@@ -1,0 +1,47 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
+const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+async function preview(work){const {server,url}=await createQuizReviewPreview();let browser;try{browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});await work(await browser.newPage({viewport:{width:1280,height:960}}),url);}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}}
+const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
+test('developer enables the chain, teachers see its status/history and students see no controls',async()=>preview(async(page,url)=>{
+  const post=(path,data)=>fetch(url+path,{method:'POST',headers:{Origin:url,Cookie:'qr-preview=dev','Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),...data})});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await post('/local/providers',{expectedRevision:1,selections:{generation:{adapterId:'local-fixture-a',locale:'en-US',mode:'text'},review:{adapterId:'local-checker-a',locale:'en-US',mode:'text'}},reason:'Synthetic setup.'});
+  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
+  await page.getByRole('heading',{name:'Automatic checks · Off',exact:true}).waitFor();assert.equal(await page.locator('#pipeline-settings-form').count(),0);
+  await page.selectOption('#account','dev');await page.locator('#account:not([disabled])').waitFor();await page.locator('#pipeline-settings-form').waitFor();
+  await page.locator('#pipeline-settings-form [name="enabled"]').check();await page.locator('#pipeline-settings-form [name="reason"]').fill('Enable the preparation chain.');
+  await page.getByRole('button',{name:'Save chain settings',exact:true}).click();await page.getByRole('heading',{name:'Automatic checks · On',exact:true}).waitFor();
+  const {contexts}=await(await fetch(url+'/local/boot')).json(),c=contexts[0];
+  await post('/local/generation',{groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types:['Type']});
+  let job;for(let n=0;n<100;n++){const {jobs}=await(await fetch(url+'/local/pipeline')).json();job=jobs.find(row=>row.state==='teacher_review');if(job)break;await new Promise(resolve=>setTimeout(resolve,25));}assert.ok(job);
+  await page.locator('[data-view="word"]').click();await page.locator('[data-view="queue"]').click();
+  const node=page.locator('[data-item="'+job.versionId+'"]');
+  const chain=node.locator('[data-expand="pipeline-'+job.id+'"]');await chain.waitFor({state:'attached'});await expand(node);await chain.locator(':scope > summary').click();
+  assert.match(await chain.innerText(),/Awaiting teacher decision/);
+  await chain.locator('[data-pipeline-history] > summary').click();await chain.locator('.history-event').first().waitFor();assert.equal(await chain.locator('.history-event').count(),3);
+  assert.equal(await node.locator('.verified').count(),0);
+  await page.locator('[data-view="word"]').click();await page.locator('[data-view="queue"]').click();assert.equal(await chain.locator('[data-pipeline-history]').evaluate(node=>node.open),true);
+  await page.screenshot({path:'/private/tmp/lumiscia-pipeline-desktop.png'});await page.setViewportSize({width:390,height:844});await chain.scrollIntoViewIfNeeded();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-pipeline-mobile.png'});
+  await page.selectOption('#account','outsider');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('#pipeline-settings-form').count(),0);assert.equal(await page.locator('[data-expand="pipeline-'+job.id+'"]').count(),1);
+  await page.selectOption('#account','student');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('[data-pipeline-history]').count(),0);assert.equal(await page.locator('#pipeline-settings-form').count(),0);assert.deepEqual(errors,[]);
+}));
+test('chain settings handle stale saves and ignore late private history after role change',async()=>preview(async(page,url)=>{
+  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.selectOption('#account','dev');await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
+  const form=page.locator('#pipeline-settings-form');await form.locator('[name="enabled"]').check();await form.locator('[name="reason"]').fill('A stale local selection.');
+  await fetch(url+'/local/pipeline',{method:'POST',headers:{Origin:url,Cookie:'qr-preview=dev','Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:1,enabled:true,reason:'Another tab enabled it.'})});
+  await form.locator('[type="submit"]').click();await form.locator('[data-pipeline-save-error]:not([hidden])').waitFor();
+  assert.equal((await(await fetch(url+'/local/pipeline')).json()).revision,2);
+  await page.locator('[data-pipeline-action="refresh"]').click();await page.waitForFunction(()=>document.querySelector('#pipeline-settings-form [name="enabled"]')?.checked===true&&document.querySelector('#pipeline-settings-form [name="reason"]')?.value==='');
+  const {quizzes}=await(await fetch(url+'/local/queue')).json(),q=quizzes.find(row=>row.type==='Choice'),id=crypto.randomUUID();let release;
+  await page.route('**/local/pipeline',route=>route.request().method()==='GET'?route.fulfill({contentType:'application/json',body:JSON.stringify({enabled:true,revision:2,jobs:[{id,versionId:q.id,revision:1,status:'attention',state:'attention',issue:'quota_exceeded'}]})}):route.continue());
+  await page.route('**/local/pipeline/'+id+'/history',async route=>{await new Promise(resolve=>release=resolve);await route.fulfill({contentType:'application/json',body:JSON.stringify({events:[{id:1,revision:1,state:'<img src=x onerror=alert(1)>',changedAt:0,issue:''}],next:null})});});
+  await page.locator('[data-pipeline-action="refresh"]').click();const chain=page.locator('[data-expand="pipeline-'+id+'"]');await chain.waitFor({state:'attached'});await expand(chain);
+  await chain.locator('[data-pipeline-history] > summary').click();
+  for(let n=0;n<100&&!release;n++)await new Promise(resolve=>setTimeout(resolve,10));assert.equal(typeof release,'function');
+  await page.selectOption('#account','student');await page.locator('#account:not([disabled])').waitFor();release();await page.waitForTimeout(100);
+  assert.equal(await page.locator('#pipeline-settings-form').count(),0);assert.equal(await page.locator('[data-pipeline-history-body]').count(),0);
+}));

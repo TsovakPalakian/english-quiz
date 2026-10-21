@@ -2,6 +2,7 @@
 import {defaultReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview} from './review-editor.js';
 import {createProviderSettingsUI} from './provider-settings.js';
 import {createIndependentReviewUI} from './independent-review.js';
+import {createPreparationPipelineUI} from './preparation-pipeline.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
@@ -17,6 +18,7 @@ const teacher=()=>boot?.actor.role!=='USER';
 const selected=()=>boot?.contexts.find(c=>c.id===contextId)||boot?.contexts[0];
 const providerSettingsUI=createProviderSettingsUI({api,isDeveloper:developer,sessionKey:()=>sessionEpoch,active:()=>view==='providers',renderPage:render,notify:message,actorName:id=>boot?.roles.find(row=>row.id===id)?.name||id,date:value=>attemptDate(value)});
 const independentUI=createIndependentReviewUI({api,isTeacher:()=>['ADMIN','DEVELOPER'].includes(boot?.actor.role),sessionKey:()=>sessionEpoch,getQuiz:id=>[...quizzes,...shared].find(q=>q.id===id),date:value=>attemptDate(value)});
+const pipelineUI=createPreparationPipelineUI({api,isTeacher:()=>['ADMIN','DEVELOPER'].includes(boot?.actor.role),isDeveloper:developer,sessionKey:()=>sessionEpoch,active:()=>view==='queue',renderPage:render,date:value=>attemptDate(value)});
 function message(text,error=false){clearTimeout(noticeTimer);$('#notice').textContent=text;$('#notice').classList.toggle('error',error);if(error&&$('#editor').open){$('#edit-error').hidden=false;$('#edit-error').textContent=text;}if(!error)noticeTimer=setTimeout(()=>$('#notice').textContent='',4500);}
 async function api(path,payload){
   const options={};let pendingKey;
@@ -36,7 +38,7 @@ async function run(work){
   try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
 }
 async function loadSession(){
-  sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();
+  sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();pipelineUI.reset();
   if(view==='providers'){$('#content').innerHTML='';$('[data-view="providers"]').hidden=true;}
   if(view==='quota'){$('#content').innerHTML='';$('[data-view="quota"]').hidden=true;}
   boot=await api('/local/boot');
@@ -56,6 +58,7 @@ async function refresh(){
   const c=selected();shared=c?(await api('/local/shared/'+c.cardId)).quizzes.map(q=>({...q,state:'approved'})):[];
   quizzes=(await api(view==='queue'?'/local/queue':'/local/mine')).quizzes;
   jobs=teacher()?(await api('/local/generation')).jobs:[];
+  if(view==='queue'&&teacher())await pipelineUI.load();
   render();
 }
 const jobLabels={queued:'Queued',running:'Preparing',retry:'Waiting to retry',review:'Needs teacher attention',submitted:'Sent for review',context:'Needs a word set',skipped:'Already approved'};
@@ -193,7 +196,7 @@ function buttons(q){
   if(teacher()&&q.state==='submitted'&&!mine)out+=action('return',q,'Request changes')+action('approve',q,'Review & approve');
   if(teacher()&&q.state==='approved')out+=action('revise',q,'Propose new version');
   if(q.author.id||teacher())out+=action('history',q,'Version history');
-  return '<div class="actions">'+out+'</div>'+independentUI.panel(q);
+  return '<div class="actions">'+out+'</div>'+independentUI.panel(q)+pipelineUI.item(q);
 }
 function entry(q){
   const items=q.content.items.map(item=>reviewItemPreview(q.type,item)).join('');
@@ -219,10 +222,12 @@ function render(){
     const own=quizzes.filter(q=>q.senseId===c?.senseId&&q.state!=='approved'&&!c.personal),list=[...shared,...own];
     const missing=types.filter(type=>!['Match','Memory','Select all','Odd one out'].includes(type)&&!shared.some(q=>q.type===type));
     $('#content').innerHTML='<div class="context-picker"><label>Card location<select id="context">'+boot.contexts.map(row=>'<option value="'+row.id+'" '+(row.id===c?.id?'selected':'')+'>'+esc(row.personal?'Personal card · '+row.word:row.group+' / '+row.lesson+' / '+row.word)+'</option>').join('')+'</select></label></div>'+(c?'<section><h2>Meaning</h2><p>'+esc(c.meaning)+' · '+esc(c.translation)+'</p><p class="coverage"><strong>Missing teacher-checked types:</strong> '+missing.map(esc).join(', ')+'</p><div class="actions">'+(!c.personal?'<button class="primary" data-action="create">Propose a quiz</button>':'<p class="muted">Personal cards use shared templates. Student proposals belong to lesson words only.</p>')+'</div></section><section><h2>Quizzes</h2>'+byType(list,c.id)+(!list.length?'<p class="empty">No quizzes yet.</p>':'')+'</section>':'<p>No lesson words available for this test account.</p>');
-  }else $('#content').innerHTML='<section><p class="muted">'+(view==='queue'?'Submitted and returned work in your assigned groups.':'Your drafts and submitted versions. Editing during review is blocked by the server.')+'</p>'+groups(quizzes)+(!quizzes.length?'<p class="empty">No proposals.</p>':'')+'</section>';
+  }else $('#content').innerHTML='<section><p class="muted">'+(view==='queue'?'Shared review queue for all teachers.':'Your drafts and submitted versions. Editing during review is blocked by the server.')+'</p>'+groups(quizzes)+(!quizzes.length?'<p class="empty">No proposals.</p>':'')+'</section>';
   $('#content').insertAdjacentHTML('beforeend',generationPanel());
+  if(view==='queue')$('#content').insertAdjacentHTML('afterbegin',pipelineUI.header());
   document.querySelectorAll('[data-expand]').forEach(d=>{if(expansion.has(d.dataset.expand))d.open=expansion.get(d.dataset.expand);});$('#content').setAttribute('aria-busy','false');
   independentUI.afterRender();
+  pipelineUI.afterRender();
 }
 document.addEventListener('toggle',e=>{
   if(!e.target.isConnected)return;
@@ -312,5 +317,5 @@ $('#decision-form').addEventListener('submit',e=>{e.preventDefault();run(async()
 $('#edit-type').innerHTML=types.map(type=>'<option>'+type+'</option>').join('');
 document.addEventListener('submit',event=>{if(event.target.id==='quota-limit-form'){event.preventDefault();saveQuotaLimit(event.target);}});
 document.addEventListener('input',event=>{if(event.target.closest('#quota-limit-form'))updateQuotaSaveButton();});
-setInterval(()=>{if(!['quota','providers'].includes(view)&&!busy&&!document.querySelector('dialog[open]')&&pollFailures<3&&jobs.some(j=>['queued','running','retry'].includes(j.state)))run(async()=>{try{await refresh();pollFailures=0;}catch(error){pollFailures++;throw error;}});},1000);
+setInterval(()=>{if(!['quota','providers'].includes(view)&&!busy&&!document.querySelector('dialog[open],#pipeline-settings-form:focus-within')&&pollFailures<3&&(jobs.some(j=>['queued','running','retry'].includes(j.state))||view==='queue'&&pipelineUI.pending()))run(async()=>{try{await refresh();pollFailures=0;}catch(error){pollFailures++;throw error;}});},1000);
 run(loadSession);

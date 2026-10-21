@@ -10,9 +10,11 @@ import {localQuizGenerator} from './quiz-generation-local-provider.mjs';
 import {localQuizReviewer} from './quiz-review-local-provider.mjs';
 import {StoredQuizIndependentReview} from '../src/stored-quiz-independent-review.mjs';
 import {IndependentReviewIssue,validateIndependentReviewResult} from '../src/quiz-independent-review.mjs';
+import {QuizPreparationPipeline} from '../src/quiz-preparation-pipeline.mjs';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/provider-settings.js':['client/demos/provider-settings-ui.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 files['/independent-review.js']=['client/demos/independent-review-ui.js','text/javascript'];
+files['/preparation-pipeline.js']=['client/demos/preparation-pipeline-ui.js','text/javascript'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
   const length=Number(req.headers['content-length']);if(Number.isFinite(length)&&length>60000)fail(413,'Request is too large.');
@@ -30,6 +32,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/005_provider_settings.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/006_independent_reviews.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/008_preparation_pipeline.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
@@ -79,6 +82,8 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     }
   }});
   await service.linkCard(actors.dev,body({cardId:3,senseId:f.senseId}));
+  const pipeline=new QuizPreparationPipeline({review:service,independent,worker:actors.dev,resolveActor:async id=>Object.values(actors).find(actor=>actor.id===id)});
+  await pipeline.initialize(actors.dev);
   await service.linkCard(actors.dev,body({cardId:4,senseId:f.senseId}));
   const bank=await service.createSense(actors.dev,body({cardId:2,meaning:{partOfSpeech:'noun',translation:'банк',definition:'An institution that keeps and lends money.'}}));
   const contexts=[
@@ -112,6 +117,13 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/pipeline'){send(200,await pipeline.list(actor));return;}
+        const pipelineHistory=/^\/local\/pipeline\/([a-f0-9-]{36})\/history$/.exec(path);
+        if(pipelineHistory){
+          const params=new URL(req.url,'http://'+host).searchParams,before=params.get('before');
+          if([...params.keys()].some(key=>key!=='before')||params.getAll('before').length>1||before!==null&&!/^[1-9]\d*$/.test(before))fail(400,'Invalid pipeline history cursor.');
+          send(200,await pipeline.history(actor,pipelineHistory[1],{before:before===null?null:Number(before)}));return;
+        }
         if(path==='/local/review-quota'){
           if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Teacher access required.');
           try{send(200,await quota.summary(actor,'local-fixture'));}catch{fail(503,'Request quota is unavailable.');}return;
@@ -162,6 +174,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
         const data=await jsonBody(req);
+        if(path==='/local/pipeline'){send(200,await pipeline.configure(actor,data));return;}
         if(path==='/local/providers'){
           if(actor.role!=='DEVELOPER')fail(403,'Developer access required.');
           try{send(200,await providers.configure(actor,data));}
@@ -199,7 +212,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   server.requestTimeout=15000;server.headersTimeout=10000;
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){f.close();throw error;}
   let processing=null,closing=false;
-  const timer=setInterval(()=>{if(processing||closing)return;processing=generation.runOne().catch(()=>console.error('Local generation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
+  const timer=setInterval(()=>{if(processing||closing)return;processing=(async()=>{await generation.runOne();await pipeline.runOne();})().catch(()=>console.error('Local preparation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
   server.once('close',()=>{closing=true;clearInterval(timer);if(processing)processing.finally(()=>f.close());else f.close();});
   return {server,url:'http://127.0.0.1:'+server.address().port};
 }
