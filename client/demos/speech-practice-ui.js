@@ -20,7 +20,9 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
     const data=await api('/local/speech?'+new URLSearchParams(lesson()));if(epoch!==sessionKey()||loadId!==generation)return;
     if(!data.tasks.some(task=>task.id===taskId))taskId=data.tasks[0]?.id||'';
     const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
-    if(epoch===sessionKey()&&loadId===generation)state={...data,history,progress,recipients,shared};
+    const textReviews=new Map();
+    for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));
+    if(epoch===sessionKey()&&loadId===generation)state={...data,history,progress,recipients,shared,textReviews};
   }
   function resultPanel(attempt){
     const result=attempt.result;
@@ -54,8 +56,15 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       }
       node.querySelector('[data-speech-language-warning]')?.remove();
       if(result?.languageReviewUnavailable){const note=document.createElement('p');note.className='reason';note.dataset.speechLanguageWarning='';note.textContent='Language review unavailable. Acoustic scores do not assess grammar or task completion.';node.querySelector('.detail').append(note);}
+      const old=node.querySelector('[data-text-reviews]'),wasOpen=old?.open;old?.remove();
+      if(attempt?.state==='complete'){
+        const rows=state.textReviews?.get(attempt.id)?.reviews||[],revision=attempt.correction?.revision||0,latest=rows.find(row=>row.transcriptRevision===revision),panel=document.createElement('details');
+        panel.dataset.textReviews='';panel.open=wasOpen||false;
+        panel.innerHTML='<summary>Confirmed transcript language review</summary><p class="small muted">Text-only assessment; acoustic scores and speech progress remain unchanged.</p>'+(attempt.canManage?'<p>'+esc(attempt.correction?.text||result.transcript)+'</p><form data-speech-form="confirm-text" data-id="'+esc(attempt.id)+'" data-revision="'+revision+'" data-retry="'+esc(latest?.id||'')+'"><label class="check"><input type="checkbox" name="consent" required>Send this exact transcript revision for language review</label><button type="submit" '+(['reserved','started'].includes(latest?.state)?'disabled':'')+'>Review confirmed text</button></form>':'')+rows.map(row=>'<section><h4>Revision '+row.transcriptRevision+' · '+esc(row.state)+'</h4><p>'+esc(row.transcript)+'</p><p class="small muted">'+esc(row.source.provider+' · '+row.source.model+' · '+row.source.version)+(row.basedOnEditedTranscript?' · Edited transcript':' · Original transcript')+'</p>'+(row.result?'<p>'+(row.result.synthetic?'Synthetic demonstration · ':'')+'Language score: '+esc(row.result.overall??'Unavailable')+' / 100</p><dl>'+['grammar','vocabulary','task'].map(key=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+esc(row.result.scores[key]??'Unavailable')+'</dd>').join('')+'</dl><p>Rubric: '+esc(row.result.rubric.id+' · '+row.result.rubric.version)+'</p>':'<p>'+esc(row.error||'Pending')+'</p>')+(attempt.canManage&&['reserved','started'].includes(row.state)?'<button data-speech-action="cancel-text" data-id="'+esc(row.id)+'">Cancel text review</button>':'')+'</section>').join('');
+        node.querySelector('.detail').append(panel);
+      }
     });
-    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state)))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
+    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state))))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
   }
   async function start(){
     if(!selected())return;discard();const epoch=++captureEpoch,session=sessionKey();let stream,audio;
@@ -79,7 +88,8 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
     if(action==='record'){run(start);return;}if(action==='stop'){stop();return;}
     run(async()=>{
       if(action==='discard'){if(uploaded)await api('/local/media/'+uploaded.id,{});discard();renderPage();return;}
-      if(action==='more'){const more=await api('/local/speech/tasks/'+taskId+'/history?before='+encodeURIComponent(JSON.stringify(state.history.next)));state.history={attempts:[...state.history.attempts,...more.attempts],next:more.next};renderPage();return;}
+      if(action==='more'){const more=await api('/local/speech/tasks/'+taskId+'/history?before='+encodeURIComponent(JSON.stringify(state.history.next)));for(const attempt of more.attempts)if(attempt.state==='complete')state.textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));state.history={attempts:[...state.history.attempts,...more.attempts],next:more.next};renderPage();return;}
+      if(action==='cancel-text'){await api('/local/speech/text-reviews/'+id+'/cancel',{});await load();renderPage();return;}
       if(action==='remove'&&!confirm('Delete this private attempt, its transcript and recording?'))return;
       await api('/local/speech/attempts/'+id+'/'+action,action==='revoke'?{teacherId:teacher}:{});await load();renderPage();
     });
@@ -96,6 +106,7 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       }
       if(kind==='task')await api('/local/speech/tasks',{...lesson(),mode:data.get('mode'),locale:data.get('locale'),prompt:data.get('prompt'),reference:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null});
       if(kind==='correct')await api('/local/speech/attempts/'+id+'/correct',{text:data.get('text')});
+      if(kind==='confirm-text')await api('/local/speech/attempts/'+id+'/confirm-text',{transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on',...(form.dataset.retry?{retryOf:form.dataset.retry}:{})});
       if(kind==='share')await api('/local/speech/attempts/'+id+'/share',{teacherId:data.get('teacherId'),includeAudio:data.get('includeAudio')==='on',consent:data.get('consent')==='on'});
       await load();renderPage();
     });

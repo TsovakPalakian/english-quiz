@@ -36,6 +36,8 @@ import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} fr
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
+import {isWorkbenchPath,learningWorkbenchAPI} from './learning-workbench-api.mjs';
+import {learningWorkbenchReadiness} from './learning-workbench-schema.mjs';
 export {StageAuthBudget};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const decoder=new TextDecoder();
@@ -115,7 +117,7 @@ export function accountDatabase(db,reserve,{allowWrites=false}={}){
   }};
 }
 export function integratedWorker({accountWorker=accounts,authenticate=currentUser,studyWorker=study,
-  authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration}={}){
+  authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration,openWorkbench=null}={}){
   async function approveInvitedStudent(env,accountEnv,registrationId){
     const invites=new AccountInvites(studyDatabase(env));
     // Only a server-claimed student invitation may authorize automatic approval.
@@ -174,6 +176,20 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!response.ok)throw new StudyError(response.status,'Account query limit reached.');
       };
       const accountEnv={...env,MEDIA:accountMedia(env.MEDIA),DB:accountDatabase(env.DB,reserve,{allowWrites:env.ACCOUNT_MUTATIONS_ENABLED==='true'})};
+      if(isWorkbenchPath(path)){
+        if(env.LEARNING_WORKBENCH_ENABLED!=='true')return json({error:'Not found.'},404);
+        const actor=await identify(accountEnv,request);
+        if(!actor||actor.active===false||actor.active===0||actor.revoked||!['USER','ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(401,'Active account required.');
+        const writable=env.STAGE_WRITES==='true'&&env.LEARNING_WORKBENCH_WRITES==='true';
+        if(!['GET','HEAD'].includes(method)&&!writable)throw new StudyError(503,'Workbench writes are off.');
+        if(typeof openWorkbench!=='function')throw new StudyError(503,'Workbench integration is not configured.');
+        const database=studyDatabase(env),readiness=await learningWorkbenchReadiness(database);
+        if(!readiness.ready)throw new StudyError(503,'Workbench schema requires an offline migration review.');
+        // A factory receives a read-only contract when writes are off, including background recovery.
+        const db=writable?database:{read:database.read.bind(database),atomic:async()=>{throw new StudyError(503,'Workbench writes are off.');}};
+        const services=await openWorkbench({db,actor,env,ctx,writable});
+        return await learningWorkbenchAPI(request,{actor,services,writable,waitUntil:writable&&typeof ctx?.waitUntil==='function'?promise=>ctx.waitUntil(promise):null});
+      }
       const provider=path.match(/^\/api\/auth\/(microsoft|telegram)(?:\/|$)/)?.[1],oauth=oauthProviders[provider];
       if(path==='/api/auth/providers'&&method==='GET')return json({google:googleConfigured(env),...Object.fromEntries(Object.entries(oauthProviders).map(([key,value])=>[key,value.configured(env)&&env.STAGE_WRITES==='true'&&env.ACCOUNT_MUTATIONS_ENABLED==='true']))});
       if(oauth&&path!=='/api/auth/'+provider+'/code'&&path!=='/api/auth/'+provider+'/verify'){

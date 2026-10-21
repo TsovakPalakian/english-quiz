@@ -10,7 +10,7 @@ test('local speech UI records privately, analyzes only with consent, displays pr
     const response=await fetch(url+path,{method:data?'POST':'GET',headers:{Cookie:'qr-preview='+role,...(data?{Origin:url,'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify({mutationId:crypto.randomUUID(),...data})}:{})});return {status:response.status,data:await response.json()};
   };
   try{
-    const settings=(await api('/local/providers',null,'dev')).data;assert.equal((await api('/local/providers',{expectedRevision:settings.revision,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'}},reason:'Synthetic local speech UI test.'},'dev')).status,200);
+    const settings=(await api('/local/providers',null,'dev')).data;assert.equal((await api('/local/providers',{expectedRevision:settings.revision,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'},conversation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'text'}},reason:'Synthetic local speech UI test.'},'dev')).status,200);
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
     const context=await browser.newContext({permissions:['microphone'],viewport:{width:1280,height:960}}),page=await context.newPage(),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
@@ -26,6 +26,13 @@ test('local speech UI records privately, analyzes only with consent, displays pr
     let history=(await api('/local/speech/tasks/'+task.id+'/history')).data.attempts;assert.equal(history.length,1);assert.equal(history[0].result.synthetic,true);assert.equal(history[0].result.overall,71);
     const attempt=page.locator('[data-speech-id="'+history[0].id+'"]');await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});await attempt.locator('[name="text"]').fill('My corrected transcript.');await attempt.getByRole('button',{name:'Save transcript correction',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();
     assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.correction.text,'My corrected transcript.');assert.equal((await api('/local/speech/attempts/'+history[0].id,null,'teacher')).status,404);
+    assert.equal((await api('/local/speech/attempts/'+history[0].id+'/text-reviews')).data.reviews.length,0);
+    await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;node.querySelector('[data-text-reviews]').open=true;});
+    await attempt.locator('[data-speech-form="confirm-text"] [name="consent"]').check();await attempt.getByRole('button',{name:'Review confirmed text',exact:true}).click();
+    await page.locator('#account:not([disabled])').waitFor();await page.waitForFunction(()=>document.querySelector('[data-text-reviews]')?.textContent.includes('Language score: 74.8'));
+    const reviewed=(await api('/local/speech/attempts/'+history[0].id+'/text-reviews')).data.reviews;
+    assert.equal(reviewed.length,1);assert.equal(reviewed[0].transcript,'My corrected transcript.');assert.equal(reviewed[0].transcriptRevision,1);
+    assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.result.overall,71);
     await page.screenshot({path:'/private/tmp/lumiscia-speech-desktop.png'});assert.equal(await page.locator('[data-speech-chart]').evaluate(canvas=>Array.from(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data).some(value=>value!==0)),true);
     await page.selectOption('[data-speech-metric]','fluency');await page.selectOption('#theme','ocean');assert.equal(await page.locator('[data-speech-metric]').inputValue(),'fluency');assert.match(await page.locator('[data-speech-stats]').innerText(),/Latest: 80/);await page.selectOption('#theme','light');
     await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-speech-mobile.png'});

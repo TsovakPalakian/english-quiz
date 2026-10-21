@@ -11,6 +11,7 @@ export class SpeechPractice{
   constructor(kits,media,{enabled=false,providers,worker,rubrics=[],budgets,resolveActor=async()=>null,now=Date.now,timeoutMs=45000}={}){
     if(typeof enabled!=='boolean'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>120000)fail(503,'Invalid speech configuration.');
     this.kits=kits;this.review=kits.review;this.db=kits.db;this.media=media;this.enabled=enabled;this.providers=providers;this.worker=worker;this.now=now;this.timeoutMs=timeoutMs;this.resolveActor=resolveActor;this.controllers=new Map();this.running=new Set();
+    this.deletionStatements=[];this.onDelete=[];
     this.rubrics=rubrics.map(validateSpeechRubric);if(new Set(this.rubrics.map(row=>row.id)).size!==this.rubrics.length)fail(503,'Duplicate speech rubric.');
     for(const kind of ['audio','language'])if(!Number.isSafeInteger(budgets?.[kind]?.day)||budgets[kind].day<1||!Number.isSafeInteger(budgets[kind].month)||budgets[kind].month<budgets[kind].day)fail(503,'Explicit speech budgets are required.');
     this.budgets=structuredClone(budgets);
@@ -66,7 +67,7 @@ export class SpeechPractice{
       if(asset.owner_id!==actor.id||asset.purpose!=='speech'||source.taskId!==id||descriptor.kind!=='audio')fail(403,'Choose your own recording for this task.');
       if(descriptor.duration>task.value.maxSeconds)fail(400,'The recording is too long for this task.');
       if(descriptor.duration<task.value.rubric.minimumSeconds)fail(400,'Record a longer sample before sending for analysis.');
-      const settings=await this.providers.inspect(this.worker),tasks=[task.value.evaluation,...(task.value.languageReview?['conversation']:[])],plan=[];
+      const settings=await this.providers.inspect(this.worker),tasks=[task.value.evaluation],plan=[];
       for(const name of tasks){
         const selection=settings.selections[name],adapter=settings.adapters.find(row=>row.id===selection?.adapterId),mode=name==='conversation'?'text':scripted(task.value.mode)?'scripted':'unscripted';
         if(!selection||settings.unavailable.some(row=>row.task===name)||selection.mode!==mode||selection.locale!==task.value.locale)fail(409,'Select a compatible speech provider and locale; no fallback is used.');
@@ -93,9 +94,8 @@ export class SpeechPractice{
         bytes=await boundedProviderBytes(response.body,10*1024*1024,controller.signal),asset=await this.media.row(row.media_id),outputs=[];
       for(const source of snapshot.plan){
         const latest=await this.attempt(actor,row.id,{owner:true});if(latest.state!=='analyzing'||this.now()>=latest.deadline_at||controller.signal.aborted)fail(409,'Speech attempt stopped.');
-        if(source.task==='conversation'&&(!outputs[0]?.data.transcript||outputs[0].data.quality!=='ok'))break;
-        // Real language review must wait for a separate confirmed-transcript workflow.
-        if(source.task==='conversation'&&snapshot.plan.some(item=>item.provider!=='local-fixture'))break;
+        // Older queued pilot snapshots may contain an unconfirmed text stage. Never dispatch it.
+        if(source.task==='conversation')break;
         await this.review.mutation(actor,{mutationId:crypto.randomUUID()},['speech-provider-dispatch',row.id,source.task],async()=>({statements:[this.review.accessGuard(actor,context(task)),s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_attempts WHERE id=? AND state='analyzing' AND deleted_at IS NULL AND deadline_at>?)",[row.id,this.now()]),s("UPDATE qr_speech_usage SET state='started' WHERE attempt_id=? AND task=? AND state='reserved'",[row.id,source.task]),this.review.guard()],result:{id:row.id}}));
         const payload=source.task==='conversation'?{kind:'speech-language-review',transcript:outputs[0].data.transcript,prompt:snapshot.prompt,reference:snapshot.reference,level:snapshot.level}:
           {bytes,mime:asset.mime,mode:scripted(snapshot.mode)?'scripted':'unscripted',reference:snapshot.reference,locale:snapshot.locale};
@@ -114,8 +114,8 @@ export class SpeechPractice{
     }finally{clearTimeout(timer);this.controllers.delete(row.id);await this.db.atomic([s("UPDATE qr_speech_usage SET state='released' WHERE attempt_id=? AND state='reserved'",[row.id])]);}
     return this.get(actor,row.id);
   }
-  async history(actor,taskId,{before=null}={}){
-    await this.task(actor,taskId);await this.recover();if(before!==null&&(!Array.isArray(before)||before.length!==2||!Number.isSafeInteger(before[0])||before[0]<0||typeof before[1]!=='string'||!/^[a-f0-9-]{36}$/.test(before[1])))fail(400,'Invalid speech history cursor.');
+  async history(actor,taskId,{before=null,recover=true}={}){
+    await this.task(actor,taskId);if(recover)await this.recover();if(before!==null&&(!Array.isArray(before)||before.length!==2||!Number.isSafeInteger(before[0])||before[0]<0||typeof before[1]!=='string'||!/^[a-f0-9-]{36}$/.test(before[1])))fail(400,'Invalid speech history cursor.');
     const rows=await this.db.read(`SELECT id,created_at FROM qr_speech_attempts WHERE task_id=? AND owner_id=? AND deleted_at IS NULL ${before?'AND (created_at<? OR (created_at=? AND id<?))':''} ORDER BY created_at DESC,id DESC LIMIT 51`,[taskId,actor.id,...(before?[before[0],before[0],before[1]]:[])]),page=rows.slice(0,50);
     return {attempts:await Promise.all(page.map(row=>this.get(actor,row.id,{recover:false}))),next:rows.length>50?[page.at(-1).created_at,page.at(-1).id]:null};
   }
@@ -137,15 +137,15 @@ export class SpeechPractice{
   async revoke(actor,id,body){await this.attempt(actor,id,{owner:true});exactFields(body,['mutationId','teacherId']);return this.review.mutation(actor,body,['speech-revoke',id],async()=>({statements:[s('DELETE FROM qr_speech_shares WHERE attempt_id=? AND teacher_id=?',[id,body.teacherId])],result:{id}}));}
   async recipients(actor,id){const task=await this.task(actor,id),rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key=?",[String(task.group_id)]),ids=rows.length?JSON.parse(rows[0].value_json).teacherIds:[],result=[];
     for(const teacherId of new Set([...ids,this.worker.id])){const target=await this.resolveActor(teacherId);if(target&&['ADMIN','DEVELOPER'].includes(target.role)&&target.active!==false&&target.active!==0&&!target.revoked)result.push({id:target.id,name:target.name||'Teacher'});}return result;}
-  async shared(actor,id){kitTeacher(actor);await this.task(actor,id);const rows=await this.db.read('SELECT a.id FROM qr_speech_attempts a JOIN qr_speech_shares s ON s.attempt_id=a.id WHERE a.task_id=? AND s.teacher_id=? AND a.deleted_at IS NULL ORDER BY a.created_at DESC,a.id DESC LIMIT 50',[id,actor.id]),result=[];
-    for(const row of rows)try{result.push(await this.get(actor,row.id));}catch(error){if(![403,404].includes(error.status))throw error;}return result;}
+  async shared(actor,id,{recover=true}={}){kitTeacher(actor);await this.task(actor,id);const rows=await this.db.read('SELECT a.id FROM qr_speech_attempts a JOIN qr_speech_shares s ON s.attempt_id=a.id WHERE a.task_id=? AND s.teacher_id=? AND a.deleted_at IS NULL ORDER BY a.created_at DESC,a.id DESC LIMIT 50',[id,actor.id]),result=[];
+    for(const row of rows)try{result.push(await this.get(actor,row.id,{recover}));}catch(error){if(![403,404].includes(error.status))throw error;}return result;}
   async recording(actor,id,request){const row=await this.attempt(actor,id,{audio:true}),task=await this.task(actor,row.task_id);return this.media.response(actor,row.media_id,request,{session:{owner_id:actor.id,card_id:task.card_id,content_json:JSON.stringify({items:[{mediaId:row.media_id}]})},itemIndex:0});}
   async reference(actor,id,request){const task=await this.task(actor,id),mediaId=task.value.referenceMediaId;if(!mediaId)fail(404,'Reference audio is unavailable.');return this.media.response(actor,mediaId,request,{session:{owner_id:actor.id,card_id:task.card_id,content_json:JSON.stringify({items:[{mediaId}]})},itemIndex:0});}
   async cancel(actor,id,body){await this.attempt(actor,id,{owner:true});exactFields(body,['mutationId']);const result=await this.review.mutation(actor,body,['speech-cancel',id],async()=>({statements:[s("UPDATE qr_speech_attempts SET state='cancelled',error_code='cancelled',finished_at=? WHERE id=? AND state IN ('queued','analyzing') AND deleted_at IS NULL",[this.now(),id]),this.review.guard(),s("UPDATE qr_speech_usage SET state='released' WHERE attempt_id=? AND state='reserved'",[id])],result:{id,state:'cancelled'}}));this.controllers.get(id)?.abort();return result;}
   async remove(actor,id,body){
     this.gate(actor);exactFields(body,['mutationId']);const [row]=await this.db.read('SELECT * FROM qr_speech_attempts WHERE id=? AND owner_id=?',[id,actor.id]);if(!row)fail(404,'Attempt unavailable.');
-    if(!row.deleted_at)await this.review.mutation(actor,body,['speech-delete',id],async()=>({statements:[s('UPDATE qr_speech_attempts SET deleted_at=?,result_json=NULL WHERE id=? AND deleted_at IS NULL',[this.now(),id]),this.review.guard(),s('DELETE FROM qr_speech_corrections WHERE attempt_id=?',[id]),s('DELETE FROM qr_speech_shares WHERE attempt_id=?',[id]),s("UPDATE qr_speech_usage SET state='released' WHERE attempt_id=? AND state='reserved'",[id])],result:{id,deleted:true}}));
-    this.controllers.get(id)?.abort();const asset=await this.media.row(row.media_id,{includeDeleted:true});
+    if(!row.deleted_at)await this.review.mutation(actor,body,['speech-delete',id],async()=>({statements:[s('UPDATE qr_speech_attempts SET deleted_at=?,result_json=NULL WHERE id=? AND deleted_at IS NULL',[this.now(),id]),this.review.guard(),s('DELETE FROM qr_speech_corrections WHERE attempt_id=?',[id]),s('DELETE FROM qr_speech_shares WHERE attempt_id=?',[id]),...this.deletionStatements.flatMap(build=>build(id)),s("UPDATE qr_speech_usage SET state='released' WHERE attempt_id=? AND state='reserved'",[id])],result:{id,deleted:true}}));
+    this.controllers.get(id)?.abort();this.onDelete.forEach(notify=>notify(id));const asset=await this.media.row(row.media_id,{includeDeleted:true});
     if(!asset.deleted_at)await this.media.remove(actor,row.media_id,{mutationId:crypto.randomUUID()});
     else await this.media.store.delete('quiz-media/'+asset.id+'/'+asset.digest);
     return {id,deleted:true};

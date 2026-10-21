@@ -1,5 +1,6 @@
 // Deterministic demonstration only: this does NOT analyze recorded speech.
 export const LOCAL_SPEECH_RUBRIC={id:'local-practice',version:'fixture-v1',weights:{accuracy:0.6,fluency:0.4},scales:Object.fromEntries(['accuracy','fluency','prosody','grammar','vocabulary','task'].map(key=>[key,{min:0,max:100,direction:'higher'}])),minimumSeconds:0.5,findingConfidence:0.8,approvedBy:null};
+export const LOCAL_LANGUAGE_RUBRIC={...LOCAL_SPEECH_RUBRIC,id:'local-confirmed-language',weights:{grammar:0.35,vocabulary:0.3,task:0.35}};
 export function localSpeechAdapter(){return {
   id:'local-speech-fixture',provider:'local-fixture',model:'synthetic-speech-not-an-assessor',version:'v1',billing:'self-hosted',
   capabilities:[{task:'pronunciation',locales:['en-US','en-GB'],modes:['scripted','unscripted']},{task:'stt',locales:['en-US','en-GB'],modes:['scripted','unscripted']},{task:'conversation',locales:['en-US','en-GB'],modes:['text']}],

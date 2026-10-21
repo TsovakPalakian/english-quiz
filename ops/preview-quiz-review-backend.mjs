@@ -17,7 +17,8 @@ import {QuizMedia,memoryQuizMediaStore} from '../src/quiz-media.mjs';
 import {QuizFeedback} from '../src/quiz-feedback.mjs';
 import {QuizLanguageMaterials} from '../src/quiz-language-materials.mjs';
 import {SpeechPractice} from '../src/speech-practice.mjs';
-import {LOCAL_SPEECH_RUBRIC,localSpeechAdapter} from './local-speech-provider.mjs';
+import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC,localSpeechAdapter} from './local-speech-provider.mjs';
+import {SpeechTranscriptReview} from '../src/speech-transcript-review.mjs';
 import {inspectQuizMedia,localSpeech} from './quiz-media-native.mjs';
 import {boundedMediaBytes} from '../src/learning-r2-media.mjs';
 import {Readable} from 'node:stream';
@@ -49,6 +50,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/009_learning_kits.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/010_quiz_media.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/012_speech_practice.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/013_confirmed_transcript_reviews.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
@@ -97,6 +99,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   service.mediaQuizzes=true;service.contentPolicy=media;
   const feedback=new QuizFeedback(kits,media);
   const speech=new SpeechPractice(kits,media,{enabled:true,providers,worker:actors.dev,rubrics:[LOCAL_SPEECH_RUBRIC],budgets:{audio:{day:600,month:1800},language:{day:20,month:100}},resolveActor:async id=>Object.values(actors).find(actor=>actor.id===id)});
+  const transcripts=new SpeechTranscriptReview(speech,{enabled:true,rubric:LOCAL_LANGUAGE_RUBRIC});
   const materials=new QuizLanguageMaterials(kits,media,{providers,worker:actors.dev,voices:[{id:'Samantha',locale:'en-US'},{id:'Daniel',locale:'en-GB'}],budgets:{tts:{day:2000,month:10000},dictionary:{day:20,month:100}}});
   const independent=new StoredQuizIndependentReview(service,{reviewer:async({signal,...input})=>{
     try{
@@ -163,9 +166,11 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
           const context={groupId:Number(params.get('groupId')),lessonId:Number(params.get('lessonId')),cardId:Number(params.get('cardId')),senseId:params.get('senseId')};
           send(200,{tasks:await speech.listTasks(actor,context),rubrics:speech.rubrics.map(({id,version})=>({id,version})),synthetic:true});return;
         }
-        const speechGet=/^\/local\/speech\/(attempts|tasks)\/([a-f0-9-]{36})(?:\/(history|progress|recipients|shared))?$/.exec(path);
+        const textGet=/^\/local\/speech\/text-reviews\/([a-f0-9-]{36})$/.exec(path);if(textGet){send(200,await transcripts.get(actor,textGet[1]));return;}
+        const speechGet=/^\/local\/speech\/(attempts|tasks)\/([a-f0-9-]{36})(?:\/(history|progress|recipients|shared|text-reviews))?$/.exec(path);
         if(speechGet){
           if(speechGet[1]==='attempts'&&!speechGet[3]){send(200,await speech.get(actor,speechGet[2]));return;}
+          if(speechGet[1]==='attempts'&&speechGet[3]==='text-reviews'){send(200,await transcripts.history(actor,speechGet[2]));return;}
           if(speechGet[1]==='tasks'&&['history','progress','recipients','shared'].includes(speechGet[3])){
             const params=new URL(req.url,'http://'+host).searchParams;if([...params.keys()].some(key=>key!=='before')||params.getAll('before').length>1)fail(400,'Invalid speech query.');
             let before=null;if(params.has('before'))try{before=JSON.parse(params.get('before'));}catch{fail(400,'Invalid speech cursor.');}
@@ -261,6 +266,8 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         }
         const data=await jsonBody(req);
         if(path==='/local/speech/tasks'){send(201,await speech.createTask(actor,data));return;}
+        const confirmText=/^\/local\/speech\/attempts\/([a-f0-9-]{36})\/confirm-text$/.exec(path);if(confirmText){send(200,await transcripts.confirm(actor,confirmText[1],data,{background:true}));return;}
+        const cancelText=/^\/local\/speech\/text-reviews\/([a-f0-9-]{36})\/cancel$/.exec(path);if(cancelText){send(200,await transcripts.cancel(actor,cancelText[1],data));return;}
         const speechAction=/^\/local\/speech\/(tasks|attempts)\/([a-f0-9-]{36})\/(analyze|correct|share|revoke|cancel|remove)$/.exec(path);
         if(speechAction){if((speechAction[1]==='tasks')!==(speechAction[3]==='analyze'))fail(404,'Unknown speech action.');send(200,await speech[speechAction[3]](actor,speechAction[2],data,...(speechAction[3]==='analyze'?[{background:true}]:[])));return;}
         if(path==='/local/feedback'){send(201,await feedback.create(actor,data));return;}
@@ -313,8 +320,8 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   server.requestTimeout=15000;server.headersTimeout=10000;
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});}catch(error){f.close();throw error;}
   let processing=null,closing=false;
-  const timer=setInterval(()=>{if(processing||closing)return;processing=(async()=>{await generation.runOne();await pipeline.runOne();})().catch(()=>console.error('Local preparation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
-  server.once('close',()=>{closing=true;clearInterval(timer);Promise.allSettled([processing,speech.close()]).finally(()=>f.close());});
+  const timer=setInterval(()=>{if(processing||closing)return;processing=(async()=>{await generation.runOne();await pipeline.runOne();await transcripts.recover();})().catch(()=>console.error('Local preparation worker failed.')).finally(()=>{processing=null;});},200);timer.unref();
+  server.once('close',()=>{closing=true;clearInterval(timer);Promise.allSettled([processing,speech.close(),transcripts.close()]).finally(()=>f.close());});
   return {server,url:'http://127.0.0.1:'+server.address().port};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){

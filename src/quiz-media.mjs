@@ -4,6 +4,7 @@ import {exactFields,reviewText} from './quiz-review-content.mjs';
 import {kitSigned} from './learning-kits.mjs';
 import {chatFileMime} from './chat-attachments.mjs';
 import {mediaRange,storedMediaResponse} from './learning-media.mjs';
+import {boundedProviderBytes} from './bounded-provider-body.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 export const QUIZ_MEDIA_LIMITS=Object.freeze({image:5*1024*1024,audio:10*1024*1024,video:20*1024*1024,uploadsPerDay:20,bytesPerDay:100*1024*1024});
 const kinds={'image/png':'image','image/jpeg':'image','audio/wav':'audio','audio/mpeg':'audio','video/mp4':'video'};
@@ -12,14 +13,15 @@ const validId=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);
 const refs=`SELECT 1 FROM qr_versions q,json_each(q.content_json,'$.items') i WHERE json_extract(i.value,'$.mediaId')=?
  UNION ALL SELECT 1 FROM qr_session_snapshots q,json_each(q.content_json,'$.items') i WHERE json_extract(i.value,'$.mediaId')=?
  UNION ALL SELECT 1 FROM qr_feedback q,json_each(q.attachments_json) i WHERE i.value=?`;
-export function memoryQuizMediaStore(){
-  const files=new Map();let total=0;
-  const object=(key,options,head=false)=>{
-    const entry=files.get(key);if(!entry)return null;let bytes=entry.bytes,range;
+export function privateQuizMediaObject(input,mime,options,head=false){
+    let bytes=input,range;
     const header=options?.range?.get('Range');
     if(header){mediaRange(header);const [,a,b]=/^bytes=(\d*)-(\d*)$/.exec(header),start=a?Number(a):Math.max(0,bytes.length-Number(b)),end=a?(b?Math.min(Number(b),bytes.length-1):bytes.length-1):bytes.length-1;range={offset:start,length:Math.max(0,end-start+1)};bytes=bytes.subarray(start,end+1);}
-    return {size:entry.bytes.length,body:head?null:bytes.slice(),range,writeHttpMetadata(headers){headers.set('Content-Type',entry.mime);}};
-  };
+    return {size:input.length,body:head?null:bytes.slice(),range,writeHttpMetadata(headers){headers.set('Content-Type',mime);}};
+}
+export function memoryQuizMediaStore(){
+  const files=new Map();let total=0;
+  const object=(key,options,head=false)=>{const entry=files.get(key);return entry?privateQuizMediaObject(entry.bytes,entry.mime,options,head):null;};
   return {kind:'isolated-quiz-memory',async putImmutable(key,bytes,metadata){
     if(files.has(key))return;if(total+bytes.length>256*1024*1024)fail(507,'Local media capacity exhausted.');
     files.set(key,{bytes:bytes.slice(),mime:metadata.mime});total+=bytes.length;
@@ -68,8 +70,11 @@ export class QuizMedia{
       const versions=await this.db.read("SELECT q.id FROM qr_versions q,json_each(q.content_json,'$.items') i WHERE json_extract(i.value,'$.mediaId')=? LIMIT 1",[id]);
       if(!versions.length)fail(404,'Media unavailable.');await this.review.access(actor,await this.review.version(versions[0].id));
     }
-    const key='quiz-media/'+id+'/'+row.digest,object=await this.store.get(key);if(!object||await digest(object.body)!==row.digest)fail(503,'Media integrity check failed.');
-    return storedMediaResponse(this.store,key,request);
+    const key='quiz-media/'+id+'/'+row.digest,object=await this.store.get(key);if(!object||object.size!==row.bytes)fail(503,'Media integrity check failed.');
+    const bytes=await boundedProviderBytes(object.body,row.bytes),headers=new Headers();object.writeHttpMetadata(headers);
+    if(bytes.length!==row.bytes||await digest(bytes)!==row.digest||headers.get('Content-Type')!==row.mime)fail(503,'Media integrity check failed.');
+    // Serve the same verified snapshot; never fetch a second, potentially different range object.
+    return storedMediaResponse({head:async()=>privateQuizMediaObject(bytes,row.mime,null,true),get:async(key,options)=>privateQuizMediaObject(bytes,row.mime,options)},key,request);
   }
   async remove(actor,id,body){
     kitSigned(actor);exactFields(body,['mutationId']);const row=await this.row(id,{includeDeleted:true});if(row.owner_id!==actor.id)fail(403,'Only the uploader may remove unused media.');

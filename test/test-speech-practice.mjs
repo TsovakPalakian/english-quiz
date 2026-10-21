@@ -7,6 +7,8 @@ import {SpeechPractice} from '../src/speech-practice.mjs';
 import {scoreSpeech,validateSpeechOutput,validateSpeechRubric} from '../src/speech-assessment.mjs';
 import {StoredLanguageProviders} from '../src/stored-language-providers.mjs';
 import {LOCAL_SPEECH_RUBRIC} from '../ops/local-speech-provider.mjs';
+import {LOCAL_LANGUAGE_RUBRIC} from '../ops/local-speech-provider.mjs';
+import {SpeechTranscriptReview} from '../src/speech-transcript-review.mjs';
 const denied=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 const output=(metrics={accuracy:65,fluency:80,prosody:null},quality='ok')=>({quality,transcript:quality==='ok'?'A fine drizzle started.':null,metrics,findings:[]});
 async function setup({invoke=null,seconds=2,audioDay=30,audioMonth=60,timeoutMs=1000,provider='local-fixture'}={}){
@@ -21,6 +23,79 @@ async function setup({invoke=null,seconds=2,audioDay=30,audioMonth=60,timeoutMs=
   const analyze=async(taskId,extra={})=>{const asset=await upload(taskId);return speech.analyze(actors.student,taskId,body({mediaId:asset.id,consent:true,...extra}));};
   return {...f,uploadReference:f.upload,speech,providers,calls,configure,create,upload,analyze,advance:ms=>now+=ms};
 }
+async function textSetup(options){
+  const f=await setup(options);
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/013_confirmed_transcript_reviews.sql',import.meta.url),'utf8'));
+  f.text=new SpeechTranscriptReview(f.speech,{enabled:true,rubric:LOCAL_LANGUAGE_RUBRIC});
+  await f.configure();f.task=await f.create({languageReview:true});f.attempt=await f.analyze(f.task);
+  return f;
+}
+test('confirmed text uses exact consented revision, separate quota and immutable acoustic progress',async()=>{
+  const f=await textSetup({invoke:async(input,{source})=>source.task==='conversation'?{...output({grammar:75,vocabulary:80,task:90}),transcript:input.transcript}:output()});try{
+    const id=f.attempt.id,before=await f.speech.progress(actors.student,f.task);
+    await denied(f.text.confirm(actors.student,id,body({transcriptRevision:0,consent:false})),400);
+    await denied(f.text.confirm(actors.teacher,id,body({transcriptRevision:0,consent:true})),404);
+    assert.equal(f.calls.length,1);
+    await f.speech.correct(actors.student,id,body({text:'A corrected drizzle.'}));
+    await denied(f.text.confirm(actors.student,id,body({transcriptRevision:0,consent:true})),409);
+    const operation=body({transcriptRevision:1,consent:true}),review=await f.text.confirm(actors.student,id,operation);
+    assert.equal(review.state,'complete');assert.equal(review.transcript,'A corrected drizzle.');assert.equal(review.basedOnEditedTranscript,true);
+    assert.equal(review.result.scores.grammar,75);assert.equal(review.result.scores.accuracy,null);
+    assert.equal(review.result.basis,'confirmed_transcript_not_acoustic_speech');
+    assert.equal((await f.text.confirm(actors.student,id,operation)).id,review.id);
+    assert.equal((await f.text.confirm(actors.student,id,body({transcriptRevision:1,consent:true}))).id,review.id);
+    assert.equal(f.calls.length,2);assert.deepEqual(await f.speech.progress(actors.student,f.task),before);
+    assert.equal((await f.speech.get(actors.student,id)).result.overall,71);
+    await denied(f.text.get(actors.teacher,review.id),404);
+    await f.speech.share(actors.student,id,body({teacherId:actors.teacher.id,consent:true,includeAudio:false}));
+    assert.equal((await f.text.get(actors.teacher,review.id)).id,review.id);
+    await f.speech.revoke(actors.student,id,body({teacherId:actors.teacher.id}));await denied(f.text.get(actors.teacher,review.id),404);
+    await f.speech.correct(actors.student,id,body({text:'A newer revision.'}));
+    assert.equal((await f.text.get(actors.student,review.id)).transcript,'A corrected drizzle.');
+    await f.speech.remove(actors.student,id,body());await denied(f.text.get(actors.student,review.id),404);
+    const row=f.sql.prepare('SELECT transcript,result_json,deleted_at FROM qr_speech_text_reviews').get();
+    assert.equal(row.transcript,'');assert.equal(row.result_json,null);assert.ok(row.deleted_at);
+  }finally{await f.text.close();f.close();}
+});
+test('failed confirmed text needs explicit retry, caps attempts and hides provider failures',async()=>{
+  const f=await textSetup({invoke:async(input,{source})=>{if(source.task==='conversation')throw Error('SECRET PROVIDER DETAILS');return output();}});try{
+    const confirm=extra=>f.text.confirm(actors.student,f.attempt.id,body({transcriptRevision:0,consent:true,...extra}));
+    let row=await confirm();assert.equal(row.state,'failed');assert.doesNotMatch(JSON.stringify(row),/SECRET/);
+    await denied(confirm(),409);
+    for(let n=0;n<2;n++)row=await confirm({retryOf:row.id});
+    await denied(confirm({retryOf:row.id}),409);
+    assert.equal((await f.text.history(actors.student,f.attempt.id)).reviews.length,3);
+    assert.equal(f.sql.prepare("SELECT count(*) AS n FROM qr_speech_usage WHERE kind='language' AND state='started'").get().n,3);
+    assert.equal((await f.speech.get(actors.student,f.attempt.id)).result.overall,71);
+  }finally{await f.text.close();f.close();}
+});
+test('pending confirmed text deduplicates and cancellation rejects late output',async()=>{
+  let finish;const f=await textSetup({invoke:async(input,{source})=>source.task==='conversation'?new Promise(resolve=>finish=resolve):output()});try{
+    const operation=body({transcriptRevision:0,consent:true}),pending=f.text.confirm(actors.student,f.attempt.id,operation);
+    for(let n=0;n<100&&!finish;n++)await new Promise(resolve=>setTimeout(resolve,1));assert.ok(finish);
+    const duplicate=await f.text.confirm(actors.student,f.attempt.id,operation);assert.equal(duplicate.state,'started');assert.equal(f.calls.length,2);
+    await denied(f.text.cancel(actors.teacher,duplicate.id,body()),404);
+    await f.text.cancel(actors.student,duplicate.id,body());finish(output({grammar:75,vocabulary:80,task:90}));
+    assert.equal((await pending).state,'cancelled');assert.equal((await f.text.get(actors.student,duplicate.id)).result,null);
+  }finally{await f.text.close();f.close();}
+});
+test('confirmed text rejects a substituted transcript and recovery prevents late completion',async()=>{
+  const mismatch=await textSetup();try{
+    await mismatch.speech.correct(actors.student,mismatch.attempt.id,body({text:'Confirmed words, not provider words.'}));
+    const row=await mismatch.text.confirm(actors.student,mismatch.attempt.id,body({transcriptRevision:1,consent:true}));
+    assert.equal(row.state,'failed');assert.equal(row.result,null);
+  }finally{await mismatch.text.close();mismatch.close();}
+  let finish;const f=await textSetup({invoke:async(input,{source})=>source.task==='conversation'?new Promise(resolve=>finish=resolve):output()});try{
+    const pending=f.text.confirm(actors.student,f.attempt.id,body({transcriptRevision:0,consent:true}));
+    for(let n=0;n<100&&!finish;n++)await new Promise(resolve=>setTimeout(resolve,1));assert.ok(finish);
+    const row=f.sql.prepare('SELECT deadline_at FROM qr_speech_text_reviews').get();f.text.now=()=>row.deadline_at+1;
+    await f.text.recover();finish(output({grammar:75,vocabulary:80,task:90}));
+    const result=await pending;assert.equal(result.state,'failed');assert.equal(result.error,'interrupted');assert.equal(result.result,null);
+    assert.throws(()=>f.sql.exec("UPDATE qr_speech_text_reviews SET transcript='Replaced'"),/immutable/);
+    assert.throws(()=>f.sql.exec('DELETE FROM qr_speech_text_reviews'),/deletion/);
+    assert.equal(f.sql.prepare("SELECT state FROM qr_speech_usage WHERE kind='language'").get().state,'started');
+  }finally{await f.text.close();f.close();}
+});
 test('normalization preserves raw scales, missing metrics, endpoints and provisional status',()=>{
   const rubric={...LOCAL_SPEECH_RUBRIC,weights:{accuracy:0.5,fluency:0.5},scales:{accuracy:{min:0,max:5,direction:'higher'},fluency:{min:0,max:10,direction:'lower'}}};
   const score=scoreSpeech([{task:'pronunciation',source:{model:'fixture'},data:output({accuracy:5,fluency:10})}],rubric,{duration:2});
@@ -55,18 +130,18 @@ test('explicit analysis is off until configured, runs once, freezes provenance a
     assert.throws(()=>f.sql.exec("UPDATE qr_speech_attempts SET result_json='{}' WHERE state='complete'"),/immutable/);
   }finally{f.close();}
 });
-test('free speech requires unscripted capability; separate language review has its own metrics and budget',async()=>{
+test('free speech requires unscripted capability and never implicitly dispatches transcript review',async()=>{
   const f=await setup();try{
     const task=await f.create({mode:'free',reference:null,languageReview:true});await f.configure();await denied(f.analyze(task),409);assert.equal(f.calls.length,0);
-    await f.configure('unscripted');const result=await f.analyze(task);assert.equal(result.state,'complete');assert.equal(result.result.scores.grammar,75);assert.equal(result.result.sources.length,2);
-    assert.deepEqual(f.calls.map(call=>call.task),['pronunciation','conversation']);assert.equal(f.sql.prepare("SELECT quantity FROM qr_speech_usage WHERE kind='language'").get().quantity,1);
+    await f.configure('unscripted');const result=await f.analyze(task);assert.equal(result.state,'complete');assert.equal(result.result.scores.grammar,null);assert.equal(result.result.sources.length,1);
+    assert.deepEqual(f.calls.map(call=>call.task),['pronunciation']);assert.equal(f.sql.prepare("SELECT count(*) AS n FROM qr_speech_usage WHERE kind='language'").get().n,0);
   }finally{f.close();}
 });
 test('unconfirmed transcripts cannot reach a non-fixture language reviewer',async()=>{
   const f=await setup({provider:'test-external'});try{
     await f.configure();const task=await f.create({languageReview:true}),result=await f.analyze(task);
     assert.deepEqual(f.calls.map(source=>source.task),['pronunciation']);assert.equal(result.result.languageReviewUnavailable,true);assert.equal(result.result.scores.grammar,null);
-    assert.equal(f.sql.prepare("SELECT state FROM qr_speech_usage WHERE task='conversation'").get().state,'released');
+    assert.equal(f.sql.prepare("SELECT count(*) AS n FROM qr_speech_usage WHERE task='conversation'").get().n,0);
   }finally{f.close();}
 });
 test('private attempts share only with assigned teachers, audio requires separate permission, corrections do not regrade',async()=>{
