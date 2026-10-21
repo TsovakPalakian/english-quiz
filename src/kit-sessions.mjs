@@ -1,13 +1,13 @@
 // Version-pinned session contract; not a replacement for the existing exam runner.
 import {StudyError,statement as s} from './learning-study.mjs';
-import {exactFields,validateReviewContent} from './quiz-review-content.mjs';
+import {exactFields} from './quiz-review-content.mjs';
 import {kitSigned,kitTeacher} from './learning-kits.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const normalize=value=>String(value).normalize('NFKC').toLowerCase().trim().replace(/\s+/g,' ');
-const choiceTypes=new Set(['Choice','Reverse','Listen','Definition','Odd one out']);
+const choiceTypes=new Set(['Choice','Reverse','Listen','Definition','Odd one out','Video choice']);
 function questions(type,content){
   if(['Match','Memory'].includes(type)){const right=content.items.map(item=>item.right);return {left:content.items.map(item=>item.left),right:[...right.slice(1),right[0]]};}
-  const fields={Flip:['front'],Reverse:['front','options'],Choice:['prompt','options'],Listen:['prompt','options'],Definition:['prompt','options'],Type:['prompt'],Gap:['shown','hint'],Build:['parts'],'True / false':['prompt'],Tap:['text'],'Select all':['prompt','options'],Spell:['hint'],Letters:['hint'],Hangman:['hint'],'Odd one out':['prompt','options']}[type];
+  const fields={Flip:['front'],Reverse:['front','options'],Choice:['prompt','options'],Listen:['prompt','options'],Definition:['prompt','options'],Type:['prompt'],Gap:['shown','hint'],Build:['parts'],'True / false':['prompt'],Tap:['text'],'Select all':['prompt','options'],Spell:['hint'],Letters:['hint'],Hangman:['hint'],'Odd one out':['prompt','options'],'Video choice':['prompt','options']}[type];
   return content.items.map(item=>({...Object.fromEntries(fields.filter(key=>item[key]!==undefined).map(key=>[key,structuredClone(item[key])])),...(type==='Letters'?{letters:[...item.word].sort()}:type==='Hangman'?{length:[...item.word].length}:{})}));
 }
 function evaluate(type,content,responses,meaning,metadata){
@@ -36,8 +36,8 @@ export class KitSessions{
     await this.kits.card(actor,body.cardId);
     return this.review.mutation(actor,body,['kit-session'],async()=>{
       const template=(await this.review.sharedForCard(actor,body.cardId)).find(q=>q.id===body.versionId&&q.senseId===body.senseId);if(!template)fail(409,'Choose a current available approved template.');
-      const [meaning]=await this.db.read('SELECT en FROM qr_senses WHERE id=?',[body.senseId]),metadata=await this.kits.metadata(body.senseId),content=validateReviewContent(template.type,template.content),id=crypto.randomUUID();
-      return {statements:[this.kits.cardGuard(actor,body.cardId),s(`INSERT INTO qr_session_snapshots(id,owner_id,card_id,version_id,type,mode,content_json,metadata_json,state,created_at)
+      const [meaning]=await this.db.read('SELECT en FROM qr_senses WHERE id=?',[body.senseId]),metadata=await this.kits.metadata(body.senseId),raw=await this.review.version(template.id),content=this.review.validateContent(template.type,JSON.parse(raw.content_json)),id=crypto.randomUUID();
+      return {statements:[this.kits.cardGuard(actor,body.cardId),...(this.review.mediaQuizzes?this.review.contentPolicy.snapshotGuards(content):[]),s(`INSERT INTO qr_session_snapshots(id,owner_id,card_id,version_id,type,mode,content_json,metadata_json,state,created_at)
         SELECT ?,?,?,?,?,?,?,?,'open',? WHERE EXISTS(SELECT 1 FROM qr_versions q JOIN qr_card_senses cs ON cs.sense_id=q.sense_id
           WHERE q.id=? AND cs.card_id=? AND q.state='approved' AND NOT EXISTS(SELECT 1 FROM qr_publication p WHERE p.version_id=q.id AND p.available=0)
           AND NOT EXISTS(SELECT 1 FROM qr_versions newer WHERE newer.family_id=q.family_id AND newer.state='approved' AND newer.version>q.version))`,
@@ -48,8 +48,14 @@ export class KitSessions{
   async get(actor,id){
     const row=await this.row(actor,id),content=JSON.parse(row.content_json),metadata=JSON.parse(row.metadata_json),visible=row.state==='released'||row.mode==='practice'&&row.state==='submitted';
     const result={id:row.id,versionId:row.version_id,type:row.type,mode:row.mode,state:row.state,revision:row.revision,questions:questions(row.type,content)};
+    if(Array.isArray(result.questions))result.questions.forEach((item,index)=>{if(content.items[index].mediaId)item.mediaUrl='/local/kit-sessions/'+row.id+'/media/'+index;});
     if(visible){const correct=evaluate(row.type,content,JSON.parse(row.responses_json),metadata.meaning,metadata);Object.assign(result,{content,responses:JSON.parse(row.responses_json),correct,correctCount:correct.filter(Boolean).length,total:correct.length});}
     return result;
+  }
+  async media(actor,id,index,request){
+    const row=await this.row(actor,id),items=JSON.parse(row.content_json).items;
+    if(!Number.isSafeInteger(index)||index<0||index>=items.length||!items[index].mediaId||!this.review.contentPolicy)fail(404,'Session media unavailable.');
+    return this.review.contentPolicy.response(actor,items[index].mediaId,request,{session:row,itemIndex:index});
   }
   async submit(actor,id,body){
     kitSigned(actor);exactFields(body,['mutationId','expectedRevision','responses']);

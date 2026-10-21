@@ -1,5 +1,5 @@
 // Local controls affect new synthetic generation/review attempts, never real AI calls.
-const labels={generation:'Generation',review:'Independent review',tts:'Text to speech',stt:'Speech to text',pronunciation:'Pronunciation',conversation:'Conversation'};
+const labels={generation:'Generation',review:'Independent review',tts:'Text to speech',stt:'Speech to text',pronunciation:'Pronunciation',conversation:'Conversation',dictionary:'Dictionary'};
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const same=(a,b)=>a===null?b===null:b!==null&&a.adapterId===b.adapterId&&a.locale===b.locale&&a.mode===b.mode;
 export function createProviderSettingsUI({api,isDeveloper,sessionKey,active,renderPage,notify,actorName,date}){
@@ -7,7 +7,7 @@ export function createProviderSettingsUI({api,isDeveloper,sessionKey,active,rend
   const valid=entry=>state===entry&&entry.epoch===sessionKey()&&isDeveloper();
   const choices=(data,task)=>data.adapters.filter(a=>!data.freeOnly||['free-tier','self-hosted'].includes(a.billing)).flatMap(a=>a.capabilities.filter(cap=>cap.task===task).flatMap(cap=>cap.locales.flatMap(locale=>cap.modes.map(mode=>({selection:{adapterId:a.id,locale,mode},adapter:a})))));
   const modelText=(selection,adapters)=>{
-    if(selection===null)return 'Off';
+    if(selection==null)return 'Off';
     const adapter=adapters.find(a=>a.id===selection.adapterId);
     return [adapter?.model||selection.adapterId,adapter?.provider,adapter?.version,selection.locale,selection.mode].filter(Boolean).join(' · ');
   };

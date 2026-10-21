@@ -10,6 +10,7 @@ int main(int argc, const char *argv[]) {
     NSURL *url = [NSURL fileURLWithPath:@(argv[1])];
     NSDictionary *result = nil;
     CGImageSourceRef imageSource = CGImageSourceCreateWithURL((__bridge CFURLRef)url, NULL);
+    if (imageSource && !CGImageSourceGetType(imageSource)) { CFRelease(imageSource); imageSource = NULL; }
     if (imageSource) {
       NSDictionary *properties = CFBridgingRelease(CGImageSourceCopyPropertiesAtIndex(imageSource, 0, NULL));
       NSInteger width = [properties[(id)kCGImagePropertyPixelWidth] integerValue];
@@ -20,14 +21,34 @@ int main(int argc, const char *argv[]) {
       if (!image) return 1;
       CGImageRelease(image);
       result = @{ @"kind": @"image", @"duration": @0, @"width": @(width), @"height": @(height) };
+    } else if ([@[@"wav", @"mp3"] containsObject:url.pathExtension]) {
+      NSError *error = nil;
+      AVAudioFile *audio = [[AVAudioFile alloc] initForReading:url error:&error];
+      double rate = audio.processingFormat.sampleRate;
+      double duration = audio.length / rate;
+      if (!audio || !isfinite(duration) || rate < 8000 || rate > 96000 || duration <= 0 || duration > 180 || audio.processingFormat.channelCount > 2) return 1;
+      AVAudioPCMBuffer *buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat:audio.processingFormat frameCapacity:4096];
+      AVAudioFramePosition frames = 0;
+      while (audio.framePosition < audio.length) {
+        if (![audio readIntoBuffer:buffer error:&error] || buffer.frameLength == 0) return 1;
+        frames += buffer.frameLength;
+      }
+      if (frames != audio.length) return 1;
+      result = @{ @"kind": @"audio", @"duration": @(duration), @"width": @0, @"height": @0 };
     } else {
-      AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:@{AVURLAssetPreferPreciseDurationAndTimingKey: @YES}];
+      AVURLAsset *asset = [AVURLAsset URLAssetWithURL:url options:@{AVURLAssetPreferPreciseDurationAndTimingKey: @YES, AVURLAssetReferenceRestrictionsKey: @(AVAssetReferenceRestrictionForbidAll)}];
+      dispatch_semaphore_t loaded = dispatch_semaphore_create(0);
+      [asset loadValuesAsynchronouslyForKeys:@[@"duration", @"tracks", @"playable"] completionHandler:^{ dispatch_semaphore_signal(loaded); }];
+      if (dispatch_semaphore_wait(loaded, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_SEC))) return 1;
       double duration = CMTimeGetSeconds(asset.duration);
-      if (!asset.playable || !isfinite(duration) || duration <= 0 || duration > 180 || asset.tracks.count < 1) return 1;
+      if (!asset.playable || !isfinite(duration) || duration <= 0 || duration > 180 || asset.tracks.count < 1) { fputs("Invalid playable media metadata.\n", stderr); return 1; }
+      for (AVMetadataFormat format in asset.availableMetadataFormats) {
+        if ([asset metadataForFormat:format].count > 0) return 1;
+      }
       NSInteger videos = 0, audios = 0, width = 0, height = 0;
       NSError *error = nil;
       AVAssetReader *reader = [[AVAssetReader alloc] initWithAsset:asset error:&error];
-      if (!reader) return 1;
+      if (!reader) { fputs("Decoder could not start.\n", stderr); return 1; }
       NSMutableArray *outputs = [NSMutableArray array];
       for (AVAssetTrack *track in asset.tracks) {
         NSDictionary *settings;
@@ -42,14 +63,14 @@ int main(int argc, const char *argv[]) {
         if (![reader canAddOutput:output]) return 1;
         [reader addOutput:output]; [outputs addObject:output];
       }
-      if (videos > 1 || audios > 1 || ![reader startReading]) return 1;
+      if (videos > 1 || audios > 1 || ![reader startReading]) { fprintf(stderr,"Unsupported tracks or decoder start (%ld; %ld/%ld).\n",(long)reader.error.code,(long)videos,(long)audios); return 1; }
       for (AVAssetReaderTrackOutput *output in outputs) {
         NSInteger count = 0;
         CMSampleBufferRef sample;
         while ((sample = [output copyNextSampleBuffer])) { count++; CFRelease(sample); if (count > 20000) { [reader cancelReading]; return 1; } }
-        if (count == 0) return 1;
+        if (count == 0) { fputs("No decodable media samples.\n", stderr); return 1; }
       }
-      if (reader.status != AVAssetReaderStatusCompleted) return 1;
+      if (reader.status != AVAssetReaderStatusCompleted) { fputs("Decoder did not complete.\n", stderr); return 1; }
       result = @{ @"kind": videos ? @"video" : @"audio", @"duration": @(duration), @"width": @(width), @"height": @(height) };
     }
     NSData *data = [NSJSONSerialization dataWithJSONObject:result options:NSJSONWritingSortedKeys error:nil];

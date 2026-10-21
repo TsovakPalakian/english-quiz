@@ -1,5 +1,10 @@
 // Isolated, in-memory routing. No production imports, endpoints, keys or network.
-export const LANGUAGE_TASKS=Object.freeze(['generation','review','tts','stt','pronunciation','conversation']);
+export const LANGUAGE_TASKS=Object.freeze(['generation','review','tts','stt','pronunciation','conversation','dictionary']);
+export function upgradeLanguageSelections(value){
+  const keys=Object.keys(value||{}),legacy=LANGUAGE_TASKS.filter(task=>task!=='dictionary');
+  if(value&&typeof value==='object'&&!Array.isArray(value)&&keys.length===legacy.length&&legacy.every(task=>Object.hasOwn(value,task)))return {...value,dictionary:null};
+  return value;
+}
 const modes=new Set(['text','scripted','unscripted']);
 const billings=new Set(['free-tier','self-hosted','paid','unknown']);
 const token=value=>typeof value==='string'&&/^[a-zA-Z0-9][a-zA-Z0-9_./:@-]{0,199}$/.test(value);
@@ -41,6 +46,7 @@ export class LanguageProviders{
     }
     // Snapshots come from trusted server storage, never directly from a request.
     if(snapshot!==null){
+      snapshot={...snapshot,selections:upgradeLanguageSelections(snapshot.selections)};
       if(!exact(snapshot,['revision','selections'])||!Number.isSafeInteger(snapshot.revision)||snapshot.revision<1||Object.keys(snapshot.selections||{}).length!==LANGUAGE_TASKS.length)fail('invalid_configuration');
       this.#selections=this.#validateSelections(snapshot.selections);this.#revision=snapshot.revision;
     }

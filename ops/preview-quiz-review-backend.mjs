@@ -13,11 +13,18 @@ import {IndependentReviewIssue,validateIndependentReviewResult} from '../src/qui
 import {QuizPreparationPipeline} from '../src/quiz-preparation-pipeline.mjs';
 import {LearningKits} from '../src/learning-kits.mjs';
 import {KitSessions} from '../src/kit-sessions.mjs';
+import {QuizMedia,memoryQuizMediaStore} from '../src/quiz-media.mjs';
+import {QuizFeedback} from '../src/quiz-feedback.mjs';
+import {QuizLanguageMaterials} from '../src/quiz-language-materials.mjs';
+import {inspectQuizMedia,localSpeech} from './quiz-media-native.mjs';
+import {boundedMediaBytes} from '../src/learning-r2-media.mjs';
+import {Readable} from 'node:stream';
 const files={'/':['site/quiz-review-local.html','text/html'],'/workbench.css':['site/quiz-workbench.css','text/css'],'/review-local.css':['site/quiz-review-local.css','text/css'],'/review-local.js':['client/demos/quiz-review-local.js','text/javascript'],'/review-editor.js':['client/demos/quiz-review-editor.js','text/javascript'],'/provider-settings.js':['client/demos/provider-settings-ui.js','text/javascript'],'/favicon.svg':['site/favicon.svg','image/svg+xml']};
 const checks={meaning:true,answers:true,level:true};
 files['/independent-review.js']=['client/demos/independent-review-ui.js','text/javascript'];
 files['/preparation-pipeline.js']=['client/demos/preparation-pipeline-ui.js','text/javascript'];
 files['/learning-kit.js']=['client/demos/learning-kit-ui.js','text/javascript'];
+files['/quiz-materials.js']=['client/demos/quiz-materials-ui.js','text/javascript'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 async function jsonBody(req){
   const length=Number(req.headers['content-length']);if(Number.isFinite(length)&&length>60000)fail(413,'Request is too large.');
@@ -37,6 +44,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/007_independent_review_recovery.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/008_preparation_pipeline.sql',import.meta.url),'utf8'));
   f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/009_learning_kits.sql',import.meta.url),'utf8'));
+  f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/010_quiz_media.sql',import.meta.url),'utf8'));
   const quota=new GenerationQuota(f.db);
   await quota.initialize(actors.dev,{provider:'local-fixture',windowMs:86400000,requestLimit});
   const reviewAdapters=['local-checker-a','local-checker-b'].map(id=>{
@@ -51,7 +59,13 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],
     invoke:async input=>{try{return {content:await localQuizGenerator(input)};}catch(error){if(error instanceof GenerationIssue)return {issue:error.code,retryable:error.retryable};throw error;}},
     validate:value=>value,
-  })),...reviewAdapters]});
+  })),...reviewAdapters,{
+    id:'macos-local-tts',provider:'macos-local',model:'installed-voice',version:'v1',billing:'self-hosted',capabilities:[{task:'tts',locales:['en-US','en-GB'],modes:['text']}],
+    invoke:async(input,{signal})=>({bytes:await localSpeech(input.word,input.voice,signal),voice:input.voice,mime:'audio/wav'}),validate:value=>value,
+  },{
+    id:'local-dictionary-fixture',provider:'local-fixture',model:'dictionary-fixture',version:'v1',billing:'self-hosted',capabilities:[{task:'dictionary',locales:['en-US'],modes:['text']}],
+    invoke:async input=>({entries:[{word:input.word,partOfSpeech:input.meaning.part_of_speech,definition:input.meaning.definition,translation:input.meaning.translation,ipa:null,forms:[],examples:[],source:{title:'Synthetic dictionary fixture; not an external dictionary',url:'https://example.org/local-fixture',license:'Local test data only'}}]}),validate:value=>value,
+  }]});
   await providers.initialize(actors.dev);
   // Explicit opt-in for old deterministic test scenarios, not a production default.
   if(generationEnabled)await providers.configure(actors.dev,body({expectedRevision:1,selections:{generation:{adapterId:'local-fixture-a',locale:'en-US',mode:'text'}},reason:'Enable the synthetic generator for this test fixture.'}));
@@ -75,6 +89,10 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
     return {enabled:settings.selections.generation!==null&&!settings.unavailable.some(row=>row.task==='generation'),remaining:summary.remaining};
   }});
   const sessions=new KitSessions(kits); // Exam release stays denied until a real exam policy is injected.
+  const media=new QuizMedia(kits,{store:memoryQuizMediaStore(),inspect:inspectQuizMedia});
+  service.mediaQuizzes=true;service.contentPolicy=media;
+  const feedback=new QuizFeedback(kits,media);
+  const materials=new QuizLanguageMaterials(kits,media,{providers,worker:actors.dev,voices:[{id:'Samantha',locale:'en-US'},{id:'Daniel',locale:'en-GB'}],budgets:{tts:{day:2000,month:10000},dictionary:{day:20,month:100}}});
   const independent=new StoredQuizIndependentReview(service,{reviewer:async({signal,...input})=>{
     try{
       const response=await providers.execute('review',input,{signal});
@@ -109,7 +127,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
   await service.submit(actors.other,q.id,body({expectedRevision:1}));
   const server=createServer(async(req,res)=>{
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
     const send=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
     try{
       const host='127.0.0.1:'+server.address().port;
@@ -117,15 +135,26 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
       const path=new URL(req.url,'http://'+host).pathname;
       if(['GET','HEAD'].includes(req.method)&&files[path]){const [file,type]=files[path];res.writeHead(200,{'Content-Type':type+'; charset=utf-8'});res.end(req.method==='HEAD'?undefined:readFileSync(new URL('../'+file,import.meta.url)));return;}
       if(!path.startsWith('/local/'))fail(404,'Not found.');
-      if(!['GET','POST'].includes(req.method))fail(405,'Method not allowed.');
+      if(!['GET','HEAD','POST'].includes(req.method))fail(405,'Method not allowed.');
       if(req.method==='POST'&&req.headers.origin!=='http://'+host)fail(403,'Same-origin request required.');
       const role=/\bqr-preview=([a-z]+)(?:;|$)/.exec(req.headers.cookie||'')?.[1]||'teacher',actor=Object.hasOwn(actors,role)?actors[role]:null;
       if(!actor)fail(401,'Choose a test account.');
+      const sendMedia=async response=>{res.writeHead(response.status,Object.fromEntries(response.headers));res.end(response.body?Buffer.from(await response.arrayBuffer()):undefined);};
+      const mediaRead=/^\/local\/media\/([a-f0-9-]{36})$/.exec(path),sessionMedia=/^\/local\/kit-sessions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(path);
+      if(['GET','HEAD'].includes(req.method)&&(mediaRead||sessionMedia)){
+        const request=new Request('http://'+host+req.url,{method:req.method,headers:req.headers});
+        await sendMedia(mediaRead?await media.response(actor,mediaRead[1],request):await sessions.media(actor,sessionMedia[1],Number(sessionMedia[2]),request));return;
+      }
+      if(req.method==='HEAD')fail(405,'Method not allowed.');
       if(path==='/local/session'&&req.method==='POST'){
         const data=await jsonBody(req);if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).length!==1||!Object.hasOwn(actors,data.role))fail(400,'Unknown test account.');
         res.setHeader('Set-Cookie','qr-preview='+data.role+'; Path=/; HttpOnly; SameSite=Strict');send(200,{ok:true});return;
       }
       if(req.method==='GET'){
+        if(path==='/local/media'){send(200,{media:await media.list(actor,new URL(req.url,'http://'+host).searchParams.get('purpose'))});return;}
+        if(path==='/local/feedback'){send(200,{reports:await feedback.mine(actor)});return;}
+        if(path==='/local/materials'){send(200,await materials.status(actor));return;}
+        const material=/^\/local\/materials\/([a-f0-9-]{36})$/.exec(path);if(material){send(200,await materials.get(actor,material[1]));return;}
         if(path==='/local/kit'){
           const params=new URL(req.url,'http://'+host).searchParams;
           if([...params.keys()].some(key=>!['cardId','senseId','groupId','lessonId'].includes(key))||['cardId','senseId','groupId','lessonId'].some(key=>params.getAll(key).length>1)||
@@ -179,7 +208,7 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         if(path==='/local/boot'){
           const available=[];for(const c of contexts){try{await service.checkContext(actor,c);available.push(c);}catch(error){if(error.status!==403)throw error;}}
           if(actor.role==='USER')available.push({...contexts[0],id:'personal',personal:true,groupId:null,lessonId:null,group:'Personal cards',lesson:'',cardId:actor.id==='u1'?3:4});
-          send(200,{role,actor,roles:Object.entries(actors).map(([id,a])=>({id,name:a.name,role:a.role})),contexts:available});return;
+          send(200,{role,actor,roles:Object.entries(actors).map(([id,a])=>({id,name:a.name,role:a.role})),contexts:available,mediaQuizzes:true});return;
         }
         if(path==='/local/mine'){send(200,{quizzes:await service.mine(actor)});return;}
         if(path==='/local/queue'){send(200,{quizzes:await service.queue(actor)});return;}
@@ -196,7 +225,16 @@ export async function createQuizReviewPreview({port=0,requestLimit=100,generatio
         const shared=/^\/local\/shared\/(\d+)$/.exec(path);if(shared){send(200,{quizzes:await service.sharedForCard(actor,Number(shared[1]))});return;}
         const get=/^\/local\/quizzes\/([a-f0-9-]{36})$/.exec(path);if(get){send(200,{quiz:await service.get(actor,get[1])});return;}
       }else{
+        if(path==='/local/media'){
+          let metadata;try{const header=req.headers['x-upload-metadata'];if(typeof header!=='string'||header.length>4000)throw Error();metadata=JSON.parse(decodeURIComponent(header));}catch{fail(400,'Invalid upload metadata.');}
+          if(metadata.mime!==req.headers['content-type'])fail(415,'Upload format mismatch.');
+          const request=new Request('http://'+host+req.url,{method:'POST',headers:req.headers,body:Readable.toWeb(req),duplex:'half'});
+          send(201,await media.upload(actor,metadata,await boundedMediaBytes(request)));return;
+        }
         const data=await jsonBody(req);
+        if(path==='/local/feedback'){send(201,await feedback.create(actor,data));return;}
+        const prepareMaterial=/^\/local\/materials\/(tts|dictionary)$/.exec(path);if(prepareMaterial){send(200,await materials.create(actor,prepareMaterial[1],data));return;}
+        if(mediaRead){send(200,await media.remove(actor,mediaRead[1],data));return;}
         if(path==='/local/kit/fill'){send(200,await kits.fill(actor,data));return;}
         if(path==='/local/kit/metadata'){send(200,await kits.setMetadata(actor,data));return;}
         if(path==='/local/kit/meaning'){send(201,await service.createSense(actor,data));return;}

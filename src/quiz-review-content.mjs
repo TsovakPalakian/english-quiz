@@ -13,11 +13,12 @@ export function validateReviewContent(type,value,{mediaQuizzes=false}={}){
   const pairs=['Match','Memory'].includes(type);
   if(pairs&&value.items.length<2)bad();
   for(const item of value.items){
-    const fields={Flip:['front','back'],Reverse:['front','back','options','answer'],Choice:['prompt','options','answer'],Listen:['prompt','word','options','answer'],Definition:['prompt','word','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],Match:['left','right'],Memory:['left','right'],'True / false':['prompt','answer'],Tap:['text','answer'],'Select all':['prompt','options','answers'],Spell:['word','hint'],Letters:['word','hint'],Hangman:['word','hint'],'Odd one out':['prompt','options','answer']}[type];
+    let fields={Flip:['front','back'],Reverse:['front','back','options','answer'],Choice:['prompt','options','answer'],Listen:['prompt','word','options','answer'],Definition:['prompt','word','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],Match:['left','right'],Memory:['left','right'],'True / false':['prompt','answer'],Tap:['text','answer'],'Select all':['prompt','options','answers'],Spell:['word','hint'],Letters:['word','hint'],Hangman:['word','hint'],'Odd one out':['prompt','options','answer']}[type];
     if(mediaQuizzes&&type==='Listen')fields.push('mediaId');
     if(mediaQuizzes&&type==='Video choice')fields=['prompt','options','answer','mediaId','transcript'];
     exactFields(item,fields);
-    for(const key of fields.filter(k=>!['options','answers','answer','word','hint','back'].includes(k)))reviewText(item[key]);
+    for(const key of fields.filter(k=>!['options','answers','answer','word','hint','back','mediaId'].includes(k)))reviewText(item[key]);
+    if(item.mediaId!==undefined||type==='Video choice')if(typeof item.mediaId!=='string'||!/^[a-f0-9-]{36}$/.test(item.mediaId))bad();
     if(['Flip','Reverse'].includes(type))reviewText(item.back);
     if(['Spell','Letters','Hangman','Listen','Definition'].includes(type))reviewText(item.word,200);
     if(item.hint!==undefined)reviewText(item.hint);

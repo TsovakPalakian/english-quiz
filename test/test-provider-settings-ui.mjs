@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
+import {LANGUAGE_TASKS} from '../src/language-providers.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 async function preview(work){
   const {server,url}=await createQuizReviewPreview();let browser;
@@ -13,7 +14,7 @@ test('provider settings UI persists selections, disables tasks, preserves audit 
   const read=async path=>(await fetch(url+path,{headers:{Cookie:'qr-preview=dev'}})).json();
   await page.goto(url);await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('[data-view="providers"]').isVisible(),false);assert.equal(requests.some(r=>r.includes('/local/providers')),false);
   await page.selectOption('#account','dev');await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="providers"]').click();await page.locator('#provider-settings-form').waitFor();
-  assert.equal(await page.locator('[data-provider-task]').count(),6);assert.equal(await page.locator('#provider-review').isDisabled(),false);assert.equal(await page.locator('#provider-review').inputValue(),'off');assert.equal(await page.locator('#provider-settings-form [type="submit"]').isDisabled(),true);
+  assert.equal(await page.locator('[data-provider-task]').count(),LANGUAGE_TASKS.length);assert.equal(await page.locator('#provider-dictionary').inputValue(),'off');assert.equal(await page.locator('#provider-tts').inputValue(),'off');assert.equal(await page.locator('#provider-review').isDisabled(),false);assert.equal(await page.locator('#provider-review').inputValue(),'off');assert.equal(await page.locator('#provider-settings-form [type="submit"]').isDisabled(),true);
   assert.equal(requests.some(r=>r.includes('/local/providers/history')),false);
   const save=async(value,reason)=>{await page.selectOption('#provider-generation',value);await page.locator('#provider-reason').fill(reason);await page.locator('#provider-settings-form [type="submit"]').click();};
   const saved=async value=>page.waitForFunction(expected=>document.querySelector('#provider-generation')?.value===expected&&document.querySelector('#provider-reason')?.value==='',value);

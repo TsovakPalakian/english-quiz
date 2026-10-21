@@ -47,7 +47,8 @@ export class LearningKits{
     const jobs=teacher&&context?await this.db.read('SELECT * FROM qr_generation_jobs WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=?',[groupId,lessonId,cardId,senseId]):[];
     const withdrawn=await this.db.read(`SELECT DISTINCT q.type FROM qr_versions q JOIN qr_publication p ON p.version_id=q.id AND p.available=0 WHERE q.sense_id=? AND q.state='approved'`,[senseId]);
     let policy={enabled:false,remaining:null};if(teacher&&context){try{policy=await this.availability();}catch{policy={enabled:false,remaining:null,unavailable:true};}}
-    const types=QUIZ_TYPES.map(type=>{
+    const audioReady=this.review.mediaQuizzes&&shared.some(q=>q.type==='Listen'&&q.mediaReady);
+    const types=[...QUIZ_TYPES,...(this.review.mediaQuizzes?['Video choice']:[])].map(type=>{
       const ready=shared.filter(q=>q.type===type),pending=proposals.filter(q=>q.type===type),job=jobs.find(q=>q.type===type);
       let status='missing',reason='not_generated';
       if(ready.length){status='ready';reason=null;}
@@ -56,13 +57,14 @@ export class LearningKits{
       else if(withdrawn.some(q=>q.type===type)){status='needs_changes';reason='withdrawn_template';}
       else if(contextTypes.has(type))reason='word_set_required';
       else if(type==='Listen')reason='audio_required';
+      else if(type==='Video choice')reason='video_required';
       else if(job?.state==='review'){status='failed';reason=job.issue||'preparation_failed';}
       // Legacy Listen JSON contains a word, not a validated playable audio asset.
-      if(type==='Listen'&&ready.length){status='missing';reason='audio_required';}
+      if(type==='Listen'&&ready.length&&!audioReady){status='missing';reason='audio_required';}
       if(['missing','failed'].includes(status)&&reason!=='word_set_required'&&reason!=='audio_required'&&teacher&&context){
         if(policy.unavailable)reason='quota_unavailable';else if(!policy.enabled)reason='provider_not_configured';else if(policy.remaining===0)reason='quota_exceeded';
       }
-      const canPrepare=teacher&&!!context&&policy.enabled&&policy.remaining>0&&['missing','failed'].includes(status)&&!contextTypes.has(type)&&type!=='Listen'&&(!job||job.state==='review'&&!job.version_id&&job.cycle<2);
+      const canPrepare=teacher&&!!context&&policy.enabled&&policy.remaining>0&&['missing','failed'].includes(status)&&!contextTypes.has(type)&&!['Listen','Video choice'].includes(type)&&(!job||job.state==='review'&&!job.version_id&&job.cycle<2);
       return {type,status,reason,approvedCount:ready.length,proposalCount:pending.length,canPrepare:!!canPrepare,
         versionIds:ready.map(q=>q.id),...(teacher?{jobId:job?.id||null,proposalIds:pending.map(q=>q.id)}:{})};
     });
@@ -71,7 +73,8 @@ export class LearningKits{
       NOT EXISTS(SELECT 1 FROM qr_versions newer WHERE newer.family_id=q.family_id AND newer.state='approved' AND newer.version>q.version) AS current
       FROM qr_versions q LEFT JOIN qr_publication p ON p.version_id=q.id
       WHERE q.sense_id=? AND q.state='approved' ORDER BY q.type,q.family_id,q.version DESC LIMIT 100`,[senseId]):[];
-    return {senses,meaning,library,selectionRequired:false,types,counts:{total:QUIZ_TYPES.length,ready:types.filter(t=>t.status==='ready').length,pending:types.filter(t=>['pending_review','needs_changes'].includes(t.status)).length,preparing:types.filter(t=>t.status==='preparing').length,missing:types.filter(t=>t.status==='missing').length,failed:types.filter(t=>t.status==='failed').length}};
+    const baseTypes=types.filter(row=>QUIZ_TYPES.includes(row.type));
+    return {senses,meaning,library,selectionRequired:false,types:baseTypes,additionalTypes:types.filter(row=>!QUIZ_TYPES.includes(row.type)),counts:{total:QUIZ_TYPES.length,ready:baseTypes.filter(t=>t.status==='ready').length,pending:baseTypes.filter(t=>['pending_review','needs_changes'].includes(t.status)).length,preparing:baseTypes.filter(t=>t.status==='preparing').length,missing:baseTypes.filter(t=>t.status==='missing').length,failed:baseTypes.filter(t=>t.status==='failed').length}};
   }
   async fill(actor,body){
     kitTeacher(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','types']);if(!uuid(body.mutationId)||!this.generation)fail(400,'Invalid preparation request.');

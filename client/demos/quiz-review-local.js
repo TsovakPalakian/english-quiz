@@ -4,6 +4,7 @@ import {createProviderSettingsUI} from './provider-settings.js';
 import {createIndependentReviewUI} from './independent-review.js';
 import {createPreparationPipelineUI} from './preparation-pipeline.js';
 import {createLearningKitUI} from './learning-kit.js';
+import {createQuizMaterialsUI} from './quiz-materials.js';
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const labels={draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'✓ Teacher checked'};
@@ -25,6 +26,7 @@ const kitUI=createLearningKitUI({api,run,selected,isTeacher:teacher,isDeveloper:
   onMeaning:meaning=>{const c=selected();if(c&&meaning)Object.assign(c,{senseId:meaning.id,...(meaning.definition?{meaning:meaning.definition,translation:meaning.translation}:{})});},
   onOpenContext:async row=>{let c=boot.contexts.find(c=>c.cardId===row.cardId&&c.groupId===row.groupId&&c.lessonId===row.lessonId);if(!c){c={id:'kit-'+row.groupId+'-'+row.lessonId+'-'+row.cardId,groupId:row.groupId,group:row.groupName,lessonId:row.lessonId,lesson:row.lessonName,cardId:row.cardId,word:row.word,personal:false};boot.contexts.push(c);}contextId=c.id;c.senseId=row.senseId;view='word';await refresh();},
   onOpenVersion:openKitVersion,onRevise:revise,preview:reviewItemPreview});
+const materialsUI=createQuizMaterialsUI({api,run,sessionKey:()=>sessionEpoch,context:selected,isTeacher:teacher,getQuizzes:()=>[...shared,...quizzes],refresh,notify:message});
 async function revise(id){const current=(await api('/local/quizzes/'+id)).quiz;const result=await api('/local/quizzes/'+id+'/revise',{expectedRevision:current.revision});view='mine';await refresh();openEditor(quizzes.find(row=>row.id===result.id));}
 async function openKitVersion(id){
   const q=shared.find(row=>row.id===id)||(await api('/local/quizzes/'+id)).quiz;
@@ -56,10 +58,12 @@ async function run(work){
 }
 async function loadSession(){
   sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();pipelineUI.reset();kitUI.reset();Object.keys(queueFilters).forEach(key=>queueFilters[key]='');
+  materialsUI.reset();
   $('#content').textContent='Loading test account...';
   if(view==='providers'){$('#content').innerHTML='';$('[data-view="providers"]').hidden=true;}
   if(view==='quota'){$('#content').innerHTML='';$('[data-view="quota"]').hidden=true;}
   boot=await api('/local/boot');
+  $('#edit-type').innerHTML=[...types,...(boot.mediaQuizzes?['Video choice']:[])].map(type=>'<option>'+type+'</option>').join('');
   $('#account').innerHTML=boot.roles.map(r=>'<option value="'+r.id+'" '+(r.id===boot.role?'selected':'')+'>'+esc(r.name)+' · '+esc(r.role)+'</option>').join('');
   if(!boot.contexts.some(c=>c.id===contextId))contextId=boot.contexts[0]?.id||'';
   if(view==='queue'&&!teacher())view='mine';await refresh();
@@ -78,6 +82,7 @@ async function refresh(){
   jobs=teacher()?(await api('/local/generation')).jobs:[];
   if(view==='queue'&&teacher())await pipelineUI.load();
   await kitUI.load(view);
+  if(view==='word')await materialsUI.load();
   render();
 }
 const jobLabels={queued:'Queued',running:'Preparing',retry:'Waiting to retry',review:'Needs teacher attention',submitted:'Sent for review',context:'Needs a word set',skipped:'Already approved'};
@@ -215,12 +220,13 @@ function buttons(q){
   if(teacher()&&q.state==='submitted'&&!mine)out+=action('return',q,'Request changes')+action('approve',q,'Review & approve');
   if(teacher()&&q.state==='approved')out+=action('revise',q,'Propose new version');
   if(q.author.id||teacher())out+=action('history',q,'Version history');
-  if(view==='word'&&q.state==='approved'&&q.type!=='Listen')out+='<button data-kit-action="practice" data-id="'+q.id+'">Practice this version</button>';
-  return '<div class="actions">'+out+'</div>'+independentUI.panel(q)+pipelineUI.item(q)+kitUI.opinionPanel(q);
+  if(view==='word'&&q.state==='approved'&&(q.type!=='Listen'||q.mediaReady))out+='<button data-kit-action="practice" data-id="'+q.id+'">Practice this version</button>';
+  return '<div class="actions">'+out+'</div>'+(q.type==='Video choice'?'':independentUI.panel(q))+pipelineUI.item(q)+kitUI.opinionPanel(q);
 }
 function entry(q){
   const items=q.content.items.map(item=>reviewItemPreview(q.type,item)).join('');
-  return '<details class="review-item" data-item="'+q.id+'" data-expand="item-'+q.id+'"><summary><span><strong>'+esc(q.type)+' · v'+q.version+'</strong><span class="locked">'+esc(q.author.name)+' · '+esc(q.author.date)+'</span></span><span class="status '+q.state+'">'+labels[q.state]+'</span></summary><div class="detail">'+identity(q)+items+'<p class="muted">'+esc(q.content.explanation)+'</p>'+(q.feedback?'<blockquote class="feedback">'+esc(q.feedback)+'</blockquote>':'')+(q.state==='approved'?'<p class="muted small">Shared template · This approved version is locked.</p>':'')+buttons(q)+'</div></details>';
+  const sources=(q.mediaSources||[]).map(media=>'<p class="small muted">'+esc(media.name)+' · '+esc(media.source.kind)+' · '+esc(media.source.rights)+' · Permission requires teacher verification</p>').join('');
+  return '<details class="review-item" data-item="'+q.id+'" data-expand="item-'+q.id+'"><summary><span><strong>'+esc(q.type)+' · v'+q.version+'</strong><span class="locked">'+esc(q.author.name)+' · '+esc(q.author.date)+'</span></span><span class="status '+q.state+'">'+labels[q.state]+'</span></summary><div class="detail">'+identity(q)+sources+items+'<p class="muted">'+esc(q.content.explanation)+'</p>'+(q.feedback?'<blockquote class="feedback">'+esc(q.feedback)+'</blockquote>':'')+(q.state==='approved'?'<p class="muted small">Shared template · This approved version is locked.</p>':'')+buttons(q)+'</div></details>';
 }
 function groupBy(list,key){const result=new Map();list.forEach(q=>{const k=key(q);if(!result.has(k))result.set(k,[]);result.get(k).push(q);});return [...result];}
 function byType(list,key){return groupBy(list,q=>q.type).map(([type,rows])=>'<details class="queue-type" data-expand="type-'+esc(key+'-'+type)+'"><summary><strong>'+esc(type)+' · '+rows.length+'</strong></summary>'+rows.map(entry).join('')+'</details>').join('');}
@@ -248,6 +254,7 @@ function render(){
     $('#content').innerHTML='<div class="context-picker"><label>Card location<select id="context">'+boot.contexts.map(row=>'<option value="'+row.id+'" '+(row.id===c?.id?'selected':'')+'>'+esc(row.personal?'Personal card · '+row.word:row.group+' / '+row.lesson+' / '+row.word)+'</option>').join('')+'</select></label></div>'+(c?kitUI.panel()+'<section><div class="section-heading"><h2>Quizzes</h2>'+(!c.personal?'<button class="primary" data-action="create">Propose a quiz</button>':'')+'</div>'+byType(list,c.id)+(!list.length?'<p class="empty">No quizzes yet.</p>':'')+'</section>'+kitUI.library():'<p>No lesson words available for this test account.</p>');
   }else $('#content').innerHTML=(view==='queue'?kitUI.queuePanel():'')+'<section><p class="muted">'+(view==='queue'?'Shared review queue for all teachers.':'Your drafts and submitted versions. Editing during review is blocked by the server.')+'</p>'+(view==='queue'?queueFilterPanel():'')+'<div id="queue-results">'+groups(view==='queue'?filteredQueue():quizzes)+(!quizzes.length?'<p class="empty">No proposals.</p>':'')+'</div></section>';
   $('#content').insertAdjacentHTML('beforeend',generationPanel());
+  if(view==='word'){$('#content').insertAdjacentHTML('beforeend',materialsUI.render());materialsUI.afterRender();}
   if(view==='queue')$('#content').insertAdjacentHTML('afterbegin',pipelineUI.header());
   document.querySelectorAll('[data-expand]').forEach(d=>{if(expansion.has(d.dataset.expand))d.open=expansion.get(d.dataset.expand);});$('#content').setAttribute('aria-busy','false');
   independentUI.afterRender();
@@ -267,7 +274,7 @@ function setupType(){
   const items=editorDrafts.get(editorType)||defaultReviewItems(editorType,editing.context);
   renderEditorItems(items);$('#editor').scrollTop=0;
 }
-function renderEditorItems(items){editorDrafts.set(editorType,items);$('#edit-items').innerHTML=renderReviewItems(editorType,items);$('#add-quiz-item').disabled=items.length>=50;$('#edit-error').hidden=true;}
+function renderEditorItems(items){editorDrafts.set(editorType,items);$('#edit-items').innerHTML=renderReviewItems(editorType,items);materialsUI.decorateEditor($('#edit-items'),editorType);$('#add-quiz-item').disabled=items.length>=50;$('#edit-error').hidden=true;}
 function openEditor(q,repairJob=null){
   const context=repairJob?boot.contexts.find(c=>c.lessonId===repairJob.lessonId&&c.senseId===repairJob.senseId):selected();
   if(!q&&!context){message('This lesson context is no longer available.',true);return;}
@@ -310,10 +317,10 @@ document.addEventListener('click',e=>{
     });return;
   }
   if(action==='create'){openEditor();return;}if(!q)return;
-  if(action==='edit'){openEditor(q);return;}
+  if(action==='edit'){run(async()=>{await materialsUI.load();openEditor(q);});return;}
   if(['return','approve'].includes(action)){
     decision={action,q};$('#decision-title').textContent=action==='return'?'Request changes':'Approve & share';
-    $('#decision-content').innerHTML=action==='return'?'<label>Feedback<textarea id="feedback" required maxlength="2000"></textarea></label>':'<p>This version becomes a shared template and cannot be edited or deleted.</p>'+['Meaning, translation and context are correct','Answers are unambiguous','Explanation and level are appropriate'].map(text=>'<label class="check"><input type="checkbox" required>'+text+'</label>').join('');$('#decision').showModal();return;
+    $('#decision-content').innerHTML=action==='return'?'<label>Feedback<textarea id="feedback" required maxlength="2000"></textarea></label>':'<p>This version becomes a shared template and cannot be edited or deleted.</p>'+['Meaning, translation and context are correct','Answers are unambiguous','Explanation and level are appropriate',...(q.type==='Video choice'||q.type==='Listen'&&q.content.items.some(item=>item.mediaId)?['Media was played; its text, meaning and reuse permission are correct']:[])].map(text=>'<label class="check"><input type="checkbox" required>'+text+'</label>').join('');$('#decision').showModal();return;
   }
   run(async()=>{
     if(action==='submit'){await api('/local/quizzes/'+q.id+'/submit',{expectedRevision:q.revision});await refresh();message('Submitted. The server locked this version for review.');}
@@ -335,7 +342,7 @@ $('#edit-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{
   $('#editor').close();view='mine';await refresh();message('Saved in the local test database.');
 });});
 $('#decision-form').addEventListener('submit',e=>{e.preventDefault();run(async()=>{
-  const {q,action}=decision,payload={expectedRevision:q.revision,...(action==='return'?{comment:$('#feedback').value.trim()}:{checks:{meaning:true,answers:true,level:true}})};
+  const {q,action}=decision,payload={expectedRevision:q.revision,...(action==='return'?{comment:$('#feedback').value.trim()}:{checks:{meaning:true,answers:true,level:true,...(q.type==='Video choice'||q.type==='Listen'&&q.content.items.some(item=>item.mediaId)?{media:true}:{})}})};
   await api('/local/quizzes/'+q.id+'/'+action,payload);$('#decision').close();await refresh();message(action==='return'?'Returned with feedback.':'Approved shared template. The version is locked.');
 });});
 $('#edit-type').innerHTML=types.map(type=>'<option>'+type+'</option>').join('');

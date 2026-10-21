@@ -30,7 +30,14 @@ function context(actor,value){
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
 const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),generation:q.generation_json?JSON.parse(q.generation_json):null,state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
 export class QuizReviewService extends StudyService{
-  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;}
+  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false,mediaQuizzes=false,contentPolicy=null}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;this.mediaQuizzes=mediaQuizzes===true;this.contentPolicy=contentPolicy;}
+  validateContent(type,content){return validateReviewContent(type,content,{mediaQuizzes:this.mediaQuizzes});}
+  async mediaGuards(actor,context,type,content){
+    if(!this.mediaQuizzes)return [];
+    if(!this.contentPolicy)fail(503,'Validated quiz media is not configured.');
+    return this.contentPolicy.validate(actor,context,type,content);
+  }
+  async projection(q){const value=dto(q);if(this.mediaQuizzes&&this.contentPolicy)value.mediaSources=await this.contentPolicy.summaries(value.content);return value;}
   async mutation(actor,body,identity,build){
     signed(actor);
     try{return await this.mutate(actor,body,['quiz-review',...identity],build,{personal:true});}
@@ -64,12 +71,12 @@ export class QuizReviewService extends StudyService{
     developer(worker);signed(requester);return this.#newDraft(worker,requester,body,'automatic');
   }
   async #newDraft(actor,requester,body,kind){
-    signed(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','type','content',...(kind==='automatic'?['generation']:[])]);const content=validateReviewContent(body.type,body.content);
+    signed(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','type','content',...(kind==='automatic'?['generation']:[])]);const content=this.validateContent(body.type,body.content);
     const generation=body.generation===undefined?null:validateGenerationMetadata(body.generation);
     const state=kind==='automatic'?'submitted':'draft';
     return this.mutation(actor,body,['create',kind,requester.id],async()=>{
       const ctx=await this.checkContext(requester,body),id=uuid(),q={id,revision:1};
-      return {statements:[this.accessGuard(requester,body),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,generation_json,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
+      return {statements:[this.accessGuard(requester,body),...await this.mediaGuards(actor,body,body.type,content),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,generation_json,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
         VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[id,id,body.senseId,body.type,JSON.stringify(content),state,actor.id,kind,generation?JSON.stringify(generation):null,kind==='automatic'?'Automatic generator':name(actor),ctx.group_name,body.groupId,body.lessonId,body.cardId,date(),kind==='automatic'?date():null]),this.guard(),this.event(q,actor,kind==='automatic'?'generated-for-review':'created',{content,requestedBy:requester.id,...(generation?{generation}:{})})],result:{id,version:1,revision:1,state}};
     });
   }
@@ -78,8 +85,8 @@ export class QuizReviewService extends StudyService{
     return this.mutation(actor,body,['edit',id],async()=>{
       const q=await this.version(id);await this.access(actor,q);
       if(q.author_id!==actor.id||!['draft','returned'].includes(q.state))fail(403,'Only the author can edit a draft or returned version.');
-      const content=validateReviewContent(q.type,body.content),next=body.expectedRevision+1;
-      return {statements:[this.accessGuard(actor,origin(q)),s("UPDATE qr_versions SET content_json=?,revision=revision+1 WHERE id=? AND revision=? AND state IN ('draft','returned') AND author_id=?",[JSON.stringify(content),id,body.expectedRevision,actor.id]),this.guard(),this.event({id,revision:next},actor,'edited',{content})],result:{id,revision:next,state:q.state}};
+      const content=this.validateContent(q.type,body.content),next=body.expectedRevision+1;
+      return {statements:[this.accessGuard(actor,origin(q)),...await this.mediaGuards(actor,origin(q),q.type,content),s("UPDATE qr_versions SET content_json=?,revision=revision+1 WHERE id=? AND revision=? AND state IN ('draft','returned') AND author_id=?",[JSON.stringify(content),id,body.expectedRevision,actor.id]),this.guard(),this.event({id,revision:next},actor,'edited',{content})],result:{id,revision:next,state:q.state}};
     });
   }
   async submit(actor,id,body){return this.transition(actor,id,body,'submit');}
@@ -90,7 +97,7 @@ export class QuizReviewService extends StudyService{
     if(action!=='submit')teacher(actor);
     if(action==='approve'){
       if(!this.allowGlobalApproval)fail(503,'Global template approval is not enabled.');
-      exactFields(body.checks,['meaning','answers','level']);if(!['meaning','answers','level'].every(k=>body.checks[k]===true))fail(400,'Complete every review check.');
+      exactFields(body.checks,['meaning','answers','level',...(this.mediaQuizzes?['media']:[])]);if(!['meaning','answers','level'].every(k=>body.checks[k]===true))fail(400,'Complete every review check.');
     }
     const comment=action==='return'?reviewText(body.comment,2000):'';
     return this.mutation(actor,body,[action,id],async()=>{
@@ -99,13 +106,14 @@ export class QuizReviewService extends StudyService{
       if(action==='approve'&&q.author_id===actor.id)fail(403,'A different teacher must approve this version.');
       if(action==='approve'&&this.extendedLifecycle){const [unresolved]=await this.db.read(`SELECT o.id FROM qr_opinions o LEFT JOIN qr_opinion_decisions d ON d.opinion_id=o.id
         WHERE o.version_id=? AND o.content_revision=? AND (d.decision IS NULL OR d.decision<>'confirm') LIMIT 1`,[id,body.expectedRevision]);if(unresolved)fail(409,'Resolve the independent opinion or return this version for changes before approval.');}
-      const content=validateReviewContent(q.type,JSON.parse(q.content_json)),state=action==='submit'?'submitted':action==='return'?'returned':'approved',next=body.expectedRevision+1;
+      const content=this.validateContent(q.type,JSON.parse(q.content_json)),state=action==='submit'?'submitted':action==='return'?'returned':'approved',next=body.expectedRevision+1;
+      if(action==='approve'&&(q.type==='Video choice'||q.type==='Listen'&&content.items.some(item=>item.mediaId))&&body.checks.media!==true)fail(400,'Confirm the media and its correspondence to the text.');
       const assignments=action==='approve'?'reviewer_id=?,reviewer_name=?,approved_date=?':action==='submit'?'submitted_date=?':'feedback=?';
       const values=action==='approve'?[actor.id,name(actor),date()]:[action==='submit'?date():comment];
       const opinionGuard=action==='approve'&&this.extendedLifecycle?[s(`INSERT INTO mutation_guard SELECT NOT EXISTS(
         SELECT 1 FROM qr_opinions o LEFT JOIN qr_opinion_decisions d ON d.opinion_id=o.id
         WHERE o.version_id=? AND o.content_revision=? AND (d.decision IS NULL OR d.decision<>'confirm'))`,[id,body.expectedRevision])]:[];
-      return {statements:[this.accessGuard(actor,origin(q)),...opinionGuard,s(`UPDATE qr_versions SET state=?,revision=revision+1,${assignments} WHERE id=? AND revision=? AND state=?`,[state,...values,id,body.expectedRevision,q.state]),this.guard(),this.event({id,revision:next},actor,action,{content,...(action==='approve'?{checks:body.checks}:{}),...(comment?{comment}:{})})],result:{id,state,revision:next}};
+      return {statements:[this.accessGuard(actor,origin(q)),...await this.mediaGuards(actor,origin(q),q.type,content),...opinionGuard,s(`UPDATE qr_versions SET state=?,revision=revision+1,${assignments} WHERE id=? AND revision=? AND state=?`,[state,...values,id,body.expectedRevision,q.state]),this.guard(),this.event({id,revision:next},actor,action,{content,...(action==='approve'?{checks:body.checks}:{}),...(comment?{comment}:{})})],result:{id,state,revision:next}};
     });
   }
   async proposeRevision(actor,id,body){
@@ -117,11 +125,11 @@ export class QuizReviewService extends StudyService{
         VALUES(?,?,?,?,?,?,?,'draft',?,?,?,?,?,?,?)`,[newId,old.family_id,id,version,old.sense_id,old.type,old.content_json,actor.id,name(actor),old.author_group,old.group_id,old.lesson_id,old.card_id,date()]),this.guard(),this.event({id:newId,revision:1},actor,'revision-created',{parentId:id,originalAuthor:{name:old.author_name,group:old.author_group,date:old.created_date}})],result:{id:newId,version,revision:1,state:'draft'}};
     });
   }
-  async get(actor,id){signed(actor);const q=await this.version(id);await this.access(actor,q);const events=await this.db.read('SELECT action,actor_name,event_date,details_json FROM qr_events WHERE version_id=? ORDER BY revision',[id]);return {...dto(q),history:events.map(e=>({action:e.action,actor:e.actor_name,date:e.event_date,details:JSON.parse(e.details_json)}))};}
+  async get(actor,id){signed(actor);const q=await this.version(id);await this.access(actor,q);const events=await this.db.read('SELECT action,actor_name,event_date,details_json FROM qr_events WHERE version_id=? ORDER BY revision',[id]);return {...await this.projection(q),history:events.map(e=>({action:e.action,actor:e.actor_name,date:e.event_date,details:JSON.parse(e.details_json)}))};}
   async mine(actor){
     signed(actor);
     const candidates=await this.db.read('SELECT * FROM qr_versions WHERE author_id=? ORDER BY created_date DESC,id LIMIT 100',[actor.id]),result=[];
-    for(const q of candidates){try{await this.access(actor,q);result.push(dto(q));}catch(error){if(error.status!==403)throw error;}}
+    for(const q of candidates){try{await this.access(actor,q);result.push(await this.projection(q));}catch(error){if(error.status!==403)throw error;}}
     return result;
   }
   async queue(actor,{limit=100,offset=0}={}){
@@ -129,7 +137,7 @@ export class QuizReviewService extends StudyService{
     const list=await this.db.read(`SELECT q.* FROM qr_versions q JOIN class_groups g ON g.id=q.group_id JOIN lessons l ON l.id=q.lesson_id
       WHERE g.deleted_at IS NULL AND l.deleted_at IS NULL AND q.state IN ('submitted','returned') AND ${reviewAccess}
       ORDER BY q.group_id,q.lesson_id,q.sense_id,q.type,q.created_date,q.id LIMIT ? OFFSET ?`,[actor.role,limit,offset]);
-    return list.map(dto);
+    const result=[];for(const q of list)result.push(await this.projection(q));return result;
   }
   async sharedForCard(actor,cardId){
     signed(actor);recordId(cardId);const [card]=await this.db.read(`SELECT c.id FROM cards c WHERE c.id=? AND ${cardAccess}`,[cardId,...accessArgs(actor)]);if(!card)fail(404,'Card not available.');
@@ -139,6 +147,15 @@ export class QuizReviewService extends StudyService{
       ${this.extendedLifecycle?"AND NOT EXISTS(SELECT 1 FROM qr_publication p WHERE p.version_id=q.id AND p.available=0)":''}
       ORDER BY q.type,q.family_id`,[cardId]);
     // No private lesson IDs, account IDs, review feedback or internal audit content.
-    return list.map(q=>({id:q.id,familyId:q.family_id,version:q.version,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),teacherChecked:true,author:{name:q.author_name,group:q.author_group,date:q.created_date},originalAuthor:{name:q.original_name,group:q.original_group,date:q.original_date},reviewer:{name:q.reviewer_name,date:q.approved_date}}));
+    const result=[];
+    for(const q of list){
+      let content=JSON.parse(q.content_json);
+      if(this.mediaQuizzes&&(q.type==='Video choice'||q.type==='Listen'&&content.items.some(item=>item.mediaId))&&!await this.contentPolicy?.available(q.type,content))continue;
+      const mediaReady=['Listen','Video choice'].includes(q.type)&&content.items.every(item=>item.mediaId);
+      const restricted=actor.role==='USER'&&(q.type==='Video choice'||q.type==='Listen'&&mediaReady);
+      if(restricted)content={items:content.items.map(item=>({prompt:item.prompt,options:item.options})),explanation:''};
+      result.push({id:q.id,familyId:q.family_id,version:q.version,senseId:q.sense_id,type:q.type,content,mediaReady,previewRestricted:restricted,teacherChecked:true,author:{name:q.author_name,group:q.author_group,date:q.created_date},originalAuthor:{name:q.original_name,group:q.original_group,date:q.original_date},reviewer:{name:q.reviewer_name,date:q.approved_date}});
+    }
+    return result;
   }
 }

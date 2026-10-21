@@ -1,5 +1,5 @@
 // Isolated SQL-backed settings. Transports and credentials remain server-injected.
-import {LanguageProviders,LanguageProviderError,LANGUAGE_TASKS} from './language-providers.mjs';
+import {LanguageProviders,LanguageProviderError,LANGUAGE_TASKS,upgradeLanguageSelections} from './language-providers.mjs';
 import {statement as s} from './learning-study.mjs';
 const fail=code=>{throw new LanguageProviderError(code);};
 const developer=actor=>{if(!actor?.id||actor.role!=='DEVELOPER'||actor.active===false||actor.active===0||actor.revoked)fail('developer_required');};
@@ -28,7 +28,7 @@ export class StoredLanguageProviders{
     try{
       const [row]=await this.#db.read('SELECT * FROM qr_provider_configuration WHERE id=1');
       if(!row||!Number.isSafeInteger(row.revision)||row.revision<1)throw Error();
-      const selections=JSON.parse(row.selections_json),pins=JSON.parse(row.pins_json);
+      const selections=upgradeLanguageSelections(JSON.parse(row.selections_json)),pins=JSON.parse(row.pins_json);
       if(!exact(selections,LANGUAGE_TASKS)||Object.keys(selections).length!==LANGUAGE_TASKS.length||!exact(pins,LANGUAGE_TASKS))throw Error();
       return {revision:row.revision,selections,pins};
     }catch{fail('provider_configuration_unavailable');}
@@ -93,6 +93,7 @@ export class StoredLanguageProviders{
   async execute(task,payload,options){
     if(!LANGUAGE_TASKS.includes(task))fail('invalid_request');
     const state=await this.#read();this.#pin(task,state);
+    if(options?.expectedConfigurationRevision!==undefined&&state.revision!==options.expectedConfigurationRevision)fail('provider_configuration_changed');
     return this.#registry({...empty(),[task]:state.selections[task]},state.revision).execute(task,payload,options);
   }
 }

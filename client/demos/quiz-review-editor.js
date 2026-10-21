@@ -1,7 +1,7 @@
 // Structured fields for the isolated local review pilot, not the production editor.
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isPairs=type=>['Match','Memory'].includes(type);
-const optionTypes=['Choice','Reverse','Listen','Definition','Select all','Odd one out'];
+const optionTypes=['Choice','Reverse','Listen','Definition','Select all','Odd one out','Video choice'];
 const fields={
   Flip:[['front','Front'],['back','Back']],
   Choice:[['prompt','Question']],
@@ -12,8 +12,9 @@ const fields={
   'True / false':[['prompt','Statement']],Tap:[['text','Sentence'],['answer','Word to select']],
   'Select all':[['prompt','Question']],Reverse:[['front','Question'],['back','Answer on reverse']],
   Spell:[['word','Word'],['hint','Hint',true]],Letters:[['word','Word'],['hint','Hint',true]],Hangman:[['word','Word'],['hint','Hint',true]],
-  Listen:[['prompt','Question'],['word','Word to pronounce']],Definition:[['prompt','Definition'],['word','Target word']],
+  Listen:[['prompt','Question'],['word','Word to pronounce'],['mediaId','Audio asset',true]],Definition:[['prompt','Definition'],['word','Target word']],
   'Odd one out':[['prompt','Grouping rule / question']],
+  'Video choice':[['prompt','Question'],['mediaId','Video asset'],['transcript','Transcript']],
 };
 export function defaultReviewItems(type,c){
   const sentence=c.word==='bank'?'She opened an account at the bank.':'A fine drizzle started falling.';
@@ -28,6 +29,7 @@ export function defaultReviewItems(type,c){
   else if(['Spell','Letters','Hangman'].includes(type))item={word:c.word,hint:c.translation};
   else if(type==='Reverse')item={front:c.translation,back:c.word,options:[c.word,''],answer:0};
   else if(type==='Listen')item={prompt:'Choose the meaning of the word you hear.',word:c.word,options:[c.translation,''],answer:0};
+  else if(type==='Video choice')item={prompt:'What does the speaker mean?',mediaId:'',transcript:'',options:[c.translation,''],answer:0};
   else if(type==='Definition')item={prompt:c.meaning,word:c.word,options:[c.word,''],answer:0};
   else if(type==='Select all')item={prompt:'Select all words that match the category.',options:[c.word,''],answers:[0]};
   else if(type==='Odd one out')item={prompt:'Which word does not belong to this category?',options:[c.word,''],answer:1};
@@ -69,5 +71,6 @@ export function reviewItemPreview(type,item){
   if(isPairs(type))return '<div class="pair-preview"><span>'+esc(item.left)+'</span><span>'+esc(item.right)+'</span></div>';
   const prompt=item.shown||item.prompt||item.front||item.text||item.word||(type==='Build'?'Arrange the words':'');
   const answer=item.back??item.answer??item.word;
-  return '<div class="quiz-preview"><strong class="quiz-content">'+esc(prompt)+'</strong>'+(type==='Build'?'<p class="muted">'+esc(item.parts)+'</p>':'')+(item.hint?'<p class="muted small">'+esc(item.hint)+'</p>':'')+(item.options?'<ol class="options">'+item.options.map((o,i)=>'<li class="'+((type==='Select all'?item.answers.includes(i):i===item.answer)?'correct':'')+'">'+esc(o)+((type==='Select all'?item.answers.includes(i):i===item.answer)?' ✓':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(answer)+'</p>')+(type==='Listen'?'<p class="muted small">Word to pronounce: '+esc(item.word)+'</p>':'')+'</div>';
+  const mediaUrl=item.mediaUrl||(item.mediaId?'/local/media/'+item.mediaId:null),tag=type==='Video choice'?'video':'audio';
+  return '<div class="quiz-preview">'+(mediaUrl?'<'+tag+' controls preload="metadata" src="'+esc(mediaUrl)+'"'+(tag==='video'?' playsinline':'')+'></'+tag+'>':'')+'<strong class="quiz-content">'+esc(prompt)+'</strong>'+(type==='Build'?'<p class="muted">'+esc(item.parts)+'</p>':'')+(item.hint?'<p class="muted small">'+esc(item.hint)+'</p>':'')+(item.options?'<ol class="options">'+item.options.map((o,i)=>'<li class="'+((type==='Select all'?item.answers.includes(i):i===item.answer)?'correct':'')+'">'+esc(o)+((type==='Select all'?item.answers.includes(i):i===item.answer)?' ✓':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(answer)+'</p>')+(type==='Listen'?'<p class="muted small">Word to pronounce: '+esc(item.word)+'</p>':'')+(item.transcript?'<p class="quiz-content"><strong>Transcript</strong>'+esc(item.transcript)+'</p>':'')+'</div>';
 }

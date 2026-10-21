@@ -6,7 +6,7 @@ test('local provider settings default off and enforce developer rights, CSRF, CA
   const get=(path,role='dev')=>fetch(url+path,{headers:{Cookie:'qr-preview='+role}});
   const post=(data,role='dev',origin=url)=>fetch(url+'/local/providers',{method:'POST',headers:{Cookie:'qr-preview='+role,Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(data)});
   try{
-    const initial=await (await get('/local/providers')).json();assert.equal(initial.revision,1);assert.ok(Object.values(initial.selections).every(v=>v===null));assert.equal(initial.adapters.length,4);
+    const initial=await (await get('/local/providers')).json();assert.equal(initial.revision,1);assert.ok(Object.values(initial.selections).every(v=>v===null));assert.equal(initial.adapters.length,6);assert.ok(initial.adapters.some(adapter=>adapter.id==='macos-local-tts'));assert.ok(initial.adapters.some(adapter=>adapter.id==='local-dictionary-fixture'));
     const data={mutationId:crypto.randomUUID(),expectedRevision:1,selections:{generation:{adapterId:initial.adapters[0].id,locale:'en-US',mode:'text'}},reason:'Choose the synthetic test model.'};
     for(const role of ['student','teacher','outsider']){
       for(const path of ['/local/providers','/local/providers/history'])assert.equal((await get(path,role)).status,403);
