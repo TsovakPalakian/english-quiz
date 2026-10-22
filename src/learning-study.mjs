@@ -281,10 +281,10 @@ export class StudyService {
     });
   }
   lessonResultSql(){
-    return `SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+    return `SELECT json_object('id',l.id,'revision',l.revision,'blocks',json((
       SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
       FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
-    )) result_json FROM lessons l WHERE l.id=(SELECT id FROM created_rows WHERE seq=1)`;
+    ))) result_json FROM lessons l WHERE l.id=(SELECT id FROM created_rows WHERE seq=1)`;
   }
   lessonBlockCommands(lessonId,b,position){
     const commands=[];
@@ -328,10 +328,10 @@ export class StudyService {
       for(const b of upserts)commands.push(...this.lessonBlockCommands(id,b,position++));
       for(const b of deletes)commands.push(stmt('UPDATE lesson_blocks SET deleted_at=unixepoch(),revision=revision+1 WHERE lesson_id=? AND id=? AND revision=? AND deleted_at IS NULL',[id,b.id,b.expectedRevision]),this.guard());
       for(const [i,key] of (body.order||[]).entries())commands.push(stmt('UPDATE lesson_blocks SET position=? WHERE lesson_id=? AND id=? AND deleted_at IS NULL',[i,id,key]),this.guard());
-      return {statements:commands,resultSql:`SELECT json_object('id',l.id,'revision',l.revision,'blocks',(
+      return {statements:commands,resultSql:`SELECT json_object('id',l.id,'revision',l.revision,'blocks',json((
         SELECT json_group_array(json_object('id',b.id,'revision',b.revision))
         FROM lesson_blocks b WHERE b.lesson_id=l.id AND b.deleted_at IS NULL ORDER BY b.position,b.id
-      )) result_json FROM lessons l WHERE l.id=?`,resultArgs:[id]};
+      ))) result_json FROM lessons l WHERE l.id=?`,resultArgs:[id]};
     });
   }
   async deleteLesson(actor,id,body){
