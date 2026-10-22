@@ -11,14 +11,14 @@ export function createGeminiQuizAdapter({enabled=false,freeTierVerified=false,al
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(typeof allowDataProcessing!=='boolean'||typeof model!=='string'||!/^gemini-[a-z0-9][a-z0-9.-]{0,100}$/.test(model)||!Number.isSafeInteger(maxTokens)||maxTokens<512||maxTokens>8192||termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
   return {
-    id:'gemini-quiz',provider:'google',model,version:'generate-content-json-v1.'+(termsRevision||'unverified')+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
+    id:'gemini-quiz',provider:'google',model,version:'generate-content-json-v2.'+(termsRevision||'unverified')+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'generation',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(request,{signal}={}){
       if(!enabled)fail('provider_disabled');
       if(!allowDataProcessing||!termsRevision||typeof apiKey!=='string'||!apiKey.trim()||apiKey.length>512||/[\s\x00-\x1f\x7f]/.test(apiKey))fail('provider_not_configured');
       if(signal?.aborted)fail('cancelled');
       const input=buildQuizModelInput(request,maxTokens);
-      const payload={systemInstruction:{parts:[{text:input.messages[0].content}]},contents:[{role:'user',parts:[{text:input.messages[1].content}]}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens,responseFormat:{text:{mimeType:'application/json',schema:input.response_format.json_schema}}}};
+      const payload={systemInstruction:{parts:[{text:input.messages[0].content}]},contents:[{role:'user',parts:[{text:input.messages[1].content}]}],generationConfig:{temperature:0.2,maxOutputTokens:maxTokens,responseFormat:{text:{mimeType:'APPLICATION_JSON',schema:input.response_format.json_schema}}}};
       const encoded=JSON.stringify(payload);
       if(new TextEncoder().encode(encoded).length>12000)fail('input_budget_exceeded');
       const data=await languageProviderHTTP(fetchImpl,'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':apiKey,'Content-Type':'application/json'},body:encoded},{signal,timeoutMs,maxBytes:150000});

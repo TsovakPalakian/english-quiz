@@ -17,6 +17,7 @@ test('one real-transport-shaped request creates only a disposable teacher-review
     calls++;assert.match(url,/^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/gemini-3\.5-flash-lite:generateContent$/);
     const payload=JSON.parse(init.body),input=JSON.parse(payload.contents[0].parts[0].text);
     assert.equal(payload.generationConfig.maxOutputTokens,2048);assert.equal(input.type,'Gap');assert.equal(input.meaning.en,'drizzle');
+    assert.equal(payload.generationConfig.responseFormat.text.mimeType,'APPLICATION_JSON');
     assert.ok(!init.body.includes(options.apiKey));assert.ok(!init.body.includes('example.invalid'));
     return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({type:input.type,meaning:input.meaning,content:{explanation:'Drizzle means light rain.',items:[{shown:'A fine ____ began to fall.',answer:'drizzle',hint:'Light rain'}]}})}]}}],usageMetadata:{promptTokenCount:30,candidatesTokenCount:20,totalTokenCount:50}});
   }});

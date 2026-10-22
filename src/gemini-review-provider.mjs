@@ -10,7 +10,7 @@ function createGeminiReviewTransport({enabled=false,freeTierVerified=false,allow
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(typeof allowDataProcessing!=='boolean'||!Number.isSafeInteger(maxTokens)||maxTokens<512||maxTokens>8192||termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
   if(model!==''&&!/^gemini-[a-z0-9][a-z0-9.-]{0,100}$/.test(model))fail('invalid_configuration');
-  return {id:'gemini-quiz-review',provider:'google',model:model||'unconfigured',version:'generate-content-json-v1.'+(termsRevision||'unverified')+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
+  return {id:'gemini-quiz-review',provider:'google',model:model||'unconfigured',version:'generate-content-json-v2.'+(termsRevision||'unverified')+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'review',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(request,{signal}={}){
       if(!enabled)fail('provider_disabled');
@@ -21,7 +21,7 @@ function createGeminiReviewTransport({enabled=false,freeTierVerified=false,allow
       try{validateReviewContent(checked.type,checked.content);}catch{fail('invalid_request');}
       const finding=object({dimension:{type:'string',enum:REVIEW_DIMENSIONS},severity:{type:'string',enum:['warning','error']},itemIndex:{type:['integer','null'],minimum:0},message:{type:'string'},suggestion:{type:'string'}});
       const schema=object({fingerprint:{type:'string',enum:[checked.fingerprint]},revision:{type:'integer',enum:[checked.revision]},status:{type:'string',enum:['reviewed','refused']},dimensions:object(Object.fromEntries(REVIEW_DIMENSIONS.map(key=>[key,{type:'string',enum:['pass','issue','not_assessed']}]))),findings:{type:'array',maxItems:100,items:finding}});
-      const payload={systemInstruction:{parts:[{text:request.instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify({checked,dimensions:request.dimensions})}]}],generationConfig:{temperature:0,maxOutputTokens:maxTokens,responseFormat:{text:{mimeType:'application/json',schema}}}};
+      const payload={systemInstruction:{parts:[{text:request.instruction}]},contents:[{role:'user',parts:[{text:JSON.stringify({checked,dimensions:request.dimensions})}]}],generationConfig:{temperature:0,maxOutputTokens:maxTokens,responseFormat:{text:{mimeType:'APPLICATION_JSON',schema}}}};
       if(JSON.stringify(payload).length>120000)fail('invalid_request');
       const data=await languageProviderHTTP(fetchImpl,'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':apiKey,'Content-Type':'application/json'},body:JSON.stringify(payload)},{signal,timeoutMs,maxBytes:150000});
       const candidate=data?.candidates?.[0];

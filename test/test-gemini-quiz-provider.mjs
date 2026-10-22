@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createGeminiQuizAdapter,GEMINI_QUIZ_MODEL} from '../src/gemini-quiz-provider.mjs';
+import {createGeminiReviewAdapter} from '../src/gemini-review-provider.mjs';
 import {createModelQuizGenerator} from '../src/quiz-generation-model.mjs';
 import {createRoutedQuizGenerator} from '../src/workers-ai-quiz-provider.mjs';
 import {LanguageProviders} from '../src/language-providers.mjs';
@@ -33,7 +34,8 @@ test('fixed Gemini endpoint sends bounded structured output without tools, redir
   assert.equal(sent.init.headers['x-goog-api-key'],'fixture-key');assert.equal(sent.init.redirect,'error');assert.equal(sent.init.credentials,'omit');
   const input=JSON.parse(sent.init.body);assert.equal(input.tools,undefined);assert.equal(input.generationConfig.maxOutputTokens,4096);
   assert.deepEqual(input.generationConfig.responseFormat.text.schema.properties.meaning.properties.en.enum,['drizzle']);
-  assert.equal(input.generationConfig.responseFormat.text.mimeType,'application/json');assert.ok(!sent.init.body.includes('fixture-key'));
+  assert.equal(input.generationConfig.responseFormat.text.mimeType,'APPLICATION_JSON');assert.ok(!sent.init.body.includes('fixture-key'));
+  assert.match(providers.inspect(actors.dev).adapters[0].version,/^generate-content-json-v2\./);
 });
 test('invalid input and oversized UTF-8 context never reach Gemini',async()=>{
   let calls=0;const row=adapter({fetchImpl:async()=>calls++});
@@ -41,6 +43,18 @@ test('invalid input and oversized UTF-8 context never reach Gemini',async()=>{
   const long={...meaning,definition:'界'.repeat(2000)};
   await assert.rejects(createModelQuizGenerator({enabled:true,complete:value=>row.invoke(value)})({type:'Flip',meaning:long}),error=>error.code==='temporary_failure');
   assert.equal(calls,0);
+});
+test('Gemini review uses the same REST MIME enum and a new transport identity',async()=>{
+  let calls=0;
+  const row=createGeminiReviewAdapter({...options,model:GEMINI_QUIZ_MODEL,fetchImpl:async(_,init)=>{
+    calls++;const payload=JSON.parse(init.body);
+    assert.equal(payload.generationConfig.responseFormat.text.mimeType,'APPLICATION_JSON');
+    assert.equal(payload.generationConfig.responseMimeType,undefined);
+    const {checked,dimensions}=JSON.parse(payload.contents[0].parts[0].text);
+    return reply('',{candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({fingerprint:checked.fingerprint,revision:checked.revision,status:'reviewed',dimensions:Object.fromEntries(dimensions.map(key=>[key,'pass'])),findings:[]})}]}}]});
+  }});
+  const result=await row.invoke({type:'Gap',meaning,content:{explanation:'Light rain.',items:[{shown:'A fine ____ fell.',answer:'drizzle',hint:'Rain'}]},revision:1,level:'A1'});
+  assert.equal(calls,1);assert.equal(result.result.requiresTeacherReview,true);assert.match(row.version,/^generate-content-json-v2\./);
 });
 test('HTTP errors are classified without automatic retries or upstream secret details',async()=>{
   for(const [status,expected] of [[429,'rate_limited'],[401,'provider_access_denied'],[403,'provider_access_denied'],[500,'provider_unavailable'],[400,'provider_request_rejected'],[302,'provider_request_rejected']]){
