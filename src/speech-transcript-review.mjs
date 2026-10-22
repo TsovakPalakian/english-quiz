@@ -37,7 +37,7 @@ export class SpeechTranscriptReview{
       if(body.retryOf!==undefined&&body.retryOf!==null&&body.retryOf!==previous[0]?.id||previous.length&&body.retryOf!==previous[0].id)fail(409,'Explicitly retry the latest review or confirm a new transcript revision.');
       const reviewId=crypto.randomUUID(),at=this.now(),{day,month}=this.speech.dates(),limits=this.speech.budgets.language,task=await this.speech.task(actor,attempt.task_id);
       const [{sequence}]=await this.db.read('SELECT COALESCE(max(sequence),0)+1 AS sequence FROM qr_speech_text_reviews WHERE attempt_id=?',[id]);
-      return {statements:[this.speech.review.accessGuard(actor,{groupId:task.group_id,lessonId:task.lesson_id,cardId:task.card_id,senseId:task.sense_id}),
+      return {statements:[this.speech.accessGuard(actor,{groupId:task.group_id,lessonId:task.lesson_id,cardId:task.card_id,senseId:task.sense_id}),
         s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_attempts WHERE id=? AND owner_id=? AND state='complete' AND deleted_at IS NULL)",[id,actor.id]),s('INSERT INTO mutation_guard SELECT COALESCE(max(revision),0)=? FROM qr_speech_corrections WHERE attempt_id=?',[body.transcriptRevision,id]),
         s("INSERT INTO mutation_guard SELECT COALESCE(sum(CASE WHEN day=? THEN quantity ELSE 0 END),0)+1<=? AND COALESCE(sum(quantity),0)+1<=? FROM qr_speech_usage WHERE kind='language' AND provider=? AND month=? AND state<>'released'",[day,limits.day,limits.month,source.provider,month]),
         s("INSERT INTO qr_speech_text_reviews(id,attempt_id,owner_id,transcript_revision,transcript,consent_at,source_json,rubric_json,sequence,created_at,deadline_at,state) VALUES(?,?,?,?,?,?,?,?,?,?,?,'reserved')",[reviewId,id,actor.id,body.transcriptRevision,transcript,at,sourceJSON,rubricJSON,sequence,at,at+this.timeoutMs]),
@@ -52,11 +52,12 @@ export class SpeechTranscriptReview{
     const controller=new AbortController();this.controllers.set(row.id,{attemptId:row.attempt_id,controller});const timer=setTimeout(()=>controller.abort(),Math.max(1,row.deadline_at-this.now()));
     try{
       await this.speech.attempt(actor,row.attempt_id,{owner:true});const source=JSON.parse(row.source_json);
-      const output=await this.speech.providers.execute('conversation',{kind:'speech-language-review',transcript:row.transcript,prompt:snapshot.prompt,reference:snapshot.reference,level:snapshot.level},{signal:controller.signal,timeoutMs:Math.max(1,row.deadline_at-this.now()),expectedConfigurationRevision:source.configurationRevision});
+      const output=await this.speech.providers.execute('conversation',{kind:'speech-language-review',transcript:row.transcript,prompt:snapshot.prompt,reference:snapshot.reference,level:snapshot.level,...(snapshot.criteria?{criteria:snapshot.criteria}:{})},{signal:controller.signal,timeoutMs:Math.max(1,row.deadline_at-this.now()),expectedConfigurationRevision:source.configurationRevision});
       if(Object.keys(source).some(key=>output.source[key]!==source[key]))fail(400,'Language reviewer changed.');
       if(output.data.transcript!==null&&output.data.transcript!==row.transcript)fail(400,'The reviewed transcript does not match.');
       const data=validateSpeechOutput({...output.data,transcript:row.transcript},'conversation'),result=scoreSpeech([{task:'conversation',data,source:output.source}],JSON.parse(row.rubric_json),{duration:snapshot.duration,synthetic:source.provider==='local-fixture'});
       result.basis='confirmed_transcript_not_acoustic_speech';
+      if(snapshot.criteria){result.criteria=structuredClone(snapshot.criteria);result.criteriaAssessment='not_verified';}
       await this.db.atomic([s("UPDATE qr_speech_text_reviews SET state='complete',result_json=?,finished_at=? WHERE id=? AND state='started' AND deleted_at IS NULL AND deadline_at>?",[JSON.stringify(result),this.now(),row.id,this.now()])]);
     }catch{await this.db.atomic([s("UPDATE qr_speech_text_reviews SET state='failed',error_code=?,finished_at=? WHERE id=? AND state='started' AND deleted_at IS NULL",[controller.signal.aborted?'cancelled_or_timeout':'language_review_failed',this.now(),row.id])]);}
     finally{clearTimeout(timer);this.controllers.delete(row.id);}

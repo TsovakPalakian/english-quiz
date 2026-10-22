@@ -44,10 +44,13 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   function render(){
     expandedAttempts=new Set([...document.querySelectorAll('[data-speech-id][open]')].map(node=>node.dataset.speechId));
     if(document.querySelector('[data-speech-history][open]'))expandedAttempts.add('history');
-    const contexts=context()?.lessonSpeech&&isTeacher()?'<label>Word and meaning<select name="lessonContext" required><option value="">Select a lesson context</option>'+(state?.contexts||[]).map((row,index)=>'<option value="'+index+'">'+esc([row.word,row.partOfSpeech,row.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>':'';
-    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel())
+    const contexts=context()?.lessonSpeech&&isTeacher()?'<label>Scope<select name="lessonContext" required><option value="lesson">Whole lesson</option>'+(state?.contexts||[]).map((row,index)=>'<option value="'+index+'">'+esc([row.word,row.partOfSpeech,row.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>':'';
+    const criteria=selected()?.criteria,criteriaPanel=criteria?'<details><summary>Task material and goals</summary>'+(criteria.sourceText?'<blockquote class="quiz-content">'+esc(criteria.sourceText)+'</blockquote>':'')+(criteria.keyIdeas.length?'<h4>Key ideas</h4><ul>'+criteria.keyIdeas.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>':'')+(criteria.targetVocabulary.length?'<p>'+esc(criteria.targetVocabulary.join(', '))+'</p>':'')+'</details>':'';
+    const criteriaFields='<fieldset data-speech-criteria hidden><legend>Meaning and vocabulary</legend><label>Retelling source<textarea name="sourceText" maxlength="6000"></textarea></label><label>Key ideas · one per line<textarea name="keyIdeas" maxlength="3000"></textarea></label><label>Target vocabulary · one per line<textarea name="targetVocabulary" maxlength="6000"></textarea></label></fieldset>';
+    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel()+criteriaPanel)
       .replace('<details><summary>My attempts','<details data-speech-history><summary>My attempts')
       .replace('<label>Mode<select name="mode">',contexts+'<label>Mode<select name="mode">')
+      .replace('<label>Locale<select name="locale">',criteriaFields+'<label>Locale<select name="locale">')
       .replace('No speech tasks for this lesson word yet.',context()?.lessonSpeech?'No speech tasks for this lesson yet.':'No speech tasks for this lesson word yet.')
       .replaceAll('src="/local/speech/','src="'+endpoint+'/')
       .replace('Local pilot · Synthetic analysis only · No external speech service connected',state?.synthetic?'Synthetic analysis only · No assessment of the recording':state?.analyzerLabel?'Speech provider: '+esc(state.analyzerLabel):'Speech provider is not configured')
@@ -104,6 +107,11 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   }
   function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);renderPage();}
   document.addEventListener('change',event=>{
+    if(event.target.matches('[data-speech-form="task"] [name="mode"]')){
+      const form=event.target.form,mode=event.target.value,open=['free','retelling','dialogue'].includes(mode),fields=form.querySelector('[data-speech-criteria]');
+      if(fields){fields.hidden=!open;for(const input of fields.querySelectorAll('textarea')){input.disabled=!open;input.required=mode==='retelling'&&['sourceText','keyIdeas'].includes(input.name);}}
+      form.querySelector('[name="evaluation"]').value=open?'stt':'pronunciation';
+    }
     if(event.target.id==='speech-task'){run(async()=>{discard();trainingPlan=null;comparison=null;taskId=event.target.value;await load();renderPage();});}
     if(event.target.id==='speech-file'){const file=event.target.files[0];if(file){discard();if(file.size>10*1024*1024){notify('Maximum recording size is 10 MiB.');return;}blob=file;localUrl=URL.createObjectURL(file);renderPage();}}
     if(event.target.dataset.speechMetric!==undefined)chart(Number(event.target.dataset.speechMetric),event.target.value);
@@ -134,8 +142,9 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
         const attempt=await api('/local/speech/tasks/'+taskId+'/analyze',{mediaId:uploaded.id,consent:true});if(epoch!==sessionKey())return;if(trainingPlan)trainingPlan.repeatId=attempt.id;comparison=null;discard();
       }
       if(kind==='task'){
-        const origin=lesson();if(context()?.lessonSpeech){const index=data.get('lessonContext'),selected=index!==null&&/^\d+$/.test(index)?state.contexts?.[Number(index)]:null;if(!selected)throw Error('Select a lesson word and meaning.');origin.cardId=selected.cardId;origin.senseId=selected.senseId;}
-        await api('/local/speech/tasks',{...origin,mode:data.get('mode'),locale:data.get('locale'),prompt:data.get('prompt'),reference:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null});
+        const origin=lesson();if(context()?.lessonSpeech){const index=data.get('lessonContext');if(index==='lesson'){origin.cardId=null;origin.senseId=null;}else{const selected=index!==null&&/^\d+$/.test(index)?state.contexts?.[Number(index)]:null;if(!selected)throw Error('Select a lesson scope.');origin.cardId=selected.cardId;origin.senseId=selected.senseId;}}
+        const mode=data.get('mode'),open=['free','retelling','dialogue'].includes(mode),lines=name=>String(data.get(name)||'').split('\n').map(text=>text.trim()).filter(Boolean);
+        await api('/local/speech/tasks',{...origin,mode,locale:data.get('locale'),prompt:data.get('prompt'),reference:open?null:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:open?'stt':data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null,...(open?{criteria:{sourceText:String(data.get('sourceText')||'').trim()||null,keyIdeas:lines('keyIdeas'),targetVocabulary:lines('targetVocabulary')}}:{})});
       }
       if(kind==='correct')await api('/local/speech/attempts/'+id+'/correct',{text:data.get('text')});
       if(kind==='confirm-text')await api('/local/speech/attempts/'+id+'/confirm-text',{transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on',...(form.dataset.retry?{retryOf:form.dataset.retry}:{})});

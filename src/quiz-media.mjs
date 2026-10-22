@@ -5,6 +5,7 @@ import {kitSigned} from './learning-kits.mjs';
 import {chatFileMime} from './chat-attachments.mjs';
 import {mediaRange,storedMediaResponse} from './learning-media.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
+import {checkSpeechContext,speechContextGuard,lessonSpeechContext} from './speech-lesson-context.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 export const QUIZ_MEDIA_LIMITS=Object.freeze({image:5*1024*1024,audio:10*1024*1024,video:20*1024*1024,uploadsPerDay:20,bytesPerDay:100*1024*1024});
 const kinds={'image/png':'image','image/jpeg':'image','audio/wav':'audio','audio/mpeg':'audio','video/mp4':'video'};
@@ -42,7 +43,11 @@ export class QuizMedia{
     source={...source,rights,sourceUrl,rightsIndependentlyVerified:false};
     if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>QUIZ_MEDIA_LIMITS[kinds[body.mime]])fail(413,'Media exceeds its file-size limit.');
     if(chatFileMime(bytes,body.mime)!==body.mime)fail(415,'File contents do not match the declared format.');
-    await this.kits.card(actor,body.cardId);if(body.purpose!=='feedback')await this.review.checkContext(actor,body);
+    const lessonRecording=body.purpose==='speech'&&lessonSpeechContext(body);
+    if(lessonRecording){
+      const [task]=await this.db.read('SELECT id FROM qr_speech_tasks WHERE id=? AND group_id=? AND lesson_id=? AND card_id IS NULL AND sense_id IS NULL',[source.taskId,body.groupId,body.lessonId]);if(!task)fail(403,'Choose a speech task for this lesson.');
+      await checkSpeechContext(this.review,actor,body);
+    }else{await this.kits.card(actor,body.cardId);if(body.purpose!=='feedback')await this.review.checkContext(actor,body);}
     const sha256=await digest(bytes),at=this.now();
     return this.review.mutation(actor,{...body,sha256},['media-upload'],async()=>{
       const descriptor=await this.inspect(bytes,body.mime);
@@ -52,7 +57,7 @@ export class QuizMedia{
       const [usage]=await this.db.read('SELECT count(*) AS count,COALESCE(sum(bytes),0) AS bytes FROM qr_media WHERE owner_id=? AND created_at>?',[actor.id,at-86400000]);
       if(usage.count>=QUIZ_MEDIA_LIMITS.uploadsPerDay||usage.bytes+bytes.length>QUIZ_MEDIA_LIMITS.bytesPerDay)fail(429,'Daily media upload limit reached.');
       await this.store.putImmutable(key,bytes,{mime:body.mime});
-      return {statements:[this.kits.cardGuard(actor,body.cardId),...(body.purpose!=='feedback'?[this.review.accessGuard(actor,body)]:[]),
+      return {statements:[...(lessonRecording?[speechContextGuard(this.review,actor,body),s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_tasks WHERE id=? AND group_id=? AND lesson_id=? AND card_id IS NULL AND sense_id IS NULL)',[source.taskId,body.groupId,body.lessonId])]:[this.kits.cardGuard(actor,body.cardId),...(body.purpose!=='feedback'?[this.review.accessGuard(actor,body)]:[])]),
         s('INSERT INTO mutation_guard SELECT count(*)<? AND COALESCE(sum(bytes),0)+?<=? FROM qr_media WHERE owner_id=? AND created_at>?',[QUIZ_MEDIA_LIMITS.uploadsPerDay,bytes.length,QUIZ_MEDIA_LIMITS.bytesPerDay,actor.id,at-86400000]),
         s('INSERT INTO qr_media(id,owner_id,purpose,digest,mime,bytes,name,descriptor_json,source_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,actor.id,body.purpose,sha256,body.mime,bytes.length,name,JSON.stringify(descriptor),JSON.stringify(source),at])],
       result:{id,mime:body.mime,name,bytes:bytes.length,descriptor,source}};
@@ -63,7 +68,10 @@ export class QuizMedia{
   async response(actor,id,request,{session=null,itemIndex=null}={}){
     kitSigned(actor);const row=await this.row(id);
     if(session){
-      if(session.owner_id!==actor.id)fail(404,'Media unavailable.');await this.kits.card(actor,session.card_id);
+      if(session.owner_id!==actor.id)fail(404,'Media unavailable.');
+      if(session.card_id==null){
+        if(!validId(session.speechTaskId))fail(404,'Media unavailable.');const [task]=await this.db.read('SELECT group_id,lesson_id FROM qr_speech_tasks WHERE id=? AND card_id IS NULL AND sense_id IS NULL',[session.speechTaskId]);if(!task)fail(404,'Media unavailable.');await checkSpeechContext(this.review,actor,{groupId:task.group_id,lessonId:task.lesson_id,cardId:null,senseId:null});
+      }else await this.kits.card(actor,session.card_id);
       if(JSON.parse(session.content_json).items[itemIndex]?.mediaId!==id)fail(404,'Media unavailable.');
     }else if(row.owner_id!==actor.id){
       if(!['ADMIN','DEVELOPER'].includes(actor.role)||row.purpose!=='quiz')fail(404,'Media unavailable.');
