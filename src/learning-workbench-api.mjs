@@ -30,7 +30,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
   }
   if(method==='HEAD')fail(405,'HEAD is only supported for media.');
   if(method==='GET'){
-    if(path==='/status'){params(url,[]);return json({enabled:true,writable,features:Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key))});}
+    if(path==='/status'){params(url,[]);return json({enabled:true,writable,features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
     const session=new RegExp('^/sessions/'+id+'$').exec(path);
@@ -41,7 +41,9 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     }
     if(path==='/queue'){const p=params(url,['offset']),offset=p.has('offset')?(p.get('offset')==='0'?0:integer(p.get('offset'))):0;
       const review=service('review'),rows=await review.queue(actor,{offset,limit:100}),quizzes=[];for(const row of rows)quizzes.push(await withLocation(review,row));return json({quizzes,nextOffset:rows.length===100?offset+100:null});}
-    if(path==='/mine'){params(url,[]);return json({quizzes:await service('review').mine(actor)});}
+    if(path==='/mine'){const p=params(url,['offset']),offset=p.has('offset')?(p.get('offset')==='0'?0:integer(p.get('offset'))):0,review=service('review');
+      const page=await review.mine(actor,{offset,withPage:true}),quizzes=[];for(const row of page.quizzes)quizzes.push(await withLocation(review,row));
+      return json({quizzes,nextOffset:page.nextOffset});}
     const proposal=new RegExp('^/proposals/'+id+'$').exec(path);if(proposal){params(url,[]);const review=service('review');return json({quiz:await withLocation(review,await review.get(actor,proposal[1]))});}
     if(path==='/speech/tasks'){
       const p=params(url,['groupId','lessonId','cardId','senseId']),speech=service('speech'),tasks=await speech.listTasks(actor,{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId')),cardId:integer(p.get('cardId')),senseId:p.get('senseId')});
@@ -71,6 +73,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    if(path==='/kit/fill')return json(await service('kits').fill(actor,data));
     const removeMedia=new RegExp('^/media/'+id+'/remove$').exec(path);if(removeMedia)return json(await service('media').remove(actor,removeMedia[1],data));
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));
     if(path==='/sessions')return json(await service('sessions').start(actor,data));

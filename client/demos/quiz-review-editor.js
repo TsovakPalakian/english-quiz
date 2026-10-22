@@ -1,4 +1,4 @@
-// Structured fields for the isolated local review pilot, not the production editor.
+// Shared structured fields. Demonstration defaults are opt-in; main authoring uses empty items.
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isPairs=type=>['Match','Memory'].includes(type);
 const optionTypes=['Choice','Reverse','Listen','Definition','Select all','Odd one out','Video choice'];
@@ -16,6 +16,14 @@ const fields={
   'Odd one out':[['prompt','Grouping rule / question']],
   'Video choice':[['prompt','Question'],['mediaId','Video asset'],['transcript','Transcript']],
 };
+export function emptyReviewItems(type,c={}){
+  const item=Object.fromEntries(fields[type].filter(([, ,optional])=>!optional).map(([key])=>[key,'']));
+  if('word' in item)item.word=c.word||'';
+  if(type==='Flip'){item.front=c.word||'';item.back=c.translation||'';}
+  if(type==='True / false')item.answer='true';
+  if(optionTypes.includes(type)){item.options=['',''];if(type==='Select all')item.answers=[];else item.answer=-1;}
+  return isPairs(type)?[item,structuredClone(item)]:[item];
+}
 export function defaultReviewItems(type,c){
   const sentence=c.word==='bank'?'She opened an account at the bank.':'A fine drizzle started falling.';
   let item;

@@ -15,12 +15,57 @@ import {join} from 'node:path';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {rehearseWorkbench} from '../ops/rehearse-learning-workbench.mjs';
 import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC} from '../ops/local-speech-provider.mjs';
+import {QuizGenerationService} from '../src/quiz-generation.mjs';
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 async function readyFixture(){
   const f=await fixture({d1:true,extendedLifecycle:true});
   for(const step of workbenchMigrationPlan().steps.slice(1))f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url),'utf8'));
   return f;
 }
+test('author API preserves lesson-only drafts, returned revisions, ownership and paged origins',async()=>{
+  const f=await readyFixture();try{
+    const services=await createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media.');}})({db:f.db,actor:actors.student});
+    const call=async(path,payload,actor=actors.student,writable=true)=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method:payload?'POST':'GET',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})}),{actor,services,writable});
+    const input=body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,type:'Choice',content:{explanation:'Light rain.',items:[{prompt:'What is drizzle?',options:['Light rain','A storm'],answer:0}]}});
+    const q=await(await call('/proposals',input)).json();assert.equal((await(await call('/proposals',input)).json()).id,q.id);
+    const page=await(await call('/mine?offset=0')).json();assert.equal(page.quizzes[0].origin.lessonName,'Weather');assert.equal(page.quizzes[0].id,q.id);assert.equal(page.nextOffset,null);
+    assert.equal((await(await call('/mine',null,actors.other)).json()).quizzes.length,0);
+    await rejects(call('/mine?offset=-1'),400);await rejects(call('/mine?offset=0&offset=1'),400);
+    await rejects(call('/proposals',body({...input,mutationId:crypto.randomUUID(),cardId:3})),403);
+    await rejects(call('/proposals/'+q.id+'/edit',body({expectedRevision:1,content:input.content}),actors.other),403);
+    await rejects(call('/proposals/'+q.id+'/submit',body({expectedRevision:1}),actors.student,false),503);
+    await call('/proposals/'+q.id+'/submit',body({expectedRevision:1}));
+    await call('/proposals/'+q.id+'/return',body({expectedRevision:2,comment:'Clarify the question.'}),actors.outsider);
+    const updated={...input.content,explanation:'Drizzle is fine, light rain.'};
+    await call('/proposals/'+q.id+'/edit',body({expectedRevision:3,content:updated}));
+    await rejects(call('/proposals/'+q.id+'/edit',body({expectedRevision:3,content:input.content})),409);
+    await call('/proposals/'+q.id+'/submit',body({expectedRevision:4}));
+    await call('/proposals/'+q.id+'/approve',body({expectedRevision:5,checks:{meaning:true,answers:true,level:true,media:false}}),actors.teacher);
+    await rejects(call('/proposals/'+q.id+'/edit',body({expectedRevision:6,content:updated})),403);
+    const final=await(await call('/proposals/'+q.id)).json();assert.equal(final.quiz.state,'approved');assert.equal(final.quiz.author.id,actors.student.id);assert.ok(final.quiz.history.some(row=>row.action==='return'));
+    await f.draft();const first=await services.review.mine(actors.student,{limit:1,withPage:true});assert.equal(first.nextOffset,1);
+    const second=await services.review.mine(actors.student,{limit:1,offset:1,withPage:true});assert.notEqual(first.quizzes[0].id,second.quizzes[0].id);
+  }finally{f.close();}
+});
+test('explicit preparation queues only missing types and never starts inference or bypasses gates',async()=>{
+  const f=await readyFixture();let calls=0,enabled=true,remaining=5;try{
+    const base={inspect:async()=>{throw Error('No media.');}},openPreparation=async({review})=>({generation:new QuizGenerationService({review,worker:actors.dev,resolveActor:async()=>actors.teacher,generate:async()=>{calls++;throw Error('No inference allowed.');}}),availability:async()=>({enabled,remaining})});
+    const services=await createLearningWorkbenchFactory({...base,openPreparation})({db:f.db,actor:actors.teacher});
+    const ctx={groupId:1,lessonId:1,cardId:1,senseId:f.senseId},input=body({...ctx,types:['Choice','Gap','Match','Listen']});
+    await f.draft();
+    const call=(path,actor=actors.teacher,payload,writable=true)=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method:payload?'POST':'GET',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})}),{actor,services,writable});
+    assert.ok((await(await call('/status')).json()).features.includes('preparation'));
+    await rejects(call('/kit/fill',actors.student,input),403);await rejects(call('/kit/fill',actors.teacher,input,false),503);
+    const result=await(await call('/kit/fill',actors.outsider,input)).json();assert.equal(result.ids.length,1);
+    assert.deepEqual((await(await call('/kit/fill',actors.outsider,input)).json()).ids,result.ids);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_generation_jobs').get().n,1);assert.equal(calls,0);
+    assert.equal((await services.kits.coverage(actors.teacher,ctx)).types.find(row=>row.type==='Choice').status,'preparing');
+    remaining=0;await rejects(call('/kit/fill',actors.teacher,body({...ctx,types:['Type']})),409);
+    remaining=5;enabled=false;await rejects(call('/kit/fill',actors.dev,body({...ctx,types:['Type']})),409);
+    const off=await createLearningWorkbenchFactory(base)({db:f.db,actor:actors.dev});assert.equal(off.kits.generation,null);
+    await rejects(createLearningWorkbenchFactory({...base,openPreparation:async()=>({generation:{review:f.service},availability:async()=>({enabled:true,remaining:1})})})({db:f.db,actor:actors.dev}),503);
+  }finally{f.close();}
+});
 test('migration manifest and readiness inspect isolated schema without applying changes',async()=>{
   const f=await readyFixture();try{
     const plan=workbenchMigrationPlan();assert.equal(plan.steps.length,13);assert.equal(plan.applied,false);assert.ok(plan.steps.every(step=>/^[a-f0-9]{64}$/.test(step.sha256)));

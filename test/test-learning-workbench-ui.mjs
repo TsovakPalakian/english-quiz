@@ -8,19 +8,20 @@ import {fixture,actors,body} from './quiz-review-fixture.mjs';
 import {workbenchMigrationPlan} from '../ops/learning-workbench-migration-plan.mjs';
 import {createLearningWorkbenchFactory} from '../src/learning-workbench-services.mjs';
 import {learningWorkbenchAPI} from '../src/learning-workbench-api.mjs';
-import {bundleSource,speechUIFactory} from '../ops/build-preview.mjs';
+import {bundleSource,speechUIFactory,reviewEditorFactory} from '../ops/build-preview.mjs';
 import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC,localSpeechAdapter} from '../ops/local-speech-provider.mjs';
 import {WORKBENCH_TEST_BUCKET} from '../src/quiz-r2-media-store.mjs';
 import {wav} from './quiz-media-fixture.mjs';
+import {QuizGenerationService} from '../src/quiz-generation.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 test('main-app workbench stays opt-in, selects meanings and runs approved practice without replacing Study',async()=>{
-  const f=await fixture({d1:true,extendedLifecycle:true});let server,browser,writable=true,actor=actors.student,services;const diagnostics=[];
+  const f=await fixture({d1:true,extendedLifecycle:true});let server,browser,writable=true,actor=actors.student,services,loseDraftResponse=false;const diagnostics=[];
   try{
     for(const step of workbenchMigrationPlan().steps.slice(1))f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url),'utf8'));
     const second=await f.service.createSense(actors.dev,body({cardId:1,meaning:{partOfSpeech:'verb',translation:'pour',definition:'Pour a little liquid.'}}));
     const q=await f.draft();await f.service.submit(actors.student,q.id,body({expectedRevision:1}));await f.service.approve(actors.teacher,q.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
     const objects=new Map(),bucket={put:async(key,bytes,options)=>{if(objects.has(key))return null;const value={bytes:bytes.slice(),size:bytes.length,httpMetadata:options.httpMetadata,customMetadata:options.customMetadata};objects.set(key,value);return value;},get:async key=>{const value=objects.get(key);return value?{...value,body:new Blob([value.bytes]).stream()}:null;},head:async key=>objects.get(key),delete:async key=>objects.delete(key)};
-    services=await createLearningWorkbenchFactory({storage:{enabled:true,bucket,bucketName:WORKBENCH_TEST_BUCKET},inspect:async()=>({kind:'audio',duration:0.5,width:0,height:0}),speech:{enabled:true,workerId:actors.dev.id,resolveActor:async id=>Object.values(actors).find(row=>row.id===id),authorize:async source=>source.provider==='local-fixture',adapters:[localSpeechAdapter()],rubrics:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:60,month:120},language:{day:3,month:6}}}})({db:f.db,actor});
+    services=await createLearningWorkbenchFactory({storage:{enabled:true,bucket,bucketName:WORKBENCH_TEST_BUCKET},inspect:async()=>({kind:'audio',duration:0.5,width:0,height:0}),openPreparation:async({review})=>({generation:new QuizGenerationService({review,worker:actors.dev,resolveActor:async()=>actors.teacher,generate:async()=>{throw Error('Inference must not run.');}}),availability:async()=>({enabled:true,remaining:5})}),speech:{enabled:true,workerId:actors.dev.id,resolveActor:async id=>Object.values(actors).find(row=>row.id===id),authorize:async source=>source.provider==='local-fixture',adapters:[localSpeechAdapter()],rubrics:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:60,month:120},language:{day:3,month:6}}}})({db:f.db,actor});
     await services.speech.providers.initialize(actors.dev);await services.speech.providers.configure(actors.dev,body({expectedRevision:1,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'},conversation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'text'}},reason:'Synthetic integrated speech test.'}));
     await services.speech.createTask(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,mode:'pronunciation',locale:'en-US',prompt:'Read drizzle.',reference:'drizzle',referenceMediaId:null,rubricId:LOCAL_SPEECH_RUBRIC.id,evaluation:'pronunciation',languageReview:true,level:null}));
     for(const [object,key] of [[services.media,'response'],[services.speech.providers,'execute']]){const original=object[key].bind(object);object[key]=async(...args)=>{try{return await original(...args);}catch(error){diagnostics.push(key+': '+error.message);throw error;}};}
@@ -35,10 +36,11 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
         const origin='http://127.0.0.1:'+server.address().port;
         if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
         if(req.url==='/style.css'){res.setHeader('Content-Type','text/css');res.end(readFileSync(new URL('../site/preview.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../site/main-stage.css',import.meta.url),'utf8'));return;}
-        if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(speechUIFactory()+script);return;}
+        if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(speechUIFactory()+reviewEditorFactory()+script);return;}
         if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}
         const chunks=[];for await(const chunk of req)chunks.push(chunk);
         const response=await learningWorkbenchAPI(new Request(origin+req.url,{method:req.method,headers:req.headers,...(chunks.length?{body:Buffer.concat(chunks)}:{})}),{actor,services,writable});
+        if(loseDraftResponse&&req.url==='/api/learning-workbench/proposals'&&req.method==='POST'&&response.ok){loseDraftResponse=false;res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Draft response lost. Retry saving.'}));return;}
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
       }catch(error){res.writeHead(error.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');const url='http://127.0.0.1:'+server.address().port;
@@ -71,6 +73,7 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     await page.evaluate(()=>{viewAccount={id:'u2'};document.body.classList.add('viewing');});await page.locator('dialog').waitFor({state:'detached'});
     await page.evaluate(()=>{viewAccount=null;paint();});writable=false;await page.locator('[data-workbench-card]').click();await page.locator('[data-workbench-sense]').waitFor();
     await page.selectOption('[data-workbench-sense]',f.senseId);await page.getByText('Read-only. New practice sessions are disabled.',{exact:true}).waitFor();assert.equal(await page.locator('[data-workbench-practice]').isDisabled(),true);
+    assert.equal(await page.locator('[data-workbench-new]').count(),0);
     await page.evaluate(()=>document.dispatchEvent(new Event('learning-workbench-session')));await page.locator('dialog').waitFor({state:'detached'});
     actor=actors.teacher;writable=true;await page.evaluate(()=>{authUser={id:'teacher',role:'ADMIN'};viewGen++;LearningWorkbench.reset();paint();});
     await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();
@@ -82,7 +85,36 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     await page.waitForFunction(id=>!document.querySelector('[data-review-key="version-'+id+'"]'),pending.id);
     assert.equal((await services.review.get(actors.teacher,pending.id)).state,'approved');assert.equal((await services.review.get(actors.teacher,returned.id)).state,'returned');
     await page.screenshot({path:'/private/tmp/lumiscia-main-review.png'});
+    await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-lesson]').click();await page.selectOption('[data-workbench-group]','1');await page.selectOption('[data-workbench-sense]',f.senseId);
+    await page.locator('[data-workbench-prepare] [value=Choice]').check();await page.locator('[data-workbench-prepare] button').click();await page.getByText('1 preparation tasks queued. No quiz has been approved.',{exact:true}).waitFor();
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_generation_jobs').get().n,1);
     actor=actors.student;await page.evaluate(()=>{authUser={id:'u1',role:'USER'};viewGen++;LearningWorkbench.reset();paint();});await page.locator('dialog').waitFor({state:'detached'});assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0);
+    await page.locator('[data-workbench-mine]:visible').click();await page.locator('[data-workbench-search]').waitFor();
+    await page.locator('dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
+    const returnedRow=page.locator('[data-review-key="version-'+returned.id+'"]');await returnedRow.locator('[data-workbench-edit]').click();
+    assert.equal(await page.locator('[data-workbench-type]').isDisabled(),true);await page.locator('[data-field=shown]').fill('A fine ____ started falling.');
+    await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
+    assert.equal((await services.review.get(actors.student,returned.id)).state,'submitted');assert.equal((await services.review.get(actors.student,returned.id)).revision,5);
+    await page.locator('dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
+    assert.equal(await page.locator('[data-review-key="version-'+pending.id+'"] [data-workbench-edit]').count(),0);
+    await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-lesson]').click();await page.selectOption('[data-workbench-group]','1');await page.selectOption('[data-workbench-sense]',f.senseId);
+    assert.equal(await page.locator('[data-workbench-prepare]').count(),0);await page.locator('[data-workbench-new]').click();
+    await page.locator('[data-field=prompt]').fill('What is drizzle?');await page.selectOption('[data-workbench-type]','Gap');assert.equal(await page.locator('[data-field=shown]').inputValue(),'');
+    await page.selectOption('[data-workbench-type]','Choice');assert.equal(await page.locator('[data-field=prompt]').inputValue(),'What is drizzle?');
+    await page.locator('[data-option="0"]').fill('Light rain');await page.locator('[data-option="1"]').fill('Light rain');await page.locator('[data-correct="0"]').check();await page.locator('[name=explanation]').fill('Drizzle is fine light rain.');
+    await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-workbench-status]')?.textContent.length>0);
+    assert.equal(await page.locator('[data-field=prompt]').inputValue(),'What is drizzle?');await page.locator('[data-option="1"]').fill('A storm');
+    const before=f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n;loseDraftResponse=true;
+    await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByText('Draft response lost. Retry saving.',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.getByText('Draft saved.',{exact:true}).waitFor();assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_versions').get().n,before+1);
+    await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
+    await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-lesson]').click();await page.selectOption('[data-workbench-group]','1');await page.selectOption('[data-workbench-sense]',f.senseId);await page.locator('[data-workbench-new]').click();await page.selectOption('[data-workbench-type]','Listen');
+    await page.locator('[data-workbench-media]').setInputFiles({name:'word.wav',mimeType:'audio/wav',buffer:Buffer.from(wav())});await page.locator('[data-workbench-media-source]').fill('Own recording, permitted for this lesson.');
+    await page.locator('[data-workbench-upload]').click();await page.waitForFunction(()=>document.querySelector('[data-field=mediaId]')?.value.length===36);
+    await page.locator('[data-field=prompt]').fill('Choose the meaning.');await page.locator('[data-option="0"]').fill('Light rain');await page.locator('[data-option="1"]').fill('A storm');await page.locator('[data-correct="0"]').check();await page.locator('[name=explanation]').fill('Drizzle means light rain.');
+    assert.equal(await page.locator('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true);await page.screenshot({path:'/private/tmp/lumiscia-main-author-mobile.png'});
+    await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
+    await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-card]').click();await page.selectOption('[data-workbench-sense]',f.senseId);assert.equal(await page.locator('[data-workbench-new]').count(),0);
     assert.equal(await page.locator('#old-study').innerText(),'Study');assert.equal(f.sql.prepare('SELECT count(*) AS n FROM quizzes').get().n,1);
     assert.deepEqual(errors,[]);assert.ok(requests.every(path=>path.startsWith(url)||path.startsWith('blob:')));assert.ok(!requests.some(path=>new URL(path).pathname.startsWith('/local/')));
   }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await services?.speech.close();await services?.transcripts.close();f.close();}

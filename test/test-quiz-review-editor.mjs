@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
-import {renderReviewItems,readReviewItems,defaultReviewItems,editReviewItems,reviewItemPreview} from '../client/demos/quiz-review-editor.js';
+import {renderReviewItems,readReviewItems,defaultReviewItems,emptyReviewItems,editReviewItems,reviewItemPreview} from '../client/demos/quiz-review-editor.js';
 import {validateReviewContent} from '../src/quiz-review-content.mjs';
 import {reviewSamples} from './quiz-review-samples.mjs';
+test('main editor starts with empty author fields, not invented contexts or distractors',()=>{
+  const window=new Window(),root=window.document.createElement('div');try{
+    for(const type of [...Object.keys(reviewSamples),'Video choice']){
+      const items=emptyReviewItems(type,{word:'bank',translation:'банк'});root.innerHTML=renderReviewItems(type,items);
+      assert.deepEqual(readReviewItems(type,root),items,type);assert.doesNotMatch(JSON.stringify(items),/drizzle|opened an account|fine drizzle/);
+    }
+  }finally{window.happyDOM.abort();}
+});
 test('all 17 structured forms round-trip every item without JSON or data loss',()=>{
   const window=new Window(),root=window.document.createElement('div');
   try{assert.equal(Object.keys(reviewSamples).length,17);
