@@ -7,7 +7,8 @@
     "check": "node ops/check-all.mjs",
     "build:preview": "node ops/build-preview.mjs",
     "preview:workbench": "node ops/build-learning-production-assets.mjs && node ops/preview-learning-workbench.mjs",
-    "probe:gemini": "node --env-file-if-exists=.gemini.local.env ops/probe-gemini-quiz.mjs"
+    "probe:gemini": "node --env-file-if-exists=.gemini.local.env ops/probe-gemini-quiz.mjs",
+    "preview:gemini": "node --env-file-if-exists=.gemini.local.env ops/preview-gemini-workbench.mjs"
   },
   "dependencies": {
     "@noble/ciphers": "2.4.0",
