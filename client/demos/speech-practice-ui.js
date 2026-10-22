@@ -95,7 +95,7 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
     if(!selected())return;discard();const epoch=++captureEpoch,session=sessionKey();let stream,audio;
     try{
       stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1},video:false});if(epoch!==captureEpoch||session!==sessionKey()){stream.getTracks().forEach(track=>track.stop());return;}
-      audio=new AudioContext({sampleRate:24000});await audio.resume();if(epoch!==captureEpoch||session!==sessionKey()){stream.getTracks().forEach(track=>track.stop());await audio.close();return;}
+      audio=new AudioContext({sampleRate:16000});await audio.resume();if(epoch!==captureEpoch||session!==sessionKey()){stream.getTracks().forEach(track=>track.stop());await audio.close();return;}
       const source=audio.createMediaStreamSource(stream),processor=audio.createScriptProcessor(4096,1,1),chunks=[],limit=Math.min(selected().maxSeconds,Math.floor((10*1024*1024-44)/(audio.sampleRate*2)));let size=0;
       capture={stream,audio,source,processor,chunks,rate:audio.sampleRate,timer:setTimeout(stop,limit*1000)};
       processor.onaudioprocess=event=>{if(!capture)return;const samples=event.inputBuffer.getChannelData(0),remaining=audio.sampleRate*limit-size;if(remaining>0){chunks.push(samples.slice(0,remaining));size+=Math.min(samples.length,remaining);}};
