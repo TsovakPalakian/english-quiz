@@ -3,6 +3,7 @@ import {readFileSync,writeFileSync,readdirSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
+import {wordwallSource} from '../src/learning-embed.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const require=createRequire(import.meta.url);
@@ -25,7 +26,7 @@ export function speechUIFactory(){
 export function bundleSource(target){
   const dir=resolve(root,bundles[target]);
   const passkeys=target==='preview.js'?readFileSync(resolve(dirname(require.resolve('@simplewebauthn/browser')),'../dist/bundle/index.umd.min.js'),'utf8')+'\n':'';
-  return (target==='preview.js'?inviteQrDependency()+passkeys+speechUIFactory()+reviewEditorFactory():'')+readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
+  return (target==='preview.js'?wordwallSource.toString()+'\n'+inviteQrDependency()+passkeys+speechUIFactory()+reviewEditorFactory():'')+readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
     const text=readFileSync(resolve(dir,name),'utf8');
     if(!text.endsWith('\n'))throw new Error(bundles[target]+'/'+name+' must end with a newline');
     return text;

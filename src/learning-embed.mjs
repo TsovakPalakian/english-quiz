@@ -1,5 +1,18 @@
 // Exact HTTPS providers only. No arbitrary iframe, script or media origins.
-export const stageContentPolicy="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://screens.cdn.wordwall.net https://upload.wikimedia.org; font-src 'self'; media-src 'self' blob: https://upload.wikimedia.org https://dn710305.ca.archive.org; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+export const stageContentPolicy="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://screens.cdn.wordwall.net https://upload.wikimedia.org; font-src 'self'; media-src 'self' blob: https://upload.wikimedia.org https://dn710305.ca.archive.org; connect-src 'self'; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://wordwall.net; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+export function wordwallSource(value){
+  if(typeof value!=='string'||value.length>2048)return '';
+  let url;try{url=new URL(value.trim());}catch{return '';}
+  if(url.protocol!=='https:'||url.hostname!=='wordwall.net'||url.username||url.password||url.port)return '';
+  const path=url.pathname.match(/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?embed\/([a-f0-9]{32})\/?$/i);
+  if(!path)return '';
+  const clean=new URL('https://wordwall.net'+url.pathname.replace(/\/$/,''));
+  for(const key of ['themeId','templateId','fontStackId']){
+    const item=url.searchParams.get(key);
+    if(item!==null){if(!/^\d{1,6}$/.test(item))return '';clean.searchParams.set(key,item);}
+  }
+  return clean.href;
+}
 export function mediaSource(value){
   let url;try{url=new URL(String(value||''));}catch{return '';}
   if(url.protocol!=='https:'||url.username||url.password||url.port)return '';

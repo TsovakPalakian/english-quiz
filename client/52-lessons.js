@@ -719,6 +719,7 @@
       if (type === "text" || type === "reading") return Object.assign(base, type === "text" ? { html: "<p></p>" } : { title: "Reading", text: "", marks: [] });
       if (type === "pdf" || type === "image" || type === "audio" || type === "file") return Object.assign(base, { name: "", size: "", caption: "", title: "" });
       if (type === "link") return Object.assign(base, { title: "", url: "", description: "" });
+      if (type === "interactive") return Object.assign(base, { title: "", url: "" });
       if (type === "cards") return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }] });
       if (type === "video") return Object.assign(base, { source: "link", url: "", title: "", name: "", size: "" });
       if (type === "vocab") return Object.assign(base, { title: "Vocabulary", items: [{ word: "", translation: "", ipa: "", example: "" }] });
@@ -747,6 +748,7 @@
       return { front: "", back: "", example: "" };
     }
     function lmSummary(block) {
+      if (block.type === "interactive") return block.title || "Interactive";
       if (block.type === "heading") return block.text || "Heading";
       if (block.type === "text" || block.type === "reading") return lmPlain(block.html || block.text) || block.title || "Text";
       if (block.type === "pdf" || block.type === "audio" || block.type === "file" || block.type === "image") return block.title || block.caption || block.name || "No file yet";
@@ -795,6 +797,10 @@
     }
     function lmVideoFrame(src, title) {
       return (title ? "<h3>" + esc(title) + "</h3>" : "") + '<div class="lm-frame-video"><iframe src="' + esc(src) + '" title="' + esc(title || "Video") + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>';
+    }
+    function lmInteractiveFrame(block) {
+      const src = wordwallSource(block.url);
+      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
     }
     function lmLinkCard(block, href) {
       const title = block.title || href || "Link";
@@ -998,6 +1004,7 @@
       }).join("");
     }
     function lmBody(block) {
+      if (block.type === "interactive") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || '') + '"></label><label>Link or embed code<textarea data-interactive-source="' + block.id + '" maxlength="8000">' + esc(block.url || '') + '</textarea></label><p data-interactive-status role="status"></p><div data-interactive-preview>' + lmInteractiveFrame(block) + '</div>';
       if (block.type === "heading") {
         return '<label>Heading<input type="text" data-field="text" data-block="' + block.id + '" value="' + esc(block.text || "") + '" /></label><label>Level<select data-field="level" data-block="' + block.id + '"><option value="h2"' + (block.level !== "h3" ? " selected" : "") + '>H2</option><option value="h3"' + (block.level === "h3" ? " selected" : "") + ">H3</option></select></label>";
       }
@@ -1084,7 +1091,7 @@
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
       box.innerHTML = blocks.length ? blocks.map((block) => {
-        const label = block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
+        const label = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
@@ -1111,6 +1118,7 @@
       return (question.options || []).map((opt, oi) => '<label class="lm-opt"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.picked) === oi ? " checked" : "") + " /> " + esc(opt || "Option") + "</label>").join("");
     }
     function lmPreviewBlock(block) {
+      if (block.type === "interactive") return lmInteractiveFrame(block);
       if (block.type === "heading") {
         const tag = block.level === "h3" ? "h3" : "h2";
         return "<" + tag + ">" + esc(block.text || "") + "</" + tag + ">";
@@ -1816,6 +1824,24 @@
         const lesson = lmEditorLesson();
         if (!lesson) return;
         if (lmState !== lesson) lmState = lesson;
+        const interactive = event.target.closest('[data-interactive-source]');
+        if (interactive) {
+          const block = lmBlock(interactive.dataset.interactiveSource);
+          if (!block || block.type !== 'interactive') return;
+          let raw = interactive.value.trim();
+          if (raw.startsWith('<')) {
+            const parsed = document.createElement('template');
+            parsed.innerHTML = raw;
+            raw = parsed.content.querySelector('iframe')?.getAttribute('src') || '';
+          }
+          const url = wordwallSource(raw), body = interactive.closest('.lm-body');
+          interactive.setCustomValidity(interactive.value.trim() && !url ? 'Use a Wordwall HTTPS embed link.' : '');
+          body.querySelector('[data-interactive-status]').textContent = interactive.validationMessage;
+          if (interactive.value.trim() && !url) return;
+          block.url = url;
+          body.querySelector('[data-interactive-preview]').innerHTML = lmInteractiveFrame(block);
+          lmSchedule(); return;
+        }
         const meta = event.target.closest("[data-meta]");
         if (meta && lmState) { lmState[meta.dataset.meta] = meta.value; lmSchedule(); return; }
         const field = event.target.closest("[data-field]");
@@ -2010,6 +2036,7 @@
         }
         const add = event.target.closest("[data-add-block]");
         if (add) {
+          if (add.dataset.addBlock === 'interactive' && (lmState?.examOwned || !['classwork','homework'].includes(lmTab()))) return;
           const block = lmBlank(add.dataset.addBlock, add.dataset.quiz || "");
           lmState.blocks.push(block);
           document.getElementById("lmPicker").hidden = true;
@@ -2221,6 +2248,8 @@
       });
       document.getElementById("lmAdd").addEventListener("click", () => {
         const picker = document.getElementById("lmPicker");
+        picker.querySelector('[data-add-block="interactive"]')?.remove();
+        if (!lmState?.examOwned && ['classwork','homework'].includes(lmTab())) picker.querySelector('.lm-picker-grid')?.insertAdjacentHTML('beforeend', '<button type="button" data-add-block="interactive">Interactive</button>');
         picker.hidden = !picker.hidden;
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });

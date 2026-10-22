@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {embedSource,stageContentPolicy,previewImage,mediaSource} from '../src/learning-embed.mjs';
+import {embedSource,stageContentPolicy,previewImage,mediaSource,wordwallSource} from '../src/learning-embed.mjs';
+test('Wordwall interactive links keep only safe embed paths and display settings',()=>{
+  const base='https://wordwall.net/ru/embed/4a43ff424bd24618b71c8d13ae4f663e';
+  assert.equal(wordwallSource(base+'?themeId=1001&templateId=2&fontStackId=1'),base+'?themeId=1001&templateId=2&fontStackId=1');
+  assert.equal(wordwallSource(base+'?evil=ignored#fragment'),base);
+  for(const url of [base.replace('https:','http:'),base.replace('wordwall.net','wordwall.net.evil.test'),base.replace('wordwall.net','user@wordwall.net'),base.replace('wordwall.net','wordwall.net:444'),base.replace('/embed/','/resource/'),base+'?themeId=javascript:alert(1)','javascript:alert(1)','<iframe src="'+base+'"></iframe>',null])assert.equal(wordwallSource(url),'');
+  assert.ok(stageContentPolicy.includes('https://wordwall.net;'));
+});
 test('R5 embeds recognize exact HTTPS hosts and discard unrelated URL parameters',()=>{
   const id='abcdefghijk';
   assert.equal(embedSource('https://youtu.be/'+id+'?secret=ignored'),'https://www.youtube-nocookie.com/embed/'+id+'?enablejsapi=1');

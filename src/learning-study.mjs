@@ -2,6 +2,7 @@
 // Actors MUST be supplied by a trusted authentication layer, never a request body.
 import {validateContentGroups} from './exam-scoring.mjs';
 import {validateColorDocument} from './text-formatting.mjs';
+import {wordwallSource} from './learning-embed.mjs';
 export class StudyError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -65,7 +66,7 @@ async function requestHash(value) {
 
 const lessonColumns={title:'title',description:'description',className:'class_name',unit:'unit',lesson:'lesson',date:'lesson_date',published:'published',hiddenFromStudents:'hidden_from_students'};
 const lessonDefaults={title:'',description:'',className:'',unit:'',lesson:'',date:'',published:false,hiddenFromStudents:false};
-const blockTypes=['heading','text','link','cards','vocab','exercise','quiz','note','dialogue','reading','table','task','divider','phrase','wordcard','word','rule','pdf','image','audio','file','pronunciation'];
+const blockTypes=['heading','text','link','interactive','cards','vocab','exercise','quiz','note','dialogue','reading','table','task','divider','phrase','wordcard','word','rule','pdf','image','audio','file','pronunciation'];
 function entityId(value){if(typeof value!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(value))fail(400,'Invalid account ID.');return value;}
 export function recordId(value){if(!Number.isSafeInteger(value)||value<1)fail(400,'Invalid ID.');return value;}
 export function cardId(value){return recordId(value);}
@@ -107,6 +108,12 @@ function lessonBlock(value){
   fields(value.content,Object.keys(value.content).filter(k=>!['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision','__proto__','constructor','prototype'].includes(k)));
   if(value.content.items!==undefined && (!Array.isArray(value.content.items)||value.content.items.length>100||value.content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item)||['picked','typed','marked','correct'].some(key=>key in item))))fail(400,'Personal answers are not lesson definitions.');
   validateAssessmentContent(value.content,value.type);
+  if(value.type==='interactive'){
+    if(!['classwork','homework'].includes(value.tab))fail(400,'Interactive content belongs in Classwork or Homework.');
+    const url=value.content.url;
+    if(url!==''&&!wordwallSource(url))fail(400,'Use a Wordwall HTTPS embed link.');
+    value.content={...value.content,url:url?wordwallSource(url):''};
+  }
   if(value.cardId!==null)cardId(value.cardId);
   if(['word','wordcard'].includes(value.type) && !value.cardId)fail(400,'Word blocks require an existing shared card ID.');
   if(!['word','wordcard'].includes(value.type) && value.cardId!==null)fail(400,'Only word blocks may link a card.');
