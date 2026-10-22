@@ -169,6 +169,7 @@
       document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
       if (accountChecked) document.body?.removeAttribute('data-shell-pending');
       syncRoleHomeControls();
+      window.LearningWorkbench?.paintEntry();
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);

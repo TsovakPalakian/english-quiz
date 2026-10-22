@@ -5,7 +5,8 @@
   "scripts": {
     "test": "vitest",
     "check": "node ops/check-all.mjs",
-    "build:preview": "node ops/build-preview.mjs"
+    "build:preview": "node ops/build-preview.mjs",
+    "preview:workbench": "node ops/build-learning-production-assets.mjs && node ops/preview-learning-workbench.mjs"
   },
   "dependencies": {
     "@noble/ciphers": "2.4.0",

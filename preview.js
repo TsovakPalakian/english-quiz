@@ -2760,6 +2760,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
       if (accountChecked) document.body?.removeAttribute('data-shell-pending');
       syncRoleHomeControls();
+      window.LearningWorkbench?.paintEntry();
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);
@@ -14704,6 +14705,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
+        paintGuestAccess();
         paintThemeSegs();
         startAccountPull();
         lmPullFromServer();
@@ -15498,6 +15500,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         themesFlight.then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
+          paintGuestAccess();
           paintThemeSegs();
           startAccountPull();
           const lessonsReady = lmPullFromServer();

@@ -115,6 +115,7 @@
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
+        paintGuestAccess();
         paintThemeSegs();
         startAccountPull();
         lmPullFromServer();
