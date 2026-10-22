@@ -1,0 +1,12 @@
+.local-video { max-width: 900px; margin: 24px auto; padding: 16px; }
+.local-video h1 { font-size: 28px; overflow-wrap: anywhere; }
+.local-video-warning { border-left: 4px solid var(--acc); padding: 8px 12px; }
+.local-video form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.local-video label { flex: 1 1 260px; display: grid; gap: 8px; margin: 0; min-width: 0; }
+.local-video select { width: 100%; min-width: 0; box-sizing: border-box; }
+.local-video-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.local-video details { border-top: 1px solid var(--line); padding: 16px 0; }
+.local-video summary { cursor: pointer; overflow-wrap: anywhere; }
+.local-video video { display: block; width: 100%; max-width: 480px; aspect-ratio: 16 / 9; background: #111; margin: 16px 0; }
+.local-video .video-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.local-video li, .local-video p { overflow-wrap: anywhere; }

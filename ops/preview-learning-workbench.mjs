@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {createLocalWorkbench,actors} from './local-workbench-services.mjs';
 import {learningWorkbenchAPI} from '../src/learning-workbench-api.mjs';
 import {everydayGroups} from '../src/essential-data.mjs';
+import {createLocalVideoJobs} from './local-video-jobs.mjs';
 
 const assets=fileURLToPath(new URL('../rollback/production-assets/',import.meta.url));
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'no-store'}});
@@ -16,6 +17,7 @@ async function bytes(req){let size=0;const chunks=[];for await(const chunk of re
 export async function createLearningWorkbenchPreview({port=0,inspect}={}){
   if(!existsSync(resolve(assets,'index.html')))throw Error('Build local assets first: node ops/build-learning-production-assets.mjs');
   const local=await createLocalWorkbench({inspect}),root=realpathSync(assets),pending=new Set();let closing=false;
+  const video=createLocalVideoJobs(local);
   const groups=[{id:1,title:'A1 Monday',date:'2026-10-23',revision:1,lessonIds:[1],examIds:[],studentCount:1},{id:2,title:'A2 Friday',date:'2026-10-23',revision:1,lessonIds:[2],examIds:[],studentCount:1}];
   const lessons=[{id:1,title:'Weather',stageRevision:1,date:'2026-10-23',published:true,blocks:[{id:1,type:'wordcard',tab:'words',stageId:1,word:'drizzle',translation:'изморось'}]},{id:2,title:'Money',stageRevision:1,date:'2026-10-23',published:true,blocks:[{id:2,type:'wordcard',tab:'words',stageId:2,word:'bank',translation:'банк'}]}];
   const members=[{accountId:'u1',account_id:'u1',groupId:1,group_id:1},{accountId:'u2',account_id:'u2',groupId:2,group_id:2}];
@@ -28,14 +30,36 @@ export async function createLearningWorkbenchPreview({port=0,inspect}={}){
       const url=new URL(req.url,origin),path=url.pathname,method=req.method;
       const actor=actorFor(req),staff=['ADMIN','DEVELOPER'].includes(actor.role),visibleGroups=staff?groups:groups.filter(row=>members.some(m=>m.accountId===actor.id&&m.groupId===row.id)),lessonIds=new Set(visibleGroups.flatMap(row=>row.lessonIds));
       let response;
-      if(path==='/__local/providers'&&method==='GET'){
+      if(path==='/__local/video/api'||path.startsWith('/__local/video/api/')){
+        const action=path.slice('/__local/video/api'.length);
+        if(url.search)throw Object.assign(Error('Video query parameters are not supported.'),{status:400});
+        if(method==='GET'&&action==='')response=json(await video.list(actor));
+        else if(method==='POST'){
+          if(req.headers.origin!==origin)throw Object.assign(Error('Same-origin video request required.'),{status:403});
+          const match=/^\/jobs\/([a-f0-9-]{36})\/(start|cancel|failed|finish)$/.exec(action);
+          if(match?.[2]==='finish'){
+            if(req.headers['content-type']!=='video/mp4')throw Object.assign(Error('Use MP4.'),{status:415});
+            response=json(await video.finish(actor,match[1],Number(req.headers['x-video-revision']),new Uint8Array(await bytes(req))));
+          }else{
+            if(req.headers['content-type']?.split(';')[0]!=='application/json')throw Object.assign(Error('Use JSON.'),{status:415});
+            let data;try{data=JSON.parse((await bytes(req)).toString());}catch{throw Object.assign(Error('Invalid video JSON.'),{status:400});}
+            if(action==='/settings')response=json(video.configure(actor,data));
+            else if(action==='/jobs')response=json(await video.create(actor,data));
+            else if(match)response=json(await video[match[2]](actor,match[1],data));
+            else response=json({error:'Unknown video action.'},404);
+          }
+        }else response=json({error:'Method not allowed.'},405);
+      }else if(path==='/__local/video'&&method==='GET'){
+        if(!staff)throw Object.assign(Error('Teacher access required.'),{status:403});
+        response=new Response(readFileSync(new URL('../site/local-video-preview.html',import.meta.url)),{headers:{'Content-Type':'text/html; charset=utf-8'}});
+      }else if(path==='/__local/providers'&&method==='GET'){
         if(actor.role!=='DEVELOPER')throw Object.assign(Error('Select the Developer test account first.'),{status:403});
         response=new Response('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local providers</title><link rel="stylesheet" href="/preview.css"></head><body><main style="max-width:960px;margin:24px auto;padding:16px"><a href="/">Lumiscia</a><h1>Local synthetic providers</h1><p>Disposable settings. No external AI or charges.</p><p id="local-provider-status" role="status"></p><div id="local-provider-content"></div></main><script type="module" src="/__local/providers.js"></script></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8'}});
       }else if(path.startsWith('/api/learning-workbench/')){
         const data=await bytes(req),request=new Request(origin+req.url,{method,headers:req.headers,...(data.length?{body:data}:{})});
         response=await learningWorkbenchAPI(request,{actor,services:local.services,writable:true,waitUntil:track});
         if(method==='POST'&&response.ok)track(local.tick());
-      }else if(path==='/__local/status'&&method==='GET')response=json({environment:'local-synthetic',persistent:false,externalCalls:false,actor,roles:users.map(({id,name,role})=>({id,name,role})),features:['review','kits','speech','feedback','authors','preparation','statistics'],aiVideo:'not_connected'});
+      }else if(path==='/__local/status'&&method==='GET')response=json({environment:'local-synthetic',persistent:false,externalCalls:false,actor,roles:users.map(({id,name,role})=>({id,name,role})),features:['review','kits','speech','feedback','authors','preparation','statistics'],aiVideo:'local-synthetic-prototype'});
       else if(path==='/__local/role'&&method==='POST'){
         if(req.headers.origin!==origin||req.headers['content-type']?.split(';')[0]!=='application/json')throw Object.assign(Error('Same-origin JSON required.'),{status:403});
         const {id}=JSON.parse((await bytes(req)).toString());if(!users.some(row=>row.id===id))throw Object.assign(Error('Unknown local role.'),{status:400});
@@ -72,7 +96,8 @@ export async function createLearningWorkbenchPreview({port=0,inspect}={}){
         }
       }else response=json({error:'Method not allowed.'},405);
       if(path==='/__local/shell.js'&&method==='GET')response=new Response(readFileSync(new URL('../client/demos/local-workbench-shell.js',import.meta.url)),{headers:{'Content-Type':'text/javascript'}});
-      for(const [route,file] of [['/__local/providers.js','local-workbench-providers.js'],['/__local/provider-settings.js','provider-settings-ui.js']])if(path===route&&method==='GET')response=new Response(readFileSync(new URL('../client/demos/'+file,import.meta.url)),{headers:{'Content-Type':'text/javascript'}});
+      for(const [route,file] of [['/__local/providers.js','local-workbench-providers.js'],['/__local/provider-settings.js','provider-settings-ui.js'],['/__local/video.js','local-video-preview.js']])if(path===route&&method==='GET')response=new Response(readFileSync(new URL('../client/demos/'+file,import.meta.url)),{headers:{'Content-Type':'text/javascript'}});
+      if(path==='/__local/video.css'&&method==='GET')response=new Response(readFileSync(new URL('../site/local-video-preview.css',import.meta.url)),{headers:{'Content-Type':'text/css'}});
       response.headers.set('X-Content-Type-Options','nosniff');
       response.headers.set('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
       res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));

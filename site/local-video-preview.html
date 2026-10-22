@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Local video queue</title><link rel="stylesheet" href="/preview.css"><link rel="stylesheet" href="/__local/video.css"></head>
+<body><main class="local-video"><a href="/">Lumiscia</a><h1>AI video · local prototype</h1>
+<p class="local-video-warning">Synthetic browser-rendered scene. No AI inference or charges. Disposable local data.</p>
+<p id="video-status" role="status"></p>
+<form id="video-provider" hidden><label>Video provider<select name="provider"><option value="off">Off</option><option value="local-fixture">Synthetic rain scene · not AI</option></select></label><button class="btn" type="submit">Save provider</button></form>
+<form id="video-create"><label>Lesson word and meaning<select name="context" required></select></label><button class="btn primary" type="submit">Queue video quiz</button></form>
+<div class="local-video-heading"><p id="video-quota"></p><button class="btn" id="video-refresh" type="button">Refresh</button></div>
+<div id="video-jobs"></div>
+</main><script type="module" src="/__local/video.js"></script></body></html>
