@@ -1,8 +1,8 @@
 // Isolated lesson speech pilot. Trusted auth, provider registry and private media are injected.
-import {StudyError,statement as s} from './learning-study.mjs';
+import {StudyError,statement as s,recordId,lessonAccess} from './learning-study.mjs';
 import {exactFields,reviewText} from './quiz-review-content.mjs';
 import {kitSigned,kitTeacher} from './learning-kits.mjs';
-import {SPEECH_MODES,validateSpeechRubric,validateSpeechOutput,scoreSpeech} from './speech-assessment.mjs';
+import {SPEECH_MODES,SPEECH_METRICS,validateSpeechRubric,validateSpeechOutput,scoreSpeech} from './speech-assessment.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const context=row=>({groupId:row.group_id,lessonId:row.lesson_id,cardId:row.card_id,senseId:row.sense_id});
@@ -32,6 +32,40 @@ export class SpeechPractice{
     return this.review.mutation(actor,body,['speech-task'],async()=>{const id=crypto.randomUUID();return {statements:[this.review.accessGuard(actor,body),...guards,s('INSERT INTO qr_speech_tasks(id,group_id,lesson_id,card_id,sense_id,author_id,created_at,value_json) VALUES(?,?,?,?,?,?,?,?)',[id,body.groupId,body.lessonId,body.cardId,body.senseId,actor.id,this.now(),JSON.stringify(value)])],result:{id}};});
   }
   async listTasks(actor,body){this.gate(actor);exactFields(body,['groupId','lessonId','cardId','senseId']);await this.review.checkContext(actor,body);return this.db.read('SELECT id,value_json FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=? ORDER BY created_at,id',[body.groupId,body.lessonId,body.cardId,body.senseId]).then(rows=>rows.map(row=>({id:row.id,...JSON.parse(row.value_json)})));}
+  async lessonCatalog(actor,body){
+    this.gate(actor);exactFields(body,['groupId','lessonId']);recordId(body.groupId);recordId(body.lessonId);
+    const staff=['ADMIN','DEVELOPER'].includes(actor.role),[lesson]=await this.db.read(`SELECT l.id FROM class_groups g JOIN class_group_lessons gl ON gl.group_id=g.id JOIN lessons l ON l.id=gl.lesson_id
+      WHERE g.id=? AND l.id=? AND g.deleted_at IS NULL AND (?=1 OR (g.hidden_from_students=0 AND EXISTS(SELECT 1 FROM class_group_students gs WHERE gs.group_id=g.id AND gs.account_id=?))) AND ${lessonAccess}`,[body.groupId,body.lessonId,+staff,actor.id,+staff,actor.id,actor.id]);
+    if(!lesson)fail(403,'This lesson is not available for this account.');
+    const rows=await this.db.read(`SELECT DISTINCT c.id AS cardId,cs.sense_id AS senseId,c.en AS word,m.definition,m.part_of_speech AS partOfSpeech
+      FROM lesson_blocks b JOIN cards c ON c.id=b.card_id JOIN qr_card_senses cs ON cs.card_id=c.id JOIN qr_senses m ON m.id=cs.sense_id
+      WHERE b.lesson_id=? AND b.type IN ('word','wordcard') AND b.deleted_at IS NULL AND c.deleted_at IS NULL AND c.scope='shared' ORDER BY c.id,cs.sense_id`,[body.lessonId]),contexts=[];
+    for(const row of rows)try{await this.review.checkContext(actor,{...body,...row});contexts.push(row);}catch(error){if(error.status!==403)throw error;}
+    const allowed=new Map(contexts.map(row=>[row.cardId+':'+row.senseId,row])),tasks=[];
+    for(const row of await this.db.read('SELECT * FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? ORDER BY created_at,id',[body.groupId,body.lessonId])){
+      const origin=allowed.get(row.card_id+':'+row.sense_id);if(origin)tasks.push({id:row.id,...JSON.parse(row.value_json),cardId:origin.cardId,senseId:origin.senseId,word:origin.word});
+    }
+    return {tasks,contexts:staff?contexts:[]};
+  }
+  async training(actor,id){
+    const row=await this.attempt(actor,id,{owner:true}),result=row.result_json?JSON.parse(row.result_json):null;
+    if(row.state!=='complete'||!result?.sufficient||!result.training.length)fail(409,'No reliable practice focus is available for this attempt.');
+    const task=await this.task(actor,row.task_id);
+    return {attemptId:id,taskId:row.task_id,prompt:task.value.prompt,reference:task.value.reference,referenceMediaId:task.value.referenceMediaId,
+      focus:result.training.slice(0,3),synthetic:result.synthetic,provisional:result.provisional};
+  }
+  async compare(actor,id,repeatId){
+    if(typeof repeatId!=='string'||!/^[a-f0-9-]{36}$/.test(repeatId)||repeatId===id)fail(400,'Choose a different completed attempt.');
+    const baseline=await this.attempt(actor,id,{owner:true}),repeat=await this.attempt(actor,repeatId,{owner:true});
+    if(baseline.state!=='complete'||repeat.state!=='complete'||baseline.task_id!==repeat.task_id||baseline.comparison_key!==repeat.comparison_key)fail(409,'These attempts are not comparable. Use the same task, provider and rubric.');
+    const before=JSON.parse(baseline.result_json),after=JSON.parse(repeat.result_json);
+    if(!before.sufficient||!after.sufficient)fail(409,'Both recordings need sufficient assessment data.');
+    const metrics=Object.fromEntries(['overall',...SPEECH_METRICS].map(key=>{
+      const a=key==='overall'?before.overall:before.scores[key],b=key==='overall'?after.overall:after.scores[key];
+      return [key,{before:a,after:b,change:a===null||b===null?null:Math.round((b-a)*10)/10}];
+    }));
+    return {baseline:{id,date:baseline.created_at},repeat:{id:repeatId,date:repeat.created_at},metrics,synthetic:before.synthetic||after.synthetic,provisional:before.provisional||after.provisional};
+  }
   async upload(actor,id,body,bytes){
     const row=await this.task(actor,id);exactFields(body,['mutationId','mime','name']);
     return this.media.upload(actor,{...body,...context(row),purpose:'speech'},bytes,{kind:'speech-recording',taskId:id,maxSeconds:row.value.maxSeconds});

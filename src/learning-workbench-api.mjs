@@ -46,12 +46,15 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       return json({quizzes,nextOffset:page.nextOffset});}
     const proposal=new RegExp('^/proposals/'+id+'$').exec(path);if(proposal){params(url,[]);const review=service('review');return json({quiz:await withLocation(review,await review.get(actor,proposal[1]))});}
     if(path==='/speech/tasks'){
-      const p=params(url,['groupId','lessonId','cardId','senseId']),speech=service('speech'),tasks=await speech.listTasks(actor,{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId')),cardId:integer(p.get('cardId')),senseId:p.get('senseId')});
+      const p=params(url,['groupId','lessonId','cardId','senseId']),speech=service('speech');if(p.has('cardId')!==p.has('senseId'))fail(400,'Select card and meaning together.');
+      const context={groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))},catalog=p.has('cardId')?{tasks:await speech.listTasks(actor,{...context,cardId:integer(p.get('cardId')),senseId:p.get('senseId')})}:await speech.lessonCatalog(actor,context),{tasks}=catalog;
       let sources=[],availability={};try{const settings=await speech.providers.inspect(speech.worker);sources=['pronunciation','stt'].map(task=>settings.adapters.find(row=>row.id===settings.selections[task]?.adapterId)).filter(Boolean);
         availability=Object.fromEntries(tasks.map(task=>{const choice=settings.selections[task.evaluation];return [task.id,!!choice&&!settings.unavailable.some(row=>row.task===task.evaluation)&&choice.locale===task.locale&&choice.mode===(['pronunciation','shadowing'].includes(task.mode)?'scripted':'unscripted')];}));
       }catch{availability=Object.fromEntries(tasks.map(task=>[task.id,false]));}
-      return json({tasks,rubrics:speech.rubrics.map(({id,version})=>({id,version})),availability,synthetic:!!sources.length&&sources.every(source=>source.provider==='local-fixture'),analyzerLabel:sources.map(source=>source.provider+' · '+source.model).join('; ')||null});
+      return json({...catalog,trainingAvailable:true,rubrics:speech.rubrics.map(({id,version})=>({id,version})),availability,synthetic:!!sources.length&&sources.every(source=>source.provider==='local-fixture'),analyzerLabel:sources.map(source=>source.provider+' · '+source.model).join('; ')||null});
     }
+    const training=new RegExp('^/speech/attempts/'+id+'/(training|compare)$').exec(path);
+    if(training){const p=params(url,training[2]==='compare'?['attemptId']:[]);return json(await service('speech')[training[2]](actor,training[1],...(training[2]==='compare'?[p.get('attemptId')]:[])));}
     const speech=new RegExp('^/speech/(tasks|attempts)/'+id+'(?:/(history|progress|recipients|shared|text-reviews))?$').exec(path);
     if(speech){
       const p=params(url,speech[3]==='history'?['before']:[]);

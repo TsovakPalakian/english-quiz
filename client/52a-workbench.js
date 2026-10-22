@@ -21,10 +21,21 @@
     if(!speechUI)speechUI=createIntegratedSpeechPracticeUI({endpoint:prefix+'/speech',
       api:(path,data)=>{const entry=job;if(!entry||entry.view!=='speech'||!current(entry))return Promise.reject(Error('Speech view closed.'));const route=path.replace(/^\/local\/speech(?=\?|$)/,prefix+'/speech/tasks').replace(/^\/local\/speech\//,prefix+'/speech/').replace(/^\/local\/media\/([a-f0-9-]+)$/,prefix+'/media/$1/remove');return data===undefined?request(route.slice(prefix.length)):write(entry,route.slice(prefix.length),data);},
       run:action=>job?run(job,action):Promise.resolve(),context:()=>job?.view==='speech'?job:null,isTeacher:staff,sessionKey:()=>job?.identity+':'+serial,
-      renderPage:()=>{if(job?.view==='speech'){render(job,tabButtons(job)+speechUI.render());speechUI.afterRender();}},notify:message=>{if(dialog)dialog.querySelector('[data-workbench-status]').textContent=message;}});
+      renderPage:()=>{if(job?.view==='speech')paintSpeech(job);},notify:message=>{if(dialog)dialog.querySelector('[data-workbench-status]').textContent=message;}});
     return speechUI;
   }
-  function tabButtons(entry){return '<div class="seg" role="tablist" aria-label="Learning kit"><button type="button" data-workbench-back role="tab" aria-selected="'+(entry.view!=='speech')+'">Learning kit</button>'+(entry.lessonId&&entry.senseId&&entry.features?.includes('speech')?'<button type="button" data-workbench-speech role="tab" aria-selected="'+(entry.view==='speech')+'" '+(!entry.writable?'disabled':'')+'>Speech practice</button>':'')+'</div>';}
+  function tabButtons(entry){if(entry.lessonSpeech)return entry.groups.length>1?'<label>Group<select data-workbench-group>'+options(entry.groups)+'</select></label>':'';return '<div class="seg" role="tablist" aria-label="Learning kit"><button type="button" data-workbench-back role="tab" aria-selected="'+(entry.view!=='speech')+'">Learning kit</button>'+(entry.lessonId&&entry.senseId&&entry.features?.includes('speech')?'<button type="button" data-workbench-speech role="tab" aria-selected="'+(entry.view==='speech')+'" '+(!entry.writable?'disabled':'')+'>Speech practice</button>':'')+'</div>';}
+  function paintSpeech(entry){
+    render(entry,tabButtons(entry)+speechUI.render());speechUI.afterRender();
+    const group=dialog?.querySelector('[data-workbench-group]');if(group)group.value=String(entry.groupId);
+    if(!entry.writable)dialog?.querySelectorAll('.speech-panel form button,.speech-panel form input,.speech-panel form textarea,.speech-panel form select,#speech-file,[data-speech-action]:not([data-speech-action="more"]):not([data-speech-action="training"]):not([data-speech-action="compare"]):not([data-speech-action="end-training"])').forEach(node=>{node.disabled=true;});
+  }
+  async function lessonSpeech(entry){
+    if(!entry.features?.includes('speech'))throw Error('Speech practice is not configured.');
+    entry.view='speech';render(entry,tabButtons(entry)+'<p role="status">Loading speech practice...</p>');
+    const group=dialog?.querySelector('[data-workbench-group]');if(group)group.value=String(entry.groupId);
+    await speech().load();if(current(entry))paintSpeech(entry);
+  }
   const options=items=>items.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.title)+'</option>').join('');
   const authorable=entry=>entry.writable&&entry.lessonId&&entry.groupId&&entry.senseId&&entry.features?.includes('review');
   const contextBody=entry=>({groupId:entry.groupId,lessonId:entry.lessonId,cardId:entry.cardId,senseId:entry.senseId});
@@ -136,7 +147,7 @@
     finally{entry.busy=false;controls.forEach(([node,disabled])=>{if(node.isConnected)node.disabled=disabled;});if(!current(entry)&&job===entry)close();}
   }
   async function open(card,groups=[],lessonId=null){
-    if(!enabled()||!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
+    if(!enabled()||!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
     dialog=document.createElement('dialog');dialog.className='learning-kit-dialog';dialog.setAttribute('aria-label','Learning kit');
     dialog.innerHTML='<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header><p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
@@ -147,7 +158,7 @@
       if(card.queue){entry.view='queue';await loadQueue(entry);return;}
       if(card.mine){await mine(entry);return;}
       if(groups.length>1){render(entry,'<label>Group<select data-workbench-group><option value="">Select a group</option>'+options(groups)+'</select></label>');return;}
-      entry.groupId=groups[0]?.id||null;await coverage(entry);
+      entry.groupId=groups[0]?.id||null;if(entry.lessonSpeech)await lessonSpeech(entry);else await coverage(entry);
     });
   }
   function lessonButton(block){
@@ -155,14 +166,23 @@
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!valid(cardId)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
     return '<button class="btn" type="button" data-workbench-lesson="'+esc(block.id)+'">Learning kit</button>';
   }
+  function lessonSpeechButton(){
+    if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
+    return '<button type="button" data-workbench-lesson-speech><i data-lucide="mic" aria-hidden="true"></i>Speech practice</button>';
+  }
   function cardButton(card){if(!enabled()||!valid(card?.stageId))return '';displayedCards.set(card.stageId,card);return '<button class="btn" type="button" data-workbench-card="'+card.stageId+'">Learning kit</button>';}
   function reset(){displayedCards.clear();close();paintEntry();}
   document.addEventListener('learning-workbench-session',reset);
   document.addEventListener('click',event=>{
-    const button=event.target.closest('[data-workbench-lesson],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more],[data-workbench-mine],[data-workbench-own],[data-workbench-new],[data-workbench-edit],[data-workbench-editor-back],[data-workbench-upload],#add-quiz-item,[data-add-option],[data-remove-option],[data-remove-item]');if(!button)return;
+    const button=event.target.closest('[data-workbench-lesson],[data-workbench-lesson-speech],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more],[data-workbench-mine],[data-workbench-own],[data-workbench-new],[data-workbench-edit],[data-workbench-editor-back],[data-workbench-upload],#add-quiz-item,[data-add-option],[data-remove-option],[data-remove-item]');if(!button)return;
     if(button.hasAttribute('data-workbench-close')){if(job&&discard(job))close();return;}
     if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
     if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
+    if(button.hasAttribute('data-workbench-lesson-speech')){
+      if(!enabled()||lmState?.examOwned)return;
+      const groups=classGroups.filter(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id));
+      if(groups.length)void open({lessonSpeech:true,title:(lmState.title||'Lesson')+' · Speech practice'},groups,lmState.id);return;
+    }
     if(button.hasAttribute('data-workbench-lesson')){
       if(!enabled()||lmState?.examOwned)return;
       const block=lmState?.blocks?.find(row=>String(row.id)===button.dataset.workbenchLesson),groups=classGroups.filter(group=>group.lessonIds?.includes(lmState.id)&&valid(group.id));
@@ -186,7 +206,7 @@
       }
       if(entry.view==='editor'&&entry.writable&&(button.id==='add-quiz-item'||button.matches('[data-add-option],[data-remove-option],[data-remove-item]'))){readEditor(entry);entry.draft.items=integratedReviewEditor.editReviewItems(entry.draft.type,entry.draft.items,button);entry.dirty=true;editor(entry);return;}
       if(button.hasAttribute('data-workbench-upload')){if(entry.view==='editor'&&entry.writable)await uploadQuizMedia(entry,button.closest('form'));return;}
-      if(button.hasAttribute('data-workbench-speech')){if(!entry.writable||!entry.lessonId||!entry.senseId||!entry.features.includes('speech'))return;entry.view='speech';await speech().load();if(current(entry)){render(entry,tabButtons(entry)+speechUI.render());speechUI.afterRender();}return;}
+      if(button.hasAttribute('data-workbench-speech')){if(!entry.writable||!entry.lessonId||!entry.senseId||!entry.features.includes('speech'))return;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);return;}
       if(button.hasAttribute('data-workbench-more')){if(entry.view==='mine')await mine(entry,true);else await loadQueue(entry,true);return;}
       if(button.hasAttribute('data-workbench-history')){const id=button.dataset.workbenchHistory;if(!entry.rows?.some(row=>row.id===id))return;const {quiz}=await request('/proposals/'+id);if(!current(entry))return;const host=dialog.querySelector('[data-review-history="'+id+'"]');if(host)host.innerHTML='<details><summary>History · '+quiz.history.length+'</summary>'+quiz.history.map(row=>'<p>'+esc(row.date)+' · '+esc(row.actor)+' · '+esc(row.action)+'</p>'+(row.details.comment?'<blockquote>'+esc(row.details.comment)+'</blockquote>':'')).join('')+'</details>';return;}
       if(button.hasAttribute('data-workbench-back')){await coverage(entry);return;}
@@ -208,7 +228,7 @@
     if(event.target.hasAttribute('data-workbench-group'))entry.groupId=entry.groups.find(group=>String(group.id)===event.target.value)?.id||null;
     else entry.senseId=event.target.value;
     if(entry.groups.length&& !entry.groupId)return;
-    void run(entry,()=>coverage(entry));
+    void run(entry,()=>entry.lessonSpeech?lessonSpeech(entry):coverage(entry));
   });
   document.addEventListener('submit',event=>{
     if(event.target.matches('[data-workbench-editor]')){event.preventDefault();const entry=job;if(entry?.view==='editor'&&entry.writable){readEditor(entry);const submit=event.submitter?.value==='submit';void run(entry,()=>saveProposal(entry,submit));}return;}
@@ -224,5 +244,5 @@
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={lessonButton,lessonSpeechButton,cardButton,close,reset,paintEntry};
 })();

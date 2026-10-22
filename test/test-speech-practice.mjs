@@ -30,6 +30,47 @@ async function textSetup(options){
   await f.configure();f.task=await f.create({languageReview:true});f.attempt=await f.analyze(f.task);
   return f;
 }
+test('lesson speech catalog enforces group, lesson and per-word visibility without exposing private attempts',async()=>{
+  const f=await setup();try{
+    f.sql.exec("DELETE FROM class_group_students WHERE account_id='u2'; INSERT INTO cards(id,scope,en,word_key,ru) VALUES(5,'shared','bank','bank','банк')");
+    const one=await f.create();
+    f.sql.exec("INSERT INTO lesson_blocks(id,lesson_id,position,type,card_id) VALUES(4,1,1,'word',5)");
+    const {senseId}=await f.service.createSense(actors.dev,body({cardId:5,meaning:{partOfSpeech:'noun',translation:'банк',definition:'A financial institution.'}}));
+    const two=await f.create({cardId:5,senseId,prompt:'Read bank.',reference:'bank'}),ctx={groupId:1,lessonId:1};
+    const catalog=await f.speech.lessonCatalog(actors.student,ctx);assert.deepEqual(new Set(catalog.tasks.map(row=>row.id)),new Set([one,two]));assert.deepEqual(catalog.contexts,[]);assert.ok(!JSON.stringify(catalog).includes('owner_id'));
+    assert.equal((await f.speech.lessonCatalog(actors.teacher,ctx)).contexts.length,2);
+    await denied(f.speech.lessonCatalog(actors.other,ctx),403);await denied(f.speech.lessonCatalog(actors.student,{groupId:2,lessonId:1}),403);
+    await denied(f.speech.lessonCatalog(actors.student,{groupId:1,lessonId:3}),403);
+    f.sql.exec("INSERT INTO account_settings(account_id,key,value_json) VALUES('u1','visibility:card:5','true')");
+    assert.deepEqual((await f.speech.lessonCatalog(actors.student,ctx)).tasks.map(row=>row.id),[one]);
+    assert.equal((await f.speech.lessonCatalog(actors.dev,ctx)).tasks.length,2);
+    f.sql.exec('UPDATE class_groups SET hidden_from_students=1 WHERE id=1');await denied(f.speech.lessonCatalog(actors.student,ctx),403);
+    f.sql.exec('UPDATE class_groups SET hidden_from_students=0 WHERE id=1; UPDATE lessons SET hidden_from_students=1 WHERE id=1');await denied(f.speech.lessonCatalog(actors.student,ctx),403);
+  }finally{await f.speech.close();f.close();}
+});
+test('personal training and comparison use immutable own comparable results without invoking providers',async()=>{
+  let accuracy=65;const f=await setup({invoke:async()=>({...output({accuracy,fluency:80,prosody:null}),findings:[{metric:'accuracy',wordIndex:0,phoneme:'ə',confidence:0.95,message:'Repeat the initial word in the full phrase.'}]})});
+  try{
+    await f.configure();const task=await f.create(),baseline=await f.analyze(task),original=structuredClone(baseline.result);
+    const plan=await f.speech.training(actors.student,baseline.id);assert.equal(plan.reference,'drizzle');assert.equal(plan.focus.length,1);
+    accuracy=85;f.advance(1000);const repeat=await f.analyze(task),calls=f.calls.length,comparison=await f.speech.compare(actors.student,baseline.id,repeat.id);
+    assert.deepEqual(comparison.metrics.overall,{before:71,after:83,change:12});assert.deepEqual(comparison.metrics.prosody,{before:null,after:null,change:null});
+    assert.deepEqual((await f.speech.get(actors.student,baseline.id)).result,original);assert.equal(f.calls.length,calls);
+    await denied(f.speech.compare(actors.student,baseline.id,baseline.id),400);
+    await f.speech.share(actors.student,baseline.id,body({teacherId:actors.teacher.id,consent:true,includeAudio:false}));
+    await denied(f.speech.training(actors.teacher,baseline.id),404);await denied(f.speech.compare(actors.teacher,baseline.id,repeat.id),404);
+    await denied(f.speech.training(actors.other,baseline.id),404);
+    const other=await f.create(),otherAttempt=await f.analyze(other);await denied(f.speech.compare(actors.student,baseline.id,otherAttempt.id),409);
+    await f.configure('scripted','speech-b');const switched=await f.analyze(task);await denied(f.speech.compare(actors.student,baseline.id,switched.id),409);
+    await f.speech.remove(actors.student,baseline.id,body());await denied(f.speech.training(actors.student,baseline.id),404);
+  }finally{await f.speech.close();f.close();}
+});
+test('unusable results and absent reliable findings cannot become a training plan or a comparable zero',async()=>{
+  let noisy=false;const f=await setup({invoke:async()=>output(undefined,noisy?'noise':'ok')});try{
+    await f.configure();const task=await f.create(),good=await f.analyze(task);await denied(f.speech.training(actors.student,good.id),409);
+    noisy=true;const bad=await f.analyze(task);assert.equal(bad.state,'unusable');await denied(f.speech.training(actors.student,bad.id),409);await denied(f.speech.compare(actors.student,good.id,bad.id),409);
+  }finally{await f.speech.close();f.close();}
+});
 test('confirmed text uses exact consented revision, separate quota and immutable acoustic progress',async()=>{
   const f=await textSetup({invoke:async(input,{source})=>source.task==='conversation'?{...output({grammar:75,vocabulary:80,task:90}),transcript:input.transcript}:output()});try{
     const id=f.attempt.id,before=await f.speech.progress(actors.student,f.task);

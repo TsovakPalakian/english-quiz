@@ -105,6 +105,20 @@ test('API rejects malformed queries, unsupported methods and absent services',as
   await rejects(call('/kit?cardId=1&cardId=2'),400);await rejects(call('/kit?cardId=1&groupId=1'),400);
   await rejects(call('/status','DELETE'),405);await rejects(call('/queue'),503);await rejects(call('/status','HEAD'),405);
 });
+test('lesson speech, training and comparison use read-only authenticated routes with strict queries',async()=>{
+  const id=crypto.randomUUID(),repeatId=crypto.randomUUID(),calls=[],speech={rubrics:[],providers:{inspect:async()=>{throw Error('Off.');}},
+    lessonCatalog:async(actor,context)=>{calls.push(['lesson',actor.id,context]);return {tasks:[],contexts:[]};},
+    training:async(actor,attemptId)=>{calls.push(['training',actor.id,attemptId]);return {attemptId,focus:[]};},
+    compare:async(actor,attemptId,other)=>{calls.push(['compare',actor.id,attemptId,other]);return {metrics:{}};}};
+  const call=path=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path),{actor:actors.student,services:{speech},writable:false});
+  assert.equal((await(await call('/speech/tasks?groupId=1&lessonId=1')).json()).trainingAvailable,true);
+  assert.equal((await(await call('/speech/attempts/'+id+'/training')).json()).attemptId,id);
+  await call('/speech/attempts/'+id+'/compare?attemptId='+repeatId);
+  assert.deepEqual(calls,[['lesson',actors.student.id,{groupId:1,lessonId:1}],['training',actors.student.id,id],['compare',actors.student.id,id,repeatId]]);
+  await rejects(call('/speech/tasks?groupId=1&lessonId=1&cardId=1'),400);
+  await rejects(call('/speech/attempts/'+id+'/training?actor=dev'),400);
+  await rejects(call('/speech/attempts/'+id+'/compare?attemptId='+repeatId+'&attemptId='+repeatId),400);
+});
 test('shared review API keeps global staff access, origin grouping, CAS and self-approval restrictions',async()=>{
   const f=await readyFixture();try{
     const services=await createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media expected.');}})({db:f.db,actor:actors.teacher});
