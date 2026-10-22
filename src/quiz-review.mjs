@@ -67,16 +67,16 @@ export class QuizReviewService extends StudyService{
   async createDraft(actor,body){
     return this.#newDraft(actor,actor,body,'human');
   }
-  async createGeneratedDraft(worker,requester,body){
-    developer(worker);signed(requester);return this.#newDraft(worker,requester,body,'automatic');
+  async createGeneratedDraft(worker,requester,body,{guards=[]}={}){
+    developer(worker);signed(requester);return this.#newDraft(worker,requester,body,'automatic',guards);
   }
-  async #newDraft(actor,requester,body,kind){
+  async #newDraft(actor,requester,body,kind,guards=[]){
     signed(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','type','content',...(kind==='automatic'?['generation']:[])]);const content=this.validateContent(body.type,body.content);
     const generation=body.generation===undefined?null:validateGenerationMetadata(body.generation);
     const state=kind==='automatic'?'submitted':'draft';
     return this.mutation(actor,body,['create',kind,requester.id],async()=>{
       const ctx=await this.checkContext(requester,body),id=uuid(),q={id,revision:1};
-      return {statements:[this.accessGuard(requester,body),...await this.mediaGuards(actor,body,body.type,content),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,generation_json,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
+      return {statements:[this.accessGuard(requester,body),...guards,...await this.mediaGuards(actor,body,body.type,content),s(`INSERT INTO qr_versions(id,family_id,version,sense_id,type,content_json,state,author_id,author_kind,generation_json,author_name,author_group,group_id,lesson_id,card_id,created_date,submitted_date)
         VALUES(?,?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,[id,id,body.senseId,body.type,JSON.stringify(content),state,actor.id,kind,generation?JSON.stringify(generation):null,kind==='automatic'?'Automatic generator':name(actor),ctx.group_name,body.groupId,body.lessonId,body.cardId,date(),kind==='automatic'?date():null]),this.guard(),this.event(q,actor,kind==='automatic'?'generated-for-review':'created',{content,requestedBy:requester.id,...(generation?{generation}:{})})],result:{id,version:1,revision:1,state}};
     });
   }

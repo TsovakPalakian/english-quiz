@@ -31,6 +31,15 @@ test('request uses fixed endpoint, bounded JSON schema, no streams, redirects, e
   assert.equal(JSON.stringify(input).includes(apiToken),false);assert.equal(JSON.stringify(providers.inspect(actors.dev)).includes(apiToken),false);
   assert.equal(result.source.model,WORKERS_QUIZ_MODEL);assert.equal(result.data.usage.total_tokens,50);
 });
+test('dictionary evidence stays bounded and does not replace the selected meaning; access policy failures do not retry',async()=>{
+  const providers=registry([adapter({fetchImpl:async(_,options)=>{
+    const sent=JSON.parse(JSON.parse(options.body).messages[1].content);assert.deepEqual(sent.evidence,{definition:meaning.definition,examples:['A fine drizzle fell.']});assert.deepEqual(sent.meaning,meaning);return reply();
+  }})]);
+  await createRoutedQuizGenerator({providers})({type:'Flip',meaning,evidence:{definition:meaning.definition,examples:['A fine drizzle fell.']}});
+  for(const errorCode of ['access_policy_denied','access_policy_unavailable','provider_configuration_changed','access_budget_or_policy_changed','input_budget_exceeded']){
+    await assert.rejects(createRoutedQuizGenerator({providers:{execute:async()=>{throw Object.assign(Error('private'),{code:errorCode});}}})({type:'Flip',meaning}),error=>!error.retryable&&['provider_not_configured','quota_exceeded'].includes(error.code));
+  }
+});
 test('valid object and string model responses pass the existing semantic checks',async()=>{
   for(const response of [quiz,JSON.stringify(quiz)]){
     const providers=registry([adapter({fetchImpl:async()=>reply(response)})]);

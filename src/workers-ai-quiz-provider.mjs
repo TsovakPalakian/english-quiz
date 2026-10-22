@@ -13,7 +13,7 @@ const keys=(value,allowed)=>object(value)&&Object.keys(value).every(key=>allowed
 const string=value=>typeof value==='string'&&value.trim().length>0&&value.length<=4000;
 
 function buildInput(request,maxTokens){
-  if(!keys(request,['instruction','type','meaning','itemFields','maxItems','maxOutputChars'])||
+  if(!keys(request,['instruction','type','meaning','itemFields','maxItems','maxOutputChars','evidence'])||
     !Object.hasOwn(itemFields,request.type)||!string(request.instruction)||
     !keys(request.meaning,['en','translation','definition','part_of_speech'])||
     !['en','translation','definition','part_of_speech'].every(key=>string(request.meaning[key]))||
@@ -21,6 +21,7 @@ function buildInput(request,maxTokens){
     !Number.isSafeInteger(request.maxOutputChars)||request.maxOutputChars<1||request.maxOutputChars>50000)fail('invalid_request');
   const fields=itemFields[request.type];
   if(JSON.stringify(request.itemFields)!==JSON.stringify(fields))fail('invalid_request');
+  if(request.evidence!==undefined&&(!keys(request.evidence,['definition','examples'])||request.evidence.definition!==request.meaning.definition||!Array.isArray(request.evidence.examples)||request.evidence.examples.length>5||!request.evidence.examples.every(string)))fail('invalid_request');
   const itemProperties=Object.fromEntries(fields.map(key=>[key,key==='options'?{type:'array',minItems:2,maxItems:12,items:{type:'string',maxLength:1000}}:
     key==='answer'&&fields.includes('options')?{type:'integer',minimum:0,maximum:11}:{type:'string',minLength:1,maxLength:2000}]));
   const schema={type:'object',additionalProperties:false,required:['type','meaning','content'],properties:{
@@ -30,7 +31,7 @@ function buildInput(request,maxTokens){
       explanation:{type:'string',minLength:1,maxLength:4000},items:{type:'array',minItems:1,maxItems:request.maxItems,items:{type:'object',additionalProperties:false,required:fields,properties:itemProperties}},
     }},
   }};
-  return {messages:[{role:'system',content:request.instruction},{role:'user',content:JSON.stringify({type:request.type,meaning:request.meaning,itemFields:fields,maxItems:request.maxItems,maxOutputChars:request.maxOutputChars})}],
+  return {messages:[{role:'system',content:request.instruction},{role:'user',content:JSON.stringify({type:request.type,meaning:request.meaning,itemFields:fields,maxItems:request.maxItems,maxOutputChars:request.maxOutputChars,...(request.evidence?{evidence:request.evidence}:{})})}],
     stream:false,max_tokens:maxTokens,temperature:0.2,response_format:{type:'json_schema',json_schema:schema}};
 }
 
@@ -113,7 +114,8 @@ export function createRoutedQuizGenerator({providers,timeoutMs=20000,includeMeta
         return result.data.text;
       }catch(error){
         if(error.source)observe({source:error.source,usage:error.usage??null});
-        if(['rate_limited','quota_or_access_denied'].includes(error.code))throw new GenerationIssue('quota_exceeded',false);
+        if(['rate_limited','quota_or_access_denied','access_budget_or_policy_changed','input_budget_exceeded'].includes(error.code))throw new GenerationIssue('quota_exceeded',false);
+        if(['access_policy_denied','access_policy_unavailable','provider_configuration_changed'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
         if(['provider_disabled','provider_not_configured','provider_access_denied','provider_request_rejected','invalid_request'].includes(error.code))throw new GenerationIssue('provider_not_configured',false);
         if(error.code==='invalid_provider_result'||error.status===400)throw new GenerationIssue('invalid_model_response');
         if(error.code==='timeout')throw new GenerationIssue('timeout');
