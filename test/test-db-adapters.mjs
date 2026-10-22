@@ -100,7 +100,7 @@ for(const provider of ['d1']){
 
 let sqlite;
 before(async()=>{
-  sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../db/migrations/learning/001_example.sql',import.meta.url),'utf8'));
+  sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');sqlite.exec(readFileSync(new URL('../db/examples/001_example.sql',import.meta.url),'utf8'));
 });
 after(async()=>{sqlite?.close();});
 function sqliteClient(engine){
