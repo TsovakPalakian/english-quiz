@@ -9,4 +9,9 @@ export function workbenchMigrationPlan(){
     steps:files.map(name=>({name,sha256:createHash('sha256').update(readFileSync(new URL(name,directory))).digest('hex')})),
     rollback:'Disable both LEARNING_WORKBENCH flags; preserve added tables and objects. Restore only a verified isolated clone; never drop shared tables or downgrade approved quiz versions.'};
 }
+export function workbenchUpgradePlan(applied=[]){
+  const plan=workbenchMigrationPlan();
+  if(!Array.isArray(applied)||applied.length>plan.steps.length||applied.some((step,index)=>!step||Object.keys(step).some(key=>!['name','sha256'].includes(key))||step.name!==plan.steps[index].name||step.sha256!==plan.steps[index].sha256))throw Error('An explicitly reviewed contiguous checksum baseline is required.');
+  return {...plan,baseline:applied.map(step=>({...step})),steps:plan.steps.slice(applied.length),incremental:applied.length>0,baselineVerified:false};
+}
 if(process.argv[1]===fileURLToPath(import.meta.url))console.log(JSON.stringify(workbenchMigrationPlan()));

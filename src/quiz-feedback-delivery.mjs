@@ -39,8 +39,8 @@ export class QuizFeedbackDelivery{
     kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_feedback WHERE id=? AND owner_id=?',[id,actor.id]);if(!row||this.feedback.privacyEnabled&&(row.deleted_at!==null||(row.expires_at??row.created_at+this.feedback.retentionDays*86400000)<=this.now()))fail(404,'Report unavailable.');return row;
   }
   async recover(){await this.db.atomic([s("UPDATE qr_feedback_delivery SET state='uncertain',error_code='interrupted',finished_at=? WHERE state IN ('queued','started') AND deadline_at<=?",[this.now(),this.now()])]);}
-  async status(actor,id){
-    await this.owned(actor,id);await this.recover();const [row]=await this.db.read('SELECT state,message_id,consent_at,finished_at,error_code FROM qr_feedback_delivery WHERE feedback_id=? AND owner_id=?',[id,actor.id]);
+  async status(actor,id,{recover=true}={}){
+    await this.owned(actor,id);if(recover)await this.recover();const [row]=await this.db.read('SELECT state,message_id,consent_at,finished_at,error_code FROM qr_feedback_delivery WHERE feedback_id=? AND owner_id=?',[id,actor.id]);
     return {id,state:row?.state||'saved_locally',recipient:FEEDBACK_ADDRESS,accepted:row?.state==='accepted',delivered:false,messageId:row?.message_id||null,consentAt:row?.consent_at||null,finishedAt:row?.finished_at||null,errorCode:row?.error_code||null};
   }
   async send(actor,id,body){

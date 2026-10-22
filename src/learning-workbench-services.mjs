@@ -23,16 +23,19 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
     if(!db||typeof db.read!=='function'||typeof db.atomic!=='function')throw new StudyError(503,'Workbench database unavailable.');
     const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true,pronunciationQuizzes:configuration?.enabled===true&&configuration?.pronunciationQuizzes===true,safePublicAttribution:publicAttribution===true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
     review.contentPolicy=media;
-    let runner=null;
+    let runner=null,preparationProviders=null,preparationPipeline=null;
     if(openPreparation){
       const preparation=await openPreparation({db,review,actor});
       if(!preparation?.generation||preparation.generation.review!==review||preparation.generation.db!==db||typeof preparation.generation.enqueue!=='function'||typeof preparation.availability!=='function')throw new StudyError(503,'Preparation must use the current review service and an explicit availability gate.');
       kits.generation=preparation.generation;kits.availability=preparation.availability;
+      preparationProviders=preparation.providers||null;preparationPipeline=preparation.pipeline||null;
       if(preparation.runner!==undefined){
         if(!(preparation.runner instanceof QuizPreparationRunner)||preparation.runner.review!==review||preparation.runner.generation!==preparation.generation)throw new StudyError(503,'Preparation runner must use the current services.');runner=preparation.runner;
       }
     }
     const services={review,kits,media,sessions:new KitSessions(kits)};
+    if(preparationProviders)services.providers=preparationProviders;
+    if(preparationPipeline)services.pipeline=preparationPipeline;
     if(publicAttribution===true)services.authors=new QuizAuthorVisibility(review);
     if(reports?.enabled===true){
       services.feedback=new QuizFeedback(kits,media,{privacyEnabled:true,retentionDays:reports.retentionDays});
@@ -50,6 +53,7 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       if(configuration.openProviders!==undefined&&typeof configuration.openProviders!=='function')throw new StudyError(503,'A trusted provider factory is required.');
       const providers=configuration.openProviders?await configuration.openProviders({db,actor}):new StoredLanguageProviders(db,{adapters:configuration.adapters||[],authorize:configuration.authorize});
       if(!(providers instanceof StoredLanguageProviders))throw new StudyError(503,'Stored language providers are required.');
+      services.providers=providers;
       services.speech=new SpeechPractice(kits,media,{enabled:true,providers,worker,rubrics:configuration.rubrics,budgets:configuration.budgets,resolveActor:configuration.resolveActor});
       services.sessions.speech=services.speech;
       services.transcripts=new SpeechTranscriptReview(services.speech,{enabled:true,rubric:configuration.languageRubric});

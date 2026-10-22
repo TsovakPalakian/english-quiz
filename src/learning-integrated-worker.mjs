@@ -976,7 +976,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
 }
 function bugWatch(request){
   // Authentication payloads contain one-time codes, OAuth state and credentials.
-  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!path.endsWith('/media');}
+  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');}
   catch{return false;}
 }
 export default integratedWorker();

@@ -1,5 +1,6 @@
 // Deployment candidate only; activation is a separate, explicit operation.
-import integrated,{StageAuthBudget} from './learning-integrated-worker.mjs';
+import integrated,{StageAuthBudget,integratedWorker} from './learning-integrated-worker.mjs';
+import {createWorkbenchRuntime} from './learning-workbench-runtime.mjs';
 import {studyClient} from './learning-stage-worker.mjs';
 import {stageR2Media,PRODUCTION_MEDIA_BUCKET} from './learning-r2-media.mjs';
 import {messagesWorker} from './learning-messages-worker.mjs';
@@ -57,4 +58,10 @@ export function productionWorker(application=integrated){
   if(headers.get('Content-Type')?.includes('text/html')&&headers.has('Content-Security-Policy'))headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
   return new Response(response.body,{status:response.status,headers});
 }};}
-export default accountTransferWorker(productionWorker(durableChatWorker(messagesWorker({mode:'production'}))));
+const workbenchRuntime=createWorkbenchRuntime();
+const workbenchBase=integratedWorker({openWorkbench:workbenchRuntime.open});
+const application=durableChatWorker(messagesWorker({mode:'production',baseWorker:workbenchBase}));
+export default accountTransferWorker(productionWorker({...application,async scheduled(event,env,ctx){
+  if(application.scheduled)await application.scheduled(event,env,ctx);
+  if(env.LEARNING_WORKBENCH_ENABLED==='true'&&env.LEARNING_WORKBENCH_WRITES==='true')ctx.waitUntil(workbenchRuntime.scheduled(event,env,ctx,{db:studyClient(env)}).catch(()=>console.error('Workbench maintenance deferred.')));
+}}));

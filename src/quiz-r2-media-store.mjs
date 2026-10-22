@@ -6,8 +6,9 @@ export const WORKBENCH_TEST_BUCKET='learn-english-workbench-test-media';
 const mimes={'image/png':'image','image/jpeg':'image','audio/wav':'audio','audio/mpeg':'audio','video/mp4':'video'};
 const fail=()=>{throw new StudyError(503,'Private workbench media storage is unavailable or inconsistent.');};
 const digest=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(value=>value.toString(16).padStart(2,'0')).join('');
-export function quizR2MediaStore({enabled=false,bucket,bucketName,forbiddenBucket=null}={}){
-  const ready=()=>{if(enabled!==true||bucketName!==WORKBENCH_TEST_BUCKET||!bucket||bucket===forbiddenBucket||!['get','head','put','delete'].every(key=>typeof bucket[key]==='function'))fail();};
+export function quizR2MediaStore({enabled=false,bucket,bucketName,forbiddenBucket=null,environment='test',productionApproved=false}={}){
+  const dedicated=environment==='test'?bucketName===WORKBENCH_TEST_BUCKET:environment==='production'&&productionApproved===true&&bucketName==='learn-english-workbench-private-media';
+  const ready=()=>{if(enabled!==true||!dedicated||!bucket||bucket===forbiddenBucket||!['get','head','put','delete'].every(key=>typeof bucket[key]==='function'))fail();};
   const identity=key=>{ready();const match=/^quiz-media\/([a-f0-9-]{36})\/([a-f0-9]{64})$/.exec(key);if(!match)fail();return {key:'workbench-v1/'+key,digest:match[2]};};
   function metadata(object,expected){
     if(!object)return null;const meta=object.customMetadata||{},mime=object.httpMetadata?.contentType;
@@ -16,7 +17,7 @@ export function quizR2MediaStore({enabled=false,bucket,bucketName,forbiddenBucke
   }
   async function read(key){const ref=identity(key),object=await bucket.get(ref.key),info=metadata(object,ref.digest);if(!info)return null;
     const bytes=await boundedProviderBytes(object.body,info.size);if(bytes.length!==info.size||await digest(bytes)!==ref.digest)fail();return {...info,bytes};}
-  return {kind:'dedicated-workbench-r2-test',
+  return {kind:environment==='production'?'dedicated-workbench-r2-production':'dedicated-workbench-r2-test',
     async putImmutable(key,bytes,meta){
       const ref=identity(key);if(!(bytes instanceof Uint8Array)||!Object.hasOwn(mimes,meta.mime)||!bytes.length||bytes.length>QUIZ_MEDIA_LIMITS[mimes[meta.mime]]||await digest(bytes)!==ref.digest)fail();
       const result=await bucket.put(ref.key,bytes,{onlyIf:new Headers({'If-None-Match':'*'}),sha256:ref.digest,httpMetadata:{contentType:meta.mime,cacheControl:'private, no-store'},customMetadata:{digest:ref.digest,mime:meta.mime,bytes:String(bytes.length)}});

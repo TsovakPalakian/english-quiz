@@ -30,10 +30,12 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
   }
   if(method==='HEAD')fail(405,'HEAD is only supported for media.');
   if(method==='GET'){
+    if(path==='/settings/providers'){params(url,[]);return json(await service('providers').inspect(actor));}
+    if(path==='/settings/providers/history'){const p=params(url,['before']);return json(await service('providers').history(actor,{before:p.has('before')?integer(p.get('before')):null}));}
     if(path==='/feedback/policy'){params(url,[]);service('feedback');return json(services.feedbackPolicy);}
-    if(path==='/feedback'){params(url,[]);const reports=await service('feedback').mine(actor),result=[];for(const report of reports)result.push({...report,...await service('feedbackDelivery').status(actor,report.id)});return json({reports:result,policy:services.feedbackPolicy});}
+    if(path==='/feedback'){params(url,[]);const reports=await service('feedback').mine(actor),result=[];for(const report of reports)result.push({...report,...await service('feedbackDelivery').status(actor,report.id,{recover:writable})});return json({reports:result,policy:services.feedbackPolicy});}
     if(path==='/feedback/signals'){const p=params(url,['limit']);return json(await service('feedbackPrivacy').signals(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
-    const feedbackStatus=new RegExp('^/feedback/'+id+'$').exec(path);if(feedbackStatus){params(url,[]);return json(await service('feedbackDelivery').status(actor,feedbackStatus[1]));}
+    const feedbackStatus=new RegExp('^/feedback/'+id+'$').exec(path);if(feedbackStatus){params(url,[]);return json(await service('feedbackDelivery').status(actor,feedbackStatus[1],{recover:writable}));}
     const attribution=new RegExp('^/proposals/'+id+'/attribution$').exec(path);if(attribution){params(url,[]);return json(await service('authors').get(actor,attribution[1]));}
     if(path==='/preparation'){const p=params(url,['limit']);return json(await service('preparation').summary(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
     const dispatchHistory=/^\/preparation\/([1-9]\d{0,15})\/history$/.exec(path);
@@ -97,6 +99,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    if(path==='/settings/providers')return json(await service('providers').configure(actor,data));
+    if(path==='/settings/providers/initialize'){
+      if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>key!=='mutationId'))fail(400,'Provider initialization does not accept selections.');
+      return json(await service('providers').initialize(actor));
+    }
     if(path==='/feedback')return json(await service('feedback').create(actor,data));
     if(path==='/feedback/cleanup'){await service('feedbackDelivery').recover();return json(await service('feedbackPrivacy').sweep(actor,data));}
     const feedbackAction=new RegExp('^/feedback/'+id+'/(send|remove)$').exec(path);
