@@ -16,10 +16,10 @@ export class QuizGenerationService{
     if(preparation!==null&&(preparation.review!==review||!['load','assertCurrent','guards'].every(key=>typeof preparation[key]==='function')))throw Error('Preparation must use the current review service.');
     Object.assign(this,{review,db:review.db,worker,resolveActor,generate,preparation,now,timeoutMs,leaseMs,backoffMs});
   }
-  async enqueuePackage(actor,body){
+  async enqueuePackage(actor,body,{retryFailed=true}={}){
     exactFields(body,['mutationId','groupId','lessonId','cardId','senseId']);
     if(!this.preparation)fail(503,'Full preparation is not configured.');
-    return this.enqueue(actor,{...body,types:[...QUIZ_TYPES]},{skipProposals:true,retryFailed:true});
+    return this.enqueue(actor,{...body,types:[...QUIZ_TYPES]},{skipProposals:true,retryFailed});
   }
   async enqueue(actor,body,{skipProposals=false,retryFailed=false,excludeTypes=[],beforeEnqueue=null}={}){
     reviewer(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','types']);
@@ -37,7 +37,7 @@ export class QuizGenerationService{
           }
           if(retryFailed){const [job]=await this.db.read('SELECT * FROM qr_generation_jobs WHERE id=?',[existing.id]);
             if(job.state==='review'&&!job.version_id&&job.cycle<2){
-              statements.push(s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND version_id IS NULL AND cycle<2 AND NOT EXISTS(SELECT 1 FROM qr_versions WHERE sense_id=? AND type=? AND state IN ('draft','submitted','returned','approved'))",[actor.id,job.id,job.revision,body.senseId,type]),this.review.guard());ids.push(job.id);
+              statements.push(s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,candidate_json=NULL,candidate_generation_json=NULL,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND version_id IS NULL AND cycle<2 AND NOT EXISTS(SELECT 1 FROM qr_versions WHERE sense_id=? AND type=? AND state IN ('draft','submitted','returned','approved'))",[actor.id,job.id,job.revision,body.senseId,type]),this.review.guard());ids.push(job.id);
             }
           }else ids.push(existing.id);continue;
         }
@@ -68,7 +68,7 @@ export class QuizGenerationService{
     return this.review.mutation(actor,body,['generation-retry',id],async()=>{
       const [job]=await this.db.read('SELECT * FROM qr_generation_jobs WHERE id=?',[id]);if(!job)fail(404,'Task not found.');await this.review.checkContext(actor,origin(job));
       if(job.state!=='review'||job.cycle>=2||job.version_id)fail(409,'This task cannot be retried again.');
-      return {statements:[this.review.accessGuard(actor,origin(job)),s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND cycle<2 AND version_id IS NULL",[actor.id,id,body.expectedRevision]),this.review.guard()],result:{id,state:'queued',revision:body.expectedRevision+1}};
+      return {statements:[this.review.accessGuard(actor,origin(job)),s("UPDATE qr_generation_jobs SET state='queued',requested_by=?,attempts=0,cycle=cycle+1,candidate_json=NULL,candidate_generation_json=NULL,next_at=0,issue='',revision=revision+1 WHERE id=? AND revision=? AND state='review' AND cycle<2 AND version_id IS NULL",[actor.id,id,body.expectedRevision]),this.review.guard()],result:{id,state:'queued',revision:body.expectedRevision+1}};
     });
   }
   async repair(actor,id,body){
@@ -103,7 +103,8 @@ export class QuizGenerationService{
     [state,Math.max(this.now(),attempt.startedAt),issue,observation.source?JSON.stringify(observation.source):null,observation.usage?JSON.stringify(observation.usage):null,
       job.id,job.cycle,attempt.number,job.lease_token]),this.review.guard()];
   }
-  async runOne(){
+  async runOne({signal}={}){
+    if(signal?.aborted)return false;
     const now=this.now(),[found]=await this.db.read(`SELECT * FROM qr_generation_jobs WHERE
       (state IN ('queued','retry') AND next_at<=?) OR (state='running' AND lease_until<=?) ORDER BY next_at,id LIMIT 1`,[now,now]);
     if(!found)return false;
@@ -115,6 +116,7 @@ export class QuizGenerationService{
     let attempt=null,observing=false,observation={source:null,usage:null};
     try{
       const actor=await this.resolveActor(job.requested_by);reviewer(actor);await this.review.checkContext(actor,origin(job));
+      if(signal?.aborted)throw new GenerationIssue('cancelled',false);
       const [approved]=await this.db.read("SELECT id FROM qr_versions WHERE sense_id=? AND type=? AND state='approved' LIMIT 1",[job.sense_id,job.type]);
       if(approved){await this.change(job,{state:'skipped',issue:'already_approved',lease_token:null,lease_until:0});return true;}
       let candidate=job.candidate_json?JSON.parse(job.candidate_json):null;
@@ -126,7 +128,7 @@ export class QuizGenerationService{
         job=await this.change(job,{attempts:number},[s("INSERT INTO qr_generation_attempts(job_id,cycle,attempt,lease_token,state,started_at) VALUES(?,?,?,?,'running',?)",[job.id,job.cycle,number,job.lease_token,startedAt])]);
         attempt={number,startedAt};
         const [meaning]=await this.db.read('SELECT en,translation,definition,part_of_speech FROM qr_senses WHERE id=?',[job.sense_id]);
-        const controller=new AbortController();let timer;
+        const controller=new AbortController();let timer,abort;
         try{
           observing=true;
           candidate=await Promise.race([Promise.resolve().then(async()=>{
@@ -134,8 +136,8 @@ export class QuizGenerationService{
             if(controller.signal.aborted)throw new GenerationIssue('timeout');
             return this.generate({type:job.type,meaning,preparation,attempt:job.attempts,signal:controller.signal,
             onObservation:value=>{if(observing){observation={source:validateGenerationSource(value.source),usage:value.usage==null?null:validateGenerationUsage(value.usage)};}}
-          });}),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new GenerationIssue('timeout'));},this.timeoutMs);})]);
-        }finally{clearTimeout(timer);observing=false;}
+          });}),new Promise((_,reject)=>{abort=()=>{controller.abort();reject(new GenerationIssue('cancelled',false));};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();timer=setTimeout(()=>{controller.abort();reject(new GenerationIssue('timeout'));},this.timeoutMs);})]);
+        }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);observing=false;}
         if(candidate&&Object.hasOwn(candidate,'content')){
           exactFields(candidate,['content','generation']);
           generation=validateGenerationMetadata(candidate.generation);candidate=candidate.content;
@@ -146,6 +148,7 @@ export class QuizGenerationService{
         job=await this.change(job,{candidate_json:JSON.stringify(candidate),candidate_generation_json:generation?JSON.stringify(generation):null},this.finishAttempt(job,attempt,'accepted','',observation));
         attempt=null;
       }
+      if(signal?.aborted)throw new GenerationIssue('cancelled',false);
       if(this.preparation){preparation=preparation||await this.preparation.load(actor,job);await this.preparation.assertCurrent(actor,job,preparation);}
       // Stable mutation + saved candidate recover a crash after creating the version.
       const version=await this.review.createGeneratedDraft(this.worker,actor,{mutationId:job.id,...origin(job),type:job.type,content:candidate,...(generation?{generation}:{})},{guards:this.preparation?[...this.preparation.guards(actor,preparation),s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_generation_jobs WHERE id=? AND revision=? AND state='running' AND lease_token=? AND lease_until>?)",[job.id,job.revision,job.lease_token,this.now()])]:[]});

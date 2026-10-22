@@ -30,6 +30,9 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
   }
   if(method==='HEAD')fail(405,'HEAD is only supported for media.');
   if(method==='GET'){
+    if(path==='/preparation'){const p=params(url,['limit']);return json(await service('preparation').summary(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
+    const dispatchHistory=/^\/preparation\/([1-9]\d{0,15})\/history$/.exec(path);
+    if(dispatchHistory){const p=params(url,['before']);return json(await service('preparation').history(actor,integer(dispatchHistory[1]),{before:p.has('before')?integer(p.get('before')):null}));}
     if(path==='/status'){params(url,[]);return json({enabled:true,writable,features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
@@ -76,6 +79,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    if(path==='/preparation/settings')return json(await service('preparation').configure(actor,data));
+    if(path==='/preparation/reconcile'){
+      if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>!['after','limit'].includes(key)))fail(400,'Invalid reconciliation page.');
+      return json(await service('preparation').reconcile(actor,data));
+    }
     if(path==='/kit/fill')return json(await service('kits').fill(actor,data));
     const removeMedia=new RegExp('^/media/'+id+'/remove$').exec(path);if(removeMedia)return json(await service('media').remove(actor,removeMedia[1],data));
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));

@@ -42,7 +42,8 @@ export class QuizPreparationPipeline{
       WHERE id=? AND revision=? AND state='running' AND lease_token=? AND lease_until>?`,
       [state,issue,attemptId,state==='running'?job.lease_token:null,leaseUntil,this.time(),job.id,job.revision,job.lease_token,this.time()]),this.review.guard()]);
   }
-  async runOne(){
+  async runOne({signal}={}){
+    if(signal?.aborted)return false;
     developer(this.worker);if(!(await this.settings(this.worker)).enabled)return false;
     await this.discover();const at=this.time();
     const [found]=await this.db.read("SELECT * FROM qr_preparation_pipeline WHERE state='queued' OR (state='running' AND lease_until<=?) ORDER BY changed_at,id LIMIT 1",[at]);
@@ -55,6 +56,7 @@ export class QuizPreparationPipeline{
     const [job]=await this.db.read('SELECT * FROM qr_preparation_pipeline WHERE id=?',[found.id]);
     try{
       const actor=await this.resolveActor(job.requested_by);teacher(actor);
+      if(signal?.aborted){await this.finish(job,'attention','cancelled');return true;}
       const q=await this.review.version(job.version_id);await this.review.access(actor,q);
       if(q.revision!==job.expected_revision||q.state!=='submitted'){await this.finish(job,'stale','revision_changed');return true;}
       const [lease]=await this.db.read('SELECT lease_token,lease_until FROM qr_preparation_pipeline WHERE id=?',[job.id]);
@@ -64,7 +66,7 @@ export class QuizPreparationPipeline{
       let attempt;
       if(job.attempt_id)attempt=await this.independent.attempt(actor,q.id,job.attempt_id);
       else if(existing.attempt?.current||existing.attempt?.state==='pending'&&existing.attempt.revision===q.revision)attempt=existing.attempt;
-      else attempt=await this.independent.run(actor,q.id,{mutationId:'pipeline-'+job.id,expectedRevision:q.revision,level:null});
+      else attempt=await this.independent.run(actor,q.id,{mutationId:'pipeline-'+job.id,expectedRevision:q.revision,level:null},{signal});
       const current=await this.review.version(q.id);
       if(current.revision!==job.expected_revision||current.state!=='submitted')await this.finish(job,'stale','revision_changed',attempt.id);
       else if(attempt.state==='pending')await this.finish(job,'running','awaiting_result',attempt.id,Math.max(this.time()+1000,attempt.expiresAt));
