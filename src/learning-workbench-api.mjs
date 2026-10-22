@@ -54,18 +54,23 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       let sources=[],availability={};try{const settings=await speech.providers.inspect(speech.worker);sources=['pronunciation','stt'].map(task=>settings.adapters.find(row=>row.id===settings.selections[task]?.adapterId)).filter(Boolean);
         availability=Object.fromEntries(tasks.map(task=>{const choice=settings.selections[task.evaluation];return [task.id,!!choice&&!settings.unavailable.some(row=>row.task===task.evaluation)&&choice.locale===task.locale&&choice.mode===(['pronunciation','shadowing'].includes(task.mode)?'scripted':'unscripted')];}));
       }catch{availability=Object.fromEntries(tasks.map(task=>[task.id,false]));}
-      return json({...catalog,trainingAvailable:true,rubrics:speech.rubrics.map(({id,version})=>({id,version})),availability,synthetic:!!sources.length&&sources.every(source=>source.provider==='local-fixture'),analyzerLabel:sources.map(source=>source.provider+' · '+source.model).join('; ')||null});
+      return json({...catalog,trainingAvailable:true,coachingAvailable:!!services?.coaching,rubrics:speech.rubrics.map(({id,version})=>({id,version})),availability,synthetic:!!sources.length&&sources.every(source=>source.provider==='local-fixture'),analyzerLabel:sources.map(source=>source.provider+' · '+source.model).join('; ')||null});
     }
     const training=new RegExp('^/speech/attempts/'+id+'/(training|compare)$').exec(path);
+    const languageProgress=new RegExp('^/speech/tasks/'+id+'/language-progress$').exec(path);
+    if(languageProgress){const p=params(url,['period','from','to']);return json(await service('transcripts').progress(actor,languageProgress[1],{period:p.get('period')||'week',from:p.has('from')?integer(p.get('from')):null,to:p.has('to')?integer(p.get('to')):null}));}
+    const coaching=new RegExp('^/speech/(tasks|attempts)/'+id+'/(dialogues|exercises|dispute)$').exec(path);
+    if(coaching){params(url,[]);if(coaching[1]==='tasks'&&coaching[3]==='dialogues')return json(await service('coaching').list(actor,coaching[2]));if(coaching[1]==='attempts'&&['exercises','dispute'].includes(coaching[3]))return json(await service('coaching')[coaching[3]==='dispute'?'disputeForAttempt':'exercises'](actor,coaching[2]));fail(404,'Unknown coaching action.');}
+    const dialogue=new RegExp('^/speech/dialogues/'+id+'$').exec(path);if(dialogue){params(url,[]);return json(await service('coaching').get(actor,dialogue[1]));}
     if(training){const p=params(url,training[2]==='compare'?['attemptId']:[]);return json(await service('speech')[training[2]](actor,training[1],...(training[2]==='compare'?[p.get('attemptId')]:[])));}
     const speech=new RegExp('^/speech/(tasks|attempts)/'+id+'(?:/(history|progress|recipients|shared|text-reviews))?$').exec(path);
     if(speech){
-      const p=params(url,speech[3]==='history'?['before']:[]);
+      const p=params(url,speech[3]==='history'?['before']:speech[3]==='progress'?['period','from','to']:[]);
       if(speech[1]==='attempts'&&!speech[3])return json(await service('speech').get(actor,speech[2],{recover:false}));
       if(speech[1]==='attempts'&&speech[3]==='text-reviews')return json(await service('transcripts').history(actor,speech[2]));
       if(speech[1]==='tasks'&&['history','progress','recipients','shared'].includes(speech[3])){
         let before=null;if(p.has('before'))try{before=JSON.parse(p.get('before'));}catch{fail(400,'Invalid history cursor.');}
-        return json(await service('speech')[speech[3]](actor,speech[2],{before,recover:false}));
+        return json(await service('speech')[speech[3]](actor,speech[2],{before,recover:false,...(speech[3]==='progress'?{period:p.get('period')||undefined,from:p.has('from')?integer(p.get('from')):null,to:p.has('to')?integer(p.get('to')):null}:{})}));
       }
     }
     const text=new RegExp('^/speech/text-reviews/'+id+'$').exec(path);if(text){params(url,[]);return json(await service('transcripts').get(actor,text[1]));}
@@ -89,6 +94,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));
     if(path==='/sessions')return json(await service('sessions').start(actor,data));
     if(path==='/speech/tasks')return json(await service('speech').createTask(actor,data));
+    const startDialogue=new RegExp('^/speech/tasks/'+id+'/dialogues$').exec(path);if(startDialogue)return json(await service('coaching').start(actor,startDialogue[1],data));
+    const dialogueAction=new RegExp('^/speech/dialogues/'+id+'/(turn|remove)$').exec(path);
+    if(dialogueAction){const coaching=service('coaching'),background=dialogueAction[2]==='turn'&&typeof waitUntil==='function',result=await coaching[dialogueAction[2]](actor,dialogueAction[1],data,{background});if(background)waitUntil(Promise.allSettled([...coaching.running]));return json(result);}
+    const dispute=new RegExp('^/speech/attempts/'+id+'/dispute$').exec(path);if(dispute)return json(await service('coaching').dispute(actor,dispute[1],data));
+    const decision=new RegExp('^/speech/disputes/'+id+'/decision$').exec(path);if(decision)return json(await service('coaching').decide(actor,decision[1],data));
     const proposal=new RegExp('^/proposals/'+id+'/(edit|submit|return|approve|revise)$').exec(path);
     if(proposal)return json(await service('review')[{edit:'editDraft',submit:'submit',return:'requestChanges',approve:'approve',revise:'proposeRevision'}[proposal[2]]](actor,proposal[1],data));
     const speech=new RegExp('^/speech/(tasks|attempts)/'+id+'/(analyze|correct|share|revoke|cancel|remove|confirm-text)$').exec(path);

@@ -5,7 +5,8 @@ import {kitSigned,kitTeacher} from './learning-kits.mjs';
 import {SPEECH_MODES,SPEECH_METRICS,validateSpeechRubric,validateSpeechOutput,scoreSpeech} from './speech-assessment.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
 import {checkSpeechContext,speechContextGuard,lessonSpeechContext} from './speech-lesson-context.mjs';
-import {validateSpeechTaskCriteria} from './speech-task-criteria.mjs';
+import {validateSpeechTaskCriteria,validateSpeechDialogue} from './speech-task-criteria.mjs';
+import {speechProgressPeriods} from './speech-progress-periods.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const context=row=>({groupId:row.group_id,lessonId:row.lesson_id,cardId:row.card_id,senseId:row.sense_id});
 const scripted=mode=>['pronunciation','shadowing'].includes(mode);
@@ -25,7 +26,7 @@ export class SpeechPractice{
   accessGuard(actor,value){return speechContextGuard(this.review,actor,value);}
   async task(actor,id){this.gate(actor);const [row]=await this.db.read('SELECT * FROM qr_speech_tasks WHERE id=?',[id]);if(!row)fail(404,'Speech task not found.');await this.checkContext(actor,context(row));return {...row,value:JSON.parse(row.value_json)};}
   async createTask(actor,body){
-    this.gate(actor);kitTeacher(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','mode','locale','prompt','reference','referenceMediaId','rubricId','evaluation','languageReview','level','criteria']);
+    this.gate(actor);kitTeacher(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','mode','locale','prompt','reference','referenceMediaId','rubricId','evaluation','languageReview','level','criteria','dialogue']);
     body={...body,cardId:body.cardId??null,senseId:body.senseId??null};await this.checkContext(actor,body);
     if(!SPEECH_MODES.includes(body.mode)||!['en-US','en-GB'].includes(body.locale)||!['pronunciation','stt'].includes(body.evaluation)||typeof body.languageReview!=='boolean'||!this.rubrics.some(row=>row.id===body.rubricId)||![null,'A1','A2','B1','B2','C1','C2'].includes(body.level))fail(400,'Invalid speech task configuration.');
     const reference=body.reference===null?null:reviewText(body.reference,2000),prompt=reviewText(body.prompt,2000),referenceMediaId=body.referenceMediaId;
@@ -33,8 +34,10 @@ export class SpeechPractice{
     if(body.mode==='shadowing'&&!referenceMediaId)fail(400,'Shadowing requires reference audio.');
     if(lessonSpeechContext(body)&&!scripted(body.mode)&&body.evaluation!=='stt')fail(400,'Open lesson speech requires transcription, not scripted pronunciation assessment.');
     const criteria=lessonSpeechContext(body)||body.criteria!==undefined?validateSpeechTaskCriteria(body.criteria,body.mode):null;
+    if(body.dialogue!==undefined&&body.mode!=='dialogue')fail(400,'Dialogue configuration requires dialogue mode.');
+    const dialogue=validateSpeechDialogue(body.dialogue);
     const guards=referenceMediaId===null?[]:await this.media.validate(actor,body,'Listen',{items:[{mediaId:referenceMediaId}]});
-    const value={mode:body.mode,locale:body.locale,prompt,reference,referenceMediaId,rubric:this.rubrics.find(row=>row.id===body.rubricId),evaluation:body.evaluation,languageReview:body.languageReview,level:body.level,maxSeconds:scripted(body.mode)?30:120,...(criteria?{criteria}:{})};
+    const value={mode:body.mode,locale:body.locale,prompt,reference,referenceMediaId,rubric:this.rubrics.find(row=>row.id===body.rubricId),evaluation:body.evaluation,languageReview:body.languageReview,level:body.level,maxSeconds:scripted(body.mode)?30:120,...(criteria?{criteria}:{}),...(dialogue?{dialogue}:{})};
     return this.review.mutation(actor,body,['speech-task'],async()=>{const id=crypto.randomUUID();return {statements:[this.accessGuard(actor,body),...guards,s('INSERT INTO qr_speech_tasks(id,group_id,lesson_id,card_id,sense_id,author_id,created_at,value_json) VALUES(?,?,?,?,?,?,?,?)',[id,body.groupId,body.lessonId,body.cardId,body.senseId,actor.id,this.now(),JSON.stringify(value)])],result:{id}};});
   }
   async listTasks(actor,body){this.gate(actor);exactFields(body,['groupId','lessonId','cardId','senseId']);await this.review.checkContext(actor,body);return this.db.read('SELECT id,value_json FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=? ORDER BY created_at,id',[body.groupId,body.lessonId,body.cardId,body.senseId]).then(rows=>rows.map(row=>({id:row.id,...JSON.parse(row.value_json)})));}
@@ -157,13 +160,14 @@ export class SpeechPractice{
     const rows=await this.db.read(`SELECT id,created_at FROM qr_speech_attempts WHERE task_id=? AND owner_id=? AND deleted_at IS NULL ${before?'AND (created_at<? OR (created_at=? AND id<?))':''} ORDER BY created_at DESC,id DESC LIMIT 51`,[taskId,actor.id,...(before?[before[0],before[0],before[1]]:[])]),page=rows.slice(0,50);
     return {attempts:await Promise.all(page.map(row=>this.get(actor,row.id,{recover:false}))),next:rows.length>50?[page.at(-1).created_at,page.at(-1).id]:null};
   }
-  async progress(actor,taskId){
-    await this.task(actor,taskId);const rows=await this.db.read("SELECT id,comparison_key,result_json,created_at FROM qr_speech_attempts WHERE task_id=? AND owner_id=? AND state='complete' AND deleted_at IS NULL ORDER BY created_at,id",[taskId,actor.id]),groups=new Map();
+  async progress(actor,taskId,{period,from=null,to=null}={}){
+    if(period!==undefined&&!['day','week','month'].includes(period)||[from,to].some(value=>value!==null&&(!Number.isSafeInteger(value)||value<0))||from!==null&&to!==null&&from>=to)fail(400,'Invalid progress period.');
+    await this.task(actor,taskId);let rows=await this.db.read("SELECT id,comparison_key,result_json,created_at FROM qr_speech_attempts WHERE task_id=? AND owner_id=? AND state='complete' AND deleted_at IS NULL AND (? IS NULL OR created_at>=?) AND (? IS NULL OR created_at<?) ORDER BY created_at,id"+(period?' LIMIT 5001':''),[taskId,actor.id,from,from,to,to]);const truncated=!!period&&rows.length>5000;if(truncated)rows=rows.slice(0,5000);const groups=new Map();
     for(const row of rows){const result=JSON.parse(row.result_json);if(!groups.has(row.comparison_key))groups.set(row.comparison_key,{key:row.comparison_key,synthetic:result.synthetic,provisional:result.provisional,points:[],metrics:{}});const group=groups.get(row.comparison_key);group.points.push({id:row.id,date:row.created_at,overall:result.overall,...result.scores});}
     for(const group of groups.values())for(const metric of ['overall','accuracy','fluency','prosody','grammar','vocabulary','task']){
       const points=group.points.filter(point=>point[metric]!==null),values=points.map(point=>point[metric]);group.metrics[metric]=values.length?{count:values.length,first:values[0],last:values.at(-1),best:values.reduce((a,b)=>Math.max(a,b)),average:Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10}:null;
     }
-    return {series:[...groups.values()]};
+    const series=[...groups.values()];return {series,...(period?{periods:speechProgressPeriods(series,{period}),truncated,from,to}:{})};
   }
   async correct(actor,id,body){const row=await this.attempt(actor,id,{owner:true});exactFields(body,['mutationId','text']);if(row.state!=='complete'||!row.result_json)fail(409,'Only a completed transcript may be corrected.');const text=reviewText(body.text,6000);
     return this.review.mutation(actor,body,['speech-correction',id],async()=>({statements:[s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_attempts WHERE id=? AND deleted_at IS NULL AND state='complete')",[id]),s('INSERT INTO qr_speech_corrections(id,attempt_id,created_at,text,revision) SELECT ?,?,?,?,COALESCE(max(revision),0)+1 FROM qr_speech_corrections WHERE attempt_id=?',[crypto.randomUUID(),id,this.now(),text,id])],result:{id,scoreUnchanged:true}}));}

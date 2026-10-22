@@ -10,3 +10,10 @@ export function validateSpeechTaskCriteria(value,mode){
   if(!['free','retelling','dialogue'].includes(mode))throw new StudyError(400,'Only open speech tasks use meaning criteria.');
   return {version:'speech-task-criteria-v1',sourceText,keyIdeas,targetVocabulary};
 }
+export function validateSpeechDialogue(value){
+  if(value===undefined)return null;
+  exactFields(value,['role','scenario','goals','constraints','maxTurns']);
+  const list=rows=>{if(!Array.isArray(rows)||rows.length>10)throw new StudyError(400,'Invalid dialogue goals.');return rows.map(row=>reviewText(row,300));};
+  if(!Number.isSafeInteger(value.maxTurns)||value.maxTurns<2||value.maxTurns>12)throw new StudyError(400,'Use 2 to 12 dialogue turns.');
+  return {role:reviewText(value.role,200),scenario:reviewText(value.scenario,2000),goals:list(value.goals),constraints:list(value.constraints),maxTurns:value.maxTurns};
+}

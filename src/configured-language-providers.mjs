@@ -12,7 +12,7 @@ async function accountScope(provider,account){
   if(typeof account!=='string'||!account.trim()||account.length>200||/[\s\x00-\x1f]/.test(account))throw new LanguageProviderError('invalid_configuration');
   return digest([provider,account]);
 }
-export async function createConfiguredLanguageProviders({db,authorize,quota=null,wordnet=null,whisper=null,azure=null,gemini=null,generation=null,now=Date.now}={}){
+export async function createConfiguredLanguageProviders({db,authorize,quota=null,wordnet=null,whisper=null,azure=null,gemini=null,generation=null,conversation=null,now=Date.now}={}){
   if(typeof authorize!=='function')throw new LanguageProviderError('invalid_configuration');
   const access=new LanguageAccessPolicy(db,{now}),adapters=[],accounts=[];
   const configured=async options=>{
@@ -31,6 +31,7 @@ export async function createConfiguredLanguageProviders({db,authorize,quota=null
   if(azure){const options=await configured(azure);await register('microsoft-azure',azure.resourceName,[createAzurePronunciationAdapter(options),createAzureTTSAdapter(options)]);}
   // Project-level quota identity is supplied by the server, never an API key.
   if(gemini){if(typeof gemini.quotaProject!=='string'||!/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(gemini.quotaProject))throw new LanguageProviderError('invalid_configuration');await register('google',gemini.quotaProject,[createGeminiReviewAdapter(await configured(gemini))]);}
+  if(conversation){if(!conversation.adapter?.capabilities?.every(cap=>cap.task==='conversation'))throw new LanguageProviderError('invalid_configuration');await register(conversation.adapter.provider,conversation.account,[conversation.adapter]);}
   const providers=new StoredLanguageProviders(db,{adapters,authorize,quota,freeOnly:true},{now});
   return Object.freeze({providers,access,accounts:structuredClone(accounts)});
 }

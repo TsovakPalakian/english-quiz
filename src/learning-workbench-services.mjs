@@ -9,6 +9,7 @@ import {SpeechPractice} from './speech-practice.mjs';
 import {SpeechTranscriptReview} from './speech-transcript-review.mjs';
 import {StoredLanguageProviders} from './stored-language-providers.mjs';
 import {QuizPreparationRunner} from './quiz-preparation-runner.mjs';
+import {SpeechCoaching} from './speech-coaching.mjs';
 export function createLearningWorkbenchFactory({storage,inspect,speech:configuration=null,openPreparation=null}={}){
   if(typeof inspect!=='function')throw new StudyError(503,'A trusted media inspector is required.');
   if(openPreparation!==null&&typeof openPreparation!=='function')throw new StudyError(503,'A trusted preparation factory is required.');
@@ -39,6 +40,7 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       if(!(providers instanceof StoredLanguageProviders))throw new StudyError(503,'Stored language providers are required.');
       services.speech=new SpeechPractice(kits,media,{enabled:true,providers,worker,rubrics:configuration.rubrics,budgets:configuration.budgets,resolveActor:configuration.resolveActor});
       services.transcripts=new SpeechTranscriptReview(services.speech,{enabled:true,rubric:configuration.languageRubric});
+      if(configuration.coaching?.enabled===true)services.coaching=new SpeechCoaching(services.speech,configuration.coaching);
     }
     return services;
   };

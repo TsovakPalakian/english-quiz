@@ -2,6 +2,7 @@
 import {StudyError,statement as s} from './learning-study.mjs';
 import {exactFields} from './quiz-review-content.mjs';
 import {validateSpeechRubric,validateSpeechOutput,scoreSpeech} from './speech-assessment.mjs';
+import {speechProgressPeriods} from './speech-progress-periods.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 export class SpeechTranscriptReview{
   constructor(speech,{enabled=false,rubric,now=Date.now,timeoutMs=30000}={}){
@@ -19,6 +20,18 @@ export class SpeechTranscriptReview{
   dto(row){return {id:row.id,attemptId:row.attempt_id,transcriptRevision:row.transcript_revision,transcript:row.transcript,state:row.state,createdAt:row.created_at,source:JSON.parse(row.source_json),result:row.result_json?JSON.parse(row.result_json):null,error:row.error_code,basedOnEditedTranscript:row.transcript_revision>0};}
   async get(actor,id){return this.dto(await this.row(actor,id));}
   async history(actor,id){this.gate(actor);await this.speech.attempt(actor,id);const rows=await this.db.read('SELECT * FROM qr_speech_text_reviews WHERE attempt_id=? AND deleted_at IS NULL ORDER BY sequence DESC LIMIT 50',[id]);return {reviews:rows.map(row=>this.dto(row)),limit:50};}
+  async progress(actor,taskId,{period='week',from=null,to=null}={}){
+    this.gate(actor);await this.speech.task(actor,taskId);
+    if(!['day','week','month'].includes(period)||[from,to].some(value=>value!==null&&(!Number.isSafeInteger(value)||value<0))||from!==null&&to!==null&&from>=to)fail(400,'Invalid progress period.');
+    const rows=await this.db.read("SELECT r.* FROM qr_speech_text_reviews r JOIN qr_speech_attempts a ON a.id=r.attempt_id WHERE a.task_id=? AND r.owner_id=? AND a.deleted_at IS NULL AND r.deleted_at IS NULL AND r.state='complete' AND (? IS NULL OR r.created_at>=?) AND (? IS NULL OR r.created_at<?) ORDER BY r.created_at,r.id LIMIT 5001",[taskId,actor.id,from,from,to,to]),groups=new Map();
+    for(const row of rows.slice(0,5000)){
+      const result=JSON.parse(row.result_json);if(!result?.sufficient)continue;
+      const {configurationRevision,...source}=JSON.parse(row.source_json),key=JSON.stringify({source,rubric:JSON.parse(row.rubric_json),edited:row.transcript_revision>0});
+      if(!groups.has(key))groups.set(key,{key,synthetic:result.synthetic,provisional:result.provisional,editedTranscript:row.transcript_revision>0,points:[]});
+      groups.get(key).points.push({id:row.id,date:row.created_at,overall:result.overall,...result.scores});
+    }
+    const series=[...groups.values()];return {series,periods:speechProgressPeriods(series,{period}),truncated:rows.length>5000,basis:'confirmed_transcript_not_acoustic_speech',from,to};
+  }
   async confirm(actor,id,body,{background=false}={}){
     this.gate(actor);const attempt=await this.speech.attempt(actor,id,{owner:true});exactFields(body,['mutationId','transcriptRevision','consent','retryOf']);
     if(body.consent!==true||!Number.isSafeInteger(body.transcriptRevision)||body.transcriptRevision<0)fail(400,'Confirm the displayed transcript revision before language review.');

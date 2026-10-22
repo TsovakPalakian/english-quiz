@@ -10,7 +10,7 @@ function wav(chunks,rate){
 }
 export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage,notify,endpoint='/local/speech'}){
   const route=path=>path.replace(/^\/local\/speech(?=\/|\?|$)/,endpoint);
-  let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null;
+  let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null,dialogueId='',progressPeriod='week',exerciseViews=new Map();
   const selected=()=>state?.tasks.find(task=>task.id===taskId);
   let expandedAttempts=new Set();
   const lesson=()=>{const c=context();return {groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
@@ -18,13 +18,20 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   function discard(){cleanup();uploadController?.abort();uploadController=null;document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(localUrl)URL.revokeObjectURL(localUrl);localUrl='';blob=null;uploaded=null;intent=null;}
   async function load(){
     const c=context();if(!c||c.personal){reset();return;}
-    const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;trainingPlan=null;comparison=null;expandedAttempts.clear();contextKey=key;}
+    const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();contextKey=key;}
     const data=await api('/local/speech?'+new URLSearchParams(lesson()));if(epoch!==sessionKey()||loadId!==generation)return;
     if(!data.tasks.some(task=>task.id===taskId))taskId=data.tasks[0]?.id||'';
-    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'+(data.coachingAvailable?'?period='+progressPeriod:'')),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    let dialogue=null,dialogues=[],languageProgress=null;const disputes=new Map();
+    if(data.coachingAvailable&&taskId){
+      dialogues=(await api('/local/speech/tasks/'+taskId+'/dialogues')).dialogues;
+      languageProgress=await api('/local/speech/tasks/'+taskId+'/language-progress?period='+progressPeriod);
+      const chosen=dialogues.find(row=>row.id===dialogueId)||dialogues[0];if(chosen)dialogue=await api('/local/speech/dialogues/'+chosen.id);
+      for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')disputes.set(attempt.id,(await api('/local/speech/attempts/'+attempt.id+'/dispute')).dispute);
+    }
     const textReviews=new Map();
     for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));
-    if(epoch===sessionKey()&&loadId===generation)state={...data,history,progress,recipients,shared,textReviews};
+    if(epoch===sessionKey()&&loadId===generation){dialogueId=dialogue?.id||'';state={...data,history,progress,recipients,shared,textReviews,dialogue,dialogues,disputes,languageProgress};}
   }
   function trainingPanel(){
     if(!trainingPlan)return '';
@@ -46,8 +53,8 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
     if(document.querySelector('[data-speech-history][open]'))expandedAttempts.add('history');
     const contexts=context()?.lessonSpeech&&isTeacher()?'<label>Scope<select name="lessonContext" required><option value="lesson">Whole lesson</option>'+(state?.contexts||[]).map((row,index)=>'<option value="'+index+'">'+esc([row.word,row.partOfSpeech,row.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>':'';
     const criteria=selected()?.criteria,criteriaPanel=criteria?'<details><summary>Task material and goals</summary>'+(criteria.sourceText?'<blockquote class="quiz-content">'+esc(criteria.sourceText)+'</blockquote>':'')+(criteria.keyIdeas.length?'<h4>Key ideas</h4><ul>'+criteria.keyIdeas.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>':'')+(criteria.targetVocabulary.length?'<p>'+esc(criteria.targetVocabulary.join(', '))+'</p>':'')+'</details>':'';
-    const criteriaFields='<fieldset data-speech-criteria hidden><legend>Meaning and vocabulary</legend><label>Retelling source<textarea name="sourceText" maxlength="6000"></textarea></label><label>Key ideas · one per line<textarea name="keyIdeas" maxlength="3000"></textarea></label><label>Target vocabulary · one per line<textarea name="targetVocabulary" maxlength="6000"></textarea></label></fieldset>';
-    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel()+criteriaPanel)
+    const criteriaFields='<fieldset data-speech-criteria hidden><legend>Meaning and vocabulary</legend><label>Retelling source<textarea name="sourceText" maxlength="6000"></textarea></label><label>Key ideas · one per line<textarea name="keyIdeas" maxlength="3000"></textarea></label><label>Target vocabulary · one per line<textarea name="targetVocabulary" maxlength="6000"></textarea></label><details><summary>Dialogue scenario</summary><label>Partner role<input name="partnerRole" maxlength="200"></label><label>Constraints · one per line<textarea name="constraints" maxlength="3000"></textarea></label><label>Turn limit<input name="maxTurns" type="number" min="2" max="12" value="6"></label></details></fieldset>';
+    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel()+criteriaPanel+coachingPanel())
       .replace('<details><summary>My attempts','<details data-speech-history><summary>My attempts')
       .replace('<label>Mode<select name="mode">',contexts+'<label>Mode<select name="mode">')
       .replace('<label>Locale<select name="locale">',criteriaFields+'<label>Locale<select name="locale">')
@@ -55,6 +62,13 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       .replaceAll('src="/local/speech/','src="'+endpoint+'/')
       .replace('Local pilot · Synthetic analysis only · No external speech service connected',state?.synthetic?'Synthetic analysis only · No assessment of the recording':state?.analyzerLabel?'Speech provider: '+esc(state.analyzerLabel):'Speech provider is not configured')
       .replace('Send this recording to the selected synthetic local analyzer','Send this recording to '+esc(state?.analyzerLabel||(state?.synthetic?'the synthetic local analyzer':'the configured speech provider')));
+  }
+  function coachingPanel(){
+    if(!state?.coachingAvailable)return '';
+    const dialogue=state.dialogue,periods=[...(state.progress.periods||[]).map(series=>({...series,basis:'Speech'})),...(state.languageProgress?.periods||[]).map(series=>({...series,basis:series.editedTranscript?'Confirmed edited text':'Confirmed original text'}))];
+    const discussion=selected()?.mode==='dialogue'?'<details open><summary>Dialogue</summary><button type="button" data-speech-action="start-dialogue">Start dialogue</button>'+(dialogue?'<select data-speech-dialogue>'+state.dialogues.map(row=>'<option value="'+esc(row.id)+'" '+(row.id===dialogue.id?'selected':'')+'>'+esc(new Date(row.createdAt).toLocaleDateString('en-GB')+' · '+row.state)+'</option>').join('')+'</select><p>'+esc(dialogue.scenario.role)+' · '+esc(dialogue.state)+'</p>'+dialogue.turns.map(turn=>'<div><p><strong>You</strong> '+esc(turn.text)+'</p><p><strong>Partner</strong> '+esc(turn.reply||turn.error||turn.state)+'</p></div>').join('')+'<button type="button" data-speech-action="remove-dialogue" data-id="'+esc(dialogue.id)+'">Delete dialogue</button>':'')+'</details>':'';
+    const progress='<details><summary>Progress by period</summary><label>Period<select data-speech-period>'+['day','week','month'].map(period=>'<option '+(progressPeriod===period?'selected':'')+'>'+period+'</option>').join('')+'</select></label>'+periods.map((series,index)=>'<h4>'+esc(series.basis)+' · Series '+(index+1)+'</h4>'+series.buckets.map(bucket=>'<p>'+esc(bucket.date)+' · '+bucket.attempts+' · '+esc(bucket.metrics.overall?.average??'Unavailable')+' / 100</p>').join('')).join('')+(state.progress.truncated||state.languageProgress?.truncated?'<p>Only the first 5000 attempts are included.</p>':'')+'</details>';
+    return discussion+progress;
   }
   function chart(index,metric='overall'){
     const series=state?.progress.series[index],canvas=document.querySelector('[data-speech-chart="'+index+'"]');if(!series||!canvas)return;
@@ -74,6 +88,11 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       const attempt=[...(state?.history.attempts||[]),...(state?.shared||[])].find(row=>row.id===node.dataset.speechId);
       node.querySelector('[data-speech-action="training"]')?.remove();
       if(state?.trainingAvailable&&attempt?.canManage&&attempt.state==='complete'&&attempt.result?.training.length){const button=document.createElement('button');button.type='button';button.dataset.speechAction='training';button.dataset.id=attempt.id;button.textContent='Practice these points';node.querySelector('.detail').prepend(button);}
+      if(state?.coachingAvailable&&attempt?.state==='complete'){
+        const dispute=state.disputes.get(attempt.id),revision=attempt.correction?.revision||0,dialogue=state.dialogue,extra=document.createElement('div');
+        extra.innerHTML=(attempt.canManage?'<button type="button" data-speech-action="exercises" data-id="'+esc(attempt.id)+'">Practice corrections</button>'+(exerciseViews.get(attempt.id)?.exercises||[]).map(exercise=>'<p>'+esc(exercise.instruction)+(exercise.reference?' · '+esc(exercise.reference):'')+'</p>').join(''):'')+(attempt.canManage&&dialogue?.state==='open'&&!dialogue.turns.some(turn=>['reserved','started'].includes(turn.state))?'<form data-speech-form="dialogue-turn" data-id="'+esc(attempt.id)+'" data-revision="'+revision+'"><p>'+esc(attempt.correction?.text||attempt.result?.transcript)+'</p><label class="check"><input type="checkbox" name="consent" required>Send this transcript to the conversation partner</label><button type="submit">Send dialogue turn</button></form>':'')+(dispute?'<details><summary>Assessment review · '+esc(dispute.decision||'pending')+'</summary><p>'+esc(dispute.reason)+'</p><p>'+esc(dispute.comment||'')+'</p>'+(dispute.teacherScore!==null&&dispute.teacherScore!==undefined?'<p>Teacher assessment: '+esc(dispute.teacherScore)+' / 100</p>':'')+(!attempt.canManage&&isTeacher()&&!dispute.decision?'<form data-speech-form="dispute-decision" data-id="'+esc(dispute.id)+'" data-revision="'+dispute.revision+'"><label>Decision<select name="decision"><option value="upheld">Upheld</option><option value="needs_reassessment">Needs reassessment</option></select></label><label>Comment<textarea name="comment" maxlength="2000" required></textarea></label><label>Separate teacher score<input name="teacherScore" type="number" min="0" max="100" step="0.1"></label><button type="submit">Save decision</button></form>':'')+'</details>':attempt.canManage?'<details><summary>Question this assessment</summary><form data-speech-form="dispute" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label>Reason<textarea name="reason" maxlength="2000" required></textarea></label><label class="check"><input name="consent" type="checkbox" required>Share this result with the selected teacher</label><button type="submit">Request review</button></form></details>':'');
+        node.querySelector('[data-speech-coaching]')?.remove();extra.dataset.speechCoaching='';node.querySelector('.detail').append(extra);
+      }
       if(attempt&&!attempt.canHear)node.querySelector('audio')?.remove();
       const transcript=node.querySelector('.quiz-content'),result=attempt?.result;
       if(transcript&&result?.transcript){
@@ -92,7 +111,7 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
         node.querySelector('.detail').append(panel);
       }
     });
-    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state))))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
+    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state)))||state?.dialogue?.turns.some(turn=>['reserved','started'].includes(turn.state)))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
   }
   async function start(){
     if(!selected())return;discard();const epoch=++captureEpoch,session=sessionKey();let stream,audio;
@@ -107,6 +126,8 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   }
   function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);renderPage();}
   document.addEventListener('change',event=>{
+    if(event.target.matches('[data-speech-period]')){progressPeriod=event.target.value;run(async()=>{await load();renderPage();});}
+    if(event.target.matches('[data-speech-dialogue]')){dialogueId=event.target.value;run(async()=>{await load();renderPage();});}
     if(event.target.matches('[data-speech-form="task"] [name="mode"]')){
       const form=event.target.form,mode=event.target.value,open=['free','retelling','dialogue'].includes(mode),fields=form.querySelector('[data-speech-criteria]');
       if(fields){fields.hidden=!open;for(const input of fields.querySelectorAll('textarea')){input.disabled=!open;input.required=mode==='retelling'&&['sourceText','keyIdeas'].includes(input.name);}}
@@ -118,6 +139,8 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
     if(event.target.id==='theme'&&document.querySelector('.speech-panel'))queueMicrotask(afterRender);
   });
   document.addEventListener('click',event=>{const button=event.target.closest('[data-speech-action]');if(!button)return;const {speechAction:action,id,teacher}=button.dataset;
+    if(action==='remove')exerciseViews.delete(id);
+    if(['start-dialogue','remove-dialogue','exercises'].includes(action)){run(async()=>{if(action==='start-dialogue'){const result=await api('/local/speech/tasks/'+taskId+'/dialogues',{});dialogueId=result.id;}if(action==='remove-dialogue'){await api('/local/speech/dialogues/'+id+'/remove',{});dialogueId='';}if(action==='exercises')exerciseViews.set(id,await api('/local/speech/attempts/'+id+'/exercises'));await load();renderPage();});return;}
     if(action==='record'){run(start);return;}if(action==='stop'){stop();return;}
     run(async()=>{
       if(action==='training'){const epoch=sessionKey(),plan=await api('/local/speech/attempts/'+id+'/training');if(epoch!==sessionKey())return;discard();trainingPlan=plan;comparison=null;taskId=plan.taskId;renderPage();return;}
@@ -144,15 +167,18 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       if(kind==='task'){
         const origin=lesson();if(context()?.lessonSpeech){const index=data.get('lessonContext');if(index==='lesson'){origin.cardId=null;origin.senseId=null;}else{const selected=index!==null&&/^\d+$/.test(index)?state.contexts?.[Number(index)]:null;if(!selected)throw Error('Select a lesson scope.');origin.cardId=selected.cardId;origin.senseId=selected.senseId;}}
         const mode=data.get('mode'),open=['free','retelling','dialogue'].includes(mode),lines=name=>String(data.get(name)||'').split('\n').map(text=>text.trim()).filter(Boolean);
-        await api('/local/speech/tasks',{...origin,mode,locale:data.get('locale'),prompt:data.get('prompt'),reference:open?null:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:open?'stt':data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null,...(open?{criteria:{sourceText:String(data.get('sourceText')||'').trim()||null,keyIdeas:lines('keyIdeas'),targetVocabulary:lines('targetVocabulary')}}:{})});
+        await api('/local/speech/tasks',{...origin,mode,locale:data.get('locale'),prompt:data.get('prompt'),reference:open?null:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:open?'stt':data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null,...(open?{criteria:{sourceText:String(data.get('sourceText')||'').trim()||null,keyIdeas:lines('keyIdeas'),targetVocabulary:lines('targetVocabulary')}}:{}),...(mode==='dialogue'?{dialogue:{role:String(data.get('partnerRole')||'Conversation partner'),scenario:data.get('prompt'),goals:lines('keyIdeas'),constraints:lines('constraints'),maxTurns:Number(data.get('maxTurns')||6)}}:{})});
       }
+      if(kind==='dialogue-turn')await api('/local/speech/dialogues/'+state.dialogue.id+'/turn',{expectedRevision:state.dialogue.revision,attemptId:id,transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on'});
+      if(kind==='dispute')await api('/local/speech/attempts/'+id+'/dispute',{teacherId:data.get('teacherId'),reason:data.get('reason'),consent:data.get('consent')==='on'});
+      if(kind==='dispute-decision')await api('/local/speech/disputes/'+id+'/decision',{expectedRevision:Number(form.dataset.revision),decision:data.get('decision'),comment:data.get('comment'),teacherScore:String(data.get('teacherScore')||'').trim()===''?null:Number(data.get('teacherScore'))});
       if(kind==='correct')await api('/local/speech/attempts/'+id+'/correct',{text:data.get('text')});
       if(kind==='confirm-text')await api('/local/speech/attempts/'+id+'/confirm-text',{transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on',...(form.dataset.retry?{retryOf:form.dataset.retry}:{})});
       if(kind==='share')await api('/local/speech/attempts/'+id+'/share',{teacherId:data.get('teacherId'),includeAudio:data.get('includeAudio')==='on',consent:data.get('consent')==='on'});
       await load();renderPage();
     });
   });
-  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;expandedAttempts.clear();}
+  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();}
   window.addEventListener('pagehide',reset);
   return {load,render,afterRender,reset,deactivate(){generation++;clearTimeout(pollTimer);document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(capture)cleanup();}};
 }
