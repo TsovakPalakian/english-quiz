@@ -17,6 +17,7 @@ const fields={
   'Video choice':[['prompt','Question'],['mediaId','Video asset'],['transcript','Transcript']],
 };
 export function emptyReviewItems(type,c={}){
+  if(type==='Pronunciation')return [{prompt:'',reference:c.word||'',locale:'en-US',rubric:null}];
   const item=Object.fromEntries(fields[type].filter(([, ,optional])=>!optional).map(([key])=>[key,'']));
   if('word' in item)item.word=c.word||'';
   if(type==='Flip'){item.front=c.word||'';item.back=c.translation||'';}
@@ -25,6 +26,7 @@ export function emptyReviewItems(type,c={}){
   return isPairs(type)?[item,structuredClone(item)]:[item];
 }
 export function defaultReviewItems(type,c){
+  if(type==='Pronunciation')return emptyReviewItems(type,c);
   const sentence=c.word==='bank'?'She opened an account at the bank.':'A fine drizzle started falling.';
   let item;
   if(type==='Flip')item={front:c.word,back:c.translation};
@@ -45,10 +47,18 @@ export function defaultReviewItems(type,c){
   return [item];
 }
 function inputId(index,key){return (key==='front'||key==='shown'||key==='prompt'?'edit-prompt':key==='back'||key==='answer'?'edit-answer':'edit-'+key)+(index?'-'+index:'');}
-export function renderReviewItems(type,items){
+export function renderReviewItems(type,items,rubrics=[]){
+  if(type==='Pronunciation')return items.map((item,index)=>{
+    const choices=[...rubrics];if(item.rubric&&!choices.some(row=>JSON.stringify(row)===JSON.stringify(item.rubric)))choices.push(item.rubric);
+    return '<fieldset class="editor-item" data-editor-item="'+index+'"><legend>Item '+(index+1)+'</legend><button type="button" data-remove-item="'+index+'" aria-label="Remove item" '+(items.length===1?'disabled':'')+'>&times;</button><label>Prompt<input data-field="prompt" value="'+esc(item.prompt)+'" maxlength="2000" required></label><label>Reading reference<textarea data-field="reference" maxlength="2000" required>'+esc(item.reference)+'</textarea></label><label>Locale<select data-field="locale">'+['en-US','en-GB'].map(locale=>'<option '+(locale===item.locale?'selected':'')+'>'+locale+'</option>').join('')+'</select></label><label>Scoring rubric<select data-rubric required><option value="">Choose a rubric</option>'+choices.map(row=>'<option value="'+esc(JSON.stringify(row))+'" '+(JSON.stringify(row)===JSON.stringify(item.rubric)?'selected':'')+'>'+esc(row.id+' · '+row.version)+'</option>').join('')+'</select></label><label>Reference audio asset<input data-field="mediaId" maxlength="36" value="'+esc(item.mediaId)+'"></label></fieldset>';
+  }).join('');
   return items.map((item,index)=>'<fieldset class="editor-item" data-editor-item="'+index+'"><legend>'+(isPairs(type)?'Pair':'Item')+' '+(index+1)+'</legend><div class="item-tools"><button type="button" data-remove-item="'+index+'" aria-label="Remove '+(isPairs(type)?'pair':'item')+' '+(index+1)+'" title="Remove" '+(items.length<=(isPairs(type)?2:1)?'disabled':'')+'>&times;</button></div>'+fields[type].map(([key,label,optional])=>'<label>'+label+'<input id="'+inputId(index,key)+'" data-field="'+key+'" maxlength="'+(key==='word'?200:2000)+'" '+(optional?'':'required')+' value="'+esc(item[key])+'"></label>').join('')+(type==='True / false'?'<label>Correct answer<select data-field="answer"><option value="true" '+(item.answer==='true'?'selected':'')+'>True</option><option value="false" '+(item.answer==='false'?'selected':'')+'>False</option></select></label>':'')+(optionTypes.includes(type)?'<div class="option-editor"><p class="muted small">'+(type==='Select all'?'Correct answers':'Correct answer')+'</p>'+item.options.map((text,i)=>'<div class="option-row"><input type="'+(type==='Select all'?'checkbox':'radio')+'" name="answer-'+index+'" data-correct="'+i+'" aria-label="Option '+(i+1)+' is correct" '+((type==='Select all'?item.answers.includes(i):item.answer===i)?'checked':'')+'><input data-option="'+i+'" aria-label="Option '+(i+1)+'" value="'+esc(text)+'" maxlength="1000" required><button type="button" data-remove-option="'+i+'" aria-label="Remove option '+(i+1)+'" title="Remove option" '+(item.options.length<=2?'disabled':'')+'>&times;</button></div>').join('')+'<button type="button" data-add-option aria-label="Add option to item '+(index+1)+'" '+(item.options.length>=12?'disabled':'')+'>+ Add option</button></div>':'')+'</fieldset>').join('');
 }
 export function readReviewItems(type,root){
+  if(type==='Pronunciation')return [...root.querySelectorAll('[data-editor-item]')].map(row=>{
+    const item=Object.fromEntries([...row.querySelectorAll('[data-field]')].filter(input=>input.dataset.field!=='mediaId'||input.value.trim()).map(input=>[input.dataset.field,input.value.trim()]));
+    const rubric=row.querySelector('[data-rubric]').value;item.rubric=rubric?JSON.parse(rubric):null;return item;
+  });
   return [...root.querySelectorAll('[data-editor-item]')].map(row=>{
     const item={};row.querySelectorAll('[data-field]').forEach(input=>{if(input.value.trim()||!fields[type].some(f=>f[0]===input.dataset.field&&f[2]))item[input.dataset.field]=input.value.trim();});
     if(optionTypes.includes(type)){
@@ -76,6 +86,7 @@ export function editReviewItems(type,items,target){
   return items;
 }
 export function reviewItemPreview(type,item){
+  if(type==='Pronunciation')return '<div class="quiz-preview"><strong>'+esc(item.prompt)+'</strong><blockquote>'+esc(item.reference)+'</blockquote><p>'+esc(item.locale)+' · '+esc(item.rubric?.id)+' · '+esc(item.rubric?.version)+'</p><ul>'+Object.entries(item.rubric?.weights||{}).map(([key,weight])=>{const scale=item.rubric.scales[key];return '<li>'+esc(key)+' · '+esc(Math.round(weight*10000)/100)+'% · '+esc(scale.min)+'–'+esc(scale.max)+' · '+esc(scale.direction)+'</li>';}).join('')+'</ul><p>Minimum recording: '+esc(item.rubric?.minimumSeconds)+' s · Finding confidence: '+esc(item.rubric?.findingConfidence)+'</p>'+(item.mediaId?'<audio controls preload="none" src="'+esc(item.mediaUrl||'/local/media/'+item.mediaId)+'"></audio>':'')+'</div>';
   if(isPairs(type))return '<div class="pair-preview"><span>'+esc(item.left)+'</span><span>'+esc(item.right)+'</span></div>';
   const prompt=item.shown||item.prompt||item.front||item.text||item.word||(type==='Build'?'Arrange the words':'');
   const answer=item.back??item.answer??item.word;

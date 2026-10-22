@@ -33,7 +33,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     if(path==='/preparation'){const p=params(url,['limit']);return json(await service('preparation').summary(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
     const dispatchHistory=/^\/preparation\/([1-9]\d{0,15})\/history$/.exec(path);
     if(dispatchHistory){const p=params(url,['before']);return json(await service('preparation').history(actor,integer(dispatchHistory[1]),{before:p.has('before')?integer(p.get('before')):null}));}
-    if(path==='/status'){params(url,[]);return json({enabled:true,writable,features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
+    if(path==='/status'){params(url,[]);return json({enabled:true,writable,pronunciationQuizzes:services?.review?.pronunciationQuizzes===true,pronunciationRubrics:services?.review?.pronunciationQuizzes?services.speech.rubrics.filter(rubric=>Object.keys(rubric.weights).every(key=>['accuracy','fluency','prosody'].includes(key))):[],features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
     const session=new RegExp('^/sessions/'+id+'$').exec(path);
@@ -49,8 +49,16 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       return json({quizzes,nextOffset:page.nextOffset});}
     const proposal=new RegExp('^/proposals/'+id+'$').exec(path);if(proposal){params(url,[]);const review=service('review');return json({quiz:await withLocation(review,await review.get(actor,proposal[1]))});}
     if(path==='/speech/tasks'){
-      const p=params(url,['groupId','lessonId','cardId','senseId']),speech=service('speech');if(p.has('cardId')!==p.has('senseId'))fail(400,'Select card and meaning together.');
-      const context={groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))},catalog=p.has('cardId')?{tasks:await speech.listTasks(actor,{...context,cardId:integer(p.get('cardId')),senseId:p.get('senseId')})}:await speech.lessonCatalog(actor,context),{tasks}=catalog;
+      const p=params(url,['groupId','lessonId','cardId','senseId','taskId']),speech=service('speech');if(p.has('cardId')!==p.has('senseId'))fail(400,'Select card and meaning together.');
+      let catalog;
+      if(p.has('taskId')){
+        if([...p.keys()].some(key=>key!=='taskId'))fail(400,'Select either a private template task or a lesson.');
+        const task=await speech.task(actor,p.get('taskId'));if(!task.value.quizSessionId)fail(404,'Private template task not found.');
+        catalog={tasks:[{id:task.id,...task.value}],contexts:[],templatePractice:true};
+      }else{
+        const context={groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))};catalog=p.has('cardId')?{tasks:await speech.listTasks(actor,{...context,cardId:integer(p.get('cardId')),senseId:p.get('senseId')})}:await speech.lessonCatalog(actor,context);
+      }
+      const {tasks}=catalog;
       let sources=[],availability={};try{const settings=await speech.providers.inspect(speech.worker);sources=['pronunciation','stt'].map(task=>settings.adapters.find(row=>row.id===settings.selections[task]?.adapterId)).filter(Boolean);
         availability=Object.fromEntries(tasks.map(task=>{const choice=settings.selections[task.evaluation];return [task.id,!!choice&&!settings.unavailable.some(row=>row.task===task.evaluation)&&choice.locale===task.locale&&choice.mode===(['pronunciation','shadowing'].includes(task.mode)?'scripted':'unscripted')];}));
       }catch{availability=Object.fromEntries(tasks.map(task=>[task.id,false]));}
@@ -93,6 +101,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     const removeMedia=new RegExp('^/media/'+id+'/remove$').exec(path);if(removeMedia)return json(await service('media').remove(actor,removeMedia[1],data));
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));
     if(path==='/sessions')return json(await service('sessions').start(actor,data));
+    const pronunciation=new RegExp('^/sessions/'+id+'/pronunciation$').exec(path);if(pronunciation)return json(await service('sessions').pronunciation(actor,pronunciation[1],data));
     if(path==='/speech/tasks')return json(await service('speech').createTask(actor,data));
     const startDialogue=new RegExp('^/speech/tasks/'+id+'/dialogues$').exec(path);if(startDialogue)return json(await service('coaching').start(actor,startDialogue[1],data));
     const dialogueAction=new RegExp('^/speech/dialogues/'+id+'/(turn|remove)$').exec(path);

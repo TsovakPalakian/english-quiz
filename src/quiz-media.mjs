@@ -44,10 +44,18 @@ export class QuizMedia{
     if(!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>QUIZ_MEDIA_LIMITS[kinds[body.mime]])fail(413,'Media exceeds its file-size limit.');
     if(chatFileMime(bytes,body.mime)!==body.mime)fail(415,'File contents do not match the declared format.');
     const lessonRecording=body.purpose==='speech'&&lessonSpeechContext(body);
-    if(lessonRecording){
+    let templateContext=null;
+    if(body.purpose==='speech'){
+      const [task]=await this.db.read('SELECT * FROM qr_speech_tasks WHERE id=?',[source.taskId]),value=task?JSON.parse(task.value_json):null;
+      if(value?.quizSessionId){
+        if(task.group_id!==body.groupId||task.lesson_id!==body.lessonId||task.card_id!==body.cardId||task.sense_id!==body.senseId)fail(403,'Recording context changed.');
+        templateContext={...body,speechTaskId:task.id,quizSessionId:value.quizSessionId};await checkSpeechContext(this.review,actor,templateContext);
+      }
+    }
+    if(!templateContext&&lessonRecording){
       const [task]=await this.db.read('SELECT id FROM qr_speech_tasks WHERE id=? AND group_id=? AND lesson_id=? AND card_id IS NULL AND sense_id IS NULL',[source.taskId,body.groupId,body.lessonId]);if(!task)fail(403,'Choose a speech task for this lesson.');
       await checkSpeechContext(this.review,actor,body);
-    }else{await this.kits.card(actor,body.cardId);if(body.purpose!=='feedback')await this.review.checkContext(actor,body);}
+    }else if(!templateContext){await this.kits.card(actor,body.cardId);if(body.purpose!=='feedback')await this.review.checkContext(actor,body);}
     const sha256=await digest(bytes),at=this.now();
     return this.review.mutation(actor,{...body,sha256},['media-upload'],async()=>{
       const descriptor=await this.inspect(bytes,body.mime);
@@ -57,7 +65,7 @@ export class QuizMedia{
       const [usage]=await this.db.read('SELECT count(*) AS count,COALESCE(sum(bytes),0) AS bytes FROM qr_media WHERE owner_id=? AND created_at>?',[actor.id,at-86400000]);
       if(usage.count>=QUIZ_MEDIA_LIMITS.uploadsPerDay||usage.bytes+bytes.length>QUIZ_MEDIA_LIMITS.bytesPerDay)fail(429,'Daily media upload limit reached.');
       await this.store.putImmutable(key,bytes,{mime:body.mime});
-      return {statements:[...(lessonRecording?[speechContextGuard(this.review,actor,body),s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_tasks WHERE id=? AND group_id=? AND lesson_id=? AND card_id IS NULL AND sense_id IS NULL)',[source.taskId,body.groupId,body.lessonId])]:[this.kits.cardGuard(actor,body.cardId),...(body.purpose!=='feedback'?[this.review.accessGuard(actor,body)]:[])]),
+      return {statements:[...(templateContext?[speechContextGuard(this.review,actor,templateContext)]:lessonRecording?[speechContextGuard(this.review,actor,body),s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_tasks WHERE id=? AND group_id=? AND lesson_id=? AND card_id IS NULL AND sense_id IS NULL)',[source.taskId,body.groupId,body.lessonId])]:[this.kits.cardGuard(actor,body.cardId),...(body.purpose!=='feedback'?[this.review.accessGuard(actor,body)]:[])]),
         s('INSERT INTO mutation_guard SELECT count(*)<? AND COALESCE(sum(bytes),0)+?<=? FROM qr_media WHERE owner_id=? AND created_at>?',[QUIZ_MEDIA_LIMITS.uploadsPerDay,bytes.length,QUIZ_MEDIA_LIMITS.bytesPerDay,actor.id,at-86400000]),
         s('INSERT INTO qr_media(id,owner_id,purpose,digest,mime,bytes,name,descriptor_json,source_json,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,actor.id,body.purpose,sha256,body.mime,bytes.length,name,JSON.stringify(descriptor),JSON.stringify(source),at])],
       result:{id,mime:body.mime,name,bytes:bytes.length,descriptor,source}};
@@ -90,6 +98,7 @@ export class QuizMedia{
     await this.store.delete('quiz-media/'+id+'/'+row.digest);return result;
   }
   async available(type,content){
+    if(type==='Pronunciation'){const items=content.items.filter(item=>item.mediaId);return !items.length||this.available('Listen',{items});}
     if(type!=='Video choice'&&!(type==='Listen'&&content.items.some(item=>item.mediaId)))return type!=='Listen';
     for(const item of content.items){
       if(!item.mediaId)return false;
@@ -102,6 +111,7 @@ export class QuizMedia{
     const result=[];for(const id of new Set(content.items.map(item=>item.mediaId).filter(Boolean))){const row=await this.row(id);result.push({mime:row.mime,name:row.name,descriptor:JSON.parse(row.descriptor_json),source:JSON.parse(row.source_json)});}return result;
   }
   async validate(actor,context,type,content){
+    if(type==='Pronunciation')return this.validate(actor,context,'Listen',content);
     if(type!=='Video choice'&&type!=='Listen')return [];
     const statements=[];
     for(const item of content.items){

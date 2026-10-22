@@ -8,7 +8,7 @@ import {checkSpeechContext,speechContextGuard,lessonSpeechContext} from './speec
 import {validateSpeechTaskCriteria,validateSpeechDialogue} from './speech-task-criteria.mjs';
 import {speechProgressPeriods} from './speech-progress-periods.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
-const context=row=>({groupId:row.group_id,lessonId:row.lesson_id,cardId:row.card_id,senseId:row.sense_id});
+const context=row=>({groupId:row.group_id,lessonId:row.lesson_id,cardId:row.card_id,senseId:row.sense_id,...(JSON.parse(row.value_json).quizSessionId?{speechTaskId:row.id,quizSessionId:JSON.parse(row.value_json).quizSessionId}:{})});
 const scripted=mode=>['pronunciation','shadowing'].includes(mode);
 export class SpeechPractice{
   constructor(kits,media,{enabled=false,providers,worker,rubrics=[],budgets,resolveActor=async()=>null,now=Date.now,timeoutMs=45000}={}){
@@ -40,7 +40,7 @@ export class SpeechPractice{
     const value={mode:body.mode,locale:body.locale,prompt,reference,referenceMediaId,rubric:this.rubrics.find(row=>row.id===body.rubricId),evaluation:body.evaluation,languageReview:body.languageReview,level:body.level,maxSeconds:scripted(body.mode)?30:120,...(criteria?{criteria}:{}),...(dialogue?{dialogue}:{})};
     return this.review.mutation(actor,body,['speech-task'],async()=>{const id=crypto.randomUUID();return {statements:[this.accessGuard(actor,body),...guards,s('INSERT INTO qr_speech_tasks(id,group_id,lesson_id,card_id,sense_id,author_id,created_at,value_json) VALUES(?,?,?,?,?,?,?,?)',[id,body.groupId,body.lessonId,body.cardId,body.senseId,actor.id,this.now(),JSON.stringify(value)])],result:{id}};});
   }
-  async listTasks(actor,body){this.gate(actor);exactFields(body,['groupId','lessonId','cardId','senseId']);await this.review.checkContext(actor,body);return this.db.read('SELECT id,value_json FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=? ORDER BY created_at,id',[body.groupId,body.lessonId,body.cardId,body.senseId]).then(rows=>rows.map(row=>({id:row.id,...JSON.parse(row.value_json)})));}
+  async listTasks(actor,body){this.gate(actor);exactFields(body,['groupId','lessonId','cardId','senseId']);await this.review.checkContext(actor,body);return this.db.read("SELECT id,value_json FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? AND card_id=? AND sense_id=? AND json_extract(value_json,'$.quizSessionId') IS NULL ORDER BY created_at,id",[body.groupId,body.lessonId,body.cardId,body.senseId]).then(rows=>rows.map(row=>({id:row.id,...JSON.parse(row.value_json)})));}
   async lessonCatalog(actor,body){
     this.gate(actor);exactFields(body,['groupId','lessonId']);await this.checkContext(actor,{...body,cardId:null,senseId:null});
     const staff=['ADMIN','DEVELOPER'].includes(actor.role);
@@ -50,6 +50,7 @@ export class SpeechPractice{
     for(const row of rows)try{await this.review.checkContext(actor,{...body,...row});contexts.push(row);}catch(error){if(error.status!==403)throw error;}
     const allowed=new Map(contexts.map(row=>[row.cardId+':'+row.senseId,row])),tasks=[];
     for(const row of await this.db.read('SELECT * FROM qr_speech_tasks WHERE group_id=? AND lesson_id=? ORDER BY created_at,id',[body.groupId,body.lessonId])){
+      if(JSON.parse(row.value_json).quizSessionId)continue;
       const origin=allowed.get(row.card_id+':'+row.sense_id);if(row.card_id===null&&row.sense_id===null)tasks.push({id:row.id,...JSON.parse(row.value_json),cardId:null,senseId:null,word:null});else if(origin)tasks.push({id:row.id,...JSON.parse(row.value_json),cardId:origin.cardId,senseId:origin.senseId,word:origin.word});
     }
     return {tasks,contexts:staff?contexts:[]};
@@ -75,7 +76,7 @@ export class SpeechPractice{
   }
   async upload(actor,id,body,bytes){
     const row=await this.task(actor,id);exactFields(body,['mutationId','mime','name']);
-    return this.media.upload(actor,{...body,...context(row),purpose:'speech'},bytes,{kind:'speech-recording',taskId:id,maxSeconds:row.value.maxSeconds});
+    return this.media.upload(actor,{...body,groupId:row.group_id,lessonId:row.lesson_id,cardId:row.card_id,senseId:row.sense_id,purpose:'speech'},bytes,{kind:'speech-recording',taskId:id,maxSeconds:row.value.maxSeconds});
   }
   async recover(){
     const at=this.now();await this.db.atomic([s("UPDATE qr_speech_attempts SET state='failed',error_code='interrupted',finished_at=? WHERE state IN ('queued','analyzing') AND deleted_at IS NULL AND deadline_at<=?",[at,at]),s("UPDATE qr_speech_usage SET state='released' WHERE state='reserved' AND attempt_id IN (SELECT id FROM qr_speech_attempts WHERE state IN ('failed','cancelled') OR deleted_at IS NOT NULL)")]);
@@ -91,6 +92,7 @@ export class SpeechPractice{
     return row;
   }
   async assigned(actor,task){
+    if(task.value?.quizSessionId)return false;
     if(actor.role==='DEVELOPER')return true;
     const [row]=await this.db.read("SELECT 1 FROM catalog_documents d,json_each(d.value_json,'$.teacherIds') t WHERE d.namespace='accounts-group-teachers' AND d.key=? AND t.value=?",[String(task.group_id),actor.id]);return !!row;
   }
@@ -173,11 +175,12 @@ export class SpeechPractice{
     return this.review.mutation(actor,body,['speech-correction',id],async()=>({statements:[s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_attempts WHERE id=? AND deleted_at IS NULL AND state='complete')",[id]),s('INSERT INTO qr_speech_corrections(id,attempt_id,created_at,text,revision) SELECT ?,?,?,?,COALESCE(max(revision),0)+1 FROM qr_speech_corrections WHERE attempt_id=?',[crypto.randomUUID(),id,this.now(),text,id])],result:{id,scoreUnchanged:true}}));}
   async share(actor,id,body){
     const row=await this.attempt(actor,id,{owner:true}),task=await this.task(actor,row.task_id);exactFields(body,['mutationId','teacherId','includeAudio','consent']);
+    if(task.value.quizSessionId)fail(409,'Template practice stays private; choose an assigned lesson task to share an attempt.');
     const target=await this.resolveActor(body.teacherId);if(!target||!['ADMIN','DEVELOPER'].includes(target.role)||target.active===false||target.active===0||target.revoked||!await this.assigned(target,task)||body.consent!==true||typeof body.includeAudio!=='boolean')fail(403,'Select an active assigned teacher and explicitly allow sharing.');
     return this.review.mutation(actor,body,['speech-share',id],async()=>({statements:[s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_speech_attempts WHERE id=? AND deleted_at IS NULL)',[id]),s('INSERT INTO qr_speech_shares(attempt_id,teacher_id,created_at,include_audio) VALUES(?,?,?,?) ON CONFLICT(attempt_id,teacher_id) DO UPDATE SET include_audio=excluded.include_audio,created_at=excluded.created_at',[id,target.id,this.now(),body.includeAudio?1:0])],result:{id,teacherId:target.id}}));
   }
   async revoke(actor,id,body){await this.attempt(actor,id,{owner:true});exactFields(body,['mutationId','teacherId']);return this.review.mutation(actor,body,['speech-revoke',id],async()=>({statements:[s('DELETE FROM qr_speech_shares WHERE attempt_id=? AND teacher_id=?',[id,body.teacherId])],result:{id}}));}
-  async recipients(actor,id){const task=await this.task(actor,id),rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key=?",[String(task.group_id)]),ids=rows.length?JSON.parse(rows[0].value_json).teacherIds:[],result=[];
+  async recipients(actor,id){const task=await this.task(actor,id);if(task.value.quizSessionId)return [];const rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key=?",[String(task.group_id)]),ids=rows.length?JSON.parse(rows[0].value_json).teacherIds:[],result=[];
     for(const teacherId of new Set([...ids,this.worker.id])){const target=await this.resolveActor(teacherId);if(target&&['ADMIN','DEVELOPER'].includes(target.role)&&target.active!==false&&target.active!==0&&!target.revoked)result.push({id:target.id,name:target.name||'Teacher'});}return result;}
   async shared(actor,id,{recover=true}={}){kitTeacher(actor);await this.task(actor,id);const rows=await this.db.read('SELECT a.id FROM qr_speech_attempts a JOIN qr_speech_shares s ON s.attempt_id=a.id WHERE a.task_id=? AND s.teacher_id=? AND a.deleted_at IS NULL ORDER BY a.created_at DESC,a.id DESC LIMIT 50',[id,actor.id]),result=[];
     for(const row of rows)try{result.push(await this.get(actor,row.id,{recover}));}catch(error){if(![403,404].includes(error.status))throw error;}return result;}

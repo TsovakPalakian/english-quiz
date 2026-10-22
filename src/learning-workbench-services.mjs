@@ -17,7 +17,7 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
   return async({db,actor})=>{
     kitSigned(actor);
     if(!db||typeof db.read!=='function'||typeof db.atomic!=='function')throw new StudyError(503,'Workbench database unavailable.');
-    const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
+    const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true,pronunciationQuizzes:configuration?.enabled===true&&configuration?.pronunciationQuizzes===true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
     review.contentPolicy=media;
     let runner=null;
     if(openPreparation){
@@ -39,6 +39,7 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       const providers=configuration.openProviders?await configuration.openProviders({db,actor}):new StoredLanguageProviders(db,{adapters:configuration.adapters||[],authorize:configuration.authorize});
       if(!(providers instanceof StoredLanguageProviders))throw new StudyError(503,'Stored language providers are required.');
       services.speech=new SpeechPractice(kits,media,{enabled:true,providers,worker,rubrics:configuration.rubrics,budgets:configuration.budgets,resolveActor:configuration.resolveActor});
+      services.sessions.speech=services.speech;
       services.transcripts=new SpeechTranscriptReview(services.speech,{enabled:true,rubric:configuration.languageRubric});
       if(configuration.coaching?.enabled===true)services.coaching=new SpeechCoaching(services.speech,configuration.coaching);
     }

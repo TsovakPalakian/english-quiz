@@ -14,7 +14,7 @@ export const bundles={'preview.js':'client','production/chat.js':'production/cha
 export function reviewEditorFactory(){
   const source=readFileSync(resolve(root,'client/demos/quiz-review-editor.js'),'utf8');
   if(/^import /m.test(source))throw Error('Shared review editor must be dependency-free.');
-  return 'const integratedReviewEditor = (() => {\n'+source.replace(/^export function /gm,'function ')+'\nreturn {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};\n})();\n';
+  return 'const integratedReviewEditor = (() => {\n'+source.replace(/^export function /gm,'function ')+'\nreturn {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview};\n})();\n';
 }
 export function speechUIFactory(){
   const source=readFileSync(resolve(root,'client/demos/speech-practice-ui.js'),'utf8');

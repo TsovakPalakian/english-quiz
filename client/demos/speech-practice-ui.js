@@ -13,15 +13,15 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null,dialogueId='',progressPeriod='week',exerciseViews=new Map();
   const selected=()=>state?.tasks.find(task=>task.id===taskId);
   let expandedAttempts=new Set();
-  const lesson=()=>{const c=context();return {groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
+  const lesson=()=>{const c=context();return c.pronunciationTaskId?{taskId:c.pronunciationTaskId}:{groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
   function cleanup(){captureEpoch++;if(capture){clearTimeout(capture.timer);capture.processor.disconnect();capture.source.disconnect();capture.stream.getTracks().forEach(track=>track.stop());capture.audio.close().catch(()=>{});capture=null;}}
   function discard(){cleanup();uploadController?.abort();uploadController=null;document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(localUrl)URL.revokeObjectURL(localUrl);localUrl='';blob=null;uploaded=null;intent=null;}
   async function load(){
-    const c=context();if(!c||c.personal){reset();return;}
+    const c=context();if(!c||c.personal&&!c.pronunciationTaskId){reset();return;}
     const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();contextKey=key;}
     const data=await api('/local/speech?'+new URLSearchParams(lesson()));if(epoch!==sessionKey()||loadId!==generation)return;
     if(!data.tasks.some(task=>task.id===taskId))taskId=data.tasks[0]?.id||'';
-    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'+(data.coachingAvailable?'?period='+progressPeriod:'')),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'+(data.coachingAvailable?'?period='+progressPeriod:'')),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()&&!data.templatePractice?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
     let dialogue=null,dialogues=[],languageProgress=null;const disputes=new Map();
     if(data.coachingAvailable&&taskId){
       dialogues=(await api('/local/speech/tasks/'+taskId+'/dialogues')).dialogues;
@@ -111,6 +111,7 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
         node.querySelector('.detail').append(panel);
       }
     });
+    if(state?.templatePractice)document.querySelectorAll('[data-speech-form="task"],[data-speech-form="share"],[data-speech-form="dispute"]').forEach(form=>{const section=form.closest('details');if(section)section.hidden=true;else form.hidden=true;});
     clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state)))||state?.dialogue?.turns.some(turn=>['reserved','started'].includes(turn.state)))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
   }
   async function start(){

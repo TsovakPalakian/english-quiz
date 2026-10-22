@@ -30,10 +30,10 @@ function context(actor,value){
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
 const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),generation:q.generation_json?JSON.parse(q.generation_json):null,state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
 export class QuizReviewService extends StudyService{
-  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false,mediaQuizzes=false,contentPolicy=null}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;this.mediaQuizzes=mediaQuizzes===true;this.contentPolicy=contentPolicy;}
-  validateContent(type,content){return validateReviewContent(type,content,{mediaQuizzes:this.mediaQuizzes});}
+  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false,mediaQuizzes=false,pronunciationQuizzes=false,contentPolicy=null}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;this.mediaQuizzes=mediaQuizzes===true;this.pronunciationQuizzes=pronunciationQuizzes===true;this.contentPolicy=contentPolicy;}
+  validateContent(type,content){return validateReviewContent(type,content,{mediaQuizzes:this.mediaQuizzes,pronunciationQuizzes:this.pronunciationQuizzes});}
   async mediaGuards(actor,context,type,content){
-    if(!this.mediaQuizzes)return [];
+    if(!this.mediaQuizzes&&type!=='Pronunciation')return [];
     if(!this.contentPolicy)fail(503,'Validated quiz media is not configured.');
     return this.contentPolicy.validate(actor,context,type,content);
   }
@@ -97,7 +97,7 @@ export class QuizReviewService extends StudyService{
     if(action!=='submit')teacher(actor);
     if(action==='approve'){
       if(!this.allowGlobalApproval)fail(503,'Global template approval is not enabled.');
-      exactFields(body.checks,['meaning','answers','level',...(this.mediaQuizzes?['media']:[])]);if(!['meaning','answers','level'].every(k=>body.checks[k]===true))fail(400,'Complete every review check.');
+      exactFields(body.checks,['meaning','answers','level',...(this.mediaQuizzes||this.pronunciationQuizzes?['media']:[]),...(this.pronunciationQuizzes?['reference','rubric']:[])]);if(!['meaning','answers','level'].every(k=>body.checks[k]===true))fail(400,'Complete every review check.');
     }
     const comment=action==='return'?reviewText(body.comment,2000):'';
     return this.mutation(actor,body,[action,id],async()=>{
@@ -107,7 +107,8 @@ export class QuizReviewService extends StudyService{
       if(action==='approve'&&this.extendedLifecycle){const [unresolved]=await this.db.read(`SELECT o.id FROM qr_opinions o LEFT JOIN qr_opinion_decisions d ON d.opinion_id=o.id
         WHERE o.version_id=? AND o.content_revision=? AND (d.decision IS NULL OR d.decision<>'confirm') LIMIT 1`,[id,body.expectedRevision]);if(unresolved)fail(409,'Resolve the independent opinion or return this version for changes before approval.');}
       const content=this.validateContent(q.type,JSON.parse(q.content_json)),state=action==='submit'?'submitted':action==='return'?'returned':'approved',next=body.expectedRevision+1;
-      if(action==='approve'&&(q.type==='Video choice'||q.type==='Listen'&&content.items.some(item=>item.mediaId))&&body.checks.media!==true)fail(400,'Confirm the media and its correspondence to the text.');
+      if(action==='approve'&&q.type==='Pronunciation'&&(body.checks.reference!==true||body.checks.rubric!==true))fail(400,'Check the reading reference, locale and scoring rubric.');
+      if(action==='approve'&&(q.type==='Video choice'||['Listen','Pronunciation'].includes(q.type)&&content.items.some(item=>item.mediaId))&&body.checks.media!==true)fail(400,'Confirm the media and its correspondence to the text.');
       const assignments=action==='approve'?'reviewer_id=?,reviewer_name=?,approved_date=?':action==='submit'?'submitted_date=?':'feedback=?';
       const values=action==='approve'?[actor.id,name(actor),date()]:[action==='submit'?date():comment];
       const opinionGuard=action==='approve'&&this.extendedLifecycle?[s(`INSERT INTO mutation_guard SELECT NOT EXISTS(
@@ -150,7 +151,9 @@ export class QuizReviewService extends StudyService{
     // No private lesson IDs, account IDs, review feedback or internal audit content.
     const result=[];
     for(const q of list){
+      if(q.type==='Pronunciation'&&!this.pronunciationQuizzes)continue;
       let content=JSON.parse(q.content_json);
+      if(q.type==='Pronunciation'&&content.items.some(item=>item.mediaId)&&!await this.contentPolicy?.available(q.type,content))continue;
       if(this.mediaQuizzes&&(q.type==='Video choice'||q.type==='Listen'&&content.items.some(item=>item.mediaId))&&!await this.contentPolicy?.available(q.type,content))continue;
       const mediaReady=['Listen','Video choice'].includes(q.type)&&content.items.every(item=>item.mediaId);
       const restricted=actor.role==='USER'&&(q.type==='Video choice'||q.type==='Listen'&&mediaReady);
