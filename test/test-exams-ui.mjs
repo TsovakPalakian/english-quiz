@@ -60,7 +60,7 @@ try{
   assert.equal(await page.locator('#examSections').isVisible(),false);
   assert.equal(await page.locator('#examListSearch').isVisible(),false);
   assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 1','ready for review · 1','completed · 1']);
-  assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*1/);
+  assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exam.*1/);
   await page.locator('[data-exam-level="A1"]').click();
   assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 1','ready · 1','completed · 1']);
   for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await page.screenshot({path:'/private/tmp/compact-exam-metrics.png'});await page.setViewportSize({width:1280,height:900});
@@ -70,7 +70,7 @@ try{
   assert.equal(await page.locator('#examSections').isVisible(),true);
   assert.equal(await page.locator('#examListSearch').isVisible(),true);
   assert.equal(await page.locator('#examNew').isVisible(),true);
-  assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1\nA1 Group');
+  assert.equal(await page.locator('#exams .page-path').innerText(),'Groups\nA1\nA1 Group\nExams');
   await page.locator('[data-exam-open="11"]').scrollIntoViewIfNeeded();
   assert.match(await page.locator('[data-exam-open="11"]').innerText(),/1 examination block/);
   assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Assigned copies are not templates');
@@ -104,10 +104,10 @@ try{
   assert.equal(await studentGroup.locator('[data-exam-open="21"]').isVisible(),false,'Student row collapses');
   await studentGroup.locator('summary').click();
   await page.locator('[data-exam-open="21"]').click();
-  assert.match(await page.locator('#examblocks .page-path').innerText(),/Ready for review\nStudent\nA1 Assigned/);
+  assert.equal(await page.locator('#examblocks .page-path').innerText(),'Groups\nA1\nA1 Group\nExams\nA1 Assigned');
   await page.reload();
   await page.locator('#examblocks.on [data-exam-block="22"]').waitFor();
-  assert.match(await page.locator('#examblocks .page-path').innerText(),/Ready for review\nStudent\nA1 Assigned/,'Refresh restores the review context');
+  assert.equal(await page.locator('#examblocks .page-path').innerText(),'Groups\nA1\nA1 Group\nExams\nA1 Assigned','Refresh restores the group path');
   await page.locator('[data-exam-block="22"]').click();
   await page.reload();
   await page.locator('#material.on').waitFor();
@@ -128,11 +128,11 @@ try{
   await page.locator('[data-exam-section="active"]').click();
   await page.locator('#examListSearch').fill('missing');await page.waitForFunction(()=>document.querySelector('#examList .day-row')?.hidden);
   await page.locator('#examListSearch').fill('');await page.locator('[data-exam-open="11"]').click();
-  assert.equal(await page.locator('#examblocks .page-path').innerText(),'Exams\nA1\nA1 Group\nA1 Exam');
+  assert.equal(await page.locator('#examblocks .page-path').innerText(),'Groups\nA1\nA1 Group\nExams\nA1 Exam');
   assert.equal(writes.filter(path=>['/api/groups','/api/lessons','/api/exams'].includes(path)).length,0,'Browsing does not rewrite content: '+writes.join(','));
   await page.locator('[data-exam-block="12"]').click();
   await page.evaluate(()=>lmShow('edit'));
-  assert.match(await page.locator('#material .page-path').innerText(),/Exams\nA1\nA1 Group\nA1 Exam\nExamination block\nEdit/);
+  assert.match(await page.locator('#material .page-path').innerText(),/Groups\nA1\nA1 Group\nExams\nA1 Exam\nExamination block\nEdit/);
   await page.locator('#lmAdd').click();
   assert.equal(await page.locator('[data-material-quiz-menu]').count(),0);
   assert.equal(await page.locator('[data-material-quiz-types]').isVisible(),true);
@@ -152,7 +152,7 @@ try{
   await page.locator('#lmAdd').click();
   assert.equal(await page.locator('[data-material-quiz-menu]').count(),1,'Lesson quiz menu is unchanged');
   assert.equal(await page.locator('#material').evaluate(node=>node.classList.contains('is-exam')),false);
-  assert.deepEqual(await page.evaluate(()=>examPagePath({id:99,title:'Unassigned exam'}).map(item=>item.label)),['Exams','Unassigned','Unassigned','Unassigned exam'],'Direct exam links do not inherit an unrelated group');
+  assert.deepEqual(await page.evaluate(()=>examPagePath({id:99,title:'Unassigned exam'}).map(item=>item.label)),['Groups','Exams','Unassigned exam'],'Direct exam links do not inherit an unrelated group');
   for(const examOwned of [false,true])for(const published of [false,true]){
     await page.evaluate(({examOwned,published})=>{
       authUser.role='DEVELOPER';viewAccount=null;
@@ -196,7 +196,7 @@ try{
   assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1 Group\nAssigned works');
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
   assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);
-  assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exams.*2/s);
+  assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exam.*2/s);
   await page.screenshot({path:'/private/tmp/student-exam-navigation.png'});
   let started=false;
   await page.route('**/api/exams/workflow*',async route=>{if(route.request().method()==='POST'&&route.request().postDataJSON().action==='started')started=true;await route.fulfill({contentType:'application/json',body:JSON.stringify({examId:51,state:started?'in_progress':'assigned',canStart:!started,history:[{action:'viewed'},...(started?[{action:'started'}]:[])],blocks:1,submitted:0})});});
@@ -271,14 +271,13 @@ try{
   }
   await page.setViewportSize({width:1280,height:900});
   if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
-  await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
-  await page.locator('.side [data-jump="groups"]').click();
+  await page.evaluate(()=>{authUser.role='DEVELOPER';viewAccount=null;paintSongGate();examViewLevel='A1';examViewGroup=41;examSection='completed';window.enquizVisit('exams');});
+  await page.locator('.side nav [data-jump="groups"]').click();
   assert.equal(await page.evaluate(()=>groupViewLevel),'','Combined Classes navigation opens the Groups root');
   await page.evaluate(()=>goBack('home'));
   assert.deepEqual(await page.evaluate(()=>[examViewLevel,examViewGroup,examSection]),['A1',41,'completed'],'Back retains the previous nested exam location');
-  await page.evaluate(()=>{groupViewLevel='A1';window.enquizVisit('home');});
-  await page.locator('#homeStudy').click();
-  assert.equal(await page.evaluate(()=>groupViewLevel),'','Home study button opens the Groups root');
+  await page.evaluate(()=>{authUser.role='ADMIN';groupViewLevel='A1';window.enquizVisit('home');});
+  assert.equal(await page.evaluate(()=>groupViewLevel),'','Teacher Home opens the Groups root');
   assert.equal(await page.locator('#groups.on').count(),1);
   for(const width of [1280,320]){
     await page.setViewportSize({width,height:900});
@@ -286,7 +285,7 @@ try{
     const notice=page.locator('#learning-main-banner');
     assert.equal(await notice.isVisible(),true);
     assert.equal(await notice.locator('button:visible').count(),1,'Informational notice has only a close button');
-    const bounds=await notice.boundingBox();assert.ok(Math.abs(bounds.x+bounds.width/2-width/2)<2,'Notice is horizontally centered');assert.ok(Math.abs(bounds.y+bounds.height/2-450)<2,'Notice is vertically centered');
+    const bounds=await notice.boundingBox();assert.ok(Math.abs(bounds.x+bounds.width/2-width/2)<2,'Notice is horizontally centered: '+JSON.stringify({width,bounds}));assert.ok(Math.abs(bounds.y+bounds.height/2-450)<2,'Notice is vertically centered');
     assert.ok(bounds.x>=0&&bounds.x+bounds.width<=width,'Notice fits the screen');
     await page.keyboard.press('Escape');assert.equal(await notice.isVisible(),false);
     await page.evaluate(()=>window.LearningMain.notice('Network error. Please try again.',true));

@@ -366,7 +366,7 @@ try{
   const racePage=await browser.newPage();await racePage.addInitScript(databaseContext);
   racePage.on('pageerror',error=>errors.push(error.message));await racePage.route('**/api/**',handleApi);
   await racePage.goto('http://127.0.0.1:'+server.address().port);
-  await racePage.locator('[data-jump="archive"]:visible').waitFor();
+  await racePage.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
   await openExams(racePage);
   await racePage.locator('[data-exam-open="11"]').click();
   await racePage.locator('[data-exam-block="12"]').click();

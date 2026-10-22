@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
+import {QUIZ_TYPES} from '../src/learning-study.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 test('local preparation shows retries, teacher issues and automatic provenance without publishing templates',async()=>{
@@ -10,7 +11,14 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-    await page.goto(url);await page.locator('[data-action="prepare"]').waitFor();await page.locator('[data-action="prepare"]').click();
+    // Seed all job outcomes through the authenticated API; kit selection has its own UI tests.
+    const prepare=()=>page.evaluate(async types=>{
+      const {contexts}=await(await fetch('/local/boot')).json(),c=contexts[0];
+      const response=await fetch('/local/generation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types})});
+      if(!response.ok)throw new Error(await response.text());
+    },QUIZ_TYPES);
+    await page.goto(url);await page.locator('#context').waitFor();await prepare();
+    await page.locator('[data-view="word"]').click();
     await page.waitForFunction(async()=>{const response=await fetch('/local/generation'),{jobs}=await response.json();return jobs.length===16&&jobs.every(j=>!['queued','running','retry'].includes(j.state));},{},{timeout:20000});
     await page.waitForFunction(()=>document.querySelectorAll('[data-job]').length===16&&![...document.querySelectorAll('[data-job]')].some(n=>['queued','running','retry'].includes(n.dataset.jobState)));
     const {jobs}=await page.evaluate(async()=>await(await fetch('/local/generation')).json());
@@ -22,7 +30,7 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     assert.equal(attemptLog.length,3);assert.ok(attemptLog.every(a=>a.state==='rejected'&&Object.keys(a.usage).length===0&&a.source.model==='local-fixture-a'));
     assert.equal((await fetch(url+attemptPath,{headers:{Cookie:'qr-preview=student'}})).status,403);
     const shared=await page.evaluate(async()=>await(await fetch('/local/shared/1')).json());assert.equal(shared.quizzes.length,1,'Only the pre-approved seed is shared');
-    await page.locator('[data-action="prepare"]').click();
+    await prepare();
     assert.equal((await page.evaluate(async()=>await(await fetch('/local/generation')).json())).jobs.length,16,'Enqueue is deduplicated');
     const gap=jobs.find(j=>j.type==='Gap');await page.locator('[data-job="'+gap.id+'"] > summary').click();
     await page.locator('[data-job="'+gap.id+'"] [data-action="open-generated"]').click();

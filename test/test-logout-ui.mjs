@@ -36,7 +36,8 @@ try{
     const original=clearMediaStore;clearMediaStore=(...args)=>new Promise(resolve=>{window.finishLogoutCleanup=()=>resolve(original(...args));});
   });
   assert.equal(await page.locator('#homeLearningCount').innerText(),'1');
-  assert.equal(await page.locator('#homeDemo .overview>div:nth-child(1) b').innerText(),'608 min');
+  assert.equal(await page.evaluate(()=>stageActivity.seconds),36480);
+  assert.equal(await page.evaluate(()=>stageActivity.examPass),7);
   page.on('framenavigated',frame=>{if(frame===page.mainFrame())navigations++;});
   await page.evaluate(()=>{window.logoutFinished=performLogout();});
   await page.waitForFunction(()=>!authUser&&typeof window.finishLogoutCleanup==='function');
@@ -45,11 +46,12 @@ try{
   assert.equal(await page.locator('#homeLearnedPct').innerText(),'0%');
   assert.equal(await page.locator('#homeLearningCount').innerText(),'0');
   assert.equal(await page.locator('#homeDemo [data-stat="weak"] b').innerText(),'0');
-  assert.deepEqual(await page.locator('#homeDemo .overview b').allTextContents(),['0 min','0','0','0']);
+  assert.deepEqual(await page.locator('#homeDemo .overview b').allTextContents(),['0','—','0','0']);
+  assert.equal(await page.evaluate(()=>stageActivity.examPass),0);
   await page.evaluate(async()=>{window.finishLogoutCleanup();await window.logoutFinished;stageRefreshHome();stagePaintActivity();});
   assert.equal(loggedOut,true);assert.equal(navigations,0,'Explicit logout must not reload the document');
   assert.equal(await page.locator('#home .hello').innerText(),'See you soon');
-  assert.deepEqual(await page.locator('#homeDemo .overview b').allTextContents(),['0 min','0','0','0']);
+  assert.deepEqual(await page.locator('#homeDemo .overview b').allTextContents(),['0','—','0','0']);
   assert.equal(await page.evaluate(()=>stageActivity.seconds),0);assert.equal(await page.evaluate(()=>stageTimeSeconds),0);
   await page.screenshot({path:'/private/tmp/logout-cleared.png'});
   assert.deepEqual(errors,[]);console.log('Logout immediately clears cached statistics, resets activity and preserves See you soon without reload');

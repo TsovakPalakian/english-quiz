@@ -78,10 +78,11 @@
     node.dataset.quote = quote;
     if (canReply && quote) items.push(['quote', 'quote', 'Quote selection']);
     if (el('selpop')) el('selpop').hidden = true;
-    if (message.files?.length) items.push(['save', 'download', 'Save as...']);
+    const attachments = message.files || [];
+    if (attachments.length) items.push(['save', 'download', 'Save as...']);
     const photo =
-      (fileId && message.files.find((f) => f.id === fileId && isImageFile(f))) ||
-      (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
+      (fileId && attachments.find((f) => f.id === fileId && isImageFile(f))) ||
+      (attachments.length === 1 && isImageFile(attachments[0]) ? attachments[0] : null);
     if (photo) items.push(['copy-media', 'clipboard-plus', 'Copy media']);
     if (canEdit(message) && message.text) items.push(['edit', 'square-pen', 'Edit']);
     items.push([
@@ -435,13 +436,14 @@
         paintSelection();
       }
       if (action === 'save') {
+        const files = message.files || [];
         const file =
-          message.files.find((f) => f.id === fileId) || (message.files.length === 1 ? message.files[0] : null);
+          files.find((f) => f.id === fileId) || (files.length === 1 ? files[0] : null);
         if (file) saveFile(file);
         else {
           const node = dialog(
             'Save as...',
-            message.files
+            files
               .map(
                 (f, i) =>
                   '<button class="chat-contact" type="button" data-save-index="' +
@@ -456,7 +458,7 @@
           node.querySelectorAll('[data-save-index]').forEach(
             (b) =>
               (b.onclick = () => {
-                saveFile(message.files[Number(b.dataset.saveIndex)]);
+                saveFile(files[Number(b.dataset.saveIndex)]);
                 node.close();
               }),
           );
@@ -464,8 +466,8 @@
       }
       if (action === 'copy-media') {
         const file =
-          message.files.find((f) => f.id === fileId && isImageFile(f)) ||
-          (message.files.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
+          message.files?.find((f) => f.id === fileId && isImageFile(f)) ||
+          (message.files?.length === 1 && isImageFile(message.files[0]) ? message.files[0] : null);
         if (!file) throw Error('Only photos can be copied.');
         await copyMedia(file);
       }

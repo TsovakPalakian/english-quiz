@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
+import {QUIZ_TYPES} from '../src/learning-study.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 
@@ -11,7 +12,14 @@ test('attempt history is lazy, collapsible, refreshed by revision, escaped and a
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
-    await page.goto(url);await page.locator('[data-action="prepare"]').click();
+    await page.goto(url);await page.locator('#context').waitFor();
+    // Include failed/context-only types so history covers outcomes excluded by kit selection.
+    await page.evaluate(async types=>{
+      const {contexts}=await(await fetch('/local/boot')).json(),c=contexts[0];
+      const response=await fetch('/local/generation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId,types})});
+      if(!response.ok)throw new Error(await response.text());
+    },QUIZ_TYPES);
+    await page.locator('[data-view="word"]').click();
     await page.waitForFunction(async()=>{const {jobs}=await(await fetch('/local/generation')).json();return jobs.length===16&&jobs.every(j=>!['queued','running','retry'].includes(j.state));},{},{timeout:20000});
     await page.waitForFunction(()=>document.querySelectorAll('[data-job]').length===16&&![...document.querySelectorAll('[data-job]')].some(node=>['queued','running','retry'].includes(node.dataset.jobState)));
     assert.equal(requests.filter(request=>request.endsWith('/attempts')).length,0,'Closed histories do not fetch');

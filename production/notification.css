@@ -2,7 +2,7 @@
 html[data-learning-compact-notices="true"]{scroll-padding-top:0}
 html[data-learning-compact-notices="true"] body{padding-top:0!important}
 html[data-learning-compact-notices="true"] #learning-main-banner{
-  inset:50% auto auto 50%;transform:translate(-50%,-50%);max-width:480px;width:calc(100vw - 32px);
+  inset:50% auto auto 50vw;transform:translate(-50%,-50%);max-width:480px;width:calc(100vw - 32px);
   box-sizing:border-box;margin:0;padding:20px 24px 24px;border:2px solid color-mix(in srgb,var(--ink) 45%,var(--line));border-left:6px solid var(--acc);border-radius:8px;
   background:var(--card);color:var(--ink);font:inherit;
   display:flex;flex-direction:column-reverse;gap:8px;max-height:40vh;overflow:auto;

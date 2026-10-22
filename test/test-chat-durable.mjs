@@ -207,7 +207,7 @@ test('Avatars are private, group photos require staff and presence updates subsc
 test('Usernames are case-insensitively unique, independent of login and searchable without bypassing privacy',async()=>{
   const f=fixture({});try{
     await f.boot();const {env,alice,bob}=f,bridge=env.CHAT_BRIDGE.get('global');
-    bridge.set('policy',{at:Date.now(),users:[alice,bob,{id:'hidden',role:'USER',hidden:true},{id:'inactive',role:'USER',active:0}],groups:[],members:[]});
+    bridge.set('policy',{at:Date.now(),users:[alice,bob,{id:'hidden',role:'USER',hidden:true},{id:'inactive',role:'USER',active:0}],groups:[{id:1,title:'A1'}],members:[{account_id:alice.id,group_id:1},{account_id:bob.id,group_id:1},{account_id:'hidden',group_id:1},{account_id:'inactive',group_id:1}]});
     const claim=(actor,username,extra={})=>chatCall(env,'CHAT_BRIDGE','global','/username',{actor,username,...extra});
     assert.equal((await claim(bob,'@BoB_123')).profile.username,'@bob_123');
     await assert.rejects(claim(alice,'@BOB_123'),e=>e.status===409);
@@ -389,15 +389,19 @@ test('Link previews reject unsafe targets, use cached URL cards and never fetch 
   const map=new Map(),cache={match:async key=>map.get(key)?.clone(),put:async(key,value)=>map.set(key,value.clone())};let calls=0;
   const result=await chatLinkPreview('https://example.com/path','https://fixture.example',()=>{calls++;},cache);assert.equal(result.title,'example.com');assert.equal(result.description,'/path');assert.equal(calls,0);assert.deepEqual(await chatLinkPreview(result.url,'https://fixture.example',()=>{throw new Error('Unexpected network request.');},cache),result);
 });
-test('Outside-group discovery is exact, rate limited and requires consent; peers and teachers cannot be blocked',async()=>{
+test('Discovery excludes outside-group users and is rate limited; legacy outside-group rooms require consent',async()=>{
   const journal={readMany:async()=>[[{id:1,title:'A1'},{id:2,title:'B1'}],[{account_id:'alice',group_id:1},{account_id:'bob',group_id:2}]]},f=fixture(journal);
   try{
     const {env,alice,bob,teacher}=f;env.DB={prepare:()=>({all:async()=>({results:[{...alice,login:'alice',email:'alice@example.com',active:1},{...bob,login:'bob',email:'bob@example.com',active:1},{...teacher,active:1}]})})};
     const bridge=env.CHAT_BRIDGE.get('global');bridge.set('journalVersion',1);await bridge.policy();await f.drain();
     await assert.rejects(chatCall(env,'CHAT_INBOX','alice','/command',{action:'open',body:{kind:'direct',accountId:'bob'}}),e=>e.status===403);
     assert.equal((await chatCall(env,'CHAT_INBOX','alice','/command',{action:'lookup',body:{query:'bob@exam'}})).person,null);
-    assert.equal((await chatCall(env,'CHAT_INBOX','alice','/command',{action:'lookup',body:{query:'BOB@example.com'}})).person.id,'bob');
-    const {roomId}=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'open',body:{kind:'direct',accountId:'bob'}});await f.drain();
+    assert.equal((await chatCall(env,'CHAT_INBOX','alice','/command',{action:'lookup',body:{query:'BOB@example.com'}})).person,null);
+    await assert.rejects(chatCall(env,'CHAT_INBOX','alice','/command',{action:'open',body:{kind:'direct',accountId:'bob'}}),e=>e.status===403);
+    // Existing rooms retain consent/block behavior, without enabling outside-group discovery.
+    const roomId=directRoomId('alice','bob');
+    await chatCall(env,'CHAT_ROOM',roomId,'/configure',{room:{id:roomId,kind:'direct'},members:[alice,{...bob,groupId:2}]});
+    await chatCall(env,'CHAT_ROOM',roomId,'/import',{initial:true,complete:true,messages:[]});await f.drain();
     const send=()=>chatCall(env,'CHAT_INBOX','alice','/command',{action:'send',body:{roomId,category:'personal',text:'May we chat?',clientKey:'request-one'}});
     await send();await f.drain();assert.equal((await send()).sent,true,'Request retries are idempotent');
     await assert.rejects(chatCall(env,'CHAT_INBOX','alice','/command',{action:'send',body:{roomId,text:'Another',clientKey:'request-two'}}),e=>e.status===403);
