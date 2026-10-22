@@ -25,15 +25,16 @@ export async function rehearseWorkbench(sourcePath,{applied=[]}={}){
   try{
     const originalSchema=source.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").all();
     const plan=workbenchUpgradePlan(applied),existing=originalSchema.some(row=>row.name.startsWith('qr_'));
-    if(existing!==plan.incremental)throw Error('Existing workbench schema requires an explicitly reviewed checksum baseline.');
+    if(existing!==plan.incremental)throw Error('Existing workbench schema requires an explicitly reviewed checksum baseline/upgrade plan.');
     const names=originalSchema.filter(row=>row.type==='table').map(row=>row.name),columns=new Map(names.map(name=>[name,source.prepare('PRAGMA table_info('+quoted(name)+')').all().map(column=>column.name)]));
     const before=fingerprint(source,names,columns),legacySchema=originalSchema.filter(row=>!row.name.startsWith('qr_')),schemaHash=hash(JSON.stringify(legacySchema));
     const baselinePath=join(directory,'baseline.sqlite'),candidatePath=join(directory,'candidate.sqlite'),restoredPath=join(directory,'restored.sqlite');
     await backup(source,baselinePath);chmodSync(baselinePath,0o600);baseline=new DatabaseSync(baselinePath,{readOnly:true});
     if(fingerprint(baseline,names,columns)!==before)throw Error('Source changed during backup.');
     await backup(baseline,candidatePath);chmodSync(candidatePath,0o600);copy=new DatabaseSync(candidatePath);copy.exec('PRAGMA foreign_keys=ON');
-    copy.exec('BEGIN IMMEDIATE');
-    try{for(const step of plan.steps){const sql=readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url));if(hash(sql)!==step.sha256)throw Error('Migration checksum changed.');copy.exec(sql.toString());}copy.exec('COMMIT');}
+    // SQLite parent-table rebuilds need FK enforcement off before BEGIN, not merely deferred.
+    copy.exec('PRAGMA foreign_keys=OFF');copy.exec('BEGIN IMMEDIATE');
+    try{for(const step of plan.steps){const sql=readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url));if(hash(sql)!==step.sha256)throw Error('Migration checksum changed.');copy.exec(sql.toString());}if(copy.prepare('PRAGMA foreign_key_check').all().length)throw Error('Migrated clone has invalid foreign keys.');copy.exec('COMMIT');copy.exec('PRAGMA foreign_keys=ON');}
     catch(error){copy.exec('ROLLBACK');throw error;}
     const readiness=await learningWorkbenchReadiness({read:async(sql,args=[])=>copy.prepare(sql).all(...args)});
     if(!readiness.ready||fingerprint(copy,names,columns)!==before||copy.prepare('PRAGMA foreign_key_check').all().length||copy.prepare('PRAGMA quick_check').get().quick_check!=='ok')throw Error('Migrated clone failed readiness/integrity or changed original rows.');

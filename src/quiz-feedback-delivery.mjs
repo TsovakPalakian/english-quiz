@@ -36,7 +36,7 @@ export class QuizFeedbackDelivery{
     this.feedback=feedback;this.kits=feedback.kits;this.review=feedback.review;this.db=feedback.db;this.media=feedback.media;this.transport=transport;this.now=now;this.dailyLimit=dailyLimit;this.timeoutMs=timeoutMs;
   }
   async owned(actor,id){
-    kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_feedback WHERE id=? AND owner_id=?',[id,actor.id]);if(!row||this.feedback.privacyEnabled&&(row.deleted_at!==null||(row.expires_at??row.created_at+this.feedback.retentionDays*86400000)<=this.now()))fail(404,'Report unavailable.');return row;
+    kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_feedback WHERE id=? AND owner_id=?',[id,actor.id]);if(!row||this.feedback.privacyEnabled&&(row.deleted_at!==null||(row.expires_at??row.created_at+this.feedback.retentionDays*86400000)<=this.now()))fail(404,'Report unavailable.');if(!this.feedback.privacyEnabled)await this.kits.card(actor,row.card_id);return row;
   }
   async recover(){await this.db.atomic([s("UPDATE qr_feedback_delivery SET state='uncertain',error_code='interrupted',finished_at=? WHERE state IN ('queued','started') AND deadline_at<=?",[this.now(),this.now()])]);}
   async status(actor,id,{recover=true}={}){

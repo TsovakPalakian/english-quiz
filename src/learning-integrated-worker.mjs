@@ -118,7 +118,7 @@ export function accountDatabase(db,reserve,{allowWrites=false}={}){
 }
 export function integratedWorker({accountWorker=accounts,authenticate=currentUser,studyWorker=study,
   authorizeManaged=managedAccount,studyDatabase=studyClient,approveRegistration:approveReg=approveRegistration,openWorkbench=null}={}){
-  const capabilities=(env,user)=>user?{legacyHistory:true,originalAccounts:true,...(env.LEARNING_WORKBENCH_ENABLED==='true'&&typeof openWorkbench==='function'?{learningWorkbench:true}:{})}:{};
+  const capabilities=(env,user)=>user?{legacyHistory:true,originalAccounts:true,...(env.LEARNING_WORKBENCH_ENABLED==='true'&&typeof openWorkbench==='function'?{learningWorkbench:true,...(env.LEARNING_STUDY_BRIDGE==='true'?{learningStudyBridge:true}:{})}:{})}:{};
   async function approveInvitedStudent(env,accountEnv,registrationId){
     const invites=new AccountInvites(studyDatabase(env));
     // Only a server-claimed student invitation may authorize automatic approval.
@@ -184,7 +184,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const writable=env.STAGE_WRITES==='true'&&env.LEARNING_WORKBENCH_WRITES==='true';
         if(!['GET','HEAD'].includes(method)&&!writable)throw new StudyError(503,'Workbench writes are off.');
         if(typeof openWorkbench!=='function')throw new StudyError(503,'Workbench integration is not configured.');
-        const database=studyDatabase(env),readiness=await learningWorkbenchReadiness(database);
+        const database=studyDatabase(env),readiness=await learningWorkbenchReadiness(database,{studyBridge:env.LEARNING_STUDY_BRIDGE==='true'});
         if(!readiness.ready)throw new StudyError(503,'Workbench schema requires an offline migration review.');
         // A factory receives a read-only contract when writes are off, including background recovery.
         const db=writable?database:{read:database.read.bind(database),atomic:async()=>{throw new StudyError(503,'Workbench writes are off.');}};

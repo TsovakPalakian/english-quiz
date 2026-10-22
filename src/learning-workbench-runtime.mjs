@@ -54,7 +54,7 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
     };
     const speech=speechEnabled?{...p.speech,enabled:true,workerId:env.LEARNING_WORKBENCH_WORKER_ID,resolveActor:resolve,authorize:allow,openProviders:providers,
       pronunciationQuizzes:env.LEARNING_PRONUNCIATION_QUIZZES==='true',coaching:{...p.speech?.coaching,enabled:env.LEARNING_SPEECH_COACHING==='true'}}:null;
-    const factory=createLearningWorkbenchFactory({storage:{enabled:true,environment:'production',productionApproved:true,bucket:env.WORKBENCH_MEDIA,bucketName:env.WORKBENCH_MEDIA_BUCKET,forbiddenBucket:env.CONTENT_MEDIA},inspect:inspect||inspector(env),speech,publicAttribution:true,
+    const factory=createLearningWorkbenchFactory({storage:{enabled:true,environment:'production',productionApproved:true,bucket:env.WORKBENCH_MEDIA,bucketName:env.WORKBENCH_MEDIA_BUCKET,forbiddenBucket:env.CONTENT_MEDIA},inspect:inspect||inspector(env),speech,publicAttribution:true,studyIntegration:env.LEARNING_STUDY_BRIDGE==='true',resolveAccount:resolve,
       feedback:env.LEARNING_FEEDBACK_ENABLED==='true'?{enabled:true,retentionDays:p.retentionDays,dailyLimit:p.dailyReports,deliveryEnabled:writable&&writes(env)&&env.LEARNING_FEEDBACK_EMAIL==='true',binding:env.WORKBENCH_EMAIL,recipientVerified:env.WORKBENCH_EMAIL_RECIPIENT_VERIFIED==='true',policyRevision:p.revision}:null,
       openPreparation:env.LEARNING_PREPARATION_ENABLED==='true'?async context=>{
         if(!openPreparation)fail('Trusted preparation composition is not configured.');
@@ -66,7 +66,7 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
     if(!writes(env))return {reason:'off'};
     if(!Number.isSafeInteger(maxSteps)||maxSteps<1||maxSteps>20||!Number.isSafeInteger(maxMs)||maxMs<1000||maxMs>25000||typeof ctx?.waitUntil!=='function')fail('Invalid workbench maintenance budget.');
     const work=(async()=>{
-      if(!(await learningWorkbenchReadiness(db)).ready)return {reason:'schema_unavailable'};
+      if(!(await learningWorkbenchReadiness(db,{studyBridge:env.LEARNING_STUDY_BRIDGE==='true'})).ready)return {reason:'schema_unavailable'};
       const actor=await resolveActor(env,env.LEARNING_WORKBENCH_WORKER_ID);if(actor?.role!=='DEVELOPER')return {reason:'worker_unavailable'};
       const services=await open({db,actor,env,writable:true}),start=Date.now(),steps=[];
       const gate=async()=>writes(env)&&Date.now()-start<maxMs&&(await resolveActor(env,actor.id))?.role==='DEVELOPER';

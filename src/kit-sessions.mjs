@@ -32,9 +32,10 @@ function evaluate(type,content,responses,meaning,metadata){
   });
 }
 export class KitSessions{
-  constructor(kits,{authorizeExamRelease=async()=>false,speech=null}={}){this.kits=kits;this.review=kits.review;this.db=kits.db;this.authorizeExamRelease=authorizeExamRelease;this.speech=speech;}
+  constructor(kits,{authorizeExamRelease=async()=>false,speech=null,examPolicy=null}={}){this.kits=kits;this.review=kits.review;this.db=kits.db;this.authorizeExamRelease=authorizeExamRelease;this.speech=speech;this.examPolicy=examPolicy;}
   async start(actor,body){
     kitSigned(actor);exactFields(body,['mutationId','cardId','senseId','versionId','mode']);if(!['practice','exam'].includes(body.mode))fail(400,'Invalid session mode.');
+    if(body.mode==='exam'&&this.examPolicy)fail(403,'Start the quiz assigned to your existing exam block.');
     await this.kits.card(actor,body.cardId);
     return this.review.mutation(actor,body,['kit-session'],async()=>{
       const template=(await this.review.sharedForCard(actor,body.cardId)).find(q=>q.id===body.versionId&&q.senseId===body.senseId);if(!template)fail(409,'Choose a current available approved template.');
@@ -47,9 +48,9 @@ export class KitSessions{
         [id,actor.id,body.cardId,template.id,template.type,body.mode,JSON.stringify(content),JSON.stringify({meaning:meaning.en,...metadata}),Date.now(),template.id,body.cardId]),this.review.guard()],result:{id}};
     });
   }
-  async row(actor,id){kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_session_snapshots WHERE id=? AND owner_id=?',[id,actor.id]);if(!row)fail(404,'Session not found.');await this.kits.card(actor,row.card_id);return row;}
+  async row(actor,id){kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_session_snapshots WHERE id=? AND owner_id=?',[id,actor.id]);if(!row)fail(404,'Session not found.');await this.kits.card(actor,row.card_id);if(row.mode==='exam'&&this.examPolicy)await this.examPolicy.access(actor,row);return row;}
   async get(actor,id){
-    const row=await this.row(actor,id),content=JSON.parse(row.content_json),metadata=JSON.parse(row.metadata_json),visible=row.state==='released'||row.mode==='practice'&&row.state==='submitted';
+    const row=await this.row(actor,id),content=JSON.parse(row.content_json),metadata=JSON.parse(row.metadata_json),visible=(row.state==='released'||row.mode==='practice'&&row.state==='submitted')&&(row.mode!=='exam'||!this.examPolicy||await this.examPolicy.resultsVisible(actor,row));
     const result={id:row.id,versionId:row.version_id,type:row.type,mode:row.mode,state:row.state,revision:row.revision,questions:questions(row.type,content)};
     if(Array.isArray(result.questions))result.questions.forEach((item,index)=>{if(content.items[index].mediaId)item.mediaUrl='/local/kit-sessions/'+row.id+'/media/'+index;});
     if(visible){const correct=evaluate(row.type,content,JSON.parse(row.responses_json),metadata.meaning,metadata);Object.assign(result,{content,responses:JSON.parse(row.responses_json),correct,correctCount:correct.filter(Boolean).length,total:correct.length});}
@@ -82,12 +83,15 @@ export class KitSessions{
     return this.review.mutation(actor,body,['kit-session-answer',id],async()=>{
       const row=await this.row(actor,id);if(row.state!=='open'||row.revision!==body.expectedRevision)fail(409,'This session is already submitted or changed.');
       const metadata=JSON.parse(row.metadata_json);evaluate(row.type,JSON.parse(row.content_json),body.responses,metadata.meaning,metadata);
-      return {statements:[this.kits.cardGuard(actor,row.card_id),s("UPDATE qr_session_snapshots SET state='submitted',responses_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=? AND state='open'",[JSON.stringify(body.responses),id,actor.id,body.expectedRevision]),this.review.guard()],result:{id,state:'submitted',revision:body.expectedRevision+1}};
+      const examLink=row.mode==='exam'&&this.examPolicy?await this.examPolicy.access(actor,row):null;
+      return {statements:[this.kits.cardGuard(actor,row.card_id),...(examLink?[this.examPolicy.guard(actor,examLink,{submit:true})]:[]),s("UPDATE qr_session_snapshots SET state='submitted',responses_json=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=? AND state='open'",[JSON.stringify(body.responses),id,actor.id,body.expectedRevision]),this.review.guard()],result:{id,state:'submitted',revision:body.expectedRevision+1}};
     });
   }
   async release(actor,id,body){
     kitTeacher(actor);exactFields(body,['mutationId','expectedRevision']);
     const [row]=await this.db.read('SELECT * FROM qr_session_snapshots WHERE id=?',[id]);if(!row||row.mode!=='exam'||await this.authorizeExamRelease(actor,structuredClone(row))!==true)fail(403,'Exam release is not authorized.');
-    return this.review.mutation(actor,body,['kit-session-release',id],async()=>({statements:[s("UPDATE qr_session_snapshots SET state='released',revision=revision+1 WHERE id=? AND revision=? AND state='submitted' AND mode='exam'",[id,body.expectedRevision]),this.review.guard()],result:{id,state:'released',revision:body.expectedRevision+1}}));
+    const guards=this.examPolicy?await this.examPolicy.releaseGuards(actor,row):[];
+    return this.review.mutation(actor,body,['kit-session-release',id],async()=>({statements:[...guards,s("UPDATE qr_session_snapshots SET state='released',revision=revision+1 WHERE id=? AND revision=? AND state='submitted' AND mode='exam'",[id,body.expectedRevision]),this.review.guard()],result:{id,state:'released',revision:body.expectedRevision+1}}));
   }
 }
+export {evaluate as evaluateKitResponses};

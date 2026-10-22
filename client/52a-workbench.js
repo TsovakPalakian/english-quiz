@@ -8,7 +8,7 @@
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
-  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id);
+  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
   function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
@@ -140,9 +140,52 @@
     const prepare=staff()&&entry.writable&&entry.features?.includes('preparation')&&authorable(entry)?data.types.filter(type=>type.canPrepare):[];
     render(entry,group+senses+(data.selectionRequired?'<p>No meaning selected.</p>':'<div class="learning-workbench-actions">'+(authorable(entry)?'<button class="btn" type="button" data-workbench-new>New quiz</button>':'')+'<button class="btn" type="button" data-workbench-own>My quizzes</button></div><h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+[...data.types,...(data.additionalTypes||[])].map(type=>'<details><summary>'+esc(type.type)+' · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join('')+'</details>').join('')+(prepare.length?'<form data-workbench-prepare><fieldset><legend>Prepare missing types</legend>'+prepare.map(type=>'<label><input type="checkbox" name="types" value="'+esc(type.type)+'">'+esc(type.type)+'</label>').join('')+'</fieldset><button class="btn" type="submit">Queue preparation</button></form>':'')+(!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'')));
     if(entry.groupId&&dialog?.querySelector('[data-workbench-group]'))dialog.querySelector('[data-workbench-group]').value=String(entry.groupId);
+    if(entry.features?.includes('mapping')&&staff()||entry.features?.includes('statistics')){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML=(entry.features.includes('mapping')&&staff()?'<button class="btn" type="button" data-workbench-meaning-map>Link an exact meaning</button>':'')+(entry.features.includes('statistics')?'<button class="btn" type="button" data-workbench-history-list>Practice history</button>':'')+(staff()&&entry.features.includes('examQuizzes')&&entry.senseId?'<button class="btn" type="button" data-workbench-assign-exam '+(!entry.writable?'disabled':'')+'>Assign reviewed quiz to exam</button>':'');dialog.querySelector('[data-workbench-body]').append(actions);}
     if(entry.features?.includes('feedback')&&entry.senseId){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML='<button class="btn" type="button" data-workbench-report '+(!entry.writable?'disabled':'')+'>Report a problem</button><button class="btn" type="button" data-workbench-reports>My reports</button>';dialog.querySelector('[data-workbench-body]').append(actions);}
   }
   const reportState=value=>({saved_locally:'Saved privately · Not sent',queued:'Queued',started:'Sending',accepted:'Accepted by mail service · Mailbox delivery unconfirmed',rejected:'Rejected · Not sent',uncertain:'Delivery unknown · Do not resend automatically'}[value]||value);
+  async function examSessions(entry){
+    if(!entry.features.includes('examQuizzes'))throw Error('Reviewed exam quizzes are not enabled.');
+    const data=await request('/exam-quizzes?'+new URLSearchParams({examId:entry.examId,blockId:entry.blockId}));if(!current(entry))return;entry.view='exam-quizzes';
+    render(entry,'<h3>Reviewed quiz tasks</h3><p>Additional results · Not included in the existing exam grade</p>'+data.sessions.map(row=>'<p>'+esc(row.type)+' · '+esc(row.state)+' <button class="btn" type="button" data-workbench-open-session="'+row.id+'" '+(!entry.writable&&row.state==='open'&&!staff()?'disabled':'')+'>'+esc(staff()?'Review':'Open')+'</button></p>').join('')+(!data.sessions.length?'<p>No reviewed quiz tasks assigned.</p>':''));
+  }
+  document.addEventListener('click',event=>{
+    const exam=event.target.closest('[data-workbench-exam]');if(exam){if(!enabled()||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return;void open({examBridge:true,examId:lmState.examId,blockId:lmState.blockId,title:'Reviewed exam quizzes'});return;}
+    const node=event.target.closest('[data-workbench-meaning-map],[data-workbench-history-list],[data-workbench-open-session],[data-workbench-assign-exam],[data-workbench-release-session],[data-workbench-pronunciation-history]'),entry=job;
+    if(!node||!entry||!dialog?.contains(node))return;
+    void run(entry,async()=>{
+      if(node.hasAttribute('data-workbench-meaning-map')){
+        const data=await request('/legacy/candidates?cardId='+entry.cardId);if(!current(entry))return;entry.meaningMap=data;entry.view='meaning-map';
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(data.word)+'</h3><form data-workbench-meaning-link><label>Exact meaning<select name="senseId" required><option value="">Choose the intended meaning</option>'+data.candidates.map(row=>'<option value="'+esc(row.id)+'" '+(data.linked.includes(row.id)?'disabled':'')+'>'+esc([row.part_of_speech,row.translation,row.definition].join(' · '))+'</option>').join('')+'</select></label><label>Reason<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn" type="submit" '+(!entry.writable?'disabled':'')+'>Link meaning</button></form>'+(data.truncated?'<p>More meanings exist. Use an explicit reviewed source mapping.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-history-list')){
+        const data=await request('/study/history?cardId='+entry.cardId);if(!current(entry))return;entry.history=data.sessions;entry.view='history';
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Practice history</h3>'+data.sessions.map(row=>'<p>'+esc(row.type)+' · '+esc(row.mode)+' · '+esc(new Date(row.createdAt).toLocaleDateString('en-GB'))+' · '+esc(row.percent===null?row.state:row.percent+' / 100')+' <button class="btn" data-workbench-open-session="'+row.id+'">Open</button>'+(row.type==='Pronunciation'?'<button class="btn" data-workbench-pronunciation-history="'+row.versionId+'">Comparable speech progress</button>':'')+'</p>').join('')+(!data.sessions.length?'<p>No sessions yet.</p>':'')+(data.truncated?'<p>Showing the latest 500 sessions.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-pronunciation-history')){
+        const data=await request('/study/pronunciation?'+new URLSearchParams({cardId:entry.cardId,versionId:node.dataset.workbenchPronunciationHistory,itemIndex:0,period:'week'}));if(!current(entry))return;
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Pronunciation progress · Item 1</h3>'+data.periods.map((series,index)=>'<section><h4>Comparable series '+(index+1)+'</h4>'+(series.synthetic?'<p>Synthetic demonstration</p>':'')+series.buckets.map(bucket=>'<p>'+esc(bucket.date)+' · '+bucket.attempts+' attempts · '+esc(bucket.metrics.overall?bucket.metrics.overall.average+' / 100':'Score unavailable')+'</p>').join('')+'</section>').join('')+(!data.periods.length?'<p>No comparable attempts yet.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-assign-exam')){
+        entry.view='assign-exam';const types=[...entry.kit.types,...(entry.kit.additionalTypes||[])].filter(row=>row.type!=='Pronunciation');
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Assign reviewed quiz</h3><form data-workbench-exam-assign><label>Assigned exam ID<input name="examId" type="number" min="1" required></label><label>Block ID<input name="blockId" type="number" min="1" required></label><label>Reviewed variant<select name="versionId" required><option value="">Choose a variant</option>'+types.flatMap(row=>row.versionIds.map((id,index)=>'<option value="'+id+'">'+esc(row.type)+' · Variant '+(index+1)+'</option>')).join('')+'</select></label><button class="btn" type="submit">Assign to this exam instance</button></form>');return;
+      }
+      if(node.hasAttribute('data-workbench-release-session')){await write(entry,'/sessions/'+node.dataset.workbenchReleaseSession+'/release',{expectedRevision:Number(node.dataset.revision)});if(current(entry))await examSessions(entry);return;}
+      const id=node.dataset.workbenchOpenSession;
+      if(entry.examBridge&&staff()){
+        const row=await request('/exam-quizzes/'+id+'/review');if(!current(entry))return;
+        render(entry,'<button class="btn" data-workbench-back>Exam quizzes</button><h3>'+esc(row.type)+'</h3>'+preview(row)+(row.responses?'<p>Responses: '+esc(JSON.stringify(row.responses))+'</p><p>'+row.correct.filter(Boolean).length+' / '+row.correct.length+'</p>':'<p>Not submitted.</p>')+(row.state==='submitted'&&entry.writable?'<button class="btn" data-workbench-release-session="'+id+'" data-revision="'+row.revision+'">Release after exam review publication</button>':''));return;
+      }
+      const session=await request('/sessions/'+id);if(!current(entry))return;entry.session=session;answers(entry);
+    });
+  });
+  document.addEventListener('submit',event=>{
+    const form=event.target;if(!form.matches('[data-workbench-meaning-link],[data-workbench-exam-assign]'))return;event.preventDefault();const entry=job;if(!entry?.writable||!dialog?.contains(form))return;const data=new FormData(form);
+    void run(entry,async()=>{
+      if(form.hasAttribute('data-workbench-meaning-link')){const result=await write(entry,'/legacy/link',{cardId:entry.cardId,senseId:data.get('senseId'),expectedSenseIds:entry.meaningMap.linked,reason:data.get('reason')});if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);}
+      else{await write(entry,'/exam-quizzes/assign',{examId:Number(data.get('examId')),blockId:Number(data.get('blockId')),cardId:entry.cardId,senseId:entry.senseId,versionId:data.get('versionId')});if(current(entry)){await coverage(entry);dialog.querySelector('[data-workbench-status]').textContent='Assigned as an additional quiz. Existing exam grades were not changed.';}}
+    });
+  });
   async function reports(entry){
     speechUI?.deactivate();entry.view='reports';const data=await request('/feedback');if(!current(entry))return;
     entry.reports=data.reports;
@@ -197,6 +240,7 @@
   });
   function answers(entry){
     const session=entry.session,pairs=['Match','Memory'].includes(session.type),items=pairs?session.questions.left.map(prompt=>({prompt,options:session.questions.right})):session.questions;
+    if(session.state!=='open'&&!session.content){render(entry,'<button class="btn" data-workbench-back>Back</button><h3>'+esc(session.type)+'</h3><p>Submitted · Results are waiting for published exam review.</p>');return;}
     if(session.type==='Pronunciation'){
       render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Pronunciation</h3>'+items.map((item,index)=>'<section><p>'+esc(item.prompt)+'</p><blockquote>'+esc(item.reference)+'</blockquote><p>'+esc(item.locale)+' · '+esc(item.rubric.id)+' · '+esc(item.rubric.version)+'</p><button class="btn" type="button" data-workbench-pronunciation="'+index+'">Practice pronunciation</button></section>').join(''));return;
     }
@@ -210,7 +254,7 @@
     finally{entry.busy=false;controls.forEach(([node,disabled])=>{if(node.isConnected)node.disabled=disabled;});if(!current(entry)&&job===entry)close();}
   }
   async function open(card,groups=[],lessonId=null){
-    if(!enabled()||!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
+    if(!enabled()||!card.examBridge&&!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
     dialog=document.createElement('dialog');dialog.className='learning-kit-dialog';dialog.setAttribute('aria-label','Learning kit');
     dialog.innerHTML='<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header><p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
@@ -218,6 +262,7 @@
     observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
       const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;entry.features=status.features;entry.pronunciationQuizzes=status.pronunciationQuizzes;entry.pronunciationRubrics=status.pronunciationRubrics||[];
+      if(card.examBridge){await examSessions(entry);return;}
       if(card.queue){entry.view='queue';await loadQueue(entry);return;}
       if(card.mine){await mine(entry);return;}
       if(groups.length>1){render(entry,'<label>Group<select data-workbench-group><option value="">Select a group</option>'+options(groups)+'</select></label>');return;}
@@ -233,6 +278,7 @@
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
     return '<button type="button" data-workbench-lesson-speech><i data-lucide="mic" aria-hidden="true"></i>Speech practice</button>';
   }
+  function examButton(){if(!enabled()||window.LearningMain?.capabilities?.().learningStudyBridge!==true||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return '';return '<button class="btn" type="button" data-workbench-exam>Reviewed quiz tasks</button>';}
   function cardButton(card){if(!enabled()||!valid(card?.stageId))return '';displayedCards.set(card.stageId,card);return '<button class="btn" type="button" data-workbench-card="'+card.stageId+'">Learning kit</button>';}
   function reset(){displayedCards.clear();close();paintEntry();}
   document.addEventListener('learning-workbench-session',reset);
@@ -277,7 +323,7 @@
       if(button.hasAttribute('data-workbench-speech')){if(!entry.writable||!entry.lessonId||!entry.senseId||!entry.features.includes('speech'))return;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);return;}
       if(button.hasAttribute('data-workbench-more')){if(entry.view==='mine')await mine(entry,true);else await loadQueue(entry,true);return;}
       if(button.hasAttribute('data-workbench-history')){const id=button.dataset.workbenchHistory;if(!entry.rows?.some(row=>row.id===id))return;const {quiz}=await request('/proposals/'+id);if(!current(entry))return;const host=dialog.querySelector('[data-review-history="'+id+'"]');if(host)host.innerHTML='<details><summary>History · '+quiz.history.length+'</summary>'+quiz.history.map(row=>'<p>'+esc(row.date)+' · '+esc(row.actor)+' · '+esc(row.action)+'</p>'+(row.details.comment?'<blockquote>'+esc(row.details.comment)+'</blockquote>':'')).join('')+'</details>';return;}
-      if(button.hasAttribute('data-workbench-back')){delete entry.pronunciationTaskId;await coverage(entry);return;}
+      if(button.hasAttribute('data-workbench-back')){delete entry.pronunciationTaskId;if(entry.examBridge)await examSessions(entry);else await coverage(entry);return;}
       if(!entry.writable)return;
       const versionId=button.dataset.workbenchPractice;
       if(![...entry.kit.types,...(entry.kit.additionalTypes||[])].some(type=>type.versionIds.includes(versionId)))return;
@@ -312,5 +358,5 @@
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,lessonSpeechButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={lessonButton,lessonSpeechButton,examButton,cardButton,close,reset,paintEntry};
 })();

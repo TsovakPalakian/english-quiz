@@ -1,5 +1,5 @@
--- Apply as one transaction on an isolated clone; verify foreign keys before release.
-PRAGMA defer_foreign_keys=ON;
+-- Offline rebuild only: disable FK enforcement BEFORE BEGIN on an isolated clone.
+-- Check PRAGMA foreign_key_check BEFORE COMMIT, then re-enable FK enforcement.
 CREATE TABLE qr_speech_tasks_expanded (
  id TEXT PRIMARY KEY,group_id INTEGER NOT NULL,lesson_id INTEGER NOT NULL,card_id INTEGER,sense_id TEXT REFERENCES qr_senses(id),
  author_id TEXT NOT NULL,created_at INTEGER NOT NULL,value_json TEXT NOT NULL CHECK(json_valid(value_json)),

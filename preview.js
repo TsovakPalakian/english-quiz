@@ -2314,21 +2314,28 @@ function wav(chunks,rate){
 }
 function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage,notify,endpoint='/local/speech'}){
   const route=path=>path.replace(/^\/local\/speech(?=\/|\?|$)/,endpoint);
-  let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null;
+  let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null,dialogueId='',progressPeriod='week',exerciseViews=new Map();
   const selected=()=>state?.tasks.find(task=>task.id===taskId);
   let expandedAttempts=new Set();
-  const lesson=()=>{const c=context();return {groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
+  const lesson=()=>{const c=context();return c.pronunciationTaskId?{taskId:c.pronunciationTaskId}:{groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
   function cleanup(){captureEpoch++;if(capture){clearTimeout(capture.timer);capture.processor.disconnect();capture.source.disconnect();capture.stream.getTracks().forEach(track=>track.stop());capture.audio.close().catch(()=>{});capture=null;}}
   function discard(){cleanup();uploadController?.abort();uploadController=null;document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(localUrl)URL.revokeObjectURL(localUrl);localUrl='';blob=null;uploaded=null;intent=null;}
   async function load(){
-    const c=context();if(!c||c.personal){reset();return;}
-    const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;trainingPlan=null;comparison=null;expandedAttempts.clear();contextKey=key;}
+    const c=context();if(!c||c.personal&&!c.pronunciationTaskId){reset();return;}
+    const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();contextKey=key;}
     const data=await api('/local/speech?'+new URLSearchParams(lesson()));if(epoch!==sessionKey()||loadId!==generation)return;
     if(!data.tasks.some(task=>task.id===taskId))taskId=data.tasks[0]?.id||'';
-    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'+(data.coachingAvailable?'?period='+progressPeriod:'')),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()&&!data.templatePractice?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    let dialogue=null,dialogues=[],languageProgress=null;const disputes=new Map();
+    if(data.coachingAvailable&&taskId){
+      dialogues=(await api('/local/speech/tasks/'+taskId+'/dialogues')).dialogues;
+      languageProgress=await api('/local/speech/tasks/'+taskId+'/language-progress?period='+progressPeriod);
+      const chosen=dialogues.find(row=>row.id===dialogueId)||dialogues[0];if(chosen)dialogue=await api('/local/speech/dialogues/'+chosen.id);
+      for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')disputes.set(attempt.id,(await api('/local/speech/attempts/'+attempt.id+'/dispute')).dispute);
+    }
     const textReviews=new Map();
     for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));
-    if(epoch===sessionKey()&&loadId===generation)state={...data,history,progress,recipients,shared,textReviews};
+    if(epoch===sessionKey()&&loadId===generation){dialogueId=dialogue?.id||'';state={...data,history,progress,recipients,shared,textReviews,dialogue,dialogues,disputes,languageProgress};}
   }
   function trainingPanel(){
     if(!trainingPlan)return '';
@@ -2348,14 +2355,24 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
   function render(){
     expandedAttempts=new Set([...document.querySelectorAll('[data-speech-id][open]')].map(node=>node.dataset.speechId));
     if(document.querySelector('[data-speech-history][open]'))expandedAttempts.add('history');
-    const contexts=context()?.lessonSpeech&&isTeacher()?'<label>Word and meaning<select name="lessonContext" required><option value="">Select a lesson context</option>'+(state?.contexts||[]).map((row,index)=>'<option value="'+index+'">'+esc([row.word,row.partOfSpeech,row.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>':'';
-    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel())
+    const contexts=context()?.lessonSpeech&&isTeacher()?'<label>Scope<select name="lessonContext" required><option value="lesson">Whole lesson</option>'+(state?.contexts||[]).map((row,index)=>'<option value="'+index+'">'+esc([row.word,row.partOfSpeech,row.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>':'';
+    const criteria=selected()?.criteria,criteriaPanel=criteria?'<details><summary>Task material and goals</summary>'+(criteria.sourceText?'<blockquote class="quiz-content">'+esc(criteria.sourceText)+'</blockquote>':'')+(criteria.keyIdeas.length?'<h4>Key ideas</h4><ul>'+criteria.keyIdeas.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>':'')+(criteria.targetVocabulary.length?'<p>'+esc(criteria.targetVocabulary.join(', '))+'</p>':'')+'</details>':'';
+    const criteriaFields='<fieldset data-speech-criteria hidden><legend>Meaning and vocabulary</legend><label>Retelling source<textarea name="sourceText" maxlength="6000"></textarea></label><label>Key ideas · one per line<textarea name="keyIdeas" maxlength="3000"></textarea></label><label>Target vocabulary · one per line<textarea name="targetVocabulary" maxlength="6000"></textarea></label><details><summary>Dialogue scenario</summary><label>Partner role<input name="partnerRole" maxlength="200"></label><label>Constraints · one per line<textarea name="constraints" maxlength="3000"></textarea></label><label>Turn limit<input name="maxTurns" type="number" min="2" max="12" value="6"></label></details></fieldset>';
+    return renderContent().replace('<section class="speech-panel">','<section class="speech-panel">'+trainingPanel()+criteriaPanel+coachingPanel())
       .replace('<details><summary>My attempts','<details data-speech-history><summary>My attempts')
       .replace('<label>Mode<select name="mode">',contexts+'<label>Mode<select name="mode">')
+      .replace('<label>Locale<select name="locale">',criteriaFields+'<label>Locale<select name="locale">')
       .replace('No speech tasks for this lesson word yet.',context()?.lessonSpeech?'No speech tasks for this lesson yet.':'No speech tasks for this lesson word yet.')
       .replaceAll('src="/local/speech/','src="'+endpoint+'/')
       .replace('Local pilot · Synthetic analysis only · No external speech service connected',state?.synthetic?'Synthetic analysis only · No assessment of the recording':state?.analyzerLabel?'Speech provider: '+esc(state.analyzerLabel):'Speech provider is not configured')
       .replace('Send this recording to the selected synthetic local analyzer','Send this recording to '+esc(state?.analyzerLabel||(state?.synthetic?'the synthetic local analyzer':'the configured speech provider')));
+  }
+  function coachingPanel(){
+    if(!state?.coachingAvailable)return '';
+    const dialogue=state.dialogue,periods=[...(state.progress.periods||[]).map(series=>({...series,basis:'Speech'})),...(state.languageProgress?.periods||[]).map(series=>({...series,basis:series.editedTranscript?'Confirmed edited text':'Confirmed original text'}))];
+    const discussion=selected()?.mode==='dialogue'?'<details open><summary>Dialogue</summary><button type="button" data-speech-action="start-dialogue">Start dialogue</button>'+(dialogue?'<select data-speech-dialogue>'+state.dialogues.map(row=>'<option value="'+esc(row.id)+'" '+(row.id===dialogue.id?'selected':'')+'>'+esc(new Date(row.createdAt).toLocaleDateString('en-GB')+' · '+row.state)+'</option>').join('')+'</select><p>'+esc(dialogue.scenario.role)+' · '+esc(dialogue.state)+'</p>'+dialogue.turns.map(turn=>'<div><p><strong>You</strong> '+esc(turn.text)+'</p><p><strong>Partner</strong> '+esc(turn.reply||turn.error||turn.state)+'</p></div>').join('')+'<button type="button" data-speech-action="remove-dialogue" data-id="'+esc(dialogue.id)+'">Delete dialogue</button>':'')+'</details>':'';
+    const progress='<details><summary>Progress by period</summary><label>Period<select data-speech-period>'+['day','week','month'].map(period=>'<option '+(progressPeriod===period?'selected':'')+'>'+period+'</option>').join('')+'</select></label>'+periods.map((series,index)=>'<h4>'+esc(series.basis)+' · Series '+(index+1)+'</h4>'+series.buckets.map(bucket=>'<p>'+esc(bucket.date)+' · '+bucket.attempts+' · '+esc(bucket.metrics.overall?.average??'Unavailable')+' / 100</p>').join('')).join('')+(state.progress.truncated||state.languageProgress?.truncated?'<p>Only the first 5000 attempts are included.</p>':'')+'</details>';
+    return discussion+progress;
   }
   function chart(index,metric='overall'){
     const series=state?.progress.series[index],canvas=document.querySelector('[data-speech-chart="'+index+'"]');if(!series||!canvas)return;
@@ -2375,6 +2392,11 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       const attempt=[...(state?.history.attempts||[]),...(state?.shared||[])].find(row=>row.id===node.dataset.speechId);
       node.querySelector('[data-speech-action="training"]')?.remove();
       if(state?.trainingAvailable&&attempt?.canManage&&attempt.state==='complete'&&attempt.result?.training.length){const button=document.createElement('button');button.type='button';button.dataset.speechAction='training';button.dataset.id=attempt.id;button.textContent='Practice these points';node.querySelector('.detail').prepend(button);}
+      if(state?.coachingAvailable&&attempt?.state==='complete'){
+        const dispute=state.disputes.get(attempt.id),revision=attempt.correction?.revision||0,dialogue=state.dialogue,extra=document.createElement('div');
+        extra.innerHTML=(attempt.canManage?'<button type="button" data-speech-action="exercises" data-id="'+esc(attempt.id)+'">Practice corrections</button>'+(exerciseViews.get(attempt.id)?.exercises||[]).map(exercise=>'<p>'+esc(exercise.instruction)+(exercise.reference?' · '+esc(exercise.reference):'')+'</p>').join(''):'')+(attempt.canManage&&dialogue?.state==='open'&&!dialogue.turns.some(turn=>['reserved','started'].includes(turn.state))?'<form data-speech-form="dialogue-turn" data-id="'+esc(attempt.id)+'" data-revision="'+revision+'"><p>'+esc(attempt.correction?.text||attempt.result?.transcript)+'</p><label class="check"><input type="checkbox" name="consent" required>Send this transcript to the conversation partner</label><button type="submit">Send dialogue turn</button></form>':'')+(dispute?'<details><summary>Assessment review · '+esc(dispute.decision||'pending')+'</summary><p>'+esc(dispute.reason)+'</p><p>'+esc(dispute.comment||'')+'</p>'+(dispute.teacherScore!==null&&dispute.teacherScore!==undefined?'<p>Teacher assessment: '+esc(dispute.teacherScore)+' / 100</p>':'')+(!attempt.canManage&&isTeacher()&&!dispute.decision?'<form data-speech-form="dispute-decision" data-id="'+esc(dispute.id)+'" data-revision="'+dispute.revision+'"><label>Decision<select name="decision"><option value="upheld">Upheld</option><option value="needs_reassessment">Needs reassessment</option></select></label><label>Comment<textarea name="comment" maxlength="2000" required></textarea></label><label>Separate teacher score<input name="teacherScore" type="number" min="0" max="100" step="0.1"></label><button type="submit">Save decision</button></form>':'')+'</details>':attempt.canManage?'<details><summary>Question this assessment</summary><form data-speech-form="dispute" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label>Reason<textarea name="reason" maxlength="2000" required></textarea></label><label class="check"><input name="consent" type="checkbox" required>Share this result with the selected teacher</label><button type="submit">Request review</button></form></details>':'');
+        node.querySelector('[data-speech-coaching]')?.remove();extra.dataset.speechCoaching='';node.querySelector('.detail').append(extra);
+      }
       if(attempt&&!attempt.canHear)node.querySelector('audio')?.remove();
       const transcript=node.querySelector('.quiz-content'),result=attempt?.result;
       if(transcript&&result?.transcript){
@@ -2393,7 +2415,8 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
         node.querySelector('.detail').append(panel);
       }
     });
-    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state))))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
+    if(state?.templatePractice)document.querySelectorAll('[data-speech-form="task"],[data-speech-form="share"],[data-speech-form="dispute"]').forEach(form=>{const section=form.closest('details');if(section)section.hidden=true;else form.hidden=true;});
+    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state)))||state?.dialogue?.turns.some(turn=>['reserved','started'].includes(turn.state)))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
   }
   async function start(){
     if(!selected())return;discard();const epoch=++captureEpoch,session=sessionKey();let stream,audio;
@@ -2408,12 +2431,21 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
   }
   function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);renderPage();}
   document.addEventListener('change',event=>{
+    if(event.target.matches('[data-speech-period]')){progressPeriod=event.target.value;run(async()=>{await load();renderPage();});}
+    if(event.target.matches('[data-speech-dialogue]')){dialogueId=event.target.value;run(async()=>{await load();renderPage();});}
+    if(event.target.matches('[data-speech-form="task"] [name="mode"]')){
+      const form=event.target.form,mode=event.target.value,open=['free','retelling','dialogue'].includes(mode),fields=form.querySelector('[data-speech-criteria]');
+      if(fields){fields.hidden=!open;for(const input of fields.querySelectorAll('textarea')){input.disabled=!open;input.required=mode==='retelling'&&['sourceText','keyIdeas'].includes(input.name);}}
+      form.querySelector('[name="evaluation"]').value=open?'stt':'pronunciation';
+    }
     if(event.target.id==='speech-task'){run(async()=>{discard();trainingPlan=null;comparison=null;taskId=event.target.value;await load();renderPage();});}
     if(event.target.id==='speech-file'){const file=event.target.files[0];if(file){discard();if(file.size>10*1024*1024){notify('Maximum recording size is 10 MiB.');return;}blob=file;localUrl=URL.createObjectURL(file);renderPage();}}
     if(event.target.dataset.speechMetric!==undefined)chart(Number(event.target.dataset.speechMetric),event.target.value);
     if(event.target.id==='theme'&&document.querySelector('.speech-panel'))queueMicrotask(afterRender);
   });
   document.addEventListener('click',event=>{const button=event.target.closest('[data-speech-action]');if(!button)return;const {speechAction:action,id,teacher}=button.dataset;
+    if(action==='remove')exerciseViews.delete(id);
+    if(['start-dialogue','remove-dialogue','exercises'].includes(action)){run(async()=>{if(action==='start-dialogue'){const result=await api('/local/speech/tasks/'+taskId+'/dialogues',{});dialogueId=result.id;}if(action==='remove-dialogue'){await api('/local/speech/dialogues/'+id+'/remove',{});dialogueId='';}if(action==='exercises')exerciseViews.set(id,await api('/local/speech/attempts/'+id+'/exercises'));await load();renderPage();});return;}
     if(action==='record'){run(start);return;}if(action==='stop'){stop();return;}
     run(async()=>{
       if(action==='training'){const epoch=sessionKey(),plan=await api('/local/speech/attempts/'+id+'/training');if(epoch!==sessionKey())return;discard();trainingPlan=plan;comparison=null;taskId=plan.taskId;renderPage();return;}
@@ -2438,16 +2470,20 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
         const attempt=await api('/local/speech/tasks/'+taskId+'/analyze',{mediaId:uploaded.id,consent:true});if(epoch!==sessionKey())return;if(trainingPlan)trainingPlan.repeatId=attempt.id;comparison=null;discard();
       }
       if(kind==='task'){
-        const origin=lesson();if(context()?.lessonSpeech){const index=data.get('lessonContext'),selected=index!==null&&/^\d+$/.test(index)?state.contexts?.[Number(index)]:null;if(!selected)throw Error('Select a lesson word and meaning.');origin.cardId=selected.cardId;origin.senseId=selected.senseId;}
-        await api('/local/speech/tasks',{...origin,mode:data.get('mode'),locale:data.get('locale'),prompt:data.get('prompt'),reference:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null});
+        const origin=lesson();if(context()?.lessonSpeech){const index=data.get('lessonContext');if(index==='lesson'){origin.cardId=null;origin.senseId=null;}else{const selected=index!==null&&/^\d+$/.test(index)?state.contexts?.[Number(index)]:null;if(!selected)throw Error('Select a lesson scope.');origin.cardId=selected.cardId;origin.senseId=selected.senseId;}}
+        const mode=data.get('mode'),open=['free','retelling','dialogue'].includes(mode),lines=name=>String(data.get(name)||'').split('\n').map(text=>text.trim()).filter(Boolean);
+        await api('/local/speech/tasks',{...origin,mode,locale:data.get('locale'),prompt:data.get('prompt'),reference:open?null:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:open?'stt':data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null,...(open?{criteria:{sourceText:String(data.get('sourceText')||'').trim()||null,keyIdeas:lines('keyIdeas'),targetVocabulary:lines('targetVocabulary')}}:{}),...(mode==='dialogue'?{dialogue:{role:String(data.get('partnerRole')||'Conversation partner'),scenario:data.get('prompt'),goals:lines('keyIdeas'),constraints:lines('constraints'),maxTurns:Number(data.get('maxTurns')||6)}}:{})});
       }
+      if(kind==='dialogue-turn')await api('/local/speech/dialogues/'+state.dialogue.id+'/turn',{expectedRevision:state.dialogue.revision,attemptId:id,transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on'});
+      if(kind==='dispute')await api('/local/speech/attempts/'+id+'/dispute',{teacherId:data.get('teacherId'),reason:data.get('reason'),consent:data.get('consent')==='on'});
+      if(kind==='dispute-decision')await api('/local/speech/disputes/'+id+'/decision',{expectedRevision:Number(form.dataset.revision),decision:data.get('decision'),comment:data.get('comment'),teacherScore:String(data.get('teacherScore')||'').trim()===''?null:Number(data.get('teacherScore'))});
       if(kind==='correct')await api('/local/speech/attempts/'+id+'/correct',{text:data.get('text')});
       if(kind==='confirm-text')await api('/local/speech/attempts/'+id+'/confirm-text',{transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on',...(form.dataset.retry?{retryOf:form.dataset.retry}:{})});
       if(kind==='share')await api('/local/speech/attempts/'+id+'/share',{teacherId:data.get('teacherId'),includeAudio:data.get('includeAudio')==='on',consent:data.get('consent')==='on'});
       await load();renderPage();
     });
   });
-  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;expandedAttempts.clear();}
+  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();}
   window.addEventListener('pagehide',reset);
   return {load,render,afterRender,reset,deactivate(){generation++;clearTimeout(pollTimer);document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(capture)cleanup();}};
 }
@@ -2474,6 +2510,7 @@ const fields={
   'Video choice':[['prompt','Question'],['mediaId','Video asset'],['transcript','Transcript']],
 };
 function emptyReviewItems(type,c={}){
+  if(type==='Pronunciation')return [{prompt:'',reference:c.word||'',locale:'en-US',rubric:null}];
   const item=Object.fromEntries(fields[type].filter(([, ,optional])=>!optional).map(([key])=>[key,'']));
   if('word' in item)item.word=c.word||'';
   if(type==='Flip'){item.front=c.word||'';item.back=c.translation||'';}
@@ -2482,6 +2519,7 @@ function emptyReviewItems(type,c={}){
   return isPairs(type)?[item,structuredClone(item)]:[item];
 }
 function defaultReviewItems(type,c){
+  if(type==='Pronunciation')return emptyReviewItems(type,c);
   const sentence=c.word==='bank'?'She opened an account at the bank.':'A fine drizzle started falling.';
   let item;
   if(type==='Flip')item={front:c.word,back:c.translation};
@@ -2502,10 +2540,18 @@ function defaultReviewItems(type,c){
   return [item];
 }
 function inputId(index,key){return (key==='front'||key==='shown'||key==='prompt'?'edit-prompt':key==='back'||key==='answer'?'edit-answer':'edit-'+key)+(index?'-'+index:'');}
-function renderReviewItems(type,items){
+function renderReviewItems(type,items,rubrics=[]){
+  if(type==='Pronunciation')return items.map((item,index)=>{
+    const choices=[...rubrics];if(item.rubric&&!choices.some(row=>JSON.stringify(row)===JSON.stringify(item.rubric)))choices.push(item.rubric);
+    return '<fieldset class="editor-item" data-editor-item="'+index+'"><legend>Item '+(index+1)+'</legend><button type="button" data-remove-item="'+index+'" aria-label="Remove item" '+(items.length===1?'disabled':'')+'>&times;</button><label>Prompt<input data-field="prompt" value="'+esc(item.prompt)+'" maxlength="2000" required></label><label>Reading reference<textarea data-field="reference" maxlength="2000" required>'+esc(item.reference)+'</textarea></label><label>Locale<select data-field="locale">'+['en-US','en-GB'].map(locale=>'<option '+(locale===item.locale?'selected':'')+'>'+locale+'</option>').join('')+'</select></label><label>Scoring rubric<select data-rubric required><option value="">Choose a rubric</option>'+choices.map(row=>'<option value="'+esc(JSON.stringify(row))+'" '+(JSON.stringify(row)===JSON.stringify(item.rubric)?'selected':'')+'>'+esc(row.id+' · '+row.version)+'</option>').join('')+'</select></label><label>Reference audio asset<input data-field="mediaId" maxlength="36" value="'+esc(item.mediaId)+'"></label></fieldset>';
+  }).join('');
   return items.map((item,index)=>'<fieldset class="editor-item" data-editor-item="'+index+'"><legend>'+(isPairs(type)?'Pair':'Item')+' '+(index+1)+'</legend><div class="item-tools"><button type="button" data-remove-item="'+index+'" aria-label="Remove '+(isPairs(type)?'pair':'item')+' '+(index+1)+'" title="Remove" '+(items.length<=(isPairs(type)?2:1)?'disabled':'')+'>&times;</button></div>'+fields[type].map(([key,label,optional])=>'<label>'+label+'<input id="'+inputId(index,key)+'" data-field="'+key+'" maxlength="'+(key==='word'?200:2000)+'" '+(optional?'':'required')+' value="'+esc(item[key])+'"></label>').join('')+(type==='True / false'?'<label>Correct answer<select data-field="answer"><option value="true" '+(item.answer==='true'?'selected':'')+'>True</option><option value="false" '+(item.answer==='false'?'selected':'')+'>False</option></select></label>':'')+(optionTypes.includes(type)?'<div class="option-editor"><p class="muted small">'+(type==='Select all'?'Correct answers':'Correct answer')+'</p>'+item.options.map((text,i)=>'<div class="option-row"><input type="'+(type==='Select all'?'checkbox':'radio')+'" name="answer-'+index+'" data-correct="'+i+'" aria-label="Option '+(i+1)+' is correct" '+((type==='Select all'?item.answers.includes(i):item.answer===i)?'checked':'')+'><input data-option="'+i+'" aria-label="Option '+(i+1)+'" value="'+esc(text)+'" maxlength="1000" required><button type="button" data-remove-option="'+i+'" aria-label="Remove option '+(i+1)+'" title="Remove option" '+(item.options.length<=2?'disabled':'')+'>&times;</button></div>').join('')+'<button type="button" data-add-option aria-label="Add option to item '+(index+1)+'" '+(item.options.length>=12?'disabled':'')+'>+ Add option</button></div>':'')+'</fieldset>').join('');
 }
 function readReviewItems(type,root){
+  if(type==='Pronunciation')return [...root.querySelectorAll('[data-editor-item]')].map(row=>{
+    const item=Object.fromEntries([...row.querySelectorAll('[data-field]')].filter(input=>input.dataset.field!=='mediaId'||input.value.trim()).map(input=>[input.dataset.field,input.value.trim()]));
+    const rubric=row.querySelector('[data-rubric]').value;item.rubric=rubric?JSON.parse(rubric):null;return item;
+  });
   return [...root.querySelectorAll('[data-editor-item]')].map(row=>{
     const item={};row.querySelectorAll('[data-field]').forEach(input=>{if(input.value.trim()||!fields[type].some(f=>f[0]===input.dataset.field&&f[2]))item[input.dataset.field]=input.value.trim();});
     if(optionTypes.includes(type)){
@@ -2533,6 +2579,7 @@ function editReviewItems(type,items,target){
   return items;
 }
 function reviewItemPreview(type,item){
+  if(type==='Pronunciation')return '<div class="quiz-preview"><strong>'+esc(item.prompt)+'</strong><blockquote>'+esc(item.reference)+'</blockquote><p>'+esc(item.locale)+' · '+esc(item.rubric?.id)+' · '+esc(item.rubric?.version)+'</p><ul>'+Object.entries(item.rubric?.weights||{}).map(([key,weight])=>{const scale=item.rubric.scales[key];return '<li>'+esc(key)+' · '+esc(Math.round(weight*10000)/100)+'% · '+esc(scale.min)+'–'+esc(scale.max)+' · '+esc(scale.direction)+'</li>';}).join('')+'</ul><p>Minimum recording: '+esc(item.rubric?.minimumSeconds)+' s · Finding confidence: '+esc(item.rubric?.findingConfidence)+'</p>'+(item.mediaId?'<audio controls preload="none" src="'+esc(item.mediaUrl||'/local/media/'+item.mediaId)+'"></audio>':'')+'</div>';
   if(isPairs(type))return '<div class="pair-preview"><span>'+esc(item.left)+'</span><span>'+esc(item.right)+'</span></div>';
   const prompt=item.shown||item.prompt||item.front||item.text||item.word||(type==='Build'?'Arrange the words':'');
   const answer=item.back??item.answer??item.word;
@@ -2540,7 +2587,7 @@ function reviewItemPreview(type,item){
   return '<div class="quiz-preview">'+(mediaUrl?'<'+tag+' controls preload="metadata" src="'+esc(mediaUrl)+'"'+(tag==='video'?' playsinline':'')+'></'+tag+'>':'')+'<strong class="quiz-content">'+esc(prompt)+'</strong>'+(type==='Build'?'<p class="muted">'+esc(item.parts)+'</p>':'')+(item.hint?'<p class="muted small">'+esc(item.hint)+'</p>':'')+(item.options?'<ol class="options">'+item.options.map((o,i)=>'<li class="'+((type==='Select all'?item.answers.includes(i):i===item.answer)?'correct':'')+'">'+esc(o)+((type==='Select all'?item.answers.includes(i):i===item.answer)?' ✓':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(answer)+'</p>')+(type==='Listen'?'<p class="muted small">Word to pronounce: '+esc(item.word)+'</p>':'')+(item.transcript?'<p class="quiz-content"><strong>Transcript</strong>'+esc(item.transcript)+'</p>':'')+'</div>';
 }
 
-return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
+return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,reviewItemPreview};
 })();
     const sections = document.querySelectorAll("section");
     const chromeButtons = document.querySelectorAll(".side nav button, .tabbar button");
@@ -17127,7 +17174,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + '</div></div>';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];
@@ -18101,8 +18148,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
-  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id);
-  function close(){serial++;job?.uploadController?.abort();speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
+  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
+  function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
     const signature=path+JSON.stringify(value);
@@ -18142,8 +18189,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     const q=entry.edit,locked=q&&(!['draft','returned'].includes(q.state)||q.author.id!==authUser.id);
     if(locked||!entry.writable)return;
     const draft=entry.draft;
-    const media=['Listen','Video choice'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
-    render(entry,'<button class="btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+quizTypes.map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items)+'</div><button class="btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn" type="submit" value="save">Save draft</button><button class="btn primary" type="submit" value="submit">Send for review</button></div></form>');
+    const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
+    render(entry,'<button class="btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+[...quizTypes,...(entry.pronunciationQuizzes?['Pronunciation']:[])].map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items,entry.pronunciationRubrics||[])+'</div><button class="btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn" type="submit" value="save">Save draft</button><button class="btn primary" type="submit" value="submit">Send for review</button></div></form>');
   }
   function readEditor(entry){
     const form=dialog.querySelector('[data-workbench-editor]');if(!form)return;
@@ -18198,15 +18245,21 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
   async function loadQueue(entry,more=false){
     if(!staff())throw Error('Teacher access required.');entry.view='queue';
     const offset=more?entry.nextOffset:0,data=await request('/queue?offset='+offset);if(!current(entry))return;
-    entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;paintQueue(entry);
+    entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;
+    if(entry.features?.includes('feedback')){const signals=await request('/feedback/signals');if(!current(entry))return;entry.reportSignals=new Map(signals.signals.map(row=>[row.versionId,row]));}
+    paintQueue(entry);
   }
   function preview(q){
+    if(q.type==='Pronunciation')return q.content.items.map(item=>integratedReviewEditor.reviewItemPreview(q.type,{...item,...(item.mediaId?{mediaUrl:prefix+'/media/'+item.mediaId}:{})})).join('')+'<p>'+esc(q.content.explanation)+'</p>';
     return q.content.items.map(item=>'<div class="learning-kit-result">'+(item.mediaId?'<'+(q.type==='Video choice'?'video':'audio')+' controls preload="none" src="'+prefix+'/media/'+esc(item.mediaId)+'"></'+(q.type==='Video choice'?'video':'audio')+'>':'')+'<p>'+esc(item.prompt||item.front||item.shown||item.text||item.left||item.word||'')+'</p>'+(item.parts?'<p>'+esc(item.parts)+'</p>':'')+(item.options?'<ol>'+item.options.map((option,index)=>'<li>'+esc(option)+((item.answers||[item.answer]).includes(index)?' · Correct':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(item.back||item.right||item.word||item.answer||'')+'</p>')+(item.transcript?'<p>'+esc(item.transcript)+'</p>':'')+'</div>').join('')+'<p>'+esc(q.content.explanation)+'</p>';
   }
   function reviewRow(entry,q){
     const allowed=staff()&&entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
-    const edit=entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'';
-    return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+(['Listen','Video choice'].includes(q.type)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
+    const signal=entry.reportSignals?.get(q.id);
+    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
+    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
+    const speechChecks=q.type==='Pronunciation'?'<label><input type="checkbox" name="reference" required>Reading reference and locale checked</label><label><input type="checkbox" name="rubric" required>Scoring weights, scales and sufficiency checked</label>':'';
+    return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
   }
   function paintQueue(entry){
     const query=(entry.search||'').trim().toLocaleLowerCase(),rows=entry.rows.filter(q=>(!entry.filter||q.state===entry.filter)&&(!query||[q.origin?.groupName,q.origin?.lessonName,q.origin?.word,q.type,q.author.name,q.author.group,q.origin?.meaning].join(' ').toLocaleLowerCase().includes(query)));
@@ -18227,9 +18280,110 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     const prepare=staff()&&entry.writable&&entry.features?.includes('preparation')&&authorable(entry)?data.types.filter(type=>type.canPrepare):[];
     render(entry,group+senses+(data.selectionRequired?'<p>No meaning selected.</p>':'<div class="learning-workbench-actions">'+(authorable(entry)?'<button class="btn" type="button" data-workbench-new>New quiz</button>':'')+'<button class="btn" type="button" data-workbench-own>My quizzes</button></div><h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+[...data.types,...(data.additionalTypes||[])].map(type=>'<details><summary>'+esc(type.type)+' · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join('')+'</details>').join('')+(prepare.length?'<form data-workbench-prepare><fieldset><legend>Prepare missing types</legend>'+prepare.map(type=>'<label><input type="checkbox" name="types" value="'+esc(type.type)+'">'+esc(type.type)+'</label>').join('')+'</fieldset><button class="btn" type="submit">Queue preparation</button></form>':'')+(!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'')));
     if(entry.groupId&&dialog?.querySelector('[data-workbench-group]'))dialog.querySelector('[data-workbench-group]').value=String(entry.groupId);
+    if(entry.features?.includes('mapping')&&staff()||entry.features?.includes('statistics')){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML=(entry.features.includes('mapping')&&staff()?'<button class="btn" type="button" data-workbench-meaning-map>Link an exact meaning</button>':'')+(entry.features.includes('statistics')?'<button class="btn" type="button" data-workbench-history-list>Practice history</button>':'')+(staff()&&entry.features.includes('examQuizzes')&&entry.senseId?'<button class="btn" type="button" data-workbench-assign-exam '+(!entry.writable?'disabled':'')+'>Assign reviewed quiz to exam</button>':'');dialog.querySelector('[data-workbench-body]').append(actions);}
+    if(entry.features?.includes('feedback')&&entry.senseId){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML='<button class="btn" type="button" data-workbench-report '+(!entry.writable?'disabled':'')+'>Report a problem</button><button class="btn" type="button" data-workbench-reports>My reports</button>';dialog.querySelector('[data-workbench-body]').append(actions);}
   }
+  const reportState=value=>({saved_locally:'Saved privately · Not sent',queued:'Queued',started:'Sending',accepted:'Accepted by mail service · Mailbox delivery unconfirmed',rejected:'Rejected · Not sent',uncertain:'Delivery unknown · Do not resend automatically'}[value]||value);
+  async function examSessions(entry){
+    if(!entry.features.includes('examQuizzes'))throw Error('Reviewed exam quizzes are not enabled.');
+    const data=await request('/exam-quizzes?'+new URLSearchParams({examId:entry.examId,blockId:entry.blockId}));if(!current(entry))return;entry.view='exam-quizzes';
+    render(entry,'<h3>Reviewed quiz tasks</h3><p>Additional results · Not included in the existing exam grade</p>'+data.sessions.map(row=>'<p>'+esc(row.type)+' · '+esc(row.state)+' <button class="btn" type="button" data-workbench-open-session="'+row.id+'" '+(!entry.writable&&row.state==='open'&&!staff()?'disabled':'')+'>'+esc(staff()?'Review':'Open')+'</button></p>').join('')+(!data.sessions.length?'<p>No reviewed quiz tasks assigned.</p>':''));
+  }
+  document.addEventListener('click',event=>{
+    const exam=event.target.closest('[data-workbench-exam]');if(exam){if(!enabled()||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return;void open({examBridge:true,examId:lmState.examId,blockId:lmState.blockId,title:'Reviewed exam quizzes'});return;}
+    const node=event.target.closest('[data-workbench-meaning-map],[data-workbench-history-list],[data-workbench-open-session],[data-workbench-assign-exam],[data-workbench-release-session],[data-workbench-pronunciation-history]'),entry=job;
+    if(!node||!entry||!dialog?.contains(node))return;
+    void run(entry,async()=>{
+      if(node.hasAttribute('data-workbench-meaning-map')){
+        const data=await request('/legacy/candidates?cardId='+entry.cardId);if(!current(entry))return;entry.meaningMap=data;entry.view='meaning-map';
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(data.word)+'</h3><form data-workbench-meaning-link><label>Exact meaning<select name="senseId" required><option value="">Choose the intended meaning</option>'+data.candidates.map(row=>'<option value="'+esc(row.id)+'" '+(data.linked.includes(row.id)?'disabled':'')+'>'+esc([row.part_of_speech,row.translation,row.definition].join(' · '))+'</option>').join('')+'</select></label><label>Reason<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn" type="submit" '+(!entry.writable?'disabled':'')+'>Link meaning</button></form>'+(data.truncated?'<p>More meanings exist. Use an explicit reviewed source mapping.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-history-list')){
+        const data=await request('/study/history?cardId='+entry.cardId);if(!current(entry))return;entry.history=data.sessions;entry.view='history';
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Practice history</h3>'+data.sessions.map(row=>'<p>'+esc(row.type)+' · '+esc(row.mode)+' · '+esc(new Date(row.createdAt).toLocaleDateString('en-GB'))+' · '+esc(row.percent===null?row.state:row.percent+' / 100')+' <button class="btn" data-workbench-open-session="'+row.id+'">Open</button>'+(row.type==='Pronunciation'?'<button class="btn" data-workbench-pronunciation-history="'+row.versionId+'">Comparable speech progress</button>':'')+'</p>').join('')+(!data.sessions.length?'<p>No sessions yet.</p>':'')+(data.truncated?'<p>Showing the latest 500 sessions.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-pronunciation-history')){
+        const data=await request('/study/pronunciation?'+new URLSearchParams({cardId:entry.cardId,versionId:node.dataset.workbenchPronunciationHistory,itemIndex:0,period:'week'}));if(!current(entry))return;
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Pronunciation progress · Item 1</h3>'+data.periods.map((series,index)=>'<section><h4>Comparable series '+(index+1)+'</h4>'+(series.synthetic?'<p>Synthetic demonstration</p>':'')+series.buckets.map(bucket=>'<p>'+esc(bucket.date)+' · '+bucket.attempts+' attempts · '+esc(bucket.metrics.overall?bucket.metrics.overall.average+' / 100':'Score unavailable')+'</p>').join('')+'</section>').join('')+(!data.periods.length?'<p>No comparable attempts yet.</p>':''));return;
+      }
+      if(node.hasAttribute('data-workbench-assign-exam')){
+        entry.view='assign-exam';const types=[...entry.kit.types,...(entry.kit.additionalTypes||[])].filter(row=>row.type!=='Pronunciation');
+        render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Assign reviewed quiz</h3><form data-workbench-exam-assign><label>Assigned exam ID<input name="examId" type="number" min="1" required></label><label>Block ID<input name="blockId" type="number" min="1" required></label><label>Reviewed variant<select name="versionId" required><option value="">Choose a variant</option>'+types.flatMap(row=>row.versionIds.map((id,index)=>'<option value="'+id+'">'+esc(row.type)+' · Variant '+(index+1)+'</option>')).join('')+'</select></label><button class="btn" type="submit">Assign to this exam instance</button></form>');return;
+      }
+      if(node.hasAttribute('data-workbench-release-session')){await write(entry,'/sessions/'+node.dataset.workbenchReleaseSession+'/release',{expectedRevision:Number(node.dataset.revision)});if(current(entry))await examSessions(entry);return;}
+      const id=node.dataset.workbenchOpenSession;
+      if(entry.examBridge&&staff()){
+        const row=await request('/exam-quizzes/'+id+'/review');if(!current(entry))return;
+        render(entry,'<button class="btn" data-workbench-back>Exam quizzes</button><h3>'+esc(row.type)+'</h3>'+preview(row)+(row.responses?'<p>Responses: '+esc(JSON.stringify(row.responses))+'</p><p>'+row.correct.filter(Boolean).length+' / '+row.correct.length+'</p>':'<p>Not submitted.</p>')+(row.state==='submitted'&&entry.writable?'<button class="btn" data-workbench-release-session="'+id+'" data-revision="'+row.revision+'">Release after exam review publication</button>':''));return;
+      }
+      const session=await request('/sessions/'+id);if(!current(entry))return;entry.session=session;answers(entry);
+    });
+  });
+  document.addEventListener('submit',event=>{
+    const form=event.target;if(!form.matches('[data-workbench-meaning-link],[data-workbench-exam-assign]'))return;event.preventDefault();const entry=job;if(!entry?.writable||!dialog?.contains(form))return;const data=new FormData(form);
+    void run(entry,async()=>{
+      if(form.hasAttribute('data-workbench-meaning-link')){const result=await write(entry,'/legacy/link',{cardId:entry.cardId,senseId:data.get('senseId'),expectedSenseIds:entry.meaningMap.linked,reason:data.get('reason')});if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);}
+      else{await write(entry,'/exam-quizzes/assign',{examId:Number(data.get('examId')),blockId:Number(data.get('blockId')),cardId:entry.cardId,senseId:entry.senseId,versionId:data.get('versionId')});if(current(entry)){await coverage(entry);dialog.querySelector('[data-workbench-status]').textContent='Assigned as an additional quiz. Existing exam grades were not changed.';}}
+    });
+  });
+  async function reports(entry){
+    speechUI?.deactivate();entry.view='reports';const data=await request('/feedback');if(!current(entry))return;
+    entry.reports=data.reports;
+    entry.feedbackPolicy=data.policy;
+    render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>My reports</h3>'+data.reports.map(row=>'<details><summary>'+esc(row.category)+' · '+esc(new Date(row.createdAt).toLocaleDateString('en-GB'))+'</summary><p>'+esc(row.description)+'</p><p>'+esc(reportState(row.state))+'</p><p>Recipient: '+esc(row.recipient)+'</p>'+(row.state==='saved_locally'&&entry.writable?'<form data-workbench-report-send="'+esc(row.id)+'"><label><input name="consent" type="checkbox" required>Send this report and its attachments to '+esc(row.recipient)+'</label><button class="btn" type="submit">Send report</button></form>':'')+(entry.writable?'<button class="btn" data-workbench-report-remove="'+esc(row.id)+'">Delete local report</button>':'')+'<p>Deleting the local copy cannot recall an email already sent.</p></details>').join('')+(!data.reports.length?'<p>No reports.</p>':''));
+  }
+  async function newReport(entry){
+    speechUI?.deactivate();const [policy,templates]=await Promise.all([request('/feedback/policy'),request('/templates?cardId='+entry.cardId)]);if(!current(entry))return;
+    for(const file of entry.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);
+    entry.view='report';entry.report={policy,versions:templates.quizzes.filter(row=>row.senseId===entry.senseId),files:[],description:'',category:'remark',versionId:null};paintReport(entry);
+  }
+  function paintReport(entry,preview=false){
+    const r=entry.report,identity=[entry.contextLabel,entry.title,entry.kit?.meaning?.definition].filter(Boolean).join(' · ');
+    const files=r.files.map(item=>'<li>'+esc(item.file.name)+' · '+Math.ceil(item.file.size/1024)+' KiB'+(item.file.type.startsWith('image/')?'<img alt="Attachment preview" src="'+esc(item.url)+'" style="max-width:100%;max-height:240px">':item.file.type.startsWith('audio/')?'<audio controls preload="none" src="'+esc(item.url)+'"></audio>':'<video controls playsinline preload="none" src="'+esc(item.url)+'" style="max-width:100%;max-height:240px"></video>')+'</li>').join('');
+    render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(preview?'Review report':'Report a problem')+'</h3><p>'+esc(identity)+'</p><p>Recipient: '+esc(r.policy.recipient)+' · Local retention: '+r.policy.retentionDays+' days</p><p>Do not include passwords, tokens or unrelated personal data. Check screenshots, recordings and filenames. Sent email copies may remain in the recipient mailbox.</p>'+(preview?'<p>'+esc(r.category)+' · '+esc(r.versions.find(row=>row.id===r.versionId)?.type||'Word and meaning')+'</p><p>'+esc(r.description)+'</p><ul>'+files+'</ul><form data-workbench-report-save><label><input name="privacyConsent" type="checkbox" required>I reviewed the text and attachments and consent to storing this private report.</label><button class="btn" type="submit">Save privately</button></form>':'<form data-workbench-report-preview><label>Category<select name="category">'+['complaint','remark','suggestion','bug'].map(value=>'<option '+(r.category===value?'selected':'')+'>'+value+'</option>').join('')+'</select></label><label>Quiz version<select name="versionId"><option value="">Word and meaning</option>'+r.versions.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.type+' · v'+row.version)+'</option>').join('')+'</select></label><label>Description<textarea name="description" maxlength="4000" required>'+esc(r.description)+'</textarea></label><label>Attachments · PNG, JPEG, WAV, MP3 or MP4 · 3 MiB total<input type="file" multiple name="attachments" accept="image/png,image/jpeg,audio/wav,audio/mpeg,video/mp4"></label><button class="btn" type="submit">Review report</button></form>'));
+  }
+  document.addEventListener('click',event=>{
+    const node=event.target.closest('[data-workbench-report],[data-workbench-reports],[data-workbench-report-remove],[data-workbench-attribution]'),entry=job;if(!node||!entry||!dialog?.contains(node))return;
+    void run(entry,async()=>{
+      if(node.hasAttribute('data-workbench-report')){if(entry.writable)await newReport(entry);return;}
+      if(node.hasAttribute('data-workbench-reports')){await reports(entry);return;}
+      if(node.hasAttribute('data-workbench-report-remove')){
+        if(!entry.writable||!window.confirm('Delete the local report and unused attachments? Already sent email cannot be recalled.'))return;
+        await write(entry,'/feedback/'+node.dataset.workbenchReportRemove+'/remove',{});if(current(entry))await reports(entry);return;
+      }
+      const id=node.dataset.workbenchAttribution,settings=await request('/proposals/'+id+'/attribution');if(!current(entry))return;
+      const host=dialog.querySelector('[data-workbench-attribution-panel="'+id+'"]');if(host)host.innerHTML='<form data-workbench-attribution-save="'+id+'" data-revision="'+settings.revision+'"><label><input name="publicName" type="checkbox" '+(settings.publicName?'checked':'')+'>Show my recorded author name in shared templates</label><label><input name="publicGroup" type="checkbox" '+(settings.publicGroup?'checked':'')+'>Show my recorded group in shared templates</label><button class="btn" type="submit" '+(!entry.writable?'disabled':'')+'>Save public attribution</button></form>';
+    });
+  });
+  document.addEventListener('submit',event=>{
+    const form=event.target;if(!form.matches('[data-workbench-report-preview],[data-workbench-report-save],[data-workbench-report-send],[data-workbench-attribution-save]'))return;event.preventDefault();
+    const entry=job;if(!entry||!entry.writable||!dialog?.contains(form))return;const data=new FormData(form);
+    void run(entry,async()=>{
+      if(form.hasAttribute('data-workbench-attribution-save')){await write(entry,'/proposals/'+form.dataset.workbenchAttributionSave+'/attribution',{expectedRevision:Number(form.dataset.revision),publicName:data.has('publicName'),publicGroup:data.has('publicGroup')});if(current(entry))await mine(entry);return;}
+      if(form.hasAttribute('data-workbench-report-send')){if(!entry.feedbackPolicy?.deliveryEnabled)throw Error('Email sending is not configured. This report is saved privately and has not been sent.');const result=await write(entry,'/feedback/'+form.dataset.workbenchReportSend+'/send',{consent:data.has('consent')});if(current(entry)){await reports(entry);dialog.querySelector('[data-workbench-status]').textContent=reportState(result.state);}return;}
+      const r=entry.report;if(!r)return;
+      if(form.hasAttribute('data-workbench-report-preview')){
+        const files=data.getAll('attachments').filter(file=>file instanceof File&&file.size);
+        if(files.length>5||files.reduce((sum,file)=>sum+file.size,0)>r.policy.maxAttachmentBytes||files.some(file=>!['image/png','image/jpeg','audio/wav','audio/mpeg','video/mp4'].includes(file.type)))throw Error('Choose up to five supported attachments, 3 MiB total.');
+        r.description=String(data.get('description')).trim();r.category=data.get('category');r.versionId=data.get('versionId')||null;
+        for(const item of r.files)if(item.url)URL.revokeObjectURL(item.url);r.files=files.map(file=>({file,url:URL.createObjectURL(file),mutationId:crypto.randomUUID()}));paintReport(entry,true);return;
+      }
+      if(!data.has('privacyConsent'))throw Error('Review and consent to private report storage.');
+      for(const item of r.files){
+        if(item.id)continue;entry.uploadController=new AbortController();
+        const asset=await window.LearningMain.fetch(prefix+'/media',{method:'POST',headers:{'Content-Type':item.file.type,'X-Upload-Metadata':encodeURIComponent(JSON.stringify({mutationId:item.mutationId,purpose:'feedback',cardId:entry.cardId,senseId:entry.senseId,mime:item.file.type,name:item.file.name}))},body:item.file,signal:entry.uploadController.signal,quietBug:true});
+        if(!current(entry))return;item.id=asset.id;
+      }
+      await write(entry,'/feedback',{cardId:entry.cardId,senseId:entry.senseId,versionId:r.versionId,category:r.category,description:r.description,attachments:r.files.map(item=>item.id),privacyConsent:true});if(!current(entry))return;
+      for(const item of r.files)URL.revokeObjectURL(item.url);entry.report=null;await reports(entry);
+    });
+  });
   function answers(entry){
     const session=entry.session,pairs=['Match','Memory'].includes(session.type),items=pairs?session.questions.left.map(prompt=>({prompt,options:session.questions.right})):session.questions;
+    if(session.state!=='open'&&!session.content){render(entry,'<button class="btn" data-workbench-back>Back</button><h3>'+esc(session.type)+'</h3><p>Submitted · Results are waiting for published exam review.</p>');return;}
+    if(session.type==='Pronunciation'){
+      render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>Pronunciation</h3>'+items.map((item,index)=>'<section><p>'+esc(item.prompt)+'</p><blockquote>'+esc(item.reference)+'</blockquote><p>'+esc(item.locale)+' · '+esc(item.rubric.id)+' · '+esc(item.rubric.version)+'</p><button class="btn" type="button" data-workbench-pronunciation="'+index+'">Practice pronunciation</button></section>').join(''));return;
+    }
     if(session.content){render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(session.type)+' · '+session.correctCount+' / '+session.total+'</h3>'+session.content.items.map((item,index)=>'<div class="learning-kit-result"><p>'+esc(session.correct[index]?'Correct':'Try again')+'</p><p>'+esc(item.prompt||item.front||item.shown||item.text||item.left||item.hint||'')+'</p><p>'+esc(Array.isArray(item.answers)?item.answers.map(n=>item.options[n]).join(', '):item.options?item.options[item.answer]:item.back||item.right||item.word||item.answer||'')+'</p>'+(item.transcript?'<p>'+esc(item.transcript)+'</p>':'')+'</div>').join('')+'<p>'+esc(session.content.explanation)+'</p>');return;}
     render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(session.type)+'</h3><form data-workbench-answers>'+items.map((item,index)=>'<fieldset><legend>Item '+(index+1)+'</legend>'+(item.mediaUrl?(session.type==='Video choice'?'<video controls playsinline preload="metadata" src="'+esc(item.mediaUrl)+'"></video>':'<audio controls preload="metadata" src="'+esc(item.mediaUrl)+'"></audio>'):'')+'<p>'+esc(item.prompt||item.front||item.shown||item.text||item.hint||(Array.isArray(item.parts)?item.parts.join(' '):item.parts)||'')+'</p>'+(item.letters?'<p>'+esc(item.letters.join(' '))+'</p>':'')+(item.length?'<p>'+item.length+' letters</p>':'')+(item.options?(session.type==='Select all'?item.options.map((option,n)=>'<label><input type="checkbox" name="answer-'+index+'" value="'+n+'"> '+esc(option)+'</label>').join(''):'<label>Answer<select required name="answer-'+index+'"><option value="">Choose an answer</option>'+item.options.map((option,n)=>'<option value="'+n+'">'+esc(option)+'</option>').join('')+'</select></label>'):'<label>Answer<input required name="answer-'+index+'" maxlength="4000" autocomplete="off"></label>')+'</fieldset>').join('')+'<button class="btn primary" type="submit">Check answers</button></form>');
   }
@@ -18240,14 +18394,15 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     finally{entry.busy=false;controls.forEach(([node,disabled])=>{if(node.isConnected)node.disabled=disabled;});if(!current(entry)&&job===entry)close();}
   }
   async function open(card,groups=[],lessonId=null){
-    if(!enabled()||!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
+    if(!enabled()||!card.examBridge&&!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId))return;close();
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
     dialog=document.createElement('dialog');dialog.className='learning-kit-dialog';dialog.setAttribute('aria-label','Learning kit');
     dialog.innerHTML='<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header><p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();
     observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
-      const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;entry.features=status.features;
+      const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;entry.features=status.features;entry.pronunciationQuizzes=status.pronunciationQuizzes;entry.pronunciationRubrics=status.pronunciationRubrics||[];
+      if(card.examBridge){await examSessions(entry);return;}
       if(card.queue){entry.view='queue';await loadQueue(entry);return;}
       if(card.mine){await mine(entry);return;}
       if(groups.length>1){render(entry,'<label>Group<select data-workbench-group><option value="">Select a group</option>'+options(groups)+'</select></label>');return;}
@@ -18263,10 +18418,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
     return '<button type="button" data-workbench-lesson-speech><i data-lucide="mic" aria-hidden="true"></i>Speech practice</button>';
   }
+  function examButton(){if(!enabled()||window.LearningMain?.capabilities?.().learningStudyBridge!==true||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return '';return '<button class="btn" type="button" data-workbench-exam>Reviewed quiz tasks</button>';}
   function cardButton(card){if(!enabled()||!valid(card?.stageId))return '';displayedCards.set(card.stageId,card);return '<button class="btn" type="button" data-workbench-card="'+card.stageId+'">Learning kit</button>';}
   function reset(){displayedCards.clear();close();paintEntry();}
   document.addEventListener('learning-workbench-session',reset);
   document.addEventListener('click',event=>{
+    const pronunciation=event.target.closest('[data-workbench-pronunciation]');
+    if(pronunciation&&job&&dialog?.contains(pronunciation)){
+      const entry=job;if(!entry.writable||entry.session?.type!=='Pronunciation')return;
+      void run(entry,async()=>{const task=await write(entry,'/sessions/'+entry.session.id+'/pronunciation',{itemIndex:Number(pronunciation.dataset.workbenchPronunciation)});if(!current(entry))return;entry.pronunciationTaskId=task.id;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);});return;
+    }
     const button=event.target.closest('[data-workbench-lesson],[data-workbench-lesson-speech],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more],[data-workbench-mine],[data-workbench-own],[data-workbench-new],[data-workbench-edit],[data-workbench-editor-back],[data-workbench-upload],#add-quiz-item,[data-add-option],[data-remove-option],[data-remove-item]');if(!button)return;
     if(button.hasAttribute('data-workbench-close')){if(job&&discard(job))close();return;}
     if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
@@ -18302,7 +18463,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
       if(button.hasAttribute('data-workbench-speech')){if(!entry.writable||!entry.lessonId||!entry.senseId||!entry.features.includes('speech'))return;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);return;}
       if(button.hasAttribute('data-workbench-more')){if(entry.view==='mine')await mine(entry,true);else await loadQueue(entry,true);return;}
       if(button.hasAttribute('data-workbench-history')){const id=button.dataset.workbenchHistory;if(!entry.rows?.some(row=>row.id===id))return;const {quiz}=await request('/proposals/'+id);if(!current(entry))return;const host=dialog.querySelector('[data-review-history="'+id+'"]');if(host)host.innerHTML='<details><summary>History · '+quiz.history.length+'</summary>'+quiz.history.map(row=>'<p>'+esc(row.date)+' · '+esc(row.actor)+' · '+esc(row.action)+'</p>'+(row.details.comment?'<blockquote>'+esc(row.details.comment)+'</blockquote>':'')).join('')+'</details>';return;}
-      if(button.hasAttribute('data-workbench-back')){await coverage(entry);return;}
+      if(button.hasAttribute('data-workbench-back')){delete entry.pronunciationTaskId;if(entry.examBridge)await examSessions(entry);else await coverage(entry);return;}
       if(!entry.writable)return;
       const versionId=button.dataset.workbenchPractice;
       if(![...entry.kit.types,...(entry.kit.additionalTypes||[])].some(type=>type.versionIds.includes(versionId)))return;
@@ -18329,7 +18490,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     if(event.target.matches('[data-workbench-decision]')){
       event.preventDefault();const entry=job,q=entry?.rows?.find(row=>row.id===event.target.dataset.id);if(!q||!staff()||!entry.writable)return;
       const action=event.target.dataset.workbenchDecision,data=new FormData(event.target);
-      void run(entry,async()=>{await write(entry,'/proposals/'+q.id+'/'+action,{expectedRevision:q.revision,...(action==='return'?{comment:data.get('comment')}:{checks:Object.fromEntries(['meaning','answers','level','media'].map(key=>[key,data.get(key)==='on']))})});await loadQueue(entry);});return;
+      void run(entry,async()=>{await write(entry,'/proposals/'+q.id+'/'+action,{expectedRevision:q.revision,...(action==='return'?{comment:data.get('comment')}:{checks:Object.fromEntries(['meaning','answers','level','media',...(q.type==='Pronunciation'?['reference','rubric']:[])].map(key=>[key,data.get(key)==='on']))})});await loadQueue(entry);});return;
     }
     if(!event.target.matches('[data-workbench-answers]'))return;event.preventDefault();const entry=job;if(!entry?.session||!entry.writable)return;
     const form=new FormData(event.target),session=entry.session,pairs=['Match','Memory'].includes(session.type),items=pairs?session.questions.left:session.questions;
@@ -18337,7 +18498,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems};
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,lessonSpeechButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={lessonButton,lessonSpeechButton,examButton,cardButton,close,reset,paintEntry};
 })();
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }

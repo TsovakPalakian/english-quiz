@@ -1279,7 +1279,7 @@
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + '</div></div>';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];

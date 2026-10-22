@@ -69,7 +69,7 @@ test('explicit preparation queues only missing types and never starts inference 
 });
 test('migration manifest and readiness inspect isolated schema without applying changes',async()=>{
   const f=await readyFixture();try{
-    const plan=workbenchMigrationPlan();assert.equal(plan.steps.length,19);assert.equal(plan.applied,false);assert.ok(plan.steps.every(step=>/^[a-f0-9]{64}$/.test(step.sha256)));
+    const plan=workbenchMigrationPlan();assert.equal(plan.steps.length,20);assert.equal(plan.applied,false);assert.ok(plan.steps.every(step=>/^[a-f0-9]{64}$/.test(step.sha256)));
     const before=f.sql.prepare('SELECT total_changes() AS n').get().n;
     const ready=await learningWorkbenchReadiness(f.db);assert.equal(ready.ready,true,JSON.stringify(ready));assert.equal(ready.productionApproved,false);
     assert.equal(f.sql.prepare('SELECT total_changes() AS n').get().n,before);

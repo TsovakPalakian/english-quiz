@@ -14,7 +14,10 @@ import {QuizFeedback,FEEDBACK_ADDRESS} from './quiz-feedback.mjs';
 import {QuizFeedbackDelivery,createFeedbackEmailTransport} from './quiz-feedback-delivery.mjs';
 import {QuizFeedbackPrivacy} from './quiz-feedback-privacy.mjs';
 import {QuizAuthorVisibility} from './quiz-author-visibility.mjs';
-export function createLearningWorkbenchFactory({storage,inspect,speech:configuration=null,openPreparation=null,feedback:reports=null,publicAttribution=false}={}){
+import {KitLegacyMapping} from './kit-legacy-mapping.mjs';
+import {KitExams} from './kit-exams.mjs';
+import {KitStatistics} from './kit-statistics.mjs';
+export function createLearningWorkbenchFactory({storage,inspect,speech:configuration=null,openPreparation=null,feedback:reports=null,publicAttribution=false,studyIntegration=false,resolveAccount=async()=>null}={}){
   if(typeof inspect!=='function')throw new StudyError(503,'A trusted media inspector is required.');
   if(openPreparation!==null&&typeof openPreparation!=='function')throw new StudyError(503,'A trusted preparation factory is required.');
   const store=quizR2MediaStore(storage);
@@ -34,6 +37,11 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       }
     }
     const services={review,kits,media,sessions:new KitSessions(kits)};
+    if(studyIntegration===true){
+      services.mapping=new KitLegacyMapping(kits);services.statistics=new KitStatistics(services.sessions);
+      services.examQuizzes=new KitExams(services.sessions,{resolveActor:resolveAccount});
+      services.sessions.examPolicy=services.examQuizzes;services.sessions.authorizeExamRelease=(actor,row)=>services.examQuizzes.canRelease(actor,row);
+    }
     if(preparationProviders)services.providers=preparationProviders;
     if(preparationPipeline)services.pipeline=preparationPipeline;
     if(publicAttribution===true)services.authors=new QuizAuthorVisibility(review);
