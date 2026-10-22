@@ -470,7 +470,8 @@ try{
   await page.evaluate(async()=>{await examPull(true);examViewLevel='';examViewGroup=null;examSection='active';window.enquizVisit('exams');});
   assert.ok(await page.locator('#examList [data-exam-level="A1"]').count(),JSON.stringify(await page.evaluate(()=>({html:document.querySelector('#examList').innerHTML,groups:classGroups,exams:examLoad(),auth:authUser?.role})))+' '+errors.join(';'));
   await page.locator('#examList [data-exam-level="A1"]').click();await page.locator('#examList [data-exam-group-view="71"]').click();
-  assert.equal(await page.locator('#examList [data-exam-open="11"]').count(),1);assert.match(await page.locator('#examList').innerText(),/A1 Fixture exam/);
+  await page.locator('#examList [data-exam-open="11"]').scrollIntoViewIfNeeded();
+  assert.equal(await page.locator('#examList [data-exam-open="11"]').count(),1);assert.match(await page.locator('#examList [data-exam-open="11"]').innerText(),/A1 Fixture exam/);
   await page.screenshot({path:'/private/tmp/grouped-exams.png'});
   await page.evaluate(()=>window.enquizVisit('admingrouplevel'));
   await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('#adminLevelBody').evaluate(n=>n.scrollWidth<=n.clientWidth));await page.screenshot({path:'/private/tmp/account-group-level-mobile.png'});
