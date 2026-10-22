@@ -10,14 +10,18 @@ import {SpeechTranscriptReview} from './speech-transcript-review.mjs';
 import {StoredLanguageProviders} from './stored-language-providers.mjs';
 import {QuizPreparationRunner} from './quiz-preparation-runner.mjs';
 import {SpeechCoaching} from './speech-coaching.mjs';
-export function createLearningWorkbenchFactory({storage,inspect,speech:configuration=null,openPreparation=null}={}){
+import {QuizFeedback,FEEDBACK_ADDRESS} from './quiz-feedback.mjs';
+import {QuizFeedbackDelivery,createFeedbackEmailTransport} from './quiz-feedback-delivery.mjs';
+import {QuizFeedbackPrivacy} from './quiz-feedback-privacy.mjs';
+import {QuizAuthorVisibility} from './quiz-author-visibility.mjs';
+export function createLearningWorkbenchFactory({storage,inspect,speech:configuration=null,openPreparation=null,feedback:reports=null,publicAttribution=false}={}){
   if(typeof inspect!=='function')throw new StudyError(503,'A trusted media inspector is required.');
   if(openPreparation!==null&&typeof openPreparation!=='function')throw new StudyError(503,'A trusted preparation factory is required.');
   const store=quizR2MediaStore(storage);
   return async({db,actor})=>{
     kitSigned(actor);
     if(!db||typeof db.read!=='function'||typeof db.atomic!=='function')throw new StudyError(503,'Workbench database unavailable.');
-    const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true,pronunciationQuizzes:configuration?.enabled===true&&configuration?.pronunciationQuizzes===true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
+    const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true,pronunciationQuizzes:configuration?.enabled===true&&configuration?.pronunciationQuizzes===true,safePublicAttribution:publicAttribution===true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
     review.contentPolicy=media;
     let runner=null;
     if(openPreparation){
@@ -29,6 +33,14 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       }
     }
     const services={review,kits,media,sessions:new KitSessions(kits)};
+    if(publicAttribution===true)services.authors=new QuizAuthorVisibility(review);
+    if(reports?.enabled===true){
+      services.feedback=new QuizFeedback(kits,media,{privacyEnabled:true,retentionDays:reports.retentionDays});
+      media.feedbackRetentionDays=reports.retentionDays;
+      services.feedbackPrivacy=new QuizFeedbackPrivacy(services.feedback);
+      services.feedbackDelivery=new QuizFeedbackDelivery(services.feedback,{transport:createFeedbackEmailTransport({enabled:reports.deliveryEnabled===true,binding:reports.binding,recipientVerified:reports.recipientVerified===true,policyRevision:reports.policyRevision||null}),dailyLimit:reports.dailyLimit??20});
+      services.feedbackPolicy={recipient:FEEDBACK_ADDRESS,retentionDays:reports.retentionDays,deliveryEnabled:reports.deliveryEnabled===true&&reports.recipientVerified===true&&!!reports.policyRevision&&typeof reports.binding?.send==='function',maxAttachmentBytes:3*1024*1024,mailboxCopyMayRemain:true};
+    }
     if(runner)services.preparation=runner;
     if(configuration?.enabled===true){
       if(!Array.isArray(configuration.rubrics)||!configuration.rubrics.length||!configuration.languageRubric)throw new StudyError(503,'Explicit speech and transcript rubrics are required.');

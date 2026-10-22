@@ -3,6 +3,7 @@
 import {StudyService,StudyError,statement as s,recordId,lessonAccess,cardAccess,accessArgs} from './learning-study.mjs';
 import {exactFields,reviewText,validateReviewContent} from './quiz-review-content.mjs';
 import {validateGenerationMetadata} from './quiz-generation-metadata.mjs';
+import {publicQuizAuthor} from './quiz-author-visibility.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const signed=actor=>{if(!actor?.id||!['USER','ADMIN','DEVELOPER'].includes(actor.role)||actor.active===false||actor.active===0||actor.revoked)fail(401,'Sign in with an active account.');};
 const teacher=actor=>{signed(actor);if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Teacher access required.');};
@@ -30,7 +31,7 @@ function context(actor,value){
 const origin=q=>({cardId:q.card_id,senseId:q.sense_id,groupId:q.group_id,lessonId:q.lesson_id});
 const dto=q=>({id:q.id,familyId:q.family_id,parentId:q.parent_id,version:q.version,revision:q.revision,senseId:q.sense_id,type:q.type,content:JSON.parse(q.content_json),generation:q.generation_json?JSON.parse(q.generation_json):null,state:q.state,author:{id:q.author_id,kind:q.author_kind,name:q.author_name,group:q.author_group,date:q.created_date},groupId:q.group_id,lessonId:q.lesson_id,cardId:q.card_id,submittedDate:q.submitted_date,feedback:q.feedback,reviewer:q.reviewer_id?{id:q.reviewer_id,name:q.reviewer_name,date:q.approved_date}:null});
 export class QuizReviewService extends StudyService{
-  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false,mediaQuizzes=false,pronunciationQuizzes=false,contentPolicy=null}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;this.mediaQuizzes=mediaQuizzes===true;this.pronunciationQuizzes=pronunciationQuizzes===true;this.contentPolicy=contentPolicy;}
+  constructor(db,{allowGlobalApproval=false,extendedLifecycle=false,mediaQuizzes=false,pronunciationQuizzes=false,safePublicAttribution=false,contentPolicy=null}={}){super(db);this.allowGlobalApproval=allowGlobalApproval===true;this.extendedLifecycle=extendedLifecycle===true;this.mediaQuizzes=mediaQuizzes===true;this.pronunciationQuizzes=pronunciationQuizzes===true;this.safePublicAttribution=safePublicAttribution===true;this.contentPolicy=contentPolicy;}
   validateContent(type,content){return validateReviewContent(type,content,{mediaQuizzes:this.mediaQuizzes,pronunciationQuizzes:this.pronunciationQuizzes});}
   async mediaGuards(actor,context,type,content){
     if(!this.mediaQuizzes&&type!=='Pronunciation')return [];
@@ -143,8 +144,11 @@ export class QuizReviewService extends StudyService{
   }
   async sharedForCard(actor,cardId){
     signed(actor);recordId(cardId);const [card]=await this.db.read(`SELECT c.id FROM cards c WHERE c.id=? AND ${cardAccess}`,[cardId,...accessArgs(actor)]);if(!card)fail(404,'Card not available.');
-    const list=await this.db.read(`SELECT q.*,original.author_name AS original_name,original.author_group AS original_group,original.created_date AS original_date
-      FROM qr_versions q JOIN qr_versions original ON original.id=q.family_id JOIN qr_card_senses cs ON cs.sense_id=q.sense_id WHERE cs.card_id=? AND q.state='approved'
+    const list=await this.db.read(`SELECT q.*,original.author_kind AS original_kind,original.author_name AS original_name,original.author_group AS original_group,original.created_date AS original_date
+      ${this.safePublicAttribution?',v.public_name,v.public_group,ov.public_name AS original_public_name,ov.public_group AS original_public_group':''}
+      FROM qr_versions q JOIN qr_versions original ON original.id=q.family_id JOIN qr_card_senses cs ON cs.sense_id=q.sense_id
+      ${this.safePublicAttribution?'LEFT JOIN qr_author_visibility v ON v.version_id=q.id AND v.author_id=q.author_id LEFT JOIN qr_author_visibility ov ON ov.version_id=original.id AND ov.author_id=original.author_id':''}
+      WHERE cs.card_id=? AND q.state='approved'
       AND NOT EXISTS(SELECT 1 FROM qr_versions newer WHERE newer.family_id=q.family_id AND newer.state='approved' AND newer.version>q.version)
       ${this.extendedLifecycle?"AND NOT EXISTS(SELECT 1 FROM qr_publication p WHERE p.version_id=q.id AND p.available=0)":''}
       ORDER BY q.type,q.family_id`,[cardId]);
@@ -158,7 +162,8 @@ export class QuizReviewService extends StudyService{
       const mediaReady=['Listen','Video choice'].includes(q.type)&&content.items.every(item=>item.mediaId);
       const restricted=actor.role==='USER'&&(q.type==='Video choice'||q.type==='Listen'&&mediaReady);
       if(restricted)content={items:content.items.map(item=>({prompt:item.prompt,options:item.options})),explanation:''};
-      result.push({id:q.id,familyId:q.family_id,version:q.version,senseId:q.sense_id,type:q.type,content,mediaReady,previewRestricted:restricted,teacherChecked:true,author:{name:q.author_name,group:q.author_group,date:q.created_date},originalAuthor:{name:q.original_name,group:q.original_group,date:q.original_date},reviewer:{name:q.reviewer_name,date:q.approved_date}});
+      const author={name:q.author_name,group:q.author_group,date:q.created_date},originalAuthor={name:q.original_name,group:q.original_group,date:q.original_date};
+      result.push({id:q.id,familyId:q.family_id,version:q.version,senseId:q.sense_id,type:q.type,content,mediaReady,previewRestricted:restricted,teacherChecked:true,author:this.safePublicAttribution?publicQuizAuthor({...author,kind:q.author_kind},q):author,originalAuthor:this.safePublicAttribution?publicQuizAuthor({...originalAuthor,kind:q.original_kind},{public_name:q.original_public_name,public_group:q.original_public_group}):originalAuthor,reviewer:{name:q.reviewer_name,date:q.approved_date}});
     }
     return result;
   }

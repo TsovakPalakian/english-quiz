@@ -4,6 +4,7 @@ import {exactFields,reviewText} from './quiz-review-content.mjs';
 import {kitSigned} from './learning-kits.mjs';
 import {FEEDBACK_ADDRESS} from './quiz-feedback.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
+import {rejectReportSecrets} from './quiz-feedback-privacy.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const MAX_ATTACHMENTS_BYTES=3*1024*1024;
 const noDelivery=new Set(['E_VALIDATION_ERROR','E_FIELD_MISSING','E_TOO_MANY_RECIPIENTS','E_TOO_MANY_ATTACHMENTS','E_SENDER_NOT_VERIFIED','E_RECIPIENT_NOT_ALLOWED','E_RECIPIENT_SUPPRESSED','E_ACCOUNT_SUSPENDED','E_SENDER_DOMAIN_NOT_AVAILABLE','E_CONTENT_TOO_LARGE','E_RATE_LIMIT_EXCEEDED','E_DAILY_LIMIT_EXCEEDED']);
@@ -35,8 +36,7 @@ export class QuizFeedbackDelivery{
     this.feedback=feedback;this.kits=feedback.kits;this.review=feedback.review;this.db=feedback.db;this.media=feedback.media;this.transport=transport;this.now=now;this.dailyLimit=dailyLimit;this.timeoutMs=timeoutMs;
   }
   async owned(actor,id){
-    kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_feedback WHERE id=? AND owner_id=?',[id,actor.id]);if(!row)fail(404,'Report unavailable.');
-    await this.kits.card(actor,row.card_id);return row;
+    kitSigned(actor);const [row]=await this.db.read('SELECT * FROM qr_feedback WHERE id=? AND owner_id=?',[id,actor.id]);if(!row||this.feedback.privacyEnabled&&(row.deleted_at!==null||(row.expires_at??row.created_at+this.feedback.retentionDays*86400000)<=this.now()))fail(404,'Report unavailable.');return row;
   }
   async recover(){await this.db.atomic([s("UPDATE qr_feedback_delivery SET state='uncertain',error_code='interrupted',finished_at=? WHERE state IN ('queued','started') AND deadline_at<=?",[this.now(),this.now()])]);}
   async status(actor,id){
@@ -45,14 +45,18 @@ export class QuizFeedbackDelivery{
   }
   async send(actor,id,body){
     const report=await this.owned(actor,id);exactFields(body,['mutationId','consent']);if(body.consent!==true)fail(400,'Explicit consent to send this report and its attachments is required.');
+    await this.kits.card(actor,report.card_id);
+    rejectReportSecrets(report.description);
     await this.recover();
     const [previous]=await this.db.read('SELECT state FROM qr_feedback_delivery WHERE feedback_id=?',[id]);if(previous)return this.status(actor,id);
     const attachments=[];let total=0;
     for(const mediaId of JSON.parse(report.attachments_json)){
       const row=await this.media.row(mediaId);if(row.owner_id!==actor.id||row.purpose!=='feedback')fail(403,'Report attachment unavailable.');
+      rejectReportSecrets(row.name);
       total+=row.bytes;if(total>MAX_ATTACHMENTS_BYTES)fail(413,'Report attachments exceed the email limit. No files were omitted.');
       const response=await this.media.response(actor,mediaId,new Request('https://local.invalid/media/'+mediaId));
       const content=await boundedProviderBytes(response.body,row.bytes);if(content.length!==row.bytes)fail(503,'Report attachment integrity check failed.');
+      const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',content))].map(byte=>byte.toString(16).padStart(2,'0')).join('');if(digest!==row.digest)fail(503,'Report attachment integrity check failed.');
       attachments.push({filename:row.name,type:row.mime,content});
     }
     const [sense]=await this.db.read('SELECT en,definition FROM qr_senses WHERE id=?',[report.sense_id]);
@@ -61,6 +65,8 @@ export class QuizFeedbackDelivery{
     const at=this.now(),policy=reviewText(this.transport.policyRevision,100);
     try{
       await this.review.mutation(actor,body,['feedback-email',id],async()=>({statements:[this.kits.cardGuard(actor,report.card_id),
+        ...(this.feedback.privacyEnabled?[s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_feedback WHERE id=? AND owner_id=? AND deleted_at IS NULL AND COALESCE(expires_at,created_at+?)>? AND description=? AND attachments_json=?)',[id,actor.id,this.feedback.retentionDays*86400000,at,report.description,report.attachments_json])]:[]),
+        ...JSON.parse(report.attachments_json).map(mediaId=>s("INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_media WHERE id=? AND owner_id=? AND purpose='feedback' AND deleted_at IS NULL)",[mediaId,actor.id])),
         s('INSERT INTO mutation_guard SELECT count(*)<? FROM qr_feedback_delivery WHERE created_at>?',[this.dailyLimit,at-86400000]),
         s("INSERT INTO qr_feedback_delivery(feedback_id,owner_id,consent_at,policy_revision,recipient,created_at,deadline_at,state) VALUES(?,?,?,?,?,?,?,'queued')",[id,actor.id,at,policy,FEEDBACK_ADDRESS,at,at+this.timeoutMs])],result:{id}}));
     }catch(error){
@@ -68,7 +74,9 @@ export class QuizFeedbackDelivery{
       return this.status(actor,id);
     }
     try{
-      await this.review.mutation(actor,{mutationId:crypto.randomUUID()},['feedback-email-dispatch',id],async()=>({statements:[this.kits.cardGuard(actor,report.card_id),s("UPDATE qr_feedback_delivery SET state='started' WHERE feedback_id=? AND state='queued' AND deadline_at>?",[id,this.now()]),this.review.guard()],result:{id}}));
+      await this.review.mutation(actor,{mutationId:crypto.randomUUID()},['feedback-email-dispatch',id],async()=>({statements:[this.kits.cardGuard(actor,report.card_id),
+        ...(this.feedback.privacyEnabled?[s('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM qr_feedback WHERE id=? AND deleted_at IS NULL AND COALESCE(expires_at,created_at+?)>?)',[id,this.feedback.retentionDays*86400000,this.now()])]:[]),
+        s("UPDATE qr_feedback_delivery SET state='started' WHERE feedback_id=? AND state='queued' AND deadline_at>?",[id,this.now()]),this.review.guard()],result:{id}}));
     }catch(error){if(error.status!==409)throw error;return this.status(actor,id);}
     let timer;
     try{

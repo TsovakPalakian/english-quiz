@@ -9,7 +9,7 @@
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
   const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id);
-  function close(){serial++;job?.uploadController?.abort();speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
+  function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
     const signature=path+JSON.stringify(value);
@@ -105,7 +105,9 @@
   async function loadQueue(entry,more=false){
     if(!staff())throw Error('Teacher access required.');entry.view='queue';
     const offset=more?entry.nextOffset:0,data=await request('/queue?offset='+offset);if(!current(entry))return;
-    entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;paintQueue(entry);
+    entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;
+    if(entry.features?.includes('feedback')){const signals=await request('/feedback/signals');if(!current(entry))return;entry.reportSignals=new Map(signals.signals.map(row=>[row.versionId,row]));}
+    paintQueue(entry);
   }
   function preview(q){
     if(q.type==='Pronunciation')return q.content.items.map(item=>integratedReviewEditor.reviewItemPreview(q.type,{...item,...(item.mediaId?{mediaUrl:prefix+'/media/'+item.mediaId}:{})})).join('')+'<p>'+esc(q.content.explanation)+'</p>';
@@ -113,7 +115,9 @@
   }
   function reviewRow(entry,q){
     const allowed=staff()&&entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
-    const edit=entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'';
+    const signal=entry.reportSignals?.get(q.id);
+    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
+    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
     const speechChecks=q.type==='Pronunciation'?'<label><input type="checkbox" name="reference" required>Reading reference and locale checked</label><label><input type="checkbox" name="rubric" required>Scoring weights, scales and sufficiency checked</label>':'';
     return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
   }
@@ -136,7 +140,61 @@
     const prepare=staff()&&entry.writable&&entry.features?.includes('preparation')&&authorable(entry)?data.types.filter(type=>type.canPrepare):[];
     render(entry,group+senses+(data.selectionRequired?'<p>No meaning selected.</p>':'<div class="learning-workbench-actions">'+(authorable(entry)?'<button class="btn" type="button" data-workbench-new>New quiz</button>':'')+'<button class="btn" type="button" data-workbench-own>My quizzes</button></div><h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+[...data.types,...(data.additionalTypes||[])].map(type=>'<details><summary>'+esc(type.type)+' · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join('')+'</details>').join('')+(prepare.length?'<form data-workbench-prepare><fieldset><legend>Prepare missing types</legend>'+prepare.map(type=>'<label><input type="checkbox" name="types" value="'+esc(type.type)+'">'+esc(type.type)+'</label>').join('')+'</fieldset><button class="btn" type="submit">Queue preparation</button></form>':'')+(!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'')));
     if(entry.groupId&&dialog?.querySelector('[data-workbench-group]'))dialog.querySelector('[data-workbench-group]').value=String(entry.groupId);
+    if(entry.features?.includes('feedback')&&entry.senseId){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML='<button class="btn" type="button" data-workbench-report '+(!entry.writable?'disabled':'')+'>Report a problem</button><button class="btn" type="button" data-workbench-reports>My reports</button>';dialog.querySelector('[data-workbench-body]').append(actions);}
   }
+  const reportState=value=>({saved_locally:'Saved privately · Not sent',queued:'Queued',started:'Sending',accepted:'Accepted by mail service · Mailbox delivery unconfirmed',rejected:'Rejected · Not sent',uncertain:'Delivery unknown · Do not resend automatically'}[value]||value);
+  async function reports(entry){
+    speechUI?.deactivate();entry.view='reports';const data=await request('/feedback');if(!current(entry))return;
+    entry.reports=data.reports;
+    entry.feedbackPolicy=data.policy;
+    render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>My reports</h3>'+data.reports.map(row=>'<details><summary>'+esc(row.category)+' · '+esc(new Date(row.createdAt).toLocaleDateString('en-GB'))+'</summary><p>'+esc(row.description)+'</p><p>'+esc(reportState(row.state))+'</p><p>Recipient: '+esc(row.recipient)+'</p>'+(row.state==='saved_locally'&&entry.writable?'<form data-workbench-report-send="'+esc(row.id)+'"><label><input name="consent" type="checkbox" required>Send this report and its attachments to '+esc(row.recipient)+'</label><button class="btn" type="submit">Send report</button></form>':'')+(entry.writable?'<button class="btn" data-workbench-report-remove="'+esc(row.id)+'">Delete local report</button>':'')+'<p>Deleting the local copy cannot recall an email already sent.</p></details>').join('')+(!data.reports.length?'<p>No reports.</p>':''));
+  }
+  async function newReport(entry){
+    speechUI?.deactivate();const [policy,templates]=await Promise.all([request('/feedback/policy'),request('/templates?cardId='+entry.cardId)]);if(!current(entry))return;
+    for(const file of entry.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);
+    entry.view='report';entry.report={policy,versions:templates.quizzes.filter(row=>row.senseId===entry.senseId),files:[],description:'',category:'remark',versionId:null};paintReport(entry);
+  }
+  function paintReport(entry,preview=false){
+    const r=entry.report,identity=[entry.contextLabel,entry.title,entry.kit?.meaning?.definition].filter(Boolean).join(' · ');
+    const files=r.files.map(item=>'<li>'+esc(item.file.name)+' · '+Math.ceil(item.file.size/1024)+' KiB'+(item.file.type.startsWith('image/')?'<img alt="Attachment preview" src="'+esc(item.url)+'" style="max-width:100%;max-height:240px">':item.file.type.startsWith('audio/')?'<audio controls preload="none" src="'+esc(item.url)+'"></audio>':'<video controls playsinline preload="none" src="'+esc(item.url)+'" style="max-width:100%;max-height:240px"></video>')+'</li>').join('');
+    render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(preview?'Review report':'Report a problem')+'</h3><p>'+esc(identity)+'</p><p>Recipient: '+esc(r.policy.recipient)+' · Local retention: '+r.policy.retentionDays+' days</p><p>Do not include passwords, tokens or unrelated personal data. Check screenshots, recordings and filenames. Sent email copies may remain in the recipient mailbox.</p>'+(preview?'<p>'+esc(r.category)+' · '+esc(r.versions.find(row=>row.id===r.versionId)?.type||'Word and meaning')+'</p><p>'+esc(r.description)+'</p><ul>'+files+'</ul><form data-workbench-report-save><label><input name="privacyConsent" type="checkbox" required>I reviewed the text and attachments and consent to storing this private report.</label><button class="btn" type="submit">Save privately</button></form>':'<form data-workbench-report-preview><label>Category<select name="category">'+['complaint','remark','suggestion','bug'].map(value=>'<option '+(r.category===value?'selected':'')+'>'+value+'</option>').join('')+'</select></label><label>Quiz version<select name="versionId"><option value="">Word and meaning</option>'+r.versions.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.type+' · v'+row.version)+'</option>').join('')+'</select></label><label>Description<textarea name="description" maxlength="4000" required>'+esc(r.description)+'</textarea></label><label>Attachments · PNG, JPEG, WAV, MP3 or MP4 · 3 MiB total<input type="file" multiple name="attachments" accept="image/png,image/jpeg,audio/wav,audio/mpeg,video/mp4"></label><button class="btn" type="submit">Review report</button></form>'));
+  }
+  document.addEventListener('click',event=>{
+    const node=event.target.closest('[data-workbench-report],[data-workbench-reports],[data-workbench-report-remove],[data-workbench-attribution]'),entry=job;if(!node||!entry||!dialog?.contains(node))return;
+    void run(entry,async()=>{
+      if(node.hasAttribute('data-workbench-report')){if(entry.writable)await newReport(entry);return;}
+      if(node.hasAttribute('data-workbench-reports')){await reports(entry);return;}
+      if(node.hasAttribute('data-workbench-report-remove')){
+        if(!entry.writable||!window.confirm('Delete the local report and unused attachments? Already sent email cannot be recalled.'))return;
+        await write(entry,'/feedback/'+node.dataset.workbenchReportRemove+'/remove',{});if(current(entry))await reports(entry);return;
+      }
+      const id=node.dataset.workbenchAttribution,settings=await request('/proposals/'+id+'/attribution');if(!current(entry))return;
+      const host=dialog.querySelector('[data-workbench-attribution-panel="'+id+'"]');if(host)host.innerHTML='<form data-workbench-attribution-save="'+id+'" data-revision="'+settings.revision+'"><label><input name="publicName" type="checkbox" '+(settings.publicName?'checked':'')+'>Show my recorded author name in shared templates</label><label><input name="publicGroup" type="checkbox" '+(settings.publicGroup?'checked':'')+'>Show my recorded group in shared templates</label><button class="btn" type="submit" '+(!entry.writable?'disabled':'')+'>Save public attribution</button></form>';
+    });
+  });
+  document.addEventListener('submit',event=>{
+    const form=event.target;if(!form.matches('[data-workbench-report-preview],[data-workbench-report-save],[data-workbench-report-send],[data-workbench-attribution-save]'))return;event.preventDefault();
+    const entry=job;if(!entry||!entry.writable||!dialog?.contains(form))return;const data=new FormData(form);
+    void run(entry,async()=>{
+      if(form.hasAttribute('data-workbench-attribution-save')){await write(entry,'/proposals/'+form.dataset.workbenchAttributionSave+'/attribution',{expectedRevision:Number(form.dataset.revision),publicName:data.has('publicName'),publicGroup:data.has('publicGroup')});if(current(entry))await mine(entry);return;}
+      if(form.hasAttribute('data-workbench-report-send')){if(!entry.feedbackPolicy?.deliveryEnabled)throw Error('Email sending is not configured. This report is saved privately and has not been sent.');const result=await write(entry,'/feedback/'+form.dataset.workbenchReportSend+'/send',{consent:data.has('consent')});if(current(entry)){await reports(entry);dialog.querySelector('[data-workbench-status]').textContent=reportState(result.state);}return;}
+      const r=entry.report;if(!r)return;
+      if(form.hasAttribute('data-workbench-report-preview')){
+        const files=data.getAll('attachments').filter(file=>file instanceof File&&file.size);
+        if(files.length>5||files.reduce((sum,file)=>sum+file.size,0)>r.policy.maxAttachmentBytes||files.some(file=>!['image/png','image/jpeg','audio/wav','audio/mpeg','video/mp4'].includes(file.type)))throw Error('Choose up to five supported attachments, 3 MiB total.');
+        r.description=String(data.get('description')).trim();r.category=data.get('category');r.versionId=data.get('versionId')||null;
+        for(const item of r.files)if(item.url)URL.revokeObjectURL(item.url);r.files=files.map(file=>({file,url:URL.createObjectURL(file),mutationId:crypto.randomUUID()}));paintReport(entry,true);return;
+      }
+      if(!data.has('privacyConsent'))throw Error('Review and consent to private report storage.');
+      for(const item of r.files){
+        if(item.id)continue;entry.uploadController=new AbortController();
+        const asset=await window.LearningMain.fetch(prefix+'/media',{method:'POST',headers:{'Content-Type':item.file.type,'X-Upload-Metadata':encodeURIComponent(JSON.stringify({mutationId:item.mutationId,purpose:'feedback',cardId:entry.cardId,senseId:entry.senseId,mime:item.file.type,name:item.file.name}))},body:item.file,signal:entry.uploadController.signal,quietBug:true});
+        if(!current(entry))return;item.id=asset.id;
+      }
+      await write(entry,'/feedback',{cardId:entry.cardId,senseId:entry.senseId,versionId:r.versionId,category:r.category,description:r.description,attachments:r.files.map(item=>item.id),privacyConsent:true});if(!current(entry))return;
+      for(const item of r.files)URL.revokeObjectURL(item.url);entry.report=null;await reports(entry);
+    });
+  });
   function answers(entry){
     const session=entry.session,pairs=['Match','Memory'].includes(session.type),items=pairs?session.questions.left.map(prompt=>({prompt,options:session.questions.right})):session.questions;
     if(session.type==='Pronunciation'){

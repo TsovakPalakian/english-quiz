@@ -30,10 +30,15 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
   }
   if(method==='HEAD')fail(405,'HEAD is only supported for media.');
   if(method==='GET'){
+    if(path==='/feedback/policy'){params(url,[]);service('feedback');return json(services.feedbackPolicy);}
+    if(path==='/feedback'){params(url,[]);const reports=await service('feedback').mine(actor),result=[];for(const report of reports)result.push({...report,...await service('feedbackDelivery').status(actor,report.id)});return json({reports:result,policy:services.feedbackPolicy});}
+    if(path==='/feedback/signals'){const p=params(url,['limit']);return json(await service('feedbackPrivacy').signals(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
+    const feedbackStatus=new RegExp('^/feedback/'+id+'$').exec(path);if(feedbackStatus){params(url,[]);return json(await service('feedbackDelivery').status(actor,feedbackStatus[1]));}
+    const attribution=new RegExp('^/proposals/'+id+'/attribution$').exec(path);if(attribution){params(url,[]);return json(await service('authors').get(actor,attribution[1]));}
     if(path==='/preparation'){const p=params(url,['limit']);return json(await service('preparation').summary(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
     const dispatchHistory=/^\/preparation\/([1-9]\d{0,15})\/history$/.exec(path);
     if(dispatchHistory){const p=params(url,['before']);return json(await service('preparation').history(actor,integer(dispatchHistory[1]),{before:p.has('before')?integer(p.get('before')):null}));}
-    if(path==='/status'){params(url,[]);return json({enabled:true,writable,pronunciationQuizzes:services?.review?.pronunciationQuizzes===true,pronunciationRubrics:services?.review?.pronunciationQuizzes?services.speech.rubrics.filter(rubric=>Object.keys(rubric.weights).every(key=>['accuracy','fluency','prosody'].includes(key))):[],features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
+    if(path==='/status'){params(url,[]);return json({enabled:true,writable,pronunciationQuizzes:services?.review?.pronunciationQuizzes===true,pronunciationRubrics:services?.review?.pronunciationQuizzes?services.speech.rubrics.filter(rubric=>Object.keys(rubric.weights).every(key=>['accuracy','fluency','prosody'].includes(key))):[],features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions','feedback','authors'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
     const session=new RegExp('^/sessions/'+id+'$').exec(path);
@@ -92,6 +97,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    if(path==='/feedback')return json(await service('feedback').create(actor,data));
+    if(path==='/feedback/cleanup'){await service('feedbackDelivery').recover();return json(await service('feedbackPrivacy').sweep(actor,data));}
+    const feedbackAction=new RegExp('^/feedback/'+id+'/(send|remove)$').exec(path);
+    if(feedbackAction){if(feedbackAction[2]==='remove'){await service('feedbackDelivery').recover();return json(await service('feedbackPrivacy').erase(actor,feedbackAction[1],data));}return json(await service('feedbackDelivery').send(actor,feedbackAction[1],data));}
+    const attribution=new RegExp('^/proposals/'+id+'/attribution$').exec(path);if(attribution)return json(await service('authors').set(actor,attribution[1],data));
     if(path==='/preparation/settings')return json(await service('preparation').configure(actor,data));
     if(path==='/preparation/reconcile'){
       if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>!['after','limit'].includes(key)))fail(400,'Invalid reconciliation page.');

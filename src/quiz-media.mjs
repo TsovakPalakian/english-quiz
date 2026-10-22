@@ -71,7 +71,13 @@ export class QuizMedia{
       result:{id,mime:body.mime,name,bytes:bytes.length,descriptor,source}};
     });
   }
-  async row(id,{includeDeleted=false}={}){if(!validId(id))fail(404,'Media unavailable.');const [row]=await this.db.read('SELECT * FROM qr_media WHERE id=?'+(includeDeleted?'':' AND deleted_at IS NULL'),[id]);if(!row)fail(404,'Media unavailable.');return row;}
+  async row(id,{includeDeleted=false}={}){
+    if(!validId(id))fail(404,'Media unavailable.');const [row]=await this.db.read('SELECT * FROM qr_media WHERE id=?'+(includeDeleted?'':' AND deleted_at IS NULL'),[id]);if(!row)fail(404,'Media unavailable.');
+    if(!includeDeleted&&row.purpose==='feedback'&&Number.isSafeInteger(this.feedbackRetentionDays)&&row.created_at+this.feedbackRetentionDays*86400000<=this.now()){
+      const [live]=await this.db.read("SELECT 1 FROM qr_feedback f,json_each(f.attachments_json) i WHERE i.value=? AND f.deleted_at IS NULL AND COALESCE(f.expires_at,f.created_at+?)>? LIMIT 1",[id,this.feedbackRetentionDays*86400000,this.now()]);if(!live)fail(404,'Media unavailable.');
+    }
+    return row;
+  }
   async list(actor,purpose){kitSigned(actor);if(!['quiz','feedback','speech'].includes(purpose))fail(400,'Invalid media purpose.');return this.db.read('SELECT id,name,mime,bytes,descriptor_json AS descriptor,source_json AS source FROM qr_media WHERE owner_id=? AND purpose=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100',[actor.id,purpose]).then(rows=>rows.map(row=>({...row,descriptor:JSON.parse(row.descriptor),source:JSON.parse(row.source)})));}
   async response(actor,id,request,{session=null,itemIndex=null}={}){
     kitSigned(actor);const row=await this.row(id);
