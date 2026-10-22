@@ -54,8 +54,10 @@ export class LanguageAccessPolicy{
     developer(actor);if(!scopeOK(scope)||!positive(limit,100)||before!==null&&!positive(before,Number.MAX_SAFE_INTEGER))fail('invalid_request');
     try{const rows=await this.#db.read(`SELECT revision,actor_id,changed_at,reason,request_json FROM qr_language_access_changes WHERE scope=? ${before===null?'':'AND revision<?'} ORDER BY revision DESC LIMIT ?`,[scope,...(before===null?[]:[before]),limit+1]),page=rows.slice(0,limit);return {changes:page.map(row=>({revision:row.revision,actorId:row.actor_id,changedAt:row.changed_at,reason:row.reason,policy:JSON.parse(row.request_json).policy})),next:rows.length>limit?page.at(-1).revision:null};}catch{fail('access_policy_unavailable');}
   }
-  wrap(adapter,{scope}={}){
+  wrap(adapter,{scope,limits=null}={}){
     if(!scopeOK(scope)||typeof adapter?.invoke!=='function')fail('invalid_configuration');
+    if(limits!==null&&(!exact(limits,['minuteRequests','dayRequests'])||!positive(limits.minuteRequests,100000)||!positive(limits.dayRequests,1000000)))fail('invalid_configuration');
+    limits=limits===null?null:structuredClone(limits);
     const expected=identity(adapter),invoke=adapter.invoke;
     return {...adapter,invoke:async(input,options={})=>{
       const {signal,source}=options;if(signal?.aborted)fail('cancelled');
@@ -68,8 +70,9 @@ export class LanguageAccessPolicy{
       try{await this.#db.atomic([...guard(),s(`INSERT INTO qr_language_access_usage(id,scope,revision,day,task,adapter_id,input_bytes,admitted_at)
         SELECT ?,scope,revision,?,?,?, ?,? FROM qr_language_access WHERE scope=? AND revision=? AND
         (SELECT COUNT(*) FROM qr_language_access_usage WHERE scope=? AND day=?)<? AND
-        (SELECT COALESCE(SUM(input_bytes),0) FROM qr_language_access_usage WHERE scope=? AND day=?)+?<=?`,
-        [crypto.randomUUID(),Math.floor(at/86400000),source.task,expected.id,size,at,scope,state.revision,scope,Math.floor(at/86400000),state.policy.dailyRequests,scope,Math.floor(at/86400000),size,state.policy.dailyInputBytes]),s('INSERT INTO mutation_guard SELECT changes()=1'),s('DROP TABLE mutation_guard')]);}
+        (SELECT COALESCE(SUM(input_bytes),0) FROM qr_language_access_usage WHERE scope=? AND day=?)+?<=?
+        ${limits?'AND (SELECT COUNT(*) FROM qr_language_access_usage WHERE scope=? AND admitted_at>?)<? AND (SELECT COUNT(*) FROM qr_language_access_usage WHERE scope=? AND admitted_at>?)<?':''}`,
+        [crypto.randomUUID(),Math.floor(at/86400000),source.task,expected.id,size,at,scope,state.revision,scope,Math.floor(at/86400000),state.policy.dailyRequests,scope,Math.floor(at/86400000),size,state.policy.dailyInputBytes,...(limits?[scope,at-60000,limits.minuteRequests,scope,at-86400000,limits.dayRequests]:[])]),s('INSERT INTO mutation_guard SELECT changes()=1'),s('DROP TABLE mutation_guard')]);}
       catch(error){if(error.status===409||/constraint/i.test(error.message))fail('access_budget_or_policy_changed');fail('access_policy_unavailable');}
       // Recheck after asynchronous admission: revocation or expiry must win before dispatch.
       const current=await this.#read(scope),dispatchAt=this.#time();

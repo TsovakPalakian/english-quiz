@@ -12,7 +12,7 @@ const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)
 const keys=(value,allowed)=>object(value)&&Object.keys(value).every(key=>allowed.includes(key));
 const string=value=>typeof value==='string'&&value.trim().length>0&&value.length<=4000;
 
-function buildInput(request,maxTokens){
+export function buildQuizModelInput(request,maxTokens){
   if(!keys(request,['instruction','type','meaning','itemFields','maxItems','maxOutputChars','evidence'])||
     !Object.hasOwn(itemFields,request.type)||!string(request.instruction)||
     !keys(request.meaning,['en','translation','definition','part_of_speech'])||
@@ -56,7 +56,7 @@ export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false
       if(!enabled)fail('provider_disabled');
       if(typeof fetchImpl!=='function'||!/^[a-f0-9]{32}$/.test(accountId)||typeof apiToken!=='string'||!apiToken.trim()||/[\r\n]/.test(apiToken))fail('provider_not_configured');
       if(signal?.aborted)fail('cancelled');
-      const input=buildInput(request,maxTokens),controller=new AbortController();let abort,timer,observedUsage;
+      const input=buildQuizModelInput(request,maxTokens),controller=new AbortController();let abort,timer,observedUsage;
       const stopped=new Promise((_,reject)=>{
         abort=()=>{controller.abort();reject(new LanguageProviderError('cancelled'));};signal?.addEventListener('abort',abort,{once:true});
         timer=setTimeout(()=>{controller.abort();reject(new LanguageProviderError('timeout'));},timeoutMs);
