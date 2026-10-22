@@ -28,7 +28,9 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
       if(typeof configuration.resolveActor!=='function'||!configuration.workerId||typeof configuration.authorize!=='function')throw new StudyError(503,'A trusted speech worker resolver and provider authorization gate are required.');
       const worker=await configuration.resolveActor(configuration.workerId);
       if(!worker?.id||worker.role!=='DEVELOPER'||worker.active===false||worker.active===0||worker.revoked)throw new StudyError(503,'Speech settings require a current developer worker.');
-      const providers=new StoredLanguageProviders(db,{adapters:configuration.adapters||[],authorize:configuration.authorize});
+      if(configuration.openProviders!==undefined&&typeof configuration.openProviders!=='function')throw new StudyError(503,'A trusted provider factory is required.');
+      const providers=configuration.openProviders?await configuration.openProviders({db,actor}):new StoredLanguageProviders(db,{adapters:configuration.adapters||[],authorize:configuration.authorize});
+      if(!(providers instanceof StoredLanguageProviders))throw new StudyError(503,'Stored language providers are required.');
       services.speech=new SpeechPractice(kits,media,{enabled:true,providers,worker,rubrics:configuration.rubrics,budgets:configuration.budgets,resolveActor:configuration.resolveActor});
       services.transcripts=new SpeechTranscriptReview(services.speech,{enabled:true,rubric:configuration.languageRubric});
     }

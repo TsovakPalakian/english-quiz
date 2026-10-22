@@ -16,6 +16,7 @@ import {applyLearningSchema} from './learning-test-schema.mjs';
 import {rehearseWorkbench} from '../ops/rehearse-learning-workbench.mjs';
 import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC} from '../ops/local-speech-provider.mjs';
 import {QuizGenerationService} from '../src/quiz-generation.mjs';
+import {createConfiguredLanguageProviders} from '../src/configured-language-providers.mjs';
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 async function readyFixture(){
   const f=await fixture({d1:true,extendedLifecycle:true});
@@ -68,7 +69,7 @@ test('explicit preparation queues only missing types and never starts inference 
 });
 test('migration manifest and readiness inspect isolated schema without applying changes',async()=>{
   const f=await readyFixture();try{
-    const plan=workbenchMigrationPlan();assert.equal(plan.steps.length,13);assert.equal(plan.applied,false);assert.ok(plan.steps.every(step=>/^[a-f0-9]{64}$/.test(step.sha256)));
+    const plan=workbenchMigrationPlan();assert.equal(plan.steps.length,14);assert.equal(plan.applied,false);assert.ok(plan.steps.every(step=>/^[a-f0-9]{64}$/.test(step.sha256)));
     const before=f.sql.prepare('SELECT total_changes() AS n').get().n;
     const ready=await learningWorkbenchReadiness(f.db);assert.equal(ready.ready,true,JSON.stringify(ready));assert.equal(ready.productionApproved,false);
     assert.equal(f.sql.prepare('SELECT total_changes() AS n').get().n,before);
@@ -146,6 +147,9 @@ test('speech assembly requires explicit trusted configuration and never initiali
     await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,resolveActor:async()=>({...actors.dev,active:0})}})({db:f.db,actor:actors.student}),503);
     await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,resolveActor:null}})({db:f.db,actor:actors.student}),503);
     await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,authorize:null}})({db:f.db,actor:actors.student}),503);
+    const composed=await createLearningWorkbenchFactory({...base,speech:{...configuration,openProviders:async({db,actor})=>{assert.equal(db,f.db);assert.equal(actor,actors.student);return (await createConfiguredLanguageProviders({db,authorize:configuration.authorize})).providers;}}})({db:f.db,actor:actors.student});
+    assert.ok(composed.speech);assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_language_access').get().n,0);assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_provider_configuration').get().n,0);
+    await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,openProviders:async()=>({execute:async()=>({})})}})({db:f.db,actor:actors.student}),503);
   }finally{f.close();}
 });
 test('main session advertises the UI only when the server flag and trusted factory both exist',async()=>{

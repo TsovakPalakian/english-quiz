@@ -1,12 +1,12 @@
 import {LanguageProviderError} from './language-providers.mjs';
 import {validateSpeechOutput} from './speech-assessment.mjs';
 import {chatFileMime} from './chat-attachments.mjs';
-import {languageProviderHTTP,validateTransportOptions} from './language-provider-http.mjs';
+import {languageProviderHTTP,validateTransportOptions,transportConfigurationVersion} from './language-provider-http.mjs';
 export const WHISPER_MODEL='@cf/openai/whisper';
 const fail=code=>{throw new LanguageProviderError(code);};
-export function createWorkersAIWhisperAdapter({enabled=false,freeTierVerified=false,accountId='',apiToken='',fetchImpl,timeoutMs=30000}={}){
+export function createWorkersAIWhisperAdapter({enabled=false,freeTierVerified=false,accountId='',apiToken='',fetchImpl,timeoutMs=30000,configurationRevision=null}={}){
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
-  return {id:'workers-ai-whisper',provider:'cloudflare',model:WHISPER_MODEL,version:'binary-rest-stt-v1',billing:freeTierVerified?'free-tier':'unknown',
+  return {id:'workers-ai-whisper',provider:'cloudflare',model:WHISPER_MODEL,version:'binary-rest-stt-v1'+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'stt',locales:['en-US','en-GB'],modes:['scripted','unscripted']}],
     async invoke(input,{signal}={}){
       if(!enabled)fail('provider_disabled');

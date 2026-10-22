@@ -3,6 +3,7 @@ import {LanguageProviderError} from './language-providers.mjs';
 import {createModelQuizGenerator,MODEL_QUIZ_INSTRUCTION_VERSION} from './quiz-generation-model.mjs';
 import {GenerationIssue} from './quiz-generation.mjs';
 import {validateGenerationMetadata,validateGenerationUsage} from './quiz-generation-metadata.mjs';
+import {transportConfigurationVersion} from './language-provider-http.mjs';
 
 export const WORKERS_QUIZ_MODEL='@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const itemFields={Flip:['front','back'],Choice:['prompt','options','answer'],Type:['prompt','answer'],Gap:['shown','answer','hint'],Build:['parts','answer'],'True / false':['prompt','answer'],Tap:['text','answer'],Reverse:['front','back','options','answer'],Spell:['word','hint'],Letters:['word','hint'],Definition:['prompt','word','options','answer'],Hangman:['word','hint']};
@@ -45,10 +46,10 @@ async function limitedJSON(response,limit){
   }finally{reader.releaseLock();}
 }
 
-export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false,accountId='',apiToken='',fetchImpl,timeoutMs=15000,maxTokens=1024}={}){
+export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false,accountId='',apiToken='',fetchImpl,timeoutMs=15000,maxTokens=1024,configurationRevision=null}={}){
   if(typeof enabled!=='boolean'||typeof freeTierVerified!=='boolean'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000||!Number.isSafeInteger(maxTokens)||maxTokens<128||maxTokens>2048)fail('invalid_configuration');
   return {
-    id:'workers-ai-quiz',provider:'cloudflare',model:WORKERS_QUIZ_MODEL,version:'rest-v1-json-v1',billing:freeTierVerified?'free-tier':'unknown',
+    id:'workers-ai-quiz',provider:'cloudflare',model:WORKERS_QUIZ_MODEL,version:'rest-v1-json-v1'+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'generation',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(request,{signal}={}){
       if(!enabled)fail('provider_disabled');

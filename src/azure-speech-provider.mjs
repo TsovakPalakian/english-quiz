@@ -1,7 +1,7 @@
 import {LanguageProviderError} from './language-providers.mjs';
 import {validateSpeechOutput} from './speech-assessment.mjs';
 import {chatFileMime} from './chat-attachments.mjs';
-import {languageProviderHTTP,validateTransportOptions} from './language-provider-http.mjs';
+import {languageProviderHTTP,validateTransportOptions,transportConfigurationVersion} from './language-provider-http.mjs';
 const fail=code=>{throw new LanguageProviderError(code);};
 export const AZURE_REFERENCE_VOICES=Object.freeze([{id:'en-US-JennyNeural',locale:'en-US'},{id:'en-GB-SoniaNeural',locale:'en-GB'}].map(Object.freeze));
 const xml=value=>value.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
@@ -9,7 +9,7 @@ function settings(options){
   const {enabled=false,freeTierVerified=false,resourceName='',apiKey='',fetchImpl,timeoutMs=30000,termsRevision=null}=options;
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
-  return {enabled,freeTierVerified,resourceName,apiKey,fetchImpl,timeoutMs,termsRevision};
+  return {enabled,freeTierVerified,resourceName,apiKey,fetchImpl,timeoutMs,termsRevision,configurationVersion:transportConfigurationVersion(options.configurationRevision)};
 }
 function gate(config){
   if(!config.enabled)fail('provider_disabled');
@@ -32,7 +32,7 @@ export function azurePcmDuration(bytes){
 function score(value){if(value===undefined||value===null)return null;if(!Number.isFinite(value)||value<0||value>100)fail('invalid_provider_result');return value;}
 export function createAzurePronunciationAdapter(options={}){
   const config=settings(options);
-  return {id:'azure-pronunciation',provider:'microsoft-azure',model:'speech-pronunciation-scripted',version:'rest-hundredmark-v1.'+(config.termsRevision||'unverified'),billing:config.freeTierVerified?'free-tier':'unknown',
+  return {id:'azure-pronunciation',provider:'microsoft-azure',model:'speech-pronunciation-scripted',version:'rest-hundredmark-v1.'+(config.termsRevision||'unverified')+config.configurationVersion,billing:config.freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'pronunciation',locales:['en-US','en-GB'],modes:['scripted']}],
     async invoke(input,{signal}={}){
       const host=gate(config);
@@ -54,7 +54,7 @@ export function createAzurePronunciationAdapter(options={}){
 export function createAzureTTSAdapter(options={}){
   const config=settings(options),rights=options.reuseConditions;
   if(rights!==undefined&&(typeof rights!=='string'||!rights.trim()||rights.length>500))fail('invalid_configuration');
-  return {id:'azure-tts',provider:'microsoft-azure',model:'speech-neural-standard',version:'pcm16-v1.'+(config.termsRevision||'unverified'),billing:config.freeTierVerified?'free-tier':'unknown',
+  return {id:'azure-tts',provider:'microsoft-azure',model:'speech-neural-standard',version:'pcm16-v1.'+(config.termsRevision||'unverified')+config.configurationVersion,billing:config.freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'tts',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(input,{source,signal}={}){
       const host=gate(config);if(!rights)fail('provider_not_configured');

@@ -2,15 +2,15 @@ import {LanguageProviderError} from './language-providers.mjs';
 import {QUIZ_REVIEW_INSTRUCTION_VERSION,REVIEW_DIMENSIONS,createIndependentQuizReviewer,IndependentReviewIssue} from './quiz-independent-review.mjs';
 import {validateReviewContent} from './quiz-review-content.mjs';
 import {validateGenerationUsage} from './quiz-generation-metadata.mjs';
-import {languageProviderHTTP,validateTransportOptions} from './language-provider-http.mjs';
+import {languageProviderHTTP,validateTransportOptions,transportConfigurationVersion} from './language-provider-http.mjs';
 const fail=code=>{throw new LanguageProviderError(code);};
 const exact=(value,fields)=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).every(key=>fields.includes(key));
 const object=properties=>({type:'object',additionalProperties:false,required:Object.keys(properties),properties});
-function createGeminiReviewTransport({enabled=false,freeTierVerified=false,allowDataProcessing=false,model='',apiKey='',termsRevision=null,fetchImpl,timeoutMs=30000,maxTokens=4096}={}){
+function createGeminiReviewTransport({enabled=false,freeTierVerified=false,allowDataProcessing=false,model='',apiKey='',termsRevision=null,fetchImpl,timeoutMs=30000,maxTokens=4096,configurationRevision=null}={}){
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(typeof allowDataProcessing!=='boolean'||!Number.isSafeInteger(maxTokens)||maxTokens<512||maxTokens>8192||termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
   if(model!==''&&!/^gemini-[a-z0-9][a-z0-9.-]{0,100}$/.test(model))fail('invalid_configuration');
-  return {id:'gemini-quiz-review',provider:'google',model:model||'unconfigured',version:'generate-content-json-v1.'+(termsRevision||'unverified'),billing:freeTierVerified?'free-tier':'unknown',
+  return {id:'gemini-quiz-review',provider:'google',model:model||'unconfigured',version:'generate-content-json-v1.'+(termsRevision||'unverified')+transportConfigurationVersion(configurationRevision),billing:freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'review',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(request,{signal}={}){
       if(!enabled)fail('provider_disabled');

@@ -1,6 +1,11 @@
 import {LanguageProviderError} from './language-providers.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
 const fail=code=>{throw new LanguageProviderError(code);};
+export function transportConfigurationVersion(value=null){
+  if(value===null)return '';
+  if(typeof value!=='string'||!/^[a-f0-9]{64}$/.test(value))fail('invalid_configuration');
+  return '.cfg-'+value;
+}
 export function validateTransportOptions({enabled,freeTierVerified,timeoutMs}){
   if(typeof enabled!=='boolean'||typeof freeTierVerified!=='boolean'||!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)fail('invalid_configuration');
 }
