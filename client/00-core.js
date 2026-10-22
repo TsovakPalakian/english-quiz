@@ -60,6 +60,7 @@
       return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
+      window.LearningWorkbench?.paintEntry();
       document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
       document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll('[data-jump]').forEach(button=>{

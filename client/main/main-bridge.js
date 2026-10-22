@@ -238,6 +238,7 @@
     }
     return value;
   }
+  let workbenchRole='';
   async function accountFetch(path,options={}){
     try{
       if(path==='/api/logout')await drainPersonal(true);
@@ -245,7 +246,8 @@
       const value=await api(path,options);
       if(path==='/api/me' || path==='/api/login'){
         const nextActor=value.user?.id||'';
-        const workbenchChanged=nextActor!==actorId||backendCapabilities.learningWorkbench!==(value.user?value.migrationCapabilities?.learningWorkbench:undefined);
+        const workbenchChanged=nextActor!==actorId||workbenchRole!==(value.user?.role||'')||backendCapabilities.learningWorkbench!==(value.user?value.migrationCapabilities?.learningWorkbench:undefined);
+        workbenchRole=value.user?.role||'';
         if(nextActor!==actorId){confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;}
         actorId=nextActor;backendCapabilities=value.user?value.migrationCapabilities||{}:{};
         if(workbenchChanged)window.LearningWorkbench?.reset();

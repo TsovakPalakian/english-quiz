@@ -8,15 +8,24 @@ import {fixture,actors,body} from './quiz-review-fixture.mjs';
 import {workbenchMigrationPlan} from '../ops/learning-workbench-migration-plan.mjs';
 import {createLearningWorkbenchFactory} from '../src/learning-workbench-services.mjs';
 import {learningWorkbenchAPI} from '../src/learning-workbench-api.mjs';
-import {bundleSource} from '../ops/build-preview.mjs';
+import {bundleSource,speechUIFactory} from '../ops/build-preview.mjs';
+import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC,localSpeechAdapter} from '../ops/local-speech-provider.mjs';
+import {WORKBENCH_TEST_BUCKET} from '../src/quiz-r2-media-store.mjs';
+import {wav} from './quiz-media-fixture.mjs';
 const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 test('main-app workbench stays opt-in, selects meanings and runs approved practice without replacing Study',async()=>{
-  const f=await fixture({d1:true,extendedLifecycle:true});let server,browser,writable=true;
+  const f=await fixture({d1:true,extendedLifecycle:true});let server,browser,writable=true,actor=actors.student,services;const diagnostics=[];
   try{
     for(const step of workbenchMigrationPlan().steps.slice(1))f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url),'utf8'));
     const second=await f.service.createSense(actors.dev,body({cardId:1,meaning:{partOfSpeech:'verb',translation:'pour',definition:'Pour a little liquid.'}}));
     const q=await f.draft();await f.service.submit(actors.student,q.id,body({expectedRevision:1}));await f.service.approve(actors.teacher,q.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
-    const services=await createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media expected.');}})({db:f.db,actor:actors.student});
+    const objects=new Map(),bucket={put:async(key,bytes,options)=>{if(objects.has(key))return null;const value={bytes:bytes.slice(),size:bytes.length,httpMetadata:options.httpMetadata,customMetadata:options.customMetadata};objects.set(key,value);return value;},get:async key=>{const value=objects.get(key);return value?{...value,body:new Blob([value.bytes]).stream()}:null;},head:async key=>objects.get(key),delete:async key=>objects.delete(key)};
+    services=await createLearningWorkbenchFactory({storage:{enabled:true,bucket,bucketName:WORKBENCH_TEST_BUCKET},inspect:async()=>({kind:'audio',duration:0.5,width:0,height:0}),speech:{enabled:true,workerId:actors.dev.id,resolveActor:async id=>Object.values(actors).find(row=>row.id===id),authorize:async source=>source.provider==='local-fixture',adapters:[localSpeechAdapter()],rubrics:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:60,month:120},language:{day:3,month:6}}}})({db:f.db,actor});
+    await services.speech.providers.initialize(actors.dev);await services.speech.providers.configure(actors.dev,body({expectedRevision:1,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'},conversation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'text'}},reason:'Synthetic integrated speech test.'}));
+    await services.speech.createTask(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,mode:'pronunciation',locale:'en-US',prompt:'Read drizzle.',reference:'drizzle',referenceMediaId:null,rubricId:LOCAL_SPEECH_RUBRIC.id,evaluation:'pronunciation',languageReview:true,level:null}));
+    for(const [object,key] of [[services.media,'response'],[services.speech.providers,'execute']]){const original=object[key].bind(object);object[key]=async(...args)=>{try{return await original(...args);}catch(error){diagnostics.push(key+': '+error.message);throw error;}};}
+    const pending=await f.draft(),returned=await f.draft(),own=await f.draft(actors.teacher);
+    for(const [row,author] of [[pending,actors.student],[returned,actors.student],[own,actors.teacher]])await f.service.submit(author,row.id,body({expectedRevision:1}));
     const component=readFileSync(new URL('../client/52a-workbench.js',import.meta.url),'utf8'),lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
     const lesson=lessonSource.slice(lessonSource.indexOf('    function lmWordCardHtml('),lessonSource.indexOf('    function lmRuleCardHtml('));
     assert.ok(bundleSource('preview.js').includes(component));
@@ -24,23 +33,34 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     server=createServer(async(req,res)=>{
       try{
         const origin='http://127.0.0.1:'+server.address().port;
-        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section><script src="/test.js"></script>');return;}
+        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
         if(req.url==='/style.css'){res.setHeader('Content-Type','text/css');res.end(readFileSync(new URL('../site/preview.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../site/main-stage.css',import.meta.url),'utf8'));return;}
-        if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(script);return;}
+        if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(speechUIFactory()+script);return;}
         if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}
         const chunks=[];for await(const chunk of req)chunks.push(chunk);
-        const response=await learningWorkbenchAPI(new Request(origin+req.url,{method:req.method,headers:req.headers,...(chunks.length?{body:Buffer.concat(chunks)}:{})}),{actor:actors.student,services,writable});
+        const response=await learningWorkbenchAPI(new Request(origin+req.url,{method:req.method,headers:req.headers,...(chunks.length?{body:Buffer.concat(chunks)}:{})}),{actor,services,writable});
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
       }catch(error){res.writeHead(error.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');const url='http://127.0.0.1:'+server.address().port;
     browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
-    const page=await browser.newPage({viewport:{width:1100,height:850}}),errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
+    const page=await browser.newPage({viewport:{width:1100,height:850}}),errors=[],requests=[];page.setDefaultTimeout(7000);page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);assert.equal(await page.locator('[data-workbench-lesson]').count(),0);assert.ok(!requests.some(path=>path.includes('/api/learning-workbench')));
     await page.evaluate(()=>toggle(true));await page.locator('[data-workbench-lesson]').click();await page.locator('[data-workbench-group]').waitFor();
     assert.ok(!requests.some(path=>path.includes('/kit?')));await page.selectOption('[data-workbench-group]','1');await page.locator('[data-workbench-sense]').waitFor();
     assert.match(await page.locator('[data-workbench-body]').innerText(),/No meaning selected/);
     await page.selectOption('[data-workbench-sense]',second.senseId);await page.getByRole('heading',{name:'0 / 17 types ready'}).waitFor();
     await page.selectOption('[data-workbench-sense]',f.senseId);await page.getByRole('heading',{name:'1 / 17 types ready'}).waitFor();
+    await page.locator('[data-workbench-speech]').click();await page.locator('#speech-file').waitFor();
+    await page.locator('#speech-file').setInputFiles({name:'practice.wav',mimeType:'audio/wav',buffer:Buffer.from(wav())});
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_speech_attempts').get().n,0);
+    await page.locator('[data-speech-form=analyze] [name=consent]').check();await page.getByRole('button',{name:'Analyze recording',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('[data-speech-stats]')?.textContent.includes('Latest: 71'),null,{timeout:5000}).catch(async error=>{throw Error(error.message+'\n'+await page.locator('dialog').innerText()+'\n'+JSON.stringify(errors)+'\n'+JSON.stringify(f.sql.prepare('SELECT state,error_code FROM qr_speech_attempts').all())+'\n'+JSON.stringify(diagnostics));});
+    const attempt=page.locator('[data-speech-id]');await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;node.querySelector('[data-text-reviews]').open=true;});
+    assert.match(await attempt.locator('audio').getAttribute('src'),/^\/api\/learning-workbench\/speech\//);
+    await attempt.locator('[data-speech-form=confirm-text] [name=consent]').check();await attempt.getByRole('button',{name:'Review confirmed text',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('[data-text-reviews]')?.textContent.includes('Language score: 74.8'));
+    await page.screenshot({path:'/private/tmp/lumiscia-main-speech.png'});
+    await page.locator('[data-workbench-back]').click();await page.locator('[data-workbench-practice]').waitFor({state:'attached'});
     const variant=page.locator('[data-workbench-practice]');await variant.evaluate(node=>node.closest('details').open=true);await variant.click();
     await page.locator('[data-workbench-answers]').waitFor();assert.equal(await page.locator('[data-workbench-body]').getByText('Drizzle means light rain in this context.',{exact:true}).count(),0);
     await page.locator('[name=answer-0]').fill('drizzle');await page.getByRole('button',{name:'Check answers',exact:true}).click();
@@ -52,7 +72,18 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     await page.evaluate(()=>{viewAccount=null;paint();});writable=false;await page.locator('[data-workbench-card]').click();await page.locator('[data-workbench-sense]').waitFor();
     await page.selectOption('[data-workbench-sense]',f.senseId);await page.getByText('Read-only. New practice sessions are disabled.',{exact:true}).waitFor();assert.equal(await page.locator('[data-workbench-practice]').isDisabled(),true);
     await page.evaluate(()=>document.dispatchEvent(new Event('learning-workbench-session')));await page.locator('dialog').waitFor({state:'detached'});
+    actor=actors.teacher;writable=true;await page.evaluate(()=>{authUser={id:'teacher',role:'ADMIN'};viewGen++;LearningWorkbench.reset();paint();});
+    await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();
+    await page.locator('dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
+    const ownRow=page.locator('[data-review-key="version-'+own.id+'"]');assert.equal(await ownRow.locator('[data-workbench-decision]').count(),0);
+    const returnForm=page.locator('[data-workbench-decision=return][data-id="'+returned.id+'"]');await returnForm.locator('textarea').fill('Please clarify the context.');await returnForm.getByRole('button').click();
+    await page.getByText('Please clarify the context.',{exact:true}).waitFor();
+    const approve=page.locator('[data-workbench-decision=approve][data-id="'+pending.id+'"]');for(const key of ['meaning','answers','level'])await approve.locator('[name='+key+']').check();await approve.getByRole('button').click();
+    await page.waitForFunction(id=>!document.querySelector('[data-review-key="version-'+id+'"]'),pending.id);
+    assert.equal((await services.review.get(actors.teacher,pending.id)).state,'approved');assert.equal((await services.review.get(actors.teacher,returned.id)).state,'returned');
+    await page.screenshot({path:'/private/tmp/lumiscia-main-review.png'});
+    actor=actors.student;await page.evaluate(()=>{authUser={id:'u1',role:'USER'};viewGen++;LearningWorkbench.reset();paint();});await page.locator('dialog').waitFor({state:'detached'});assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0);
     assert.equal(await page.locator('#old-study').innerText(),'Study');assert.equal(f.sql.prepare('SELECT count(*) AS n FROM quizzes').get().n,1);
-    assert.deepEqual(errors,[]);assert.ok(requests.every(path=>path.startsWith(url)));
-  }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));f.close();}
+    assert.deepEqual(errors,[]);assert.ok(requests.every(path=>path.startsWith(url)||path.startsWith('blob:')));assert.ok(!requests.some(path=>new URL(path).pathname.startsWith('/local/')));
+  }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await services?.speech.close();await services?.transcripts.close();f.close();}
 });

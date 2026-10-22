@@ -6,6 +6,10 @@ export const WORKBENCH_PREFIX='/api/learning-workbench';
 export const isWorkbenchPath=path=>path===WORKBENCH_PREFIX||path.startsWith(WORKBENCH_PREFIX+'/');
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const json=value=>Response.json(value,{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+async function withLocation(review,quiz){
+  const [origin]=await review.db.read('SELECT g.title AS groupName,l.title AS lessonName,c.en AS word,m.definition AS meaning FROM class_groups g JOIN lessons l ON l.id=? JOIN cards c ON c.id=? JOIN qr_senses m ON m.id=? WHERE g.id=?',[quiz.lessonId,quiz.cardId,quiz.senseId,quiz.groupId]);
+  return {...quiz,origin:origin||null};
+}
 function params(url,fields){const p=url.searchParams;if([...p.keys()].some(key=>!fields.includes(key)||p.getAll(key).length!==1))fail(400,'Invalid workbench query.');return p;}
 function integer(value){if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(Number(value)))fail(400,'Invalid workbench identity.');return Number(value);}
 async function body(request){
@@ -35,8 +39,17 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       if(Array.isArray(result.questions))result.questions=result.questions.map((question,index)=>({...question,...(question.mediaUrl?{mediaUrl:WORKBENCH_PREFIX+'/sessions/'+session[1]+'/media/'+index}:{})}));
       return json(result);
     }
-    if(path==='/queue'||path==='/mine'){params(url,[]);return json({quizzes:await service('review')[path==='/queue'?'queue':'mine'](actor)});}
-    if(path==='/speech/tasks'){const p=params(url,['groupId','lessonId','cardId','senseId']);return json({tasks:await service('speech').listTasks(actor,{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId')),cardId:integer(p.get('cardId')),senseId:p.get('senseId')})});}
+    if(path==='/queue'){const p=params(url,['offset']),offset=p.has('offset')?(p.get('offset')==='0'?0:integer(p.get('offset'))):0;
+      const review=service('review'),rows=await review.queue(actor,{offset,limit:100}),quizzes=[];for(const row of rows)quizzes.push(await withLocation(review,row));return json({quizzes,nextOffset:rows.length===100?offset+100:null});}
+    if(path==='/mine'){params(url,[]);return json({quizzes:await service('review').mine(actor)});}
+    const proposal=new RegExp('^/proposals/'+id+'$').exec(path);if(proposal){params(url,[]);const review=service('review');return json({quiz:await withLocation(review,await review.get(actor,proposal[1]))});}
+    if(path==='/speech/tasks'){
+      const p=params(url,['groupId','lessonId','cardId','senseId']),speech=service('speech'),tasks=await speech.listTasks(actor,{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId')),cardId:integer(p.get('cardId')),senseId:p.get('senseId')});
+      let sources=[],availability={};try{const settings=await speech.providers.inspect(speech.worker);sources=['pronunciation','stt'].map(task=>settings.adapters.find(row=>row.id===settings.selections[task]?.adapterId)).filter(Boolean);
+        availability=Object.fromEntries(tasks.map(task=>{const choice=settings.selections[task.evaluation];return [task.id,!!choice&&!settings.unavailable.some(row=>row.task===task.evaluation)&&choice.locale===task.locale&&choice.mode===(['pronunciation','shadowing'].includes(task.mode)?'scripted':'unscripted')];}));
+      }catch{availability=Object.fromEntries(tasks.map(task=>[task.id,false]));}
+      return json({tasks,rubrics:speech.rubrics.map(({id,version})=>({id,version})),availability,synthetic:!!sources.length&&sources.every(source=>source.provider==='local-fixture'),analyzerLabel:sources.map(source=>source.provider+' · '+source.model).join('; ')||null});
+    }
     const speech=new RegExp('^/speech/(tasks|attempts)/'+id+'(?:/(history|progress|recipients|shared|text-reviews))?$').exec(path);
     if(speech){
       const p=params(url,speech[3]==='history'?['before']:[]);
@@ -58,6 +71,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    const removeMedia=new RegExp('^/media/'+id+'/remove$').exec(path);if(removeMedia)return json(await service('media').remove(actor,removeMedia[1],data));
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));
     if(path==='/sessions')return json(await service('sessions').start(actor,data));
     if(path==='/speech/tasks')return json(await service('speech').createTask(actor,data));

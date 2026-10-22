@@ -2301,6 +2301,135 @@ return module.exports; })();
 /* [@simplewebauthn/browser@14.0.0] */
 !function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).SimpleWebAuthnBrowser={})}(this,(function(e){"use strict";function t(e){const t=new Uint8Array(e);let n="";for(const e of t)n+=String.fromCharCode(e);return btoa(n).replace(/\+/g,"-").replace(/\//g,"_").replace(/=/g,"")}function n(e){const t=e.replace(/-/g,"+").replace(/_/g,"/"),n=(4-t.length%4)%4,r=t.padEnd(t.length+n,"="),i=atob(r),o=new ArrayBuffer(i.length),a=new Uint8Array(o);for(let e=0;e<i.length;e++)a[e]=i.charCodeAt(e);return o}function r(){return i.stubThis(void 0!==globalThis?.PublicKeyCredential&&"function"==typeof globalThis.PublicKeyCredential)}const i={stubThis:e=>e};function o(e){const{id:t}=e;return{...e,id:n(t),transports:e.transports,type:e.type}}function a(e){return"localhost"===e||/^((xn--[a-z0-9-]+|[a-z0-9]+(-[a-z0-9]+)*)\.)+([a-z]{2,}|xn--[a-z0-9-]+)$/i.test(e)}class s extends Error{constructor({message:e,code:t,cause:n,name:r}){super(e,{cause:n}),Object.defineProperty(this,"code",{enumerable:!0,configurable:!0,writable:!0,value:void 0}),this.name=r??n.name,this.code=t}}const l=new class{constructor(){Object.defineProperty(this,"controller",{enumerable:!0,configurable:!0,writable:!0,value:void 0})}createNewAbortSignal(){if(this.controller){const e=new Error("Cancelling existing WebAuthn API call for new one");e.name="AbortError",this.controller.abort(e)}const e=new AbortController;return this.controller=e,e.signal}cancelCeremony(){if(this.controller){const e=new Error("Manually cancelling existing WebAuthn API call");e.name="AbortError",this.controller.abort(e),this.controller=void 0}}},c=["cross-platform","platform"];function u(e){if(e&&!(c.indexOf(e)<0))return e}function d(e,t){console.warn(`The browser extension that intercepted this WebAuthn API call incorrectly implemented ${e}. You should report this error to them.\n`,t)}function p(){if(!r())return h.stubThis(new Promise((e=>e(!1))));const e=globalThis.PublicKeyCredential;return void 0===e?.isConditionalMediationAvailable?h.stubThis(new Promise((e=>e(!1)))):h.stubThis(e.isConditionalMediationAvailable())}const h={stubThis:e=>e};function f({error:e,options:t}){if("SecurityError"===e.name){return a(globalThis.location.hostname)?new s({message:`The browser does not support Related Origins to enable signals for RP ID "${t.rpID}" on domain "${globalThis.location.hostname}"`,code:"ERROR_INVALID_RP_ID",cause:e}):new s({message:`"${globalThis.location.hostname}" is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e})}if("unknownCredential"===t.signalName){if("TypeError"===e.name)return new s({message:"credentialID is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e})}else if("allAcceptedCredentials"===t.signalName){if("TypeError"===e.name)return new s({message:"userID, or an entry in allAcceptedCredentialIDs, is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e})}else if("currentUserDetails"===t.signalName&&"TypeError"===e.name)return new s({message:"userID is an invalid base64url string",code:"ERROR_SIGNAL_INVALID_ARGUMENT",cause:e});return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e})}async function g(){if("function"==typeof PublicKeyCredential.getClientCapabilities){const e=await PublicKeyCredential.getClientCapabilities();let t=w(e.userVerifyingPlatformAuthenticator);if("unknown"===t&&"function"==typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){t=await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()?"supported":"unsupported"}let n=w(e.conditionalGet);if("unknown"===n&&"function"==typeof PublicKeyCredential.isConditionalMediationAvailable){n=await PublicKeyCredential.isConditionalMediationAvailable()?"supported":"unsupported"}return b.stubThis({conditionalCreate:w(e.conditionalCreate),conditionalGet:n,hybridTransport:w(e.hybridTransport),passkeyPlatformAuthenticator:w(e.passkeyPlatformAuthenticator),userVerifyingPlatformAuthenticator:t,relatedOrigins:w(e.relatedOrigins),signalAllAcceptedCredentials:w(e.signalAllAcceptedCredentials),signalCurrentUserDetails:w(e.signalCurrentUserDetails),signalUnknownCredential:w(e.signalUnknownCredential)})}return b.stubThis({conditionalCreate:"unknown",conditionalGet:"unknown",hybridTransport:"unknown",passkeyPlatformAuthenticator:"unknown",userVerifyingPlatformAuthenticator:"unknown",relatedOrigins:"unknown",signalAllAcceptedCredentials:"unknown",signalCurrentUserDetails:"unknown",signalUnknownCredential:"unknown"})}function w(e){if(!0===e)return"supported";if(!1===e)return"unsupported";if(void 0===e)return"unknown";throw new Error("Unexpected capability value:",e)}const b={stubThis:e=>e};e.WebAuthnAbortService=l,e.WebAuthnError=s,e._browserSupportsWebAuthnAutofillInternals=h,e._browserSupportsWebAuthnInternals=i,e._getBrowserCapabilitiesInternals=b,e.base64URLStringToBuffer=n,e.browserSupportsPasskeys=async function(){if(!r())return new Promise((e=>e(!1)));const e=await g(),{passkeyPlatformAuthenticator:t,userVerifyingPlatformAuthenticator:n,hybridTransport:i}=e;return"supported"===t||"supported"===i||"supported"===n},e.browserSupportsWebAuthn=r,e.browserSupportsWebAuthnAutofill=p,e.bufferToBase64URLString=t,e.getBrowserCapabilities=g,e.platformAuthenticatorIsAvailable=function(){return r()?PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable():new Promise((e=>e(!1)))},e.sendSignal=async function(e){const{signalName:t}=e;if("unknownCredential"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalUnknownCredential)throw new Error("This browser does not support PublicKeyCredential.signalUnknownCredential()");try{await t.signalUnknownCredential({rpId:e.rpID,credentialId:e.credentialID})}catch(t){throw f({error:t,options:e})}return}(e);if("allAcceptedCredentials"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalAllAcceptedCredentials)throw new Error("This browser does not support PublicKeyCredential.signalAllAcceptedCredentials()");try{await t.signalAllAcceptedCredentials({rpId:e.rpID,userId:e.userID,allAcceptedCredentialIds:e.allAcceptedCredentialIDs})}catch(t){throw f({error:t,options:e})}return}(e);if("currentUserDetails"===t)return async function(e){const t=globalThis.PublicKeyCredential;if("function"!=typeof t.signalCurrentUserDetails)throw new Error("This browser does not support PublicKeyCredential.signalCurrentUserDetails()");try{await t.signalCurrentUserDetails({rpId:e.rpID,userId:e.userID,name:e.userName,displayName:e.userDisplayName??""})}catch(t){throw f({error:t,options:e})}return}(e);throw new Error(`Received unrecognized signalName "${e.signalName}"`)},e.startAuthentication=async function(e){!e.optionsJSON&&e.challenge&&(console.warn("startAuthentication() was not called correctly. It will try to continue with the provided options, but this call should be refactored to use the expected call structure instead. See https://simplewebauthn.dev/docs/packages/browser#typeerror-cannot-read-properties-of-undefined-reading-challenge for more information."),e={optionsJSON:e});const{optionsJSON:i,useBrowserAutofill:c=!1,verifyBrowserAutofillInput:d=!0}=e;if(!r())throw new Error("WebAuthn is not supported in this browser");let h;0!==i.allowCredentials?.length&&(h=i.allowCredentials?.map(o));const f={...i,challenge:n(i.challenge),allowCredentials:h},g={};if(c){if(!await p())throw Error("Browser does not support WebAuthn autofill");if(document.querySelectorAll("input[autocomplete$='webauthn']").length<1&&d)throw Error('No <input> with "webauthn" as the only or last value in its `autocomplete` attribute was detected');g.mediation="conditional",f.allowCredentials=[]}let w;g.publicKey=f,g.signal=l.createNewAbortSignal();try{w=await navigator.credentials.get(g)}catch(e){throw function({error:e,options:t}){const{publicKey:n}=t;if(!n)throw Error("options was missing required publicKey property");if("AbortError"===e.name){if(t.signal instanceof AbortSignal)return new s({message:"Authentication ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:e})}else{if("NotAllowedError"===e.name)return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e});if("SecurityError"===e.name){const t=globalThis.location.hostname;if(!a(t))return new s({message:`${globalThis.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e});if(n.rpId!==t)return new s({message:`The RP ID "${n.rpId}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:e})}else if("UnknownError"===e.name)return new s({message:"The authenticator was unable to process the specified options, or could not create a new assertion signature",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:e})}return e}({error:e,options:g})}if(!w)throw new Error("Authentication was not completed");const{id:b,rawId:A,response:R,type:m}=w;let y;return R.userHandle&&(y=t(R.userHandle)),{id:b,rawId:t(A),response:{authenticatorData:t(R.authenticatorData),clientDataJSON:t(R.clientDataJSON),signature:t(R.signature),userHandle:y},type:m,clientExtensionResults:w.getClientExtensionResults(),authenticatorAttachment:u(w.authenticatorAttachment)}},e.startRegistration=async function(e){!e.optionsJSON&&e.challenge&&(console.warn("startRegistration() was not called correctly. It will try to continue with the provided options, but this call should be refactored to use the expected call structure instead. See https://simplewebauthn.dev/docs/packages/browser#typeerror-cannot-read-properties-of-undefined-reading-challenge for more information."),e={optionsJSON:e});const{optionsJSON:i,useAutoRegister:c=!1}=e;if(!r())throw new Error("WebAuthn is not supported in this browser");const p={...i,challenge:n(i.challenge),user:{...i.user,id:n(i.user.id)},excludeCredentials:i.excludeCredentials?.map(o)},h={};let f;c&&(h.mediation="conditional"),h.publicKey=p,h.signal=l.createNewAbortSignal();try{f=await navigator.credentials.create(h)}catch(e){throw function({error:e,options:t}){const{publicKey:n}=t;if(!n)throw Error("options was missing required publicKey property");if("AbortError"===e.name){if(t.signal instanceof AbortSignal)return new s({message:"Registration ceremony was sent an abort signal",code:"ERROR_CEREMONY_ABORTED",cause:e})}else if("ConstraintError"===e.name){if(!0===n.authenticatorSelection?.requireResidentKey)return new s({message:"Discoverable credentials were required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_DISCOVERABLE_CREDENTIAL_SUPPORT",cause:e});if("conditional"===t.mediation&&"required"===n.authenticatorSelection?.userVerification)return new s({message:"User verification was required during automatic registration but it could not be performed",code:"ERROR_AUTO_REGISTER_USER_VERIFICATION_FAILURE",cause:e});if("required"===n.authenticatorSelection?.userVerification)return new s({message:"User verification was required but no available authenticator supported it",code:"ERROR_AUTHENTICATOR_MISSING_USER_VERIFICATION_SUPPORT",cause:e})}else{if("InvalidStateError"===e.name)return new s({message:"The authenticator was previously registered",code:"ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED",cause:e});if("NotAllowedError"===e.name)return new s({message:e.message,code:"ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY",cause:e});if("NotSupportedError"===e.name)return 0===n.pubKeyCredParams.filter((e=>"public-key"===e.type)).length?new s({message:'No entry in pubKeyCredParams was of type "public-key"',code:"ERROR_MALFORMED_PUBKEYCREDPARAMS",cause:e}):new s({message:"No available authenticator supported any of the specified pubKeyCredParams algorithms",code:"ERROR_AUTHENTICATOR_NO_SUPPORTED_PUBKEYCREDPARAMS_ALG",cause:e});if("SecurityError"===e.name){const t=globalThis.location.hostname;if(!a(t))return new s({message:`${globalThis.location.hostname} is an invalid domain`,code:"ERROR_INVALID_DOMAIN",cause:e});if(n.rp.id!==t)return new s({message:`The RP ID "${n.rp.id}" is invalid for this domain`,code:"ERROR_INVALID_RP_ID",cause:e})}else if("TypeError"===e.name){if(n.user.id.byteLength<1||n.user.id.byteLength>64)return new s({message:"User ID was not between 1 and 64 characters",code:"ERROR_INVALID_USER_ID_LENGTH",cause:e})}else if("UnknownError"===e.name)return new s({message:"The authenticator was unable to process the specified options, or could not create a new credential",code:"ERROR_AUTHENTICATOR_GENERAL_ERROR",cause:e})}return e}({error:e,options:h})}if(!f)throw new Error("Registration was not completed");const{id:g,rawId:w,response:b,type:A}=f;let R,m,y,E;if("function"==typeof b.getTransports&&(R=b.getTransports()),"function"==typeof b.getPublicKeyAlgorithm)try{m=b.getPublicKeyAlgorithm()}catch(e){d("getPublicKeyAlgorithm()",e)}if("function"==typeof b.getPublicKey)try{const e=b.getPublicKey();null!==e&&(y=t(e))}catch(e){d("getPublicKey()",e)}if("function"==typeof b.getAuthenticatorData)try{E=t(b.getAuthenticatorData())}catch(e){d("getAuthenticatorData()",e)}return{id:g,rawId:t(w),response:{attestationObject:t(b.attestationObject),clientDataJSON:t(b.clientDataJSON),transports:R,publicKeyAlgorithm:m,publicKey:y,authenticatorData:E},type:A,clientExtensionResults:f.getClientExtensionResults(),authenticatorAttachment:u(f.authenticatorAttachment)}}}));
 
+const createIntegratedSpeechPracticeUI = (() => {
+// Local-only recording: no upload or analysis until the explicit consented action.
+const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const names={pronunciation:'Pronunciation',free:'Free speech',shadowing:'Shadowing',retelling:'Retelling',dialogue:'Situational dialogue'};
+const metricNames={accuracy:'Pronunciation accuracy',fluency:'Fluency',prosody:'Prosody',grammar:'Grammar',vocabulary:'Vocabulary',task:'Task completion'};
+function wav(chunks,rate){
+  const length=chunks.reduce((sum,chunk)=>sum+chunk.length,0),buffer=new ArrayBuffer(44+length*2),view=new DataView(buffer),ascii=(at,text)=>[...text].forEach((c,i)=>view.setUint8(at+i,c.charCodeAt(0)));
+  ascii(0,'RIFF');view.setUint32(4,36+length*2,true);ascii(8,'WAVE');ascii(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);ascii(36,'data');view.setUint32(40,length*2,true);
+  let at=44;for(const chunk of chunks)for(const sample of chunk){view.setInt16(at,Math.round(Math.max(-1,Math.min(1,sample))*(sample<0?32768:32767)),true);at+=2;}
+  return new Blob([buffer],{type:'audio/wav'});
+}
+function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage,notify,endpoint='/local/speech'}){
+  const route=path=>path.replace(/^\/local\/speech(?=\/|\?|$)/,endpoint);
+  let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController;
+  const selected=()=>state?.tasks.find(task=>task.id===taskId);
+  const lesson=()=>{const c=context();return {groupId:c.groupId,lessonId:c.lessonId,cardId:c.cardId,senseId:c.senseId};};
+  function cleanup(){captureEpoch++;if(capture){clearTimeout(capture.timer);capture.processor.disconnect();capture.source.disconnect();capture.stream.getTracks().forEach(track=>track.stop());capture.audio.close().catch(()=>{});capture=null;}}
+  function discard(){cleanup();uploadController?.abort();uploadController=null;document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(localUrl)URL.revokeObjectURL(localUrl);localUrl='';blob=null;uploaded=null;intent=null;}
+  async function load(){
+    const c=context();if(!c||c.personal){reset();return;}
+    const key=JSON.stringify(lesson()),epoch=sessionKey(),loadId=++generation;if(key!==contextKey){discard();taskId='';state=null;contextKey=key;}
+    const data=await api('/local/speech?'+new URLSearchParams(lesson()));if(epoch!==sessionKey()||loadId!==generation)return;
+    if(!data.tasks.some(task=>task.id===taskId))taskId=data.tasks[0]?.id||'';
+    const [history,progress,recipients,shared]=taskId?await Promise.all([api('/local/speech/tasks/'+taskId+'/history'),api('/local/speech/tasks/'+taskId+'/progress'),api('/local/speech/tasks/'+taskId+'/recipients'),isTeacher()?api('/local/speech/tasks/'+taskId+'/shared'):Promise.resolve([])]):[{attempts:[],next:null},{series:[]},[],[]];
+    const textReviews=new Map();
+    for(const attempt of [...history.attempts,...shared])if(attempt.state==='complete')textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));
+    if(epoch===sessionKey()&&loadId===generation)state={...data,history,progress,recipients,shared,textReviews};
+  }
+  function resultPanel(attempt){
+    const result=attempt.result;
+    return '<details class="speech-attempt" data-speech-id="'+esc(attempt.id)+'"><summary>'+esc(new Date(attempt.createdAt).toLocaleString('en-GB'))+' · '+esc(attempt.state)+(result?.overall!==null&&result?.overall!==undefined?' · '+result.overall+' / 100':'')+'</summary><div class="detail">'+(result?'<p class="reason">'+(result.synthetic?'Synthetic demonstration, not an assessment of your recording. ': '')+(result.provisional?'Provisional rubric. ':'')+'Automatic practice feedback, not an exam grade.</p><dl class="speech-scores">'+Object.entries(result.scores).map(([key,score])=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+(score===null?'Unavailable':score+' / 100 <meter min="0" max="100" value="'+score+'">'+score+'</meter>')+'</dd>').join('')+'</dl><p>Overall: '+(result.overall===null?'Unavailable · Missing: '+result.missing.map(key=>esc(metricNames[key])).join(', '):result.overall+' / 100')+'</p><h4>Transcript</h4><p class="quiz-content">'+esc(result.transcript||'Unavailable')+'</p>'+(attempt.correction?'<p>Corrected transcript: '+esc(attempt.correction.text)+'</p><p class="small muted">Correction does not change the original scores.</p>':'')+result.findings.map(finding=>'<p>'+esc(metricNames[finding.metric])+': '+esc(finding.message)+(finding.wordIndex!==null?' · word '+(finding.wordIndex+1):'')+(finding.phoneme?' · /'+esc(finding.phoneme)+'/':'')+'</p>').join('')+(result.training.length?'<h4>Next practice</h4><ul>'+result.training.map(item=>'<li>'+esc(item.message)+'</li>').join('')+'</ul>':'')+'<details><summary>Source and rubric</summary><p>'+esc(result.rubric.id+' · '+result.rubric.version)+'</p>'+result.sources.map(source=>'<p>'+esc(source.task+' · '+source.provider+' · '+source.model+' · '+source.version)+'</p>').join('')+'</details>':'<p>'+esc(attempt.error||'Analysis pending')+'</p>')+'<audio controls preload="none" src="/local/speech/attempts/'+esc(attempt.id)+'/audio"></audio>'+(attempt.canManage?(attempt.state==='complete'?'<form data-speech-form="correct" data-id="'+esc(attempt.id)+'"><label>Correct the transcript<textarea name="text" maxlength="6000" required>'+esc(attempt.correction?.text||result?.transcript)+'</textarea></label><button type="submit">Save transcript correction</button></form>':'')+'<form data-speech-form="share" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label class="check"><input type="checkbox" name="includeAudio">Include my recording</label><label class="check"><input type="checkbox" name="consent" required>Allow this teacher to view this result</label><button type="submit">Share with teacher</button></form>'+attempt.shares.map(share=>'<p>'+esc(state.recipients.find(row=>row.id===share.teacherId)?.name||'Teacher')+' · '+(share.includeAudio?'Result and recording':'Result only')+' <button data-speech-action="revoke" data-id="'+esc(attempt.id)+'" data-teacher="'+esc(share.teacherId)+'">Revoke access</button></p>').join('')+'<div class="actions">'+(['queued','analyzing'].includes(attempt.state)?'<button data-speech-action="cancel" data-id="'+esc(attempt.id)+'">Cancel analysis</button>':'')+'<button data-speech-action="remove" data-id="'+esc(attempt.id)+'">Delete attempt and recording</button></div>':'')+'</div></details>';
+  }
+  function renderContent(){
+    if(context()?.personal)return '<section><p>Speech practice belongs to lesson words.</p></section>';
+    if(!state)return '<p role="status">Loading speech practice...</p>';
+    const task=selected();
+    return '<section class="speech-panel"><p class="reason">Local pilot · Synthetic analysis only · No external speech service connected</p><label>Lesson task<select id="speech-task">'+state.tasks.map(row=>'<option value="'+row.id+'" '+(row.id===taskId?'selected':'')+'>'+esc(names[row.mode]+' · '+row.prompt)+'</option>').join('')+'</select></label>'+(task?'<h2>'+esc(names[task.mode])+'</h2><p>'+esc(task.prompt)+'</p>'+(task.reference?'<blockquote>'+esc(task.reference)+'</blockquote>':'')+(task.referenceMediaId?'<audio controls preload="none" src="/local/speech/tasks/'+task.id+'/audio"></audio>':'')+'<p class="small muted">'+esc(task.locale)+' · '+task.maxSeconds+' seconds maximum · '+(task.evaluation==='stt'?'Transcription only':'Pronunciation analysis')+'</p><div class="actions"><button data-speech-action="record" '+(capture?'disabled':'')+'>Record speech</button><button data-speech-action="stop" '+(!capture?'disabled':'')+'>Stop recording</button><button data-speech-action="discard" '+(!blob&&!capture?'disabled':'')+'>Discard recording</button></div><p role="status">'+(capture?'Recording locally...':'')+'</p><label>Or choose a WAV / MP3 recording<input id="speech-file" type="file" accept="audio/wav,audio/mpeg,.wav,.mp3"></label>'+(localUrl?'<audio data-speech-local controls src="'+esc(localUrl)+'"></audio><p>Recording ready · '+Math.ceil(blob.size/1024)+' KiB</p>':'')+'<form data-speech-form="analyze"><label class="check"><input type="checkbox" name="consent" required>Send this recording to the selected synthetic local analyzer</label><button type="submit" '+(!blob||capture?'disabled':'')+'>Analyze recording</button></form><details><summary>My attempts · '+state.history.attempts.length+' loaded</summary>'+state.history.attempts.map(resultPanel).join('')+(state.history.next?'<button data-speech-action="more">Load older attempts</button>':'')+'</details><details open><summary>Comparable progress</summary>'+state.progress.series.map((series,index)=>'<div class="speech-series"><h3>Series '+(index+1)+' · '+series.points.length+' completed attempts</h3><p class="small muted">'+(series.synthetic?'Synthetic demonstration · ':'')+(series.provisional?'Provisional rubric':'Teacher-defined rubric')+'</p><label>Metric<select data-speech-metric="'+index+'"><option value="overall">Overall</option>'+Object.entries(metricNames).map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select></label><canvas data-speech-chart="'+index+'" width="640" height="180" aria-label="Comparable practice scores from 0 to 100"></canvas><div data-speech-stats="'+index+'"></div></div>').join('')+(!state.progress.series.length?'<p>No comparable completed attempts yet.</p>':'')+'</details>'+(isTeacher()?'<details><summary>Shared with you · '+state.shared.length+'</summary>'+state.shared.map(resultPanel).join('')+'</details>':''):'<p>No speech tasks for this lesson word yet.</p>')+(isTeacher()?'<details><summary>Create a lesson speech task</summary><form data-speech-form="task"><label>Mode<select name="mode">'+Object.entries(names).map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select></label><label>Locale<select name="locale"><option>en-US</option><option>en-GB</option></select></label><label>Prompt<textarea name="prompt" maxlength="2000" required></textarea></label><label>Reading reference (Pronunciation / Shadowing)<textarea name="reference" maxlength="2000"></textarea></label><label>Reference audio ID (required for Shadowing)<input name="referenceMediaId" maxlength="36"></label><label>Evaluator<select name="evaluation"><option value="pronunciation">Pronunciation assessment</option><option value="stt">Transcription only</option></select></label><label class="check"><input type="checkbox" name="languageReview">Separate language review of the transcript</label><button type="submit">Create speech task</button></form></details>':'')+'</section>';
+  }
+  function render(){
+    return renderContent().replaceAll('src="/local/speech/','src="'+endpoint+'/')
+      .replace('Local pilot · Synthetic analysis only · No external speech service connected',state?.synthetic?'Synthetic analysis only · No assessment of the recording':state?.analyzerLabel?'Speech provider: '+esc(state.analyzerLabel):'Speech provider is not configured')
+      .replace('Send this recording to the selected synthetic local analyzer','Send this recording to '+esc(state?.analyzerLabel||(state?.synthetic?'the synthetic local analyzer':'the configured speech provider')));
+  }
+  function chart(index,metric='overall'){
+    const series=state?.progress.series[index],canvas=document.querySelector('[data-speech-chart="'+index+'"]');if(!series||!canvas)return;
+    const ctx=canvas.getContext('2d'),color=getComputedStyle(canvas).color;ctx.clearRect(0,0,640,180);ctx.strokeStyle=color;ctx.fillStyle=color;ctx.font='12px sans-serif';
+    for(const value of [0,50,100]){const y=160-value*1.4;ctx.globalAlpha=0.25;ctx.beginPath();ctx.moveTo(30,y);ctx.lineTo(630,y);ctx.stroke();ctx.globalAlpha=1;ctx.fillText(String(value),2,y+4);}
+    ctx.beginPath();let connected=false;series.points.forEach((point,n)=>{if(point[metric]===null){connected=false;return;}const x=35+n*580/Math.max(1,series.points.length-1),y=160-point[metric]*1.4;if(connected)ctx.lineTo(x,y);else ctx.moveTo(x,y);connected=true;});ctx.stroke();
+    series.points.forEach((point,n)=>{if(point[metric]!==null){ctx.beginPath();ctx.arc(35+n*580/Math.max(1,series.points.length-1),160-point[metric]*1.4,3,0,Math.PI*2);ctx.fill();}});
+    const summary=series.metrics[metric];document.querySelector('[data-speech-stats="'+index+'"]').textContent=summary?'Count: '+summary.count+' · First: '+summary.first+' · Latest: '+summary.last+' · Best: '+summary.best+' · Average: '+summary.average+' / 100':'This metric is unavailable. Missing results are not zero scores.';
+  }
+  function afterRender(){
+    const analyze=document.querySelector('[data-speech-form="analyze"] button');if(analyze&&state?.availability?.[taskId]===false)analyze.disabled=true;
+    state?.progress.series.forEach((_,index)=>chart(index,document.querySelector('[data-speech-metric="'+index+'"]')?.value||'overall'));
+    document.querySelectorAll('[data-speech-id]').forEach(node=>{
+      const attempt=[...(state?.history.attempts||[]),...(state?.shared||[])].find(row=>row.id===node.dataset.speechId);
+      if(attempt&&!attempt.canHear)node.querySelector('audio')?.remove();
+      const transcript=node.querySelector('.quiz-content'),result=attempt?.result;
+      if(transcript&&result?.transcript){
+        let index=0;transcript.replaceChildren();for(const part of result.transcript.split(/(\s+)/)){
+          const wordIndex=/\S/.test(part)?index++:null,findings=wordIndex===null?[]:result.findings.filter(finding=>finding.wordIndex===wordIndex);
+          if(findings.length){const mark=document.createElement('mark');mark.textContent=part;mark.title=findings.map(finding=>finding.message).join('; ');transcript.append(mark);}else transcript.append(document.createTextNode(part));
+        }
+      }
+      node.querySelector('[data-speech-language-warning]')?.remove();
+      if(result?.languageReviewUnavailable){const note=document.createElement('p');note.className='reason';note.dataset.speechLanguageWarning='';note.textContent='Language review unavailable. Acoustic scores do not assess grammar or task completion.';node.querySelector('.detail').append(note);}
+      const old=node.querySelector('[data-text-reviews]'),wasOpen=old?.open;old?.remove();
+      if(attempt?.state==='complete'){
+        const rows=state.textReviews?.get(attempt.id)?.reviews||[],revision=attempt.correction?.revision||0,latest=rows.find(row=>row.transcriptRevision===revision),panel=document.createElement('details');
+        panel.dataset.textReviews='';panel.open=wasOpen||false;
+        panel.innerHTML='<summary>Confirmed transcript language review</summary><p class="small muted">Text-only assessment; acoustic scores and speech progress remain unchanged.</p>'+(attempt.canManage?'<p>'+esc(attempt.correction?.text||result.transcript)+'</p><form data-speech-form="confirm-text" data-id="'+esc(attempt.id)+'" data-revision="'+revision+'" data-retry="'+esc(latest?.id||'')+'"><label class="check"><input type="checkbox" name="consent" required>Send this exact transcript revision for language review</label><button type="submit" '+(['reserved','started'].includes(latest?.state)?'disabled':'')+'>Review confirmed text</button></form>':'')+rows.map(row=>'<section><h4>Revision '+row.transcriptRevision+' · '+esc(row.state)+'</h4><p>'+esc(row.transcript)+'</p><p class="small muted">'+esc(row.source.provider+' · '+row.source.model+' · '+row.source.version)+(row.basedOnEditedTranscript?' · Edited transcript':' · Original transcript')+'</p>'+(row.result?'<p>'+(row.result.synthetic?'Synthetic demonstration · ':'')+'Language score: '+esc(row.result.overall??'Unavailable')+' / 100</p><dl>'+['grammar','vocabulary','task'].map(key=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+esc(row.result.scores[key]??'Unavailable')+'</dd>').join('')+'</dl><p>Rubric: '+esc(row.result.rubric.id+' · '+row.result.rubric.version)+'</p>':'<p>'+esc(row.error||'Pending')+'</p>')+(attempt.canManage&&['reserved','started'].includes(row.state)?'<button data-speech-action="cancel-text" data-id="'+esc(row.id)+'">Cancel text review</button>':'')+'</section>').join('');
+        node.querySelector('.detail').append(panel);
+      }
+    });
+    clearTimeout(pollTimer);if(state?.history.attempts.some(attempt=>['queued','analyzing'].includes(attempt.state))||[...(state?.textReviews?.values()||[])].some(item=>item.reviews.some(row=>['reserved','started'].includes(row.state))))pollTimer=setTimeout(()=>run(async()=>{await load();renderPage();}),1200);
+  }
+  async function start(){
+    if(!selected())return;discard();const epoch=++captureEpoch,session=sessionKey();let stream,audio;
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1},video:false});if(epoch!==captureEpoch||session!==sessionKey()){stream.getTracks().forEach(track=>track.stop());return;}
+      audio=new AudioContext({sampleRate:24000});await audio.resume();if(epoch!==captureEpoch||session!==sessionKey()){stream.getTracks().forEach(track=>track.stop());await audio.close();return;}
+      const source=audio.createMediaStreamSource(stream),processor=audio.createScriptProcessor(4096,1,1),chunks=[],limit=Math.min(selected().maxSeconds,Math.floor((10*1024*1024-44)/(audio.sampleRate*2)));let size=0;
+      capture={stream,audio,source,processor,chunks,rate:audio.sampleRate,timer:setTimeout(stop,limit*1000)};
+      processor.onaudioprocess=event=>{if(!capture)return;const samples=event.inputBuffer.getChannelData(0),remaining=audio.sampleRate*limit-size;if(remaining>0){chunks.push(samples.slice(0,remaining));size+=Math.min(samples.length,remaining);}};
+      source.connect(processor);processor.connect(audio.destination);renderPage();
+    }catch(error){cleanup();stream?.getTracks().forEach(track=>track.stop());await audio?.close().catch(()=>{});notify(error.name==='NotAllowedError'?'Microphone access was denied. Choose an audio file or grant access.':'Recording is unavailable. You can choose a WAV or MP3 file.');}
+  }
+  function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);renderPage();}
+  document.addEventListener('change',event=>{
+    if(event.target.id==='speech-task'){run(async()=>{discard();taskId=event.target.value;await load();renderPage();});}
+    if(event.target.id==='speech-file'){const file=event.target.files[0];if(file){discard();if(file.size>10*1024*1024){notify('Maximum recording size is 10 MiB.');return;}blob=file;localUrl=URL.createObjectURL(file);renderPage();}}
+    if(event.target.dataset.speechMetric!==undefined)chart(Number(event.target.dataset.speechMetric),event.target.value);
+    if(event.target.id==='theme'&&document.querySelector('.speech-panel'))queueMicrotask(afterRender);
+  });
+  document.addEventListener('click',event=>{const button=event.target.closest('[data-speech-action]');if(!button)return;const {speechAction:action,id,teacher}=button.dataset;
+    if(action==='record'){run(start);return;}if(action==='stop'){stop();return;}
+    run(async()=>{
+      if(action==='discard'){if(uploaded)await api('/local/media/'+uploaded.id,{});discard();renderPage();return;}
+      if(action==='more'){const more=await api('/local/speech/tasks/'+taskId+'/history?before='+encodeURIComponent(JSON.stringify(state.history.next)));for(const attempt of more.attempts)if(attempt.state==='complete')state.textReviews.set(attempt.id,await api('/local/speech/attempts/'+attempt.id+'/text-reviews'));state.history={attempts:[...state.history.attempts,...more.attempts],next:more.next};renderPage();return;}
+      if(action==='cancel-text'){await api('/local/speech/text-reviews/'+id+'/cancel',{});await load();renderPage();return;}
+      if(action==='remove'&&!confirm('Delete this private attempt, its transcript and recording?'))return;
+      await api('/local/speech/attempts/'+id+'/'+action,action==='revoke'?{teacherId:teacher}:{});await load();renderPage();
+    });
+  });
+  document.addEventListener('submit',event=>{const form=event.target,kind=form.dataset.speechForm;if(!kind)return;event.preventDefault();const data=new FormData(form),id=form.dataset.id,epoch=sessionKey();
+    run(async()=>{
+      if(epoch!==sessionKey())return;
+      if(kind==='analyze'){
+        if(!blob||capture||data.get('consent')!=='on')throw Error('Choose a recording and explicitly allow analysis.');
+        if(!uploaded){
+          const mime=blob.type.split(';')[0]||(/\.mp3$/i.test(blob.name||'')?'audio/mpeg':'audio/wav');intent??={mutationId:crypto.randomUUID(),mime,name:'speech.'+(mime==='audio/mpeg'?'mp3':'wav')};
+          uploadController=new AbortController();const response=await fetch(route('/local/speech/tasks/'+taskId+'/upload'),{method:'POST',headers:{'Content-Type':mime,'X-Upload-Metadata':encodeURIComponent(JSON.stringify(intent))},body:blob,signal:uploadController.signal}),result=await response.json();if(epoch!==sessionKey())return;if(!response.ok)throw Error(result.error);uploaded=result;
+        }
+        await api('/local/speech/tasks/'+taskId+'/analyze',{mediaId:uploaded.id,consent:true});discard();
+      }
+      if(kind==='task')await api('/local/speech/tasks',{...lesson(),mode:data.get('mode'),locale:data.get('locale'),prompt:data.get('prompt'),reference:data.get('reference').trim()||null,referenceMediaId:data.get('referenceMediaId').trim()||null,rubricId:state.rubrics[0].id,evaluation:data.get('evaluation'),languageReview:data.get('languageReview')==='on',level:null});
+      if(kind==='correct')await api('/local/speech/attempts/'+id+'/correct',{text:data.get('text')});
+      if(kind==='confirm-text')await api('/local/speech/attempts/'+id+'/confirm-text',{transcriptRevision:Number(form.dataset.revision),consent:data.get('consent')==='on',...(form.dataset.retry?{retryOf:form.dataset.retry}:{})});
+      if(kind==='share')await api('/local/speech/attempts/'+id+'/share',{teacherId:data.get('teacherId'),includeAudio:data.get('includeAudio')==='on',consent:data.get('consent')==='on'});
+      await load();renderPage();
+    });
+  });
+  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';}
+  window.addEventListener('pagehide',reset);
+  return {load,render,afterRender,reset,deactivate(){generation++;clearTimeout(pollTimer);document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(capture)cleanup();}};
+}
+
+return createSpeechPracticeUI;
+})();
     const sections = document.querySelectorAll("section");
     const chromeButtons = document.querySelectorAll(".side nav button, .tabbar button");
     const navStack = [];
@@ -2363,6 +2492,7 @@ return module.exports; })();
       return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
+      window.LearningWorkbench?.paintEntry();
       document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
       document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll('[data-jump]').forEach(button=>{
@@ -17854,24 +17984,65 @@ return module.exports; })();
   const prefix='/api/learning-workbench',valid=id=>Number.isSafeInteger(id)&&id>0;
   let job=null,dialog=null,observer=null,serial=0;
   const displayedCards=new Map();
+  let speechUI=null;
+  const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
-  const identity=()=>String(authUser?.id||'')+':'+viewGen;
-  const current=entry=>job===entry&&enabled()&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id);
-  function close(){serial++;job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
+  const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
+  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id);
+  function close(){serial++;speechUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
     const signature=path+JSON.stringify(value);
     if(entry.intent?.signature!==signature)entry.intent={signature,body:JSON.stringify({mutationId:crypto.randomUUID(),...value})};
     const result=await window.LearningMain.fetch(prefix+path,{method:'POST',body:entry.intent.body,quietBug:true});entry.intent=null;return result;
   }
-  function render(entry,html){if(!current(entry)){close();return;}dialog.querySelector('[data-workbench-body]').innerHTML=html;}
+  function render(entry,html){if(!current(entry)){close();return;}const expanded=new Set([...dialog.querySelectorAll('[data-review-key][open]')].map(node=>node.dataset.reviewKey));dialog.querySelector('[data-workbench-body]').innerHTML=html;dialog.querySelectorAll('[data-review-key]').forEach(node=>{node.open=expanded.has(node.dataset.reviewKey);});}
+  function speech(){
+    if(!speechUI)speechUI=createIntegratedSpeechPracticeUI({endpoint:prefix+'/speech',
+      api:(path,data)=>{const entry=job;if(!entry||entry.view!=='speech'||!current(entry))return Promise.reject(Error('Speech view closed.'));const route=path.replace(/^\/local\/speech(?=\?|$)/,prefix+'/speech/tasks').replace(/^\/local\/speech\//,prefix+'/speech/').replace(/^\/local\/media\/([a-f0-9-]+)$/,prefix+'/media/$1/remove');return data===undefined?request(route.slice(prefix.length)):write(entry,route.slice(prefix.length),data);},
+      run:action=>job?run(job,action):Promise.resolve(),context:()=>job?.view==='speech'?job:null,isTeacher:staff,sessionKey:()=>job?.identity+':'+serial,
+      renderPage:()=>{if(job?.view==='speech'){render(job,tabButtons(job)+speechUI.render());speechUI.afterRender();}},notify:message=>{if(dialog)dialog.querySelector('[data-workbench-status]').textContent=message;}});
+    return speechUI;
+  }
+  function tabButtons(entry){return '<div class="seg" role="tablist" aria-label="Learning kit"><button type="button" data-workbench-back role="tab" aria-selected="'+(entry.view!=='speech')+'">Learning kit</button>'+(entry.lessonId&&entry.senseId&&entry.features?.includes('speech')?'<button type="button" data-workbench-speech role="tab" aria-selected="'+(entry.view==='speech')+'" '+(!entry.writable?'disabled':'')+'>Speech practice</button>':'')+'</div>';}
   const options=items=>items.map(item=>'<option value="'+esc(item.id)+'">'+esc(item.title)+'</option>').join('');
   const reason={not_generated:'Not prepared',word_set_required:'Word set required',audio_required:'Audio required',video_required:'Video required',provider_not_configured:'Generation is off',quota_exceeded:'Quota exhausted',quota_unavailable:'Quota unavailable'};
+  function paintEntry(){
+    for(const nav of document.querySelectorAll('.side nav,.tabbar')){
+      let button=nav.querySelector('[data-workbench-queue]');
+      if(!button&&enabled()&&staff()){
+        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
+      }
+      if(button)button.hidden=!enabled()||!staff();
+    }
+  }
+  async function loadQueue(entry,more=false){
+    if(!staff())throw Error('Teacher access required.');
+    const offset=more?entry.nextOffset:0,data=await request('/queue?offset='+offset);if(!current(entry))return;
+    entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;paintQueue(entry);
+  }
+  function preview(q){
+    return q.content.items.map(item=>'<div class="learning-kit-result">'+(item.mediaId?'<'+(q.type==='Video choice'?'video':'audio')+' controls preload="none" src="'+prefix+'/media/'+esc(item.mediaId)+'"></'+(q.type==='Video choice'?'video':'audio')+'>':'')+'<p>'+esc(item.prompt||item.front||item.shown||item.text||item.left||item.word||'')+'</p>'+(item.parts?'<p>'+esc(item.parts)+'</p>':'')+(item.options?'<ol>'+item.options.map((option,index)=>'<li>'+esc(option)+((item.answers||[item.answer]).includes(index)?' · Correct':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(item.back||item.right||item.word||item.answer||'')+'</p>')+(item.transcript?'<p>'+esc(item.transcript)+'</p>':'')+'</div>').join('')+'<p>'+esc(q.content.explanation)+'</p>';
+  }
+  function reviewRow(entry,q){
+    const allowed=entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
+    return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+(['Listen','Video choice'].includes(q.type)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
+  }
+  function paintQueue(entry){
+    const query=(entry.search||'').trim().toLocaleLowerCase(),rows=entry.rows.filter(q=>(!entry.filter||q.state===entry.filter)&&(!query||[q.origin?.groupName,q.origin?.lessonName,q.origin?.word,q.type,q.author.name,q.author.group,q.origin?.meaning].join(' ').toLocaleLowerCase().includes(query)));
+    function group(list,depth=0){if(depth===4)return list.map(q=>reviewRow(entry,q)).join('');
+      const keys=['groupId','lessonId','senseId','type'],labels=[q=>q.origin?.groupName||q.author.group,q=>q.origin?.lessonName||'Lesson '+q.lessonId,q=>q.origin?.word||'Word '+q.cardId,q=>q.type],groups=new Map();
+      for(const q of list){const key=String(q[keys[depth]]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);}
+      return [...groups].map(([key,items])=>'<details data-review-key="'+esc(keys.slice(0,depth+1).map(field=>items[0][field]).join(':'))+'"><summary>'+esc(labels[depth](items[0]))+' · '+items.length+'</summary><div class="learning-review-group">'+group(items,depth+1)+'</div></details>').join('');
+    }
+    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option><option value="submitted" '+(entry.filter==='submitted'?'selected':'')+'>Needs review</option><option value="returned" '+(entry.filter==='returned'?'selected':'')+'>Changes requested</option></select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn" data-workbench-more>Load more</button>':''));
+  }
   async function coverage(entry){
+    speechUI?.deactivate();entry.view='kit';
     const token=++serial,query=new URLSearchParams({cardId:entry.cardId,...(entry.senseId?{senseId:entry.senseId}:{}),...(entry.groupId?{groupId:entry.groupId,lessonId:entry.lessonId}:{})});
     const data=await request('/kit?'+query);
     if(!current(entry)||token!==serial)return;entry.kit=data;entry.senseId=data.meaning?.id||entry.senseId||'';entry.session=null;
-    const group=entry.groups?.length>1?'<label>Group<select data-workbench-group>'+options(entry.groups)+'</select></label>':'';
+    const group=tabButtons(entry)+(entry.groups?.length>1?'<label>Group<select data-workbench-group>'+options(entry.groups)+'</select></label>':'');
     const senses='<label>Meaning<select data-workbench-sense><option value="">Select a meaning</option>'+data.senses.map(sense=>'<option value="'+esc(sense.id)+'" '+(sense.id===entry.senseId?'selected':'')+'>'+esc([sense.part_of_speech,sense.translation,sense.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>';
     render(entry,group+senses+(data.selectionRequired?'<p>No meaning selected.</p>':'<h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+[...data.types,...(data.additionalTypes||[])].map(type=>'<details><summary>'+esc(type.type)+' · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join('')+'</details>').join('')+(!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'')));
     if(entry.groupId&&dialog?.querySelector('[data-workbench-group]'))dialog.querySelector('[data-workbench-group]').value=String(entry.groupId);
@@ -17883,19 +18054,20 @@ return module.exports; })();
   }
   async function run(entry,action){
     if(entry.busy||!current(entry))return;entry.busy=true;dialog.querySelector('[data-workbench-status]').textContent='';
-    const controls=[...dialog.querySelectorAll('button,input,select')].map(node=>[node,node.disabled]);controls.forEach(([node])=>{node.disabled=true;});
+    const controls=[...dialog.querySelectorAll('button,input,select,textarea')].map(node=>[node,node.disabled]);controls.forEach(([node])=>{node.disabled=true;});
     try{await action();}catch(error){if(current(entry))dialog.querySelector('[data-workbench-status]').textContent=error.message;}
     finally{entry.busy=false;controls.forEach(([node,disabled])=>{if(node.isConnected)node.disabled=disabled;});if(!current(entry)&&job===entry)close();}
   }
   async function open(card,groups=[],lessonId=null){
-    if(!enabled()||!valid(card.cardId))return;close();
+    if(!enabled()||!(card.queue&&staff())&&!valid(card.cardId))return;close();
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
     dialog=document.createElement('dialog');dialog.className='learning-kit-dialog';dialog.setAttribute('aria-label','Learning kit');
     dialog.innerHTML='<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header><p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();
-    observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class']});
+    observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
-      const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;
+      const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;entry.features=status.features;
+      if(card.queue){entry.view='queue';await loadQueue(entry);return;}
       if(groups.length>1){render(entry,'<label>Group<select data-workbench-group><option value="">Select a group</option>'+options(groups)+'</select></label>');return;}
       entry.groupId=groups[0]?.id||null;await coverage(entry);
     });
@@ -17906,11 +18078,12 @@ return module.exports; })();
     return '<button class="btn" type="button" data-workbench-lesson="'+esc(block.id)+'">Learning kit</button>';
   }
   function cardButton(card){if(!enabled()||!valid(card?.stageId))return '';displayedCards.set(card.stageId,card);return '<button class="btn" type="button" data-workbench-card="'+card.stageId+'">Learning kit</button>';}
-  function reset(){displayedCards.clear();close();}
+  function reset(){displayedCards.clear();close();paintEntry();}
   document.addEventListener('learning-workbench-session',reset);
   document.addEventListener('click',event=>{
-    const button=event.target.closest('[data-workbench-lesson],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice]');if(!button)return;
+    const button=event.target.closest('[data-workbench-lesson],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more]');if(!button)return;
     if(button.hasAttribute('data-workbench-close')){close();return;}
+    if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
     if(button.hasAttribute('data-workbench-lesson')){
       if(!enabled()||lmState?.examOwned)return;
       const block=lmState?.blocks?.find(row=>String(row.id)===button.dataset.workbenchLesson),groups=classGroups.filter(group=>group.lessonIds?.includes(lmState.id)&&valid(group.id));
@@ -17924,6 +18097,9 @@ return module.exports; })();
     }
     const entry=job;if(!entry)return;
     void run(entry,async()=>{
+      if(button.hasAttribute('data-workbench-speech')){if(!entry.writable||!entry.lessonId||!entry.senseId||!entry.features.includes('speech'))return;entry.view='speech';await speech().load();if(current(entry)){render(entry,tabButtons(entry)+speechUI.render());speechUI.afterRender();}return;}
+      if(button.hasAttribute('data-workbench-more')){await loadQueue(entry,true);return;}
+      if(button.hasAttribute('data-workbench-history')){const id=button.dataset.workbenchHistory;if(!entry.rows?.some(row=>row.id===id))return;const {quiz}=await request('/proposals/'+id);if(!current(entry))return;const host=dialog.querySelector('[data-review-history="'+id+'"]');if(host)host.innerHTML='<details><summary>History · '+quiz.history.length+'</summary>'+quiz.history.map(row=>'<p>'+esc(row.date)+' · '+esc(row.actor)+' · '+esc(row.action)+'</p>'+(row.details.comment?'<blockquote>'+esc(row.details.comment)+'</blockquote>':'')).join('')+'</details>';return;}
       if(button.hasAttribute('data-workbench-back')){await coverage(entry);return;}
       if(!entry.writable)return;
       const versionId=button.dataset.workbenchPractice;
@@ -17934,6 +18110,7 @@ return module.exports; })();
     });
   });
   document.addEventListener('change',event=>{
+    if(event.target.matches('[data-workbench-filter]')&&job?.view==='queue'){job.filter=event.target.value;paintQueue(job);return;}
     const entry=job;if(!entry||!event.target.matches('[data-workbench-group],[data-workbench-sense]'))return;
     if(event.target.hasAttribute('data-workbench-group'))entry.groupId=entry.groups.find(group=>String(group.id)===event.target.value)?.id||null;
     else entry.senseId=event.target.value;
@@ -17941,12 +18118,18 @@ return module.exports; })();
     void run(entry,()=>coverage(entry));
   });
   document.addEventListener('submit',event=>{
+    if(event.target.matches('[data-workbench-decision]')){
+      event.preventDefault();const entry=job,q=entry?.rows?.find(row=>row.id===event.target.dataset.id);if(!q||!staff()||!entry.writable)return;
+      const action=event.target.dataset.workbenchDecision,data=new FormData(event.target);
+      void run(entry,async()=>{await write(entry,'/proposals/'+q.id+'/'+action,{expectedRevision:q.revision,...(action==='return'?{comment:data.get('comment')}:{checks:Object.fromEntries(['meaning','answers','level','media'].map(key=>[key,data.get(key)==='on']))})});await loadQueue(entry);});return;
+    }
     if(!event.target.matches('[data-workbench-answers]'))return;event.preventDefault();const entry=job;if(!entry?.session||!entry.writable)return;
     const form=new FormData(event.target),session=entry.session,pairs=['Match','Memory'].includes(session.type),items=pairs?session.questions.left:session.questions;
     const responses=items.map((item,index)=>session.type==='Select all'?form.getAll('answer-'+index).map(Number):pairs||item.options?Number(form.get('answer-'+index)):form.get('answer-'+index));
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
-  window.LearningWorkbench={lessonButton,cardButton,close,reset};
+  document.addEventListener('input',event=>{if(event.target.matches('[data-workbench-search]')&&job?.view==='queue'){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
+  window.LearningWorkbench={lessonButton,cardButton,close,reset,paintEntry};
 })();
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }

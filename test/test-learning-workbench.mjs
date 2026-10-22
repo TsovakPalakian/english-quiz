@@ -14,6 +14,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {rehearseWorkbench} from '../ops/rehearse-learning-workbench.mjs';
+import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC} from '../ops/local-speech-provider.mjs';
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 async function readyFixture(){
   const f=await fixture({d1:true,extendedLifecycle:true});
@@ -58,6 +59,35 @@ test('API rejects malformed queries, unsupported methods and absent services',as
   const call=(path,method='GET')=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method}),{actor:actors.student,services:{}});
   await rejects(call('/kit?cardId=1&cardId=2'),400);await rejects(call('/kit?cardId=1&groupId=1'),400);
   await rejects(call('/status','DELETE'),405);await rejects(call('/queue'),503);await rejects(call('/status','HEAD'),405);
+});
+test('shared review API keeps global staff access, origin grouping, CAS and self-approval restrictions',async()=>{
+  const f=await readyFixture();try{
+    const services=await createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media expected.');}})({db:f.db,actor:actors.teacher});
+    const proposal=await f.draft();await f.service.submit(actors.student,proposal.id,body({expectedRevision:1}));
+    const call=(path,actor=actors.teacher,payload,writable=true)=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method:payload?'POST':'GET',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})}),{actor,services,writable});
+    for(const actor of [actors.teacher,actors.outsider,actors.dev]){const data=await(await call('/queue?offset=0',actor)).json();assert.equal(data.quizzes.length,1);assert.equal(data.quizzes[0].origin.groupName,'A1 Monday');assert.equal(data.quizzes[0].origin.lessonName,'Weather');assert.equal(data.quizzes[0].origin.word,'drizzle');}
+    await rejects(call('/queue',actors.student),403);await rejects(call('/queue?offset=0&offset=1'),400);
+    assert.equal((await(await call('/queue?offset=100')).json()).quizzes.length,0);
+    await rejects(call('/proposals/'+proposal.id,actors.other),403);
+    const returned=body({expectedRevision:2,comment:'Please clarify the context.'});await rejects(call('/proposals/'+proposal.id+'/return',actors.outsider,returned,false),503);
+    await call('/proposals/'+proposal.id+'/return',actors.outsider,returned);
+    await rejects(call('/proposals/'+proposal.id+'/approve',actors.teacher,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}})),409);
+    const {quiz}=await(await call('/proposals/'+proposal.id)).json();assert.equal(quiz.state,'returned');assert.equal(quiz.history.at(-1).details.comment,returned.comment);
+    const own=await f.draft(actors.teacher);await f.service.submit(actors.teacher,own.id,body({expectedRevision:1}));
+    await rejects(call('/proposals/'+own.id+'/approve',actors.teacher,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}})),403);
+  }finally{f.close();}
+});
+test('speech assembly requires explicit trusted configuration and never initializes or selects providers',async()=>{
+  const f=await readyFixture();try{
+    const base={inspect:async()=>({kind:'audio',duration:1,width:0,height:0})},configuration={enabled:true,workerId:actors.dev.id,resolveActor:async()=>actors.dev,authorize:async()=>false,rubrics:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:60,month:120},language:{day:2,month:4}}};
+    const disabled=await createLearningWorkbenchFactory({...base,speech:{...configuration,enabled:false}})({db:f.db,actor:actors.student});assert.equal(disabled.speech,undefined);
+    const active=await createLearningWorkbenchFactory({...base,speech:configuration})({db:f.db,actor:actors.student});assert.ok(active.speech);assert.ok(active.transcripts);
+    assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_provider_configuration').get().n,0);
+    await assert.rejects(active.speech.providers.inspect(actors.dev));
+    await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,resolveActor:async()=>({...actors.dev,active:0})}})({db:f.db,actor:actors.student}),503);
+    await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,resolveActor:null}})({db:f.db,actor:actors.student}),503);
+    await rejects(createLearningWorkbenchFactory({...base,speech:{...configuration,authorize:null}})({db:f.db,actor:actors.student}),503);
+  }finally{f.close();}
 });
 test('main session advertises the UI only when the server flag and trusted factory both exist',async()=>{
   const env={DB:{prepare(){throw Error('Unexpected SQL.');}},STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'test.invalid'},request=new Request('https://test.invalid/api/me');
