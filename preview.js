@@ -13720,7 +13720,7 @@ const STUDIO_CONSTELLATIONS = [{
   function safeZones(){
     const w=innerWidth,h=innerHeight,available=[];
     for(let i=0;i<600&&available.length<36;i++){
-      const size=(i<400?.45+Math.random()*.55:.22+Math.random()*.4)*Math.min(300,w*.38,h*.32),cx=30+Math.random()*Math.max(0,w-60),cy=30+Math.random()*Math.max(0,h-100);
+      const size=1.15*(i<400?.45+Math.random()*.55:.22+Math.random()*.4)*Math.min(300,w*.38,h*.32),cx=30+Math.random()*Math.max(0,w-60),cy=30+Math.random()*Math.max(0,h-100);
       const left=cx-size/2-30,right=cx+size/2+30,top=cy-size/2-30,bottom=cy+size*.6+54;
       if(left<12||right>w-12||top<12||bottom>h-40)continue;
       const box=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
@@ -13753,6 +13753,11 @@ const STUDIO_CONSTELLATIONS = [{
     let zones=safeZones(),animationId=0,lastTime=null;
     const sizeCanvas=()=>{w=innerWidth;h=innerHeight;const ratio=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);};
     sizeCanvas();
+
+    function drawStar(x,y,radius,alpha,color){
+      if(alpha<=0)return;
+      ctx.fillStyle='rgba('+color+','+alpha+')';ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+    }
 
     const handleResize=()=>{sizeCanvas();zones=safeZones();zoneIndex=pickZone(-1);slots=[];startPhase('gather',performance.now());};
     window.addEventListener('resize', handleResize);
@@ -13972,10 +13977,7 @@ const STUDIO_CONSTELLATIONS = [{
       for (const s of ambientStars) {
         const clearance=motion.matches?1:drift(s,delta,w,h,true);
         const twinkle = Math.sin(frame * s.speed + s.phase) * 0.3 + 0.7;
-        ctx.beginPath();
-        ctx.arc(s.x * w, s.y * h, s.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 220, 240, ${twinkle * 0.25*clearance})`;
-        ctx.fill();
+        drawStar(s.x*w,s.y*h,s.radius,twinkle*.25*clearance,'200,220,240');
       }
 
       // Draw wandering stars
@@ -14001,10 +14003,7 @@ const STUDIO_CONSTELLATIONS = [{
         ctx.fill();
 
         // Core
-        ctx.beginPath();
-        ctx.arc(wst.x, wst.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 245, 210, ${0.3 * twinkle*clearance})`;
-        ctx.fill();
+        drawStar(wst.x,wst.y,r,.3*twinkle*clearance,'255,245,210');
       }
 
       // Polaris stays fixed for this screen opening and is the brightest visual anchor.
@@ -14012,7 +14011,7 @@ const STUDIO_CONSTELLATIONS = [{
       const poleGlow=ctx.createRadialGradient(polaris.x,polaris.y,0,polaris.x,polaris.y,30);
       poleGlow.addColorStop(0,'rgba(255,245,210,.65)');poleGlow.addColorStop(.35,'rgba(255,235,178,.24)');poleGlow.addColorStop(1,'rgba(255,235,178,0)');
       ctx.fillStyle=poleGlow;ctx.beginPath();ctx.arc(polaris.x,polaris.y,30,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(polaris.x,polaris.y,5.5,0,Math.PI*2);ctx.fill();
+      drawStar(polaris.x,polaris.y,5.5,1,'255,255,255');
       ctx.strokeStyle='rgba(255,245,210,.75)';ctx.lineWidth=.9;ctx.beginPath();ctx.moveTo(polaris.x-11,polaris.y);ctx.lineTo(polaris.x+11,polaris.y);ctx.moveTo(polaris.x,polaris.y-11);ctx.lineTo(polaris.x,polaris.y+11);ctx.stroke();
       ctx.font='12px Georgia,serif';ctx.textAlign='center';ctx.fillStyle='rgba(225,205,153,.85)';ctx.fillText('Polaris',polaris.x,polaris.y+28);
 
@@ -14096,10 +14095,7 @@ const STUDIO_CONSTELLATIONS = [{
         ctx.fill();
 
         // Core
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 245, 210, ${brightness * pos.opacity})`;
-        ctx.fill();
+        drawStar(pos.x,pos.y,radius,brightness*pos.opacity,'255,245,210');
       }
 
       // Draw constellation name

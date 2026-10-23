@@ -27,7 +27,7 @@ try{
     assert.equal(await page.locator('#homeAuth .btn').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)');
     await page.getByRole('button',{name:'Enter the Learning Studio',exact:true}).click();
     await page.waitForSelector('body.guest-auth');await page.locator('[data-microsoft-auth]').waitFor({state:'visible'});
-    await page.waitForFunction(()=>!!document.getElementById('authSky').dataset.polarisX);
+    await page.waitForFunction(previous=>{const x=document.getElementById('authSky').dataset.polarisX;return !!x&&x!==previous;},homePole);
     assert.notEqual(await page.locator('#authSky').getAttribute('data-polaris-x'),homePole,'Opening another screen gives Polaris a new fixed location');
     assert.equal(await page.locator('.auth-providers .auth-google:visible').count(),5);
     assert.ok(await page.locator('#authLogin').evaluate(node=>parseFloat(getComputedStyle(node).paddingLeft)>=40),'Input text clears its icon');
