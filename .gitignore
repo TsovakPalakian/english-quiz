@@ -2,6 +2,7 @@ accounts.sqlite
 .dev.vars
 .env
 .gemini.local.env
+.azure.local.env
 .local-secrets/
 node_modules/
 wrangler.toml

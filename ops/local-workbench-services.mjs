@@ -15,10 +15,13 @@ import {StoredQuizIndependentReview} from '../src/stored-quiz-independent-review
 import {StoredLanguageProviders} from '../src/stored-language-providers.mjs';
 import {GenerationQuota} from '../src/generation-quota.mjs';
 import {createRoutedQuizGenerator} from '../src/workers-ai-quiz-provider.mjs';
+import {AZURE_PRACTICE_RUBRIC} from './local-azure-preview-provider.mjs';
 
 export {actors};
-export async function createLocalWorkbench({inspect=inspectQuizMedia,gemini=null}={}){
+export async function createLocalWorkbench({inspect=inspectQuizMedia,gemini=null,azure=null}={}){
   if(gemini!==null&&(gemini.adapter?.id!=='gemini-quiz'||typeof gemini.remaining!=='function'))throw Error('Invalid local Gemini provider.');
+  if(azure!==null&&(azure.adapter?.id!=='azure-pronunciation'||typeof azure.remaining!=='function'))throw Error('Invalid local Azure provider.');
+  const live=!!(gemini||azure);
   const f=await fixture({d1:true,extendedLifecycle:true});
   try{
     for(const step of workbenchMigrationPlan().steps.slice(1))f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/'+step.name,import.meta.url),'utf8'));
@@ -32,15 +35,16 @@ export async function createLocalWorkbench({inspect=inspectQuizMedia,gemini=null
     if(gemini)await quota.initialize(actors.dev,{provider:'google',windowMs:86400000,requestLimit:5});
     const speechAdapter=localSpeechAdapter(),baseSpeech=speechAdapter.invoke;
     speechAdapter.invoke=(input,options)=>input.kind==='speech-dialogue'?{reply:'Synthetic partner: tell me one more detail about the weather.',finished:false}:baseSpeech(input,options);
-    const providers=new StoredLanguageProviders(f.db,{quota,authorize:async source=>source.provider==='local-fixture'||gemini!==null&&source.provider==='google'&&source.task==='generation',adapters:[speechAdapter,{
+    const providers=new StoredLanguageProviders(f.db,{quota,authorize:async source=>source.provider==='local-fixture'||gemini!==null&&source.provider==='google'&&source.task==='generation'||azure!==null&&source.provider==='microsoft-azure'&&source.task==='pronunciation',adapters:[speechAdapter,{
       id:'local-generation',provider:'local-fixture',model:'synthetic-quiz-not-an-ai',version:'v1',billing:'self-hosted',capabilities:[{task:'generation',locales:['en-US'],modes:['text']}],
       invoke:async input=>{try{return {content:await localQuizGenerator(input)};}catch(error){if(error instanceof GenerationIssue)return {issue:error.code,retryable:error.retryable};throw error;}},validate:value=>value
-    },...(gemini?[gemini.adapter]:[])]});
+    },...(gemini?[gemini.adapter]:[]),...(azure?[azure.adapter]:[])]});
     await providers.initialize(actors.dev);
     await providers.configure(actors.dev,body({expectedRevision:1,selections:{generation:gemini?null:{adapterId:'local-generation',locale:'en-US',mode:'text'},pronunciation:{adapterId:speechAdapter.id,locale:'en-US',mode:'scripted'},stt:{adapterId:speechAdapter.id,locale:'en-US',mode:'unscripted'},conversation:{adapterId:speechAdapter.id,locale:'en-US',mode:'text'}},reason:gemini?'Local Gemini available; generation starts Off.':'Explicit synthetic local preview. No real inference or charges.'}));
+    if(azure)await providers.configure(actors.dev,body({expectedRevision:2,selections:{pronunciation:null,stt:null,conversation:null},reason:'Azure pronunciation available; all speech providers start Off.'}));
     const factory=createLearningWorkbenchFactory({storage:{enabled:true,bucket,bucketName:WORKBENCH_TEST_BUCKET},inspect,publicAttribution:true,studyIntegration:true,resolveAccount:resolveActor,
       feedback:{enabled:true,retentionDays:7,deliveryEnabled:false},
-      speech:{enabled:true,pronunciationQuizzes:true,workerId:actors.dev.id,resolveActor,authorize:async source=>source.provider==='local-fixture',openProviders:async()=>providers,rubrics:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:600,month:1800},language:{day:20,month:100}},coaching:{enabled:true,budgets:{day:20,month:100,sessionsPerDay:10}}},
+      speech:{enabled:true,pronunciationQuizzes:true,workerId:actors.dev.id,resolveActor,authorize:async source=>source.provider==='local-fixture',openProviders:async()=>providers,rubrics:azure?[AZURE_PRACTICE_RUBRIC,LOCAL_SPEECH_RUBRIC]:[LOCAL_SPEECH_RUBRIC],languageRubric:LOCAL_LANGUAGE_RUBRIC,budgets:{audio:{day:600,month:1800},language:{day:20,month:100}},coaching:{enabled:true,budgets:{day:20,month:100,sessionsPerDay:10}}},
       openPreparation:async({review})=>{
         const routed=createRoutedQuizGenerator({providers,includeMetadata:true,timeoutMs:35000});
         const generation=new QuizGenerationService({review,worker:actors.dev,resolveActor,preparation:new QuizGenerationContext({review}),backoffMs:100,...(gemini?{timeoutMs:40000,leaseMs:60000}:{}),
@@ -56,13 +60,13 @@ export async function createLocalWorkbench({inspect=inspectQuizMedia,gemini=null
       }});
     const services=await factory({db:f.db,actor:actors.dev});
     await services.pipeline.initialize(actors.dev);await services.pipeline.configure(actors.dev,body({expectedRevision:1,enabled:true,reason:'Local preview only.'}));
-    if(!gemini)await services.preparation.configure(actors.dev,body({expectedRevision:1,enabled:true,reason:'Local preview only.'}));
+    if(!live)await services.preparation.configure(actors.dev,body({expectedRevision:1,enabled:true,reason:'Local preview only.'}));
     const seed=await services.review.createDraft(actors.student,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,type:'Gap',content:{explanation:'Drizzle is light rain.',items:[{shown:'A fine ____ started falling.',answer:'drizzle',hint:'Light rain'}]}}));
     await services.review.submit(actors.student,seed.id,body({expectedRevision:1}));await services.review.approve(actors.teacher,seed.id,body({expectedRevision:2,checks:{meaning:true,answers:true,level:true}}));
     const pending=await f.draft();await f.service.submit(actors.student,pending.id,body({expectedRevision:1}));
-    await services.speech.createTask(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,locale:'en-US',prompt:'Read drizzle. Synthetic assessment only.',referenceMediaId:null,languageReview:true,level:null,mode:'pronunciation',evaluation:'pronunciation',reference:'drizzle',rubricId:LOCAL_SPEECH_RUBRIC.id}));
+    await services.speech.createTask(actors.teacher,body({groupId:1,lessonId:1,cardId:1,senseId:f.senseId,locale:'en-US',prompt:azure?'Read the reference sentence.':'Read drizzle. Synthetic assessment only.',referenceMediaId:null,languageReview:!azure,level:null,mode:'pronunciation',evaluation:'pronunciation',reference:azure?'A fine drizzle is falling outside.':'drizzle',rubricId:azure?AZURE_PRACTICE_RUBRIC.id:LOCAL_SPEECH_RUBRIC.id}));
     let running=null;
-    const tick=()=>{if(gemini)return Promise.resolve();if(!running)running=services.preparation.tick({maxSteps:12,maxMs:10000}).finally(()=>{running=null;});return running;};
+    const tick=()=>{if(live)return Promise.resolve();if(!running)running=services.preparation.tick({maxSteps:12,maxMs:10000}).finally(()=>{running=null;});return running;};
     const runOne=async actor=>{
       if(!gemini||actor?.role!=='DEVELOPER')throw Object.assign(Error('Developer access required.'),{status:403});
       if(running)throw Object.assign(Error('A generation step is already running.'),{status:409});

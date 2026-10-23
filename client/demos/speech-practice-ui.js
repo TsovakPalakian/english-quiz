@@ -60,6 +60,8 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       .replace('<label>Locale<select name="locale">',criteriaFields+'<label>Locale<select name="locale">')
       .replace('No speech tasks for this lesson word yet.',context()?.lessonSpeech?'No speech tasks for this lesson yet.':'No speech tasks for this lesson word yet.')
       .replaceAll('src="/local/speech/','src="'+endpoint+'/')
+      .replace('Or choose a WAV / MP3 recording',state?.analyzerLabel?.includes('microsoft-azure')?'Or choose a WAV recording (PCM16 mono, 16 kHz, 2-30 seconds)':'Or choose a WAV / MP3 recording')
+      .replace('accept="audio/wav,audio/mpeg,.wav,.mp3"',state?.analyzerLabel?.includes('microsoft-azure')?'accept="audio/wav,.wav"':'accept="audio/wav,audio/mpeg,.wav,.mp3"')
       .replace('Local pilot · Synthetic analysis only · No external speech service connected',state?.synthetic?'Synthetic analysis only · No assessment of the recording':state?.analyzerLabel?'Speech provider: '+esc(state.analyzerLabel):'Speech provider is not configured')
       .replace('Send this recording to the selected synthetic local analyzer','Send this recording to '+esc(state?.analyzerLabel||(state?.synthetic?'the synthetic local analyzer':'the configured speech provider')));
   }

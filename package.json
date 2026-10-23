@@ -8,7 +8,8 @@
     "build:preview": "node ops/build-preview.mjs",
     "preview:workbench": "node ops/build-learning-production-assets.mjs && node ops/preview-learning-workbench.mjs",
     "probe:gemini": "node --env-file-if-exists=.gemini.local.env ops/probe-gemini-quiz.mjs",
-    "preview:gemini": "node --env-file-if-exists=.gemini.local.env ops/preview-gemini-workbench.mjs"
+    "preview:gemini": "node --env-file-if-exists=.gemini.local.env ops/preview-gemini-workbench.mjs",
+    "preview:ai": "node --env-file-if-exists=.gemini.local.env --env-file-if-exists=.azure.local.env ops/preview-ai-workbench.mjs"
   },
   "dependencies": {
     "@noble/ciphers": "2.4.0",

@@ -6,15 +6,16 @@ const fail=code=>{throw new LanguageProviderError(code);};
 export const AZURE_REFERENCE_VOICES=Object.freeze([{id:'en-US-JennyNeural',locale:'en-US'},{id:'en-GB-SoniaNeural',locale:'en-GB'}].map(Object.freeze));
 const xml=value=>value.replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 function settings(options){
-  const {enabled=false,freeTierVerified=false,resourceName='',apiKey='',fetchImpl,timeoutMs=30000,termsRevision=null}=options;
+  const {enabled=false,freeTierVerified=false,resourceName='',region='',apiKey='',fetchImpl,timeoutMs=30000,termsRevision=null}=options;
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
-  return {enabled,freeTierVerified,resourceName,apiKey,fetchImpl,timeoutMs,termsRevision,configurationVersion:transportConfigurationVersion(options.configurationRevision)};
+  if(typeof region!=='string'||region!==''&&!/^[a-z][a-z0-9]{1,31}$/.test(region))fail('invalid_configuration');
+  return {enabled,freeTierVerified,resourceName,region,apiKey,fetchImpl,timeoutMs,termsRevision,configurationVersion:transportConfigurationVersion(options.configurationRevision)+(region?'.regional-'+region+'-v1':'')};
 }
-function gate(config){
+function gate(config,kind='stt'){
   if(!config.enabled)fail('provider_disabled');
   if(!/^[a-z][a-z0-9-]{1,62}$/.test(config.resourceName)||typeof config.apiKey!=='string'||!config.apiKey.trim()||/[\r\n]/.test(config.apiKey)||!config.termsRevision)fail('provider_not_configured');
-  return 'https://'+config.resourceName+'.cognitiveservices.azure.com';
+  return config.region?'https://'+config.region+'.'+kind+'.speech.microsoft.com':'https://'+config.resourceName+'.cognitiveservices.azure.com';
 }
 // The short-audio REST API accepts PCM16 mono 16 kHz, not arbitrary browser codecs.
 export function azurePcmDuration(bytes){
@@ -57,7 +58,7 @@ export function createAzureTTSAdapter(options={}){
   return {id:'azure-tts',provider:'microsoft-azure',model:'speech-neural-standard',version:'pcm16-v1.'+(config.termsRevision||'unverified')+config.configurationVersion,billing:config.freeTierVerified?'free-tier':'unknown',
     capabilities:[{task:'tts',locales:['en-US','en-GB'],modes:['text']}],
     async invoke(input,{source,signal}={}){
-      const host=gate(config);if(!rights)fail('provider_not_configured');
+      const host=gate(config,'tts');if(!rights)fail('provider_not_configured');
       const voice=AZURE_REFERENCE_VOICES.find(row=>row.id===input?.voice);
       if(!input||Object.keys(input).some(key=>!['word','meaning','voice'].includes(key))||typeof input.word!=='string'||!input.word.trim()||input.word.length>200||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(input.word)||!voice||source?.locale&&source.locale!==voice.locale)fail('invalid_request');
       const ssml='<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="'+voice.locale+'"><voice name="'+voice.id+'">'+xml(input.word)+'</voice></speak>';

@@ -49,7 +49,7 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
       const configured=await createConfiguredLanguageProviders({db,authorize:allow,quota:new GenerationQuota(db),
         whisper:language.whisper===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
         generation:language.generation===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
-        azure:language.azure===true?{...common,resourceName:env.WORKBENCH_AZURE_RESOURCE,apiKey:env.WORKBENCH_AZURE_KEY,termsRevision:language.termsRevision}:null});
+        azure:language.azure===true?{...common,resourceName:env.WORKBENCH_AZURE_RESOURCE,region:env.WORKBENCH_AZURE_REGION||'',apiKey:env.WORKBENCH_AZURE_KEY,termsRevision:language.termsRevision}:null});
       providerInstance=configured.providers;return providerInstance;
     };
     const speech=speechEnabled?{...p.speech,enabled:true,workerId:env.LEARNING_WORKBENCH_WORKER_ID,resolveActor:resolve,authorize:allow,openProviders:providers,

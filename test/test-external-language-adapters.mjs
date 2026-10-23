@@ -51,7 +51,7 @@ const meaning={en:'drizzle',translation:'изморось',definition:'Light rai
 test('Gemini review uses a separate provider, bounded schema, exact revision and trusted thinking-inclusive usage',async()=>{
   let calls=0;const adapter=createGeminiReviewAdapter({enabled:true,allowDataProcessing:true,freeTierVerified:true,model:'gemini-fixture',apiKey:'SYNTHETIC-KEY',termsRevision:'adult-fixture-v1',fetchImpl:async(url,options)=>{
     calls++;assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-fixture:generateContent');assert.equal(options.headers['x-goog-api-key'],'SYNTHETIC-KEY');
-    const request=JSON.parse(options.body),{checked,dimensions}=JSON.parse(request.contents[0].parts[0].text);assert.equal(request.generationConfig.responseFormat.text.mimeType,'application/json');
+    const request=JSON.parse(options.body),{checked,dimensions}=JSON.parse(request.contents[0].parts[0].text);assert.equal(request.generationConfig.responseFormat.text.mimeType,'APPLICATION_JSON');
     return json({candidates:[{finishReason:'STOP',content:{parts:[{thought:true,text:'Do not display internal reasoning.'},{text:JSON.stringify({fingerprint:checked.fingerprint,revision:checked.revision,status:'reviewed',dimensions:Object.fromEntries(dimensions.map(key=>[key,key==='level'?'not_assessed':'pass'])),findings:[]})}]}}],usageMetadata:{promptTokenCount:10,candidatesTokenCount:20,thoughtsTokenCount:5,totalTokenCount:35}});
   }});
   const providers=new LanguageProviders({adapters:[adapter],authorize:async()=>true});providers.configure(actors.dev,{expectedRevision:1,selections:{review:{adapterId:adapter.id,locale:'en-US',mode:'text'}}});
