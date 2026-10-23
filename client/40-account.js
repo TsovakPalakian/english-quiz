@@ -257,6 +257,11 @@
       const status = form.querySelector("[data-form-status]");
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
+      if(form.id==='registerForm'){
+        data.name=String(data.name||'').trim();
+        if(!data.name){if(status){status.textContent='Enter your name.';status.classList.add('bad');}form.elements.name.focus();return;}
+        delete data.role;
+      }
       if (form.id === "otpLoginForm") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
@@ -279,7 +284,7 @@
       if (path === "/api/register") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
-        if (invite) { data.invite = invite; data.role = inviteDetails?.kind==='teacher'?'ADMIN':'USER'; }
+        if (invite) data.invite = invite;
       }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
@@ -419,12 +424,13 @@
       if (action === "approve" || action === "reject") {
         if (!isTeacher() || viewAccount) return;
         const picker = document.querySelector('[data-registration-group="' + button.dataset.id + '"]');
+        const rolePicker=document.querySelector('[data-registration-role="'+button.dataset.id+'"]');
         const row = button.closest('.account-approval-row') || button, controls = [...row.querySelectorAll('button,select'), button];
         if (row.dataset.busy) return;
         row.dataset.busy = '1';
         controls.forEach((node) => { node.disabled = true; });
         button.textContent = action === 'approve' ? 'Approving…' : 'Rejecting…';
-        accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: JSON.stringify(action === 'approve' && picker?.value ? {groupId:Number(picker.value)} : {}) })
+        accountFetch("/api/admin/registrations/" + encodeURIComponent(button.dataset.id) + "/" + action, { method: "POST", body: JSON.stringify(action === 'approve' ? {...(picker?.value&&rolePicker?.value!=='ADMIN'?{groupId:Number(picker.value)}:{}),...(rolePicker?{role:rolePicker.value}:{})} : {}) })
           .then((result) => {
             if (result?.groupWarning) window.LearningMain?.notice(result.groupWarning, true);
             paintAdmin();

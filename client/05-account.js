@@ -454,24 +454,20 @@
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
         if(invite&&!inviteDetails){
-          box.innerHTML='<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+          box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
           return;
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
           ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
-        const roleField = invite
-          ? '<input type="hidden" name="role" value="'+(teacherInvite?'ADMIN':'USER')+'" /><p class="hint">Role: '+(teacherInvite?'Teacher':'Student')+' (from invite)</p>'
-          : '<fieldset class="auth-role"><legend>Role</legend><div><label><input type="radio" name="role" value="USER" checked required />Student</label><label><input type="radio" name="role" value="ADMIN" required />Teacher</label></div></fieldset>';
-        box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Create account</h1>' + flashHtml +
+        box.innerHTML = '<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1>' + flashHtml +
           '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<label for="authEmail">Email</label><input id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-          '<label for="authName">Name <span class="auth-optional">(optional)</span></label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" />' +
-          roleField +
+          '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +authDivider+google+inviteHint+'</div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'</div></div>';
         decorate();
         return;
       }

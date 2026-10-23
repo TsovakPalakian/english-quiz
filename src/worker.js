@@ -202,8 +202,8 @@ function canReview(user) {
   return !!(user && (user.role === "ADMIN" || user.role === "DEVELOPER"));
 }
 
-function signupRole(body) {
-  return body.role === 'ADMIN' ? 'ADMIN' : 'USER';
+function signupRole(env) {
+  return env.TRUSTED_INVITE_ROLE === 'ADMIN' ? 'ADMIN' : 'USER';
 }
 
 function cookieHeader(token, secure) {
@@ -456,10 +456,11 @@ function validateSignup(body) {
   const login = String(body.login || "");
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
-  const name = String(body.name || "").trim().slice(0, 80);
+  const name = typeof body.name==='string'?body.name.trim().slice(0,80):'';
   if (!SIGNUP_LOGIN_RE.test(login)) return { error: "Login needs 3 to 32 Latin letters, digits or underscores, with no spaces." };
   if (!EMAIL_RE.test(email) || email.length > 120) return { error: "Enter a valid email." };
   if (password.length < 8 || password.length > 32) return { error: "Password needs 8 to 32 characters." };
+  if (!name) return { error: "Enter your name." };
   return { login, email, password, name };
 }
 
@@ -1843,13 +1844,13 @@ async function register(env, request, body, secure) {
     await provisionSignupUsername(env,'reserve',fields.login,regId);
     await db.prepare(
       "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
-    ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(body), created).run();
+    ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(env), created).run();
   } catch (error) {
     await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
     if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
-  await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(body), user_id: "", created_at: created, decided_at: 0 });
+  await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(env), user_id: "", created_at: created, decided_at: 0 });
   // Count successful pending inserts toward the IP lockout to limit registration floods.
   if (env.MEDIA) await noteLoginFailure(env, ip, "register");
   return json({ status: "pending" });
@@ -3486,7 +3487,7 @@ async function admin(env, request, method, path, body, ctx) {
     return json({ user: publicUser(found.row), registrations: history });
   }
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "registrations" && method === "POST") {
-    return decide(env, user, parts[4], parts[5]);
+    return decide(env, user, parts[4], parts[5], null, body?.role);
   }
   if (parts.length === 6 && parts[2] === "admin" && parts[3] === "changes" && method === "POST") {
     return decideChange(env, user, parts[4], parts[5]);
@@ -3888,12 +3889,14 @@ export async function completeFederatedSignIn(env, request, profile, { create = 
 }
 export const completeGoogleSignIn=completeFederatedSignIn;
 
-async function decide(env, actor, regId, action, invitation = null) {
+async function decide(env, actor, regId, action, invitation = null, assignedRole = null) {
   const db = env.DB;
   if (!actor || (actor.role !== "DEVELOPER" && actor.role !== "ADMIN")) return json({ error: "You cannot do that." }, 403);
   if (action !== "approve" && action !== "reject") return json({ error: "Not found." }, 404);
   const [reg, directory] = await Promise.all([db.prepare("SELECT * FROM registrations WHERE id = ?").bind(regId).first(), readDirectory(env)]);
   if (!reg || reg.status !== "pending") return json({ error: "This request is no longer waiting." }, 409);
+  if(assignedRole!=null&&!['USER','ADMIN'].includes(assignedRole))return json({error:'Invalid approved role.'},400);
+  if(assignedRole!=null&&assignedRole!==reg.role&&actor.role!=='DEVELOPER')return json({error:'Only a developer can change the approved role.'},403);
   // Same visibility as GET /api/admin/registrations — no approve-by-id for hidden-linked rows.
   const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
   if (!visible.length) return json({ error: "No such account." }, 404);
@@ -3913,7 +3916,7 @@ async function decide(env, actor, regId, action, invitation = null) {
   if (reserved) return json({ error: "That login is already in use." }, 409);
   if (taken) return json({ error: "That email is already in use." }, 409);
   const userId = randomId();
-  const role = reg.role === 'ADMIN' ? 'ADMIN' : 'USER';
+  const role = (assignedRole??reg.role) === 'ADMIN' ? 'ADMIN' : 'USER';
   try {
     await provisionSignupUsername(env,'activate',reg.login,regId,userId);
     await db.batch([
@@ -3921,8 +3924,8 @@ async function decide(env, actor, regId, action, invitation = null) {
         "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)"
       ).bind(userId, reg.login, reg.email, reg.name, reg.password_salt, reg.password_hash, reg.password_iterations, role, decided),
       db.prepare(
-        "UPDATE registrations SET status = 'approved', user_id = ?, decided_at = ? WHERE id = ? AND status = 'pending'"
-      ).bind(userId, decided, regId),
+        "UPDATE registrations SET status = 'approved', user_id = ?, decided_at = ?, role = ? WHERE id = ? AND status = 'pending'"
+      ).bind(userId, decided, role, regId),
     ]);
   } catch (error) {
     await provisionSignupUsername(env,'rollback',reg.login,regId,userId).catch(()=>{});

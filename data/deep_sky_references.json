@@ -1,0 +1,20 @@
+{
+  "provider": "Individually checked SIMBAD records and D. A. Green Galactic SNR catalogue (2024 October)",
+  "checkedOn": "2026-10-23",
+  "sourcePolicies": {
+    "SIMBAD": {"credit":"SIMBAD database, operated at CDS, Strasbourg, France","license":"ODbL-1.0","url":"https://simbad.cds.unistra.fr/simbad/"},
+    "Green": {"credit":"D. A. Green, Galactic Supernova Remnant Catalogue, 2024 October, Cavendish Laboratory, Cambridge","url":"https://www.mrao.cam.ac.uk/surveys/snrs/","note":"Only separately cited coordinates and sizes of the two existing remnants were transcribed; no blanket reuse license asserted."}
+  },
+  "records": {
+    "stingray_nebula": {"identifier":"Hen 3-1357","ra":"17:16:21.0591001224","dec":"-59:29:23.383608324","frame":"ICRS","scope":"SIMBAD position associated with the nebula and its central star; not a measured nebular centroid","reference":"2020yCat.1350....0G","url":"https://simbad.u-strasbg.fr/simbad/sim-id?Ident=Hen+3-1357","identitySource":"https://science.nasa.gov/asset/hubble/stingray-nebula-in-1996/","correctedCatalog":"Hen 3-1357 / PN G331.3-12.1"},
+    "abell_2151": {"identifier":"ACO 2151","ra":"16:05:15.0","dec":"+17:44:55","frame":"ICRS","scope":"catalogue cluster centre","reference":"2000AN....321....1S","url":"https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ACO+2151","constellation":"Her"},
+    "hickson_44": {"identifier":"HCG 44","ra":"10:18:00.0","dec":"+21:48:42","frame":"ICRS","scope":"catalogue group centre","reference":"1982ApJ...255..382H","url":"https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HCG+44","constellation":"Leo"},
+    "bl_lacertae": {"identifier":"NAME BL Lac","ra":"22:02:43.2913536816","dec":"+42:16:39.979416792","frame":"ICRS","scope":"catalogue active nucleus position","reference":"2020yCat.1350....0G","url":"https://simbad.u-strasbg.fr/simbad/sim-basic?Ident=BL+Lacertae&submit=SIMBAD+search"},
+    "hourglass_nebula": {"identifier":"PN MyCn 18","ra":"13:39:35.0596178496","dec":"-67:22:51.750497136","frame":"ICRS","scope":"SIMBAD optical reference position associated with the central star; not a measured nebular centroid","reference":"2020yCat.1350....0G","url":"https://simbad.u-strasbg.fr/simbad/sim-basic?Ident=PN+MyCn+18"},
+    "necklace_nebula": {"identifier":"PN G054.2-03.4","ra":"19:43:59.5114618200","dec":"+17:09:00.963778248","frame":"ICRS","scope":"SIMBAD optical position of the central binary; not a measured nebular centroid","reference":"2020yCat.1350....0G","url":"https://simbad.u-strasbg.fr/simbad/sim-id?Ident=PN+G054.2-03.4"},
+    "sagittarius_a": {"identifier":"NAME Sgr A*","ra":"17:45:40.03599","dec":"-29:00:28.1699","frame":"ICRS","scope":"radio source position; no optical V magnitude supplied","reference":"2011AJ....142...35P","url":"https://simbad.cds.unistra.fr/simbad/sim-basic?Ident=sgr+A"},
+    "cartwheel_galaxy": {"identifier":"ESO 350-40","ra":"00:37:41.1133192392","dec":"-33:42:58.515101748","frame":"ICRS","scope":"catalogue optical reference position","reference":"2020yCat.1350....0G","url":"https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ESO+350-40+"},
+    "sn_1006": {"identifier":"SNR G327.6+14.6","ra":"15:02:50","dec":"-41:56:00","frame":"equatorial","scope":"approximate remnant centre; source declination rounded to arcminutes","reference":"Green Galactic SNR catalogue, 2024 October","url":"https://www.mrao.cam.ac.uk/surveys/snrs/snrs.data.html","majorAxisArcmin":30,"minorAxisArcmin":30},
+    "vela_snr": {"identifier":"SNR G263.9-3.3","ra":"08:34:00","dec":"-45:50:00","frame":"equatorial","scope":"approximate remnant centre; source declination rounded to arcminutes","reference":"Green Galactic SNR catalogue, 2024 October","url":"https://www.mrao.cam.ac.uk/surveys/snrs/snrs.data.html","majorAxisArcmin":255,"minorAxisArcmin":255,"correctedCatalog":"SNR G263.9-3.3"}
+  }
+}

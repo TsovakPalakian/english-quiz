@@ -7,7 +7,28 @@ try{
   browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport}),errors=[],requests=[];
-    if(viewport.width===1440)await page.clock.install();
+    await page.clock.install();
+    await page.addInitScript(()=>{
+      const prototype=CanvasRenderingContext2D.prototype;
+      for(const method of ['clearRect','beginPath','moveTo','lineTo','stroke','clip']){
+        const original=prototype[method];
+        prototype[method]=function(...args){
+          if(this.canvas.id==='authSky'){
+            if(method==='clearRect'&&args[0]===0&&args[1]===0&&args[2]>=innerWidth&&args[3]>=innerHeight)window.skyDrawing={edges:[],clips:0};
+            if(method==='beginPath')this.skyPath=[];
+            if(method==='moveTo'||method==='lineTo')(this.skyPath||=[]).push({x:args[0],y:args[1]});
+            if(method==='stroke'&&Math.abs(this.lineWidth-.8)<1e-6)window.skyDrawing?.edges.push([...(this.skyPath||[])]);
+            if(method==='clip'&&window.skyDrawing)window.skyDrawing.clips++;
+          }
+          return original.apply(this,args);
+        };
+      }
+    });
+    await page.route('**/preview.js*',async route=>{
+      const response=await route.fetch(),body=await response.text();
+      assert.ok(body.includes('let current=next(),previous=null'));
+      await route.fulfill({response,body:body.replace('let current=next(),previous=null','let current=catalogue.find(c=>c.abbr===\'Cru\'),previous=null')});
+    });
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('**/api/auth/password/**',route=>{requests.push({path:new URL(route.request().url()).pathname,body:route.request().postDataJSON()});return route.fulfill({json:{ok:true}});});
     let releaseAccount;const accountGate=new Promise(resolve=>{releaseAccount=resolve;});
@@ -17,54 +38,164 @@ try{
     assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(14, 26, 38)','The previous theme never flashes while authentication is pending');
     assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
     releaseAccount();await page.waitForSelector('body.guest-home');await page.unroute('**/api/me',initialAccount);
+    await page.clock.runFor(16500);
+    const delay=Number(await page.locator('#authSky').getAttribute('data-sky-flyby-delay'));assert.ok(delay>=14000&&delay<=60000,'Homepage flybys are 2–5 times less frequent');
+    assert.ok(await page.locator('#authSkyTuning input[type="range"]').first().evaluate(n=>n.getBoundingClientRect().width>innerWidth-80),'Sliders span the viewport');
+    assert.equal(await page.locator('.auth-sky-caption:visible').evaluate(n=>getComputedStyle(n).fontSize),'18px');
+    const referenceNames=await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').allTextContents();
+    assert.ok(referenceNames.every(name=>['Rigil Kentaurus','Hadar'].includes(name)),'Only external Crux pointers are labelled when in the viewport');
+    assert.equal(await page.locator('.auth-sky-caption:visible .auth-sky-name').textContent(),'Crux','Constellation captions are restored');
+    assert.match(await page.locator('.auth-sky-caption:visible .auth-sky-scale').textContent(),/^100 px ≈ \d+\.\d{2}°$/,'Angular scale is always visible beside the title');
     if(viewport.width===1440){
-      const pole=await page.locator('#authSky').getAttribute('data-polaris-x');
-      await page.clock.runFor(15500);
       assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
       const firstConstellation=await page.locator('#authSky').getAttribute('data-sky-constellation');assert.ok(firstConstellation);
-      const caption=page.locator('.auth-sky-caption');await caption.waitFor({state:'visible'});
-      const captionUrl=await caption.getAttribute('href');
-      await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation fixture</title>'}));
-      const [popup]=await Promise.all([page.waitForEvent('popup'),caption.click()]);await popup.waitForLoadState();
-      assert.equal(popup.url(),captionUrl,'Clicking a constellation name opens its reference');await popup.close();
+      assert.equal(await page.locator('.auth-sky-caption:visible').count(),1);
+      assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
+      for(const label of await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').all())assert.match(await label.textContent(),/^(Polaris|Acrux|Gacrux|Mimosa|Delta Crucis|Rigil Kentaurus|Hadar)$/);
+      assert.equal(await page.locator('.auth-sky-primary:visible').textContent(),'Acrux');
+      const link=page.locator('.auth-sky-caption:visible'),url=await link.getAttribute('href');
+      await page.context().route('https://simbad.cds.unistra.fr/**',route=>route.fulfill({contentType:'text/html',body:'<title>Star reference fixture</title>'}));
+      await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation reference fixture</title>'}));
+      const [popup]=await Promise.all([page.waitForEvent('popup'),link.click()]);await popup.waitForLoadState();assert.equal(popup.url(),url);await popup.close();
       await page.clock.runFor(8100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'morph');
       assert.notEqual(await page.locator('#authSky').getAttribute('data-sky-constellation'),firstConstellation);
       await page.clock.runFor(18100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
-      assert.equal(await page.locator('#authSky').getAttribute('data-polaris-x'),pole,'Polaris stays fixed while constellations change');
     }
     assert.equal(await page.locator('#loginForm').isVisible(),false);
-    await page.screenshot({path:'/private/tmp/lumiscia-studio-home-'+viewport.width+'.png',fullPage:true});
-    const homePole=await page.locator('#authSky').getAttribute('data-polaris-x');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    const alphaSum=()=>page.locator('#authSky').evaluate(canvas=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let sum=0;for(let i=3;i<pixels.length;i+=4)sum+=pixels[i];return sum;});
+    const setBrightness=(id,value)=>page.locator('#'+id).evaluate((input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},value);
+    const beforeBrightness=await alphaSum();
+    const beforeTuning=await page.locator('#authSky').getAttribute('data-sky-constellation');
+    assert.deepEqual(await page.locator('#authSkyTuning input[type="range"]').evaluateAll(nodes=>nodes.map(n=>n.value)),['500','500','500']);
+    await setBrightness('authSkyBackgroundBrightness',1000);
+    assert.equal(await page.locator('output[for="authSkyBackgroundBrightness"]').textContent(),'10000.00×');
+    await setBrightness('authSkyConstellationBrightness',1000);
+    assert.equal(await page.locator('output[for="authSkyConstellationBrightness"]').textContent(),'10000.00×');
+    await setBrightness('authSkyConstellationBrightness',500);
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation'),beforeTuning,'Changing brightness must not restart the scene or replace the constellation');
+    assert.ok(await alphaSum()>beforeBrightness,'Right of centre increases brightness');
+    await setBrightness('authSkyBackgroundBrightness',0);
+    const backgroundOff=await alphaSum();assert.ok(backgroundOff<beforeBrightness,'Background slider independently darkens ambient and wandering stars');
+    assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'500');
+    await setBrightness('authSkyConstellationBrightness',0);
+    assert.ok(await alphaSum()<backgroundOff,'Constellation stars can independently be switched off');
+    await setBrightness('authSkyBackgroundBrightness',125);await setBrightness('authSkyConstellationBrightness',375);
+    assert.deepEqual(await page.locator('#authSkyTuning output').allTextContents(),['0.25×','0.75×','1.00×']);
+    for(const value of [0,1000,500]){
+      await setBrightness('authSkyDistanceScale',value);
+      assert.equal(await page.locator('#authSky').getAttribute('data-sky-scale'),String(value));
+      const shown=await page.locator('.auth-sky-caption:visible').count();
+      if(value===0)assert.equal(shown,0,'Zero scale hides the figure rather than merging every star');
+      else assert.equal(shown,1,'Title stays in safe free space when zoomed');
+      assert.equal(await page.locator('#authSkyBackgroundBrightness').inputValue(),'125');
+      assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'375');
+      const drawing=await page.evaluate(()=>({trace:window.skyDrawing,expected:STUDIO_SKY_CATALOGUE.find(c=>c.abbr===document.getElementById('authSky').dataset.skyConstellation).connections.length}));
+      assert.equal(drawing.trace.edges.length,value===0?0:drawing.expected,'Every catalogue edge of a visible figure is drawn');
+      assert.ok(drawing.trace.edges.every(edge=>edge.length===2&&edge.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))),'Every edge retains both finite endpoint coordinates');
+      const collisions=await page.evaluate(()=>{
+        const regions=[...document.querySelectorAll('#home .studio-brand,#homeAuth,#authSkyTuning,.site-copyright')].filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect());
+        return window.skyDrawing.edges.some(([a,b])=>regions.some(r=>{
+          let lo=0,hi=1;
+          for(const [p,d,min,max] of [[a.x,b.x-a.x,r.left,r.right],[a.y,b.y-a.y,r.top,r.bottom]]){
+            if(Math.abs(d)<1e-12){if(p<min||p>max)return false;continue;}
+            lo=Math.max(lo,Math.min((min-p)/d,(max-p)/d));hi=Math.min(hi,Math.max((min-p)/d,(max-p)/d));if(lo>hi)return false;
+          }return true;
+        }));
+      });assert.equal(collisions,false,'Complete line geometry is outside the UI, not merely hidden by clipping');
+    }
+    await setBrightness('authSkyDistanceScale',650);
+    assert.equal(await page.evaluate(()=>localStorage.getItem('lumiscia-sky-brightness-background-v4')),'125');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('lumiscia-sky-brightness-constellation-v4')),'375');
+    const tuningClear=()=>page.locator('#authSkyTuning').evaluate(n=>{const a=n.getBoundingClientRect();return [...document.querySelectorAll('.studio-brand,#accountBody')].filter(e=>e.getClientRects().length).every(e=>{const b=e.getBoundingClientRect();return a.right<=b.left||a.left>=b.right||a.bottom<=b.top||a.top>=b.bottom;});});
+    assert.ok(await tuningClear(),'Brightness panel does not overlap branding');
     assert.equal(await page.locator('#homeAuth .btn').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)');
+    const brandWhitespaceHasStars=()=>page.evaluate(()=>{
+      const canvas=document.getElementById('authSky'),ctx=canvas.getContext('2d'),ratio=canvas.width/innerWidth;
+      const r=document.querySelector('#home .brand-copy').getBoundingClientRect();
+      const data=ctx.getImageData(Math.ceil(r.left*ratio),Math.ceil(r.top*ratio),Math.floor(r.width*ratio),Math.floor(r.height*ratio)).data;
+      return data.some((v,i)=>i%4===3&&v>0);
+    });
+    let starsByText=await brandWhitespaceHasStars();
+    for(let i=0;i<4&&!starsByText;i++){
+      await page.evaluate(()=>document.body.dispatchEvent(new WheelEvent('wheel',{deltaY:73,bubbles:true,cancelable:true})));
+      starsByText=await brandWhitespaceHasStars();
+    }
+    assert.ok(starsByText,'Only the circular emblem is cleared; empty space around branding text still has background stars');
+    const skyHash=()=>page.locator('#authSky').evaluate(canvas=>{const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let hash=0;for(let i=3;i<data.length;i+=4)hash+=data[i]*(i%65521);return hash;});
+    const fixedBefore=await page.locator('#home .studio-brand').boundingBox(),skyBeforePan=await skyHash();
+    await page.evaluate(()=>document.body.dispatchEvent(new WheelEvent('wheel',{deltaY:137,bubbles:true,cancelable:true})));
+    assert.deepEqual(await page.locator('#home .studio-brand').boundingBox(),fixedBefore,'Infinite sky scrolling never moves the logo');
+    assert.notEqual(await skyHash(),skyBeforePan,'Infinite scrolling moves background stars');
     await page.getByRole('button',{name:'Enter the Learning Studio',exact:true}).click();
     await page.waitForSelector('body.guest-auth');await page.locator('[data-microsoft-auth]').waitFor({state:'visible'});
-    await page.waitForFunction(previous=>{const x=document.getElementById('authSky').dataset.polarisX;return !!x&&x!==previous;},homePole);
-    assert.notEqual(await page.locator('#authSky').getAttribute('data-polaris-x'),homePole,'Opening another screen gives Polaris a new fixed location');
+    const loginWidth=await page.locator('#loginForm').evaluate(n=>n.getBoundingClientRect().width);
+    assert.equal(await page.locator('.auth-brand').evaluate(n=>n.tagName),'DIV');
+    assert.ok(await page.locator('#account').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<1;}),'Login is horizontally centred');
+    assert.match(await page.locator('[data-studio-back]').textContent(),/Back to home/);
+    await page.clock.runFor(16500);
+    assert.ok(await tuningClear(),'Brightness panel does not overlap the login form or branding');
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
     assert.equal(await page.locator('.auth-providers .auth-google:visible').count(),5);
     assert.ok(await page.locator('#authLogin').evaluate(node=>parseFloat(getComputedStyle(node).paddingLeft)>=40),'Input text clears its icon');
     await page.locator('#authPassword').fill('example-password');await page.locator('[data-auth-password]').click();
     assert.equal(await page.locator('#authPassword').getAttribute('type'),'text');
     await page.locator('[data-auth-password]').click();assert.equal(await page.locator('#authPassword').getAttribute('type'),'password');
-    await page.screenshot({path:'/private/tmp/lumiscia-studio-login-'+viewport.width+'.png',fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-    const pixels=await page.evaluate(()=>{
-      const canvas=document.getElementById('authSky'),ctx=canvas.getContext('2d'),r=document.getElementById('accountBody').getBoundingClientRect(),box={left:r.left+32,top:r.top+32,width:r.width-64,height:r.height-64},ratio=canvas.width/innerWidth;
-      const data=ctx.getImageData(Math.max(0,Math.ceil(box.left*ratio)),Math.max(0,Math.ceil(box.top*ratio)),Math.floor(box.width*ratio),Math.min(Math.floor(box.height*ratio),canvas.height-Math.ceil(box.top*ratio))).data;
-      return {covered:[...data].some((v,i)=>i%4===3&&v>0),sky:ctx.getImageData(0,0,canvas.width,canvas.height).data.some((v,i)=>i%4===3&&v>0)};
-    });assert.equal(pixels.covered,false,'No stars behind the form');assert.equal(pixels.sky,true,'Sky is not blank');
+    assert.ok(await alphaSum()>0,'Sky is not blank');
+    const widgetsClear=await page.evaluate(()=>{
+      const canvas=document.getElementById('authSky'),ctx=canvas.getContext('2d'),ratio=canvas.width/innerWidth;
+      return [...document.querySelectorAll('#account .auth-brand .brand-mark')].filter(n=>n.getClientRects().length).every(n=>{
+        const r=n.getBoundingClientRect(),x=Math.max(0,Math.ceil(r.left*ratio)),y=Math.max(0,Math.ceil(r.top*ratio));
+        const right=Math.min(canvas.width,Math.floor(r.right*ratio)),bottom=Math.min(canvas.height,Math.floor(r.bottom*ratio));
+        if(right<=x||bottom<=y)return true;
+        const data=ctx.getImageData(x,y,right-x,bottom-y).data;
+        return !data.some((value,i)=>i%4===3&&value>0);
+      });
+    });assert.ok(widgetsClear,'The circular emblem contains no star or line pixels');
+    const labelsClear=await page.locator('.auth-sky-landmark:visible,.auth-sky-caption:visible').evaluateAll(nodes=>{
+      const overlap=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+      const ui=[...document.querySelectorAll('.auth-brand,#accountBody,.site-copyright,#authSkyTuning')].filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect());
+      const labels=nodes.map(n=>n.getBoundingClientRect());
+      return labels.every((a,i)=>!ui.some(b=>overlap(a,b))&&!labels.slice(i+1).some(b=>overlap(a,b)));
+    });assert.ok(labelsClear,'Labels avoid each other and all actual interface elements');
     await page.locator('[data-login-mode="otp"]').last().click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
     await page.locator('.auth-mode-switch [data-login-mode="password"]').click();assert.equal(await page.locator('#loginForm').isVisible(),true);
-    await page.locator('[data-password-recovery]').click();await page.locator('#recoveryEmail').fill('user@example.com');
+    await page.locator('[data-password-recovery]').click();
+    assert.equal(await page.locator('#passwordRecoveryForm').evaluate(n=>n.getBoundingClientRect().width),loginWidth,'Recovery and login have identical widths');
+    assert.ok(await page.locator('#passwordRecoveryForm').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<1;}),'Recovery is horizontally centred');
+    assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
+    assert.match(await page.locator('[data-recovery-send]').getAttribute('class'),/auth-code-send/);
+    await page.locator('#recoveryEmail').fill('user@example.com');
     await page.locator('[data-recovery-send]').click();await page.locator('#recoveryCode').waitFor({state:'visible'});
     await page.locator('#recoveryCode').fill('123456');await page.locator('#recoveryPassword').fill('new-password');
     await page.getByRole('button',{name:'Save new password'}).click();await page.locator('#loginForm').waitFor({state:'visible'});
     assert.match(await page.locator('#loginForm [data-form-status]').textContent(),/Password updated/);
     assert.equal(requests.length,2);assert.equal(requests[1].body.password,'new-password');
     await page.locator('.auth-create button').click();await page.locator('#registerForm').waitFor({state:'visible'});
-    assert.equal(await page.locator('[data-google-auth]').isVisible(),true);
-    await page.screenshot({path:'/private/tmp/lumiscia-studio-register-'+viewport.width+'.png',fullPage:true});
+    assert.equal(await page.locator('#registerForm').evaluate(n=>n.getBoundingClientRect().width),loginWidth,'Registration and login have identical widths');
+    assert.equal(await page.locator('[data-google-auth]').count(),0);
+    assert.equal(await page.locator('#registerForm [name="role"]').count(),0);
+    assert.equal(await page.locator('#accountBody .auth-tabs').count(),0);
+    assert.equal(await page.locator('#registerForm [name="name"]').getAttribute('required'),'');
+    await page.locator('#registerForm [name="name"]').fill('   ');
+    assert.equal(await page.locator('#registerForm [name="name"]').evaluate(n=>n.checkValidity()),false);
+    assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
+    await page.locator('[data-studio-back]').click();await page.locator('#loginForm').waitFor({state:'visible'});
+    for(const [provider,global] of [['microsoft','MicrosoftSignIn'],['telegram','TelegramSignIn']]){
+      await page.evaluate(({provider,global})=>{sessionStorage.setItem('enquiz-'+provider+'-verify','1');window[global].paint(document.getElementById('accountBody'));},{provider,global});
+      await page.locator('[data-'+provider+'-cancel].studio-back').waitFor({state:'visible'});
+      assert.equal(await page.locator('#accountBody .studio-back').count(),1,'Federated verification has one functional back control');
+      await page.locator('[data-'+provider+'-cancel]').click();await page.locator('#loginForm').waitFor({state:'visible'});
+      assert.equal(await page.evaluate(provider=>sessionStorage.getItem('enquiz-'+provider+'-verify'),provider),null);
+    }
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await page.evaluate(()=>localStorage.setItem('lumiscia-sky-scale-Cru','650'));
+    await page.reload();await page.waitForSelector('body.guest-home');
+    assert.equal(await page.locator('#authSkyBackgroundBrightness').inputValue(),'125','Background brightness survives reload');
+    assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'375','Constellation brightness survives reload');
+    assert.equal(await page.locator('#authSkyDistanceScale').inputValue(),'650','Distance scale survives reload');
     assert.deepEqual(errors,[]);await page.close();
   }
-  console.log('Auth studio: desktop/mobile, providers, password toggle, OTP, recovery, registration and sky exclusion passed.');
+  console.log('Auth studio: desktop/mobile, centred controls, complete connections, safe labels and authentication passed.');
 }finally{await browser?.close();await preview.close();}

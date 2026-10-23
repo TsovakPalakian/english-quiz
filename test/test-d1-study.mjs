@@ -106,7 +106,8 @@ test('invite and email-code CAS guards work on actual D1 without TEMP tables',as
   const wrong=proof.code==='100000'?'100001':'100000';
   await assert.rejects(otp.consume(proof.email,wrong),error=>error.status===401);
   assert.equal((await otp.consume(proof.email,proof.code)).email,proof.email);
-  assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name IN ('_study_batch_invite_guard','_study_batch_email_otp_guard')"),[]);
+  await assert.rejects(otp.consume(proof.email,proof.code),error=>error.status===400);
+  assert.deepEqual(await db.read("SELECT name FROM sqlite_master WHERE name IN ('_study_batch_invite_guard','_study_batch_email_otp_guard','_study_batch_email_otp_consume_guard')"),[]);
 });
 test('passkey rate limits and single-use challenges work through actual D1 guards',async()=>{
   const service=new Passkeys(db,'https://fixture.invalid');

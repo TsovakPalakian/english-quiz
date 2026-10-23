@@ -34,8 +34,8 @@ try{
       await page.evaluate(()=>TelegramSignIn.decorate(document.getElementById('accountBody')));
       assert.equal(await page.locator('[data-telegram-auth]').isVisible(),enabled&&!register);
       if(register){
-        assert.equal(await page.locator('[data-google-auth]').isVisible(),true,'Google registration remains available');
-        assert.equal(await page.locator('.auth-divider').count(),1);
+        assert.equal(await page.locator('[data-google-auth]').count(),0,'Registration is a plain application form');
+        assert.equal(await page.locator('.auth-divider').count(),0);
         assert.equal(await page.locator('[data-microsoft-auth],[data-telegram-auth],[data-passkey-login]').count(),0,'Other sign-in providers stay on Log in');
       }
       if(enabled&&!register)for(const width of [390,1000]){
@@ -48,7 +48,6 @@ try{
     assert.equal(providerCalls,1,'Provider configuration is fetched only once');
     if(enabled){
       await page.setViewportSize({width:390,height:1000});await page.evaluate(()=>paintAccountForm(false));
-      await page.screenshot({path:'/private/tmp/lumiscia-telegram-login-390.png'});
       for(const wait of [true,false]){
         pending=wait;
         await page.evaluate(()=>{sessionStorage.setItem('enquiz-telegram-verify','1');paintAccountForm(false);});

@@ -1,0 +1,2576 @@
+{
+  "checkedOn": "2026-10-24",
+  "scope": "All active catalogue rows; no scientific data modified by this audit",
+  "catalogueSha256": "324e9c6b20e91cf14b54bbb4d7510505d212963cfe78251225a54d3be36b0c8a",
+  "counts": {
+    "constellations": 88,
+    "starEntries": 836,
+    "uniqueHip": 823,
+    "edges": 743,
+    "objects": 157,
+    "galaxyLabelledObjects": 49,
+    "components": 8,
+    "conditionalVRecordsIncludingGroupContainers": 31
+  },
+  "sourceFiles": [
+    {
+      "key": "hyg",
+      "gitBlobSha1": "ba2dec4eb0f6768914c7fc1051258100214ddf84",
+      "matchesPin": true
+    },
+    {
+      "key": "ngc",
+      "gitBlobSha1": "efa4b71036d8967c4c698a57fb0526288e201623",
+      "matchesPin": true
+    },
+    {
+      "key": "addendum",
+      "gitBlobSha1": "490b5b1274f9d83a18fa46b50a7babd1f219e80e",
+      "matchesPin": true
+    },
+    {
+      "key": "atlas",
+      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "matchesPin": true
+    },
+    {
+      "key": "harris",
+      "sha256": "b457a690adc422fb2e8e05a23e1de50b62d1d5ac10dce99963c956c1b17ca658",
+      "matchesPin": true
+    }
+  ],
+  "verifiedFields": {
+    "positions": 998,
+    "stellarPhotometry": 841,
+    "objectPhotometryAndSizes": 147
+  },
+  "integrityErrors": [],
+  "findings": [
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/m31",
+      "legacy": 3.4,
+      "catalogueV": 3.44,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/m110",
+      "legacy": 8.5,
+      "catalogueV": 8.15,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/m32",
+      "legacy": 8.1,
+      "catalogueV": 8.13,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/blue_snowball",
+      "legacy": 9.2,
+      "catalogueV": 8.3,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/silver_sliver",
+      "legacy": 10.0,
+      "catalogueV": 10.01,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "And/mirachs_ghost",
+      "legacy": 11.2,
+      "catalogueV": 10.55,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ant/ngc2997",
+      "legacy": 10.6,
+      "catalogueV": 9.41,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Aps/ngc6101",
+      "legacy": 9.8,
+      "catalogueV": 9.16,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Aqr/m2",
+      "legacy": 6.5,
+      "catalogueV": 6.25,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ara/ngc6397",
+      "legacy": 5.3,
+      "catalogueV": 5.17,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Ara/stingray_nebula",
+      "url": "https://simbad.u-strasbg.fr/simbad/sim-id?Ident=Hen+3-1357",
+      "scope": "SIMBAD position associated with the nebula and its central star; not a measured nebular centroid",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ara/stingray_nebula",
+      "legacy": 14.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Aur/m36",
+      "legacy": 6.3,
+      "catalogueV": 6.0,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Aur/m37",
+      "legacy": 6.2,
+      "catalogueV": 5.6,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Aur/m38",
+      "legacy": 7.4,
+      "catalogueV": 6.4,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cam/ngc2403",
+      "legacy": 8.9,
+      "catalogueV": 8.43,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cnc/m67",
+      "legacy": 6.1,
+      "catalogueV": 6.9,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CVn/m51",
+      "legacy": 8.4,
+      "catalogueV": 8.36,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CVn/m3",
+      "legacy": 6.2,
+      "catalogueV": 6.39,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CVn/m63",
+      "legacy": 8.6,
+      "catalogueV": 8.61,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CVn/m94",
+      "legacy": 8.2,
+      "catalogueV": 8.24,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CMa/thor_helmet",
+      "legacy": 11.4,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cap/m30",
+      "legacy": 7.2,
+      "catalogueV": 7.1,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Car/eta_carinae_nebula",
+      "legacy": 1.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Car/southern_pleiades",
+      "legacy": 1.9,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cen/omega_centauri",
+      "legacy": 3.7,
+      "catalogueV": 5.33,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cen/centaurus_a",
+      "legacy": 6.8,
+      "catalogueV": 7.22,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "Cep/garnet_star",
+      "notes": [
+        "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cep/garnet_star",
+      "legacy": 4.08,
+      "catalogueV": 4.23,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cep/iris_nebula",
+      "legacy": 6.8,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cet/m77",
+      "legacy": 8.9,
+      "catalogueV": 9.29,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cet/m74_galaxy_note",
+      "legacy": 8.0,
+      "catalogueV": 10.9,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cir/circinus_galaxy",
+      "legacy": 11.0,
+      "catalogueV": 10.56,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Col/ngc1851",
+      "legacy": 7.3,
+      "catalogueV": 7.14,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Com/m53",
+      "legacy": 7.6,
+      "catalogueV": 7.79,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Com/black_eye_galaxy",
+      "legacy": 8.5,
+      "catalogueV": 8.52,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CrA/cor_australis_nebula",
+      "legacy": 9.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "CrB/abell_2151",
+      "url": "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ACO+2151",
+      "scope": "catalogue cluster centre",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "CrB/abell_2151",
+      "notes": [
+        "Listed under the wrong constellation; original grouping preserved."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "object_constellation_conflict",
+      "severity": "high",
+      "entry": "CrB/abell_2151",
+      "actual": "Her",
+      "confidence": "high"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "CrB/abell_2151",
+      "legacy": 11.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Crv/antenna_galaxies",
+      "legacy": 10.3,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Crt/ngc3511",
+      "legacy": 10.8,
+      "catalogueV": 11.02,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cru/jewel_box",
+      "legacy": 4.2,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cru/coalsack_nebula",
+      "legacy": 0.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cyg/north_america_nebula",
+      "legacy": 4.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cyg/veil_nebula",
+      "legacy": 7.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "Cyg/cygnus_x1",
+      "notes": [
+        "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Cyg/cygnus_x1",
+      "legacy": 8.9,
+      "catalogueV": 8.84,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Del/ngc6934",
+      "legacy": 9.7,
+      "catalogueV": 8.83,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Del/ngc7006",
+      "legacy": 10.6,
+      "catalogueV": 10.46,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Dor/large_magellanic_cloud",
+      "legacy": 0.9,
+      "catalogueV": 0.29,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Dor/tarantula_nebula",
+      "legacy": 8.0,
+      "catalogueV": 7.25,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Dra/cat_eye_nebula",
+      "legacy": 8.1,
+      "catalogueV": 9.01,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Dra/spindle_galaxy",
+      "legacy": 9.9,
+      "catalogueV": 9.89,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Equ/ngc7015",
+      "legacy": 13.5,
+      "catalogueV": 12.53,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Eri/witch_head_nebula",
+      "legacy": 13.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "For/fornax_dwarf",
+      "legacy": 9.0,
+      "catalogueV": 7.4,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "For/ngc1365",
+      "legacy": 10.3,
+      "catalogueV": 10.1,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Gem/eskimo_nebula",
+      "legacy": 9.1,
+      "catalogueV": 9.61,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Gem/m35",
+      "legacy": 5.3,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "group_represented_by_one_galaxy",
+      "severity": "high",
+      "entry": "Gru/grus_quadartet",
+      "identifier": "NGC7582",
+      "confidence": "high",
+      "note": "Group name/type, but coordinates and photometry of one member only"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Gru/grus_quadartet",
+      "legacy": 11.3,
+      "catalogueV": 11.03,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Her/m92",
+      "legacy": 6.4,
+      "catalogueV": 6.52,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Hor/globular_ngc1261",
+      "legacy": 8.4,
+      "catalogueV": 8.63,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Hya/m83",
+      "legacy": 7.5,
+      "catalogueV": 7.21,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Hya/m48",
+      "legacy": 5.5,
+      "catalogueV": 5.8,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Hyi/ngc1511",
+      "legacy": 11.0,
+      "catalogueV": 11.3,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ind/ngc7090",
+      "legacy": 10.6,
+      "catalogueV": 10.87,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Lac/bl_lacertae",
+      "url": "https://simbad.u-strasbg.fr/simbad/sim-basic?Ident=BL+Lacertae&submit=SIMBAD+search",
+      "scope": "catalogue active nucleus position",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lac/bl_lacertae",
+      "legacy": 14.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Leo/m65",
+      "legacy": 9.3,
+      "catalogueV": 9.32,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Leo/m66",
+      "legacy": 8.9,
+      "catalogueV": 8.92,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Leo/m96",
+      "legacy": 9.2,
+      "catalogueV": 9.21,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "LMi/hickson_44",
+      "url": "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=HCG+44",
+      "scope": "catalogue group centre",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "LMi/hickson_44",
+      "notes": [
+        "Listed under the wrong constellation; original grouping preserved."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "object_constellation_conflict",
+      "severity": "high",
+      "entry": "LMi/hickson_44",
+      "actual": "Leo",
+      "confidence": "high"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "LMi/hickson_44",
+      "legacy": 11.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lep/m79",
+      "legacy": 7.7,
+      "catalogueV": 8.16,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "Lep/hind_crimson_star",
+      "notes": [
+        "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lep/hind_crimson_star",
+      "legacy": 8.5,
+      "catalogueV": 8.08,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lib/ngc5897",
+      "legacy": 8.4,
+      "catalogueV": 8.52,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Lup/sn_1006",
+      "url": "https://www.mrao.cam.ac.uk/surveys/snrs/snrs.data.html",
+      "scope": "approximate remnant centre; source declination rounded to arcminutes",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lup/sn_1006",
+      "legacy": 12.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lyn/ngc2419",
+      "legacy": 10.4,
+      "catalogueV": 10.05,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Lyr/m56",
+      "legacy": 8.3,
+      "catalogueV": 8.4,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "Men/lmc_edge",
+      "notes": [
+        "Catalogue position is in another constellation; original grouping retained.",
+        "Coordinates refer to the whole LMC, not a separately measured extension in Mensa."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "object_constellation_conflict",
+      "severity": "high",
+      "entry": "Men/lmc_edge",
+      "actual": "Dor",
+      "confidence": "high"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Men/lmc_edge",
+      "legacy": 0.9,
+      "catalogueV": 0.29,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Mic/ngc6925",
+      "legacy": 11.3,
+      "catalogueV": 11.35,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Mon/rosette_nebula",
+      "legacy": 9.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Mus/hourglass_nebula",
+      "url": "https://simbad.u-strasbg.fr/simbad/sim-basic?Ident=PN+MyCn+18",
+      "scope": "SIMBAD optical reference position associated with the central star; not a measured nebular centroid",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Mus/hourglass_nebula",
+      "legacy": 12.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Mus/ngc4833",
+      "legacy": 7.4,
+      "catalogueV": 6.91,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ori/horsehead_nebula",
+      "legacy": 11.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ori/m78",
+      "legacy": 8.3,
+      "catalogueV": 8.0,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Pav/ngc6752",
+      "legacy": 5.4,
+      "catalogueV": 6.28,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Pav/pavo_galaxy",
+      "legacy": 8.3,
+      "catalogueV": 9.25,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Peg/m15",
+      "legacy": 6.2,
+      "catalogueV": 6.3,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Peg/stephans_quintet",
+      "legacy": 13.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Per/double_cluster",
+      "legacy": 4.3,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Phe/robert_quartet",
+      "legacy": 13.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "Pic/kapteyn_star",
+      "notes": [
+        "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Pic/kapteyn_star",
+      "legacy": 8.8,
+      "catalogueV": 8.86,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Psc/m74",
+      "legacy": 10.0,
+      "catalogueV": 9.31,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "excluded_from_renderer",
+      "severity": "medium",
+      "entry": "PsA/lacaille_9352",
+      "notes": [
+        "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+      ],
+      "cause": "Builder excludes every reviewRequired singleton, including verified stars"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "PsA/lacaille_9352",
+      "legacy": 7.3,
+      "catalogueV": 7.35,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Pup/m93",
+      "legacy": 6.0,
+      "catalogueV": 6.2,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ret/ngc1559",
+      "legacy": 10.4,
+      "catalogueV": 10.6,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sge/m71",
+      "legacy": 8.2,
+      "catalogueV": 8.19,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Sge/necklace_nebula",
+      "url": "https://simbad.u-strasbg.fr/simbad/sim-id?Ident=PN+G054.2-03.4",
+      "scope": "SIMBAD optical position of the central binary; not a measured nebular centroid",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sge/necklace_nebula",
+      "legacy": 14.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sgr/lagoon_nebula",
+      "legacy": 6.0,
+      "catalogueV": 5.8,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sgr/trifid_nebula",
+      "legacy": 6.3,
+      "catalogueV": 8.5,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sgr/omega_nebula",
+      "legacy": 6.0,
+      "catalogueV": 7.0,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Sgr/sagittarius_a",
+      "url": "https://simbad.cds.unistra.fr/simbad/sim-basic?Ident=sgr+A",
+      "scope": "radio source position; no optical V magnitude supplied",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sgr/sagittarius_a",
+      "legacy": 0.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sco/m4",
+      "legacy": 5.6,
+      "catalogueV": 5.4,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Scl/sculptor_galaxy",
+      "legacy": 7.1,
+      "catalogueV": 11.11,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Scl/cartwheel_galaxy",
+      "url": "https://simbad.cds.unistra.fr/simbad/sim-id?Ident=ESO+350-40+",
+      "scope": "catalogue optical reference position",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Scl/cartwheel_galaxy",
+      "legacy": 15.2,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sct/m26",
+      "legacy": 8.0,
+      "catalogueV": 8.87,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Ser/m5",
+      "legacy": 5.6,
+      "catalogueV": 5.95,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Sex/needle_galaxy",
+      "legacy": 8.9,
+      "catalogueV": 9.09,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tau/pleiades",
+      "legacy": 1.6,
+      "catalogueV": 1.2,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tau/hyades",
+      "legacy": 0.5,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tel/ngc6584",
+      "legacy": 7.9,
+      "catalogueV": 8.17,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tri/triangulum_galaxy",
+      "legacy": 5.7,
+      "catalogueV": 5.79,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tuc/ngc_104",
+      "legacy": 4.0,
+      "catalogueV": 4.09,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Tuc/ngc_362",
+      "legacy": 6.4,
+      "catalogueV": 6.58,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "UMa/m81",
+      "legacy": 6.9,
+      "catalogueV": 6.92,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "UMa/m82",
+      "legacy": 8.4,
+      "catalogueV": 8.3,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "UMi/ngc_6217",
+      "legacy": 11.2,
+      "catalogueV": 12.82,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vel/ngc_3132",
+      "legacy": 9.8,
+      "catalogueV": 9.2,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "manually_transcribed_source",
+      "severity": "info",
+      "entry": "Vel/vela_snr",
+      "url": "https://www.mrao.cam.ac.uk/surveys/snrs/snrs.data.html",
+      "scope": "approximate remnant centre; source declination rounded to arcminutes",
+      "note": "Compared with retained cited record, not a fresh remote query"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vel/vela_snr",
+      "legacy": 12.0,
+      "catalogueV": null,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vir/m49",
+      "legacy": 8.4,
+      "catalogueV": 8.28,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vir/m87",
+      "legacy": 9.6,
+      "catalogueV": 9.0,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vir/m104",
+      "legacy": 8.0,
+      "catalogueV": 8.59,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vol/ngc_2442",
+      "legacy": 10.4,
+      "catalogueV": 10.63,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "legacy_object_magnitude",
+      "severity": "info",
+      "entry": "Vul/m27",
+      "legacy": 7.5,
+      "catalogueV": 7.4,
+      "note": "Legacy value is not used by the current renderer"
+    },
+    {
+      "code": "confirmed_wrong_object_name",
+      "severity": "high",
+      "entry": "Sex/needle_galaxy",
+      "expected": "Spindle Galaxy / NGC 3115",
+      "actual": "Needle Galaxy",
+      "confidence": "high",
+      "sources": [
+        "https://simbad.u-strasbg.fr/simbad/sim-id?Ident=NGC+3115",
+        "https://science.nasa.gov/missions/hubble/hubble-sees-the-needle-galaxy-edge-on-and-up-close/"
+      ]
+    }
+  ],
+  "legacyStellarMagnitudeDifferences": [
+    {
+      "entry": "Ara/beta_ara",
+      "legacy": 2.85,
+      "catalogueV": 2.84
+    },
+    {
+      "entry": "Ara/alpha_ara",
+      "legacy": 2.93,
+      "catalogueV": 2.84
+    },
+    {
+      "entry": "CVn/beta_cvn",
+      "legacy": 4.26,
+      "catalogueV": 4.24
+    },
+    {
+      "entry": "CMa/sirius",
+      "legacy": -1.46,
+      "catalogueV": -1.44
+    },
+    {
+      "entry": "CMi/procyon",
+      "legacy": 0.38,
+      "catalogueV": 0.4
+    },
+    {
+      "entry": "Car/canopus",
+      "legacy": -0.74,
+      "catalogueV": -0.62
+    },
+    {
+      "entry": "Cas/ruchbah",
+      "legacy": 2.68,
+      "catalogueV": 2.66
+    },
+    {
+      "entry": "Cen/alpha_cen",
+      "legacy": -0.27,
+      "catalogueV": -0.01
+    },
+    {
+      "entry": "Cen/epsilon_cen",
+      "legacy": 2.3,
+      "catalogueV": 2.29
+    },
+    {
+      "entry": "Cep/garnet_star",
+      "legacy": 4.08,
+      "catalogueV": 4.23
+    },
+    {
+      "entry": "Cet/deneb_kaitos",
+      "legacy": 2.53,
+      "catalogueV": 2.04
+    },
+    {
+      "entry": "Cha/alpha_cha",
+      "legacy": 4.07,
+      "catalogueV": 4.05
+    },
+    {
+      "entry": "Cir/alpha_cir",
+      "legacy": 3.19,
+      "catalogueV": 3.18
+    },
+    {
+      "entry": "CrA/meridiana",
+      "legacy": 4.1,
+      "catalogueV": 4.11
+    },
+    {
+      "entry": "CrA/beta_cra",
+      "legacy": 4.11,
+      "catalogueV": 4.1
+    },
+    {
+      "entry": "CrB/nusku",
+      "legacy": 3.68,
+      "catalogueV": 3.66
+    },
+    {
+      "entry": "Crv/gienah",
+      "legacy": 2.59,
+      "catalogueV": 2.58
+    },
+    {
+      "entry": "Crt/gamma_crt",
+      "legacy": 4.47,
+      "catalogueV": 4.06
+    },
+    {
+      "entry": "Cru/gacrux",
+      "legacy": 1.63,
+      "catalogueV": 1.59
+    },
+    {
+      "entry": "Cyg/delta_cyg",
+      "legacy": 2.87,
+      "catalogueV": 2.86
+    },
+    {
+      "entry": "Cyg/cygnus_x1",
+      "legacy": 8.9,
+      "catalogueV": 8.84
+    },
+    {
+      "entry": "Del/rotanev",
+      "legacy": 3.63,
+      "catalogueV": 3.64
+    },
+    {
+      "entry": "Dra/thuban",
+      "legacy": 3.65,
+      "catalogueV": 3.67
+    },
+    {
+      "entry": "Eri/theta_eri",
+      "legacy": 3.2,
+      "catalogueV": 2.88
+    },
+    {
+      "entry": "For/alpha_for",
+      "legacy": 3.85,
+      "catalogueV": 3.8
+    },
+    {
+      "entry": "Gem/pollux",
+      "legacy": 1.14,
+      "catalogueV": 1.16
+    },
+    {
+      "entry": "Her/kornephoros",
+      "legacy": 2.81,
+      "catalogueV": 2.78
+    },
+    {
+      "entry": "Her/rasalgethi",
+      "legacy": 3.48,
+      "catalogueV": 2.78
+    },
+    {
+      "entry": "Hya/alphard",
+      "legacy": 1.98,
+      "catalogueV": 1.99
+    },
+    {
+      "entry": "Ind/theta_ind",
+      "legacy": 4.4,
+      "catalogueV": 4.39
+    },
+    {
+      "entry": "LMi/praecipua",
+      "legacy": 3.83,
+      "catalogueV": 3.79
+    },
+    {
+      "entry": "LMi/beta_lmi",
+      "legacy": 4.21,
+      "catalogueV": 4.2
+    },
+    {
+      "entry": "Lep/hind_crimson_star",
+      "legacy": 8.5,
+      "catalogueV": 8.08
+    },
+    {
+      "entry": "Lyr/delta2_lyr",
+      "legacy": 4.3,
+      "catalogueV": 4.22
+    },
+    {
+      "entry": "Mon/alpha_mon",
+      "legacy": 3.93,
+      "catalogueV": 3.94
+    },
+    {
+      "entry": "Mon/gamma_mon",
+      "legacy": 3.98,
+      "catalogueV": 3.99
+    },
+    {
+      "entry": "Nor/gamma2_nor",
+      "legacy": 4.02,
+      "catalogueV": 4.01
+    },
+    {
+      "entry": "Oct/nu_oct",
+      "legacy": 3.76,
+      "catalogueV": 3.73
+    },
+    {
+      "entry": "Ori/rigel",
+      "legacy": 0.12,
+      "catalogueV": 0.18
+    },
+    {
+      "entry": "Ori/betelgeuse",
+      "legacy": 0.5,
+      "catalogueV": 0.45
+    },
+    {
+      "entry": "Ori/alnitak",
+      "legacy": 1.77,
+      "catalogueV": 1.74
+    },
+    {
+      "entry": "Ori/mintaka",
+      "legacy": 2.23,
+      "catalogueV": 2.25
+    },
+    {
+      "entry": "Peg/algenib",
+      "legacy": 2.84,
+      "catalogueV": 2.83
+    },
+    {
+      "entry": "Per/algol",
+      "legacy": 2.12,
+      "catalogueV": 2.09
+    },
+    {
+      "entry": "Phe/ankaa",
+      "legacy": 2.39,
+      "catalogueV": 2.4
+    },
+    {
+      "entry": "Phe/zeta_phe",
+      "legacy": 3.93,
+      "catalogueV": 3.94
+    },
+    {
+      "entry": "Pic/alpha_pic",
+      "legacy": 3.27,
+      "catalogueV": 3.24
+    },
+    {
+      "entry": "Pic/beta_pic",
+      "legacy": 3.86,
+      "catalogueV": 3.85
+    },
+    {
+      "entry": "Pic/kapteyn_star",
+      "legacy": 8.8,
+      "catalogueV": 8.86
+    },
+    {
+      "entry": "PsA/fomalhaut",
+      "legacy": 1.16,
+      "catalogueV": 1.17
+    },
+    {
+      "entry": "PsA/lacaille_9352",
+      "legacy": 7.3,
+      "catalogueV": 7.35
+    },
+    {
+      "entry": "Sge/delta_sga",
+      "legacy": 3.82,
+      "catalogueV": 3.68
+    },
+    {
+      "entry": "Sex/alpha_sex",
+      "legacy": 4.49,
+      "catalogueV": 4.48
+    },
+    {
+      "entry": "Tau/aldebaran",
+      "legacy": 0.85,
+      "catalogueV": 0.87
+    },
+    {
+      "entry": "Tau/zeta_tau",
+      "legacy": 3.01,
+      "catalogueV": 2.97
+    },
+    {
+      "entry": "TrA/gamma_tra",
+      "legacy": 2.89,
+      "catalogueV": 2.87
+    },
+    {
+      "entry": "UMa/dubhe",
+      "legacy": 1.79,
+      "catalogueV": 1.81
+    },
+    {
+      "entry": "UMa/merak",
+      "legacy": 2.37,
+      "catalogueV": 2.34
+    },
+    {
+      "entry": "UMa/phecda",
+      "legacy": 2.44,
+      "catalogueV": 2.41
+    },
+    {
+      "entry": "UMa/megrez",
+      "legacy": 3.31,
+      "catalogueV": 3.32
+    },
+    {
+      "entry": "UMa/alioth",
+      "legacy": 1.77,
+      "catalogueV": 1.76
+    },
+    {
+      "entry": "UMa/alkaid",
+      "legacy": 1.86,
+      "catalogueV": 1.85
+    },
+    {
+      "entry": "UMi/polaris",
+      "legacy": 1.98,
+      "catalogueV": 1.97
+    },
+    {
+      "entry": "UMi/kochab",
+      "legacy": 2.08,
+      "catalogueV": 2.07
+    },
+    {
+      "entry": "UMi/pherkad",
+      "legacy": 3.05,
+      "catalogueV": 3.0
+    },
+    {
+      "entry": "UMi/zeta_umi",
+      "legacy": 4.32,
+      "catalogueV": 4.29
+    },
+    {
+      "entry": "Vel/gamma_vel",
+      "legacy": 1.83,
+      "catalogueV": 1.75
+    },
+    {
+      "entry": "Vel/delta_vel",
+      "legacy": 1.96,
+      "catalogueV": 1.93
+    },
+    {
+      "entry": "Vel/lambda_vel",
+      "legacy": 2.21,
+      "catalogueV": 2.23
+    },
+    {
+      "entry": "Vir/vindemiatrix",
+      "legacy": 2.83,
+      "catalogueV": 2.85
+    },
+    {
+      "entry": "Vir/zavijava",
+      "legacy": 3.61,
+      "catalogueV": 3.59
+    }
+  ],
+  "legacyStellarSpectrumDifferences": [
+    {
+      "entry": "And/alpheratz",
+      "legacy": "B8IVp",
+      "source": "B9p"
+    },
+    {
+      "entry": "And/almach",
+      "legacy": "K3IIb",
+      "source": "B8V"
+    },
+    {
+      "entry": "And/delta_and",
+      "legacy": "K3III",
+      "source": "K3III..."
+    },
+    {
+      "entry": "Ara/beta_ara",
+      "legacy": "K3IB-II",
+      "source": "K3Ib-II"
+    },
+    {
+      "entry": "Ara/alpha_ara",
+      "legacy": "B2V",
+      "source": "B2Vne"
+    },
+    {
+      "entry": "Ari/sheratan",
+      "legacy": "A5V",
+      "source": "A5V..."
+    },
+    {
+      "entry": "Ari/mesartim",
+      "legacy": "A1V",
+      "source": "A1p Si"
+    },
+    {
+      "entry": "Ari/botein",
+      "legacy": "K2III",
+      "source": "K2IIIvar"
+    },
+    {
+      "entry": "Aur/capella",
+      "legacy": "G8III / G1III",
+      "source": "M1: comp"
+    },
+    {
+      "entry": "Aur/menkalinan",
+      "legacy": "A2IV",
+      "source": "A2V"
+    },
+    {
+      "entry": "Aur/theta_aur",
+      "legacy": "A0p",
+      "source": "A0p Si"
+    },
+    {
+      "entry": "Aur/iota_aur",
+      "legacy": "K3II",
+      "source": "K3IIvar"
+    },
+    {
+      "entry": "Aur/epsilon_aur",
+      "legacy": "F0Iae",
+      "source": "F0Ia"
+    },
+    {
+      "entry": "Boo/arcturus",
+      "legacy": "K1.5III",
+      "source": "K2IIIp"
+    },
+    {
+      "entry": "Boo/seginus",
+      "legacy": "A7III",
+      "source": "A7IIIvar"
+    },
+    {
+      "entry": "Boo/izar",
+      "legacy": "K0II-III",
+      "source": "A0"
+    },
+    {
+      "entry": "Cae/delta_cae",
+      "legacy": "B2.5V",
+      "source": "B2IV-V"
+    },
+    {
+      "entry": "Cam/alpha_cam",
+      "legacy": "O9.5Ia",
+      "source": "O9.5Ia SB:"
+    },
+    {
+      "entry": "Cnc/iota_cnc",
+      "legacy": "G8IIICN",
+      "source": "G8Iab:"
+    },
+    {
+      "entry": "CVn/cor_caroli",
+      "legacy": "A0Vp",
+      "source": "A0spe..."
+    },
+    {
+      "entry": "CMa/sirius",
+      "legacy": "A1V",
+      "source": "A0m..."
+    },
+    {
+      "entry": "CMa/mirzam",
+      "legacy": "B1II-III",
+      "source": "B1II/III"
+    },
+    {
+      "entry": "CMi/gomeisa",
+      "legacy": "B8V",
+      "source": "B8Vvar"
+    },
+    {
+      "entry": "Cap/deneb_algedi",
+      "legacy": "A5m",
+      "source": "A5mF2 (IV)"
+    },
+    {
+      "entry": "Cap/dabih",
+      "legacy": "K0III",
+      "source": "A5:n"
+    },
+    {
+      "entry": "Cap/nashira",
+      "legacy": "A7IV",
+      "source": "A7III:mp..."
+    },
+    {
+      "entry": "Cap/algedi",
+      "legacy": "G3Ib",
+      "source": "G6/G8III"
+    },
+    {
+      "entry": "Car/canopus",
+      "legacy": "F0II",
+      "source": "F0Ib"
+    },
+    {
+      "entry": "Car/miaplacidus",
+      "legacy": "A1III",
+      "source": "A2IV"
+    },
+    {
+      "entry": "Car/avior",
+      "legacy": "K3III",
+      "source": "K3III+B2V"
+    },
+    {
+      "entry": "Cas/schedar",
+      "legacy": "K0IIIa",
+      "source": "K0II-IIIvar"
+    },
+    {
+      "entry": "Cas/caph",
+      "legacy": "F2III",
+      "source": "F2III-IV"
+    },
+    {
+      "entry": "Cas/gamma_cas",
+      "legacy": "B0.5IVpe",
+      "source": "B0IV:evar"
+    },
+    {
+      "entry": "Cas/ruchbah",
+      "legacy": "A5Vv",
+      "source": "A5Vv SB"
+    },
+    {
+      "entry": "Cas/segin",
+      "legacy": "B3III",
+      "source": "B2pvar"
+    },
+    {
+      "entry": "Cen/alpha_cen",
+      "legacy": "G2V / K1V",
+      "source": "G2V"
+    },
+    {
+      "entry": "Cen/menkent",
+      "legacy": "K0III",
+      "source": "K0IIIb"
+    },
+    {
+      "entry": "Cep/alderamin",
+      "legacy": "A7IVV",
+      "source": "A7IV-V"
+    },
+    {
+      "entry": "Cep/alfirk",
+      "legacy": "B2IIIvpe",
+      "source": "B2IIIv SB"
+    },
+    {
+      "entry": "Cep/zeta_cep",
+      "legacy": "K1Ib",
+      "source": "K1Ibv SB"
+    },
+    {
+      "entry": "Cet/menkar",
+      "legacy": "M1.5IIIa",
+      "source": "M2III"
+    },
+    {
+      "entry": "Cet/eta_cet",
+      "legacy": "M3III",
+      "source": "K2III"
+    },
+    {
+      "entry": "Cha/alpha_cha",
+      "legacy": "F5V",
+      "source": "F5III"
+    },
+    {
+      "entry": "Cha/beta_cha",
+      "legacy": "B5V",
+      "source": "B5Vn"
+    },
+    {
+      "entry": "Cir/gamma_cir",
+      "legacy": "HBO",
+      "source": "B5III + F8"
+    },
+    {
+      "entry": "Col/wazn",
+      "legacy": "K2III",
+      "source": "K1.5III"
+    },
+    {
+      "entry": "Col/epsilon_col",
+      "legacy": "K1III",
+      "source": "K1II/III"
+    },
+    {
+      "entry": "CrA/meridiana",
+      "legacy": "A2V",
+      "source": "A0/A1V"
+    },
+    {
+      "entry": "CrA/beta_cra",
+      "legacy": "K0IIIN",
+      "source": "K0II/IIICN."
+    },
+    {
+      "entry": "CrA/gamma_cra",
+      "legacy": "F8IV + F6V",
+      "source": "F7IV-V"
+    },
+    {
+      "entry": "CrB/gamma_crb",
+      "legacy": "B9IV",
+      "source": "A1Vs"
+    },
+    {
+      "entry": "CrB/theta_crb",
+      "legacy": "F6V",
+      "source": "B6Vnn"
+    },
+    {
+      "entry": "Crv/algorab",
+      "legacy": "A0IV",
+      "source": "B9.5V"
+    },
+    {
+      "entry": "Crt/gamma_crt",
+      "legacy": "A7V",
+      "source": "A9V"
+    },
+    {
+      "entry": "Cyg/sadr",
+      "legacy": "F8Iab",
+      "source": "F8Ib"
+    },
+    {
+      "entry": "Cyg/albireo",
+      "legacy": "K3II+B8V",
+      "source": "K3II+..."
+    },
+    {
+      "entry": "Del/gamma_del",
+      "legacy": "K1IV + F7V",
+      "source": "K1IV"
+    },
+    {
+      "entry": "Del/delta_del",
+      "legacy": "A7V",
+      "source": "A7IIIp d Del"
+    },
+    {
+      "entry": "Dor/alpha_dor",
+      "legacy": "B0.5V",
+      "source": "A0V:"
+    },
+    {
+      "entry": "Dor/beta_dor",
+      "legacy": "F4-G4Ia",
+      "source": "F6Ia"
+    },
+    {
+      "entry": "Dor/gamma_dor",
+      "legacy": "F4V",
+      "source": "F4III"
+    },
+    {
+      "entry": "Dra/rastaban",
+      "legacy": "G2II-IIIA",
+      "source": "G2II"
+    },
+    {
+      "entry": "Dra/thuban",
+      "legacy": "A0IVm",
+      "source": "A0III SB"
+    },
+    {
+      "entry": "Equ/kitalpha",
+      "legacy": "G0III-IV",
+      "source": "G0III+..."
+    },
+    {
+      "entry": "Equ/delta_equ",
+      "legacy": "F5V",
+      "source": "F5V+..."
+    },
+    {
+      "entry": "Equ/gamma_equ",
+      "legacy": "A0p",
+      "source": "F0p"
+    },
+    {
+      "entry": "Eri/achernar",
+      "legacy": "B3Vpe",
+      "source": "B3Vp"
+    },
+    {
+      "entry": "Eri/zaurak",
+      "legacy": "M1III",
+      "source": "M1IIIb Ca-1"
+    },
+    {
+      "entry": "Eri/theta_eri",
+      "legacy": "A4V + A1V",
+      "source": "A4III+..."
+    },
+    {
+      "entry": "For/alpha_for",
+      "legacy": "F8IV",
+      "source": "F8V"
+    },
+    {
+      "entry": "For/nu_for",
+      "legacy": "B8V",
+      "source": "B9.5p (Si)"
+    },
+    {
+      "entry": "Gem/pollux",
+      "legacy": "K0III",
+      "source": "K0IIIvar"
+    },
+    {
+      "entry": "Gem/castor",
+      "legacy": "A1V",
+      "source": "A2Vm"
+    },
+    {
+      "entry": "Gem/alhena",
+      "legacy": "A1IV",
+      "source": "A0IV"
+    },
+    {
+      "entry": "Gem/wasat",
+      "legacy": "F0IV",
+      "source": "F0IV..."
+    },
+    {
+      "entry": "Gem/tejat",
+      "legacy": "M3III",
+      "source": "M3IIIvar"
+    },
+    {
+      "entry": "Gru/delta_gru",
+      "legacy": "G7III",
+      "source": "G6/G8III"
+    },
+    {
+      "entry": "Her/kornephoros",
+      "legacy": "G7III",
+      "source": "G8III"
+    },
+    {
+      "entry": "Her/sarin",
+      "legacy": "A3IVv",
+      "source": "A3IVv SB"
+    },
+    {
+      "entry": "Her/rasalgethi",
+      "legacy": "M5Ib-II",
+      "source": "M5IIvar"
+    },
+    {
+      "entry": "Her/pi_her",
+      "legacy": "K3IIIB",
+      "source": "K3IIvar"
+    },
+    {
+      "entry": "Hya/gamma_hya",
+      "legacy": "G8IV",
+      "source": "G8III"
+    },
+    {
+      "entry": "Hya/zeta_hya",
+      "legacy": "G9II/III",
+      "source": "G8III-IV"
+    },
+    {
+      "entry": "Hya/nu_hya",
+      "legacy": "K2/K3III",
+      "source": "K0/K1III"
+    },
+    {
+      "entry": "Lac/beta_lac",
+      "legacy": "G8III",
+      "source": "G9III"
+    },
+    {
+      "entry": "Leo/denebola",
+      "legacy": "A3V",
+      "source": "A3Vvar"
+    },
+    {
+      "entry": "Leo/rasalas",
+      "legacy": "K2III",
+      "source": "K0III"
+    },
+    {
+      "entry": "LMi/beta_lmi",
+      "legacy": "G8III",
+      "source": "G8III-IV"
+    },
+    {
+      "entry": "Lep/gamma_lep",
+      "legacy": "F7V + K2V",
+      "source": "F7V"
+    },
+    {
+      "entry": "Lep/delta_lep",
+      "legacy": "K0IV",
+      "source": "G8III/IV"
+    },
+    {
+      "entry": "Lib/zubenelgenubi",
+      "legacy": "A3V",
+      "source": "A3IV"
+    },
+    {
+      "entry": "Lib/sigma_lib",
+      "legacy": "M3III",
+      "source": "M3/M4III"
+    },
+    {
+      "entry": "Lup/beta_lup",
+      "legacy": "B2IV",
+      "source": "B2III"
+    },
+    {
+      "entry": "Lup/kappa_lup",
+      "legacy": "B9.5V",
+      "source": "B9V"
+    },
+    {
+      "entry": "Lyn/alpha_lyn",
+      "legacy": "K7III",
+      "source": "M0IIIvar"
+    },
+    {
+      "entry": "Lyn/31_lyn",
+      "legacy": "K4.5III",
+      "source": "K5III"
+    },
+    {
+      "entry": "Lyr/vega",
+      "legacy": "A0V",
+      "source": "A0Vvar"
+    },
+    {
+      "entry": "Lyr/sheliak",
+      "legacy": "B8II",
+      "source": "A8:V comp SB"
+    },
+    {
+      "entry": "Mic/epsilon_mic",
+      "legacy": "G8III",
+      "source": "A0V"
+    },
+    {
+      "entry": "Mic/alpha_mic",
+      "legacy": "G7III",
+      "source": "G8III"
+    },
+    {
+      "entry": "Mon/gamma_mon",
+      "legacy": "K1III",
+      "source": "K3III"
+    },
+    {
+      "entry": "Mon/beta_mon",
+      "legacy": "B3V",
+      "source": "B3Ve"
+    },
+    {
+      "entry": "Mon/delta_mon",
+      "legacy": "A0V",
+      "source": "A2V"
+    },
+    {
+      "entry": "Nor/gamma2_nor",
+      "legacy": "K0III",
+      "source": "G8III"
+    },
+    {
+      "entry": "Oct/nu_oct",
+      "legacy": "K1IV",
+      "source": "K0III"
+    },
+    {
+      "entry": "Oct/beta_oct",
+      "legacy": "A9IV",
+      "source": "A9IV/V"
+    },
+    {
+      "entry": "Ori/betelgeuse",
+      "legacy": "M1-M2Ia-Iab",
+      "source": "M2Ib"
+    },
+    {
+      "entry": "Ori/saiph",
+      "legacy": "B0.5Iae",
+      "source": "B0.5Iavar"
+    },
+    {
+      "entry": "Ori/alnitak",
+      "legacy": "O9.5Ib",
+      "source": "O9.5Ib SB"
+    },
+    {
+      "entry": "Ori/alnilam",
+      "legacy": "B0Iab",
+      "source": "B0Ia"
+    },
+    {
+      "entry": "Pav/delta_pav",
+      "legacy": "G8IV",
+      "source": "G5IV-Vvar"
+    },
+    {
+      "entry": "Peg/enif",
+      "legacy": "K2Ib",
+      "source": "K2Ibvar"
+    },
+    {
+      "entry": "Peg/scheat",
+      "legacy": "M2.5II-III",
+      "source": "M2II-IIIvar"
+    },
+    {
+      "entry": "Per/algol",
+      "legacy": "B8V + K2IV",
+      "source": "B8V"
+    },
+    {
+      "entry": "Per/gamma_per",
+      "legacy": "G8III + A2V",
+      "source": "G8III+..."
+    },
+    {
+      "entry": "Phe/ankaa",
+      "legacy": "K0III",
+      "source": "K0III..."
+    },
+    {
+      "entry": "Phe/beta_phe",
+      "legacy": "G8III",
+      "source": "G8IIIvar"
+    },
+    {
+      "entry": "Phe/gamma_phe",
+      "legacy": "K5II",
+      "source": "K5II-III"
+    },
+    {
+      "entry": "Phe/zeta_phe",
+      "legacy": "B6V",
+      "source": "B6V + B0V"
+    },
+    {
+      "entry": "Pic/alpha_pic",
+      "legacy": "A5V",
+      "source": "A7IV"
+    },
+    {
+      "entry": "Pic/beta_pic",
+      "legacy": "A6V",
+      "source": "A3V"
+    },
+    {
+      "entry": "Psc/eta_psc",
+      "legacy": "G7III",
+      "source": "G8III"
+    },
+    {
+      "entry": "Psc/gamma_psc",
+      "legacy": "G9III",
+      "source": "G7III"
+    },
+    {
+      "entry": "Psc/omega_psc",
+      "legacy": "P0IV",
+      "source": "F4IV"
+    },
+    {
+      "entry": "Psc/alpha_psc",
+      "legacy": "A0p + A3m",
+      "source": "A2"
+    },
+    {
+      "entry": "Pup/naos",
+      "legacy": "O4Iaf",
+      "source": "O5IAf"
+    },
+    {
+      "entry": "Pup/tureis",
+      "legacy": "F6II",
+      "source": "F2mF5IIp"
+    },
+    {
+      "entry": "Pup/asmidiske",
+      "legacy": "G6Ib",
+      "source": "G6Ia"
+    },
+    {
+      "entry": "Pup/tau_pup",
+      "legacy": "K1III",
+      "source": "K0III..."
+    },
+    {
+      "entry": "Pyx/beta_pyx",
+      "legacy": "G7III",
+      "source": "G5II/III"
+    },
+    {
+      "entry": "Ret/beta_ret",
+      "legacy": "K0IV",
+      "source": "K0IV SB"
+    },
+    {
+      "entry": "Sge/delta_sga",
+      "legacy": "M2II+...",
+      "source": "M2II + B6"
+    },
+    {
+      "entry": "Sge/beta_sga",
+      "legacy": "G8III",
+      "source": "G8II"
+    },
+    {
+      "entry": "Sgr/kaus_borealis",
+      "legacy": "K1III",
+      "source": "K1IIIb"
+    },
+    {
+      "entry": "Sco/antares",
+      "legacy": "M1.5Iab-Ib + B2.5V",
+      "source": "M1Ib + B2.5V"
+    },
+    {
+      "entry": "Sco/dschubba",
+      "legacy": "B0.3IV",
+      "source": "B0.2IV"
+    },
+    {
+      "entry": "Scl/alpha_scl",
+      "legacy": "B3Vp",
+      "source": "B7IIIp"
+    },
+    {
+      "entry": "Scl/beta_scl",
+      "legacy": "B9.5V",
+      "source": "B9.5IVMNpe."
+    },
+    {
+      "entry": "Sct/beta_sct",
+      "legacy": "G5II",
+      "source": "G5II..."
+    },
+    {
+      "entry": "Sct/gamma_sct",
+      "legacy": "A1V",
+      "source": "A1IV/V"
+    },
+    {
+      "entry": "Sct/delta_sct",
+      "legacy": "F2IIIp",
+      "source": "F2IIIp d Del"
+    },
+    {
+      "entry": "Ser/eta_ser",
+      "legacy": "K0III",
+      "source": "K0III-IV"
+    },
+    {
+      "entry": "Ser/xi_ser",
+      "legacy": "G8III",
+      "source": "F0IIIp"
+    },
+    {
+      "entry": "Sex/alpha_sex",
+      "legacy": "A0V",
+      "source": "A0III"
+    },
+    {
+      "entry": "Sex/gamma_sex",
+      "legacy": "A1V",
+      "source": "A2V"
+    },
+    {
+      "entry": "Sex/delta_sex",
+      "legacy": "A0V",
+      "source": "B9.5V"
+    },
+    {
+      "entry": "Tau/zeta_tau",
+      "legacy": "B4IVn",
+      "source": "B4IIIp"
+    },
+    {
+      "entry": "Tau/lambda_tau",
+      "legacy": "B3V",
+      "source": "B3V + A"
+    },
+    {
+      "entry": "Tel/zeta_tel",
+      "legacy": "IV",
+      "source": "G8/K0III"
+    },
+    {
+      "entry": "Tri/gamma_tri",
+      "legacy": "A1Vn",
+      "source": "A1Vnn"
+    },
+    {
+      "entry": "TrA/beta_tra",
+      "legacy": "F1V",
+      "source": "F2III"
+    },
+    {
+      "entry": "Tuc/gamma_tuc",
+      "legacy": "F1IV/V",
+      "source": "F1III"
+    },
+    {
+      "entry": "UMa/dubhe",
+      "legacy": "K0III",
+      "source": "F7V comp"
+    },
+    {
+      "entry": "UMa/phecda",
+      "legacy": "A0V",
+      "source": "A0V SB"
+    },
+    {
+      "entry": "UMa/megrez",
+      "legacy": "A3V",
+      "source": "A3Vvar"
+    },
+    {
+      "entry": "UMa/alkaid",
+      "legacy": "B3V",
+      "source": "B3V SB"
+    },
+    {
+      "entry": "UMi/polaris",
+      "legacy": "F7Ib",
+      "source": "F7:Ib-IIv SB"
+    },
+    {
+      "entry": "UMi/kochab",
+      "legacy": "K4III",
+      "source": "K4IIIvar"
+    },
+    {
+      "entry": "UMi/pherkad",
+      "legacy": "A3II-IIIvar",
+      "source": "A3II-III"
+    },
+    {
+      "entry": "UMi/yildun",
+      "legacy": "A1V",
+      "source": "A1Vn"
+    },
+    {
+      "entry": "UMi/epsilon_umi",
+      "legacy": "G5III",
+      "source": "G5IIIvar"
+    },
+    {
+      "entry": "UMi/zeta_umi",
+      "legacy": "A3V",
+      "source": "A3Vn"
+    },
+    {
+      "entry": "Vel/gamma_vel",
+      "legacy": "WC8 + O7.5I",
+      "source": "WC8 + O9I"
+    },
+    {
+      "entry": "Vel/delta_vel",
+      "legacy": "A1V + K0III",
+      "source": "A1V"
+    },
+    {
+      "entry": "Vel/kappa_vel",
+      "legacy": "B2IV-V",
+      "source": "B2IV"
+    },
+    {
+      "entry": "Vel/mu_vel",
+      "legacy": "G5III",
+      "source": "G5III SB"
+    },
+    {
+      "entry": "Vir/spica",
+      "legacy": "B1V + B2V",
+      "source": "B1V"
+    },
+    {
+      "entry": "Vir/porrima",
+      "legacy": "F0V + F0V",
+      "source": "F0V+..."
+    },
+    {
+      "entry": "Vir/vindemiatrix",
+      "legacy": "G8III",
+      "source": "G8IIIvar"
+    },
+    {
+      "entry": "Vir/zavijava",
+      "legacy": "F9V",
+      "source": "F8V"
+    },
+    {
+      "entry": "Vol/beta_vol",
+      "legacy": "K2III",
+      "source": "K2IIIvar"
+    },
+    {
+      "entry": "Vol/gamma_vol",
+      "legacy": "K0III + F2V",
+      "source": "G8IIIvar"
+    },
+    {
+      "entry": "Vol/delta_vol",
+      "legacy": "F6IV",
+      "source": "F6II"
+    },
+    {
+      "entry": "Vol/alpha_vol",
+      "legacy": "A7V",
+      "source": "Am"
+    },
+    {
+      "entry": "Vul/alpha_vul",
+      "legacy": "M1III",
+      "source": "M0 comp"
+    },
+    {
+      "entry": "Vul/31_vul",
+      "legacy": "G7III",
+      "source": "G8III"
+    }
+  ],
+  "conditionalV": [
+    "Ara/stingray_nebula",
+    "CMa/thor_helmet",
+    "Car/eta_carinae_nebula",
+    "Car/southern_pleiades",
+    "Cep/iris_nebula",
+    "CrA/cor_australis_nebula",
+    "CrB/abell_2151",
+    "Crv/antenna_galaxies",
+    "Crv/antenna_galaxies:NGC4039",
+    "Cru/jewel_box",
+    "Cru/coalsack_nebula",
+    "Cyg/north_america_nebula",
+    "Cyg/veil_nebula",
+    "Eri/witch_head_nebula",
+    "Gem/m35",
+    "Lac/bl_lacertae",
+    "LMi/hickson_44",
+    "Lup/sn_1006",
+    "Mon/rosette_nebula",
+    "Mon/rosette_nebula:NGC2237",
+    "Mon/rosette_nebula:NGC2238",
+    "Mus/hourglass_nebula",
+    "Ori/horsehead_nebula",
+    "Peg/stephans_quintet",
+    "Per/double_cluster",
+    "Phe/robert_quartet",
+    "Sge/necklace_nebula",
+    "Sgr/sagittarius_a",
+    "Scl/cartwheel_galaxy",
+    "Tau/hyades",
+    "Vel/vela_snr"
+  ],
+  "legacyDifferenceCounts": {
+    "constellationStarMagnitude": 66,
+    "allStellarEntriesMagnitudeIncludingFiveObjectStars": 71,
+    "spectralTypes": 176
+  },
+  "crossBoundaryFigureVertices": [
+    {
+      "entry": "Aur/hip_25428",
+      "catalogueConstellation": "Tau"
+    },
+    {
+      "entry": "Car/hip_42913",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "entry": "Car/hip_39953",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "entry": "Car/hip_31685",
+      "catalogueConstellation": "Pup"
+    },
+    {
+      "entry": "Eri/hip_12770",
+      "catalogueConstellation": "Cet"
+    },
+    {
+      "entry": "Hya/hip_53740",
+      "catalogueConstellation": "Crt"
+    },
+    {
+      "entry": "Hya/hip_54682",
+      "catalogueConstellation": "Crt"
+    },
+    {
+      "entry": "Peg/hip_677",
+      "catalogueConstellation": "And"
+    },
+    {
+      "entry": "Pup/hip_39953",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "entry": "Pup/hip_30438",
+      "catalogueConstellation": "Car"
+    },
+    {
+      "entry": "Pyx/hip_39429",
+      "catalogueConstellation": "Pup"
+    },
+    {
+      "entry": "Ser/hip_79593",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "entry": "Ser/hip_84012",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "entry": "Ser/hip_88048",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "entry": "Ser/hip_88404",
+      "catalogueConstellation": "Oph"
+    }
+  ],
+  "missingConstellationMetadata": [
+    {
+      "abbr": "Oph",
+      "fields": [
+        "pronunciation",
+        "family",
+        "hemisphere",
+        "quadrant",
+        "visibility",
+        "bestSeason",
+        "bestViewingMonth",
+        "areaSqDeg",
+        "sizeRank",
+        "brightestStar",
+        "starsWithPlanets",
+        "coordinates",
+        "wikimediaUrl"
+      ]
+    }
+  ],
+  "unverifiedMetadata": [
+    "Historical summaries (area, rank, viewing season, visibility, translations, average coordinates) lack field-level sources.",
+    "Exoplanet-host star counts lack a reference date and cannot be declared current.",
+    "Pronunciation varies; family and hemisphere are descriptive conventions.",
+    "HYG names include aliases and some explicitly unofficial component names, not exclusively IAU WGSN names.",
+    "Position/magnitude validation checks the selected fixed catalogue, not current-date astrometry or variable-star light curves.",
+    "Object morphological subtypes are historical unless separately sourced; OpenNGC G only verifies galaxy, not spiral/elliptical subtype."
+  ],
+  "limits": [
+    "No screenshots, publication, or remote writes.",
+    "Supplemental SIMBAD/Green data checked against saved cited records, not refreshed remotely.",
+    "Agreement with one source is not independent confirmation of every measurement by another observatory.",
+    "Read-only data audit; confirmed semantic problems remain pending correction."
+  ],
+  "iauNameCheck": {
+    "url": "https://www.iau.org/IAU/Astronomy-FAQs/Constellations.aspx",
+    "sha256": "bca54a012f07f6a0b0d436f3bb59e4803271d51b694d6deaebb914df4f9da074",
+    "rows": 88,
+    "conflicts": [],
+    "missingFields": []
+  }
+}

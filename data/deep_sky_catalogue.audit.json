@@ -1,0 +1,129 @@
+{
+  "checkedOn": "2026-10-23",
+  "entries": 157,
+  "matched": 157,
+  "unresolved": [],
+  "corrections": [
+    {
+      "id": "m110",
+      "field": "name",
+      "old": "Edward Young Star (M110)",
+      "new": "Messier 110 (NGC 205)",
+      "source": "https://github.com/mattiaverga/OpenNGC"
+    },
+    {
+      "id": "stingray_nebula",
+      "field": "catalog",
+      "old": "M2-9",
+      "new": "Hen 3-1357 / PN G331.3-12.1",
+      "source": "https://science.nasa.gov/asset/hubble/stingray-nebula-in-1996/"
+    },
+    {
+      "id": "m74_galaxy_note",
+      "field": "name",
+      "old": "Little Ghost Nebula",
+      "new": "Skull Nebula (NGC 246)",
+      "source": "https://github.com/mattiaverga/OpenNGC"
+    },
+    {
+      "id": "robert_quartet",
+      "field": "catalog",
+      "old": "HCG 87",
+      "new": "NGC 87 / NGC 88 / NGC 89 / NGC 92",
+      "source": "https://eso.org/public/news/eso0535/"
+    },
+    {
+      "id": "vela_snr",
+      "field": "catalog",
+      "old": "C40",
+      "new": "SNR G263.9-3.3",
+      "source": "https://www.mrao.cam.ac.uk/surveys/snrs/snrs.data.html"
+    },
+    {
+      "id": "cr_399",
+      "field": "catalog",
+      "old": "C399",
+      "new": "Collinder 399",
+      "source": "https://github.com/mattiaverga/OpenNGC/blob/master/NGC_guide.txt"
+    },
+    {
+      "id": "mirachs_ghost",
+      "field": "catalog",
+      "old": "C28 / NGC 404",
+      "new": "NGC 404",
+      "source": "https://github.com/mattiaverga/OpenNGC/blob/master/NGC_guide.txt"
+    }
+  ],
+  "warnings": [
+    {
+      "constellation": "Cep",
+      "id": "garnet_star",
+      "issue": "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+    },
+    {
+      "constellation": "CrB",
+      "id": "abell_2151",
+      "issue": "Listed under the wrong constellation; original grouping preserved.",
+      "catalogueConstellation": "Her"
+    },
+    {
+      "constellation": "Crv",
+      "id": "antenna_galaxies",
+      "issue": "Multiple referenced objects; individual coordinates retained without inventing a group centre."
+    },
+    {
+      "constellation": "Cyg",
+      "id": "cygnus_x1",
+      "issue": "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+    },
+    {
+      "constellation": "LMi",
+      "id": "hickson_44",
+      "issue": "Listed under the wrong constellation; original grouping preserved.",
+      "catalogueConstellation": "Leo"
+    },
+    {
+      "constellation": "Lep",
+      "id": "hind_crimson_star",
+      "issue": "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+    },
+    {
+      "constellation": "Men",
+      "id": "lmc_edge",
+      "issue": "Catalogue position is in another constellation; original grouping retained.",
+      "catalogueConstellation": "Dor"
+    },
+    {
+      "constellation": "Men",
+      "id": "lmc_edge",
+      "issue": "Coordinates refer to the whole LMC, not a separately measured extension in Mensa."
+    },
+    {
+      "constellation": "Mon",
+      "id": "rosette_nebula",
+      "issue": "Multiple referenced objects; individual coordinates retained without inventing a group centre."
+    },
+    {
+      "constellation": "Phe",
+      "id": "robert_quartet",
+      "issue": "Multiple referenced objects; individual coordinates retained without inventing a group centre."
+    },
+    {
+      "constellation": "Pic",
+      "id": "kapteyn_star",
+      "issue": "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+    },
+    {
+      "constellation": "PsA",
+      "id": "lacaille_9352",
+      "issue": "Existing deepSkyObjects entry is a star or optical binary counterpart, not a diffuse DSO; retained in place."
+    }
+  ],
+  "scope": "Only pre-existing deepSkyObjects entries. Source positions, available B/V photometry and angular sizes. Original x/y/radius/magnitude/type retained. Missing photometry is null, never guessed.",
+  "limitations": [
+    "A catalogue reference position may differ from a nebular geometric centre.",
+    "Published photometry is band-dependent and may be absent or variable.",
+    "Group components are not substituted for an authoritative group centre.",
+    "Constellation assignments with conflicts remain flagged rather than silently moved."
+  ]
+}

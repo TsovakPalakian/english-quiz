@@ -50,6 +50,7 @@ function fixture(options={}){
   env.STUDY_DB=DB;
   const worker=integratedWorker(options);
   const client=()=>{let cookie='';return {get cookie(){return cookie;},async call(path,method='GET',body=null,override=null){
+    if(path==='/api/register'&&body&&!Object.hasOwn(body,'name'))body={...body,name:'Fixture Name'};
     const headers={Origin:'https://fixture.invalid',...(override!==null?{Cookie:override}:cookie?{Cookie:cookie}:{})};if(body)headers['Content-Type']='application/json';
     const response=await worker.fetch(new Request('https://fixture.invalid'+path,{method,headers,...(body?{body:JSON.stringify(body)}:{})}),env,{});
     if(response.headers.has('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];
@@ -249,21 +250,31 @@ test('Telegram confirms email before linking, preserves pending approval and sig
     }
   }finally{mockedFetch?.mock.restore();f.close();}
 });
-test('Pending teacher login checks the password and only a developer can approve the requested role',async()=>{
+test('Signup ignores a requested teacher role and only a developer can assign it at approval',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';const applicant=f.client(),dev=f.client();
     const registration=await applicant.call('/api/register','POST',{login:'New_Teacher',email:'teacher@example.invalid',password,role:'ADMIN'});assert.equal(registration.status,200);
-    const reg=f.sqlite.prepare("SELECT id,role FROM registrations WHERE login='New_Teacher'").get();assert.equal(reg.role,'ADMIN');
+    const reg=f.sqlite.prepare("SELECT id,role FROM registrations WHERE login='New_Teacher'").get();assert.equal(reg.role,'USER');
     const pending=await applicant.call('/api/login','POST',{login:'New_Teacher',password});assert.equal(pending.status,403);assert.equal(pending.value.error,'Your account is awaiting approval.');
     const wrong=await applicant.call('/api/login','POST',{login:'teacher@example.invalid',password:'wrong'});assert.equal(wrong.status,401);assert.equal(wrong.value.error,'Wrong login or password.');
     assert.equal((await dev.call('/api/login','POST',{login:'FixtureDev',password})).status,200);
-    const approved=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{groupId:999});assert.equal(approved.status,200);assert.equal(approved.value.role,'ADMIN');
+    const approved=await dev.call('/api/admin/registrations/'+reg.id+'/approve','POST',{role:'ADMIN'});assert.equal(approved.status,200);assert.equal(approved.value.role,'ADMIN');
     assert.equal(f.sqlite.prepare('SELECT role FROM users WHERE id=?').get(approved.value.userId).role,'ADMIN');
     const teacher=f.client();assert.equal((await teacher.call('/api/login','POST',{login:'New_Teacher',password})).status,200);
     const next=await applicant.call('/api/register','POST',{login:'Another_Teacher',email:'another_teacher@example.invalid',password,role:'ADMIN'});assert.equal(next.status,200);
     const nextId=f.sqlite.prepare("SELECT id FROM registrations WHERE login='Another_Teacher'").get().id;
-    assert.equal((await teacher.call('/api/admin/registrations/'+nextId+'/approve','POST',{})).status,403);
+    assert.equal((await teacher.call('/api/admin/registrations/'+nextId+'/approve','POST',{role:'ADMIN'})).status,403);
     assert.equal(f.sqlite.prepare('SELECT status FROM registrations WHERE id=?').get(nextId).status,'pending');
+  }finally{f.close();}
+});
+test('Registration requires a nonblank name on the real server',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';const guest=f.client();
+    for(const name of [undefined,'','   ',{},123]){
+      const response=await guest.call('/api/register','POST',{login:'RequiredName',email:'name@example.invalid',password,name});
+      assert.equal(response.status,400);assert.match(response.value.error,/name/i);
+    }
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM registrations').get().n,0);
   }finally{f.close();}
 });
 test('only the verified-invite sender or a developer can approve an invited teacher',async()=>{
@@ -279,6 +290,8 @@ test('only the verified-invite sender or a developer can approve an invited teac
     assert.equal((await other.call('/api/login','POST',{login:'OtherTeacher',password})).status,200);
     assert.equal((await applicant.call('/api/register','POST',{login:'InvitedTeacher',email:'invited@example.invalid',password,role:'ADMIN'})).status,200);
     const reg=f.sqlite.prepare("SELECT id FROM registrations WHERE login='InvitedTeacher'").get();
+    // Model the role written by the verified teacher-invitation registration path.
+    f.sqlite.prepare("UPDATE registrations SET role='ADMIN' WHERE id=?").run(reg.id);
     const invite={kind:'teacher',createdBy:inviterId,groupId:1,email:'invited@example.invalid',registrationEmail:'invited@example.invalid',pendingRegistrationId:reg.id,uses:1,acceptedAt:Date.now(),revoked:false};
     f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('account-invites','accepted-fixture',JSON.stringify(invite));
     f.sqlite.prepare('INSERT INTO catalog_documents VALUES(?,?,?)').run('accounts-group-teachers','1',JSON.stringify({revision:1,teacherIds:[inviterId]}));

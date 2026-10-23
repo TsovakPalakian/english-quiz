@@ -12,6 +12,28 @@ export function inviteQrDependency(){
   return 'const createInviteQr = (() => { const module = {exports:{}}; const exports = module.exports;\n'+library+'\nreturn module.exports; })();\n';
 }
 export const bundles={'preview.js':'client','production/chat.js':'production/chat'};
+export function skyCatalogueFactory(){
+  const catalogue=JSON.parse(readFileSync(resolve(root,'data/constellations_catalogue.json'),'utf8'));
+  const seen=new Set();
+  const packed=catalogue.filter(c=>{if(seen.has(c.abbr))return false;seen.add(c.abbr);return true;}).map(c=>{
+    const pack=(s)=>{
+      const p=s.coordinates;
+      if(!p||!Number.isFinite(p.rightAscensionDeg)||!Number.isFinite(p.declinationDeg))throw Error('Missing sky coordinates: '+s.id);
+      return {id:s.id,name:s.catalogue?.properName||s.name,ra:p.rightAscensionDeg,dec:p.declinationDeg,hip:s.catalogue?.hip??null,constellation:s.catalogue?.constellation??null,
+        mag:s.photometry?.apparentMagnitude??s.photometry?.magnitudeV??null,bv:s.photometry?.colorIndexBV??null};
+    };
+    const packObject=(part,object)=>({...pack({...part,id:part.identifier?object.id+':'+part.identifier:object.id,name:object.name}),
+      mag:part.displayPhotometry?.magnitudeV??part.photometry?.magnitudeV??null,
+      estimated:part.displayPhotometry?.estimated??false,kind:object.type});
+    const objects=c.deepSkyObjects.flatMap(o=>{
+      if(o.components?.length)return o.components.map(p=>packObject(p,o));
+      if(o.catalogue?.reviewRequired||!o.coordinates)return [];
+      return [packObject(o,o)];
+    });
+    return {name:c.name,abbr:c.abbr,stars:c.stars.map(pack),connections:c.connections,objects};
+  });
+  return 'const STUDIO_SKY_CATALOGUE='+JSON.stringify(packed)+';\n';
+}
 export function reviewEditorFactory(){
   const source=readFileSync(resolve(root,'client/demos/quiz-review-editor.js'),'utf8');
   if(/^import /m.test(source))throw Error('Shared review editor must be dependency-free.');
@@ -31,7 +53,7 @@ export function providerUIFactory(){
 export function bundleSource(target){
   const dir=resolve(root,bundles[target]);
   const passkeys=target==='preview.js'?readFileSync(resolve(dirname(require.resolve('@simplewebauthn/browser')),'../dist/bundle/index.umd.min.js'),'utf8')+'\n':'';
-  return (target==='preview.js'?wordwallSource.toString()+'\n'+inviteQrDependency()+passkeys+speechUIFactory()+providerUIFactory()+reviewEditorFactory():'')+readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
+  return (target==='preview.js'?skyCatalogueFactory()+wordwallSource.toString()+'\n'+inviteQrDependency()+passkeys+speechUIFactory()+providerUIFactory()+reviewEditorFactory():'')+readdirSync(dir).filter(name=>name.endsWith('.js')).sort().map(name=>{
     const text=readFileSync(resolve(dir,name),'utf8');
     if(!text.endsWith('\n'))throw new Error(bundles[target]+'/'+name+' must end with a newline');
     return text;

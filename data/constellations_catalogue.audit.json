@@ -1,0 +1,1029 @@
+{
+  "verifiedAt": "2026-10-23T17:48:19.085311+00:00",
+  "source": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv",
+  "sourceBlobSha1": "ba2dec4eb0f6768914c7fc1051258100214ddf84",
+  "license": "CC-BY-SA-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "constellationEntries": 88,
+  "uniqueConstellations": 87,
+  "starEntries": 354,
+  "matchedStars": 354,
+  "scope": "Existing Bayer/Flamsteed stars: J2000 positions, V magnitude, B-V colour, spectral types, proper motions. Schematic x/y/radius and historical magnitudes preserved. No website integration.",
+  "limitations": [
+    "Not a complete stellar census of each constellation.",
+    "Constellation summaries, star aliases, nonstellar objects and drawn connections are not fully verified.",
+    "Historical averages do not describe instantaneous variable-star brightness.",
+    "HYG coordinates are not propagated to the current date."
+  ],
+  "corrections": [
+    {
+      "constellation": "Boo",
+      "star": "nusakan",
+      "field": "name",
+      "old": "Nusakan",
+      "new": "Nekkar"
+    },
+    {
+      "entry": 9,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Caelum](https://www.go-astronomy.com/constellations.php?Name=Caelum)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Caelum"
+    },
+    {
+      "entry": 9,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Caelum_IAU.svg](https://commons.wikimedia.org/wiki/File:Caelum_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Caelum_IAU.svg"
+    },
+    {
+      "entry": 10,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Camelopardalis](https://www.go-astronomy.com/constellations.php?Name=Camelopardalis)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Camelopardalis"
+    },
+    {
+      "entry": 10,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Camelopardalis_IAU.svg](https://commons.wikimedia.org/wiki/File:Camelopardalis_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Camelopardalis_IAU.svg"
+    },
+    {
+      "entry": 11,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Cancer](https://www.go-astronomy.com/constellations.php?Name=Cancer)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Cancer"
+    },
+    {
+      "entry": 11,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Cancer_IAU.svg](https://commons.wikimedia.org/wiki/File:Cancer_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Cancer_IAU.svg"
+    },
+    {
+      "entry": 12,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Canes_Venatici](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DCanes_Venatici)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Canes_Venatici"
+    },
+    {
+      "entry": 12,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Canes_Venatici_IAU.svg](https://commons.wikimedia.org/wiki/File:Canes_Venatici_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Canes_Venatici_IAU.svg"
+    },
+    {
+      "entry": 21,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Chamaeleon](https://www.go-astronomy.com/constellations.php?Name=Chamaeleon)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Chamaeleon"
+    },
+    {
+      "entry": 21,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Chamaeleon_IAU.svg](https://commons.wikimedia.org/wiki/File:Chamaeleon_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Chamaeleon_IAU.svg"
+    },
+    {
+      "entry": 22,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Circinus](https://www.go-astronomy.com/constellations.php?Name=Circinus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Circinus"
+    },
+    {
+      "entry": 22,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Circinus_IAU.svg](https://commons.wikimedia.org/wiki/File:Circinus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Circinus_IAU.svg"
+    },
+    {
+      "entry": 23,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Columba](https://www.go-astronomy.com/constellations.php?Name=Columba)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Columba"
+    },
+    {
+      "entry": 23,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Columba_IAU.svg](https://commons.wikimedia.org/wiki/File:Columba_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Columba_IAU.svg"
+    },
+    {
+      "entry": 24,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Coma_Berenices](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DComa_Berenices)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Coma_Berenices"
+    },
+    {
+      "entry": 24,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Coma_Berenices_IAU.svg](https://commons.wikimedia.org/wiki/File:Coma_Berenices_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Coma_Berenices_IAU.svg"
+    },
+    {
+      "entry": 25,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Corona_Australis](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DCorona_Australis)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Corona_Australis"
+    },
+    {
+      "entry": 25,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Corona_Australis_IAU.svg](https://commons.wikimedia.org/wiki/File:Corona_Australis_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Corona_Australis_IAU.svg"
+    },
+    {
+      "entry": 26,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Corona_Borealis](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DCorona_Borealis)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Corona_Borealis"
+    },
+    {
+      "entry": 26,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Corona_Borealis_IAU.svg](https://commons.wikimedia.org/wiki/File:Corona_Borealis_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Corona_Borealis_IAU.svg"
+    },
+    {
+      "entry": 27,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Corvus](https://www.go-astronomy.com/constellations.php?Name=Corvus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Corvus"
+    },
+    {
+      "entry": 27,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Corvus_IAU.svg](https://commons.wikimedia.org/wiki/File:Corvus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Corvus_IAU.svg"
+    },
+    {
+      "entry": 28,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Crater](https://www.go-astronomy.com/constellations.php?Name=Crater)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Crater"
+    },
+    {
+      "entry": 28,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Crater_IAU.svg](https://commons.wikimedia.org/wiki/File:Crater_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Crater_IAU.svg"
+    },
+    {
+      "entry": 29,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Crux](https://www.go-astronomy.com/constellations.php?Name=Crux)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Crux"
+    },
+    {
+      "entry": 29,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Crux_IAU.svg](https://commons.wikimedia.org/wiki/File:Crux_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Crux_IAU.svg"
+    },
+    {
+      "entry": 30,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Cygnus](https://www.go-astronomy.com/constellations.php?Name=Cygnus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Cygnus"
+    },
+    {
+      "entry": 30,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Cygnus_IAU.svg](https://commons.wikimedia.org/wiki/File:Cygnus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Cygnus_IAU.svg"
+    },
+    {
+      "entry": 31,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Delphinus](https://www.go-astronomy.com/constellations.php?Name=Delphinus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Delphinus"
+    },
+    {
+      "entry": 31,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Delphinus_IAU.svg](https://commons.wikimedia.org/wiki/File:Delphinus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Delphinus_IAU.svg"
+    },
+    {
+      "entry": 32,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Dorado](https://www.go-astronomy.com/constellations.php?Name=Dorado)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Dorado"
+    },
+    {
+      "entry": 32,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Dorado_IAU.svg](https://commons.wikimedia.org/wiki/File:Dorado_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Dorado_IAU.svg"
+    },
+    {
+      "entry": 33,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Draco](https://www.go-astronomy.com/constellations.php?Name=Draco)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Draco"
+    },
+    {
+      "entry": 33,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Draco_IAU.svg](https://commons.wikimedia.org/wiki/File:Draco_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Draco_IAU.svg"
+    },
+    {
+      "entry": 34,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Equuleus](https://www.go-astronomy.com/constellations.php?Name=Equuleus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Equuleus"
+    },
+    {
+      "entry": 34,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Equuleus_IAU.svg](https://commons.wikimedia.org/wiki/File:Equuleus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Equuleus_IAU.svg"
+    },
+    {
+      "entry": 35,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Eridanus](https://www.go-astronomy.com/constellations.php?Name=Eridanus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Eridanus"
+    },
+    {
+      "entry": 35,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Eridanus_IAU.svg](https://commons.wikimedia.org/wiki/File:Eridanus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Eridanus_IAU.svg"
+    },
+    {
+      "entry": 36,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Fornax](https://www.go-astronomy.com/constellations.php?Name=Fornax)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Fornax"
+    },
+    {
+      "entry": 36,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Fornax_IAU.svg](https://commons.wikimedia.org/wiki/File:Fornax_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Fornax_IAU.svg"
+    },
+    {
+      "entry": 37,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Gemini](https://www.go-astronomy.com/constellations.php?Name=Gemini)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Gemini"
+    },
+    {
+      "entry": 37,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Gemini_IAU.svg](https://commons.wikimedia.org/wiki/File:Gemini_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Gemini_IAU.svg"
+    },
+    {
+      "entry": 38,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Grus](https://www.go-astronomy.com/constellations.php?Name=Grus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Grus"
+    },
+    {
+      "entry": 38,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Grus_IAU.svg](https://commons.wikimedia.org/wiki/File:Grus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Grus_IAU.svg"
+    },
+    {
+      "entry": 39,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Hercules](https://www.go-astronomy.com/constellations.php?Name=Hercules)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Hercules"
+    },
+    {
+      "entry": 39,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Hercules_IAU.svg](https://commons.wikimedia.org/wiki/File:Hercules_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Hercules_IAU.svg"
+    },
+    {
+      "entry": 40,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Horologium](https://www.go-astronomy.com/constellations.php?Name=Horologium)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Horologium"
+    },
+    {
+      "entry": 40,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Horologium_IAU.svg](https://commons.wikimedia.org/wiki/File:Horologium_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Horologium_IAU.svg"
+    },
+    {
+      "entry": 41,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Hydra](https://www.go-astronomy.com/constellations.php?Name=Hydra)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Hydra"
+    },
+    {
+      "entry": 41,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Hydra_IAU.svg](https://commons.wikimedia.org/wiki/File:Hydra_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Hydra_IAU.svg"
+    },
+    {
+      "entry": 42,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Hydrus](https://www.go-astronomy.com/constellations.php?Name=Hydrus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Hydrus"
+    },
+    {
+      "entry": 42,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Hydrus_IAU.svg](https://commons.wikimedia.org/wiki/File:Hydrus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Hydrus_IAU.svg"
+    },
+    {
+      "entry": 43,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Indus](https://www.go-astronomy.com/constellations.php?Name=Indus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Indus"
+    },
+    {
+      "entry": 43,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Indus_IAU.svg](https://commons.wikimedia.org/wiki/File:Indus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Indus_IAU.svg"
+    },
+    {
+      "entry": 44,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Lacerta](https://www.go-astronomy.com/constellations.php?Name=Lacerta)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Lacerta"
+    },
+    {
+      "entry": 44,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Lacerta_IAU.svg](https://commons.wikimedia.org/wiki/File:Lacerta_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Lacerta_IAU.svg"
+    },
+    {
+      "entry": 45,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Leo](https://www.go-astronomy.com/constellations.php?Name=Leo)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Leo"
+    },
+    {
+      "entry": 45,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Leo_IAU.svg](https://commons.wikimedia.org/wiki/File:Leo_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Leo_IAU.svg"
+    },
+    {
+      "entry": 46,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Leo_Minor](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DLeo_Minor)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Leo_Minor"
+    },
+    {
+      "entry": 46,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Leo_Minor_IAU.svg](https://commons.wikimedia.org/wiki/File:Leo_Minor_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Leo_Minor_IAU.svg"
+    },
+    {
+      "entry": 47,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Lepus](https://www.go-astronomy.com/constellations.php?Name=Lepus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Lepus"
+    },
+    {
+      "entry": 47,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Lepus_IAU.svg](https://commons.wikimedia.org/wiki/File:Lepus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Lepus_IAU.svg"
+    },
+    {
+      "entry": 48,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Libra](https://www.go-astronomy.com/constellations.php?Name=Libra)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Libra"
+    },
+    {
+      "entry": 48,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Libra_IAU.svg](https://commons.wikimedia.org/wiki/File:Libra_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Libra_IAU.svg"
+    },
+    {
+      "entry": 49,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Lupus](https://www.go-astronomy.com/constellations.php?Name=Lupus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Lupus"
+    },
+    {
+      "entry": 49,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Lupus_IAU.svg](https://commons.wikimedia.org/wiki/File:Lupus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Lupus_IAU.svg"
+    },
+    {
+      "entry": 50,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Lynx](https://www.go-astronomy.com/constellations.php?Name=Lynx)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Lynx"
+    },
+    {
+      "entry": 50,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Lynx_IAU.svg](https://commons.wikimedia.org/wiki/File:Lynx_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Lynx_IAU.svg"
+    },
+    {
+      "entry": 51,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Lyra](https://www.go-astronomy.com/constellations.php?Name=Lyra)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Lyra"
+    },
+    {
+      "entry": 51,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Lyra_IAU.svg](https://commons.wikimedia.org/wiki/File:Lyra_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Lyra_IAU.svg"
+    },
+    {
+      "entry": 52,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Mensa](https://www.go-astronomy.com/constellations.php?Name=Mensa)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Mensa"
+    },
+    {
+      "entry": 52,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Mensa_IAU.svg](https://commons.wikimedia.org/wiki/File:Mensa_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Mensa_IAU.svg"
+    },
+    {
+      "entry": 53,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Microscopium](https://www.go-astronomy.com/constellations.php?Name=Microscopium)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Microscopium"
+    },
+    {
+      "entry": 53,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Microscopium_IAU.svg](https://commons.wikimedia.org/wiki/File:Microscopium_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Microscopium_IAU.svg"
+    },
+    {
+      "entry": 54,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Monoceros](https://www.go-astronomy.com/constellations.php?Name=Monoceros)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Monoceros"
+    },
+    {
+      "entry": 54,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Monoceros_IAU.svg](https://commons.wikimedia.org/wiki/File:Monoceros_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Monoceros_IAU.svg"
+    },
+    {
+      "entry": 55,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Musca](https://www.go-astronomy.com/constellations.php?Name=Musca)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Musca"
+    },
+    {
+      "entry": 55,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Musca_IAU.svg](https://commons.wikimedia.org/wiki/File:Musca_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Musca_IAU.svg"
+    },
+    {
+      "entry": 56,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Norma](https://www.go-astronomy.com/constellations.php?Name=Norma)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Norma"
+    },
+    {
+      "entry": 56,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Norma_IAU.svg](https://commons.wikimedia.org/wiki/File:Norma_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Norma_IAU.svg"
+    },
+    {
+      "entry": 57,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Octans](https://www.go-astronomy.com/constellations.php?Name=Octans)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Octans"
+    },
+    {
+      "entry": 57,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Octans_IAU.svg](https://commons.wikimedia.org/wiki/File:Octans_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Octans_IAU.svg"
+    },
+    {
+      "entry": 58,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Serpens](https://www.go-astronomy.com/constellations.php?Name=Serpens)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Serpens"
+    },
+    {
+      "entry": 58,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg](https://www.google.com/search?q=https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg"
+    },
+    {
+      "entry": 59,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Orion](https://www.go-astronomy.com/constellations.php?Name=Orion)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Orion"
+    },
+    {
+      "entry": 59,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Orion_IAU.svg](https://commons.wikimedia.org/wiki/File:Orion_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Orion_IAU.svg"
+    },
+    {
+      "entry": 60,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Pavo](https://www.go-astronomy.com/constellations.php?Name=Pavo)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Pavo"
+    },
+    {
+      "entry": 60,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Pavo_IAU.svg](https://commons.wikimedia.org/wiki/File:Pavo_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Pavo_IAU.svg"
+    },
+    {
+      "entry": 61,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Pegasus](https://www.go-astronomy.com/constellations.php?Name=Pegasus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Pegasus"
+    },
+    {
+      "entry": 61,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Pegasus_IAU.svg](https://commons.wikimedia.org/wiki/File:Pegasus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Pegasus_IAU.svg"
+    },
+    {
+      "entry": 62,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Perseus](https://www.go-astronomy.com/constellations.php?Name=Perseus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Perseus"
+    },
+    {
+      "entry": 62,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Perseus_IAU.svg](https://commons.wikimedia.org/wiki/File:Perseus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Perseus_IAU.svg"
+    },
+    {
+      "entry": 63,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Phoenix](https://www.go-astronomy.com/constellations.php?Name=Phoenix)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Phoenix"
+    },
+    {
+      "entry": 63,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Phoenix_IAU.svg](https://commons.wikimedia.org/wiki/File:Phoenix_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Phoenix_IAU.svg"
+    },
+    {
+      "entry": 64,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Pictor](https://www.go-astronomy.com/constellations.php?Name=Pictor)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Pictor"
+    },
+    {
+      "entry": 64,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Pictor_IAU.svg](https://commons.wikimedia.org/wiki/File:Pictor_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Pictor_IAU.svg"
+    },
+    {
+      "entry": 65,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Pisces](https://www.go-astronomy.com/constellations.php?Name=Pisces)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Pisces"
+    },
+    {
+      "entry": 65,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Pisces_IAU.svg](https://commons.wikimedia.org/wiki/File:Pisces_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Pisces_IAU.svg"
+    },
+    {
+      "entry": 66,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Piscis_Austrinus](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DPiscis_Austrinus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Piscis_Austrinus"
+    },
+    {
+      "entry": 66,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Piscis_Austrinus_IAU.svg](https://commons.wikimedia.org/wiki/File:Piscis_Austrinus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Piscis_Austrinus_IAU.svg"
+    },
+    {
+      "entry": 67,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Puppis](https://www.go-astronomy.com/constellations.php?Name=Puppis)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Puppis"
+    },
+    {
+      "entry": 67,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Puppis_IAU.svg](https://commons.wikimedia.org/wiki/File:Puppis_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Puppis_IAU.svg"
+    },
+    {
+      "entry": 68,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Pyxis](https://www.go-astronomy.com/constellations.php?Name=Pyxis)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Pyxis"
+    },
+    {
+      "entry": 68,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Pyxis_IAU.svg](https://commons.wikimedia.org/wiki/File:Pyxis_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Pyxis_IAU.svg"
+    },
+    {
+      "entry": 69,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Reticulum](https://www.go-astronomy.com/constellations.php?Name=Reticulum)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Reticulum"
+    },
+    {
+      "entry": 69,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Reticulum_IAU.svg](https://commons.wikimedia.org/wiki/File:Reticulum_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Reticulum_IAU.svg"
+    },
+    {
+      "entry": 70,
+      "field": "abbr",
+      "old": "Sga",
+      "new": "Sge"
+    },
+    {
+      "entry": 70,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Sagitta](https://www.go-astronomy.com/constellations.php?Name=Sagitta)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Sagitta"
+    },
+    {
+      "entry": 70,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Sagitta_IAU.svg](https://commons.wikimedia.org/wiki/File:Sagitta_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Sagitta_IAU.svg"
+    },
+    {
+      "entry": 71,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Sagittarius](https://www.go-astronomy.com/constellations.php?Name=Sagittarius)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Sagittarius"
+    },
+    {
+      "entry": 71,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Sagittarius_IAU.svg](https://commons.wikimedia.org/wiki/File:Sagittarius_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Sagittarius_IAU.svg"
+    },
+    {
+      "entry": 72,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Scorpius](https://www.go-astronomy.com/constellations.php?Name=Scorpius)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Scorpius"
+    },
+    {
+      "entry": 72,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Scorpius_IAU.svg](https://commons.wikimedia.org/wiki/File:Scorpius_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Scorpius_IAU.svg"
+    },
+    {
+      "entry": 73,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Sculptor](https://www.go-astronomy.com/constellations.php?Name=Sculptor)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Sculptor"
+    },
+    {
+      "entry": 73,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Sculptor_IAU.svg](https://commons.wikimedia.org/wiki/File:Sculptor_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Sculptor_IAU.svg"
+    },
+    {
+      "entry": 74,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Scutum](https://www.go-astronomy.com/constellations.php?Name=Scutum)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Scutum"
+    },
+    {
+      "entry": 74,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Scutum_IAU.svg](https://commons.wikimedia.org/wiki/File:Scutum_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Scutum_IAU.svg"
+    },
+    {
+      "entry": 75,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Serpens](https://www.go-astronomy.com/constellations.php?Name=Serpens)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Serpens"
+    },
+    {
+      "entry": 75,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg](https://www.google.com/search?q=https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg"
+    },
+    {
+      "entry": 76,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Sextans](https://www.go-astronomy.com/constellations.php?Name=Sextans)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Sextans"
+    },
+    {
+      "entry": 76,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Sextans_IAU.svg](https://commons.wikimedia.org/wiki/File:Sextans_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Sextans_IAU.svg"
+    },
+    {
+      "entry": 77,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Taurus](https://www.go-astronomy.com/constellations.php?Name=Taurus)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Taurus"
+    },
+    {
+      "entry": 77,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Taurus_IAU.svg](https://commons.wikimedia.org/wiki/File:Taurus_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Taurus_IAU.svg"
+    },
+    {
+      "entry": 78,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Telescopium](https://www.go-astronomy.com/constellations.php?Name=Telescopium)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Telescopium"
+    },
+    {
+      "entry": 78,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Telescopium_IAU.svg](https://commons.wikimedia.org/wiki/File:Telescopium_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Telescopium_IAU.svg"
+    },
+    {
+      "entry": 79,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Triangulum](https://www.go-astronomy.com/constellations.php?Name=Triangulum)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Triangulum"
+    },
+    {
+      "entry": 79,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Triangulum_IAU.svg](https://commons.wikimedia.org/wiki/File:Triangulum_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Triangulum_IAU.svg"
+    },
+    {
+      "entry": 80,
+      "field": "abbr",
+      "old": "Tra",
+      "new": "TrA"
+    },
+    {
+      "entry": 80,
+      "field": "goAstronomyUrl",
+      "old": "[https://www.go-astronomy.com/constellations.php?Name=Triangulum_Australe](https://www.google.com/search?q=https://www.go-astronomy.com/constellations.php%3FName%3DTriangulum_Australe)",
+      "new": "https://www.go-astronomy.com/constellations.php?Name=Triangulum_Australe"
+    },
+    {
+      "entry": 80,
+      "field": "wikimediaUrl",
+      "old": "[https://commons.wikimedia.org/wiki/File:Triangulum_Australe_IAU.svg](https://commons.wikimedia.org/wiki/File:Triangulum_Australe_IAU.svg)",
+      "new": "https://commons.wikimedia.org/wiki/File:Triangulum_Australe_IAU.svg"
+    },
+    {
+      "entry": 81,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/tucana.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/tucana.htm)",
+      "new": "https://go-astronomy.com/constellations/tucana.htm"
+    },
+    {
+      "entry": 81,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/2/2f/Tucana_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/2/2f/Tucana_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Tucana_IAU.svg"
+    },
+    {
+      "entry": 82,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/ursa-major.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/ursa-major.htm)",
+      "new": "https://go-astronomy.com/constellations/ursa-major.htm"
+    },
+    {
+      "entry": 82,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/3/36/Ursa_Major_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/3/36/Ursa_Major_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/3/36/Ursa_Major_IAU.svg"
+    },
+    {
+      "entry": 83,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/ursa-minor.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/ursa-minor.htm)",
+      "new": "https://go-astronomy.com/constellations/ursa-minor.htm"
+    },
+    {
+      "entry": 83,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/e/ec/Ursa_Minor_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/e/ec/Ursa_Minor_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Ursa_Minor_IAU.svg"
+    },
+    {
+      "entry": 84,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/vela.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/vela.htm)",
+      "new": "https://go-astronomy.com/constellations/vela.htm"
+    },
+    {
+      "entry": 84,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/e/ea/Vela_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/e/ea/Vela_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Vela_IAU.svg"
+    },
+    {
+      "entry": 85,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/virgo.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/virgo.htm)",
+      "new": "https://go-astronomy.com/constellations/virgo.htm"
+    },
+    {
+      "entry": 85,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/e/ec/Virgo_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/e/ec/Virgo_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Virgo_IAU.svg"
+    },
+    {
+      "entry": 86,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/volans.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/volans.htm)",
+      "new": "https://go-astronomy.com/constellations/volans.htm"
+    },
+    {
+      "entry": 86,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/8/8c/Volans_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/8/8c/Volans_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Volans_IAU.svg"
+    },
+    {
+      "entry": 87,
+      "field": "goAstronomyUrl",
+      "old": "[https://go-astronomy.com/constellations/vulpecula.htm](https://www.google.com/search?q=https://go-astronomy.com/constellations/vulpecula.htm)",
+      "new": "https://go-astronomy.com/constellations/vulpecula.htm"
+    },
+    {
+      "entry": 87,
+      "field": "wikimediaUrl",
+      "old": "[https://upload.wikimedia.org/wikipedia/commons/e/ee/Vulpecula_IAU.svg](https://www.google.com/search?q=https://upload.wikimedia.org/wikipedia/commons/e/ee/Vulpecula_IAU.svg)",
+      "new": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Vulpecula_IAU.svg"
+    }
+  ],
+  "warnings": [
+    {
+      "constellation": "Ari",
+      "star": "mesartim",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 8813
+    },
+    {
+      "constellation": "Boo",
+      "star": "mu_boo",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 75182
+    },
+    {
+      "constellation": "Cnc",
+      "star": "iota_cnc",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 42984
+    },
+    {
+      "constellation": "Cen",
+      "star": "alpha_cen",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 71456
+    },
+    {
+      "constellation": "Cen",
+      "star": "alpha_cen",
+      "issue": "Historical magnitude differs from HYG V by >0.15; preserved original (variability/components/band may differ).",
+      "original": -0.27,
+      "hygV": -0.01
+    },
+    {
+      "constellation": "Cet",
+      "star": "deneb_kaitos",
+      "issue": "Historical magnitude differs from HYG V by >0.15; preserved original (variability/components/band may differ).",
+      "original": 2.53,
+      "hygV": 2.04
+    },
+    {
+      "constellation": "Com",
+      "star": "diadem",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 64037
+    },
+    {
+      "constellation": "CrA",
+      "star": "gamma_cra",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 93530
+    },
+    {
+      "constellation": "Crt",
+      "star": "gamma_crt",
+      "issue": "Historical magnitude differs from HYG V by >0.15; preserved original (variability/components/band may differ).",
+      "original": 4.47,
+      "hygV": 4.06
+    },
+    {
+      "constellation": "Cru",
+      "star": "acrux",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 60530
+    },
+    {
+      "constellation": "Cyg",
+      "star": "albireo",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 95648
+    },
+    {
+      "constellation": "Eri",
+      "star": "theta_eri",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 13813
+    },
+    {
+      "constellation": "Eri",
+      "star": "theta_eri",
+      "issue": "Historical magnitude differs from HYG V by >0.15; preserved original (variability/components/band may differ).",
+      "original": 3.2,
+      "hygV": 2.88
+    },
+    {
+      "constellation": "Gem",
+      "star": "castor",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 36744
+    },
+    {
+      "constellation": "Her",
+      "star": "rasalgethi",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 84086
+    },
+    {
+      "constellation": "Her",
+      "star": "rasalgethi",
+      "issue": "Historical magnitude differs from HYG V by >0.15; preserved original (variability/components/band may differ).",
+      "original": 3.48,
+      "hygV": 2.78
+    },
+    {
+      "constellation": "Lup",
+      "star": "kappa_lup",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 74148
+    },
+    {
+      "entry": 75,
+      "constellation": "Ser",
+      "issue": "Duplicate constellation. Ophiuchus is missing; retained original rather than inventing its metadata."
+    },
+    {
+      "constellation": "UMa",
+      "star": "mizar",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 65173
+    },
+    {
+      "constellation": "Vel",
+      "star": "gamma_vel",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 39840
+    },
+    {
+      "constellation": "Vir",
+      "star": "porrima",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 61748
+    },
+    {
+      "constellation": "Vol",
+      "star": "gamma_vol",
+      "issue": "Unqualified multiple-star designation: explicit representative retained; inspect components before resolved rendering.",
+      "hygId": 34389
+    }
+  ]
+}

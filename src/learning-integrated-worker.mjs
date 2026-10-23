@@ -840,6 +840,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(path==='/api/register'&&method==='POST'){
           let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
           inviteToken=typeof body?.invite==='string'?body.invite.trim():'';
+          body={...body,role:'USER'};
           if(inviteToken){
             if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
             signupInvite=await new AccountInvites(studyDatabase(env)).peek(inviteToken,body.email);
@@ -859,11 +860,12 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           const reviewer=await identify(accountEnv,request);
           approvalActor=reviewer;
           approvalInvite=await new AccountInvites(studyDatabase(env)).registrationInvite(reviewer,path.split('/')[4]);
+          if(approvalInvite&&body.role!=null&&body.role!==(approvalInvite.kind==='teacher'?'ADMIN':'USER'))throw new StudyError(400,'Use the role selected by the verified invitation.');
           if(approvalInvite&&body.groupId!=null&&Number(body.groupId)!==approvalInvite.groupId)throw new StudyError(400,'Use the group selected by the invitation.');
           if(body.groupId!=null&&!approvalInvite){
             const [actor,pending]=await Promise.all([identify(accountEnv,request),accountEnv.DB.prepare('SELECT role FROM registrations WHERE id=?').bind(path.split('/')[4]).first()]);
             approvalActor=actor;if(!approvalActor||!['ADMIN','DEVELOPER'].includes(approvalActor.role))throw new StudyError(403,'Teachers only.');
-            if(pending?.role!=='ADMIN'){
+            if((body.role??pending?.role)!=='ADMIN'){
               if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
               approvalGroups=new GroupService(studyDatabase(env));await approvalGroups.activeGroup(body.groupId);approvalGroup=body.groupId;
             }
@@ -871,7 +873,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         let response=approvalInvite?.kind==='teacher'&&approvalActor?.role==='ADMIN'
           ?await approveReg(accountEnv,approvalActor,path.split('/')[4],approvalInvite)
-          :await accountWorker.fetch(forward,accountEnv,ctx);
+          :await accountWorker.fetch(forward,signupInvite?.kind==='teacher'?{...accountEnv,TRUSTED_INVITE_ROLE:'ADMIN'}:accountEnv,ctx);
         if(response.ok&&passkeysAccount){
           try{await new Passkeys(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Passkey cleanup unavailable; revoked account remains blocked.');}
           for(const value of Object.values(oauthProviders))try{await new value.Service(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Federated identity cleanup unavailable; revoked account remains blocked.');}

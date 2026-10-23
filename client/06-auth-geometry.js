@@ -69,5 +69,17 @@ const StudioSkyGeometry=(()=>{
     const lengths=route.lengths||(route.lengths=route.slice(1).map((p,i)=>distance(p,route[i])));let d=lengths.reduce((a,b)=>a+b,0)*t;
     for(let i=0;i<lengths.length;i++){if(d<=lengths[i]||i===lengths.length-1){const f=lengths[i]?Math.min(1,d/lengths[i]):1;return {x:route[i].x+(route[i+1].x-route[i].x)*f,y:route[i].y+(route[i+1].y-route[i].y)*f};}d-=lengths[i];}return route[0];
   }
-  return {shape,contains,nearest,blocked,router,point};
+  const flybyDelay=(random=Math.random)=>7000+random()*5000;
+  function flyby(width,height,random=Math.random){
+    const vertical=random()<.5,reverse=random()<.5,span=vertical?height:width,cross=vertical?width:height;
+    const from=-48,to=span+48,start=random()*cross,end=random()*cross;
+    const controls=[start,random()*cross,random()*cross,end];
+    const path=Array.from({length:33},(_,i)=>{
+      const t=i/32,u=1-t,along=from+(to-from)*(reverse?1-t:t);
+      const across=u*u*u*controls[0]+3*u*u*t*controls[1]+3*u*t*t*controls[2]+t*t*t*controls[3];
+      return vertical?{x:across,y:along}:{x:along,y:across};
+    });
+    return {path,duration:450+random()*950,radius:.8+random()*1.3,alpha:.22+random()*.65};
+  }
+  return {shape,contains,nearest,blocked,router,point,flybyDelay,flyby};
 })();

@@ -1,0 +1,987 @@
+{
+  "source": "https://raw.githubusercontent.com/Stellarium/stellarium/master/skycultures/modern_st/index.json",
+  "sourceBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+  "constellations": 88,
+  "stars": 836,
+  "connections": 743,
+  "ignoredZeroLengthSourceEdges": [],
+  "crossBoundaryFigureVertices": [
+    {
+      "figure": "Aur",
+      "star": "hip_25428",
+      "catalogueConstellation": "Tau"
+    },
+    {
+      "figure": "Car",
+      "star": "hip_42913",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "figure": "Car",
+      "star": "hip_39953",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "figure": "Car",
+      "star": "hip_31685",
+      "catalogueConstellation": "Pup"
+    },
+    {
+      "figure": "Eri",
+      "star": "hip_12770",
+      "catalogueConstellation": "Cet"
+    },
+    {
+      "figure": "Hya",
+      "star": "hip_53740",
+      "catalogueConstellation": "Crt"
+    },
+    {
+      "figure": "Hya",
+      "star": "hip_54682",
+      "catalogueConstellation": "Crt"
+    },
+    {
+      "figure": "Peg",
+      "star": "hip_677",
+      "catalogueConstellation": "And"
+    },
+    {
+      "figure": "Pup",
+      "star": "hip_39953",
+      "catalogueConstellation": "Vel"
+    },
+    {
+      "figure": "Pup",
+      "star": "hip_30438",
+      "catalogueConstellation": "Car"
+    },
+    {
+      "figure": "Pyx",
+      "star": "hip_39429",
+      "catalogueConstellation": "Pup"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_79593",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_84012",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_88048",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_88404",
+      "catalogueConstellation": "Oph"
+    }
+  ],
+  "changes": [
+    {
+      "abbr": "And",
+      "addedStars": 7,
+      "stars": 17,
+      "connections": 16
+    },
+    {
+      "abbr": "Ant",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "Aps",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Aqr",
+      "addedStars": 12,
+      "stars": 18,
+      "connections": 14
+    },
+    {
+      "abbr": "Aql",
+      "addedStars": 6,
+      "stars": 11,
+      "connections": 9
+    },
+    {
+      "abbr": "Ara",
+      "addedStars": 4,
+      "stars": 8,
+      "connections": 6
+    },
+    {
+      "abbr": "Ari",
+      "addedStars": 1,
+      "stars": 5,
+      "connections": 3
+    },
+    {
+      "abbr": "Aur",
+      "addedStars": 4,
+      "stars": 9,
+      "connections": 10
+    },
+    {
+      "abbr": "Boo",
+      "addedStars": 8,
+      "stars": 14,
+      "connections": 13
+    },
+    {
+      "abbr": "Cae",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Cam",
+      "addedStars": 6,
+      "stars": 8,
+      "connections": 7
+    },
+    {
+      "abbr": "Cnc",
+      "addedStars": 0,
+      "stars": 6,
+      "connections": 4
+    },
+    {
+      "abbr": "CVn",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 1
+    },
+    {
+      "abbr": "CMa",
+      "addedStars": 5,
+      "stars": 13,
+      "connections": 11
+    },
+    {
+      "abbr": "CMi",
+      "addedStars": 0,
+      "stars": 2,
+      "connections": 1
+    },
+    {
+      "abbr": "Cap",
+      "addedStars": 5,
+      "stars": 12,
+      "connections": 10
+    },
+    {
+      "abbr": "Car",
+      "addedStars": 11,
+      "stars": 17,
+      "connections": 18
+    },
+    {
+      "abbr": "Cas",
+      "addedStars": 0,
+      "stars": 5,
+      "connections": 4
+    },
+    {
+      "abbr": "Cen",
+      "addedStars": 16,
+      "stars": 23,
+      "connections": 15
+    },
+    {
+      "abbr": "Cep",
+      "addedStars": 5,
+      "stars": 10,
+      "connections": 11
+    },
+    {
+      "abbr": "Cet",
+      "addedStars": 8,
+      "stars": 14,
+      "connections": 15
+    },
+    {
+      "abbr": "Cha",
+      "addedStars": 2,
+      "stars": 6,
+      "connections": 5
+    },
+    {
+      "abbr": "Cir",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "Col",
+      "addedStars": 3,
+      "stars": 6,
+      "connections": 4
+    },
+    {
+      "abbr": "Com",
+      "addedStars": 1,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "CrA",
+      "addedStars": 2,
+      "stars": 8,
+      "connections": 7
+    },
+    {
+      "abbr": "CrB",
+      "addedStars": 3,
+      "stars": 7,
+      "connections": 6
+    },
+    {
+      "abbr": "Crv",
+      "addedStars": 1,
+      "stars": 5,
+      "connections": 5
+    },
+    {
+      "abbr": "Crt",
+      "addedStars": 5,
+      "stars": 9,
+      "connections": 9
+    },
+    {
+      "abbr": "Cru",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 2
+    },
+    {
+      "abbr": "Cyg",
+      "addedStars": 5,
+      "stars": 11,
+      "connections": 8
+    },
+    {
+      "abbr": "Del",
+      "addedStars": 1,
+      "stars": 6,
+      "connections": 5
+    },
+    {
+      "abbr": "Dor",
+      "addedStars": 3,
+      "stars": 6,
+      "connections": 7
+    },
+    {
+      "abbr": "Dra",
+      "addedStars": 9,
+      "stars": 15,
+      "connections": 15
+    },
+    {
+      "abbr": "Equ",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "Eri",
+      "addedStars": 25,
+      "stars": 31,
+      "connections": 26
+    },
+    {
+      "abbr": "For",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 2
+    },
+    {
+      "abbr": "Gem",
+      "addedStars": 12,
+      "stars": 17,
+      "connections": 11
+    },
+    {
+      "abbr": "Gru",
+      "addedStars": 3,
+      "stars": 9,
+      "connections": 8
+    },
+    {
+      "abbr": "Her",
+      "addedStars": 16,
+      "stars": 21,
+      "connections": 17
+    },
+    {
+      "abbr": "Hor",
+      "addedStars": 5,
+      "stars": 7,
+      "connections": 5
+    },
+    {
+      "abbr": "Hya",
+      "addedStars": 16,
+      "stars": 21,
+      "connections": 18
+    },
+    {
+      "abbr": "Hyi",
+      "addedStars": 1,
+      "stars": 6,
+      "connections": 5
+    },
+    {
+      "abbr": "Ind",
+      "addedStars": 2,
+      "stars": 5,
+      "connections": 5
+    },
+    {
+      "abbr": "Lac",
+      "addedStars": 6,
+      "stars": 9,
+      "connections": 10
+    },
+    {
+      "abbr": "Leo",
+      "addedStars": 8,
+      "stars": 13,
+      "connections": 9
+    },
+    {
+      "abbr": "LMi",
+      "addedStars": 3,
+      "stars": 5,
+      "connections": 5
+    },
+    {
+      "abbr": "Lep",
+      "addedStars": 7,
+      "stars": 11,
+      "connections": 10
+    },
+    {
+      "abbr": "Lib",
+      "addedStars": 2,
+      "stars": 6,
+      "connections": 6
+    },
+    {
+      "abbr": "Lup",
+      "addedStars": 5,
+      "stars": 13,
+      "connections": 12
+    },
+    {
+      "abbr": "Lyn",
+      "addedStars": 5,
+      "stars": 8,
+      "connections": 6
+    },
+    {
+      "abbr": "Lyr",
+      "addedStars": 1,
+      "stars": 7,
+      "connections": 7
+    },
+    {
+      "abbr": "Men",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Mic",
+      "addedStars": 1,
+      "stars": 6,
+      "connections": 5
+    },
+    {
+      "abbr": "Mon",
+      "addedStars": 5,
+      "stars": 9,
+      "connections": 8
+    },
+    {
+      "abbr": "Mus",
+      "addedStars": 3,
+      "stars": 6,
+      "connections": 6
+    },
+    {
+      "abbr": "Nor",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 4
+    },
+    {
+      "abbr": "Oct",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Oph",
+      "addedStars": 17,
+      "stars": 17,
+      "connections": 17
+    },
+    {
+      "abbr": "Ori",
+      "addedStars": 15,
+      "stars": 23,
+      "connections": 24
+    },
+    {
+      "abbr": "Pav",
+      "addedStars": 7,
+      "stars": 11,
+      "connections": 10
+    },
+    {
+      "abbr": "Peg",
+      "addedStars": 9,
+      "stars": 14,
+      "connections": 14
+    },
+    {
+      "abbr": "Per",
+      "addedStars": 14,
+      "stars": 24,
+      "connections": 23
+    },
+    {
+      "abbr": "Phe",
+      "addedStars": 2,
+      "stars": 6,
+      "connections": 7
+    },
+    {
+      "abbr": "Pic",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "Psc",
+      "addedStars": 10,
+      "stars": 22,
+      "connections": 23
+    },
+    {
+      "abbr": "PsA",
+      "addedStars": 4,
+      "stars": 8,
+      "connections": 9
+    },
+    {
+      "abbr": "Pup",
+      "addedStars": 8,
+      "stars": 13,
+      "connections": 11
+    },
+    {
+      "abbr": "Pyx",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Ret",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 4
+    },
+    {
+      "abbr": "Sge",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Sgr",
+      "addedStars": 9,
+      "stars": 25,
+      "connections": 29
+    },
+    {
+      "abbr": "Sco",
+      "addedStars": 13,
+      "stars": 18,
+      "connections": 13
+    },
+    {
+      "abbr": "Scl",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Sct",
+      "addedStars": 0,
+      "stars": 4,
+      "connections": 4
+    },
+    {
+      "abbr": "Ser",
+      "addedStars": 10,
+      "stars": 15,
+      "connections": 13
+    },
+    {
+      "abbr": "Sex",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Tau",
+      "addedStars": 8,
+      "stars": 12,
+      "connections": 11
+    },
+    {
+      "abbr": "Tel",
+      "addedStars": 1,
+      "stars": 3,
+      "connections": 2
+    },
+    {
+      "abbr": "Tri",
+      "addedStars": 0,
+      "stars": 3,
+      "connections": 3
+    },
+    {
+      "abbr": "TrA",
+      "addedStars": 1,
+      "stars": 4,
+      "connections": 3
+    },
+    {
+      "abbr": "Tuc",
+      "addedStars": 2,
+      "stars": 6,
+      "connections": 6
+    },
+    {
+      "abbr": "UMa",
+      "addedStars": 12,
+      "stars": 20,
+      "connections": 21
+    },
+    {
+      "abbr": "UMi",
+      "addedStars": 0,
+      "stars": 7,
+      "connections": 7
+    },
+    {
+      "abbr": "Vel",
+      "addedStars": 3,
+      "stars": 8,
+      "connections": 7
+    },
+    {
+      "abbr": "Vir",
+      "addedStars": 7,
+      "stars": 14,
+      "connections": 12
+    },
+    {
+      "abbr": "Vol",
+      "addedStars": 1,
+      "stars": 6,
+      "connections": 6
+    },
+    {
+      "abbr": "Vul",
+      "addedStars": 1,
+      "stars": 6,
+      "connections": 4
+    }
+  ],
+  "archivedDuplicateConstellations": [
+    {
+      "name": "Serpens",
+      "abbr": "Ser",
+      "genitive": "Serpentis",
+      "pronunciation": "SUR-penz",
+      "meaning": "Serpent",
+      "family": "Hercules Family",
+      "hemisphere": "Northern",
+      "quadrant": "NQ3",
+      "visibility": "80° N - 77° S",
+      "bestSeason": "Summer",
+      "bestViewingMonth": "July",
+      "areaSqDeg": 637,
+      "sizeRank": "23rd largest",
+      "brightestStar": "Unukalhai (2.63)",
+      "starsWithPlanets": 12,
+      "coordinates": {
+        "rightAscensionAvg": "16h 57m",
+        "declinationAvg": "6°"
+      },
+      "center": {
+        "x": 50,
+        "y": 50
+      },
+      "goAstronomyUrl": "https://www.go-astronomy.com/constellations.php?Name=Serpens",
+      "wikimediaUrl": "https://commons.wikimedia.org/wiki/File:Serpens_IAU.svg",
+      "stars": [
+        {
+          "id": "unukalhai",
+          "name": "Unukalhai",
+          "bayer": "α Ser",
+          "spectralType": "K2III",
+          "magnitude": 2.63,
+          "radius": 5,
+          "x": 45,
+          "y": 50,
+          "isSkeleton": true,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "15h 44m 16.073s",
+            "declination": "+06° 25′ 32.26″",
+            "rightAscensionDeg": 236.06697,
+            "declinationDeg": 6.425627
+          },
+          "catalogue": {
+            "provider": "HYG 4.1",
+            "hygId": 76835,
+            "hip": 77070,
+            "hd": 140573,
+            "hr": 5854,
+            "bayer": "Alp",
+            "constellation": "Ser",
+            "properName": "Unukalhai",
+            "source": "constellations_hyg_source.json",
+            "positionScope": "matched catalogue entry"
+          },
+          "photometry": {
+            "band": "V",
+            "apparentMagnitude": 2.63,
+            "colorIndexBV": 1.167,
+            "variableDesignation": null,
+            "variableMagnitudeRange": null
+          },
+          "catalogueSpectralType": "K2III",
+          "properMotion": {
+            "unit": "mas/year",
+            "rightAscension": 134.66,
+            "declination": 44.14
+          }
+        },
+        {
+          "id": "eta_ser",
+          "name": "Eta Serpentis",
+          "bayer": "η Ser",
+          "spectralType": "K0III",
+          "magnitude": 3.23,
+          "radius": 4,
+          "x": 30,
+          "y": 40,
+          "isSkeleton": true,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "18h 21m 18.601s",
+            "declination": "-02° 53′ 55.77″",
+            "rightAscensionDeg": 275.327505,
+            "declinationDeg": -2.898825
+          },
+          "catalogue": {
+            "provider": "HYG 4.1",
+            "hygId": 89684,
+            "hip": 89962,
+            "hd": 168723,
+            "hr": 6869,
+            "bayer": "Eta",
+            "constellation": "Ser",
+            "properName": null,
+            "source": "constellations_hyg_source.json",
+            "positionScope": "matched catalogue entry"
+          },
+          "photometry": {
+            "band": "V",
+            "apparentMagnitude": 3.23,
+            "colorIndexBV": 0.941,
+            "variableDesignation": null,
+            "variableMagnitudeRange": null
+          },
+          "catalogueSpectralType": "K0III-IV",
+          "properMotion": {
+            "unit": "mas/year",
+            "rightAscension": -547.57,
+            "declination": -700.72
+          }
+        },
+        {
+          "id": "mu_ser",
+          "name": "Mu Serpentis",
+          "bayer": "μ Ser",
+          "spectralType": "A0V",
+          "magnitude": 3.54,
+          "radius": 4,
+          "x": 60,
+          "y": 45,
+          "isSkeleton": true,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "15h 49m 37.207s",
+            "declination": "-03° 25′ 48.75″",
+            "rightAscensionDeg": 237.40503,
+            "declinationDeg": -3.430208
+          },
+          "catalogue": {
+            "provider": "HYG 4.1",
+            "hygId": 77280,
+            "hip": 77516,
+            "hd": 141513,
+            "hr": 5881,
+            "bayer": "Mu",
+            "constellation": "Ser",
+            "properName": null,
+            "source": "constellations_hyg_source.json",
+            "positionScope": "matched catalogue entry"
+          },
+          "photometry": {
+            "band": "V",
+            "apparentMagnitude": 3.54,
+            "colorIndexBV": -0.036,
+            "variableDesignation": null,
+            "variableMagnitudeRange": null
+          },
+          "catalogueSpectralType": "A0V",
+          "properMotion": {
+            "unit": "mas/year",
+            "rightAscension": -98.07,
+            "declination": -27.41
+          }
+        },
+        {
+          "id": "xi_ser",
+          "name": "Xi Serpentis",
+          "bayer": "ξ Ser",
+          "spectralType": "G8III",
+          "magnitude": 3.54,
+          "radius": 4,
+          "x": 75,
+          "y": 55,
+          "isSkeleton": true,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "17h 37m 35.202s",
+            "declination": "-15° 23′ 54.81″",
+            "rightAscensionDeg": 264.396675,
+            "declinationDeg": -15.398557
+          },
+          "catalogue": {
+            "provider": "HYG 4.1",
+            "hygId": 85998,
+            "hip": 86263,
+            "hd": 159876,
+            "hr": 6561,
+            "bayer": "Xi",
+            "constellation": "Ser",
+            "properName": null,
+            "source": "constellations_hyg_source.json",
+            "positionScope": "matched catalogue entry"
+          },
+          "photometry": {
+            "band": "V",
+            "apparentMagnitude": 3.54,
+            "colorIndexBV": 0.262,
+            "variableDesignation": null,
+            "variableMagnitudeRange": null
+          },
+          "catalogueSpectralType": "F0IIIp",
+          "properMotion": {
+            "unit": "mas/year",
+            "rightAscension": -39.3,
+            "declination": -61.27
+          }
+        }
+      ],
+      "connections": [
+        [
+          "eta_ser",
+          "unukalhai"
+        ],
+        [
+          "unukalhai",
+          "mu_ser"
+        ],
+        [
+          "mu_ser",
+          "xi_ser"
+        ]
+      ],
+      "deepSkyObjects": [
+        {
+          "id": "eagle_nebula",
+          "name": "Eagle Nebula",
+          "catalog": "M16 / NGC 6611",
+          "type": "emission nebula",
+          "magnitude": 6.0,
+          "radius": 5,
+          "x": 65,
+          "y": 35,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "18:18:48.17",
+            "declination": "-13:48:26.0",
+            "rightAscensionDeg": 274.700708333,
+            "declinationDeg": -13.807222222222222,
+            "positionScope": "catalogue reference position"
+          },
+          "photometry": {
+            "magnitudeV": 6.0,
+            "magnitudeB": 6.58
+          },
+          "angularSize": {
+            "unit": "arcmin",
+            "majorAxis": 120.0,
+            "minorAxis": 25.0,
+            "positionAngleDeg": null
+          },
+          "catalogue": {
+            "provider": "OpenNGC / Mattia Verga",
+            "identifier": "NGC6611",
+            "type": "Neb",
+            "constellation": "Se2",
+            "source": "deep_sky_catalogue_source.json",
+            "fieldReferences": "Type:1|RA:1|Dec:1|Const:99|MajAx:9|MinAx:9|B-Mag:2|V-Mag:2|Pax:2|Pm-RA:2|Pm-Dec:2|RadVel:2|Redshift:2",
+            "reviewRequired": false,
+            "reviewNotes": []
+          }
+        },
+        {
+          "id": "serpens_cluster",
+          "name": "Messier 5",
+          "catalog": "M5 / NGC 5904",
+          "type": "globular cluster",
+          "magnitude": 5.6,
+          "radius": 5,
+          "x": 25,
+          "y": 60,
+          "coordinates": {
+            "frame": "equatorial",
+            "equinox": "J2000.0",
+            "epoch": "J2000.0",
+            "rightAscension": "15:18:33.75",
+            "declination": "+02:04:57.7",
+            "rightAscensionDeg": 229.640625,
+            "declinationDeg": 2.082694444444445,
+            "positionScope": "catalogue reference position"
+          },
+          "photometry": {
+            "magnitudeV": 5.95,
+            "magnitudeB": null
+          },
+          "angularSize": {
+            "unit": "arcmin",
+            "majorAxis": 15.0,
+            "minorAxis": null,
+            "positionAngleDeg": null
+          },
+          "catalogue": {
+            "provider": "OpenNGC / Mattia Verga",
+            "identifier": "NGC5904",
+            "type": "GCl",
+            "constellation": "Se1",
+            "source": "deep_sky_catalogue_source.json",
+            "fieldReferences": "Type:1|RA:1|Dec:1|Const:99|MajAx:5|B-Mag:2|V-Mag:2|K-Mag:2|Pax:2|Pm-RA:2|Pm-Dec:2|RadVel:2|Redshift:2",
+            "reviewRequired": false,
+            "reviewNotes": []
+          }
+        }
+      ]
+    }
+  ],
+  "starIdentityCorrections": [
+    {
+      "abbr": "Cam",
+      "star": "cs_cam",
+      "before": {
+        "id": "cs_cam",
+        "name": "CS Camelopardalis",
+        "bayer": "9 Cam",
+        "spectralType": "B9Ia",
+        "magnitude": 4.21,
+        "radius": 4,
+        "x": 25,
+        "y": 50,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "04h 54m 03.010s",
+          "declination": "+66° 20′ 33.64″",
+          "rightAscensionDeg": 73.51254,
+          "declinationDeg": 66.342678
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 22730,
+          "hip": 22783,
+          "hd": 30614,
+          "hr": 1542,
+          "bayer": "Alp",
+          "constellation": "Cam",
+          "properName": null,
+          "source": "constellations_hyg_source.json",
+          "positionScope": "matched catalogue entry"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.26,
+          "colorIndexBV": -0.008,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        },
+        "catalogueSpectralType": "O9.5Ia SB:",
+        "properMotion": {
+          "unit": "mas/year",
+          "rightAscension": 0.49,
+          "declination": 7.31
+        }
+      },
+      "issue": "CS Cam was incorrectly designated 9 Cam (= alpha Cam); HYG variable CS is HIP16228/HD21291.",
+      "source": "constellations_hyg_source.json"
+    }
+  ],
+  "displayPhotometry": {
+    "measured": 134,
+    "estimated": 31
+  },
+  "photometrySearch": "Pinned OpenNGC NGC/addendum, HYG, existing individually checked SIMBAD/Green references and Harris 1996 (2010 edition). SIMBAD NGC1851 basic page has no V; Harris supplies integrated V_t. SIMBAD TAP mirror unavailable. No exhaustive literature claim.",
+  "limitations": [
+    "Atlas lines are Sky & Telescope conventions, not official IAU connection rules.",
+    "Supplement HIP55203 uses published rounded J2000 coordinates and V, not fabricated HYG metadata.",
+    "Existing unconnected stars retained; not an exhaustive stellar census.",
+    "Measured missing V values remain null. Display estimates are not object measurements.",
+    "Original duplicate Serpens metadata/objects archived; unique M16 and M5 retained in Serpens."
+  ]
+}

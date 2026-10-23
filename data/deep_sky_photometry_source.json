@@ -1,0 +1,40 @@
+{
+  "provider": "William E. Harris, McMaster University",
+  "reference": "Harris 1996, AJ 112, 1487 (2010 edition)",
+  "url": "https://physwww.mcmaster.ca/~harris/mwgc.dat",
+  "sha256": "b457a690adc422fb2e8e05a23e1de50b62d1d5ac10dce99963c956c1b17ca658",
+  "field": "Part II, column 7, integrated V_t (not V_HB)",
+  "reuse": "Data supplied free of charge; redistribution must credit the original university website and be free of charge.",
+  "records": {
+    "ngc1851": {
+      "identifier": "NGC1851",
+      "magnitudeV": 7.14,
+      "sourceRow": " NGC 1851    -1.18  9   0.02 16.09 15.47  7.14  -8.33   0.17  0.76  0.49  1.01  F7    0.05"
+    },
+    "ngc4833": {
+      "identifier": "NGC4833",
+      "magnitudeV": 6.91,
+      "sourceRow": " NGC 4833    -1.85  4   0.32 15.60 15.08  6.91  -8.17   0.29  0.93  0.63  1.33  F3    0.07"
+    },
+    "ngc6101": {
+      "identifier": "NGC6101",
+      "magnitudeV": 9.16,
+      "sourceRow": " NGC 6101    -1.98  3   0.05 16.60 16.10  9.16  -6.94   0.06  0.68  0.50        F5    0.05"
+    },
+    "ngc6541": {
+      "identifier": "NGC6541",
+      "magnitudeV": 6.3,
+      "sourceRow": " NGC 6541    -1.81  4   0.14 15.35 14.82  6.30  -8.52   0.13  0.76  0.49  1.01  F6    0.12"
+    },
+    "m71": {
+      "identifier": "NGC6838",
+      "magnitudeV": 8.19,
+      "sourceRow": " NGC 6838    -0.78 11   0.25 14.48 13.80  8.19  -5.61   0.63  1.09  0.63  1.36  G1    0.00"
+    },
+    "ngc6934": {
+      "identifier": "NGC6934",
+      "magnitudeV": 8.83,
+      "sourceRow": " NGC 6934    -1.47  2   0.10 16.86 16.28  8.83  -7.45   0.20  0.77  0.49  0.99  F7/8  0.01"
+    }
+  }
+}
