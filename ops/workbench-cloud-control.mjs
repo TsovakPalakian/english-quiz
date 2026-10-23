@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 const account='42a9ebe47d529e3664b914aaf0813a21';
 const liveDatabases=new Set(['e2739e2e-6693-4cc8-8054-d90173b032c0','dd640d1f-abbe-4236-8741-5638e89d890f']);
-export function workbenchCloudControl({token,fetchImpl=fetch,maxRequests=1500}={}){
+export function workbenchCloudControl({token,fetchImpl=fetch,maxRequests=1500,onError=()=>{}}={}){
   if(typeof token!=='string'||!token.trim()||typeof fetchImpl!=='function'||!Number.isSafeInteger(maxRequests)||maxRequests<1||maxRequests>2000)throw Error('Explicit bounded operator credentials required.');
   let used=0;const owned=new Set();
   async function request(path,{method='GET',body,allow404=false}={}){
@@ -17,7 +17,10 @@ export function workbenchCloudControl({token,fetchImpl=fetch,maxRequests=1500}={
     used++;const response=await fetchImpl('https://api.cloudflare.com/client/v4'+path,{method,redirect:'error',signal:AbortSignal.timeout(30000),headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});
     if(allow404&&response.status===404)return null;
     let value;try{value=await response.json();}catch{throw Error('Invalid Cloudflare control response.');}
-    if(!response.ok||value.success!==true)throw Object.assign(Error('Cloud control request failed.'),{status:response.status,codes:(value.errors||[]).map(row=>row.code)});
+    if(!response.ok||value.success!==true){
+      onError({status:response.status,errors:value.errors||[],requestNumber:used});
+      throw Object.assign(Error('Cloud control request failed.'),{status:response.status,codes:(value.errors||[]).map(row=>row.code)});
+    }
     return value.result;
   }
   const scoped=(path,options)=>request('/accounts/'+account+path,options);
