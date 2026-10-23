@@ -6,6 +6,7 @@ import {learningWorkbenchReadiness} from './learning-workbench-schema.mjs';
 import {boundedProviderBytes} from './bounded-provider-body.mjs';
 import {GenerationQuota} from './generation-quota.mjs';
 import {openWorkbenchPreparation} from './learning-workbench-preparation.mjs';
+import {WorkbenchProviderSettings} from './workbench-provider-settings.mjs';
 const fail=message=>{throw new StudyError(503,message);};
 export const WORKBENCH_PRIVATE_BUCKET='learn-english-workbench-private-media';
 const writes=env=>env.LEARNING_WORKBENCH_ENABLED==='true'&&env.LEARNING_WORKBENCH_WRITES==='true'&&env.STAGE_WRITES==='true'&&env.ACCOUNT_TRANSFER_FROZEN!=='true';
@@ -41,15 +42,20 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
     if(!current||current.role!==actor.role)fail('Workbench account authorization changed.');
     if(env.WORKBENCH_MEDIA_BUCKET!==WORKBENCH_PRIVATE_BUCKET||env.WORKBENCH_STORAGE_APPROVED!=='true'||!env.WORKBENCH_MEDIA||[env.MEDIA,env.CONTENT_MEDIA,env.STAGE_MEDIA].includes(env.WORKBENCH_MEDIA))fail('A separately approved private workbench bucket is required.');
     const allow=async()=>{const current=await resolveActor(env,actor.id);return writable&&writes(env)&&!!current&&current.role===actor.role;};
-    const resolve=id=>resolveActor(env,id),speechEnabled=env.LEARNING_SPEECH_ENABLED==='true';let providerInstance=null;
+    const resolve=id=>resolveActor(env,id),speechEnabled=env.LEARNING_SPEECH_ENABLED==='true';let providerInstance=null,providerSettings=null;
     const providers=async({db})=>{
       if(providerInstance)return providerInstance;
       if(openProviders){providerInstance=await openProviders({db,env,policy:p,authorize:allow});return providerInstance;}
       const language=p.language||{},common={enabled:env.LEARNING_LANGUAGE_NETWORK==='true',freeTierVerified:language.freeTierVerified===true,credentialRevision:language.credentialRevision,fetchImpl};
-      const configured=await createConfiguredLanguageProviders({db,authorize:allow,quota:new GenerationQuota(db),
+      const google={...common,apiKey:env.WORKBENCH_GEMINI_KEY,quotaProject:env.WORKBENCH_GEMINI_PROJECT,allowDataProcessing:language.allowDataProcessing===true,termsRevision:language.termsRevision};
+      const quota=new GenerationQuota(db);
+      const configured=await createConfiguredLanguageProviders({db,authorize:allow,quota,
         whisper:language.whisper===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
         generation:language.generation===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
-        azure:language.azure===true?{...common,resourceName:env.WORKBENCH_AZURE_RESOURCE,region:env.WORKBENCH_AZURE_REGION||'',apiKey:env.WORKBENCH_AZURE_KEY,termsRevision:language.termsRevision}:null});
+        azure:language.azure===true?{...common,resourceName:env.WORKBENCH_AZURE_RESOURCE,region:env.WORKBENCH_AZURE_REGION||'',apiKey:env.WORKBENCH_AZURE_KEY,termsRevision:language.termsRevision}:null,
+        geminiGeneration:language.geminiGeneration===true?{...google,model:env.WORKBENCH_GEMINI_GENERATION_MODEL||''}:null,
+        gemini:language.geminiReview===true?{...google,model:env.WORKBENCH_GEMINI_REVIEW_MODEL||''}:null});
+      providerSettings=new WorkbenchProviderSettings({...configured,quota,authorize:allow});
       providerInstance=configured.providers;return providerInstance;
     };
     const speech=speechEnabled?{...p.speech,enabled:true,workerId:env.LEARNING_WORKBENCH_WORKER_ID,resolveActor:resolve,authorize:allow,openProviders:providers,
@@ -60,11 +66,13 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
         if(!openPreparation)fail('Trusted preparation composition is not configured.');
         return openPreparation({...context,env,policy:p,resolveActor:resolve,openProviders:providers,authorize:allow});
       }:null});
-    return factory({db,actor:current});
+    const services=await factory({db,actor:current});
+    if(services.providers&&providerSettings)services.providerSettings=providerSettings;
+    return services;
   }
-  async function scheduled(_event,env,ctx,{db,maxSteps=6,maxMs=20000}={}){
+  async function scheduled(_event,env,ctx,{db,maxSteps=6,maxMs=90000}={}){
     if(!writes(env))return {reason:'off'};
-    if(!Number.isSafeInteger(maxSteps)||maxSteps<1||maxSteps>20||!Number.isSafeInteger(maxMs)||maxMs<1000||maxMs>25000||typeof ctx?.waitUntil!=='function')fail('Invalid workbench maintenance budget.');
+    if(!Number.isSafeInteger(maxSteps)||maxSteps<1||maxSteps>20||!Number.isSafeInteger(maxMs)||maxMs<1000||maxMs>120000||typeof ctx?.waitUntil!=='function')fail('Invalid workbench maintenance budget.');
     const work=(async()=>{
       if(!(await learningWorkbenchReadiness(db,{studyBridge:env.LEARNING_STUDY_BRIDGE==='true'})).ready)return {reason:'schema_unavailable'};
       const actor=await resolveActor(env,env.LEARNING_WORKBENCH_WORKER_ID);if(actor?.role!=='DEVELOPER')return {reason:'worker_unavailable'};

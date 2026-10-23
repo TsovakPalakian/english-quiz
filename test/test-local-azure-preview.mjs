@@ -13,6 +13,7 @@ test('regional STT/TTS use the correct Microsoft hosts without paid pronunciatio
   const base={...config,enabled:true,freeTierVerified:true,termsRevision:'fixture-v1'},input={bytes:pcm(),mime:'audio/wav',mode:'scripted',reference:'A fine drizzle is falling outside.',locale:'en-US'};
   const speech=createAzurePronunciationAdapter({...base,fetchImpl:async(url,init)=>{
     assert.equal(new URL(url).host,'northeurope.stt.speech.microsoft.com');
+    assert.equal(new URL(url).pathname,'/speech/recognition/conversation/cognitiveservices/v1');
     const parameters=JSON.parse(Buffer.from(init.headers['Pronunciation-Assessment'],'base64').toString());assert.equal(parameters.GradingSystem,'HundredMark');assert.equal(parameters.EnableProsodyAssessment,false);
     return response();
   }});

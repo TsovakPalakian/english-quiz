@@ -38,6 +38,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     const examReview=new RegExp('^/exam-quizzes/'+id+'/review$').exec(path);if(examReview){params(url,[]);return json(await service('examQuizzes').reviewSession(actor,examReview[1]));}
     if(path==='/settings/providers'){params(url,[]);return json(await service('providers').inspect(actor));}
     if(path==='/settings/providers/history'){const p=params(url,['before']);return json(await service('providers').history(actor,{before:p.has('before')?integer(p.get('before')):null}));}
+    if(path==='/settings/provider-access'){params(url,[]);return json(await service('providerSettings').inspect(actor));}
+    if(path==='/preparation/settings'){params(url,[]);return json(await service('preparation').settings(actor));}
+    if(path==='/pipeline/settings'){params(url,[]);return json({settings:await service('pipeline').settings(actor,{optional:true})});}
+    const checks=new RegExp('^/proposals/'+id+'/checks$').exec(path);
+    if(checks){const p=params(url,['before']);return json(await service('independent').history(actor,checks[1],{before:p.has('before')?integer(p.get('before')):null,recover:false}));}
     if(path==='/feedback/policy'){params(url,[]);service('feedback');return json(services.feedbackPolicy);}
     if(path==='/feedback'){params(url,[]);const reports=await service('feedback').mine(actor),result=[];for(const report of reports)result.push({...report,...await service('feedbackDelivery').status(actor,report.id,{recover:writable})});return json({reports:result,policy:services.feedbackPolicy});}
     if(path==='/feedback/signals'){const p=params(url,['limit']);return json(await service('feedbackPrivacy').signals(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
@@ -46,7 +51,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     if(path==='/preparation'){const p=params(url,['limit']);return json(await service('preparation').summary(actor,{limit:p.has('limit')?integer(p.get('limit')):50}));}
     const dispatchHistory=/^\/preparation\/([1-9]\d{0,15})\/history$/.exec(path);
     if(dispatchHistory){const p=params(url,['before']);return json(await service('preparation').history(actor,integer(dispatchHistory[1]),{before:p.has('before')?integer(p.get('before')):null}));}
-    if(path==='/status'){params(url,[]);return json({enabled:true,writable,pronunciationQuizzes:services?.review?.pronunciationQuizzes===true,pronunciationRubrics:services?.review?.pronunciationQuizzes?services.speech.rubrics.filter(rubric=>Object.keys(rubric.weights).every(key=>['accuracy','fluency','prosody'].includes(key))):[],features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions','feedback','authors','mapping','statistics','examQuizzes'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
+    if(path==='/status'){params(url,[]);return json({enabled:true,writable,pronunciationQuizzes:services?.review?.pronunciationQuizzes===true,pronunciationRubrics:services?.review?.pronunciationQuizzes?services.speech.rubrics.filter(rubric=>Object.keys(rubric.weights).every(key=>['accuracy','fluency','prosody'].includes(key))):[],features:[...Object.keys(services||{}).filter(key=>['kits','review','speech','transcripts','media','sessions','feedback','authors','mapping','statistics','examQuizzes','independent'].includes(key)),...(services?.kits?.generation?['preparation']:[])]});}
     if(path==='/kit'){const p=params(url,['cardId','senseId','groupId','lessonId']);if(p.has('groupId')!==p.has('lessonId'))fail(400,'Select group and lesson together.');return json(await service('kits').coverage(actor,{cardId:integer(p.get('cardId')),senseId:p.get('senseId')||null,...(p.has('groupId')?{groupId:integer(p.get('groupId')),lessonId:integer(p.get('lessonId'))}:{})}));}
     if(path==='/templates'){const p=params(url,['cardId']);return json({quizzes:await service('review').sharedForCard(actor,integer(p.get('cardId')))});}
     const session=new RegExp('^/sessions/'+id+'$').exec(path);
@@ -108,6 +113,16 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
     if(path==='/legacy/link')return json(await service('mapping').link(actor,data));
     if(path==='/exam-quizzes/assign')return json(await service('examQuizzes').assign(actor,data));
     if(path==='/settings/providers')return json(await service('providers').configure(actor,data));
+    if(path==='/settings/provider-access')return json(await service('providerSettings').confirm(actor,data));
+    if(path==='/settings/provider-budget')return json(await service('providerSettings').budget(actor,data));
+    if(path==='/settings/provider-limit')return json(await service('providerSettings').limit(actor,data));
+    if(path==='/pipeline/settings')return json(await service('pipeline').configure(actor,data));
+    if(path==='/pipeline/initialize'){
+      if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>key!=='mutationId'))fail(400,'Invalid pipeline initialization.');
+      return json(await service('pipeline').initialize(actor));
+    }
+    const checks=new RegExp('^/proposals/'+id+'/checks$').exec(path);
+    if(checks)return json(await service('independent').run(actor,checks[1],data,{signal:request.signal}));
     if(path==='/settings/providers/initialize'){
       if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>key!=='mutationId'))fail(400,'Provider initialization does not accept selections.');
       return json(await service('providers').initialize(actor));

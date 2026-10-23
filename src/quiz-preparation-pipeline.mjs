@@ -17,7 +17,7 @@ export class QuizPreparationPipeline{
     catch(error){if(error.status===409||/constraint/i.test(error.message))fail(409,'Pipeline changed. Refresh before retrying.');throw error;}
   }
   async initialize(actor){developer(actor);await this.db.atomic([s('INSERT OR IGNORE INTO qr_pipeline_settings(id,enabled,revision) VALUES(1,0,1)')]);return this.settings(actor);}
-  async settings(actor){teacher(actor);const [row]=await this.db.read('SELECT enabled,revision FROM qr_pipeline_settings WHERE id=1');if(!row)fail(503,'Pipeline settings unavailable.');return {enabled:row.enabled===1,revision:row.revision};}
+  async settings(actor,{optional=false}={}){teacher(actor);const [row]=await this.db.read('SELECT enabled,revision FROM qr_pipeline_settings WHERE id=1');if(!row){if(optional)return null;fail(503,'Pipeline settings unavailable.');}return {enabled:row.enabled===1,revision:row.revision};}
   async configure(actor,body){
     developer(actor);exactFields(body,['mutationId','expectedRevision','enabled','reason']);
     if(typeof body.enabled!=='boolean'||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1||body.expectedRevision>=Number.MAX_SAFE_INTEGER)fail(400,'Invalid pipeline settings.');

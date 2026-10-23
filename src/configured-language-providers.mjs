@@ -23,7 +23,8 @@ export async function createConfiguredLanguageProviders({db,authorize,quota=null
   const register=async(provider,account,rows)=>{
     const scope=await accountScope(provider,account);
     const bindings=rows.map(({id,provider,model,version,billing})=>({id,provider,model,version,billing})),existing=accounts.find(account=>account.scope===scope);
-    if(existing)existing.bindings.push(...bindings);else accounts.push({scope,provider,bindings});
+    const tasks=[...new Set(rows.flatMap(row=>row.capabilities.map(cap=>cap.task)))];
+    if(existing){existing.bindings.push(...bindings);existing.tasks=[...new Set([...existing.tasks,...tasks])];}else accounts.push({scope,provider,bindings,tasks});
     adapters.push(...rows.map(adapter=>access.wrap(adapter,{scope,...(provider==='google'?{limits:GEMINI_DISPATCH_LIMITS}:{})})));
   };
   if(wordnet)await register('princeton-wordnet',wordnet.dataset?.sha256,[createWordNetAdapter(wordnet)]);

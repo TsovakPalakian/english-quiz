@@ -10,7 +10,7 @@ function settings(options){
   validateTransportOptions({enabled,freeTierVerified,timeoutMs});
   if(termsRevision!==null&&(typeof termsRevision!=='string'||!/^[a-zA-Z0-9_.-]{1,64}$/.test(termsRevision)))fail('invalid_configuration');
   if(typeof region!=='string'||region!==''&&!/^[a-z][a-z0-9]{1,31}$/.test(region))fail('invalid_configuration');
-  return {enabled,freeTierVerified,resourceName,region,apiKey,fetchImpl,timeoutMs,termsRevision,configurationVersion:transportConfigurationVersion(options.configurationRevision)+(region?'.regional-'+region+'-v1':'')};
+  return {enabled,freeTierVerified,resourceName,region,apiKey,fetchImpl,timeoutMs,termsRevision,configurationVersion:transportConfigurationVersion(options.configurationRevision)+(region?'.regional-'+region+'-v2':'')};
 }
 function gate(config,kind='stt'){
   if(!config.enabled)fail('provider_disabled');
@@ -41,7 +41,7 @@ export function createAzurePronunciationAdapter(options={}){
       azurePcmDuration(input.bytes);
       const params={ReferenceText:input.reference,GradingSystem:'HundredMark',Granularity:'FullText',Dimension:'Comprehensive',EnableMiscue:false,EnableProsodyAssessment:false};
       const encoded=btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(params))));
-      const data=await languageProviderHTTP(config.fetchImpl,host+'/stt/speech/recognition/conversation/cognitiveservices/v1?language='+input.locale+'&format=detailed',
+      const data=await languageProviderHTTP(config.fetchImpl,host+(config.region?'':'/stt')+'/speech/recognition/conversation/cognitiveservices/v1?language='+input.locale+'&format=detailed',
         {method:'POST',headers:{'Ocp-Apim-Subscription-Key':config.apiKey,'Content-Type':'audio/wav; codecs=audio/pcm; samplerate=16000',Accept:'application/json','Pronunciation-Assessment':encoded},body:input.bytes},{signal,timeoutMs:config.timeoutMs,maxBytes:150000});
       const quality={InitialSilenceTimeout:'no_speech',BabbleTimeout:'noise',NoMatch:'no_speech'}[data?.RecognitionStatus];
       if(quality)return validateSpeechOutput({quality,transcript:null,metrics:{accuracy:null,fluency:null,prosody:null},findings:[]},'pronunciation');

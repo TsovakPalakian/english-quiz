@@ -26,12 +26,13 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
     if(!db||typeof db.read!=='function'||typeof db.atomic!=='function')throw new StudyError(503,'Workbench database unavailable.');
     const review=new QuizReviewService(db,{extendedLifecycle:true,allowGlobalApproval:true,mediaQuizzes:true,pronunciationQuizzes:configuration?.enabled===true&&configuration?.pronunciationQuizzes===true,safePublicAttribution:publicAttribution===true}),kits=new LearningKits(review),media=new QuizMedia(kits,{store,inspect});
     review.contentPolicy=media;
-    let runner=null,preparationProviders=null,preparationPipeline=null;
+    let runner=null,preparationProviders=null,preparationPipeline=null,independent=null;
     if(openPreparation){
       const preparation=await openPreparation({db,review,actor});
       if(!preparation?.generation||preparation.generation.review!==review||preparation.generation.db!==db||typeof preparation.generation.enqueue!=='function'||typeof preparation.availability!=='function')throw new StudyError(503,'Preparation must use the current review service and an explicit availability gate.');
       kits.generation=preparation.generation;kits.availability=preparation.availability;
       preparationProviders=preparation.providers||null;preparationPipeline=preparation.pipeline||null;
+      independent=preparation.independent||null;
       if(preparation.runner!==undefined){
         if(!(preparation.runner instanceof QuizPreparationRunner)||preparation.runner.review!==review||preparation.runner.generation!==preparation.generation)throw new StudyError(503,'Preparation runner must use the current services.');runner=preparation.runner;
       }
@@ -44,6 +45,7 @@ export function createLearningWorkbenchFactory({storage,inspect,speech:configura
     }
     if(preparationProviders)services.providers=preparationProviders;
     if(preparationPipeline)services.pipeline=preparationPipeline;
+    if(independent)services.independent=independent;
     if(publicAttribution===true)services.authors=new QuizAuthorVisibility(review);
     if(reports?.enabled===true){
       services.feedback=new QuizFeedback(kits,media,{privacyEnabled:true,retentionDays:reports.retentionDays});

@@ -7,6 +7,7 @@ import {GenerationQuota} from './generation-quota.mjs';
 import {StoredQuizIndependentReview} from './stored-quiz-independent-review.mjs';
 import {QuizPreparationPipeline} from './quiz-preparation-pipeline.mjs';
 import {QuizPreparationRunner} from './quiz-preparation-runner.mjs';
+import {IndependentReviewIssue} from './quiz-independent-review.mjs';
 // Shared SQL-backed composition; no initialization, automatic enabling or fixture source mapping.
 export async function openWorkbenchPreparation({db,review,env,resolveActor,openProviders,authorize}){
   const worker=await resolveActor(env.LEARNING_WORKBENCH_WORKER_ID);
@@ -14,9 +15,11 @@ export async function openWorkbenchPreparation({db,review,env,resolveActor,openP
   const providers=await openProviders({db}),quota=new GenerationQuota(db);
   const generation=new QuizGenerationService({review,worker,resolveActor,
     preparation:new QuizGenerationContext({review}),
-    generate:createQuizPackageGenerator({generate:createRoutedQuizGenerator({providers,includeMetadata:true})}),timeoutMs:20000,leaseMs:30000});
-  // Until an independent reviewer is explicitly supplied, it reports unavailable, never approval.
-  const independent=new StoredQuizIndependentReview(review),pipeline=new QuizPreparationPipeline({review,independent,worker,resolveActor});
+    generate:createQuizPackageGenerator({generate:createRoutedQuizGenerator({providers,includeMetadata:true,timeoutMs:35000})}),timeoutMs:40000,leaseMs:60000});
+  const independent=new StoredQuizIndependentReview(review,{timeoutMs:40000,reviewer:async({signal,...input})=>{
+    try{return (await providers.execute('review',input,{signal,timeoutMs:35000})).data.result;}
+    catch(error){throw new IndependentReviewIssue(({provider_disabled:'review_not_configured',quota_or_access_denied:'quota_exceeded',access_budget_or_policy_changed:'quota_exceeded'})[error.code]||(['cancelled','timeout','review_refused','invalid_review_response'].includes(error.code)?error.code:'review_unavailable'));}
+  }}),pipeline=new QuizPreparationPipeline({review,independent,worker,resolveActor,leaseMs:60000});
   const runner=new QuizPreparationRunner({review,generation,pipeline,workerId:worker.id,resolveActor,authorize});
   const availability=async()=>{
     const current=await resolveActor(worker.id);if(current?.role!=='DEVELOPER')throw new StudyError(503,'Preparation worker authorization changed.');

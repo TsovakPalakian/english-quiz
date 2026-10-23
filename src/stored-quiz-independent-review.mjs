@@ -112,10 +112,10 @@ export class StoredQuizIndependentReview{
     const [row]=await this.db.read(select+' WHERE r.id=?',[saved.attemptId]);
     return this.entry(row,await this.input(await this.version(actor,id),level));
   }
-  async history(actor,id,{level=null,before=null,limit=50}={}){
+  async history(actor,id,{level=null,before=null,limit=50,recover=true}={}){
     const q=await this.version(actor,id);
     if(!levels.includes(level)||!Number.isSafeInteger(limit)||limit<1||limit>100||before!==null&&(!Number.isSafeInteger(before)||before<1))fail(400,'Invalid review history page.');
-    await this.expire(id);
+    if(recover)await this.expire(id);
     const current=await this.input(q,level);
     const rows=await this.db.read(select+` WHERE r.version_id=? ${before===null?'':'AND r.sequence<?'} ORDER BY r.sequence DESC LIMIT ?`,[id,...(before===null?[]:[before]),limit+1]);
     const page=rows.slice(0,limit);
