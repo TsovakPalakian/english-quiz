@@ -10,14 +10,25 @@ try{
     if(viewport.width===1440)await page.clock.install();
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('**/api/auth/password/**',route=>{requests.push({path:new URL(route.request().url()).pathname,body:route.request().postDataJSON()});return route.fulfill({json:{ok:true}});});
-    await page.goto(preview.url);await page.waitForSelector('body.guest-home');
+    let releaseAccount;const accountGate=new Promise(resolve=>{releaseAccount=resolve;});
+    const initialAccount=async route=>{await accountGate;await route.fulfill({json:{user:null}});};
+    await page.route('**/api/me',initialAccount);
+    await page.goto(preview.url,{waitUntil:'domcontentloaded'});
+    assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(14, 26, 38)','The previous theme never flashes while authentication is pending');
+    assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
+    releaseAccount();await page.waitForSelector('body.guest-home');await page.unroute('**/api/me',initialAccount);
     if(viewport.width===1440){
       const pole=await page.locator('#authSky').getAttribute('data-polaris-x');
       await page.clock.runFor(15500);
       assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
-      assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation'),'Orion');
+      const firstConstellation=await page.locator('#authSky').getAttribute('data-sky-constellation');assert.ok(firstConstellation);
+      const caption=page.locator('.auth-sky-caption');await caption.waitFor({state:'visible'});
+      const captionUrl=await caption.getAttribute('href');
+      await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation fixture</title>'}));
+      const [popup]=await Promise.all([page.waitForEvent('popup'),caption.click()]);await popup.waitForLoadState();
+      assert.equal(popup.url(),captionUrl,'Clicking a constellation name opens its reference');await popup.close();
       await page.clock.runFor(8100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'morph');
-      assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation'),'Cassiopeia');
+      assert.notEqual(await page.locator('#authSky').getAttribute('data-sky-constellation'),firstConstellation);
       await page.clock.runFor(18100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
       assert.equal(await page.locator('#authSky').getAttribute('data-polaris-x'),pole,'Polaris stays fixed while constellations change');
     }

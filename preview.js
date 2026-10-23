@@ -13694,37 +13694,60 @@ const STUDIO_CONSTELLATIONS = [{
   // Original archive animation, adapted for lifecycle, pixel density and form-safe paths.
 
   const canvas=document.createElement('canvas');canvas.id='authSky';canvas.setAttribute('aria-hidden','true');document.body.prepend(canvas);
+  const captionLink=document.createElement('a');captionLink.className='auth-sky-caption';captionLink.target='_blank';captionLink.rel='noopener noreferrer';captionLink.hidden=true;document.body.append(captionLink);
   const motion=matchMedia('(prefers-reduced-motion: reduce)');
   const constellations=STUDIO_CONSTELLATIONS.map(c=>({...c,latin:STUDIO_CONSTELLATION_LABELS[c.name][0],abbr:STUDIO_CONSTELLATION_LABELS[c.name][1],stars:c.stars.map(([x,y,mag])=>({x,y,mag}))}));
   const MAX_STARS=Math.max(...constellations.map(c=>c.stars.length));
-  let obstacles=[],routeStar=null,polaris=null,openedMode='';
+  let obstacles=[],routeStar=null,polaris=null,openedMode='',captionObstacle=null,recentConstellations=[];
+  try{
+    const saved=JSON.parse(sessionStorage.getItem('lumiscia-sky-recent-v2')||'null');
+    if(Array.isArray(saved)&&saved.every(i=>Number.isInteger(i)&&i>=0&&i<constellations.length))recentConstellations=saved.slice(-12);
+  }catch{}
+  function nextConstellation(){
+    const limit=Math.min(12,constellations.length-1),recent=recentConstellations.slice(-limit),choices=constellations.map((_,i)=>i).filter(i=>!recent.includes(i));
+    const selected=choices[Math.floor(Math.random()*choices.length)];
+    recentConstellations=[...recent,selected].slice(-12);
+    try{sessionStorage.setItem('lumiscia-sky-recent-v2',JSON.stringify(recentConstellations));}catch{}
+    return selected;
+  }
   const protectedRect=()=>{const node=document.querySelector('body.guest-home #home,body.guest-auth #account');const r=node?.getBoundingClientRect()||{left:0,right:0,top:0,bottom:0};return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
+  function uiBoxes(mode){
+    const brand=mode==='home'?'#home .studio-brand':'#account .auth-brand';
+    const selectors=brand+' .brand-mark,'+brand+' .brand-copy b,'+brand+' .brand-copy small,'+brand+' .studio-translation,'+(mode==='home'?'#homeAuth button':'#accountBody')+',.site-copyright';
+    return [...document.querySelectorAll(selectors)].map(node=>node.getBoundingClientRect()).filter(r=>r.width&&r.height).map(r=>({left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}));
+  }
   const protectedPoint=(x,y)=>obstacles.some(o=>StudioSkyGeometry.contains({x,y},o.points));
   function randomSafePoint(){for(let i=0;i<200;i++){const p={x:32+Math.random()*Math.max(0,innerWidth-64),y:32+Math.random()*Math.max(0,innerHeight-96)};if(!protectedPoint(p.x,p.y))return p;}return {x:-40,y:-40};}
   function prepareObstacles(mode){
-    obstacles=[];
-    const selectors=mode==='home'?['#home .studio-brand','#homeAuth .btn']:['#account .studio-brand','#accountBody'];
-    for(const selector of selectors){
-      const node=document.querySelector(selector);if(!node)continue;const r=node.getBoundingClientRect();
-      if(r.width&&r.height)obstacles.push(StudioSkyGeometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,r.width/2+24,r.height/2+24,'rounded'));
+    obstacles=[];captionObstacle=null;
+    const boxes=uiBoxes(mode);
+    for(const r of boxes){
+      obstacles.push(StudioSkyGeometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,r.width/2+38,r.height/2+38,'rounded'));
     }
     for(let i=0;i<2;i++){
       const p=randomSafePoint(),rx=Math.min(innerWidth*.08,40+Math.random()*38),ry=26+Math.random()*38;
       const shape=StudioSkyGeometry.shape(p.x,p.y,rx,ry,i?'organic':'ellipse');
       if((!polaris||Math.hypot(p.x-polaris.x,p.y-polaris.y)>rx+40)&&!obstacles.some(o=>StudioSkyGeometry.blocked({x:p.x-rx,y:p.y},{x:p.x+rx,y:p.y},[o])))obstacles.push(shape);
     }
+    const fits=p=>p.x>=38&&p.x<=innerWidth-38&&p.y>=38&&p.y<=innerHeight-58&&!protectedPoint(p.x,p.y)&&!boxes.some(r=>p.x+38>r.left-8&&p.x-38<r.right+8&&p.y+58>r.top-8&&p.y-38<r.bottom+8);
+    if(mode!==openedMode||!polaris||!fits(polaris)){
+      polaris={x:-100,y:-100};
+      for(let i=0;i<240;i++){const p=randomSafePoint();if(fits(p)){polaris=p;break;}}
+      if(polaris.x<0)for(let y=38;y<=innerHeight-58&&polaris.x<0;y+=16)for(let x=38;x<=innerWidth-38;x+=16)if(fits({x,y})){polaris={x,y};break;}
+    }
+    obstacles.push(StudioSkyGeometry.shape(polaris.x,polaris.y+14,56,80,'ellipse'));
     routeStar=StudioSkyGeometry.router(obstacles);
-    if(mode!==openedMode||!polaris||protectedPoint(polaris.x,polaris.y))polaris=randomSafePoint();
     openedMode=mode;
   }
-  function safeZones(){
+  function safeZones(captionWidth=180,previousStars=[]){
     const w=innerWidth,h=innerHeight,available=[];
     for(let i=0;i<600&&available.length<36;i++){
-      const size=1.15*(i<400?.45+Math.random()*.55:.22+Math.random()*.4)*Math.min(300,w*.38,h*.32),cx=30+Math.random()*Math.max(0,w-60),cy=30+Math.random()*Math.max(0,h-100);
-      const left=cx-size/2-30,right=cx+size/2+30,top=cy-size/2-30,bottom=cy+size*.6+54;
+      const size=(i<400?.65+Math.random()*.35:.2+Math.random()*.45)*Math.min(680,w*.52,h*.6),cx=30+Math.random()*Math.max(0,w-60),cy=30+Math.random()*Math.max(0,h-100);
+      const halfWidth=Math.max(size/2+32,captionWidth/2+38),left=cx-halfWidth,right=cx+halfWidth,top=cy-size/2-32,bottom=cy+size/2+92;
       if(left<12||right>w-12||top<12||bottom>h-40)continue;
       const box=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
       if(obstacles.some(o=>o.points.some(p=>p.x>left&&p.x<right&&p.y>top&&p.y<bottom)||box.some((p,j)=>StudioSkyGeometry.blocked(p,box[(j+1)%4],[o]))))continue;
+      if(previousStars.some(p=>Math.abs(p.x-cx)<captionWidth/2+40&&Math.abs(p.y-(cy+size/2+52))<64))continue;
       available.push({cx:cx/w,cy:cy/h,w:size/w,h:size/h});
     }
     return available.length?available:[{cx:-1,cy:-1,w:.1,h:.1}];
@@ -13739,8 +13762,9 @@ const STUDIO_CONSTELLATIONS = [{
     const nx=x+star.vx*delta,ny=y+star.vy*delta;
     if(!protectedPoint(nx,ny)){x=nx;y=ny;}else{star.vx*=-1;star.vy*=-1;}
     x=(x+w+12)%(w+12);y=(y+h+12)%(h+12);
+    if(protectedPoint(x,y)){const p=randomSafePoint();x=p.x;y=p.y;}
     star.x=normalized?x/w:x;star.y=normalized?y/h:y;
-    return Math.max(0,Math.min(1,near.distance/26));
+    return Math.max(0,Math.min(1,StudioSkyGeometry.nearest({x,y},obstacles).distance/26));
   }
 
 
@@ -13750,7 +13774,7 @@ const STUDIO_CONSTELLATIONS = [{
     if (!ctx) return;
 
     let w=innerWidth,h=innerHeight;
-    let zones=safeZones(),animationId=0,lastTime=null;
+    let zones=[],animationId=0,lastTime=null;
     const sizeCanvas=()=>{w=innerWidth;h=innerHeight;const ratio=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);};
     sizeCanvas();
 
@@ -13758,9 +13782,6 @@ const STUDIO_CONSTELLATIONS = [{
       if(alpha<=0)return;
       ctx.fillStyle='rgba('+color+','+alpha+')';ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
     }
-
-    const handleResize=()=>{sizeCanvas();zones=safeZones();zoneIndex=pickZone(-1);slots=[];startPhase('gather',performance.now());};
-    window.addEventListener('resize', handleResize);
 
     // Ambient background stars
     const ambientStars=Array.from({length:Math.min(340,Math.max(160,Math.round(w*h/3500)))}).map(()=>{
@@ -13794,7 +13815,7 @@ const STUDIO_CONSTELLATIONS = [{
     const HOLD_DURATION = 8000;
     const MORPH_DURATION = 18000;
 
-    let constIndex = 0;
+    let constIndex = nextConstellation(),previousConstIndex=constIndex;
     let zoneIndex = -1;
 
     // Track current live positions + constellation for click hit-testing
@@ -13854,6 +13875,11 @@ const STUDIO_CONSTELLATIONS = [{
       const offsetX = w * zone.cx - size / 2;
       const offsetY = h * zone.cy - size / 2;
 
+      if(captionObstacle)obstacles=obstacles.filter(o=>o!==captionObstacle);
+      ctx.font='16px "Cinzel",serif';const labelWidth=ctx.measureText(c.latin.toUpperCase()).width+28;
+      captionObstacle=StudioSkyGeometry.shape(w*zone.cx,h*zone.cy+size/2+54,labelWidth/2+20,36,'rounded');
+      obstacles.push(captionObstacle);routeStar=StudioSkyGeometry.router(obstacles);
+
       // Build a full MAX_STARS-length array — stars beyond the constellation's count get opacity 0
       const targets                                                           = [];
       for (let i = 0; i < MAX_STARS; i++) {
@@ -13875,6 +13901,13 @@ const STUDIO_CONSTELLATIONS = [{
           });
         }
       }
+      // Keep close catalogue points distinct without changing the overall pattern.
+      for(let pass=0;pass<12;pass++)for(let i=0;i<c.stars.length;i++)for(let j=0;j<i;j++){
+        const a=targets[i],b=targets[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+        if(d>=15)continue;const nx=d?dx/d:Math.cos(i+j),ny=d?dy/d:Math.sin(i+j),push=(15-d)/2;
+        a.x=Math.max(offsetX,Math.min(offsetX+size,a.x+nx*push));a.y=Math.max(offsetY,Math.min(offsetY+size,a.y+ny*push));
+        b.x=Math.max(offsetX,Math.min(offsetX+size,b.x-nx*push));b.y=Math.max(offsetY,Math.min(offsetY+size,b.y-ny*push));
+      }
       return { targets, c };
     }
 
@@ -13889,9 +13922,10 @@ const STUDIO_CONSTELLATIONS = [{
       if (p === 'gather' || p === 'morph') {
         // Pick next zone for morph
         if (p === 'morph') {
-          zones=safeZones();
+          previousConstIndex=constIndex;constIndex=nextConstellation();
+          if(captionObstacle)obstacles=obstacles.filter(o=>o!==captionObstacle);
+          ctx.font='16px "Cinzel",serif';zones=safeZones(ctx.measureText(constellations[constIndex].latin.toUpperCase()).width,slots);
           zoneIndex = pickZone(zoneIndex);
-          constIndex++;
         }
 
         const { targets, c } = getConstellationLayout(constIndex, zoneIndex);
@@ -13932,6 +13966,7 @@ const STUDIO_CONSTELLATIONS = [{
 
     function pickZone(previous){let index=Math.floor(Math.random()*zones.length);if(index===previous&&zones.length>1)index=(index+1)%zones.length;return index;}
     // Initialize
+    ctx.font='16px "Cinzel",serif';zones=safeZones(ctx.measureText(constellations[constIndex].latin.toUpperCase()).width);
     zoneIndex = pickZone(-1);
     const initLayout = getConstellationLayout(0, zoneIndex);
     slots = initLayout.targets.map((t) => {
@@ -13976,6 +14011,7 @@ const STUDIO_CONSTELLATIONS = [{
       // Draw ambient stars
       for (const s of ambientStars) {
         const clearance=motion.matches?1:drift(s,delta,w,h,true);
+        if(protectedPoint(s.x*w,s.y*h))continue;
         const twinkle = Math.sin(frame * s.speed + s.phase) * 0.3 + 0.7;
         drawStar(s.x*w,s.y*h,s.radius,twinkle*.25*clearance,'200,220,240');
       }
@@ -13984,6 +14020,7 @@ const STUDIO_CONSTELLATIONS = [{
       for (const wst of wanderers) {
         // Move
         const clearance=motion.matches?1:drift(wst,delta,w,h);
+        if(protectedPoint(wst.x,wst.y))continue;
         // Wrap around edges
         if (wst.x < -10) wst.x = w + 10;
         if (wst.x > w + 10) wst.x = -10;
@@ -14013,7 +14050,7 @@ const STUDIO_CONSTELLATIONS = [{
       ctx.fillStyle=poleGlow;ctx.beginPath();ctx.arc(polaris.x,polaris.y,30,0,Math.PI*2);ctx.fill();
       drawStar(polaris.x,polaris.y,5.5,1,'255,255,255');
       ctx.strokeStyle='rgba(255,245,210,.75)';ctx.lineWidth=.9;ctx.beginPath();ctx.moveTo(polaris.x-11,polaris.y);ctx.lineTo(polaris.x+11,polaris.y);ctx.moveTo(polaris.x,polaris.y-11);ctx.lineTo(polaris.x,polaris.y+11);ctx.stroke();
-      ctx.font='12px Georgia,serif';ctx.textAlign='center';ctx.fillStyle='rgba(225,205,153,.85)';ctx.fillText('Polaris',polaris.x,polaris.y+28);
+      ctx.font='12px Georgia,serif';ctx.textAlign='center';ctx.fillStyle='rgba(225,205,153,.85)';ctx.fillText('Polaris',polaris.x,polaris.y+46);
 
       // Compute interpolation progress
       let progress = 0;
@@ -14046,7 +14083,7 @@ const STUDIO_CONSTELLATIONS = [{
 
       // During morph, also fade out old constellation lines
       if (phase === 'morph') {
-        const prevC = constellations[(constIndex - 1 + constellations.length) % constellations.length];
+        const prevC = constellations[previousConstIndex];
         const oldLineAlpha = 0.18 * (1 - progress);
         if (oldLineAlpha > 0.01) {
           ctx.strokeStyle = `rgba(197, 168, 104, ${oldLineAlpha})`;
@@ -14110,7 +14147,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (nameAlpha > 0.01 && zoneIndex >= 0) {
         const zone = zones[zoneIndex];
         const nameX = w * zone.cx;
-        const nameY = h * zone.cy + Math.min(w * zone.w, h * zone.h) * 0.6;
+        const nameY = h * zone.cy + Math.min(w * zone.w, h * zone.h)/2+52;
 
         ctx.font = '16px "Cinzel", serif';
         ctx.textAlign = 'center';
@@ -14119,6 +14156,13 @@ const STUDIO_CONSTELLATIONS = [{
         ctx.font = '11px "Plus Jakarta Sans", sans-serif';
         ctx.fillStyle = `rgba(197, 168, 104, ${nameAlpha * 0.6})`;
         ctx.fillText(c.abbr, nameX, nameY + 16);
+        ctx.font='16px "Cinzel",serif';const width=Math.max(ctx.measureText(c.latin.toUpperCase()).width,48)+16;
+        captionLink.href='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.latin);
+        captionLink.setAttribute('aria-label','Learn about '+c.name);captionLink.title=c.name;
+        captionLink.style.left=(nameX-width/2)+'px';captionLink.style.top=(nameY-20)+'px';captionLink.style.width=width+'px';captionLink.style.height='44px';
+        captionLink.hidden=nameAlpha<.08||nameX<0||nameY<0||nameY>h;
+      }else{
+        captionLink.hidden=true;
       }
 
       ctx.restore();
@@ -14129,7 +14173,7 @@ const STUDIO_CONSTELLATIONS = [{
 
     return () => {
       cancelAnimationFrame(animationId);canvas.classList.remove('sky-hover');
-      window.removeEventListener('resize', handleResize);
+      captionLink.hidden=true;
       window.removeEventListener('click', handleClick);
       window.removeEventListener('mousemove', handleMouseMove);
     };
@@ -14139,14 +14183,14 @@ const STUDIO_CONSTELLATIONS = [{
   let stop=null,lifecycleKey='';
   function sync(){
     const mode=document.body.matches('.guest-home')?'home':document.body.matches('.guest-auth')?'account':'';
-    const key=JSON.stringify([mode,innerWidth,innerHeight,protectedRect(),document.hidden,motion.matches]);
+    const key=JSON.stringify([mode,innerWidth,innerHeight,protectedRect(),mode?uiBoxes(mode):[],document.hidden,motion.matches]);
     if(key===lifecycleKey)return;lifecycleKey=key;
     stop?.();stop=null;canvas.hidden=!mode;if(!mode)openedMode='';if(mode&&!document.hidden){prepareObstacles(mode);stop=startSky();}
   }
   new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
   const sizes=new ResizeObserver(sync);['home','account'].forEach(id=>{const node=document.getElementById(id);if(node)sizes.observe(node);});
-  new MutationObserver(()=>{document.querySelectorAll('.auth-providers .auth-google').forEach(button=>{const label=button.textContent.trim();if(label){button.title=label;button.setAttribute('aria-label',label);}});}).observe(document.getElementById('accountBody'),{childList:true,subtree:true});
-  addEventListener('scroll',sync,{passive:true});document.addEventListener('visibilitychange',sync);motion.addEventListener('change',sync);sync();
+  new MutationObserver(()=>{document.querySelectorAll('.auth-providers .auth-google').forEach(button=>{const label=button.textContent.trim();if(label){button.title=label;button.setAttribute('aria-label',label);}});sync();}).observe(document.getElementById('accountBody'),{childList:true,subtree:true});
+  addEventListener('resize',sync);addEventListener('scroll',sync,{passive:true});document.addEventListener('visibilitychange',sync);motion.addEventListener('change',sync);sync();
 })();
     window.LumisciaPasskeys=(()=>{
       const supported=()=>!!(window.isSecureContext&&window.PublicKeyCredential&&navigator.credentials&&window.SimpleWebAuthnBrowser);
