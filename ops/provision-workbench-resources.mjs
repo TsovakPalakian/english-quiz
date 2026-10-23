@@ -11,6 +11,13 @@ import {workbenchBootstrap} from './prepare-workbench-bootstrap.mjs';
 import {learningWorkbenchReadiness} from '../src/learning-workbench-schema.mjs';
 const quote=name=>'"'+name.replaceAll('"','""')+'"',hash=value=>createHash('sha256').update(value).digest('hex');
 const fingerprint=rows=>hash(rows.map(row=>row.value).sort().join('\n'));
+export function mergedD1Insert(commands){
+  const first=commands[0];
+  if(!first||commands.some(row=>row.sql!==first.sql)||commands.reduce((sum,row)=>sum+row.params.length,0)>100)throw Error('Homogeneous bounded inserts required.');
+  const split=first.sql.lastIndexOf(' VALUES(');
+  if(split<0)throw Error('Generated INSERT required.');
+  return {sql:first.sql.slice(0,split+7)+commands.map(()=>first.sql.slice(split+7)).join(','),params:commands.flatMap(row=>row.params)};
+}
 export async function provisionWorkbenchResources({source,directory,splitSQL,cloud}={}){
   if(typeof splitSQL!=='function'||!cloud)throw Error('Explicit operator dependencies required.');
   mkdirSync(directory,{mode:0o700});const db=new DatabaseSync(resolve(source),{readOnly:true});let temporary=null;
@@ -21,13 +28,12 @@ export async function provisionWorkbenchResources({source,directory,splitSQL,clo
     const bucket='learn-english-workbench-private-media';if(!await cloud.scoped('/r2/buckets/'+bucket,{allow404:true}))await cloud.scoped('/r2/buckets',{method:'POST',body:{name:bucket}});
     await cloud.scoped('/r2/buckets/'+bucket+'/domains/managed',{method:'PUT',body:{enabled:false}});
     const managed=await cloud.scoped('/r2/buckets/'+bucket+'/domains/managed'),domains=await cloud.scoped('/r2/buckets/'+bucket+'/domains/custom');
-    if(managed.enabled!==false||(domains.domains||[]).some(row=>row.enabled!==false))throw Error('Bucket public access verification failed.');
+    if(managed?.enabled!==false||!Array.isArray(domains?.domains)||domains.domains.some(row=>row.enabled!==false))throw Error('Bucket public access verification failed.');
     save('storage.json',{bucket,r2DevDisabled:true,publicCustomDomains:false,verifiedAt:new Date().toISOString()});
     try{
     const zones=await cloud.request('/zones?name=lumiscia.org');if(zones.length!==1)throw Error('Expected the existing project zone.');const zone=zones[0].id;
-    const records=await cloud.request('/zones/'+zone+'/dns_records?type=A&name=inspector.lumiscia.org');
-    if(!records.length)await cloud.request('/zones/'+zone+'/dns_records',{method:'POST',body:{type:'A',name:'inspector.lumiscia.org',content:'92.5.115.171',ttl:300,proxied:false}});
-    else if(records.length!==1||records[0].content!=='92.5.115.171')throw Error('Inspector DNS conflicts with an existing record.');
+    // The installed inspector uses its separately verified HTTPS hostname;
+    // provisioning the rehearsal does not require DNS mutation permissions.
     const addresses=await cloud.scoped('/email/routing/addresses'),rules=await cloud.request('/zones/'+zone+'/email/routing/rules');
     const route=rules.find(row=>row.enabled&&row.matchers?.some(match=>match.field==='to'&&match.value==='info@lumiscia.org'));
     if(!route)throw Error('Existing info mailbox routing is unavailable.');
@@ -42,7 +48,7 @@ export async function provisionWorkbenchResources({source,directory,splitSQL,clo
     const batch=async commands=>{
       if(!commands.length)return;
       let group=[];
-      const flush=async()=>{if(!group.length)return;const first=group[0],split=first.sql.lastIndexOf(' VALUES(');if(group.length===1||split<0){for(const command of group)await query(command.sql,command.params);}else await query(first.sql.slice(0,split+7)+group.map(()=>first.sql.slice(split+7)).join(','),group.flatMap(command=>command.params));group=[];};
+      const flush=async()=>{if(!group.length)return;if(group.length===1){await query(group[0].sql,group[0].params);}else{const merged=mergedD1Insert(group);await query(merged.sql,merged.params);}group=[];};
       for(const command of commands){if(group.length&&(command.sql!==group[0].sql||(group.length+1)*command.params.length>100))await flush();group.push(command);}await flush();
     };
     for(const type of ['table','index'])await batch(schema.filter(row=>row.type===type).map(row=>({sql:row.sql,params:[]})));
@@ -50,14 +56,14 @@ export async function provisionWorkbenchResources({source,directory,splitSQL,clo
       let commands=[],bytes=0;const statement=db.prepare('SELECT * FROM '+quote(name));statement.setReadBigInts(true);
       for(const row of statement.iterate()){
         const columns=Object.keys(row),params=columns.map(key=>{const value=row[key];if(typeof value==='bigint'){const number=Number(value);if(!Number.isSafeInteger(number))throw Error('Unsafe D1 integer.');return number;}if(value instanceof Uint8Array)return [...value];return value;}),size=Buffer.byteLength(JSON.stringify(params));
-        if(commands.length>=50||bytes+size>1024*1024){await batch(commands);commands=[];bytes=0;}
+        if(commands.length>=100||bytes+size>1024*1024){await batch(commands);commands=[];bytes=0;}
         commands.push({sql:'INSERT INTO '+quote(name)+'('+columns.map(quote).join(',')+') VALUES('+columns.map(()=>'?').join(',')+')',params});bytes+=size;
       }
       await batch(commands);
     }
     for(const type of ['view','trigger'])await batch(schema.filter(row=>row.type===type).map(row=>({sql:row.sql,params:[]})));
     const verify=async()=>{
-      for(const {name} of tables){const sql=rowFingerprintSQL(db,name),expected=db.prepare(sql).all(),actual=[];for(let offset=0;offset<expected.length;offset+=100)actual.push(...await query(sql+' LIMIT 100 OFFSET '+offset));if(fingerprint(expected)!==fingerprint(actual))throw Error('Remote D1 rehearsal changed source rows.');}
+      for(const {name} of tables){const sql=rowFingerprintSQL(db,name),expected=db.prepare(sql).all(),actual=[];for(let offset=0;offset<expected.length;offset+=200)actual.push(...await query(sql+' LIMIT 200 OFFSET '+offset));if(fingerprint(expected)!==fingerprint(actual))throw Error('Remote D1 rehearsal changed source rows.');}
       if((await query('PRAGMA foreign_key_check')).length)throw Error('Remote D1 foreign keys failed.');
     };
     await verify();const pack=workbenchBootstrap();await batch(splitSQL(pack.sql).map(sql=>({sql,params:[]})));await verify();
@@ -73,7 +79,15 @@ export async function provisionWorkbenchResources({source,directory,splitSQL,clo
     const response=await fetch(url,{redirect:'error',signal:AbortSignal.timeout(60000)});if(!response.ok)throw Error('Private export download failed.');
     const reader=response.body.getReader(),chunks=[];let size=0;try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>128*1024*1024){await reader.cancel();throw Error('Private export exceeds bounds.');}chunks.push(value);}}finally{reader.releaseLock();}
     const exported=Buffer.concat(chunks);writeFileSync(join(directory,'remote-migrated-export.sql'),exported,{flag:'wx',mode:0o600});
-    const restored=new DatabaseSync(join(directory,'remote-restored.sqlite'));try{restored.exec('PRAGMA foreign_keys=OFF');restrictExportImport(restored);restored.exec(exported.toString('utf8'));restored.setAuthorizer(null);restored.exec('PRAGMA foreign_keys=ON');if(restored.prepare('PRAGMA quick_check').get().quick_check!=='ok'||restored.prepare('PRAGMA foreign_key_check').all().length)throw Error('Remote backup restore failed.');for(const {name} of tables){const sql=rowFingerprintSQL(db,name);if(fingerprint(db.prepare(sql).all())!==fingerprint(restored.prepare(sql).all()))throw Error('Remote restore changed source rows.');}}finally{restored.close();}
+    const restored=new DatabaseSync(join(directory,'remote-restored.sqlite'));
+    try{
+      restored.exec('PRAGMA foreign_keys=OFF');restrictExportImport(restored);
+      restored.exec(exported.toString('utf8'));restored.setAuthorizer(null);restored.exec('PRAGMA foreign_keys=ON');
+      if(restored.prepare('PRAGMA quick_check').get().quick_check!=='ok'||restored.prepare('PRAGMA foreign_key_check').all().length)throw Error('Remote backup restore failed.');
+      for(const {name} of tables){const sql=rowFingerprintSQL(db,name);if(fingerprint(db.prepare(sql).all())!==fingerprint(restored.prepare(sql).all()))throw Error('Remote restore changed source rows.');}
+      const restoredReadiness=await learningWorkbenchReadiness({read:async(sql,params=[])=>restored.prepare(sql).all(...params)});
+      if(!restoredReadiness.ready)throw Error('Restored workbench schema is not ready.');
+    }finally{restored.close();}
     const report={kind:'temporary-cloud-d1-rehearsal',legacyTables:tables.length,legacyRows:rows,remoteD1MigrationVerified:true,remoteBackupOfflineRestoreVerified:true,legacyRowsUnchanged:true,legacySchemaUnchanged:true,readiness,bootstrapSha256:pack.manifest.sqlSha256,exportSha256:hash(exported),liveDatabaseWrites:false,productionPublished:false,temporaryDatabaseRemoved:false,requests:cloud.usage()};
     await cloud.removeRehearsal(temporary);temporary=null;report.temporaryDatabaseRemoved=true;save('d1-verification.json',report);return report;
   }finally{try{if(temporary)await cloud.removeRehearsal(temporary);}finally{db.close();}}
