@@ -1,0 +1,12 @@
+# Deploy separately before binding the main Worker; no public routes.
+name = "learn-english-workbench-inspector"
+main = "../../src/workbench-inspector-worker.mjs"
+compatibility_date = "2026-08-01"
+workers_dev = false
+preview_urls = false
+routes = []
+
+[vars]
+INSPECTOR_ENABLED = "false"
+# Set INSPECTOR_ENDPOINT to the operator-controlled HTTPS /inspect endpoint.
+# Store INSPECTOR_TOKEN as a Worker secret, matching the container environment.

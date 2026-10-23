@@ -1,0 +1,18 @@
+services:
+  inspector:
+    build: .
+    environment:
+      INSPECTOR_TOKEN: ${INSPECTOR_TOKEN:?A private token is required}
+    ports:
+      - "127.0.0.1:8088:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=96m,mode=1777
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 48
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: none
