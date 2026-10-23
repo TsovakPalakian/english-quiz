@@ -98,6 +98,10 @@ assert.ok(primaryCaption);assert.ok(primaryLabels.every(b=>!astro.intersects(pri
 assert.equal(astro.controlFactor(495),.99);assert.ok(astro.controlFactor(505)>1&&astro.controlFactor(505)<1.02);
 for(let p=5;p<=1000;p+=5)assert.ok(astro.controlFactor(p)>astro.controlFactor(p-5));
 const renderer=readFileSync('client/06-auth-sky.js','utf8');
+assert.match(renderer,/Object\.freeze\(\{background:20,constellation:100\}\)/);
+assert.match(renderer,/const constellationScale=2;/);
+assert.doesNotMatch(renderer,/authSkyTuning|lumiscia-sky-brightness|lumiscia-sky-scale-|lumiscia-sky-distance-scale/,'Temporary controls and their persisted overrides were removed');
+assert.match(renderer,/geometry\.nearest\(s,backgroundObstacles\)/,'Ambient stars do not avoid the entire text/interface container');
 assert.match(renderer,/if\(phase==='hold'\)for\(const r of uiRects\)/,'Only completed figures are excluded from the interface');
 assert.doesNotMatch(renderer,/ctx\.ellipse\(|for\(const o of layout\.objects\)/,'Hollow DSO markers are not rendered');
 assert.match(renderer,/const uiRects=boxes\.map\(pad\)/,'Ready figures protect entire UI containers');

@@ -3121,12 +3121,8 @@ button.group-person:hover { background: var(--acc-s); }
 .auth-sky-landmark:focus-visible { outline: 1px solid #c5a868; outline-offset: 3px; }
 .auth-sky-title { height: 32px; box-sizing: border-box; padding: 2px 10px; color: #d2ba7e; font: 18px/28px Georgia, serif; text-align: center; text-decoration: none; white-space: nowrap; }
 .auth-sky-name { display: block; }
-.auth-sky-scale { display: block; color: #b3c5ce; font: 12px/20px sans-serif; white-space: nowrap; }
 .auth-sky-landmark, .auth-sky-title { text-shadow: 0 1px 3px #0e1a26, 0 0 5px #0e1a26; }
-#authSkyTuning { position: relative; z-index: 3; flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; width: calc(100% - 24px); margin: 12px 12px 0; box-sizing: border-box; padding: 8px 12px; border: 1px solid #527080; border-radius: 4px; background: transparent; color: #dce8ed; font: 12px/18px sans-serif; }
-#authSkyTuning[hidden] { display: none; }
-#authSkyTuning input { grid-column: 1 / -1; width: 100%; min-height: 24px; margin: 0; padding: 0; accent-color: #d2ba7e; }
-:root[data-high-visibility="1"] :is(.auth-sky-title,#authSkyTuning) { display: none; }
+:root[data-high-visibility="1"] .auth-sky-title { display: none; }
 :root[data-high-visibility="1"] .auth-sky-landmark { display: none; }
 .auth-sky-caption:focus-visible { outline: 1px solid #c5a868; outline-offset: 4px; }
 body:is(.guest-home,.guest-auth):has(#authSky.sky-hover) { cursor: pointer; }
@@ -3200,7 +3196,7 @@ body:is(.guest-home,.guest-auth) button:focus-visible { outline: 2px solid #527d
 /* Guest studio: fixed shell, transparent forms, independently scrollable long forms. */
 html:has(body:is(.guest-home,.guest-auth):not(.chat-active)) { scrollbar-gutter: auto; overflow: hidden; }
 body:is(.guest-home,.guest-auth) { display: flex; flex-direction: column; overflow: hidden; height: 100dvh; }
-body:is(.guest-home,.guest-auth) .shell { flex: none; height: calc(100dvh - var(--studio-tuning-height, 210px) - 42px); min-height: 0; }
+body:is(.guest-home,.guest-auth) .shell { flex: none; height: calc(100dvh - 42px); min-height: 0; }
 body:is(.guest-home,.guest-auth) .phone { height: 100%; min-height: 0; }
 body:is(.guest-home,.guest-auth) .wrap { height: 100%; min-height: 0; display: grid; place-items: center; box-sizing: border-box; padding: 12px 24px; }
 body.guest-auth #account.on { display: flex; flex-direction: column; align-items: center; justify-content: center; max-height: 100%; min-height: 0; margin: 0 auto; }

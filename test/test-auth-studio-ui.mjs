@@ -40,12 +40,13 @@ try{
     releaseAccount();await page.waitForSelector('body.guest-home');await page.unroute('**/api/me',initialAccount);
     await page.clock.runFor(16500);
     const delay=Number(await page.locator('#authSky').getAttribute('data-sky-flyby-delay'));assert.ok(delay>=14000&&delay<=60000,'Homepage flybys are 2–5 times less frequent');
-    assert.ok(await page.locator('#authSkyTuning input[type="range"]').first().evaluate(n=>n.getBoundingClientRect().width>innerWidth-80),'Sliders span the viewport');
+    assert.equal(await page.locator('#authSkyTuning').count(),0,'Temporary controls were removed');
     assert.equal(await page.locator('.auth-sky-caption:visible').evaluate(n=>getComputedStyle(n).fontSize),'18px');
     const referenceNames=await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').allTextContents();
     assert.ok(referenceNames.every(name=>['Rigil Kentaurus','Hadar'].includes(name)),'Only external Crux pointers are labelled when in the viewport');
     assert.equal(await page.locator('.auth-sky-caption:visible .auth-sky-name').textContent(),'Crux','Constellation captions are restored');
-    assert.match(await page.locator('.auth-sky-caption:visible .auth-sky-scale').textContent(),/^100 px ≈ \d+\.\d{2}°$/,'Angular scale is always visible beside the title');
+    assert.equal(await page.locator('.auth-sky-scale').count(),0,'Scale text was removed');
+    assert.equal(await page.locator('.auth-sky-caption:visible').getAttribute('title'),'Crux','Tooltip contains only the constellation name');
     if(viewport.width===1440){
       assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
       const firstConstellation=await page.locator('#authSky').getAttribute('data-sky-constellation');assert.ok(firstConstellation);
@@ -64,34 +65,14 @@ try{
     assert.equal(await page.locator('#loginForm').isVisible(),false);
     await page.emulateMedia({reducedMotion:'reduce'});
     const alphaSum=()=>page.locator('#authSky').evaluate(canvas=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let sum=0;for(let i=3;i<pixels.length;i+=4)sum+=pixels[i];return sum;});
-    const setBrightness=(id,value)=>page.locator('#'+id).evaluate((input,value)=>{input.value=String(value);input.dispatchEvent(new Event('input',{bubbles:true}));},value);
-    const beforeBrightness=await alphaSum();
-    const beforeTuning=await page.locator('#authSky').getAttribute('data-sky-constellation');
-    assert.deepEqual(await page.locator('#authSkyTuning input[type="range"]').evaluateAll(nodes=>nodes.map(n=>n.value)),['500','500','500']);
-    await setBrightness('authSkyBackgroundBrightness',1000);
-    assert.equal(await page.locator('output[for="authSkyBackgroundBrightness"]').textContent(),'10000.00×');
-    await setBrightness('authSkyConstellationBrightness',1000);
-    assert.equal(await page.locator('output[for="authSkyConstellationBrightness"]').textContent(),'10000.00×');
-    await setBrightness('authSkyConstellationBrightness',500);
-    assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation'),beforeTuning,'Changing brightness must not restart the scene or replace the constellation');
-    assert.ok(await alphaSum()>beforeBrightness,'Right of centre increases brightness');
-    await setBrightness('authSkyBackgroundBrightness',0);
-    const backgroundOff=await alphaSum();assert.ok(backgroundOff<beforeBrightness,'Background slider independently darkens ambient and wandering stars');
-    assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'500');
-    await setBrightness('authSkyConstellationBrightness',0);
-    assert.ok(await alphaSum()<backgroundOff,'Constellation stars can independently be switched off');
-    await setBrightness('authSkyBackgroundBrightness',125);await setBrightness('authSkyConstellationBrightness',375);
-    assert.deepEqual(await page.locator('#authSkyTuning output').allTextContents(),['0.25×','0.75×','1.00×']);
-    for(const value of [0,1000,500]){
-      await setBrightness('authSkyDistanceScale',value);
-      assert.equal(await page.locator('#authSky').getAttribute('data-sky-scale'),String(value));
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-background-brightness'),'20');
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation-brightness'),'100');
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-scale'),'2');
+    {
       const shown=await page.locator('.auth-sky-caption:visible').count();
-      if(value===0)assert.equal(shown,0,'Zero scale hides the figure rather than merging every star');
-      else assert.equal(shown,1,'Title stays in safe free space when zoomed');
-      assert.equal(await page.locator('#authSkyBackgroundBrightness').inputValue(),'125');
-      assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'375');
+      assert.equal(shown,1,'Title stays in safe free space');
       const drawing=await page.evaluate(()=>({trace:window.skyDrawing,expected:STUDIO_SKY_CATALOGUE.find(c=>c.abbr===document.getElementById('authSky').dataset.skyConstellation).connections.length}));
-      assert.equal(drawing.trace.edges.length,value===0?0:drawing.expected,'Every catalogue edge of a visible figure is drawn');
+      assert.equal(drawing.trace.edges.length,drawing.expected,'Every catalogue edge of a visible figure is drawn');
       assert.ok(drawing.trace.edges.every(edge=>edge.length===2&&edge.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))),'Every edge retains both finite endpoint coordinates');
       const collisions=await page.evaluate(()=>{
         const regions=[...document.querySelectorAll('#home .studio-brand,#homeAuth,#authSkyTuning,.site-copyright')].filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect());
@@ -104,12 +85,8 @@ try{
         }));
       });assert.equal(collisions,false,'Complete line geometry is outside the UI, not merely hidden by clipping');
     }
-    await setBrightness('authSkyDistanceScale',650);
-    assert.equal(await page.evaluate(()=>localStorage.getItem('lumiscia-sky-brightness-background-v4')),'125');
-    assert.equal(await page.evaluate(()=>localStorage.getItem('lumiscia-sky-brightness-constellation-v4')),'375');
-    const tuningClear=()=>page.locator('#authSkyTuning').evaluate(n=>{const a=n.getBoundingClientRect();return [...document.querySelectorAll('.studio-brand,#accountBody')].filter(e=>e.getClientRects().length).every(e=>{const b=e.getBoundingClientRect();return a.right<=b.left||a.left>=b.right||a.bottom<=b.top||a.top>=b.bottom;});});
-    assert.ok(await tuningClear(),'Brightness panel does not overlap branding');
     assert.equal(await page.locator('#homeAuth .btn').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)');
+    assert.ok(await page.locator('.phone,.wrap,#home,#home .studio-brand,#home .brand-copy').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).backgroundColor==='rgba(0, 0, 0, 0)'&&getComputedStyle(n).backgroundImage==='none')),'Every branding container is transparent');
     const brandWhitespaceHasStars=()=>page.evaluate(()=>{
       const canvas=document.getElementById('authSky'),ctx=canvas.getContext('2d'),ratio=canvas.width/innerWidth;
       const r=document.querySelector('#home .brand-copy').getBoundingClientRect();
@@ -134,7 +111,6 @@ try{
     assert.ok(await page.locator('#account').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<1;}),'Login is horizontally centred');
     assert.match(await page.locator('[data-studio-back]').textContent(),/Back to home/);
     await page.clock.runFor(16500);
-    assert.ok(await tuningClear(),'Brightness panel does not overlap the login form or branding');
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
     assert.equal(await page.locator('.auth-providers .auth-google:visible').count(),5);
     assert.ok(await page.locator('#authLogin').evaluate(node=>parseFloat(getComputedStyle(node).paddingLeft)>=40),'Input text clears its icon');
@@ -190,11 +166,10 @@ try{
       assert.equal(await page.evaluate(provider=>sessionStorage.getItem('enquiz-'+provider+'-verify'),provider),null);
     }
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-    await page.evaluate(()=>localStorage.setItem('lumiscia-sky-scale-Cru','650'));
+    await page.evaluate(()=>{localStorage.setItem('lumiscia-sky-scale-Cru','0');localStorage.setItem('lumiscia-sky-brightness-background-v4','0');});
     await page.reload();await page.waitForSelector('body.guest-home');
-    assert.equal(await page.locator('#authSkyBackgroundBrightness').inputValue(),'125','Background brightness survives reload');
-    assert.equal(await page.locator('#authSkyConstellationBrightness').inputValue(),'375','Constellation brightness survives reload');
-    assert.equal(await page.locator('#authSkyDistanceScale').inputValue(),'650','Distance scale survives reload');
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-background-brightness'),'20','Old slider values cannot override fixed settings');
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-scale'),'2');
     assert.deepEqual(errors,[]);await page.close();
   }
   console.log('Auth studio: desktop/mobile, centred controls, complete connections, safe labels and authentication passed.');

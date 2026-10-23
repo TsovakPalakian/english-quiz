@@ -13857,11 +13857,8 @@ const STUDIO_CONSTELLATIONS = [{
   const links=Array.from({length:8},()=>{
     const link=document.createElement('a');link.className='auth-sky-landmark';link.target='_blank';link.rel='noopener noreferrer';link.hidden=true;document.body.append(link);return link;
   });
-  const tuning=document.createElement('div');tuning.id='authSkyTuning';tuning.hidden=true;
-  tuning.innerHTML='<label for="authSkyBackgroundBrightness">Background stars</label><output for="authSkyBackgroundBrightness">1.00×</output><input id="authSkyBackgroundBrightness" data-sky-layer="background" type="range" min="0" max="1000" step="5" value="500" list="authSkyControlStops"/><label for="authSkyConstellationBrightness">Constellations &amp; landmarks</label><output for="authSkyConstellationBrightness">1.00×</output><input id="authSkyConstellationBrightness" data-sky-layer="constellation" type="range" min="0" max="1000" step="5" value="500" list="authSkyControlStops"/><datalist id="authSkyControlStops"><option value="0" label="0"></option><option value="500" label="1×"></option><option value="1000" label="4×"></option></datalist>';
-  const tuningHost=document.querySelector('.shell');
-  if(tuningHost)tuningHost.before(tuning);else document.body.append(tuning);
-  const brightness={background:1,constellation:1};
+  const brightness=Object.freeze({background:20,constellation:100});
+  const constellationScale=2;
   const skyPan={x:0,y:0};let touch=null;
   function pan(event,dx,dy){
     if(!document.body.matches('.guest-home,.guest-auth')||event.target.closest('input,textarea,select'))return;
@@ -13873,31 +13870,7 @@ const STUDIO_CONSTELLATIONS = [{
   addEventListener('wheel',e=>pan(e,e.deltaX,e.deltaY),{passive:false});
   addEventListener('touchstart',e=>{touch=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null;},{passive:true});
   addEventListener('touchmove',e=>{if(touch&&e.touches.length===1){const p=e.touches[0];pan(e,touch.x-p.clientX,touch.y-p.clientY);touch={x:p.clientX,y:p.clientY};}},{passive:false});
-  let redraw=null,rescale=null,refreshText=null,distanceScale=500;
-  tuning.querySelectorAll('input[data-sky-layer]').forEach(input=>{
-    const layer=input.dataset.skyLayer,key='lumiscia-sky-brightness-'+layer+'-v4',output=tuning.querySelector('output[for="'+input.id+'"]');
-    input.step='1';input.setAttribute('list','authSkyBrightnessStops');
-    let position=500;
-    try{const raw=localStorage.getItem(key),saved=Number(raw);if(raw!==null&&raw.trim()!==''&&Number.isFinite(saved)&&saved>=0&&saved<=1000)position=Math.round(saved);}catch{}
-    const update=()=>{brightness[layer]=astro.controlFactor(position,10000);input.value=String(position);output.value=brightness[layer].toFixed(2)+'×';input.setAttribute('aria-valuetext',output.value);};
-    update();
-    input.addEventListener('input',()=>{
-      position=Number(input.value);update();
-      try{localStorage.setItem(key,String(position));}catch{}
-      if(motion.matches)redraw?.();
-    });
-  });
-  tuning.insertAdjacentHTML('beforeend','<label for="authSkyDistanceScale">Constellation scale</label><output for="authSkyDistanceScale">1.00×</output><input id="authSkyDistanceScale" type="range" min="0" max="1000" step="5" value="500" list="authSkyControlStops"/>');
-  const scaleInput=tuning.querySelector('#authSkyDistanceScale'),scaleOutput=tuning.querySelector('output[for="authSkyDistanceScale"]');
-  try{const raw=localStorage.getItem('lumiscia-sky-distance-scale-v2'),saved=Number(raw);if(raw!==null&&raw.trim()!==''&&Number.isFinite(saved)&&saved>=0&&saved<=1000)distanceScale=Math.round(saved/5)*5;}catch{}
-  const scaleText=()=>{scaleInput.value=String(distanceScale);scaleOutput.value=astro.controlFactor(distanceScale).toFixed(2)+'×';scaleInput.setAttribute('aria-valuetext',scaleOutput.value);};
-  scaleText();
-  scaleInput.addEventListener('input',()=>{
-    distanceScale=Number(scaleInput.value);scaleText();
-    try{localStorage.setItem('lumiscia-sky-distance-scale-v2',String(distanceScale));if(canvas.dataset.skyConstellation)localStorage.setItem('lumiscia-sky-scale-'+canvas.dataset.skyConstellation,String(distanceScale));}catch{}
-    rescale?.();
-  });
-  tuning.insertAdjacentHTML('beforeend','<datalist id="authSkyBrightnessStops"><option value="0" label="0"></option><option value="500" label="1×"></option><option value="1000" label="10000×"></option></datalist>');
+  let redraw=null,refreshText=null;
   let recent=[];
   try{recent=JSON.parse(sessionStorage.getItem('lumiscia-catalogue-sky-recent')||'[]');if(!Array.isArray(recent))recent=[];}catch{}
   function next(){
@@ -13910,18 +13883,23 @@ const STUDIO_CONSTELLATIONS = [{
   }
   function uiBoxes(mode){
     const brand=mode==='home'?'#home .studio-brand':'#account .auth-brand';
-    const roots=[...document.querySelectorAll(brand+','+(mode==='home'?'#homeAuth':'#accountBody')+',.site-copyright,#authSkyTuning')];
+    const roots=[...document.querySelectorAll(brand+','+(mode==='home'?'#homeAuth':'#accountBody')+',.site-copyright')];
     return roots
       .map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height).map(r=>({left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}));
   }
   function textBoxes(mode){
     const result=[];
-    for(const root of document.querySelectorAll((mode==='home'?'#homeAuth,#home .brand-copy':'#accountBody,#account .brand-copy')+',.site-copyright,#authSkyTuning')){
+    for(const root of document.querySelectorAll((mode==='home'?'#homeAuth,#home .brand-copy':'#accountBody,#account .brand-copy')+',.site-copyright')){
       const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
       while(walker.nextNode()){
         if(!walker.currentNode.textContent.trim())continue;
-        const range=document.createRange();range.selectNodeContents(walker.currentNode);
-        result.push(...range.getClientRects());
+        const node=walker.currentNode,range=document.createRange();
+        if(root.matches('.brand-copy')){
+          for(let i=0;i<node.length;i++)if(node.textContent[i].trim()){
+            range.setStart(node,i);range.setEnd(node,i+1);
+            result.push(...[...range.getClientRects()].map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom,tight:true})));
+          }
+        }else{range.selectNodeContents(node);result.push(...range.getClientRects());}
       }
       for(const input of root.querySelectorAll('input')){
         const r=input.getBoundingClientRect();if(!r.width||!r.height)continue;
@@ -13931,7 +13909,7 @@ const STUDIO_CONSTELLATIONS = [{
         result.push({left,top,right:Math.min(r.right-8,left+ctx.measureText(text).width+4),bottom:top+parseFloat(css.fontSize)+3});
       }
     }
-    return result.filter(r=>r.right>r.left&&r.bottom>r.top).map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom}));
+    return result.filter(r=>r.right>r.left&&r.bottom>r.top).map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom,tight:!!r.tight}));
   }
   function start(mode,boxes){
     const w=innerWidth,h=innerHeight,ratio=Math.min(devicePixelRatio||1,2);
@@ -13948,6 +13926,7 @@ const STUDIO_CONSTELLATIONS = [{
     let textRects=textBoxes(mode);
     refreshText=()=>{textRects=textBoxes(mode);if(motion.matches)redraw?.();};
     const logoRects=[...document.querySelectorAll(mode==='home'?'#home .studio-brand .brand-mark':'#account .auth-brand .brand-mark')].map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height).map(pad);
+    const backgroundObstacles=logoRects.map(r=>geometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,(r.right-r.left)/2,(r.bottom-r.top)/2,'rounded'));
     const inside=p=>obstacles.some(o=>geometry.contains(p,o.points));
     const labelContains=p=>labels.some(b=>p.x>b.left-4&&p.x<b.right+4&&p.y>b.top-4&&p.y<b.bottom+4);
     const blockedBox=b=>labelRects.some(r=>astro.intersects(b,r));
@@ -13966,13 +13945,12 @@ const STUDIO_CONSTELLATIONS = [{
       return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2};
     });
     function chooseLayout(c){
-      if(distanceScale===0)return null;
       const measure=(text,size=12)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;};
-      const base=astro.preferredSize(c,w,h)*astro.controlFactor(distanceScale);
+      const base=astro.preferredSize(c,w,h)*constellationScale;
       const centres=Array.from({length:70},()=>({cx:20+Math.random()*Math.max(1,w-40),cy:20+Math.random()*Math.max(1,h-40)}));
       // A deterministic fallback prevents a valid narrow gap being missed by random sampling.
       for(let cy=20;cy<h-20;cy+=24)for(let cx=20;cx<w-20;cx+=24)centres.push({cx,cy});
-      for(const factor of [1,.84,.68,.52,.4,.3,.22,.16,.1]){
+      for(const factor of [1,.84,.68,.52,.4,.3,.22,.16,.1,.08,.06,.05]){
         for(const {cx,cy} of centres){
           const candidate=astro.layout(c,cx,cy,base*factor);
           const core=candidate.stars.slice(0,c.stars.length),visible=candidate.stars.filter(p=>astro.inViewport(p,w,h));
@@ -13982,9 +13960,7 @@ const STUDIO_CONSTELLATIONS = [{
           const labelBlocked=b=>blockedBox(b)||c.lines.some(([i,j])=>astro.segmentHitsBox(candidate.stars[i],candidate.stars[j],b));
           const boxes=astro.labels(visible,w,h,labelBlocked,text=>measure(text),astro.brightest(c.stars,c.abbr)?.id);
           if(boxes.filter(b=>b.star.landmark).length!==visible.filter(p=>p.landmark).length||!boxes.some(b=>b.star.primary))continue;
-          const scale=base*factor/Math.max(c.bounds.width,c.bounds.height);
-          const scaleLabel='100 px ≈ '+(2*Math.atan(50/scale)*180/Math.PI).toFixed(2)+'°';
-          const title=astro.caption(core,c.name,w,h,b=>labelBlocked(b)||visible.some(p=>astro.intersects(b,{left:p.x-10,right:p.x+10,top:p.y-10,bottom:p.y+10})),text=>measure(text,18),boxes,scaleLabel);
+          const title=astro.caption(core,c.name,w,h,b=>labelBlocked(b)||visible.some(p=>astro.intersects(b,{left:p.x-10,right:p.x+10,top:p.y-10,bottom:p.y+10})),text=>measure(text,18),boxes);
           if(!title)continue;
           const baseLayout={...candidate,frame:{cx,cy,size:base*factor},labels:[...boxes,title]};
           candidate.stars.forEach((s,i)=>{s.spacing=Math.min(...candidate.stars.filter((_,j)=>j!==i).map(p=>Math.hypot(p.x-s.x,p.y-s.y)));});
@@ -13994,11 +13970,6 @@ const STUDIO_CONSTELLATIONS = [{
       return null;
     }
     let current=next(),previous=null,layout=chooseLayout(current),slots=[],phase='gather',phaseStart=performance.now();
-    function loadScale(){
-      try{const raw=localStorage.getItem('lumiscia-sky-scale-'+current.abbr);distanceScale=raw===null?500:Math.max(0,Math.min(1000,Number(raw)||0));}catch{distanceScale=500;}
-      scaleText();
-    }
-    loadScale();layout=chooseLayout(current);
     const durations={gather:15000,hold:8000,morph:18000};
     function target(nextLayout){
       labels=[];links.forEach(n=>n.hidden=true);
@@ -14014,7 +13985,7 @@ const STUDIO_CONSTELLATIONS = [{
     const ease=t=>t<.5?2*t*t:1-(-2*t+2)**2/2;
     function advance(now){
       if(phase==='hold'){
-        previous=current;current=next();loadScale();layout=chooseLayout(current);phase='morph';target(layout);
+        previous=current;current=next();layout=chooseLayout(current);phase='morph';target(layout);
       }else{phase='hold';labels=layout?.labels||[];}
       phaseStart=now;
     }
@@ -14029,7 +14000,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function drift(s,delta){
       if(motion.matches)return;
-      const near=geometry.nearest(s,obstacles);
+      const near=geometry.nearest(s,backgroundObstacles);
       if(near.distance<42){const force=Math.max(0,(42-near.distance)/42)*.016*delta;s.vx+=near.nx*force;s.vy+=near.ny*force;}
       const speed=Math.hypot(s.vx,s.vy)||1;s.vx=s.vx/speed*s.speed;s.vy=s.vy/speed*s.speed;
       s.x=(s.x+s.vx*delta+w+12)%(w+12);s.y=(s.y+s.vy*delta+h+12)%(h+12);
@@ -14049,7 +14020,9 @@ const STUDIO_CONSTELLATIONS = [{
       if(!motion.matches&&now-phaseStart>durations[phase])advance(now);
       const t=phase==='hold'?1:ease(Math.min(1,(now-phaseStart)/durations[phase]));
       canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=current.abbr;
-      canvas.dataset.skyScale=String(distanceScale);
+      canvas.dataset.skyScale=String(constellationScale);
+      canvas.dataset.skyBackgroundBrightness=String(brightness.background);
+      canvas.dataset.skyConstellationBrightness=String(brightness.constellation);
       ctx.clearRect(0,0,w,h);
       ctx.save();
       const background=s=>({x:((s.x-skyPan.x)%(w+12)+w+12)%(w+12),y:((s.y-skyPan.y)%(h+12)+h+12)%(h+12)});
@@ -14082,17 +14055,17 @@ const STUDIO_CONSTELLATIONS = [{
       ctx.restore();
       // Protect branding and glyphs, not the transparent backgrounds of controls.
       for(const b of [...logoRects,...labels])ctx.clearRect(b.left-1,b.top-1,b.right-b.left+2,b.bottom-b.top+2);
-      for(const r of textRects)ctx.clearRect(r.left-2,r.top-1,r.right-r.left+4,r.bottom-r.top+2);
+      for(const r of textRects){const pad=r.tight?0:2;ctx.clearRect(r.left-pad,r.top-(r.tight?0:1),r.right-r.left+pad*2,r.bottom-r.top+(r.tight?0:2));}
       ctx.restore();
       links.forEach((link,i)=>{
         const b=labels[i];link.hidden=!b;
         if(!b)return;
         link.className=b.star.caption?'auth-sky-caption auth-sky-title':b.star.primary?'auth-sky-landmark auth-sky-primary':'auth-sky-landmark';
         if(b.star.caption){
-          if(link.dataset.caption!==b.star.label+'|'+b.star.scaleLabel){
-            const name=document.createElement('span'),scale=document.createElement('small');name.className='auth-sky-name';name.textContent=b.star.label;scale.className='auth-sky-scale';scale.textContent=b.star.scaleLabel;link.replaceChildren(name,scale);link.dataset.caption=b.star.label+'|'+b.star.scaleLabel;
+          if(link.dataset.caption!==b.star.label){
+            const name=document.createElement('span');name.className='auth-sky-name';name.textContent=b.star.label;link.replaceChildren(name);link.dataset.caption=b.star.label;
           }
-          link.title=b.star.label+' — '+b.star.scaleLabel+' (at projection centre)';
+          link.title=b.star.label;
         }else{link.textContent=b.star.label;delete link.dataset.caption;link.title=b.star.label;}
         link.href=b.star.caption?'https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name):'https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(b.star.hip?'HIP '+b.star.hip:b.star.label);
         link.style.left=b.left+'px';link.style.top=b.top+'px';link.style.width=(b.right-b.left)+'px';link.style.height=(b.bottom-b.top)+'px';
@@ -14108,30 +14081,19 @@ const STUDIO_CONSTELLATIONS = [{
     const onMove=event=>canvas.classList.toggle('sky-hover',hit(event));
     window.addEventListener('click',onClick);window.addEventListener('mousemove',onMove);
     redraw=()=>render(performance.now());
-    rescale=()=>{
-      layout=chooseLayout(current);previous=null;target(layout);
-      if(!layout){labels=[];slots=[];if(motion.matches)redraw();return;}
-      for(const slot of slots){slot.from={...slot.end};slot.path=[slot.end,slot.end];slot.x=slot.end.x;slot.y=slot.end.y;slot.opacity=slot.toOpacity;slot.fromOpacity=slot.toOpacity;slot.fromMag=slot.mag;}
-      phase='hold';labels=layout.labels;phaseStart=performance.now();
-      if(motion.matches)redraw();
-    };
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;rescale=null;refreshText=null;cancelAnimationFrame(frameId);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);};
   }
   let stop=null,lifecycle='';
   function sync(){
     const mode=document.body.matches('.guest-home')?'home':document.body.matches('.guest-auth')?'account':'';
-    tuning.hidden=!mode;
-    const panelHeight=mode?tuning.getBoundingClientRect().height+12:0;
-    document.documentElement.style.setProperty('--studio-tuning-height',panelHeight+'px');
     const boxes=mode?uiBoxes(mode):[],key=JSON.stringify([mode,innerWidth,innerHeight,boxes,document.hidden,motion.matches]);
     if(key===lifecycle){refreshText?.();return;}lifecycle=key;stop?.();stop=null;canvas.hidden=!mode;
     if(mode&&!document.hidden)stop=start(mode,boxes);
   }
   new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
   const observer=new ResizeObserver(sync);['home','account'].forEach(id=>{const node=document.getElementById(id);if(node)observer.observe(node);});
-  observer.observe(tuning);
   const account=document.getElementById('accountBody');
   if(account)new MutationObserver(()=>{account.querySelectorAll('.auth-providers .auth-google').forEach(button=>{const name=button.textContent.trim();if(name){button.title=name;button.setAttribute('aria-label',name);}});sync();}).observe(account,{childList:true,subtree:true});
   addEventListener('resize',sync);addEventListener('scroll',sync,{passive:true});document.addEventListener('visibilitychange',sync);motion.addEventListener('change',sync);sync();

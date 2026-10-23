@@ -1,5 +1,11 @@
 # План рефакторинга
 
+### Sky Appearance Release — 2026-10-24
+
+🟩 По разрешению пользователя опубликована текущая версия через production builder и корневой wrangler.toml: фон 20×, созвездия 100×, базовый размер 2× с адаптацией, прозрачное пространство вокруг бренда, без ползунков и подписей масштаба. Deployment version: 093ea12c-76a0-416d-9573-426c66c5c955. Основа HEAD ae20dfc плюс локальные изменения; новый commit/push не создавался. Сообщение: Fixed sky brightness and transparency, enlarged constellations and removed tuning controls and scale captions.
+
+🟩 После публикации index.html, preview.js, preview.css и catalog-loader.js вернули HTTP 200 и побайтово совпали с production-assets по SHA256. В опубликованном JS подтверждены фиксированные значения 20×/100×/2× и отсутствие ползунков/отрисовки подписи масштаба. Базы/секреты вручную не менялись, скриншоты не создавались.
+
 ### Starfield Overlaps And Links — 2026-10-23
 
 Проверка после публикации: HTML, JS и CSS на `lumiscia.org` вернули HTTP 200 и побайтово совпали с production-сборкой.

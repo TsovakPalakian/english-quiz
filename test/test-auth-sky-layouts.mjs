@@ -26,7 +26,7 @@ try{
       console.log(JSON.stringify({viewport,mode,placed:88-missing.length,missing}));
       assert.equal(report.some(r=>r.overlaps),false,'No complete figure intersects UI');
       assert.deepEqual(missing,[],'Every constellation has a safe complete placement');
-      assert.ok(report.every(r=>r.scaleVisible),'Every title has its angular scale');
+      assert.ok(report.every(r=>!r.scaleVisible),'Scale text is absent from every title');
     }
     await page.close();
   }
