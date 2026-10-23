@@ -90,6 +90,32 @@ SQL отказывает при существующей или частично
 и `ops/rehearse-learning-workbench.mjs` на локальном export. Перестроение 017 на
 заполненной D1 требует отдельной стратегии; автоматическое применение запрещено.
 
+### Репетиция Настоящего Export
+
+Получать SQL только read-only `wrangler d1 export STUDY_DB --remote` в закрытый каталог
+с umask 077. Эта команда создаёт backup, не применяет схему. Wrangler выводит временную
+подписанную download URL: не публиковать stdout, ссылки и SQL в чатах/истории проекта.
+
+```sh
+node ops/rehearse-workbench-d1-export.mjs --source <private-export.sql> --out <new-private-directory>
+node ops/verify-workbench-local-d1.mjs --source <verified-directory>/baseline.sqlite --out <new-local-d1-directory> --miniflare <installed-miniflare-package-directory>
+```
+
+Первый инструмент проверяет импорт, исходные данные и восстановление двух backups,
+записывает verification.json с source/SQL digest без содержимого пользовательских строк.
+Повторное использование выходного каталога запрещено. Извне прикреплять базы и unsafe
+PRAGMA запрещено SQLite authorizer. Повреждённые FK останавливают проверку.
+
+Второй использует явно выбранные совместимые Miniflare и соседний Wrangler с экспортом
+unstable_splitSqlQuery, только local workerd/D1. Обычный импорт dump может падать из-за
+порядка таблиц или длины INSERT; parameter bindings сохраняют данные без обхода SQL limits.
+Сначала CREATE tables/indexes, затем parent-first INSERT, затем views/triggers.
+Циклические зависимости и INTEGER, не представимые безопасно в D1 binding, требуют
+отдельного решения. Сверка хранит точные типы/NUL/BLOB; никаких личных строк в отчёте.
+Артефакт local-d1-restore.sql — диагностический schema-first SQL, он всё ещё может
+превышать ограничения длины D1 statement; для D1 использовать parameterized verifier.
+Успех Miniflare не заменяет репетицию на облачной D1 и не разрешает production migration.
+
 Read-only `workbenchInfrastructure` проверяет schema/bindings/configuration, не отправляет
 медиа, AI-запросы или письма и не подтверждает приватность удалённых ресурсов.
 
