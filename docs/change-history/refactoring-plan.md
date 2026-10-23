@@ -350,6 +350,11 @@
 - [x] 22 целевых теста карточек/закрытых путей/Bugs/production прошли; ранее пройдены 6 связанных тестов карточек и 34 account-transfer. Production assets собраны, git diff --check пройден.
 - [x] После отдельного подтверждения do опубликованы оба исправления через корневой wrangler.toml; версия `60df03b2-28fc-4978-9e30-78f8bd90b82a`. Коммит не создавался. Название: `Fixed personal card saving and blocked sensitive-file probes.`
 
+### Private Workbench Inspector — 2026-10-23
+
+- 🟩 Отдельный служебный Worker `learn-english-workbench-inspector` опубликован без публичных маршрутов и workers.dev: версия `216c9d93-cac8-40bc-b5e7-a4feabc854a4`. Основной сайт и рабочие D1 не публиковались и не изменялись. Коммит не создавался. Сообщение: `Added a private HTTPS media inspector and isolated cloud rehearsal safeguards.`
+- 🟨 Подключение общего секрета и проверка служебного binding; полная инфраструктура ещё не готова к включению.
+
 ### Registration And Email Code Spacing — 2026-10-20
 
 - [x] После отдельного подтверждения do возвращена Continue with Google и разделитель or на Create account. Microsoft/Telegram остались только на Log in; UI-проверка и production builder пройдены. Опубликовано 2026-10-20 через корневой wrangler.toml; версия `b669db0b-2aed-4d67-84f1-204cf2b2ed22`. Коммит не создавался. Название: `Restored Google registration on the Create account page.`

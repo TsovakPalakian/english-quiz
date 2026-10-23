@@ -1,5 +1,6 @@
 # Deploy separately before binding the main Worker; no public routes.
 name = "learn-english-workbench-inspector"
+account_id = "42a9ebe47d529e3664b914aaf0813a21"
 main = "../../src/workbench-inspector-worker.mjs"
 compatibility_date = "2026-08-01"
 workers_dev = false
@@ -7,6 +8,7 @@ preview_urls = false
 routes = []
 
 [vars]
-INSPECTOR_ENABLED = "false"
+INSPECTOR_ENABLED = "true"
+INSPECTOR_ENDPOINT = "https://inspector.92-5-115-171.sslip.io/inspect"
 # Set INSPECTOR_ENDPOINT to the operator-controlled HTTPS /inspect endpoint.
 # Store INSPECTOR_TOKEN as a Worker secret, matching the container environment.
