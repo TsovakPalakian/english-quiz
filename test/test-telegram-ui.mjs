@@ -41,7 +41,7 @@ try{
       if(enabled&&!register)for(const width of [390,1000]){
         await page.setViewportSize({width,height:1000});
         const ms=await page.locator('[data-telegram-auth]').boundingBox(),google=await page.locator('[data-microsoft-auth]').boundingBox();
-        assert.ok(Math.abs(ms.y-google.y-google.height-8)<=1,'Telegram follows the last visible provider with an 8px gap');
+        assert.ok(Math.abs(ms.y-google.y)<=1&&Math.abs(ms.x-google.x-google.width-10)<=1,'Telegram follows Microsoft in the icon row with a 10px gap');
         assert.ok(ms.x>=0&&ms.x+ms.width<=width,'Telegram fits the viewport');
       }
     }

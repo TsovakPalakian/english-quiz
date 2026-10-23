@@ -62,52 +62,17 @@ try{
   assert.equal(await page.locator('#homeAuth button:visible').count(),1);
   assert.equal(await page.locator('.guest-brand').isVisible(),true);
   const logo = page.locator('.guest-brand');
-  const homeBeforeMotto = await page.locator('#homeAuth').boundingBox();
-  const logoBeforeMotto = await logo.boundingBox();
   assert.equal(await page.locator('#home .home-heading .sub').isVisible(),false,'Guest subtitle is removed');
-  await logo.click({clickCount: 3});
-  await page.waitForTimeout(750);
-  assert.equal(await logo.getAttribute('aria-expanded'), 'true');
-  assert.equal(await page.locator('#brandMotto b').isVisible(), true);
-  assert.match(await page.locator('#brandMotto').innerText(), /Lumen ex Scientia/);
-  assert.ok((await page.locator('#homeAuth').boundingBox()).y>homeBeforeMotto.y+40,'Login moves down to make room for the motto');
-  assert.deepEqual(await logo.boundingBox(),logoBeforeMotto,'Logo stays fixed while motto opens');
-  await page.waitForTimeout(2450);
-  assert.equal(await page.locator('#brandMotto').evaluate(node=>node.classList.contains('is-dissolving')), true);
-  assert.ok(await page.locator('.brand-motto-particles').evaluate(canvas => {
-    const box = canvas.getBoundingClientRect();
-    if (box.x !== 0 || box.y !== 0 || box.width !== innerWidth || box.height !== innerHeight) return false;
-    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    return pixels.some((value, index) => index % 4 === 3 && value > 0);
-  }), 'Letter particles render visible pixels');
-  await page.screenshot({path: '/private/tmp/lumiscia-motto-particles.png'});
-  await page.waitForTimeout(1500);
-  assert.equal(await logo.getAttribute('aria-expanded'), 'false');
-  assert.equal(await page.locator('#brandMotto b').isVisible(), false, 'Motto disperses as colored light after three seconds');
-  assert.deepEqual(await page.locator('#homeAuth').boundingBox(),homeBeforeMotto,'Login returns after the motto dissolves');
-  assert.deepEqual(await logo.boundingBox(),logoBeforeMotto,'Logo stays fixed while motto closes');
-  assert.equal(await page.locator('.brand-motto-particles').count(), 0, 'Particle canvas is removed after animation');
+  assert.equal(await logo.locator('.studio-translation').isVisible(),true,'The new motto is always visible');
+  assert.match(await logo.innerText(),/LUMEN EX SCIENTIA/);
+  assert.equal(await page.locator('#loginForm').isVisible(),false,'Login fields stay hidden until requested');
   assert.equal(await page.locator('#home').evaluate(node=>getComputedStyle(node).userSelect),'none');
-  await Promise.all([page.waitForEvent('domcontentloaded'),logo.click()]);
-  await page.waitForFunction(()=>!document.body.hasAttribute('data-shell-pending'));
-  assert.equal(await page.locator('#home .hello').innerText(),'Hello!');
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:960});
     const box=await page.locator('#home').boundingBox();assert.ok(Math.abs(box.x+box.width/2-width/2)<2,'Guest home centered');
     const footer=await page.locator('.site-copyright').boundingBox();assert.ok(footer.y+footer.height<=960,'Guest copyright fits viewport: '+JSON.stringify({footer,home:box}));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
     await page.screenshot({path:'/private/tmp/lumiscia-guest-'+width+'.png'});
-    if(width===390){
-      const mark=await logo.boundingBox(),button=await page.locator('#homeAuth').boundingBox();
-      await logo.click({clickCount:3});await page.waitForTimeout(750);
-      assert.deepEqual(await logo.boundingBox(),mark,'Mobile logo stays fixed');
-      const textBottom=await page.locator('#brandMotto span').evaluate(node=>node.getBoundingClientRect().bottom);
-      const hello=await page.locator('#home .hello').boundingBox();
-      assert.ok(hello.y>=textBottom,'Motto and greeting do not overlap on mobile');
-      await page.screenshot({path:'/private/tmp/lumiscia-guest-motto-390.png'});
-      await page.waitForTimeout(4000);
-      assert.deepEqual(await page.locator('#homeAuth').boundingBox(),button,'Mobile login returns to its original position');
-    }
   }
   await page.setViewportSize({width:1440,height:960});
   await page.evaluate(()=>window.enquizVisit('account'));
@@ -119,9 +84,9 @@ try{
     const passkey=await page.locator('[data-passkey-login]').boundingBox();
     const google=await page.locator('[data-google-auth]').boundingBox();
     assert.ok(passkey.y>=divider.y+divider.height,'Passkey follows the or divider');
-    assert.ok(Math.abs(google.y-passkey.y-passkey.height-8)<=1,'Google follows passkey with an 8px gap');
+    assert.ok(Math.abs(google.y-passkey.y)<=1&&Math.abs(google.x-passkey.x-passkey.width-10)<=1,'Google follows passkey in the icon row');
   }
-  assert.equal(await page.locator('.side .brand-mark svg path').count(),2);
+  assert.equal(await page.locator('.side .brand-mark svg polygon').count(),1);
   assert.equal(await page.locator('.side .brand b').innerText(),'Lumiscia');
   assert.equal(await page.locator('.side .brand small').innerText(),'Learning studio');
   assert.match(await page.locator('.site-copyright').innerText(),new RegExp('© '+new Date().getFullYear()+' Lumiscia'));
@@ -130,7 +95,7 @@ try{
   assert.equal(await page.locator('[data-msg-open]:visible,[data-jump="messages"]:visible').count(),0,'Guest has no Messages entry, including account links');
   assert.equal(await page.locator('.side-search').isVisible(),false,'Guest has no sidebar search');
   assert.deepEqual(await page.locator('.side .shell-settings-open svg').evaluate(node=>{const style=getComputedStyle(node);return [parseFloat(style.width),parseFloat(style.height)];}),[18,18]);
-  await page.locator('.auth-tabs [data-account="show-register"]').click();
+  await page.locator('.auth-create [data-account="show-register"]').click();
   assert.equal(await page.locator('[data-google-auth] > svg.auth-google-icon').count(),1);
   assert.equal(await page.locator('[data-google-auth]').innerText(),'Continue with Google');
   assert.equal(await page.locator('.side').isVisible(),false,'Guest registration has no sidebar');
@@ -143,11 +108,9 @@ try{
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});
     await page.evaluate(()=>window.scrollTo(0,0));
-    const registerTabs=await page.locator('.auth-tabs').boundingBox();
     await page.locator('.auth-tabs [data-account="show-login"]').click();
-    const loginTabs=await page.locator('.auth-tabs').boundingBox();
-    for(const key of ['x','y','width','height'])assert.ok(Math.abs(registerTabs[key]-loginTabs[key])<=1,'Auth tabs stay fixed: '+key+' at '+width);
-    await page.locator('.auth-tabs [data-account="show-register"]').click();
+    assert.equal(await page.locator('#loginForm').isVisible(),true);
+    await page.locator('.auth-create [data-account="show-register"]').click();
     const buttons=await page.locator('.auth-tabs button').evaluateAll(nodes=>nodes.map(node=>({left:node.getBoundingClientRect().left,right:node.getBoundingClientRect().right,border:getComputedStyle(node).borderTopStyle})));
     assert.ok(buttons[1].left-buttons[0].right>=10&&buttons.every(button=>button.border==='solid'),'Auth tabs have separate borders and gap');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Auth fits '+width);
@@ -155,7 +118,7 @@ try{
     await page.screenshot({path:'/private/tmp/lumiscia-register-'+width+'.png',fullPage:true});
   }
   await page.locator('.auth-tabs [data-account="show-login"]').click();
-  await page.locator('[data-login-mode="otp"].chip').click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
+  await page.locator('.auth-providers [data-login-mode="otp"]').click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
   assert.equal(await page.locator('#otpCode').isVisible(),false);
   assert.equal(await page.locator('#otpLoginForm button[type="submit"]').isVisible(),false);
   await page.locator('#otpEmail').fill('preview@example.invalid');
@@ -176,9 +139,9 @@ try{
     document.documentElement.dataset.theme='user';
     for(const [name,value] of Object.entries({'--bg':'#eee9ef','--card':'#f9f4fa','--acc':'#9b2360','--mute':'#6d5467'}))document.documentElement.style.setProperty(name,value);
   });
-  assert.equal(await page.locator('.side .brand-mark svg path').first().evaluate(node=>getComputedStyle(node).fill),'rgb(155, 35, 96)','Brand follows custom theme accent');
-  assert.equal(await page.locator('.site-copyright').evaluate(node=>getComputedStyle(node).color),'rgb(109, 84, 103)','Copyright follows custom theme text');
-  assert.equal(await page.locator('.account-gate .card').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(249, 244, 250)','Auth surface follows custom theme background');
+  assert.equal(await page.locator('.side .brand-mark svg circle').first().getAttribute('stroke-width'),'.8','Gold emblem remains intact');
+  assert.equal(await page.locator('.site-copyright').evaluate(node=>getComputedStyle(node).color),'rgb(179, 197, 206)','Guest copyright uses the studio palette');
+  assert.equal(await page.locator('.account-gate .card').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)','Guest form remains unframed');
   await page.evaluate(style=>{document.documentElement.setAttribute('style',style||'');},originalStyle);
   for(const width of [1440,390])for(const theme of ['light','graphite']){
     await page.setViewportSize({width,height:960});
@@ -245,7 +208,7 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port+'/?invite=teacher-fixture');
   await page.waitForFunction(()=>accountChecked);
   await page.evaluate(()=>window.enquizVisit('account'));
-  await page.locator('#account [data-account="show-register"]').click();
+  await page.locator('#account .auth-create [data-account="show-register"]').click();
   await page.locator('[data-invite-email-send]').waitFor();
   await page.locator('#registerForm [name="login"]').fill('InvitedTeacher');
   await page.locator('#registerForm [name="email"]').fill('preview@example.invalid');

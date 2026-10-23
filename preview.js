@@ -12996,9 +12996,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" name="password" type="password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false"><i data-lucide="eye" aria-hidden="true"></i></button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
-      const authDivider='<div class="auth-divider"><span>or</span></div>';
+      const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
       const microsoft='<button class="btn auth-google" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
       const telegram='<button class="btn auth-google" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
       const google='<button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
@@ -13028,15 +13028,15 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         return;
       }
       box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
-        '<div class="row" style="margin-bottom:10px"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required />' +
+        '<div class="auth-mode-switch"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
         passwordField(false)+
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Log in</button></form>' +
+        '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
         '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        authDivider+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login><i data-lucide="fingerprint" aria-hidden="true"></i>Log in with passkey</button>':'')+google+microsoft+telegram+'<p class="hint" role="status" data-passkey-status></p></div></div>';
+        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
       decorate();
     }
     function paintProfile() {
@@ -13236,6 +13236,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }, 1600);
     }
     guestLogo?.addEventListener('click', () => {
+      if(document.body.matches('.guest-home'))return;
       clearTimeout(logoReloadTimer);
       logoReloadTimer=setTimeout(reloadGuestHome,450);
       const motto = document.getElementById('brandMotto');
@@ -13268,6 +13269,889 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       ownAccountFlight = flight;
       return flight.promise;
     }
+const StudioSkyGeometry=(()=>{
+  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  function shape(cx,cy,rx,ry,kind='ellipse'){
+    const points=[];
+    if(kind==='rounded'){
+      const radius=Math.min(28,rx*.35,ry*.5);
+      for(let corner=0;corner<4;corner++){
+        const angle=corner*Math.PI/2,ox=cx+(corner===0||corner===3?1:-1)*(rx-radius),oy=cy+(corner<2?1:-1)*(ry-radius);
+        for(let i=0;i<=6;i++){const a=angle+i*Math.PI/12;points.push({x:ox+Math.cos(a)*radius,y:oy+Math.sin(a)*radius});}
+      }
+    }else for(let i=0;i<24;i++){const a=i*Math.PI/12,r=kind==='organic'?1+.12*Math.cos(a*3):1;points.push({x:cx+Math.cos(a)*rx*r,y:cy+Math.sin(a)*ry*r});}
+    return {cx,cy,rx,ry,points};
+  }
+  function contains(p,points){
+    let inside=false;
+    for(let i=0,j=points.length-1;i<points.length;j=i++){
+      const a=points[i],b=points[j];
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+    }return inside;
+  }
+  function nearest(p,obstacles){
+    let best={distance:Infinity,nx:0,ny:0};
+    for(const obstacle of obstacles){
+      const points=obstacle.points,inside=contains(p,points);
+      for(let i=0;i<points.length;i++){
+        const a=points[i],b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));
+        const x=p.x-a.x-t*dx,y=p.y-a.y-t*dy,d=Math.hypot(x,y);
+        if(d<Math.abs(best.distance))best={distance:inside?-d:d,nx:(inside?-1:1)*x/(d||1),ny:(inside?-1:1)*y/(d||1)};
+      }
+    }return best;
+  }
+  function intersects(a,b,c,d){
+    const cross=(p,q,r)=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+    return cross(a,b,c)*cross(a,b,d)<-1e-8&&cross(c,d,a)*cross(c,d,b)<-1e-8;
+  }
+  function blocked(a,b,obstacles){
+    return obstacles.some(o=>contains(a,o.points)||contains(b,o.points)||o.points.some((p,i)=>intersects(a,b,p,o.points[(i+1)%o.points.length])));
+  }
+  function router(obstacles){
+    const nodes=obstacles.flatMap(o=>o.points.map(p=>({x:o.cx+(p.x-o.cx)*(o.rx+30)/o.rx,y:o.cy+(p.y-o.cy)*(o.ry+30)/o.ry}))).filter(p=>!obstacles.some(o=>contains(p,o.points)));
+    let graph;
+    return (a,b)=>{
+      if(!blocked(a,b,obstacles))return [a,b];
+      if(!graph){graph=nodes.map(()=>[]);nodes.forEach((p,i)=>{for(let j=0;j<i;j++)if(!blocked(p,nodes[j],obstacles)){const d=distance(p,nodes[j]);graph[i].push([j,d]);graph[j].push([i,d]);}});}
+      const all=[...nodes,a,b],edges=graph.map(list=>[...list]),start=nodes.length,end=start+1;edges.push([],[]);
+      for(let i=0;i<nodes.length;i++)for(const [index,p] of [[start,a],[end,b]])if(!blocked(nodes[i],p,obstacles)){const d=distance(nodes[i],p);edges[i].push([index,d]);edges[index].push([i,d]);}
+      const costs=all.map(()=>Infinity),previous=[],seen=new Set();costs[start]=0;
+      for(let step=0;step<all.length;step++){
+        let k=-1;all.forEach((_,i)=>{if(!seen.has(i)&&(k<0||costs[i]<costs[k]))k=i;});
+        if(k===end||!Number.isFinite(costs[k]))break;seen.add(k);
+        for(const [i,d] of edges[k])if(costs[k]+d<costs[i]){costs[i]=costs[k]+d;previous[i]=k;}
+      }
+      if(!Number.isFinite(costs[end]))return [a,a];
+      const path=[b];for(let k=end;k!==start;){k=previous[k];path.unshift(all[k]);}
+      const smooth=[a];
+      for(let i=1;i<path.length-1;i++){
+        const p=path[i],before=path[i-1],after=path[i+1];let radius=Math.min(26,distance(before,p)*.25,distance(after,p)*.25),curve;
+        do{
+          const u={x:p.x+(before.x-p.x)*radius/(distance(before,p)||1),y:p.y+(before.y-p.y)*radius/(distance(before,p)||1)},v={x:p.x+(after.x-p.x)*radius/(distance(after,p)||1),y:p.y+(after.y-p.y)*radius/(distance(after,p)||1)};
+          curve=Array.from({length:13},(_,j)=>{const t=j/12;return {x:(1-t)**2*u.x+2*(1-t)*t*p.x+t*t*v.x,y:(1-t)**2*u.y+2*(1-t)*t*p.y+t*t*v.y};});
+          radius/=2;
+        }while(radius>.5&&curve.some((q,j)=>j&&blocked(curve[j-1],q,obstacles)));
+        if(curve.some((q,j)=>j&&blocked(curve[j-1],q,obstacles)))smooth.push(p);else smooth.push(...curve);
+      }
+      smooth.push(b);return smooth;
+    };
+  }
+  function point(route,t){
+    const lengths=route.lengths||(route.lengths=route.slice(1).map((p,i)=>distance(p,route[i])));let d=lengths.reduce((a,b)=>a+b,0)*t;
+    for(let i=0;i<lengths.length;i++){if(d<=lengths[i]||i===lengths.length-1){const f=lengths[i]?Math.min(1,d/lengths[i]):1;return {x:route[i].x+(route[i+1].x-route[i].x)*f,y:route[i].y+(route[i+1].y-route[i].y)*f};}d-=lengths[i];}return route[0];
+  }
+  return {shape,contains,nearest,blocked,router,point};
+})();
+// Original Latin names and abbreviations from the supplied constellation design.
+const STUDIO_CONSTELLATION_LABELS = {"Orion":["Orion","Ori"],"Cassiopeia":["Cassiopeia","Cas"],"Lyra":["Lyra","Lyr"],"Cygnus":["Cygnus","Cyg"],"Ursa Major":["Ursa Major","UMa"],"Leo":["Leo","Leo"],"Scorpius":["Scorpius","Sco"],"Pegasus":["Pegasus","Peg"],"Draco":["Draco","Dra"],"Aquila":["Aquila","Aql"],"Andromeda":["Andromeda","And"],"Perseus":["Perseus","Per"],"Antlia":["Antlia","Ant"],"Apus":["Apus","Aps"],"Aquarius":["Aquarius","Aqr"],"Ara":["Ara","Ara"],"Aries":["Aries","Ari"],"Auriga":["Auriga","Aur"],"Boötes":["Boötes","Boo"],"Caelum":["Caelum","Cae"],"Camelopardalis":["Camelopardalis","Cam"],"Cancer":["Cancer","Cnc"],"Canes Venatici":["Canes Venatici","CVn"],"Canis Major":["Canis Major","CMa"],"Canis Minor":["Canis Minor","CMi"],"Capricornus":["Capricornus","Cap"],"Carina":["Carina","Car"],"Centaurus":["Centaurus","Cen"],"Cepheus":["Cepheus","Cep"],"Cetus":["Cetus","Cet"],"Chamaeleon":["Chamaeleon","Cha"],"Circinus":["Circinus","Cir"],"Columba":["Columba","Col"],"Coma Berenices":["Coma Berenices","Com"],"Corona Australis":["Corona Australis","CrA"],"Corona Borealis":["Corona Borealis","CrB"],"Corvus":["Corvus","Crv"],"Crater":["Crater","Crt"],"Crux":["Crux","Cru"],"Delphinus":["Delphinus","Del"],"Dorado":["Dorado","Dor"],"Equuleus":["Equuleus","Equ"],"Eridanus":["Eridanus","Eri"],"Fornax":["Fornax","For"],"Gemini":["Gemini","Gem"],"Grus":["Grus","Gru"],"Hercules":["Hercules","Her"],"Horologium":["Horologium","Hor"],"Hydra":["Hydra","Hya"],"Hydrus":["Hydrus","Hyi"],"Indus":["Indus","Ind"],"Lacerta":["Lacerta","Lac"],"Leo Minor":["Leo Minor","LMi"],"Lepus":["Lepus","Lep"],"Libra":["Libra","Lib"],"Lupus":["Lupus","Lup"],"Lynx":["Lynx","Lyn"],"Mensa":["Mensa","Men"],"Microscopium":["Microscopium","Mic"],"Monoceros":["Monoceros","Mon"],"Musca":["Musca","Mus"],"Norma":["Norma","Nor"],"Octans":["Octans","Oct"],"Ophiuchus":["Ophiuchus","Oph"],"Pavo":["Pavo","Pav"],"Phoenix":["Phoenix","Phe"],"Pictor":["Pictor","Pic"],"Pisces":["Pisces","Psc"],"Piscis Austrinus":["Piscis Austrinus","PsA"],"Puppis":["Puppis","Pup"],"Pyxis":["Pyxis","Pyx"],"Reticulum":["Reticulum","Ret"],"Sagitta":["Sagitta","Sge"],"Sagittarius":["Sagittarius","Sgr"],"Sculptor":["Sculptor","Scl"],"Scutum":["Scutum","Sct"],"Serpens":["Serpens","Ser"],"Sextans":["Sextans","Sex"],"Taurus":["Taurus","Tau"],"Telescopium":["Telescopium","Tel"],"Triangulum":["Triangulum","Tri"],"Triangulum Australe":["Triangulum Australe","TrA"],"Tucana":["Tucana","Tuc"],"Ursa Minor":["Ursa Minor","UMi"],"Vela":["Vela","Vel"],"Virgo":["Virgo","Vir"],"Volans":["Volans","Vol"],"Vulpecula":["Vulpecula","Vul"]};
+// Decorative constellation patterns adapted from the supplied design; not an astronomical chart.
+const STUDIO_CONSTELLATIONS = [{
+    "name": "Orion",
+    "stars": [[0.5479, 0, 0.5], [0.5053, 0.6702, 2.1], [0.5479, 0.9681, 1.6], [0.5053, 0.8511, 1.7], [0.5479, 0.766, 1.8], [0.484, 1, 2.2], [0.4309, 0.6489, 2.6], [0.5479, 0.5745, 3.4], [0.5585, 0.4681, 3.6], [0.5691, 0.3936, 3.9], [0.516, 0.4362, 3.5], [0.4734, 0.4149, 3.7]],
+    "lines": [[0, 2], [2, 3], [3, 1], [1, 5], [0, 6], [2, 7], [3, 7], [7, 8], [8, 9], [9, 10], [10, 11], [8, 10]]
+}, {
+    "name": "Cassiopeia",
+    "stars": [[0, 0.6538, 2.3], [0.2051, 0.5256, 2.2], [0.4359, 0.3462, 2.5], [0.7179, 0.6538, 2.7], [1, 0.5769, 3.4]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4]]
+}, {
+    "name": "Lyra",
+    "stars": [[0.3913, 1, 0], [0.4783, 0.4783, 3.5], [0.4348, 0.2174, 4.3], [0.5217, 0, 3.9], [0.6087, 0.6087, 4.4]],
+    "lines": [[0, 1], [1, 4], [4, 3], [3, 2], [2, 1]]
+}, {
+    "name": "Cygnus",
+    "stars": [[0.5258, 1, 1.3], [0.4536, 0.9794, 2.5], [0.433, 0.9794, 2.2], [0.4742, 0.4845, 2.5], [0.5052, 0, 2.9], [0.567, 0.7216, 3.2], [0.433, 0.866, 3.8]],
+    "lines": [[0, 1], [1, 2], [1, 3], [3, 4], [0, 5], [1, 6]]
+}, {
+    "name": "Ursa Major",
+    "stars": [[0.4, 1, 1.8], [0.392, 0.576, 2.4], [0.464, 0.352, 2.4], [0.496, 0.616, 3.3], [0.544, 0.528, 1.8], [0.584, 0.448, 2.4], [0.608, 0, 1.9]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]]
+}, {
+    "name": "Leo",
+    "stars": [[0.431, 0.1207, 1.4], [0.4483, 0.319, 2], [0.5776, 0.4397, 2.6], [0.5172, 0, 3], [0.4052, 0.9138, 2.1], [0.5086, 1, 3.3], [0.5948, 0.6379, 3.4]],
+    "lines": [[0, 1], [1, 2], [0, 3], [0, 4], [4, 5], [5, 6], [6, 2]]
+}, {
+    "name": "Scorpius",
+    "stars": [[0.4846, 0.7149, 1], [0.4627, 0.8684, 2.6], [0.4846, 0.6228, 1.6], [0.5241, 0.2325, 1.9], [0.5329, 0.1491, 2.3], [0.5373, 0, 1.9], [0.489, 0.3553, 2.9], [0.4671, 1, 2.9], [0.4627, 0.8816, 3.3]],
+    "lines": [[0, 7], [7, 1], [1, 8], [8, 0], [0, 2], [2, 3], [3, 4], [4, 5], [5, 6]]
+}, {
+    "name": "Pegasus",
+    "stars": [[0.5333, 0.375, 2.5], [0.5333, 0.2542, 2.4], [0.4667, 0.3958, 2.9], [0.4708, 0.15, 2.5], [0.5125, 0.1917, 2.9], [0.5, 0, 2.7], [0.4875, 1, 2.5]],
+    "lines": [[0, 1], [1, 4], [4, 3], [3, 2], [2, 0], [4, 5], [1, 6]]
+}, {
+    "name": "Draco",
+    "stars": [[0.4814, 0, 2.2], [0.4441, 0.0497, 2.8], [0.3882, 0.087, 3.7], [0.295, 0.2174, 2.2], [0.2764, 0.4286, 2.7], [0.3447, 0.7205, 3.2], [0.4814, 0.9565, 3.1], [0.6304, 1, 2.7], [0.7236, 0.8012, 3.8], [0.5559, 0.0124, 3.1]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 0]]
+}, {
+    "name": "Aquila",
+    "stars": [[0.5288, 0.5577, 0.8], [0.5385, 0.7212, 3.1], [0.4615, 0.4615, 3.4], [0.4904, 0, 3.7], [0.4615, 1, 3.7], [0.5385, 0.9519, 3.4]],
+    "lines": [[0, 1], [0, 2], [2, 3], [1, 4], [4, 5]]
+}, {
+    "name": "Andromeda",
+    "stars": [[0.426, 0, 2.1], [0.4911, 0.3846, 2.1], [0.5385, 0.7811, 2.3], [0.4615, 0.1065, 3.3], [0.574, 1, 3.2], [0.5148, 0.426, 3.6]],
+    "lines": [[0, 1], [1, 2], [2, 4], [1, 5], [0, 3]]
+}, {
+    "name": "Perseus",
+    "stars": [[0.4815, 0.7333, 1.8], [0.5111, 0.5778, 2.9], [0.4519, 1, 2.3], [0.4519, 0.7926, 3.3], [0.5111, 0, 2.9], [0.5333, 0.1704, 2.7], [0.5481, 0.5185, 3]],
+    "lines": [[0, 1], [0, 3], [0, 2], [1, 6], [6, 5], [5, 4]]
+}, {
+    "name": "Antlia",
+    "stars": [[0.5126, 0.6807, 4.3], [0.5042, 0, 4.2], [0.4706, 1, 4.4], [0.5294, 0.2353, 4.1]],
+    "lines": [[0, 1], [1, 3], [0, 2]]
+}, {
+    "name": "Apus",
+    "stars": [[0.44, 0.36, 3.8], [0.62, 0, 3.9], [0.38, 1, 4.4], [0.54, 0.78, 4]],
+    "lines": [[0, 1], [0, 3], [2, 3]]
+}, {
+    "name": "Aquarius",
+    "stars": [[0.5238, 1, 2.9], [0.5298, 0.9167, 3.7], [0.4643, 0.6667, 3.3], [0.4524, 0.6607, 3.7], [0.4167, 0.4048, 3.3], [0.5833, 0.0595, 3.9], [0.5476, 0.0833, 4.2], [0.506, 0, 3.7]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7]]
+}, {
+    "name": "Ara",
+    "stars": [[0.5429, 0.4571, 2.9], [0.4286, 0.4, 3.1], [0.5143, 0.7143, 3.3], [0.5714, 0.9143, 3.6], [0.4429, 1, 4.1], [0.5, 0, 4.1]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 1], [0, 5]]
+}, {
+    "name": "Aries",
+    "stars": [[0.3649, 1, 2], [0.5, 0.3784, 2.6], [0.3378, 0.2703, 3.6], [0.6622, 0, 4.4]],
+    "lines": [[0, 1], [1, 2], [1, 3]]
+}, {
+    "name": "Auriga",
+    "stars": [[0.4793, 0.8069, 0.1], [0.5276, 0.5448, 1.9], [0.5, 1, 2.7], [0.4793, 0.531, 3], [0.4724, 0, 3.2]],
+    "lines": [[0, 1], [0, 2], [2, 3], [3, 4]]
+}, {
+    "name": "Boötes",
+    "stars": [[0.477, 0.113, 0], [0.5272, 1, 2.4], [0.4561, 0.0377, 3.5], [0.4854, 0, 3.5], [0.5063, 0.7029, 3.6], [0.5439, 0.9121, 3.4]],
+    "lines": [[0, 2], [2, 3], [0, 5], [5, 1], [5, 4]]
+}, {
+    "name": "Caelum",
+    "stars": [[0.5294, 0.2353, 4.4], [0.6176, 1, 4.4], [0.3824, 0, 4.6]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Camelopardalis",
+    "stars": [[0.5208, 0.5917, 4], [0.4375, 0, 4.3], [0.5625, 1, 4.4]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Cancer",
+    "stars": [[0.4811, 1, 3.5], [0.5377, 0.3113, 4], [0.5, 0, 4.2], [0.5189, 0.5472, 4.3], [0.4623, 0.1509, 4.3]],
+    "lines": [[0, 3], [3, 4], [4, 2], [2, 1], [1, 3]]
+}, {"name": "Canes Venatici", "stars": [[0.4516, 0, 2.8], [0.5484, 1, 4.3]], "lines": [[0, 1]]}, {
+    "name": "Canis Major",
+    "stars": [[0.5073, 0.9197, -1.5], [0.4781, 0.8321, 2], [0.5292, 0.2117, 1.5], [0.5219, 0, 1.8], [0.5438, 0.4015, 3], [0.4562, 0.6058, 3], [0.4781, 1, 3.9]],
+    "lines": [[0, 1], [0, 4], [4, 2], [2, 3], [0, 5], [5, 6]]
+}, {"name": "Canis Minor", "stars": [[0.5968, 0, 0.4], [0.4032, 1, 3]], "lines": [[0, 1]]}, {
+    "name": "Capricornus",
+    "stars": [[0.4464, 1, 2.8], [0.4536, 0.3429, 4.1], [0.5321, 0.5, 2.8], [0.5321, 0.9643, 3.7], [0.5607, 0, 3.6], [0.4393, 0, 4.5]],
+    "lines": [[0, 1], [1, 5], [5, 4], [4, 2], [2, 3], [3, 0]]
+}, {
+    "name": "Carina",
+    "stars": [[0.3737, 1, -0.7], [0.3947, 0.2947, 1.9], [0.3526, 0.5263, 1.9], [0.3316, 0, 2.2], [0.6684, 0.3053, 1.9]],
+    "lines": [[0, 2], [2, 1], [1, 3], [1, 4]]
+}, {
+    "name": "Centaurus",
+    "stars": [[0.5431, 0.1053, 0.6], [0.5144, 0, 1.3], [0.4474, 0.6842, 2], [0.5, 0.4545, 2.3], [0.5526, 1, 3.1]],
+    "lines": [[0, 1], [0, 3], [3, 2], [2, 4]]
+}, {
+    "name": "Cepheus",
+    "stars": [[0.42, 0.368, 2.5], [0.516, 0, 3.2], [0.564, 0.512, 2.4], [0.58, 1, 3.4], [0.42, 0.984, 3.2]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+}, {
+    "name": "Cetus",
+    "stars": [[0.5611, 0.5496, 2], [0.5382, 1, 2.5], [0.584, 0.7557, 3.5], [0.4618, 0.1832, 2.8], [0.4771, 0, 3.7], [0.416, 0.4733, 4]],
+    "lines": [[0, 2], [2, 1], [0, 3], [3, 4], [3, 5]]
+}, {
+    "name": "Chamaeleon",
+    "stars": [[1, 0.7222, 4.1], [0, 0.2778, 4.4], [0.7222, 0.2778, 4.4]],
+    "lines": [[0, 2], [2, 1]]
+}, {
+    "name": "Circinus",
+    "stars": [[0.4608, 0.5882, 3.2], [0.5392, 0, 4.1], [0.5294, 1, 4.4]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Columba",
+    "stars": [[0.45, 0.2167, 2.6], [0.55, 0, 3.1], [0.4833, 1, 4.4]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Coma Berenices",
+    "stars": [[0.4894, 0, 4.3], [0.5532, 0.5532, 4.3], [0.4468, 1, 4.4]],
+    "lines": [[0, 1], [1, 2]]
+}, {
+    "name": "Corona Australis",
+    "stars": [[0.5429, 0, 4.1], [0.4571, 1, 4.2], [0.5143, 0.2857, 4.3]],
+    "lines": [[0, 2], [2, 1]]
+}, {
+    "name": "Corona Borealis",
+    "stars": [[0.4605, 0.9474, 2.2], [0.5789, 1, 3.7], [0.4211, 0.5, 3.6], [0.4737, 0.0789, 4], [0.5395, 0, 4.6]],
+    "lines": [[2, 0], [0, 1], [2, 3], [3, 4]]
+}, {
+    "name": "Corvus",
+    "stars": [[0.4855, 1, 2.6], [0.4565, 0.8551, 2.9], [0.4855, 0.1159, 2.7], [0.5435, 0, 3]],
+    "lines": [[0, 1], [0, 2], [2, 3], [1, 3]]
+}, {
+    "name": "Crater",
+    "stars": [[0.5455, 1, 4.1], [0.7273, 0, 4.7], [0.4545, 0.1364, 4.2], [0.2727, 0.6364, 4.4]],
+    "lines": [[0, 1], [1, 2], [2, 3], [3, 0]]
+}, {
+    "name": "Crux",
+    "stars": [[0.5048, 0.5769, 0.8], [0.5337, 0.3269, 1.3], [0.4856, 0, 1.6], [0.4663, 1, 2.8]],
+    "lines": [[0, 2], [1, 3]]
+}, {
+    "name": "Delphinus",
+    "stars": [[0.5135, 0, 3.5], [0.4595, 0.5676, 3.6], [0.5405, 1, 3.6], [0.5946, 0.3784, 3.9], [0.4054, 0.4054, 3.8]],
+    "lines": [[0, 3], [3, 1], [1, 2], [2, 3], [1, 4], [4, 0]]
+}, {
+    "name": "Dorado",
+    "stars": [[0.5224, 0.4627, 3.3], [0.5672, 0, 3.6], [0.4328, 1, 4.4]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Equuleus",
+    "stars": [[0.4848, 1, 3.9], [0.4242, 0.4545, 4.5], [0.5758, 0, 4.3]],
+    "lines": [[0, 1], [1, 2]]
+}, {
+    "name": "Eridanus",
+    "stars": [[0.4905, 0.3158, 0.5], [0.4821, 0.44, 2.9], [0.4863, 0.6779, 3.3], [0.4905, 1, 3.7], [0.5158, 0.4463, 3], [0.5179, 0, 4]],
+    "lines": [[0, 1], [1, 2], [2, 3], [1, 4], [0, 5]]
+}, {
+    "name": "Fornax",
+    "stars": [[0.5098, 0.3137, 4], [0.549, 1, 4.4], [0.451, 0, 4.5]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Gemini",
+    "stars": [[0.5475, 1, 1.6], [0.5348, 0.7532, 1.1], [0.4968, 0.4051, 3], [0.5222, 0.4051, 3.3], [0.4715, 0.0253, 3.5], [0.4525, 0.4051, 3.2], [0.4589, 0, 3.6]],
+    "lines": [[0, 2], [1, 3], [2, 4], [3, 5], [4, 6]]
+}, {
+    "name": "Grus",
+    "stars": [[0.4487, 0, 1.7], [0.5513, 1, 2.1], [0.5, 0.6795, 3], [0.4487, 0.4359, 3.4]],
+    "lines": [[0, 3], [3, 2], [2, 1]]
+}, {
+    "name": "Hercules",
+    "stars": [[0.4882, 1, 2.8], [0.5412, 0, 3.5], [0.5294, 0.6118, 3.1], [0.5059, 0.4176, 2.8], [0.4882, 0.3176, 3.4], [0.5118, 0.6824, 3.2], [0.4588, 0.4176, 3.5]],
+    "lines": [[0, 5], [5, 2], [2, 3], [3, 4], [4, 1], [3, 6]]
+}, {"name": "Horologium", "stars": [[0.3889, 1, 3.9], [0.6111, 0, 4.4]], "lines": [[0, 1]]}, {
+    "name": "Hydra",
+    "stars": [[0.4686, 1, 2], [0.4614, 0.6981, 3.5], [0.4855, 0.2657, 3.1], [0.5097, 0, 3.3], [0.5459, 0.087, 3.5], [0.4541, 0.2923, 4.1]],
+    "lines": [[0, 1], [1, 5], [5, 2], [2, 3], [3, 4]]
+}, {
+    "name": "Hydrus",
+    "stars": [[0.5, 1, 2.9], [0.5565, 0, 3.2], [0.4435, 0.5085, 4.1]],
+    "lines": [[0, 2], [2, 1]]
+}, {
+    "name": "Indus",
+    "stars": [[0.5, 1, 3.1], [0.6053, 0, 3.7], [0.3947, 0.1053, 4.4]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Lacerta",
+    "stars": [[0.5034, 0, 4.1], [0.5101, 1, 4.4], [0.4899, 0.8859, 4.5]],
+    "lines": [[0, 2], [2, 1]]
+}, {"name": "Leo Minor", "stars": [[0.4598, 0, 3.8], [0.5402, 1, 4.2]], "lines": [[0, 1]]}, {
+    "name": "Lepus",
+    "stars": [[0.4933, 0.2133, 2.8], [0.4533, 0.6133, 3.6], [0.5467, 0, 3.5], [0.52, 1, 3.6]],
+    "lines": [[0, 1], [0, 2], [1, 3]]
+}, {
+    "name": "Libra",
+    "stars": [[0.4923, 1, 2.6], [0.5385, 0.2846, 2.7], [0.4385, 1, 3.3], [0.5615, 0, 3.9]],
+    "lines": [[0, 2], [0, 1], [1, 3]]
+}, {
+    "name": "Lupus",
+    "stars": [[0.5536, 1, 2.3], [0.5268, 0, 2.7], [0.4464, 0.5446, 3.5]],
+    "lines": [[0, 2], [2, 1]]
+}, {"name": "Lynx", "stars": [[0.3643, 1, 3.1], [0.6357, 0, 4.2]], "lines": [[0, 1]]}, {
+    "name": "Mensa",
+    "stars": [[0.4, 0, 5.1], [0.6, 1, 5.2]],
+    "lines": [[0, 1]]
+}, {"name": "Microscopium", "stars": [[0.625, 1, 4.5], [0.375, 0, 4.7]], "lines": [[0, 1]]}, {
+    "name": "Monoceros",
+    "stars": [[0.4733, 0, 4.4], [0.54, 0.92, 4.4], [0.46, 1, 4.5]],
+    "lines": [[0, 1], [1, 2]]
+}, {
+    "name": "Musca",
+    "stars": [[0.3125, 0, 2.7], [0.2708, 0.5417, 3], [0.7292, 1, 3.6]],
+    "lines": [[0, 1], [1, 2]]
+}, {"name": "Norma", "stars": [[0.4702, 1, 4], [0.5298, 0, 4.4]], "lines": [[0, 1]]}, {
+    "name": "Octans",
+    "stars": [[0.2222, 0, 4.3], [0.7778, 1, 4.8]],
+    "lines": [[0, 1]]
+}, {
+    "name": "Ophiuchus",
+    "stars": [[0.5247, 1, 2.1], [0.4859, 0.6537, 2.7], [0.5106, 0, 3.2], [0.4753, 0.4134, 3.7], [0.5177, 0.7173, 3.8]],
+    "lines": [[0, 4], [4, 1], [1, 3], [3, 2]]
+}, {
+    "name": "Pavo",
+    "stars": [[0.5816, 1, 1.9], [0.4694, 0, 3.4], [0.4184, 0.5918, 4]],
+    "lines": [[0, 2], [2, 1]]
+}, {
+    "name": "Phoenix",
+    "stars": [[0.4773, 0, 2.4], [0.5076, 0.6667, 2.8], [0.5379, 1, 3.9], [0.4621, 0.4924, 3.7]],
+    "lines": [[0, 3], [3, 1], [1, 2]]
+}, {"name": "Pictor", "stars": [[0.4712, 0, 3.3], [0.5288, 1, 4.2]], "lines": [[0, 1]]}, {
+    "name": "Pisces",
+    "stars": [[0.0563, 0.3268, 3.6], [0.0563, 0.6732, 4.3], [0, 0.4481, 4.3], [1, 0.4913, 4.5]],
+    "lines": [[0, 2], [2, 1], [2, 3]]
+}, {
+    "name": "Piscis Austrinus",
+    "stars": [[0.5109, 1, 1.2], [0.3587, 0.3478, 4.2], [0.6413, 0, 4.3]],
+    "lines": [[0, 1], [0, 2]]
+}, {
+    "name": "Puppis",
+    "stars": [[0.5104, 0.3333, 2.2], [0.4688, 1, 3], [0.5021, 0, 3], [0.5313, 0.2333, 3.3]],
+    "lines": [[0, 3], [3, 1], [0, 2]]
+}, {"name": "Pyxis", "stars": [[0.625, 1, 3.7], [0.375, 0, 4]], "lines": [[0, 1]]}, {
+    "name": "Reticulum",
+    "stars": [[0.6129, 0, 3.3], [0.3871, 1, 4.4]],
+    "lines": [[0, 1]]
+}, {
+    "name": "Sagitta",
+    "stars": [[0.4655, 0.4828, 3.8], [0.6379, 1, 4.6], [0.3621, 0, 4.6]],
+    "lines": [[2, 0], [0, 1]]
+}, {
+    "name": "Sagittarius",
+    "stars": [[0.5155, 0.5361, 2], [0.4742, 0.0722, 1.8], [0.4536, 1, 2.6], [0.433, 0.5464, 3.5], [0.5155, 0.7629, 2.8], [0.567, 0, 3.2], [0.5052, 0.9072, 3.5]],
+    "lines": [[0, 1], [0, 4], [4, 6], [4, 2], [2, 3], [3, 0], [1, 5]]
+}, {"name": "Sculptor", "stars": [[0, 0.5, 4.3], [1, 0.5, 4.4]], "lines": [[0, 1]]}, {
+    "name": "Scutum",
+    "stars": [[0.5417, 0, 3.9], [0.4583, 1, 4.3]],
+    "lines": [[0, 1]]
+}, {
+    "name": "Serpens",
+    "stars": [[0.3564, 1, 2.6], [0.3762, 0.5446, 3.4], [0.6436, 0, 3.5], [0.5248, 0.1386, 3.8]],
+    "lines": [[0, 1], [1, 3], [3, 2]]
+}, {"name": "Sextans", "stars": [[0.5204, 1, 4.5], [0.4796, 0, 4.5]], "lines": [[0, 1]]}, {
+    "name": "Taurus",
+    "stars": [[0.4646, 0.0472, 0.9], [0.5276, 1, 1.7], [0.5433, 0.4094, 3], [0.4961, 0.1181, 3.4], [0.4567, 0, 3.5], [0.5433, 0.5197, 3.4]],
+    "lines": [[0, 4], [4, 3], [3, 2], [2, 5], [5, 1]]
+}, {"name": "Telescopium", "stars": [[0.5192, 1, 3.5], [0.4808, 0, 4.1]], "lines": [[0, 1]]}, {
+    "name": "Triangulum",
+    "stars": [[0.5833, 0.2, 3.4], [0.55, 1, 3.6], [0.4167, 0, 3.9]],
+    "lines": [[0, 1], [1, 2], [2, 0]]
+}, {
+    "name": "Triangulum Australe",
+    "stars": [[0.6102, 1, 1.9], [0.6102, 0, 2.6], [0.3898, 0.4746, 2.9]],
+    "lines": [[0, 1], [1, 2], [2, 0]]
+}, {"name": "Tucana", "stars": [[1, 0.6426, 2.9], [0, 0.3574, 4.5]], "lines": [[0, 1]]}, {
+    "name": "Ursa Minor",
+    "stars": [[0.0951, 1, 2], [0.7364, 0.1793, 2.1], [0.8723, 0.6033, 3.1], [0.9049, 0.8533, 4.3], [0.8451, 0.375, 4.3], [0.7962, 0.375, 4.4], [0.769, 0, 4.4]],
+    "lines": [[0, 3], [3, 2], [2, 4], [4, 5], [5, 1], [1, 6]]
+}, {
+    "name": "Vela",
+    "stars": [[0.5, 1, 1.8], [0.4351, 0, 2.2], [0.5649, 0, 3.4]],
+    "lines": [[0, 1], [1, 2]]
+}, {
+    "name": "Virgo",
+    "stars": [[0.5113, 0, 1], [0.4932, 0.2398, 2.7], [0.5249, 1, 3.4], [0.4796, 0.4389, 3.4], [0.5611, 0.2805, 3.9], [0.4389, 0.5837, 3.6]],
+    "lines": [[0, 3], [3, 5], [3, 4], [3, 1], [1, 2]]
+}, {
+    "name": "Volans",
+    "stars": [[0.4554, 0, 3.6], [0.5446, 0.1964, 3.8], [0.5089, 1, 4]],
+    "lines": [[0, 1], [1, 2]]
+}, {"name": "Vulpecula", "stars": [[0.125, 1, 4.4], [0.875, 0, 4.5]], "lines": [[0, 1]]}];
+(() => {
+  const rays=Array.from({length:24},(_,i)=>{
+    const a=i*Math.PI/12,r=i%2?38:36,R=i%2?40:43;
+    return '<line x1="'+(44+Math.cos(a)*r)+'" y1="'+(44+Math.sin(a)*r)+'" x2="'+(44+Math.cos(a)*R)+'" y2="'+(44+Math.sin(a)*R)+'" opacity="'+(i%2?'.35':'.65')+'"/>';
+  }).join('');
+  const emblem='<svg viewBox="0 0 88 88" fill="none" aria-hidden="true" focusable="false"><g stroke="#b99b59" stroke-linecap="round"><circle cx="44" cy="44" r="41" stroke-width=".8" opacity=".5"/><circle cx="44" cy="44" r="36" stroke-width=".5" opacity=".3"/>'+rays+'<polygon points="44,64 32.244,27.820 63.021,50.180 24.979,50.180 55.756,27.820" stroke-width=".7" opacity=".45"/></g><g transform="translate(23 23)"><path d="M21 30 Q15 26.5 8 27.5 L8 14 Q15 13 21 16.5 Q27 13 34 14 L34 27.5 Q27 26.5 21 30 Z" fill="#c5a868" fill-opacity=".16" stroke="#b99b59" stroke-width="1.1" stroke-linejoin="round"/><path d="M21 16.5V30" stroke="#b99b59" stroke-width=".8"/><path d="M21 5 Q23.5 9 22.5 12 Q24.5 11 24.5 14.5 Q24.5 17.5 21 17.5 Q17.5 17.5 17.5 14.5 Q17.5 11 19.5 12 Q18.5 9 21 5Z" fill="#c5a868"/><path d="M21 8 Q22 10.5 21.5 12 Q22.5 11.5 22.5 13.5 Q22.5 15.5 21 15.5 Q19.5 15.5 19.5 13.5 Q19.5 11.5 20.5 12 Q20 10.5 21 8Z" fill="#ffebb2"/></g></svg>';
+  document.querySelectorAll('.brand-mark').forEach(node=>{node.innerHTML=emblem;});
+  document.querySelectorAll('.guest-brand,.auth-brand').forEach(node=>{
+    node.classList.add('studio-brand');
+    node.querySelector('.brand-copy').innerHTML='<b>Lumiscia</b><small lang="la">LUMEN EX SCIENTIA</small><span class="studio-translation" lang="en">“Light is born from knowledge”</span>';
+    if(node.matches('.guest-brand')){
+      const brand=document.createElement('div');brand.className=node.className;brand.innerHTML=node.innerHTML;node.replaceWith(brand);
+    }
+  });
+  const launch=document.querySelector('#homeAuth [data-account="show-login"]');
+  if(launch)launch.textContent='Enter the Learning Studio';
+
+  document.addEventListener('click',event=>{
+    if(!event.target.closest('[data-password-recovery]'))return;
+    const box=document.getElementById('accountBody');
+    box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="32" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–32 characters</p><button class="btn primary" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form><button class="auth-forgot" type="button" data-account="show-login">Back to log in</button></div></div>';
+    box.querySelector('input').focus();
+  });
+  async function recover(form,send){
+    const status=form.querySelector('[data-form-status]'),email=form.elements.email;
+    if(!email.reportValidity()||(!send&&!form.reportValidity())||form.dataset.busy)return;
+    form.dataset.busy='true';status.textContent='';status.classList.remove('bad');
+    const buttons=[...form.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);
+    const address=email.value.trim();
+    try{
+      await accountFetch('/api/auth/password/'+(send?'code':'reset'),{method:'POST',body:JSON.stringify(send?{email:address}:{email:address,code:form.elements.code.value,password:form.elements.password.value})});
+      if(!form.isConnected)return;
+      if(send){
+        email.readOnly=true;
+        form.querySelector('[data-recovery-fields]').hidden=false;
+        form.querySelectorAll('[data-recovery-fields] input').forEach(input=>input.disabled=false);
+        status.textContent='Check your inbox for a password reset code. It expires in 10 minutes.';
+        form.elements.code.focus();
+      }else{
+        paintAccountForm(false);
+        document.querySelector('#loginForm [data-form-status]').textContent='Password updated. Log in with your new password.';
+        document.querySelector('#authLogin').value=address;
+      }
+    }catch(error){if(form.isConnected){status.textContent=error.message;status.classList.add('bad');}}
+    finally{delete form.dataset.busy;buttons.forEach(button=>button.disabled=!!button.closest('[hidden]'));}
+  }
+  document.addEventListener('click',event=>{const button=event.target.closest('[data-recovery-send]');if(button)void recover(button.closest('form'),true);});
+  document.addEventListener('submit',event=>{if(event.target.id!=='passwordRecoveryForm')return;event.preventDefault();void recover(event.target,event.target.elements.code.disabled);});
+
+  // Original archive animation, adapted for lifecycle, pixel density and form-safe paths.
+
+  const canvas=document.createElement('canvas');canvas.id='authSky';canvas.setAttribute('aria-hidden','true');document.body.prepend(canvas);
+  const motion=matchMedia('(prefers-reduced-motion: reduce)');
+  const constellations=STUDIO_CONSTELLATIONS.map(c=>({...c,latin:STUDIO_CONSTELLATION_LABELS[c.name][0],abbr:STUDIO_CONSTELLATION_LABELS[c.name][1],stars:c.stars.map(([x,y,mag])=>({x,y,mag}))}));
+  const MAX_STARS=Math.max(...constellations.map(c=>c.stars.length));
+  let obstacles=[],routeStar=null,polaris=null,openedMode='';
+  const protectedRect=()=>{const node=document.querySelector('body.guest-home #home,body.guest-auth #account');const r=node?.getBoundingClientRect()||{left:0,right:0,top:0,bottom:0};return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
+  const protectedPoint=(x,y)=>obstacles.some(o=>StudioSkyGeometry.contains({x,y},o.points));
+  function randomSafePoint(){for(let i=0;i<200;i++){const p={x:32+Math.random()*Math.max(0,innerWidth-64),y:32+Math.random()*Math.max(0,innerHeight-96)};if(!protectedPoint(p.x,p.y))return p;}return {x:-40,y:-40};}
+  function prepareObstacles(mode){
+    obstacles=[];
+    const selectors=mode==='home'?['#home .studio-brand','#homeAuth .btn']:['#account .studio-brand','#accountBody'];
+    for(const selector of selectors){
+      const node=document.querySelector(selector);if(!node)continue;const r=node.getBoundingClientRect();
+      if(r.width&&r.height)obstacles.push(StudioSkyGeometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,r.width/2+24,r.height/2+24,'rounded'));
+    }
+    for(let i=0;i<2;i++){
+      const p=randomSafePoint(),rx=Math.min(innerWidth*.08,40+Math.random()*38),ry=26+Math.random()*38;
+      const shape=StudioSkyGeometry.shape(p.x,p.y,rx,ry,i?'organic':'ellipse');
+      if((!polaris||Math.hypot(p.x-polaris.x,p.y-polaris.y)>rx+40)&&!obstacles.some(o=>StudioSkyGeometry.blocked({x:p.x-rx,y:p.y},{x:p.x+rx,y:p.y},[o])))obstacles.push(shape);
+    }
+    routeStar=StudioSkyGeometry.router(obstacles);
+    if(mode!==openedMode||!polaris||protectedPoint(polaris.x,polaris.y))polaris=randomSafePoint();
+    openedMode=mode;
+  }
+  function safeZones(){
+    const w=innerWidth,h=innerHeight,available=[];
+    for(let i=0;i<600&&available.length<36;i++){
+      const size=(i<400?.45+Math.random()*.55:.22+Math.random()*.4)*Math.min(300,w*.38,h*.32),cx=30+Math.random()*Math.max(0,w-60),cy=30+Math.random()*Math.max(0,h-100);
+      const left=cx-size/2-30,right=cx+size/2+30,top=cy-size/2-30,bottom=cy+size*.6+54;
+      if(left<12||right>w-12||top<12||bottom>h-40)continue;
+      const box=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
+      if(obstacles.some(o=>o.points.some(p=>p.x>left&&p.x<right&&p.y>top&&p.y<bottom)||box.some((p,j)=>StudioSkyGeometry.blocked(p,box[(j+1)%4],[o]))))continue;
+      available.push({cx:cx/w,cy:cy/h,w:size/w,h:size/h});
+    }
+    return available.length?available:[{cx:-1,cy:-1,w:.1,h:.1}];
+  }
+  const safeRoute=(a,b)=>routeStar(a,b);
+  const routePoint=(route,t)=>StudioSkyGeometry.point(route,t);
+  function drift(star,delta,w,h,normalized=false){
+    let x=normalized?star.x*w:star.x,y=normalized?star.y*h:star.y;
+    const near=StudioSkyGeometry.nearest({x,y},obstacles);
+    if(near.distance<48){const force=Math.max(0,(48-near.distance)/48)*.018*delta;star.vx+=near.nx*force;star.vy+=near.ny*force;}
+    const speed=Math.hypot(star.vx,star.vy)||1;star.vx=star.vx/speed*star.speedPx;star.vy=star.vy/speed*star.speedPx;
+    const nx=x+star.vx*delta,ny=y+star.vy*delta;
+    if(!protectedPoint(nx,ny)){x=nx;y=ny;}else{star.vx*=-1;star.vy*=-1;}
+    x=(x+w+12)%(w+12);y=(y+h+12)%(h+12);
+    star.x=normalized?x/w:x;star.y=normalized?y/h:y;
+    return Math.max(0,Math.min(1,near.distance/26));
+  }
+
+
+  function startSky(){
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let w=innerWidth,h=innerHeight;
+    let zones=safeZones(),animationId=0,lastTime=null;
+    const sizeCanvas=()=>{w=innerWidth;h=innerHeight;const ratio=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);};
+    sizeCanvas();
+
+    const handleResize=()=>{sizeCanvas();zones=safeZones();zoneIndex=pickZone(-1);slots=[];startPhase('gather',performance.now());};
+    window.addEventListener('resize', handleResize);
+
+    // Ambient background stars
+    const ambientStars=Array.from({length:Math.min(340,Math.max(160,Math.round(w*h/3500)))}).map(()=>{
+      const p=randomSafePoint(),angle=Math.random()*Math.PI*2,speedPx=.015+Math.random()*.045;
+      return {x:p.x/w,y:p.y/h,vx:Math.cos(angle)*speedPx,vy:Math.sin(angle)*speedPx,speedPx,radius:.25+Math.random()*1.05,phase:Math.random()*Math.PI*2,speed:.003+Math.random()*.007};
+    });
+
+    // Wandering stars — slow, drifting golden points
+    const wanderers             = Array.from({ length: 16 }).map(() => {
+      const angle = Math.random() * Math.PI * 2;
+      const sp = Math.random() * 0.08 + 0.025,p=randomSafePoint();
+      return {
+        x:p.x,
+        y:p.y,
+        vx: Math.cos(angle) * sp,
+        vy: Math.sin(angle) * sp,
+        speedPx:sp,
+        radius: Math.random() * .65 + 1.15,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.008 + 0.003,
+      };
+    });
+
+    // Continuous cycle: gather → hold → morph → hold → morph → ...
+    // "morph" flows stars directly from one constellation to the next — no scatter phase
+
+    let phase        = 'gather';
+    let phaseStart = performance.now();
+
+    const GATHER_DURATION = 15000;
+    const HOLD_DURATION = 8000;
+    const MORPH_DURATION = 18000;
+
+    let constIndex = 0;
+    let zoneIndex = -1;
+
+    // Track current live positions + constellation for click hit-testing
+    let currentLive                                              = [];
+    let currentConstIndex = 0;
+    let currentPhase        = 'gather';
+
+    const HIT_RADIUS = 35;
+
+    function isOverConstellation(cx        , cy        )          {
+      if (currentPhase !== 'hold' || protectedPoint(cx,cy)) return false;
+      for (let i = 0; i < currentLive.length; i++) {
+        const p = currentLive[i];
+        if (p.opacity < 0.3) continue;
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) return true;
+      }
+      return false;
+    }
+
+    function handleClick(e            ) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      if (e.target.closest('button,input,a,form,select,textarea') || !isOverConstellation(cx, cy)) return;
+      const c = constellations[currentConstIndex % constellations.length];
+      window.open(
+        `https://www.go-astronomy.com/constellations.php?Name=${c.latin}`,
+        '_blank', 'noopener,noreferrer'
+      );
+    }
+    window.addEventListener('click', handleClick);
+
+    let lastHoverState = false;
+    function handleMouseMove(e            ) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const over = isOverConstellation(cx, cy);
+      if (over !== lastHoverState) {
+        lastHoverState = over;
+        canvas.classList.toggle('sky-hover',over);
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+
+    // Each slot tracks position + opacity (for stars that appear/disappear between constellations)
+
+
+    let slots         = [];
+
+    function getConstellationLayout(ci        , zi        ) {
+      const c = constellations[ci % constellations.length];
+      const zone = zones[zi % zones.length];
+      const size = Math.min(w * zone.w, h * zone.h);
+      const offsetX = w * zone.cx - size / 2;
+      const offsetY = h * zone.cy - size / 2;
+
+      // Build a full MAX_STARS-length array — stars beyond the constellation's count get opacity 0
+      const targets                                                           = [];
+      for (let i = 0; i < MAX_STARS; i++) {
+        if (i < c.stars.length) {
+          const s = c.stars[i];
+          targets.push({
+            x: offsetX + s.x * size,
+            y: offsetY + s.y * size,
+            opacity: 1,
+            mag: s.mag,
+          });
+        } else {
+          // Extra slot — fade out, position at center of constellation
+          targets.push({
+            x: offsetX + 0.5 * size,
+            y: offsetY + 0.5 * size,
+            opacity: 0,
+            mag: 4,
+          });
+        }
+      }
+      return { targets, c };
+    }
+
+    function easeInOut(t        )         {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    function startPhase(p       , now        ) {
+      phase = p;
+      phaseStart = now;
+
+      if (p === 'gather' || p === 'morph') {
+        // Pick next zone for morph
+        if (p === 'morph') {
+          zones=safeZones();
+          zoneIndex = pickZone(zoneIndex);
+          constIndex++;
+        }
+
+        const { targets, c } = getConstellationLayout(constIndex, zoneIndex);
+
+        if (slots.length === 0) {
+          // First time — initialize from random positions
+          slots = targets.map((t) => {
+            const {x:sx,y:sy}=randomSafePoint();
+            return {
+              x: sx,
+              y: sy,
+              fromX: sx,
+              fromY: sy,
+              targetX: t.x,
+              targetY: t.y,
+              fromOpacity: 0,
+              targetOpacity: t.opacity,
+              mag: t.mag,
+            };
+          });
+        } else {
+          // Morph — flow from current position to new constellation
+          slots = slots.map((slot, i) => ({
+            x: slot.x,
+            y: slot.y,
+            fromX: slot.x,
+            fromY: slot.y,
+            targetX: targets[i].x,
+            targetY: targets[i].y,
+            fromOpacity: slot.targetOpacity,
+            targetOpacity: targets[i].opacity,
+            mag: targets[i].mag,
+          }));
+        }
+
+      }
+    }
+
+    function pickZone(previous){let index=Math.floor(Math.random()*zones.length);if(index===previous&&zones.length>1)index=(index+1)%zones.length;return index;}
+    // Initialize
+    zoneIndex = pickZone(-1);
+    const initLayout = getConstellationLayout(0, zoneIndex);
+    slots = initLayout.targets.map((t) => {
+      const {x:sx,y:sy}=randomSafePoint();
+      return {
+        x: sx,
+        y: sy,
+        fromX: sx,
+        fromY: sy,
+        targetX: t.x,
+        targetY: t.y,
+        fromOpacity: 0,
+        targetOpacity: t.opacity,
+        mag: t.mag,
+      };
+    });
+
+    phase = 'gather';
+    phaseStart = performance.now();
+
+    let frame = 0;
+
+    function animate(now        ) {
+      const delta=lastTime===null?1:Math.min(3,(now-lastTime)/16.6667);lastTime=now;frame+=delta;
+      let elapsed = now - phaseStart;
+
+      // Phase transitions
+      if (phase === 'gather' && elapsed > GATHER_DURATION) {
+        startPhase('hold', now);
+      } else if (phase === 'hold' && elapsed > HOLD_DURATION) {
+        startPhase('morph', now);
+      } else if (phase === 'morph' && elapsed > MORPH_DURATION) {
+        startPhase('hold', now);
+      }
+
+      elapsed=now-phaseStart;
+      canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=constellations[constIndex%constellations.length].name;
+      // Clear
+      ctx.clearRect(0,0,w,h);
+      ctx.save();
+
+      // Draw ambient stars
+      for (const s of ambientStars) {
+        const clearance=motion.matches?1:drift(s,delta,w,h,true);
+        const twinkle = Math.sin(frame * s.speed + s.phase) * 0.3 + 0.7;
+        ctx.beginPath();
+        ctx.arc(s.x * w, s.y * h, s.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 220, 240, ${twinkle * 0.25*clearance})`;
+        ctx.fill();
+      }
+
+      // Draw wandering stars
+      for (const wst of wanderers) {
+        // Move
+        const clearance=motion.matches?1:drift(wst,delta,w,h);
+        // Wrap around edges
+        if (wst.x < -10) wst.x = w + 10;
+        if (wst.x > w + 10) wst.x = -10;
+        if (wst.y < -10) wst.y = h + 10;
+        if (wst.y > h + 10) wst.y = -10;
+
+        const twinkle = Math.sin(frame * wst.speed + wst.phase) * 0.25 + 0.75;
+        const r = wst.radius * twinkle;
+
+        // Glow
+        const glow = ctx.createRadialGradient(wst.x, wst.y, 0, wst.x, wst.y, r * 5);
+        glow.addColorStop(0, `rgba(255, 235, 178, ${0.12 * twinkle*clearance})`);
+        glow.addColorStop(1, 'rgba(255, 235, 178, 0)');
+        ctx.beginPath();
+        ctx.arc(wst.x, wst.y, r * 5, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(wst.x, wst.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 245, 210, ${0.3 * twinkle*clearance})`;
+        ctx.fill();
+      }
+
+      // Polaris stays fixed for this screen opening and is the brightest visual anchor.
+      canvas.dataset.polarisX=String(polaris.x);canvas.dataset.polarisY=String(polaris.y);
+      const poleGlow=ctx.createRadialGradient(polaris.x,polaris.y,0,polaris.x,polaris.y,30);
+      poleGlow.addColorStop(0,'rgba(255,245,210,.65)');poleGlow.addColorStop(.35,'rgba(255,235,178,.24)');poleGlow.addColorStop(1,'rgba(255,235,178,0)');
+      ctx.fillStyle=poleGlow;ctx.beginPath();ctx.arc(polaris.x,polaris.y,30,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(polaris.x,polaris.y,5.5,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(255,245,210,.75)';ctx.lineWidth=.9;ctx.beginPath();ctx.moveTo(polaris.x-11,polaris.y);ctx.lineTo(polaris.x+11,polaris.y);ctx.moveTo(polaris.x,polaris.y-11);ctx.lineTo(polaris.x,polaris.y+11);ctx.stroke();
+      ctx.font='12px Georgia,serif';ctx.textAlign='center';ctx.fillStyle='rgba(225,205,153,.85)';ctx.fillText('Polaris',polaris.x,polaris.y+28);
+
+      // Compute interpolation progress
+      let progress = 0;
+      if (phase === 'gather') progress = easeInOut(Math.min(elapsed / GATHER_DURATION, 1));
+      else if (phase === 'hold') progress = 1;
+      else progress = easeInOut(Math.min(elapsed / MORPH_DURATION, 1));
+
+      // Interpolate slots
+      const live=slots.map(s=>({...routePoint(s.route||(s.route=safeRoute({x:s.fromX,y:s.fromY},{x:s.targetX,y:s.targetY})),progress),opacity:s.fromOpacity+(s.targetOpacity-s.fromOpacity)*progress,mag:s.mag}));
+      live.forEach((p,i)=>{slots[i].x=p.x;slots[i].y=p.y;});
+
+      // Update hit-test state
+      currentLive = live;
+      currentConstIndex = constIndex;
+      currentPhase = phase;
+
+      // If phase changed away from hold, reset hover state
+      if (phase !== 'hold' && lastHoverState) {
+        lastHoverState = false;
+        canvas.classList.remove('sky-hover');
+      }
+
+      const c = constellations[constIndex % constellations.length];
+
+      // Draw constellation lines
+      let lineAlpha = 0;
+      if (phase === 'gather') lineAlpha = progress * 0.18;
+      else if (phase === 'hold') lineAlpha = 0.18;
+      else lineAlpha = 0.18 * progress; // morph — new constellation lines fade in
+
+      // During morph, also fade out old constellation lines
+      if (phase === 'morph') {
+        const prevC = constellations[(constIndex - 1 + constellations.length) % constellations.length];
+        const oldLineAlpha = 0.18 * (1 - progress);
+        if (oldLineAlpha > 0.01) {
+          ctx.strokeStyle = `rgba(197, 168, 104, ${oldLineAlpha})`;
+          ctx.lineWidth = 0.8;
+          for (const [a, b] of prevC.lines) {
+            if (live[a] && live[b] && live[a].opacity > 0.1 && live[b].opacity > 0.1&&!StudioSkyGeometry.blocked(live[a],live[b],obstacles)) {
+              ctx.beginPath();
+              ctx.moveTo(live[a].x, live[a].y);
+              ctx.lineTo(live[b].x, live[b].y);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      if (lineAlpha > 0.01) {
+        ctx.strokeStyle = `rgba(197, 168, 104, ${lineAlpha})`;
+        ctx.lineWidth = 0.8;
+        for (const [a, b] of c.lines) {
+          if (live[a] && live[b] && live[a].opacity > 0.1 && live[b].opacity > 0.1&&!StudioSkyGeometry.blocked(live[a],live[b],obstacles)) {
+            ctx.beginPath();
+            ctx.moveTo(live[a].x, live[a].y);
+            ctx.lineTo(live[b].x, live[b].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw constellation stars
+      for (let i = 0; i < live.length; i++) {
+        const pos = live[i];
+        if (pos.opacity < 0.05) continue;
+
+        const mag = pos.mag;
+        const brightness = Math.max(0.35, 1 - mag / 5);
+        const radius = Math.max(1.5, 5 - mag * 0.5);
+
+        // Glow
+        const glowRadius = radius * 6;
+        const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, glowRadius);
+        gradient.addColorStop(0, `rgba(255, 235, 178, ${brightness * 0.45 * pos.opacity})`);
+        gradient.addColorStop(1, 'rgba(255, 235, 178, 0)');
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 245, 210, ${brightness * pos.opacity})`;
+        ctx.fill();
+      }
+
+      // Draw constellation name
+      let nameAlpha = 0;
+      if (phase === 'gather') nameAlpha = Math.max(0, (progress - 0.6) / 0.4) * 0.5;
+      else if (phase === 'hold') nameAlpha = 0.5*(1-easeInOut(Math.max(0,Math.min(1,(elapsed-(HOLD_DURATION-3500))/3500))));
+      else if (phase === 'morph') {
+        // Fade old name out, new name in
+        nameAlpha = 0.5*easeInOut(Math.max(0,(progress-.6)/.4));
+      }
+
+      if (nameAlpha > 0.01 && zoneIndex >= 0) {
+        const zone = zones[zoneIndex];
+        const nameX = w * zone.cx;
+        const nameY = h * zone.cy + Math.min(w * zone.w, h * zone.h) * 0.6;
+
+        ctx.font = '16px "Cinzel", serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = `rgba(197, 168, 104, ${nameAlpha})`;
+        ctx.fillText(c.latin.toUpperCase(), nameX, nameY);
+        ctx.font = '11px "Plus Jakarta Sans", sans-serif';
+        ctx.fillStyle = `rgba(197, 168, 104, ${nameAlpha * 0.6})`;
+        ctx.fillText(c.abbr, nameX, nameY + 16);
+      }
+
+      ctx.restore();
+      if(!motion.matches)animationId=requestAnimationFrame(animate);
+    }
+
+    if(motion.matches){phase='hold';slots.forEach(s=>{s.fromX=s.targetX;s.fromY=s.targetY;s.fromOpacity=s.targetOpacity;});animate(performance.now());}else animationId=requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationId);canvas.classList.remove('sky-hover');
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('click', handleClick);
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+
+
+  }
+  let stop=null,lifecycleKey='';
+  function sync(){
+    const mode=document.body.matches('.guest-home')?'home':document.body.matches('.guest-auth')?'account':'';
+    const key=JSON.stringify([mode,innerWidth,innerHeight,protectedRect(),document.hidden,motion.matches]);
+    if(key===lifecycleKey)return;lifecycleKey=key;
+    stop?.();stop=null;canvas.hidden=!mode;if(!mode)openedMode='';if(mode&&!document.hidden){prepareObstacles(mode);stop=startSky();}
+  }
+  new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
+  const sizes=new ResizeObserver(sync);['home','account'].forEach(id=>{const node=document.getElementById(id);if(node)sizes.observe(node);});
+  new MutationObserver(()=>{document.querySelectorAll('.auth-providers .auth-google').forEach(button=>{const label=button.textContent.trim();if(label){button.title=label;button.setAttribute('aria-label',label);}});}).observe(document.getElementById('accountBody'),{childList:true,subtree:true});
+  addEventListener('scroll',sync,{passive:true});document.addEventListener('visibilitychange',sync);motion.addEventListener('change',sync);sync();
+})();
     window.LumisciaPasskeys=(()=>{
       const supported=()=>!!(window.isSecureContext&&window.PublicKeyCredential&&navigator.credentials&&window.SimpleWebAuthnBrowser);
       const api=async(path,body)=>{
@@ -14987,7 +15871,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
         field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));
         passwordToggle.title=reveal?'Hide password':'Show password';passwordToggle.setAttribute('aria-label',passwordToggle.title);
-        passwordToggle.innerHTML='<i data-lucide="'+(reveal?'eye-off':'eye')+'" aria-hidden="true"></i>';window.lucide?.createIcons({root:passwordToggle});return;
+        passwordToggle.textContent=reveal?'Hide':'Show';return;
       }
       if (googleAuth) {
         let invite = "";

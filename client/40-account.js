@@ -307,7 +307,7 @@
         const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
         field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));
         passwordToggle.title=reveal?'Hide password':'Show password';passwordToggle.setAttribute('aria-label',passwordToggle.title);
-        passwordToggle.innerHTML='<i data-lucide="'+(reveal?'eye-off':'eye')+'" aria-hidden="true"></i>';window.lucide?.createIcons({root:passwordToggle});return;
+        passwordToggle.textContent=reveal?'Hide':'Show';return;
       }
       if (googleAuth) {
         let invite = "";

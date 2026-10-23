@@ -3244,6 +3244,15 @@ async function accountClash(env, userId, login, email, changeId) {
   return "";
 }
 
+export async function resetPasswordForEmail(env, email, password) {
+  if (typeof password !== 'string' || password.length < 8 || password.length > 32) return json({error:'Password needs 8 to 32 characters.'},400);
+  const hashed = await hashPassword(password);
+  // A verified mailbox may reset only an existing, active account. Password-bound sessions expire automatically.
+  await env.DB.prepare('UPDATE users SET password_salt = ?, password_hash = ?, password_iterations = ? WHERE email = ? AND active = 1 AND is_personal_data_revoked = 0')
+    .bind(hashed.salt,hashed.hash,ITERATIONS,email).run();
+  return json({ok:true});
+}
+
 async function changePassword(env, request, body) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);

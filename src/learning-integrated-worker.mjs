@@ -1,6 +1,6 @@
 // Disabled migration candidate. Existing accounts stay in the original D1/R2
 // implementation; ONLY explicitly migrated educational routes go to Learning.
-import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,sessionForPasskey,sessionForFederated,completeGoogleSignIn,completeFederatedSignIn} from './worker.js';
+import accounts,{currentUser,managedAccount,twinStudyAccountId,pairManageDenied,sessionIdentity,approveRegistration,sessionForEmail,sessionForPasskey,sessionForFederated,completeGoogleSignIn,completeFederatedSignIn,resetPasswordForEmail} from './worker.js';
 import {observeSession,listSessions,endSession} from './security-sessions.mjs';
 import study,{ACCOUNT_AUTH,StageAuthBudget,studyClient} from './learning-stage-worker.mjs';
 import {StudyError,StudyService,statement as s} from './learning-study.mjs';
@@ -429,11 +429,21 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return Response.redirect(url.origin+'/?auth=google_error',302);
       }
-      if(['/api/auth/otp/request','/api/me/passkeys/code','/api/auth/microsoft/code','/api/auth/telegram/code'].includes(path)&&method==='POST'){
+      if(path==='/api/auth/password/reset'&&method==='POST'){
+        if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Password recovery is unavailable.');
+        let value;try{value=JSON.parse(await boundedText(request,2048,'Recovery request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid recovery request.');}
+        if(typeof value?.password!=='string'||value.password.length<8||value.password.length>32)throw new StudyError(400,'Password needs 8 to 32 characters.');
+        const proof=await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
+        if(proof.purpose!=='password-reset')throw new StudyError(403,'Request a password reset code.');
+        return resetPasswordForEmail(accountEnv,proof.email,value.password);
+      }
+      if(['/api/auth/otp/request','/api/auth/password/code','/api/me/passkeys/code','/api/auth/microsoft/code','/api/auth/telegram/code'].includes(path)&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         if(!env.EMAIL||typeof env.EMAIL.send!=='function')throw new StudyError(503,'Email sending is not configured.');
         let value;try{value=JSON.parse(await boundedText(request,1024,'OTP request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid OTP request.');}
         const passkey=path==='/api/me/passkeys/code';
+        const recovery=path==='/api/auth/password/code';
+        if(recovery&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Password recovery is unavailable.');
         const federated=!!oauth;
         if(federated&&(!oauth.configured(env)||env.ACCOUNT_MUTATIONS_ENABLED!=='true'))throw new StudyError(503,oauth.label+' sign-in is not configured.');
         if(passkey&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Passkeys unavailable.');
@@ -441,16 +451,16 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(passkey&&!actor)throw new StudyError(401,'Sign in first.');
         const federatedToken=federated?oauth.cookie(request):'';
         if(federated)await new oauth.Service(studyDatabase(env),url.origin).peek(federatedToken,'email');
-        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:passkey?'passkey':federated?provider+':'+federatedToken:'login'});
+        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:recovery?'password-reset':passkey?'passkey':federated?provider+':'+federatedToken:'login'});
         if(federated)await new oauth.Service(studyDatabase(env),url.origin).setEmail(federatedToken,issued.email);
         const from=String(env.EMAIL_FROM||'noreply@lumiscia.org');
         try{
           await env.EMAIL.send({
             to:issued.email,
             from:{email:from,name:'Lumiscia'},
-            subject:passkey?'Confirm your Lumiscia passkey change':'Your Lumiscia sign-in code',
-            text:'Your '+(passkey?'passkey confirmation':'sign-in')+' code is '+issued.code+'. It expires in '+issued.ttlSec+' seconds. If you did not request this, ignore the email.',
-            html:'<p>Your '+(passkey?'passkey confirmation':'sign-in')+' code is <b style="font-size:20px;letter-spacing:0.12em">'+issued.code+'</b>.</p><p>It expires in '+issued.ttlSec+' seconds.</p><p>If you did not request this, ignore the email.</p>',
+            subject:recovery?'Reset your Lumiscia password':passkey?'Confirm your Lumiscia passkey change':'Your Lumiscia sign-in code',
+            text:'Your '+(recovery?'password reset':passkey?'passkey confirmation':'sign-in')+' code is '+issued.code+'. It expires in '+issued.ttlSec+' seconds. If you did not request this, ignore the email.',
+            html:'<p>Your '+(recovery?'password reset':passkey?'passkey confirmation':'sign-in')+' code is <b style="font-size:20px;letter-spacing:0.12em">'+issued.code+'</b>.</p><p>It expires in '+issued.ttlSec+' seconds.</p><p>If you did not request this, ignore the email.</p>',
           });
         }catch(error){
           const code=error?.code||'';

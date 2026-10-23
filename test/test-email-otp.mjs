@@ -53,3 +53,45 @@ test('otp request endpoint sends mail through EMAIL binding',async()=>{
     assert.match(String(sent[0].text),/\d{6}/);
   }finally{f.close();}
 });
+
+test('concurrent requests cannot consume the same code twice',async()=>{
+  const f=fixture();try{
+    const issued=await f.service.issue('once@example.com',{purpose:'password-reset'});
+    const results=await Promise.allSettled([f.service.consume(issued.email,issued.code),f.service.consume(issued.email,issued.code)]);
+    assert.equal(results.filter(result=>result.status==='fulfilled').length,1);
+  }finally{f.close();}
+});
+
+test('password recovery requires a dedicated code, validates input and changes only an active account',async()=>{
+  const f=fixture();try{
+    f.sql.exec('CREATE TABLE users(id TEXT,email TEXT,active INTEGER,is_personal_data_revoked INTEGER,password_salt TEXT,password_hash TEXT,password_iterations INTEGER)');
+    f.sql.prepare('INSERT INTO users VALUES(?,?,?,?,?,?,?)').run('u1','user@example.com',1,0,'old-salt','old-hash',1);
+    f.sql.prepare('INSERT INTO users VALUES(?,?,?,?,?,?,?)').run('u2','inactive@example.com',0,0,'old-salt','old-hash',1);
+    const mail=[],env={
+      STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',
+      EMAIL:{async send(message){mail.push(message);}},
+      DB:{prepare(sql){return {bind(...args){return {async run(){return f.sql.prepare(sql).run(...args);}};}};}},
+    };
+    const app=integratedWorker({authenticate:async()=>null,studyDatabase:()=>f.db});
+    const call=(path,body,origin='https://accounts.example')=>app.fetch(new Request('https://accounts.example/api/auth/password/'+path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)}),env,{});
+    assert.equal((await call('code',{email:'user@example.com'},'https://other.example')).status,403);
+    assert.equal((await call('code',{email:'user@example.com'})).status,200);
+    const code=mail[0].text.match(/\b\d{6}\b/)[0];assert.match(mail[0].subject,/Reset/);
+    assert.equal((await call('reset',{email:'user@example.com',code,password:'short'})).status,400);
+    assert.equal((await call('reset',{email:'user@example.com',code:'000000',password:'new-password'})).status,401);
+    assert.equal((await call('reset',{email:'user@example.com',code,password:'new-password'})).status,200);
+    const user=f.sql.prepare('SELECT * FROM users WHERE id=?').get('u1');
+    assert.notEqual(user.password_hash,'old-hash');assert.equal(user.password_iterations,100000);
+    const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('new-password'),'PBKDF2',false,['deriveBits']);
+    const actual=Buffer.from(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:Buffer.from(user.password_salt,'hex'),iterations:100000},key,256)).toString('hex');
+    assert.equal(user.password_hash,actual);
+    assert.equal((await call('reset',{email:'user@example.com',code,password:'another-password'})).status,400);
+    const login=await f.service.issue('login@example.com');
+    assert.equal((await call('reset',{email:login.email,code:login.code,password:'new-password'})).status,403);
+    const inactive=await f.service.issue('inactive@example.com',{purpose:'password-reset'});
+    assert.equal((await call('reset',{email:inactive.email,code:inactive.code,password:'new-password'})).status,200);
+    assert.equal(f.sql.prepare('SELECT password_hash FROM users WHERE id=?').get('u2').password_hash,'old-hash');
+    const unknown=await f.service.issue('unknown@example.com',{purpose:'password-reset'});
+    assert.equal((await call('reset',{email:unknown.email,code:unknown.code,password:'new-password'})).status,200);
+  }finally{f.close();}
+});

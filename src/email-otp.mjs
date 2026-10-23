@@ -63,10 +63,12 @@ export class EmailOtp{
     ]);
   }
 
-  async #remove(key,previous){
+  async #remove(key,previous,singleUse=false){
     if(!previous)return;
     await this.db.atomic([
+      ...(singleUse?[s('DROP TABLE IF EXISTS temp.email_otp_consume_guard'),s('CREATE TEMP TABLE email_otp_consume_guard(ok INTEGER NOT NULL CHECK(ok=1))')]:[]),
       s('DELETE FROM catalog_documents WHERE namespace=? AND key=? AND value_json=?',[namespace,key,previous.raw]),
+      ...(singleUse?[s('INSERT INTO email_otp_consume_guard SELECT changes()=1'),s('DROP TABLE email_otp_consume_guard')]:[]),
     ]);
   }
 
@@ -114,7 +116,7 @@ export class EmailOtp{
       try{await this.#save(key,bumped,current);}catch{}
       fail(401,'Wrong code.');
     }
-    await this.#remove(key,current);
+    try{await this.#remove(key,current,true);}catch{fail(400,'Code already used. Request a new one.');}
     return {email,purpose:current.purpose||'login'};
   }
 }
