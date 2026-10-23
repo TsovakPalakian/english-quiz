@@ -20,7 +20,7 @@ export async function languageProviderHTTP(fetchImpl,url,options,{signal,timeout
   });
   try{return await Promise.race([stopped,(async()=>{
     if(controller.signal.aborted)fail('cancelled');
-    const response=await fetchImpl(url,{...options,redirect:'error',credentials:'omit',signal:controller.signal});
+    const response=await fetchImpl(url,{...options,redirect:'manual',credentials:'omit',signal:controller.signal});
     if(!(response instanceof Response))fail('invalid_provider_result');
     if(controller.signal.aborted){await response.body?.cancel();fail('cancelled');}
     if(response.status!==200){await response.body?.cancel();fail(response.status===429?'rate_limited':[401,403].includes(response.status)?'provider_access_denied':response.status>=500?'provider_unavailable':'provider_request_rejected');}

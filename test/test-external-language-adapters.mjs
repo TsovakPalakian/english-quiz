@@ -18,7 +18,7 @@ const audio=()=>({bytes:pcm(),mime:'audio/wav',mode:'scripted',reference:'drizzl
 const azure=fetchImpl=>({enabled:true,freeTierVerified:true,resourceName:'lumiscia-test',apiKey:'SYNTHETIC-KEY',termsRevision:'fixture-v1',fetchImpl});
 test('Azure pronunciation sends only scripted PCM16, requests no paid prosody and preserves null metrics',async()=>{
   let calls=0;const fetchImpl=async(url,options)=>{calls++;assert.equal(new URL(url).hostname,'lumiscia-test.cognitiveservices.azure.com');assert.equal(new URL(url).searchParams.get('language'),'en-US');
-    const config=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(options.headers['Pronunciation-Assessment']),c=>c.charCodeAt(0))));assert.equal(config.ReferenceText,'drizzle');assert.equal(config.GradingSystem,'HundredMark');assert.equal(config.EnableProsodyAssessment,false);assert.equal(config.Granularity,'FullText');assert.equal(options.redirect,'error');
+    const config=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(options.headers['Pronunciation-Assessment']),c=>c.charCodeAt(0))));assert.equal(config.ReferenceText,'drizzle');assert.equal(config.GradingSystem,'HundredMark');assert.equal(config.EnableProsodyAssessment,false);assert.equal(config.Granularity,'FullText');assert.equal(options.redirect,'manual');
     return json({RecognitionStatus:'Success',NBest:[{Display:'drizzle',AccuracyScore:0,FluencyScore:80,ProsodyScore:99}]});};
   const adapter=createAzurePronunciationAdapter(azure(fetchImpl));assert.equal(azurePcmDuration(pcm()),0.75);
   const result=await adapter.invoke(audio());assert.deepEqual(result.metrics,{accuracy:0,fluency:80,prosody:null});assert.deepEqual(adapter.validate(result),result);assert.deepEqual(result.findings,[]);

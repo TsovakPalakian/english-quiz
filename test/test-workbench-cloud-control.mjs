@@ -27,3 +27,13 @@ test('owned rehearsal cleanup remains available after the request budget is exha
   await assert.rejects(cloud.removeRehearsal(id));
   assert.deepEqual(methods,['POST','DELETE']);
 });
+test('private diagnostics preserve provider errors without exposing them in public exceptions',async()=>{
+  const details=[];
+  const cloud=workbenchCloudControl({token:'test',onError:value=>details.push(value),fetchImpl:async()=>new Response(JSON.stringify({success:false,errors:[{code:7500,message:'private database diagnostic'}]}),{status:500})});
+  await assert.rejects(cloud.scoped('/d1/database'),error=>{
+    assert.equal(error.status,500);assert.deepEqual(error.codes,[7500]);
+    assert.doesNotMatch(error.message,/private database diagnostic/);return true;
+  });
+  assert.equal(details[0].errors[0].message,'private database diagnostic');
+  assert.equal(details[0].requestNumber,1);
+});

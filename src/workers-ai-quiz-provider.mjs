@@ -64,7 +64,7 @@ export function createWorkersAIQuizAdapter({enabled=false,freeTierVerified=false
       try{
         return await Promise.race([stopped,(async()=>{
           const response=await fetchImpl(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${WORKERS_QUIZ_MODEL}`,{
-            method:'POST',redirect:'error',credentials:'omit',signal:controller.signal,
+            method:'POST',redirect:'manual',credentials:'omit',signal:controller.signal,
             headers:{authorization:`Bearer ${apiToken}`,'content-type':'application/json'},body:JSON.stringify(input),
           });
           if(response.status!==200){

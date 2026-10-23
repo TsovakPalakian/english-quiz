@@ -14,8 +14,8 @@ export function createWorkbenchInspector({fetchImpl=globalThis.fetch}={}){
     try{
       const bytes=await boundedProviderBytes(request.body,max,controller.signal);if(!bytes.length)return reply(415,'Empty media.');
       dispatch=true;
-      const response=await fetchImpl(endpoint.href,{method:'POST',headers:{'Content-Type':mime,Authorization:'Bearer '+env.INSPECTOR_TOKEN},body:bytes,redirect:'error',credentials:'omit',signal:controller.signal});
-      if(!response.ok)return reply([413,415,429].includes(response.status)?response.status:503,'Media inspection failed.');
+      const response=await fetchImpl(endpoint.href,{method:'POST',headers:{'Content-Type':mime,Authorization:'Bearer '+env.INSPECTOR_TOKEN},body:bytes,redirect:'manual',credentials:'omit',signal:controller.signal});
+      if(!response.ok){await response.body?.cancel();return reply([413,415,429].includes(response.status)?response.status:503,'Media inspection failed.');}
       if(response.headers.get('Content-Type')?.split(';')[0]!=='application/json')throw Error();
       const value=JSON.parse(new TextDecoder().decode(await boundedProviderBytes(response.body,8192,controller.signal)));
       const kind=mime.startsWith('image/')?'image':mime.startsWith('audio/')?'audio':'video';

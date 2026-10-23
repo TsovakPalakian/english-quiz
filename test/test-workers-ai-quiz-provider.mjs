@@ -24,7 +24,7 @@ test('request uses fixed endpoint, bounded JSON schema, no streams, redirects, e
   let sent;const selected=adapter({fetchImpl:async(url,options)=>{sent={url,options};return reply();}});
   const providers=registry([selected]),result=await providers.execute('generation',request);
   assert.equal(sent.url,`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${WORKERS_QUIZ_MODEL}`);
-  assert.equal(sent.options.redirect,'error');assert.equal(sent.options.credentials,'omit');assert.equal(sent.options.headers.authorization,'Bearer '+apiToken);
+  assert.equal(sent.options.redirect,'manual');assert.equal(sent.options.credentials,'omit');assert.equal(sent.options.headers.authorization,'Bearer '+apiToken);
   const input=JSON.parse(sent.options.body);assert.equal(input.max_tokens,1024);assert.equal(input.stream,false);
   assert.equal(input.response_format.type,'json_schema');assert.deepEqual(input.response_format.json_schema.properties.meaning.properties.en.enum,['drizzle']);
   assert.equal(input.response_format.json_schema.properties.content.properties.items.maxItems,5);

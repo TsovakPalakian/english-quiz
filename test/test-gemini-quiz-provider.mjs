@@ -31,7 +31,7 @@ test('fixed Gemini endpoint sends bounded structured output without tools, redir
   let sent;const providers=registry(adapter({fetchImpl:async(url,init)=>{sent={url,init};return reply();}}));
   assert.deepEqual(await createRoutedQuizGenerator({providers})({type:'Flip',meaning}),quiz.content);
   assert.equal(sent.url,'https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_QUIZ_MODEL+':generateContent');
-  assert.equal(sent.init.headers['x-goog-api-key'],'fixture-key');assert.equal(sent.init.redirect,'error');assert.equal(sent.init.credentials,'omit');
+  assert.equal(sent.init.headers['x-goog-api-key'],'fixture-key');assert.equal(sent.init.redirect,'manual');assert.equal(sent.init.credentials,'omit');
   const input=JSON.parse(sent.init.body);assert.equal(input.tools,undefined);assert.equal(input.generationConfig.maxOutputTokens,4096);
   assert.deepEqual(input.generationConfig.responseFormat.text.schema.properties.meaning.properties.en.enum,['drizzle']);
   assert.equal(input.generationConfig.responseFormat.text.mimeType,'APPLICATION_JSON');assert.ok(!sent.init.body.includes('fixture-key'));
