@@ -352,6 +352,10 @@
 
 ### Private Workbench Inspector — 2026-10-23
 
+- 🟩 Финальный основной выпуск 23.10 через production builder и корневой wrangler.toml: версия `507655d3-b66c-4e02-968b-9ec008c05ad2`. Применена проверенная схема STUDY_DB, настроены Gemini/Azure, private R2/service/email bindings, включены функции модуля. Backups и прежняя версия для отката сохранены приватно. Проверены HTTP-статусы, закрытые пути и совпадение HTML/JS/CSS; после входа пользователя проверены реальные AI providers и общая очередь. Настройки инициализированы в production, ревизия 1 сохраняется; selections/access/automatic preparation остаются Off. Inference и платное видео не запускались. Ручная языковая приёмка и не зарегистрированные STT/conversation/dictionary адаптеры этим выпуском не объявляются завершёнными. Коммит не создавался. Сообщение: `Enabled the reviewed quiz workbench with private media, email delivery and configured AI providers.`
+
+- 🟩 Подготовлены свежие приватные backups auth/STUDY_DB и проверено восстановление. Проверенный bootstrap применён только к STUDY_DB; readiness/FK и неизменность старой схемы подтверждены, auth DB не менялась. Добавлены отдельные секреты провайдеров и политика; конфигурационная версия основного Worker `57222b12-3c7c-421e-a458-4efad786f51f`, это ещё прежний код/флаги до финального выпуска. Rollback-версия сохранена приватно. Коммит не создавался.
+
 - 🟩 Исправлен режим fetch redirect для реального Workers runtime: manual с отказом на 3xx. Служебный inspector опубликован отдельно, версия `419b1c23-bbb7-45d3-9425-b6647a7454d5`; основной сайт не публиковался. Коммит не создавался. Сообщение: `Fixed Workers-compatible redirect handling for private inspection and language providers.`
 
 - 🟩 Отдельный служебный Worker `learn-english-workbench-inspector` опубликован без публичных маршрутов и workers.dev: версия `216c9d93-cac8-40bc-b5e7-a4feabc854a4`. Основной сайт и рабочие D1 не публиковались и не изменялись. Коммит не создавался. Сообщение: `Added a private HTTPS media inspector and isolated cloud rehearsal safeguards.`
