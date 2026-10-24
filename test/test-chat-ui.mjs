@@ -390,7 +390,11 @@ try{
   await page.locator('#profileBody [data-user-settings]').click();await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await page.locator('dialog[open] [data-msg-close]').click();
   await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#profileBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});await page.locator('.chat-photo-editor').waitFor();assert.ok(await page.locator('.chat-photo-editor').evaluate(n=>n.scrollWidth<=n.clientWidth));await Promise.resolve();const beforeCancel=http.filter(p=>p==='/api/messages/avatar').length;await page.locator('[data-crop-cancel]').click();assert.equal(http.filter(p=>p==='/api/messages/avatar').length,beforeCancel);
   await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('messages'));await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('@TEACHER');await page.locator('[data-contact-id]').waitFor();await page.locator('#msgLookup').click();assert.equal(lastLookupQuery,'@TEACHER');assert.deepEqual(errors,[]);
-  await page.clock.resume();await page.evaluate(()=>{window.ContentCache.set('library:opened:allwords',true);allGroup='';window.enquizVisit('allwords');paintAllWords();});await page.locator('[data-all-group="Chat"]').evaluate(n=>n.click());assert.match(await page.locator('#allWordGrid').innerText(),/From chat/);await Promise.resolve();
+  await page.clock.resume();
+  await page.evaluate(()=>{window.ContentCache.set('library:opened:allwords',true);allGroup='';window.enquizVisit('allwords');paintAllWords();});
+  await page.locator('[data-all-group="Chat"]').click();
+  await page.locator('#allWordGrid').filter({hasText:/From chat/}).waitFor();
+  assert.match(await page.locator('#allWordGrid').innerText(),/From chat/);await Promise.resolve();
   await page.evaluate(()=>window.enquizVisit('phrasal'));await page.locator('#phrasal.on #phrasalAdded').getByText('From chat',{exact:true}).waitFor();
   await page.evaluate(()=>window.enquizVisit('idioms'));await page.locator('#idioms.on #idiomAdded').getByText('From chat',{exact:true}).waitFor();assert.deepEqual(errors,[]);
   await page.evaluate(()=>window.enquizVisit('messages'));
