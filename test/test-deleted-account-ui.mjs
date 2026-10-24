@@ -1,15 +1,16 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
-const {chromium}=createRequire(import.meta.url)('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=createRequire(import.meta.url)(resolveTestDependency('playwright'));
 const source=readFileSync('client/40-account.js','utf8');
 const handler=source.slice(source.indexOf('    document.body.addEventListener("click", (e) => {'));
 assert.ok(handler.startsWith('    document.body.addEventListener'));
 const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<section id="adminuser" class="on"><button data-account="delete-user" data-id="student">Delete account</button></section><section id="admin"></section>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const outcome of ['success','cancel','failure']){
     const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
     await page.goto('http://127.0.0.1:'+server.address().port);

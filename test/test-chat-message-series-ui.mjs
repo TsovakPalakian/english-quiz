@@ -1,12 +1,13 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const source=readFileSync(new URL('../production/chat/40-messages.js',import.meta.url),'utf8');
 const grouping=source.slice(source.indexOf('  function sameSenderSeries('),source.indexOf('  function paintMessages('));
 const css=readFileSync(new URL('../production/chat.css',import.meta.url),'utf8');
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try {
   const page=await browser.newPage({viewport:{width:1000,height:800}});
   await page.setContent('<div id="messages" class="on"><div id="fixture" style="width:600px"></div></div>');

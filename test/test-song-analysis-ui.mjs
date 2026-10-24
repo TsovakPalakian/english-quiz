@@ -1,13 +1,14 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream'});res.end(readFileSync(file));});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[],cards=[],offsets=[],requests=[],bugs=[];
   page.on('pageerror',error=>{errors.push(error.message);console.error(error.message);});
@@ -67,7 +68,7 @@ try{
   assert.equal(cards.length,previous+1,'Retry adds only the previously failed word');
   assert.equal(await page.locator('#songUser .lyric-unchecked').count(),0);
   assert.equal(await page.locator('#songUser .lyric-miss').count(),1);
-  await page.screenshot({path:'/private/tmp/song-analysis-desktop.png',fullPage:true});
-  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'/private/tmp/song-analysis-mobile.png',fullPage:true});
+  await Promise.resolve();
+  await page.setViewportSize({width:390,height:844});await Promise.resolve();
   assert.deepEqual(errors,[]);console.log('Real song add/recheck, serial writes, AI continuation, lemma aliases, failure colors and duplicate prevention passed');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

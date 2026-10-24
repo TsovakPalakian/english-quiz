@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {closeQuizMediaInspector} from '../ops/quiz-media-native.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('local speech UI records privately, analyzes only with consent, displays provisional progress and deletes results',async()=>{
   const {server,url}=await createQuizReviewPreview();let browser;
   const api=async(path,data,role='student')=>{
@@ -11,7 +12,7 @@ test('local speech UI records privately, analyzes only with consent, displays pr
   };
   try{
     const settings=(await api('/local/providers',null,'dev')).data;assert.equal((await api('/local/providers',{expectedRevision:settings.revision,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'},conversation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'text'}},reason:'Synthetic local speech UI test.'},'dev')).status,200);
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable(),args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
     const context=await browser.newContext({permissions:['microphone'],viewport:{width:1280,height:960}}),page=await context.newPage(),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.addInitScript(()=>{const original=window.fetch;window.fetch=async function(input,options){if(String(input).endsWith('/upload')&&options?.body instanceof Blob){const view=new DataView(await options.body.arrayBuffer());window.recordedUploadFormat={rate:view.getUint32(24,true),channels:view.getUint16(22,true),bits:view.getUint16(34,true)};}return original.call(this,input,options);};});
@@ -35,9 +36,9 @@ test('local speech UI records privately, analyzes only with consent, displays pr
     const reviewed=(await api('/local/speech/attempts/'+history[0].id+'/text-reviews')).data.reviews;
     assert.equal(reviewed.length,1);assert.equal(reviewed[0].transcript,'My corrected transcript.');assert.equal(reviewed[0].transcriptRevision,1);
     assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.result.overall,71);
-    await page.screenshot({path:'/private/tmp/lumiscia-speech-desktop.png'});assert.equal(await page.locator('[data-speech-chart]').evaluate(canvas=>Array.from(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data).some(value=>value!==0)),true);
+    await Promise.resolve();assert.equal(await page.locator('[data-speech-chart]').evaluate(canvas=>Array.from(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data).some(value=>value!==0)),true);
     await page.selectOption('[data-speech-metric]','fluency');await page.selectOption('#theme','ocean');assert.equal(await page.locator('[data-speech-metric]').inputValue(),'fluency');assert.match(await page.locator('[data-speech-stats]').innerText(),/Latest: 80/);await page.selectOption('#theme','light');
-    await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-speech-mobile.png'});
+    await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await Promise.resolve();
     await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});page.once('dialog',dialog=>dialog.accept());await attempt.getByRole('button',{name:'Delete attempt and recording',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();assert.equal((await api('/local/speech/tasks/'+task.id+'/history')).data.attempts.length,0);
     assert.deepEqual(errors,[]);assert.ok(requests.every(request=>request.startsWith(url)||request.startsWith('blob:')));
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));await closeQuizMediaInspector();}

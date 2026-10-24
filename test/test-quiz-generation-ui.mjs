@@ -1,14 +1,15 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {QUIZ_TYPES} from '../src/learning-study.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 test('local preparation shows retries, teacher issues and automatic provenance without publishing templates',async()=>{
   const {server,url}=await createQuizReviewPreview({generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     // Seed all job outcomes through the authenticated API; kit selection has its own UI tests.
@@ -39,10 +40,10 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     assert.equal(await page.locator('[data-item="'+gap.versionId+'"] .verified').count(),0);
     assert.equal(await page.locator('.generation-job[data-job-state="review"]').count(),2);
     const choice=jobs.find(j=>j.type==='Choice');await page.locator('[data-job="'+choice.id+'"] > summary').click();
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-generation-desktop.png',fullPage:false});
+    await Promise.resolve();
     await page.setViewportSize({width:390,height:844});await page.locator('[data-job="'+choice.id+'"]').scrollIntoViewIfNeeded();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-generation-mobile.png',fullPage:false});
+    await Promise.resolve();
     await page.locator('[data-job="'+choice.id+'"] [data-action="retry-job"]').click();
     await page.waitForFunction(async id=>(await(await fetch('/local/generation')).json()).jobs.find(j=>j.id===id).cycle===1,choice.id);
     const boot=await page.evaluate(async()=>await(await fetch('/local/boot')).json()),c=boot.contexts[0];
@@ -77,7 +78,7 @@ test('local preparation shows retries, teacher issues and automatic provenance w
     await page.waitForFunction(id=>!document.querySelector('[data-job="'+id+'"]'),choice.id);
     await page.locator('[data-view="word"]').click();await page.locator('[data-item="'+replacementId+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
     await page.locator('[data-item="'+replacementId+'"] .verified').scrollIntoViewIfNeeded();
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-manual-replacement.png',fullPage:false});
+    await Promise.resolve();
     assert.deepEqual(errors,[]);assert.ok(requests.every(u=>u.startsWith(url)));
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 });

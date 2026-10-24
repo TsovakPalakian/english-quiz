@@ -1,14 +1,15 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createLearningWorkbenchPreview} from '../ops/preview-learning-workbench.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('full local shell exposes one isolated workbench across roles without production requests',async()=>{
   const preview=await createLearningWorkbenchPreview();let browser;
   try{
     const initial=await(await fetch(preview.url+'/__local/status')).json();assert.equal(initial.environment,'local-synthetic');assert.equal(initial.externalCalls,false);
     const foreign=await fetch(preview.url+'/__local/role',{method:'POST',headers:{Origin:'https://evil.invalid','Content-Type':'application/json'},body:JSON.stringify({id:'dev'})});assert.equal(foreign.status,403);
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[],requests=[],failed=[];page.setDefaultTimeout(10000);
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>{if(request.url().includes('/api/'))requests.push(request.url());});
     page.on('response',response=>{if(response.status()>=400)failed.push(response.status()+' '+response.url());});
@@ -36,7 +37,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.evaluate(()=>{classGroupId=1;window.enquizVisit('days');});await page.locator('[data-lm-open="1"]').click();await page.locator('[data-lm-tab="words"]:visible').first().click();await page.locator('[data-workbench-lesson]').click();
     await page.getByRole('heading',{name:'1 / 17 types ready'}).waitFor();assert.equal(await page.locator('[data-workbench-prepare]').count(),0);
     await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.learning-kit-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
-    await page.screenshot({path:'/private/tmp/lumiscia-unified-local-mobile.png'});
+    await Promise.resolve();
     await page.locator('[data-workbench-new]').click();await page.selectOption('[data-workbench-type]','Gap');
     await page.locator('[data-field=shown]').fill('There is ____ outside.');await page.locator('[data-field=answer]').fill('drizzle');await page.locator('[name=explanation]').fill('Drizzle is light rain.');
     await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();

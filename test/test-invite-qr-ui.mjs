@@ -1,10 +1,11 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import jsQR from 'jsqr';
 import {inviteQrDependency} from '../ops/build-preview.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage(),requests=[];
   page.on('request',request=>requests.push(request.url()));
@@ -25,7 +26,7 @@ try{
       assert.equal(jsQR(new Uint8ClampedArray(pixels.data),pixels.width,pixels.height)?.data,link,'QR decodes to the original invite at '+(size||'native')+'px');
     }
   }
-  await page.screenshot({path:'/private/tmp/lumiscia-local-invite-qr.png'});
+  await Promise.resolve();
   await page.evaluate(()=>paintInviteQr(document.getElementById('qr'),''));
   assert.equal(await page.locator('#qr').isVisible(),false);
   assert.equal(await page.locator('#qr img').count(),0);

@@ -1,3 +1,4 @@
+import {testTempRoot} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -25,7 +26,7 @@ function fixture(){
     sqlite.exec('BEGIN');try{for(const cmd of commands)sqlite.prepare(cmd.sql).run(...cmd.args.map(v=>v.type==='null'?null:v.type==='integer'?Number(v.value):v.value));sqlite.exec('COMMIT');}
     catch{sqlite.exec('ROLLBACK');throw new StudyError(409,'Conflict');}
   }};
-  const directory=mkdtempSync('/private/tmp/english-quiz-stage-media-'),store=localMediaStore(directory),own={id:'one',role:'USER'},other={id:'two',role:'DEVELOPER'};
+  const directory=mkdtempSync(testTempRoot()+"/english-quiz-stage-media-"),store=localMediaStore(directory),own={id:'one',role:'USER'},other={id:'two',role:'DEVELOPER'};
   return {sqlite,db,directory,store,own,other,close(){sqlite.close();rmSync(directory,{recursive:true});}};
 }
 function wav(value=0){const bytes=Buffer.alloc(46);bytes.write('RIFF');bytes.writeUInt32LE(38,4);bytes.write('WAVE',8);bytes.write('fmt ',12);bytes.writeUInt32LE(16,16);bytes.writeUInt16LE(1,20);bytes.writeUInt16LE(1,22);bytes.writeUInt32LE(8000,24);bytes.writeUInt32LE(16000,28);bytes.writeUInt16LE(2,32);bytes.writeUInt16LE(16,34);bytes.write('data',36);bytes.writeUInt32LE(2,40);bytes.writeUInt16LE(value,44);return bytes;}
@@ -239,7 +240,7 @@ test('Lesson media bridge refuses unsaved drafts; only acknowledgement advances 
   assert.equal(material.stageLessonBaseline.blocks[0].content.fileId,'sf_test');assert.equal(memory.has('learning-main-pending-v3'),false);
 });
 test('Local media backup/restore includes song and lesson binaries, even soft-deleted references; originals unchanged',async()=>{
-  const f=fixture(),directory=mkdtempSync('/private/tmp/english-quiz-learning-backup-');let restored;
+  const f=fixture(),directory=mkdtempSync(testTempRoot()+"/english-quiz-learning-backup-");let restored;
   try{
     await song(f);await lesson(f);
     const audio=await new SongMediaService(f.db,f.store).upload(f.own,f.songId,body(),wav());
@@ -256,7 +257,7 @@ test('Local media backup/restore includes song and lesson binaries, even soft-de
   }finally{if(restored)rmSync(restored.directory,{recursive:true});rmSync(directory,{recursive:true});f.close();}
 });
 test('Local media archive rejects corruption, missing/duplicate references and traversal without restoring',async()=>{
-  const f=fixture(),directory=mkdtempSync('/private/tmp/english-quiz-learning-backup-');
+  const f=fixture(),directory=mkdtempSync(testTempRoot()+"/english-quiz-learning-backup-");
   try{
     await song(f);await new SongMediaService(f.db,f.store).upload(f.own,f.songId,body(),wav());const data=await snapshot(f.db);
     writeLocalMediaBackup(directory,data,f.store);const path=resolve(directory,'local-media.json'),original=readFileSync(path),manifest=JSON.parse(original);
@@ -269,7 +270,7 @@ test('Local media archive rejects corruption, missing/duplicate references and t
   }finally{rmSync(directory,{recursive:true});f.close();}
 });
 test('Missing local source, wrong owner keys and backup object quota fail closed; empty local archive is valid',async()=>{
-  const directory=mkdtempSync('/private/tmp/english-quiz-learning-backup-'),emptyDirectory=mkdtempSync('/private/tmp/english-quiz-learning-backup-');
+  const directory=mkdtempSync(testTempRoot()+"/english-quiz-learning-backup-"),emptyDirectory=mkdtempSync(testTempRoot()+"/english-quiz-learning-backup-");
   try{
     const data={version:1,testOnly:true,tables:{library_items:[{id:1,kind:'song',scope:'profile',owner_profile_id:1,media_key:'stage-local/songs/1/1/'+'a'.repeat(64)}],lesson_blocks:[]}};
     assert.throws(()=>writeLocalMediaBackup(directory,data),/storage is unavailable/);assert.equal(readdirSync(directory).length,0,'Missing source does not produce a successful manifest');

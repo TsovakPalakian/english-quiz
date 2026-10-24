@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -13,7 +14,7 @@ import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC,localSpeechAdapter} from '../o
 import {WORKBENCH_TEST_BUCKET} from '../src/quiz-r2-media-store.mjs';
 import {wav} from './quiz-media-fixture.mjs';
 import {QuizGenerationService} from '../src/quiz-generation.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('main-app workbench stays opt-in, selects meanings and runs approved practice without replacing Study',async()=>{
   const f=await fixture({d1:true,extendedLifecycle:true});let server,browser,writable=true,actor=actors.student,services,loseDraftResponse=false;const diagnostics=[];
   try{
@@ -44,7 +45,7 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
       }catch(error){res.writeHead(error.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');const url='http://127.0.0.1:'+server.address().port;
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1100,height:850}}),errors=[],requests=[];page.setDefaultTimeout(7000);page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);assert.equal(await page.locator('[data-workbench-lesson]').count(),0);assert.ok(!requests.some(path=>path.includes('/api/learning-workbench')));
     await page.evaluate(()=>toggle(true));await page.locator('[data-workbench-lesson]').click();await page.locator('[data-workbench-group]').waitFor();
@@ -66,15 +67,15 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     await page.waitForFunction(()=>document.querySelector('[data-speech-stats]')?.textContent.includes('Count: 2'));
     await page.getByRole('button',{name:'Compare attempts',exact:true}).click();await page.getByRole('heading',{name:'Selected attempts · 0–100',exact:true}).waitFor();
     assert.match(await page.locator('.speech-training').innerText(),/Unavailable → Unavailable · Change unavailable/);
-    await page.screenshot({path:'/private/tmp/lumiscia-main-speech.png'});
+    await Promise.resolve();
     await page.locator('[data-workbench-back]').click();await page.locator('[data-workbench-practice]').waitFor({state:'attached'});
     const variant=page.locator('[data-workbench-practice]');await variant.evaluate(node=>node.closest('details').open=true);await variant.click();
     await page.locator('[data-workbench-answers]').waitFor();assert.equal(await page.locator('[data-workbench-body]').getByText('Drizzle means light rain in this context.',{exact:true}).count(),0);
     await page.locator('[name=answer-0]').fill('drizzle');await page.getByRole('button',{name:'Check answers',exact:true}).click();
     await page.getByRole('heading',{name:'Gap · 1 / 1'}).waitFor({timeout:5000}).catch(async error=>{throw new Error(error.message+'\n'+await page.locator('dialog').innerText()+'\n'+JSON.stringify(errors));});
     assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_session_snapshots').get().n,1);
-    await page.screenshot({path:'/private/tmp/lumiscia-main-kit-desktop.png'});await page.setViewportSize({width:390,height:844});
-    assert.equal(await page.locator('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true);await page.screenshot({path:'/private/tmp/lumiscia-main-kit-mobile.png'});
+    await Promise.resolve();await page.setViewportSize({width:390,height:844});
+    assert.equal(await page.locator('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true);await Promise.resolve();
     await page.evaluate(()=>{viewAccount={id:'u2'};document.body.classList.add('viewing');});await page.locator('dialog').waitFor({state:'detached'});
     await page.evaluate(()=>{viewAccount=null;paint();});writable=false;await page.locator('[data-workbench-card]').click();await page.locator('[data-workbench-sense]').waitFor();
     await page.selectOption('[data-workbench-sense]',f.senseId);await page.getByText('Read-only. New practice sessions are disabled.',{exact:true}).waitFor();assert.equal(await page.locator('[data-workbench-practice]').isDisabled(),true);
@@ -99,7 +100,7 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     const approve=page.locator('[data-workbench-decision=approve][data-id="'+pending.id+'"]');for(const key of ['meaning','answers','level'])await approve.locator('[name='+key+']').check();await approve.getByRole('button').click();
     await page.waitForFunction(id=>!document.querySelector('[data-review-key="version-'+id+'"]'),pending.id);
     assert.equal((await services.review.get(actors.teacher,pending.id)).state,'approved');assert.equal((await services.review.get(actors.teacher,returned.id)).state,'returned');
-    await page.screenshot({path:'/private/tmp/lumiscia-main-review.png'});
+    await Promise.resolve();
     await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-lesson]').click();await page.selectOption('[data-workbench-group]','1');await page.selectOption('[data-workbench-sense]',f.senseId);
     await page.locator('[data-workbench-prepare] [value=Choice]').check();await page.locator('[data-workbench-prepare] button').click();await page.getByText('1 preparation tasks queued. No quiz has been approved.',{exact:true}).waitFor();
     assert.equal(f.sql.prepare('SELECT count(*) AS n FROM qr_generation_jobs').get().n,1);
@@ -127,7 +128,7 @@ test('main-app workbench stays opt-in, selects meanings and runs approved practi
     await page.locator('[data-workbench-media]').setInputFiles({name:'word.wav',mimeType:'audio/wav',buffer:Buffer.from(wav())});await page.locator('[data-workbench-media-source]').fill('Own recording, permitted for this lesson.');
     await page.locator('[data-workbench-upload]').click();await page.waitForFunction(()=>document.querySelector('[data-field=mediaId]')?.value.length===36);
     await page.locator('[data-field=prompt]').fill('Choose the meaning.');await page.locator('[data-option="0"]').fill('Light rain');await page.locator('[data-option="1"]').fill('A storm');await page.locator('[data-correct="0"]').check();await page.locator('[name=explanation]').fill('Drizzle means light rain.');
-    assert.equal(await page.locator('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true);await page.screenshot({path:'/private/tmp/lumiscia-main-author-mobile.png'});
+    assert.equal(await page.locator('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true);await Promise.resolve();
     await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
     await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-card]').click();await page.selectOption('[data-workbench-sense]',f.senseId);assert.equal(await page.locator('[data-workbench-new]').count(),0);
     await page.locator('[data-workbench-report]').click();await page.locator('[name=description]').fill('A reproducible private report.');

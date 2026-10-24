@@ -1,3 +1,4 @@
+import {resolveTestDependency} from '../ops/check-environment.mjs';
 import test,{after,before} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -18,7 +19,7 @@ import {MessageService} from '../src/learning-messages.mjs';
 import {bindChatEncryption} from '../src/chat-encryption.mjs';
 
 const require=createRequire(import.meta.url);
-const {Miniflare,convertV4MiniflareOptions}=require('/Users/tsovakpalakian/.npm/_npx/32026684e21afda6/node_modules/miniflare');
+const {Miniflare,convertV4MiniflareOptions}=require(resolveTestDependency('miniflare'));
 let mf,binding,db,curriculum;
 before(async()=>{
   mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:'export default {fetch(){return new Response("local only")}}',compatibilityDate:'2026-08-01',d1Databases:{STUDY_DB:'local-study-contract',CURRICULUM:'local-curriculum-contract'}}));

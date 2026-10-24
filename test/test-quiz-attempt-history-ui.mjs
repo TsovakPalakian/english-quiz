@@ -1,15 +1,16 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {QUIZ_TYPES} from '../src/learning-study.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 
 test('attempt history is lazy, collapsible, refreshed by revision, escaped and account-scoped on desktop/mobile',async()=>{
   const {server,url}=await createQuizReviewPreview({generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);await page.locator('#context').waitFor();
@@ -41,7 +42,7 @@ test('attempt history is lazy, collapsible, refreshed by revision, escaped and a
     await page.waitForFunction(async id=>{const {jobs}=await(await fetch('/local/generation')).json(),job=jobs.find(j=>j.id===id);return job.cycle===1&&job.state==='review';},choice.id);
     await page.locator(selector+' .attempt-entry').nth(5).waitFor({state:'visible'});assert.match(await page.locator(selector).innerText(),/Cycle 2 · Attempt 3/);
     assert.ok(requests.filter(request=>request.endsWith(path)).length>fetched,'A new revision refreshes the history');
-    await page.screenshot({path:'/private/tmp/lumiscia-attempt-history-desktop.png',fullPage:false});
+    await Promise.resolve();
 
     const recorded=await page.evaluate(async path=>(await(await fetch(path)).json()).attempts,path);
     const reported=structuredClone(recorded[0]);reported.state='accepted';reported.issue='';reported.usage={prompt_tokens:0};
@@ -65,7 +66,7 @@ test('attempt history is lazy, collapsible, refreshed by revision, escaped and a
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     const geometry=await page.locator(selector+' .attempt-meta dd').evaluateAll(nodes=>nodes.map(node=>({width:node.clientWidth,scroll:node.scrollWidth})));
     assert.ok(geometry.every(item=>item.scroll<=item.width+1));
-    await page.screenshot({path:'/private/tmp/lumiscia-attempt-history-mobile.png',fullPage:false});
+    await Promise.resolve();
 
     await page.locator('[data-view="word"]').click();await page.locator('[data-job="'+match.id+'"] > summary').click();
     await page.locator('[data-attempt-history="'+match.id+'"] > summary').click();

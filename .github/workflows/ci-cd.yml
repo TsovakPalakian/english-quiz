@@ -1,0 +1,116 @@
+name: CI/CD Pipeline
+run-name: ${{ github.event_name }} - ${{ github.ref_name }} - ${{ github.sha }}
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ${{ vars.CI_TEST_RUNNER || 'macos-15' }}
+    timeout-minutes: 120
+    outputs:
+      tests: ${{ steps.checks.outcome }}
+    env:
+      CHECK_MODE: ci
+      CHECK_PARALLEL: '2'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Check Telegram configuration (without sending)
+        run: node ops/telegram-notify.mjs --check-config
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium and media tools
+        run: |
+          npx playwright install chromium
+          brew list ffmpeg >/dev/null 2>&1 || brew install ffmpeg
+      - name: Require native macOS media dependencies
+        run: |
+          test "$(uname -s)" = Darwin
+          test -x /usr/bin/xcrun
+          test -x /usr/bin/say
+          voices=$(/usr/bin/say -v '?')
+          grep -q '^Samantha ' <<< "$voices"
+          grep -q '^Daniel ' <<< "$voices"
+      - name: Restore verified private build inputs
+        run: python3 ops/ci-build-inputs.py restore
+        env:
+          CI_BUILD_INPUTS_URL: ${{ secrets.CI_BUILD_INPUTS_URL }}
+          CI_BUILD_INPUTS_SHA256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
+      - name: Install pinned PDF runtime
+        run: npm install --prefix rollback/pdfjs-runtime --no-save --package-lock=false --ignore-scripts pdfjs-dist@6.4.299
+      - name: Build production assets for browser checks
+        run: node ops/build-learning-production-assets.mjs
+      - name: Run all automatic tests
+        id: checks
+        run: npm run check -- --mode=ci
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Restore the same verified build inputs
+        run: python3 ops/ci-build-inputs.py restore
+        env:
+          CI_BUILD_INPUTS_URL: ${{ secrets.CI_BUILD_INPUTS_URL }}
+          CI_BUILD_INPUTS_SHA256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
+      - name: Install pinned PDF runtime
+        run: npm install --prefix rollback/pdfjs-runtime --no-save --package-lock=false --ignore-scripts pdfjs-dist@6.4.299
+      - name: Build production assets
+        run: node ops/build-learning-production-assets.mjs
+      - name: Deploy only after successful checks
+        run: npx --no-install wrangler deploy --config wrangler.toml --keep-vars
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  notify:
+    needs: [test, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Send final Telegram result
+        run: node ops/telegram-notify.mjs
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST_RESULT: ${{ needs.test.result }}
+          TEST_EXECUTION: ${{ needs.test.outputs.tests }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PIPELINE_EVENT: ${{ github.event_name }}

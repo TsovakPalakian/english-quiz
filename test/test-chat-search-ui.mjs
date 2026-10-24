@@ -1,11 +1,12 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const source=readFileSync('production/chat/80-dialogs.js','utf8');
 const search=source.slice(source.indexOf('  function chatSearchRanges('),source.indexOf("  el('msgTextSearch').oninput"));
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage();
   await page.setContent('<div id="messages"><input id="msgTextSearch"><select id="msgSearchMode"><option>prefix</option><option>exact</option><option>regex</option></select><input type="checkbox" id="msgSearchCase"><div id="msgSearchResults"></div><button id="msgSearchMore"></button><div id="timeline"><article data-msg-id="1" tabindex="-1"><div class="chat-message-text"><span style="color:rgb(58,235,238)">Hello he</span><b>llo</b> HELLO &lt;world&gt;</div></article></div></div>');

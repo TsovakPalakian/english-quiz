@@ -1,3 +1,4 @@
+import {testTempRoot} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
@@ -6,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {sourceMediaPlan,writeSourceMediaBackup,verifySourceMediaBackup,restoreSourceMediaBackup,cloudflareMediaReader} from '../ops/learning-source-media.mjs';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex'),owner='a'.repeat(32),r2=Buffer.from('original audio'),image=Buffer.from('private image');
 function fixture(){
-  const source=mkdtempSync('/private/tmp/english-quiz-source-fixture-'),destination=mkdtempSync('/private/tmp/english-quiz-learning-backup-');
+  const source=mkdtempSync(testTempRoot()+"/english-quiz-source-fixture-"),destination=mkdtempSync(testTempRoot()+"/english-quiz-learning-backup-");
   mkdirSync(resolve(source,'inline-media'),{mode:0o700});writeFileSync(resolve(source,'inline-media',sha(image)+'.bin'),image,{mode:0o600});
   const data={version:1,testOnly:true,tables:{account_refs:[{id:owner}],library_items:[{media_key:owner+'/song'}],lesson_blocks:[],catalog_documents:[{namespace:'private-migration-media',key:sha(image),value_json:JSON.stringify({sha256:sha(image),file:'inline-media/'+sha(image)+'.bin',bytes:image.length,mime:'image/jpeg'})}]}};
   const manifest={status:'complete',account:'22f73bd94b002b9aee8eed13d261cf13',bucket:'learn-english-media',inventory:[{key:owner+'/song',size:r2.length,etag:createHash('md5').update(r2).digest('hex')}]};

@@ -1,12 +1,13 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {LANGUAGE_TASKS} from '../src/language-providers.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 async function preview(work){
   const {server,url}=await createQuizReviewPreview();let browser;
-  try{browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});const page=await browser.newPage({viewport:{width:1280,height:1050}});await work(page,url);}
+  try{browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});const page=await browser.newPage({viewport:{width:1280,height:1050}});await work(page,url);}
   finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 }
 test('provider settings UI persists selections, disables tasks, preserves audit and handles conflicts and lost responses',async()=>preview(async(page,url)=>{
@@ -32,8 +33,8 @@ test('provider settings UI persists selections, disables tasks, preserves audit 
   await page.locator('#provider-settings-form [type="submit"]').click();await saved('0');assert.equal(ids.length,2);assert.equal(ids[0],ids[1]);assert.equal((await read('/local/providers/history')).changes.length,5);
   await save('off','Disable generation.');await saved('off');assert.equal((await read('/local/providers')).selections.generation,null);
   await page.locator('#provider-history > summary').click();await page.locator('#provider-history .attempt-entry').first().waitFor();
-  await page.screenshot({path:'/private/tmp/lumiscia-providers-desktop.png'});
-  await page.setViewportSize({width:390,height:844});await page.selectOption('#theme','ocean');await page.locator('#provider-generation').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-providers-mobile.png'});
+  await Promise.resolve();
+  await page.setViewportSize({width:390,height:844});await page.selectOption('#theme','ocean');await page.locator('#provider-generation').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await Promise.resolve();
   assert.equal((await read('/local/quota')).used,0);assert.equal((await read('/local/generation')).jobs.length,0);
   await page.selectOption('#account','teacher');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('#provider-settings-form').count(),0);assert.equal(await page.locator('[data-view="providers"]').isVisible(),false);
   assert.deepEqual(errors,[]);assert.ok(requests.every(r=>r.startsWith(url+'/')));

@@ -1,12 +1,13 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('developer changes quota without resetting usage; conflicts, audit, lost responses and mobile layout stay safe',async()=>{
   const {server,url}=await createQuizReviewPreview({requestLimit:3,generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:1050}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     const read=async path=>(await fetch(url+path,{headers:{Cookie:'qr-preview=dev'}})).json();
@@ -47,10 +48,10 @@ test('developer changes quota without resetting usage; conflicts, audit, lost re
     assert.equal(mutationIds.length,2);assert.equal(mutationIds[0],mutationIds[1]);
     const changes=await read('/local/quota/changes');assert.equal(changes.changes.length,4);assert.equal(changes.changes[0].newLimit,6);
     await page.locator('#quota-changes .attempt-entry').first().waitFor();
-    await page.locator('#quota-limit-form').scrollIntoViewIfNeeded();await page.screenshot({path:'/private/tmp/lumiscia-quota-settings-desktop.png'});
+    await page.locator('#quota-limit-form').scrollIntoViewIfNeeded();await Promise.resolve();
     await page.setViewportSize({width:390,height:844});await page.selectOption('#theme','ocean');await page.locator('#quota-limit-form').scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-    await page.screenshot({path:'/private/tmp/lumiscia-quota-settings-mobile.png'});
+    await Promise.resolve();
     await page.selectOption('#account','teacher');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('#quota-limit-form').count(),0);assert.equal(await page.locator('#quota-changes-body').count(),0);
     assert.deepEqual(errors,[]);assert.ok(requests.every(r=>r.startsWith(url+'/')));
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
