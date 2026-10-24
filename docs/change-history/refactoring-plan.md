@@ -406,3 +406,9 @@
 ### Go Astronomy Figures And Viewport Scaling — 2026-10-24
 
 🟩 Опубликованы обновлённые 41 схема, масштаб по размеру окна и исправление видимости близких звёзд Cancer. Production builder и геометрические тесты прошли; справочные 88 JPG не включены в сайт. Основа: коммит `9f9d3f3`; deployment version `4b0df069-f156-4589-ac84-3d95023bf71e`. Новый commit/push не создавался. Сообщение: `Published corrected constellation figures and viewport-relative sky scaling.`
+
+### Account And Study UI Fixes — 2026-10-24
+
+🟩 По разрешению `publish` опубликованы регистрация по приглашению и настроенным Google/Microsoft/Telegram, подтверждение удаления аккаунта с возвратом к списку без повторного GET, Study без Exam и исправленный вход passkey. Производственная сборка через корневой `wrangler.toml`; основа `eb8e3fe`, deployment version `5ac40999-e652-4d95-84a0-14fb056fa785`. Commit/push агентом не выполнялись. Сообщение: `Fixed account deletion and passkey login, removed Study Exam buttons, and restored invitation registration`.
+
+🟩 После публикации главная `/` и три обновлённых JS/CSS-ресурса вернули HTTP 200; SHA256 совпали с локальной сборкой. Реальные удаления аккаунтов и входы провайдеров не выполнялись.
