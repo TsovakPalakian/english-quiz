@@ -39,7 +39,7 @@
         if(id==='examList')control.hidden=!examViewLevel||examViewGroup===null;
         const rows = [...list.querySelectorAll(selector)].filter(row => !row.parentElement.closest(selector) || !list.contains(row.parentElement.closest(selector)));
         if (id === 'adminBody') {
-          control.hidden = adminTab === 'accounts' || adminTab === 'groups';
+          control.hidden = adminTab === 'accounts' || adminTab === 'groups' || adminTab === 'invite';
           if (adminTab === 'groups') input.value = '';
           input.placeholder = adminTab === 'groups' ? 'Search groups' : adminTab === 'requests' ? 'Search approval requests' : 'Search registration history';
           input.setAttribute('aria-label', input.placeholder);

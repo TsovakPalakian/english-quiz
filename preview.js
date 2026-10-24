@@ -14322,6 +14322,7 @@ const STUDIO_CONSTELLATIONS = [{
     let adminUserPaintToken = 0;
     let adminTab = 'accounts', adminGroups = [], adminMembers = [], adminAccounts = [], adminGroupId = null;
     let adminBucket='',adminTeacherAssignments=[];
+    let adminInviteGroupId=null,adminInviteScope='';
     const accountCount=(label,count)=>label+(count?' · '+count:'');
     const canInspectAccount=user=>!!user&&user.active!==false&&user.active!==0&&(sessionIsDeveloper()?['USER','ADMIN'].includes(user.role):user.role==='USER');
     const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.includes(user.id)));
@@ -14391,26 +14392,95 @@ const STUDIO_CONSTELLATIONS = [{
       if (document.querySelector('section.on')?.id === 'admingrouplevel') paintAdminGroupLevel();
       if (document.querySelector('section.on')?.id === 'admingroup') paintAdminGroup();
     }
-    function groupInviteHTML(groupId,candidates,groups=adminGroups,mayInvite=true) {
-      const options=candidates.map(user=>'<option value="'+esc(user.id)+'"'+(user.id===authUser?.id?' selected':'')+'>'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
-      return '<details class="accounts-fold accounts-invite-section" data-group-invites data-group-id="'+groupId+'"><summary>Invite link</summary><div class="invite-form"><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher'+(!candidates.length?' disabled':'')+'>'+options+'</select></label><p class="hint" data-invite-unassigned'+(candidates.length?' hidden':'')+'>Assign a teacher to this group first.</p><label hidden data-invite-staff><span>Group</span><select data-invite-group>'+groups.map(group=>'<option value="'+group.id+'"'+(group.id===groupId?' selected':'')+'>'+esc(group.title)+'</option>').join('')+'</select></label><label hidden data-invite-staff><span>Invited teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create'+(!candidates.length||!mayInvite?' disabled':'')+'>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div></details>';
+    function accountInviteHTML() {
+      const scope=authUser?.id+':'+viewGen;
+      if(adminInviteScope!==scope){adminInviteScope=scope;adminInviteGroupId=null;}
+      const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
+      if(!selected)adminInviteGroupId=null;
+      const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
+      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
-    document.addEventListener('change',event=>{
-      const box=event.target.closest('[data-group-invites]');if(!box)return;
+    function resetInviteResult(box){
+      const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
+      input.hidden=true;input.value='';qr.hidden=true;qr.replaceChildren();
+      box.querySelector('[data-invite-status]').textContent='';
+    }
+    function syncAccountInvite(box,refreshTeachers=false){
+      const group=adminGroups.find(row=>row.id===Number(box.dataset.groupId));
+      const select=box.querySelector('[data-invite-teacher]');
+      const candidates=group?adminTeachers(group.id).filter(user=>user.active!==false&&user.active!==0&&!user.revoked):[];
+      if(refreshTeachers){
+        const preferred=select.value||authUser?.id;
+        select.innerHTML=candidates.map(user=>'<option value="'+esc(user.id)+'">'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
+        if(candidates.some(user=>user.id===preferred))select.value=preferred;
+        else if(candidates.some(user=>user.id===authUser?.id))select.value=authUser.id;
+      }
       const teacher=box.querySelector('[data-invite-kind]').value==='teacher';
       box.querySelectorAll('[data-invite-staff]').forEach(node=>node.hidden=!teacher);
       box.querySelector('[data-invite-student]').hidden=teacher;
-      const select=box.querySelector('[data-invite-teacher]');
-      box.querySelector('[data-invite-unassigned]').hidden=teacher||select.options.length>0;
+      select.disabled=!candidates.length;
+      const permitted=sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id);
+      const note=box.querySelector('[data-invite-unassigned]');
+      note.hidden=!!group&&(teacher||candidates.length>0&&permitted);
+      note.textContent=!group?'Choose a group first.':!candidates.length?'Assign an active teacher to this group first.':'You must be assigned to this group to invite a student.';
       box.querySelector('[data-invite-email]').required=teacher;
-      box.querySelector('[data-invite-create]').disabled=!teacher&&(!select.options.length||!(sessionIsDeveloper()||[...select.options].some(option=>option.value===authUser?.id)));
-      box.querySelector('[data-invite-url]').hidden=true;
-      box.querySelector('[data-invite-url]').value='';
-      box.querySelector('[data-invite-qr]').hidden=true;
-      box.querySelector('[data-invite-status]').textContent='';
+      box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>user.id===select.value));
+    }
+    function filterInviteGroups(picker){
+      const query=picker.querySelector('[data-invite-group-search]').value.trim().toLocaleLowerCase();
+      const options=[...picker.querySelectorAll('[data-invite-group-option]')];
+      options.forEach(option=>option.hidden=!option.textContent.toLocaleLowerCase().includes(query));
+      picker.querySelector('[data-invite-group-empty]').hidden=options.some(option=>!option.hidden);
+    }
+    document.addEventListener('input',event=>{
+      const picker=event.target.closest('[data-invite-group-picker]');
+      if(event.target.matches('[data-invite-group-search]')&&picker)filterInviteGroups(picker);
+      if(event.target.matches('[data-invite-email]'))resetInviteResult(event.target.closest('[data-group-invites]'));
+    });
+    document.addEventListener('change',event=>{
+      const box=event.target.closest('[data-group-invites]');if(!box||!isTeacher()||viewAccount)return;
+      syncAccountInvite(box);resetInviteResult(box);
+    });
+    document.addEventListener('toggle',event=>{
+      const picker=event.target;
+      if(!picker.matches?.('[data-invite-group-picker]'))return;
+      const summary=picker.querySelector('summary');summary.setAttribute('aria-expanded',String(picker.open));
+      if(picker.open&&picker.closest('[aria-busy="true"]')){picker.open=false;return;}
+      if(picker.open)picker.querySelector('[data-invite-group-search]').focus();
+    },true);
+    document.addEventListener('click',event=>{
+      const option=event.target.closest('[data-invite-group-option]');
+      if(option){
+        const box=option.closest('[data-group-invites]'),picker=option.closest('[data-invite-group-picker]');
+        const group=adminGroups.find(row=>row.id===Number(option.dataset.inviteGroupOption));
+        if(!group||!isTeacher()||viewAccount||box.getAttribute('aria-busy')==='true')return;
+        adminInviteGroupId=group.id;box.dataset.groupId=String(group.id);
+        box.querySelector('[data-invite-selected-group]').textContent=group.title;
+        picker.querySelectorAll('[data-invite-group-option]').forEach(node=>node.setAttribute('aria-selected',String(node===option)));
+        picker.querySelector('[data-invite-group-search]').value='';filterInviteGroups(picker);
+        picker.open=false;picker.querySelector('summary').focus();
+        syncAccountInvite(box,true);resetInviteResult(box);
+      }
+      document.querySelectorAll('[data-invite-group-picker][open]').forEach(picker=>{if(!picker.contains(event.target))picker.open=false;});
+    });
+    document.addEventListener('focusout',event=>{
+      const picker=event.target.closest('[data-invite-group-picker]');
+      if(picker&&event.relatedTarget&&!picker.contains(event.relatedTarget))picker.open=false;
     });
     document.addEventListener('keydown',event=>{
       if(event.key==='Enter'&&event.target.matches('[data-invite-url]')){event.preventDefault();event.target.click();}
+      const picker=event.target.closest('[data-invite-group-picker]');if(!picker)return;
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();picker.open=false;picker.querySelector('summary').focus();return;}
+      const options=[...picker.querySelectorAll('[data-invite-group-option]')].filter(node=>!node.hidden);
+      if(event.key==='Enter'&&event.target.matches('[data-invite-group-search]')){event.preventDefault();options[0]?.click();return;}
+      if(['Home','End'].includes(event.key)&&!event.target.matches('[data-invite-group-option]'))return;
+      if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+        event.preventDefault();
+        if(!picker.open){picker.open=true;picker.querySelector('[data-invite-group-search]').focus();return;}
+        const index=options.indexOf(event.target);
+        const next=event.key==='Home'?0:event.key==='End'?options.length-1:event.key==='ArrowDown'?Math.min(index+1,options.length-1):Math.max(index-1,0);
+        options[next]?.focus();
+      }
     });
     function paintAdminGroup() {
       if (!isTeacher() || viewAccount) return;
@@ -14418,7 +14488,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
-      const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list','invites'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
+      const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
@@ -14430,8 +14500,6 @@ const STUDIO_CONSTELLATIONS = [{
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
       detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
-      const inviteTeachers=teachers.filter(user=>user.active!==false&&user.active!==0);
-      detail.insertAdjacentHTML('beforeend',groupInviteHTML(selected.id,inviteTeachers,adminGroups,sessionIsDeveloper()||inviteTeachers.some(user=>user.id===authUser?.id)));
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -14448,10 +14516,10 @@ const STUDIO_CONSTELLATIONS = [{
       }catch(error){if(form.isConnected)status.textContent=error.message;}finally{if(form.isConnected)form.querySelectorAll('button').forEach(node=>node.disabled=false);}
     });
     document.addEventListener('click',async event=>{
-      const create=event.target.closest('#adminGroupDetail [data-invite-create],#groupDetailInvite [data-invite-create]');
-      const copy=event.target.closest('#adminGroupDetail [data-invite-url],#groupDetailInvite [data-invite-url],#adminGroupDetail [data-invite-qr],#groupDetailInvite [data-invite-qr]');
+      const create=event.target.closest('#adminBody [data-invite-create]');
+      const copy=event.target.closest('#adminBody [data-invite-url],#adminBody [data-invite-qr]');
       if(!create&&!copy||!isTeacher()||viewAccount)return;
-      const box=event.target.closest('[data-group-invites]');if(!box)return;
+      const box=event.target.closest('[data-group-invites]');if(!box||box.getAttribute('aria-busy')==='true'||create?.disabled)return;
       const status=box.querySelector('[data-invite-status]'),urlInput=box.querySelector('[data-invite-url]');
       if(copy){
         if(!urlInput?.value)return;
@@ -14472,18 +14540,22 @@ const STUDIO_CONSTELLATIONS = [{
       const inviteKind=box.querySelector('[data-invite-kind]').value;
       const email=box.querySelector('[data-invite-email]');
       if(inviteKind==='teacher'){email.required=true;if(!email.reportValidity())return;}
-      const groupId=Number(inviteKind==='teacher'?box.querySelector('[data-invite-group]').value:box.dataset.groupId);
-      const controls=[...box.querySelectorAll('select,[data-invite-email]')].map(node=>({node,disabled:node.disabled}));
+      syncAccountInvite(box);if(create.disabled)return;
+      const groupId=Number(box.dataset.groupId),actor=authUser?.id,generation=viewGen;
+      const controls=[...box.querySelectorAll('select,input,[data-invite-group-option]')].map(node=>({node,disabled:node.disabled}));
+      box.querySelector('[data-invite-group-picker]').open=false;
+      resetInviteResult(box);box.setAttribute('aria-busy','true');
       controls.forEach(({node})=>node.disabled=true);
       create.disabled=true;status.textContent='Creating…';
       try{
         const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?email.value:undefined})});
+        if(!box.isConnected||actor!==authUser?.id||generation!==viewGen||viewAccount)return;
         const link=location.origin+'/?invite='+encodeURIComponent(result.token);
         urlInput.value=link;urlInput.hidden=false;
         status.textContent='Invite for '+result.groupTitle+' · expires '+new Date(result.expiresAt).toLocaleDateString();
         if(typeof paintInviteQr==='function')paintInviteQr(box.querySelector('[data-invite-qr]'),link);
       }catch(error){status.textContent=error.message;}
-      finally{create.disabled=false;controls.forEach(({node,disabled})=>node.disabled=disabled);}
+      finally{box.removeAttribute('aria-busy');controls.forEach(({node,disabled})=>node.disabled=disabled);if(box.isConnected)syncAccountInvite(box);}
     });
     async function saveAccountGroup(body) {
       const actor = authUser?.id, generation = viewGen;
@@ -14532,7 +14604,7 @@ const STUDIO_CONSTELLATIONS = [{
         accountFetch("/api/admin/users"),
         accountFetch("/api/admin/changes"), accountFetch('/api/groups'), accountFetch('/api/groups/members'),accountFetch('/api/accounts/group-teachers')
       ]), ([regs, users, changes, groups, membership,teachers], refresh) => {
-        if (!still() || refresh && (editingIn(box) || editingIn(document.getElementById('adminUser')))) return;
+        if (!still() || refresh && (editingIn(box) || editingIn(document.getElementById('adminUser')) || box.querySelector('[data-group-invites][aria-busy="true"]'))) return;
         const searching = document.activeElement?.id === 'adminAccountSearch';
         if (refresh) adminSelectedUser = null;
         const waiting = (regs.registrations || []).filter((row) => row.status === "pending" && accountVisible(row));
@@ -14577,9 +14649,10 @@ const STUDIO_CONSTELLATIONS = [{
             '<p data-list-row><b>' + n + ". " + esc(row.login) + '</b> · ' + esc(row.email) + '<br><span class="hint">' + statusLabel(row.status) + ' · ' + esc(when(row.created_at)) + '</span></p>'
           ) : '<p class="hint">No registrations yet.</p>') +
           '</div>';
-        box.innerHTML = adminTab === 'requests' ? waitingHtml + changesHtml : adminTab === 'history' ? historyHtml :
+        box.innerHTML = adminTab === 'requests' ? waitingHtml + changesHtml : adminTab === 'history' ? historyHtml : adminTab === 'invite' ? accountInviteHTML() :
           '<label for="adminAccountSearch">Search accounts</label><input id="adminAccountSearch" type="search" placeholder="Name, login or email" value="' + esc(adminSearch) + '"><div id="adminAccountList"></div>';
         if (adminTab === 'accounts') paintAdminAccounts();
+        if (adminTab === 'invite') syncAccountInvite(box.querySelector('[data-group-invites]'),true);
         if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup();
         const search = searching && document.getElementById('adminAccountSearch');
         if (search) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
@@ -19708,13 +19781,6 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById('groupDetailRetry').hidden=!status.textContent;
       document.getElementById('groupDetailTitle').textContent=group?.title||'Group';
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
-      const invite=document.getElementById('groupDetailInvite'),inviteKey=groupDirectoryKey()+':'+group.id;
-      if(invite.dataset.key!==inviteKey){invite.replaceChildren();delete invite.dataset.key;}
-      if(groupDirectoryReady()&&!groupDirectory.error&&invite.dataset.key!==inviteKey){
-        const candidates=groupDirectoryPeople([group],true).filter(user=>user.active!==false&&user.active!==0);
-        invite.innerHTML=groupInviteHTML(group.id,candidates,classGroups,sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id));
-        invite.dataset.key=inviteKey;
-      }
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       if(groupDirectoryReady()&&!groupDirectory.error){
         document.querySelector('#groupDetailTeachers').previousElementSibling.textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
@@ -21072,7 +21138,7 @@ const STUDIO_CONSTELLATIONS = [{
         if(id==='examList')control.hidden=!examViewLevel||examViewGroup===null;
         const rows = [...list.querySelectorAll(selector)].filter(row => !row.parentElement.closest(selector) || !list.contains(row.parentElement.closest(selector)));
         if (id === 'adminBody') {
-          control.hidden = adminTab === 'accounts' || adminTab === 'groups';
+          control.hidden = adminTab === 'accounts' || adminTab === 'groups' || adminTab === 'invite';
           if (adminTab === 'groups') input.value = '';
           input.placeholder = adminTab === 'groups' ? 'Search groups' : adminTab === 'requests' ? 'Search approval requests' : 'Search registration history';
           input.setAttribute('aria-label', input.placeholder);

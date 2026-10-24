@@ -1,6 +1,8 @@
 # Working Preferences
 
 - Before editing code, briefly state your understanding in Russian.
+- Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
+- Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; "do"/"делай" approves only the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
 - After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for the user's `do` before starting that next implementation; proposing it is not authorization to proceed. Always include an English past-tense commit message for completed changes.
 - Before every implementation, including small fixes, create a Russian Markdown checklist in docs/change-history/ named YYYY-MM-DD-short-topic.md. For continued work on the same task, update its existing document instead of duplicating it. Scale the document to the task: record requirements, scoped steps, verification and outcome; distinguish prototypes from implemented behavior. Mark items done only after verification, record deployment versions when published, and retain documents as project history. Do not include secrets or private account data. Explanations without changes do not require a checklist.
