@@ -65,7 +65,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && needs.test.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -99,6 +99,9 @@ jobs:
     needs: [test, deploy]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -110,6 +113,8 @@ jobs:
       - name: Send final Telegram result
         run: node ops/telegram-notify.mjs
         env:
+          CI_ATTACH_LOGS: 'true'
+          GITHUB_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TEST_RESULT: ${{ needs.test.result }}
