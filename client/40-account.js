@@ -447,6 +447,8 @@
         accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
           picker.dataset.originalGroup = selected;
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
+          groupDirectory=null;classGroupsReady=false;examReady=false;
+          await Promise.all([groupPull(),examPull(true)]);
           if (adminTab === 'groups') paintAdminGroups(); else paintAdminAccounts();
         }).catch(error => alert(error.message)).finally(() => { picker.disabled = false;button.disabled = picker.value === picker.dataset.originalGroup; });return;
       }
@@ -504,18 +506,20 @@
           .catch((err) => alert(err.message));
         return;
       }
-      if (action === "delete-user") {
-        if (!sessionIsDeveloper() || viewAccount || button.disabled) return;
-        if (!confirm("Delete this account permanently? The login, cards and songs stored for it will be removed.")) return;
+      if (action === "archive-user") {
+        if (!isTeacher() || viewAccount || button.disabled) return;
+        if (!confirm("Move this account and its data to Archive?")) return;
         const id=button.dataset.id,user=adminAccounts.find(row=>row.id===id);
         const name=user?.name||user?.login||id;
         button.disabled=true;
-        accountFetch("/api/admin/users/" + encodeURIComponent(id), { method: "DELETE" })
+        accountFetch('/api/archive', {method:'POST',body:JSON.stringify({action:'archive',type:'account',id})})
           .then(() => {
             ++adminPaintToken;++adminUserPaintToken;
             adminAccountId=null;adminSelectedUser=null;
             adminAccounts=adminAccounts.filter(row=>row.id!==id);
             adminMembers=adminMembers.filter(row=>row.accountId!==id);
+            groupDirectory=null;classGroupsReady=false;examReady=false;examResetWork();
+            window.ContentCache?.invalidate?.('archive:');
             viewCache.delete('admin');viewCache.delete('adminuser:'+id);
             for(let i=navStack.length-1;i>=0;i--)if(navStack[i].adminAccountId===id){
               if(navStack[i].id==='adminuser')navStack.splice(i,1);else navStack[i].adminAccountId=null;
@@ -524,8 +528,8 @@
             const dialog=document.createElement('dialog');
             dialog.className='account-deleted-dialog';
             dialog.setAttribute('aria-labelledby','deletedAccountTitle');
-            dialog.innerHTML='<h2 id="deletedAccountTitle">Account deleted</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
-            dialog.querySelector('p').textContent='The account for '+name+' has been deleted.';
+            dialog.innerHTML='<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+            dialog.querySelector('p').textContent='The account for '+name+' has been moved to Archive.';
             dialog.addEventListener('cancel',event=>event.preventDefault());
             dialog.addEventListener('close',()=>{dialog.remove();adminTab='accounts';show('admin');paintAdmin();},{once:true});
             document.body.append(dialog);dialog.showModal();

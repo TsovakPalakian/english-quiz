@@ -351,6 +351,26 @@ export class ChatRoom extends Store{
     });this.deliver();return {cleared:{category:'personal',through},room:this.summary(actor.id)};
   }
   fetch(request){if(new URL(request.url).pathname.startsWith('/__account-transfer/'))return transferObject(this,request,'room');return this.handle(request,async(path,body)=>{
+    if(path==='/purge-account'){
+      const id=ref(body.accountId),direct=this.get('room')?.kind==='direct'&&!!this.one('SELECT id FROM members WHERE id=?',id);
+      const examIds=JSON.stringify(Array.isArray(body.examIds)?body.examIds.filter(id=>Number.isSafeInteger(id)&&id>0):[]);
+      const predicate='sender=? OR exam_id IN (SELECT value FROM json_each(?))';
+      const removedMessages=this.rows('SELECT id FROM messages'+(direct?'':' WHERE '+predicate),...(direct?[]:[id,examIds])).map(row=>row.id);
+      const files=this.rows('SELECT storage_key FROM files'+(direct?'':' WHERE owner=? OR message_id IN (SELECT value FROM json_each(?))'),...(direct?[]:[id,JSON.stringify(removedMessages)]));
+      for(const file of files){if(!this.env.CONTENT_MEDIA?.delete)fail(503,'Attachment deletion unavailable.');await this.env.CONTENT_MEDIA.delete(file.storage_key);}
+      this.tx(()=>{
+        if(direct){this.sql.exec('DELETE FROM files');this.sql.exec('DELETE FROM messages');this.sql.exec('DELETE FROM outbox');this.sql.exec('DELETE FROM members');}
+        else{
+          this.sql.exec('DELETE FROM files WHERE owner=? OR message_id IN (SELECT value FROM json_each(?))',id,JSON.stringify(removedMessages));
+          this.sql.exec('UPDATE messages SET reply=NULL WHERE reply IN (SELECT value FROM json_each(?))',JSON.stringify(removedMessages));
+          this.sql.exec('DELETE FROM messages WHERE '+predicate,id,examIds);
+          this.sql.exec('DELETE FROM members WHERE id=?',id);
+          for(const row of this.rows('SELECT id,recipient,payload FROM outbox'))if(row.recipient===id||JSON.stringify(row.payload).includes(id))this.sql.exec('DELETE FROM outbox WHERE id=?',row.id);
+        }
+        for(const row of this.rows('SELECT key,value FROM meta'))if(row.key.includes(id)||JSON.stringify(row.value).includes(id)||removedMessages.some(message=>row.key.endsWith(':'+message)))this.sql.exec('DELETE FROM meta WHERE key=?',row.key);
+      });
+      return {removed:true};
+    }
     if(path==='/configure')return this.configure(body);
     if(path==='/status')return {migrated:!!this.get('migrated')};
     if(path==='/import')return this.import(body);
@@ -553,6 +573,22 @@ export class ChatInbox extends Store{
   }
   async receiveRequest(request){
     if(new URL(request.url).pathname!=='/connect')return this.handle(request,async(path,body)=>{
+      if(path==='/purge-account'){
+        const id=ref(body.accountId),own=this.get('profile')?.id===id;
+        this.tx(()=>{
+          if(own){this.sql.exec('DELETE FROM events');this.sql.exec('DELETE FROM rooms');this.sql.exec('DELETE FROM meta');this.set('profile',{id,active:false});}
+          else{
+            for(const row of this.rows('SELECT id,data FROM rooms'))if(JSON.parse(row.data).peerId===id||row.id.split(':').includes(id))this.sql.exec('DELETE FROM rooms WHERE id=?',row.id);
+            for(const row of this.rows('SELECT id,data FROM events'))if(row.data.includes(id))this.sql.exec('DELETE FROM events WHERE id=?',row.id);
+            const views=this.get('profileViews',{});delete views[id];this.set('profileViews',views);
+            this.set('contacts',this.get('contacts',[]).filter(person=>person.id!==id));
+            for(const row of this.rows('SELECT key,value FROM meta'))if(row.key.includes(id))this.sql.exec('DELETE FROM meta WHERE key=?',row.key);
+          }
+        });
+        if(own)for(const ws of this.ctx.getWebSockets())ws.close(4001,'Account deleted.');
+        else this.broadcast({type:'snapshot',data:this.snapshot()});
+        return {removed:true};
+      }
       if(path==='/configure')return this.configure(body);if(path==='/event')return this.event(body);if(path==='/snapshot')return this.snapshot();if(path==='/command')return this.command(body.action,body.body||{});if(path==='/suspend'){const profile=this.get('profile');if(profile)this.set('profile',{...profile,active:false});for(const ws of this.ctx.getWebSockets())ws.close(4002,'Permissions changed.');return {closed:true};}if(path==='/revoke'){for(const ws of this.ctx.getWebSockets())ws.close(4001,'Session closed.');return {closed:true};}
       if(path==='/revoke-session'){if(!/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(body.sid||''))fail(400,'Invalid session.');for(const ws of this.ctx.getWebSockets()){const id=ws.deserializeAttachment().sessionId;if(!id||id===body.sid)ws.close(id?4003:4001,'Session ended.');}return {closed:true};}fail(404,'Inbox route not found.');
     });

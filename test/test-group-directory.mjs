@@ -6,7 +6,7 @@ const source=readFileSync(new URL('../client/53-group-directory.js',import.meta.
 function fixture(){
   const requests=[],pending=[];
   const scope={authUser:{id:'teacher'},viewGen:1,viewAccount:null,isTeacher:()=>scope.authUser?.id!=='student',accountVisible:user=>!user.hidden,
-    document:{addEventListener(){}},accountFetch:path=>{requests.push(path);return new Promise(resolve=>pending.push(resolve));}};
+    document:{addEventListener(){},getElementById(){return null;}},accountFetch:path=>{requests.push(path);return new Promise(resolve=>pending.push(resolve));}};
   const api=runInNewContext(source+'\n({loadGroupDirectory,groupDirectoryPeople,groupDirectoryReady,groupExamMetrics})',scope);
   return {...api,scope,requests,pending};
 }

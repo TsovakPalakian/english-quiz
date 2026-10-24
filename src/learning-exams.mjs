@@ -1,5 +1,6 @@
 import {statement as stmt, StudyError, recordId,validateAssessmentContent} from './learning-study.mjs';
 import {ArchiveService} from './learning-archive.mjs';
+import {ensureAccountArchive} from './account-archive.mjs';
 import {materialVisibility} from './learning-visibility.mjs';
 import {AssessmentService} from './learning-assessment.mjs';
 import {GroupService} from './learning-groups.mjs';
@@ -124,6 +125,7 @@ export class ExamService {
     if(nameCommands.length)await this.db.atomic(nameCommands);
     const teacher = reviewer(actor);
     const catalogView=teacher&&!actor.managedStudent;
+    await ensureAccountArchive(this.db);
     const assigned=await assignedExamIds(this.db,actor.id);
     const exams = await this.db.read(`SELECT id, title, lesson_date, published, hidden_from_students, created_at,revision,
       (SELECT i.status FROM exam_instances i WHERE i.exam_id=exams.id) instance_status,
@@ -134,8 +136,9 @@ export class ExamService {
       (SELECT i.student_email FROM exam_instances i WHERE i.exam_id=exams.id) instance_email,
       (SELECT i.max_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_max,
       (SELECT i.earned_points FROM exam_instances i WHERE i.exam_id=exams.id) instance_earned,
-      COALESCE((SELECT i.group_id FROM exam_instances i WHERE i.exam_id=exams.id),(SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL)) AS group_id FROM exams
+      CASE WHEN EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id) THEN (SELECT i.group_id FROM exam_instances i WHERE i.exam_id=exams.id) ELSE (SELECT gx.group_id FROM class_group_exams gx JOIN class_groups g ON g.id=gx.group_id WHERE gx.exam_id=exams.id AND g.deleted_at IS NULL) END AS group_id FROM exams
       WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM exam_instances i WHERE i.exam_id=exams.id AND ((?=0 AND i.account_id<>?) OR i.active=0))
+      AND NOT EXISTS(SELECT 1 FROM exam_instances i JOIN account_archives a ON a.account_id=i.account_id WHERE i.exam_id=exams.id)
       AND (?=0 OR NOT EXISTS(SELECT 1 FROM exam_reviewer_hides h WHERE h.exam_id=exams.id AND h.account_id=?))
       AND (?=1 OR ${assignedExamSql('exams.id',assigned)})
       AND (?=1 OR (published=1 AND (hidden_from_students=0 OR ${assignedExamSql('exams.id',assigned)})))

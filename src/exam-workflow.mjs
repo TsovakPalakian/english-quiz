@@ -2,6 +2,8 @@ import {StudyError,statement as s,recordId} from './learning-study.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {AssessmentService} from './learning-assessment.mjs';
 import {MessageService} from './learning-messages.mjs';
+import {mayReviewInstance,instanceReviewerIds} from './learning-exam-instances.mjs';
+import {ensureAccountArchive} from './account-archive.mjs';
 const events={viewed:'Assignment viewed',started:'Exam started',review_started:'Review started',results_viewed:'Results viewed',completed:'Exam completed'};
 export async function requireExamStarted(db,examId,account){
   const [row]=await db.read("SELECT EXISTS(SELECT 1 FROM assessment_history h WHERE h.kind='exam-workflow' AND h.material_id=i.exam_id AND h.account_id=i.account_id AND h.action='started' AND h.actor_id=i.account_id) started FROM exam_instances i WHERE i.exam_id=? AND i.account_id=? AND i.active=1",[examId,account]);
@@ -13,11 +15,11 @@ export async function examWorkflowCommands(db,instance,actor,event){
   const commands=[s(`INSERT INTO assessment_history(account_id,kind,material_id,actor_id,action,reason,snapshot_json)
     SELECT ?,'exam-workflow',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM assessment_history WHERE kind='exam-workflow' AND material_id=? AND action=?)`,[instance.account_id,instance.exam_id,actor.id,event,key,JSON.stringify({event,examId:instance.exam_id,at:new Date().toISOString()}),instance.exam_id,event])];
   if(['started','review_started','completed'].includes(event)){
-    const recipient=event==='review_started'?instance.account_id:instance.reviewer_id;
-    if(recipient&&recipient!==actor.id){
+    const recipients=event==='review_started'?[instance.account_id]:await instanceReviewerIds(db,instance);
+    for(const recipient of new Set(recipients))if(recipient&&recipient!==actor.id){
       const messages=new MessageService(db,async()=>[]);await messages.ensure();
       const room='direct:'+ [actor.id,recipient].sort().join(':');
-      commands.push(...messages.directCommands(actor,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) VALUES(?,?,?,'learning',?,?,?,?,?)`,[room,actor.id,actor.name||actor.login||'Teacher',messages.sealText(room,events[event]+': '+instance.title),instance.assignment_id,key,Date.now(),instance.exam_id]));
+      commands.push(...messages.directCommands(actor,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) VALUES(?,?,?,'learning',?,?,?,?,?)`,[room,actor.id,actor.name||actor.login||'Teacher',messages.sealText(room,events[event]+': '+instance.title),instance.assignment_id,key+(recipients.length>1?':'+recipient:''),Date.now(),instance.exam_id]));
     }
   }
   return commands;
@@ -28,7 +30,9 @@ export class ExamWorkflowService{
     recordId(id);if(!actor?.id)throw new StudyError(401,'Sign in first.');
     await new ExamService(this.db).ensure();await new AssessmentService(this.db).ensure();
     const [instance]=await this.db.read('SELECT i.*,e.title FROM exam_instances i JOIN exams e ON e.id=i.exam_id WHERE i.exam_id=? AND i.active=1 AND e.deleted_at IS NULL',[id]);
-    if(!instance||!(actor.id===instance.account_id||actor.id===instance.reviewer_id||actor.role==='DEVELOPER'))throw new StudyError(404,'Assigned exam not found.');
+    await ensureAccountArchive(this.db);
+    const archived=instance&&(await this.db.read('SELECT account_id FROM account_archives WHERE account_id=?',[instance.account_id])).length;
+    if(!instance||archived&&actor.role!=='DEVELOPER'||!(actor.id===instance.account_id||await mayReviewInstance(this.db,instance,actor)))throw new StudyError(404,'Assigned exam not found.');
     return instance;
   }
   async status(actor,{examId}){

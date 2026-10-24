@@ -2686,6 +2686,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     let authUser = null;
     let accountChecked = false;
     let viewAccount = null;
+    let materialReviewStudent = null;
     let viewGen = 0;
     let viewSwitching = false;
     let stashOwned = false;
@@ -2739,7 +2740,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
@@ -2761,6 +2762,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
       if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
       if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
+      if(['groupteachers','groupstudents'].includes(id))return 'groupdetail';
       if(id==='groupdetail')return 'groups';
       if (student) {
         if (base === "groups" || id === "days") return "days";
@@ -2811,7 +2813,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail"].includes(id) && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
@@ -2826,6 +2828,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "material" && window.paintMaterial) window.paintMaterial();
       if (id === "groups" && window.paintGroups) window.paintGroups();
       if (id === "groupdetail" && typeof prepareGroupDetail==='function') prepareGroupDetail();
+      if (['groupteachers','groupstudents'].includes(id) && typeof prepareGroupDetail==='function') { prepareGroupDetail();paintGroupPeople(); }
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
@@ -2895,8 +2898,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const group = classGroups.find((row) => row.id === classGroupId);
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
       if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
+      if(['groupteachers','groupstudents'].includes(id))return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id,label:id==='groupteachers'?'Teachers':'Students'}];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
-      if (id === "days") return groupPath(group);
+      if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
         const category=(window.GrammarCategories||[]).find(row=>row.id===stageGrammarGroup);
         return [{id:'library',label:'Library'},{id:'grammarcategories',label:'Grammatical Categories'},...(id!=='grammarcategories'&&category?[{id:'grammarcategory',label:category.title}]:[]),...(id==='grammarrule'?[{id:'grammarrule',label:stageGrammarRule}]:[])];
@@ -3099,7 +3103,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
-      if (place.id === 'groupdetail' || place.id === 'days') return [place.id,place.classGroupId].join('|');
+      if (['groupdetail','groupteachers','groupstudents','days'].includes(place.id)) return [place.id,place.classGroupId].join('|');
       if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
       if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
       if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
@@ -3174,7 +3178,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
       if (place.id === 'groups'||place.id==='groupdetail') groupViewLevel = place.groupViewLevel || '';
-      if (['groupdetail','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
+      if (['groupdetail','groupteachers','groupstudents','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
       if (place.id === 'exams'||place.examId) { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; examSection=place.examSection||'active'; }
       if(place.examId){
         examCurrentId=place.examId;
@@ -5390,11 +5394,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canEditLessons() {
+      if(typeof materialReviewStudent!=='undefined'&&materialReviewStudent)return false;
       if (viewAccount) return sessionIsDeveloper();
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canTuneStudentLessons() {
-      return !!(viewAccount && authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
+      return !!((viewAccount || typeof materialReviewStudent!=='undefined'&&materialReviewStudent) && authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function isDeveloper() {
       if (viewAccount) return false;
@@ -14691,9 +14696,9 @@ const STUDIO_CONSTELLATIONS = [{
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
             '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
             '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>' +
-            '<button class="btn stop" type="button" data-account="delete-user" data-id="' + esc(user.id) + '">Delete account</button></div>'
+            '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button></div>'
             : '<p>' + esc(user.email) + (user.name ? " · " + esc(user.name) : "") + '</p>' +
-              (openPages ? '<div class="row" style="margin-top:8px">' + openPages + '</div>' : '') +
+              '<div class="row" style="margin-top:8px">'+openPages+(user.role==='USER'?'<button class="btn stop" type="button" data-account="archive-user" data-id="'+esc(user.id)+'">Archive account</button>':'')+'</div>' +
               (isDeveloper() ? '<p class="label">Role</p><select data-role-pick>' +
                 '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
                 '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
@@ -14820,7 +14825,7 @@ const STUDIO_CONSTELLATIONS = [{
       const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
     }
     function archiveLabel(type) {
-      return { lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
+      return { account:'Accounts',lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
     }
     let archivePaintToken = 0;
     function paintArchive() {
@@ -14831,17 +14836,19 @@ const STUDIO_CONSTELLATIONS = [{
         if (token !== archivePaintToken || authUser?.id !== actor || generation !== viewGen || viewAccount) return;
         const items = Array.isArray(data && data.items) ? data.items : [];
         if (!items.length) { box.innerHTML = '<p class="hint">Archive is empty.</p>'; return; }
-        const groups = {};
-        items.forEach((item) => { (groups[item.type] || (groups[item.type] = [])).push(item); });
-        box.innerHTML = Object.keys(groups).map((type) => '<div class="archive-group"><h2 class="lib-h">' + esc(archiveLabel(type)) + '</h2>' + groups[type].map((item) => {
+        const owners=new Map();
+        items.forEach(item=>{const key=isDeveloper()?item.archivedBy||'legacy':actor;if(!owners.has(key))owners.set(key,{name:item.archivedByName||'Unknown teacher',items:[]});owners.get(key).items.push(item);});
+        box.innerHTML=[...owners.values()].map(owner=>{
+        const groups={};owner.items.forEach(item=>(groups[item.type]||(groups[item.type]=[])).push(item));
+        return (isDeveloper()?'<h2>'+esc(owner.name)+'</h2>':'')+Object.keys(groups).map((type) => '<div class="archive-group"><h3 class="lib-h">' + esc(archiveLabel(type)) + '</h3>' + groups[type].map((item) => {
           const when = item.archivedAt ? new Date(item.archivedAt * 1000).toLocaleString() : "";
           const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
-          const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Remove from archive";
+          const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Delete";
           const icon = (path) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
-          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '" aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
+          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
           const label = 'Deleted by ' + (item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + when : "") + hidden;
           return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
-        }).join("") + "</div>").join("");
+        }).join("") + "</div>").join("");}).join('');
       };
       const cached = window.LearningMain.archiveSnapshot?.();
       if (cached) render(cached);
@@ -14859,10 +14866,12 @@ const STUDIO_CONSTELLATIONS = [{
         if (!password) return;
       }
       if (action === "remove" && isDeveloper() && !confirm("Delete this material permanently? This cannot be undone.")) return;
+      if(action==='remove'&&type==='account'&&!isDeveloper()&&!confirm('Delete this account from the teachers’ archive? Its data will remain available only to the developer.'))return;
       window.LearningMain.perform(async () => {
         viewCache.delete('archive:' + raw);
         if (action === "restore") await window.LearningMain.restoreArchive(type, id);
         else await window.LearningMain.removeArchive(type, id, password);
+        if(type==='account'){groupDirectory=null;classGroupsReady=false;examReady=false;adminAccounts=[];viewCache.delete('admin');}
         paintArchive();
       });
     }
@@ -14895,6 +14904,10 @@ const STUDIO_CONSTELLATIONS = [{
         if (archivePreviewContext !== job || authUser?.id !== job.actor || viewGen !== job.generation || viewAccount) return;
         const media = '/api/archive/media?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
         document.getElementById("archivePreviewTitle").textContent = data.title || "Archived material";
+        if(type==='account'){
+          body.innerHTML='<p>'+esc(data.account?.name||'')+'</p><p>'+esc(data.account?.login||'')+'</p><p>'+esc(data.account?.email||'')+'</p>';
+          return;
+        }
         body.innerHTML = (data.documents || []).map(doc => '<article class="lm-read"><h3>' + esc(doc.title || "") + '</h3><p>' + esc(doc.description || "") + '</p>' + (doc.blocks || []).map(part => {
           const block = { ...part };
           if (part.fileId || part.localMediaKey || !part.remoteUrl && !part.sample && (part.hasFile || part.name) && ['image','audio','pronunciation','pdf','file'].includes(part.type)) { block.archiveMediaUrl = new URL(media + '&fileId=' + encodeURIComponent(part.fileId || part.id), location.origin).href; delete block.fileId; }
@@ -16111,6 +16124,8 @@ const STUDIO_CONSTELLATIONS = [{
         accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
           picker.dataset.originalGroup = selected;
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
+          groupDirectory=null;classGroupsReady=false;examReady=false;
+          await Promise.all([groupPull(),examPull(true)]);
           if (adminTab === 'groups') paintAdminGroups(); else paintAdminAccounts();
         }).catch(error => alert(error.message)).finally(() => { picker.disabled = false;button.disabled = picker.value === picker.dataset.originalGroup; });return;
       }
@@ -16168,18 +16183,20 @@ const STUDIO_CONSTELLATIONS = [{
           .catch((err) => alert(err.message));
         return;
       }
-      if (action === "delete-user") {
-        if (!sessionIsDeveloper() || viewAccount || button.disabled) return;
-        if (!confirm("Delete this account permanently? The login, cards and songs stored for it will be removed.")) return;
+      if (action === "archive-user") {
+        if (!isTeacher() || viewAccount || button.disabled) return;
+        if (!confirm("Move this account and its data to Archive?")) return;
         const id=button.dataset.id,user=adminAccounts.find(row=>row.id===id);
         const name=user?.name||user?.login||id;
         button.disabled=true;
-        accountFetch("/api/admin/users/" + encodeURIComponent(id), { method: "DELETE" })
+        accountFetch('/api/archive', {method:'POST',body:JSON.stringify({action:'archive',type:'account',id})})
           .then(() => {
             ++adminPaintToken;++adminUserPaintToken;
             adminAccountId=null;adminSelectedUser=null;
             adminAccounts=adminAccounts.filter(row=>row.id!==id);
             adminMembers=adminMembers.filter(row=>row.accountId!==id);
+            groupDirectory=null;classGroupsReady=false;examReady=false;examResetWork();
+            window.ContentCache?.invalidate?.('archive:');
             viewCache.delete('admin');viewCache.delete('adminuser:'+id);
             for(let i=navStack.length-1;i>=0;i--)if(navStack[i].adminAccountId===id){
               if(navStack[i].id==='adminuser')navStack.splice(i,1);else navStack[i].adminAccountId=null;
@@ -16188,8 +16205,8 @@ const STUDIO_CONSTELLATIONS = [{
             const dialog=document.createElement('dialog');
             dialog.className='account-deleted-dialog';
             dialog.setAttribute('aria-labelledby','deletedAccountTitle');
-            dialog.innerHTML='<h2 id="deletedAccountTitle">Account deleted</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
-            dialog.querySelector('p').textContent='The account for '+name+' has been deleted.';
+            dialog.innerHTML='<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+            dialog.querySelector('p').textContent='The account for '+name+' has been moved to Archive.';
             dialog.addEventListener('cancel',event=>event.preventDefault());
             dialog.addEventListener('close',()=>{dialog.remove();adminTab='accounts';show('admin');paintAdmin();},{once:true});
             document.body.append(dialog);dialog.showModal();
@@ -18733,9 +18750,9 @@ const STUDIO_CONSTELLATIONS = [{
       groupNormalize();
       const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
       const title = document.getElementById("lmGroupTitle");
-      if (title) title.textContent = group?.title || "Lessons";
+      if (title) title.textContent = 'Lessons';
       const name = document.getElementById("lmGroupName");
-      if (name) name.innerHTML = metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
+      if (name) name.innerHTML = esc(group?.title||'')+' · '+metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
@@ -19761,12 +19778,12 @@ const STUDIO_CONSTELLATIONS = [{
       if(!groupDirectoryReady()||groupDirectory.error)return [];
       const ids=new Set(groups.map(group=>String(group.id)));
       const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
-      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login).localeCompare(b.name||b.login));
+      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
     }
     function groupPeopleHTML(users) {
-      return users.length?users.map(user=>{
+      return users.length?users.map((user,index)=>{
         const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
-        return '<'+tag+' class="group-person"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><b>'+esc(user.name||user.login)+'</b><span class="label">'+esc(roleLabel(user.role))+'</span></'+tag+'>';
+        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b><span>'+esc(user.login)+'</span><span>'+esc(user.email||'')+'</span></'+tag+'>';
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
@@ -19783,8 +19800,8 @@ const STUDIO_CONSTELLATIONS = [{
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       if(groupDirectoryReady()&&!groupDirectory.error){
-        document.querySelector('#groupDetailTeachers').previousElementSibling.textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
-        document.querySelector('#groupDetailStudents').previousElementSibling.textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+        document.getElementById('groupDetailTeacherCount').textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
+        document.getElementById('groupDetailStudentCount').textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
       }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
@@ -19793,12 +19810,21 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
       paintPagePath('groupdetail');
     }
+    function paintGroupPeople() {
+      paintGroupDetail();
+      const page=document.querySelector('section.on'),group=classGroups.find(row=>row.id===classGroupId);
+      document.querySelectorAll('[data-people-group-name]').forEach(node=>node.textContent=group?.title||'Group unavailable');
+      const query=(document.getElementById('groupStudentSearch')?.value||'').trim().toLocaleLowerCase();
+      document.querySelectorAll('#groupDetailStudents .group-person').forEach(row=>row.hidden=!row.dataset.peopleSearch.includes(query));
+      if(page)paintPagePath(page.id);
+    }
+    document.getElementById('groupStudentSearch')?.addEventListener('input',paintGroupPeople);
     function prepareGroupDetail() {
       if(!isTeacher()||viewAccount)return;
       const key=groupDirectoryKey(),id=classGroupId;
       paintGroupDetail();
       Promise.all([loadGroupDirectory(),!lmServerReady&&typeof stageQueueLessons==='function'?stageQueueLessons():Promise.resolve(),!examReady?examPull():Promise.resolve(),!classGroupsReady?groupPull():Promise.resolve()]).then(()=>{
-        if(key===groupDirectoryKey()&&id===classGroupId&&document.querySelector('section.on')?.id==='groupdetail')paintGroupDetail();
+        if(key===groupDirectoryKey()&&id===classGroupId&&['groupdetail','groupteachers','groupstudents'].includes(document.querySelector('section.on')?.id))paintGroupPeople();
       }).catch(error=>{if(key===groupDirectoryKey())window.LearningMain?.notice?.(error.message,true);});
     }
     document.addEventListener('click',event=>{
@@ -19806,11 +19832,13 @@ const STUDIO_CONSTELLATIONS = [{
       const group=classGroups.find(row=>row.id===classGroupId);
       if(event.target.closest('[data-group-directory-retry]')){groupDirectory=null;if(document.querySelector('section.on')?.id==='groupdetail')prepareGroupDetail();else paintGroups();return;}
       if(!group)return;
+      const people=event.target.closest('[data-detail-people]');
+      if(people){document.getElementById('groupStudentSearch').value='';visit(people.dataset.detailPeople==='teachers'?'groupteachers':'groupstudents');}
       if(event.target.closest('[data-detail-lessons]'))visit('days');
       const exam=event.target.closest('[data-detail-exam]');
       if(exam||event.target.closest('[data-detail-exams]')){
         examViewGroup=group.id;examViewLevel=accountGroupLevel(group);examSection='active';
-        if(exam){examCurrentId=domEntityId(exam.dataset.detailExam);visit('examblocks');}else visit('exams');
+        if(exam){void examOpenSelected(exam.dataset.detailExam);}else visit('exams');
       }
       if(event.target.closest('[data-account-teacher-toggle],[data-account-group]'))groupDirectory=null;
     });
@@ -19991,6 +20019,20 @@ const STUDIO_CONSTELLATIONS = [{
       id = domEntityId(id);
       return examLoad().find((row) => row.id === id) || null;
     }
+    async function examOpenSelected(id){
+      id=domEntityId(id);
+      let exam=examFind(id);
+      if(exam?.studentId&&isTeacher()&&!viewAccount){
+        const actor=authUser?.id,generation=viewGen,page=document.querySelector('section.on')?.id;
+        examReady=false;await examPull(true);
+        if(!examReady||actor!==authUser?.id||generation!==viewGen||page!==document.querySelector('section.on')?.id)return;
+        exam=examFind(id);
+        if(!exam){window.LearningMain?.notice('This work is no longer available in this group.');return;}
+        materialReviewStudent={id:exam.studentId,name:exam.studentName,email:exam.studentEmail};examResetWork();
+      }
+      if(!exam)return;
+      examCurrentId=id;visit('examblocks');
+    }
     let examWork = {};
     let examWorkLoadedFor = "";
     let examWorkPulling = false;
@@ -20001,7 +20043,7 @@ const STUDIO_CONSTELLATIONS = [{
       examWorkPulling = false;
     }
     function examWorkAccount() {
-      return (viewAccount && viewAccount.id) || (authUser && authUser.id) || "";
+      return (viewAccount && viewAccount.id) || (typeof materialReviewStudent!=='undefined'&&materialReviewStudent?.id) || (authUser && authUser.id) || "";
     }
     function examWorkBag() {
       const id = examWorkAccount();
@@ -20689,6 +20731,9 @@ const STUDIO_CONSTELLATIONS = [{
     let examSection='active';
     function examPaintList() {
       const box = document.getElementById("examList");
+      const heading=document.querySelector('#exams .meta h1');
+      const owner=classGroups.find(group=>String(group.id)===String(examViewGroup));
+      if(heading)heading.textContent='Exams'+(owner?' · '+owner.title:'');
       const newer = document.getElementById("examNew");
       if (newer) newer.hidden = !canEditLessons() || !classGroups.some(group=>String(group.id)===String(examViewGroup));
       if (!box) return;
@@ -21004,6 +21049,7 @@ const STUDIO_CONSTELLATIONS = [{
       const openScreen = show;
       show = function (id) {
         if ((examHold || (lmState && lmState.examOwned)) && !(id === "material" && lmState && lmState.examOwned)) examLeave();
+        if(materialReviewStudent&&!['material','examblocks'].includes(id)){materialReviewStudent=null;examResetWork();}
         const result = openScreen(id);
         if (id === "exams") examPaintList();
         if (id === "examblocks") examPaintBlocks();
@@ -21039,20 +21085,14 @@ const STUDIO_CONSTELLATIONS = [{
       document.addEventListener('click',event => {
         const open = event.target.closest('#adminGroupDetail [data-exam-open]');
         if (!open || !isTeacher() || viewAccount) return;
-        examCurrentId = domEntityId(open.dataset.examOpen); visit('examblocks');
+        void examOpenSelected(open.dataset.examOpen);
       });
       document.getElementById('examSections')?.addEventListener('click',event=>{const button=event.target.closest('[data-exam-section]');if(button){examSection=button.dataset.examSection;examPaintList();rememberPlace();}});
       if (list) list.addEventListener("click", async (event) => {
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
         if (!open) return;
-        const instance=examFind(open.dataset.examOpen);
-        if(instance?.studentId&&canEditLessons()){
-          await openStudentPages({id:instance.studentId,name:instance.studentName,role:'USER'});
-          await examPull(true);
-        }
-        examCurrentId = domEntityId(open.dataset.examOpen);
-        visit("examblocks");
+        await examOpenSelected(open.dataset.examOpen);
       });
       if (blocks) blocks.addEventListener("click", (event) => {
         if (examTool(event)) return;

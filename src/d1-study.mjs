@@ -48,7 +48,7 @@ function compile(command,{readOnly,inspection=false},used){
   if(!command||!Array.isArray(command.args))fail();
   if(!readOnly&&command.sql===noticeTrigger&&command.args.length===0)return {sql:noticeTrigger,args:[]};
   const tokens=studyTokens(command.sql),head=upper(tokens[0]);
-  const info=inspection&&head==='PRAGMA'&&/^PRAGMA table_info \( (?:[a-z_][a-z_0-9]*|"(?:[^"]|"")+") \)$/i.test(tokens.join(' '));
+  const info=inspection&&head==='PRAGMA'&&/^PRAGMA (?:table_info|foreign_key_list) \( (?:[a-z_][a-z_0-9]*|"(?:[^"]|"")+") \)$/i.test(tokens.join(' '));
   if(readOnly&&head!=='SELECT'&&!info)fail();
   if(!['SELECT','INSERT','UPDATE','DELETE','CREATE','DROP','ALTER'].includes(head)&&!info)fail();
   if(tokens.some(token=>/^_study_batch_/i.test(token)))fail();

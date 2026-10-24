@@ -29,6 +29,8 @@ import {stageR2Media} from './learning-r2-media.mjs';
 import {PersonalService} from './learning-personal.mjs';
 import {ActivityService} from './learning-activity.mjs';
 import {ArchiveService} from './learning-archive.mjs';
+import {AccountArchive,ensureAccountArchive} from './account-archive.mjs';
+import {purgeStudyAccount} from './account-study-purge.mjs';
 import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
@@ -553,6 +555,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
         return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId));
       }
+      if(path==='/api/exams'&&method==='GET'&&!url.searchParams.has('for')){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        let exams=await new ExamService(studyDatabase(env)).list(actor);
+        if(['ADMIN','DEVELOPER'].includes(actor.role)){
+          const result=await accountEnv.DB.prepare('SELECT id FROM users WHERE active=1 AND is_personal_data_revoked=0').all();
+          const live=new Set((result.results||[]).map(row=>row.id));exams=exams.filter(exam=>!exam.studentId||live.has(exam.studentId));
+        }
+        return json({exams});
+      }
       if(path==='/api/exams/work'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         let value={studentId:url.searchParams.get('student')||''};
@@ -599,13 +610,48 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(path==='/api/archive'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const archive=new ArchiveService(studyDatabase(env));
+        const accountArchive=new AccountArchive(studyDatabase(env),accountEnv.DB);
         if(method==='GET'){
           const params=new URL(request.url).searchParams;
+          if(params.get('type')==='account')return json(await accountArchive.preview(actor,params.get('id')));
+          if(!params.has('type')&&!params.has('id')){
+            const data=await archive.list(actor);
+            return json({...data,items:[...data.items,...await accountArchive.list(actor)]});
+          }
           return json(params.has('type')||params.has('id')?await archive.preview(actor,{type:params.get('type'),id:params.get('id')}):await archive.list(actor));
         }
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
         const raw=await boundedText(request,JSON_BODY_LIMIT,'Archive request too large.');let value;
         try{value=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(value.type==='account'){
+          if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Account changes disabled.');
+          if(!new RegExp('^'+identity+'$').test(value.id||''))throw new StudyError(400,'Invalid account.');
+          accountArchive.staff(actor);
+          const mutateAccount=async operation=>{
+            if(env.CHAT_BRIDGE)await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});
+            try{
+              const result=await operation();
+              if(env.CHAT_BRIDGE)await chatCall(env,'CHAT_BRIDGE','global','/policy',{});
+              return result instanceof Response?result:json(result);
+            }catch(error){
+              if(env.CHAT_BRIDGE)ctx.waitUntil?.(chatCall(env,'CHAT_BRIDGE','global','/policy',{}).catch(()=>{}));
+              throw error;
+            }
+          };
+          if(value.action==='archive')return mutateAccount(()=>accountArchive.archive(actor,value.id));
+          if(value.action==='restore')return mutateAccount(()=>accountArchive.restore(actor,value.id));
+          if(value.action==='remove'){
+            if(actor.role==='ADMIN'){
+              await verifyAccountPassword(accountEnv.DB,actor,value.password);
+              return mutateAccount(()=>accountArchive.hide(actor,value.id));
+            }
+            if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
+            await accountArchive.entry(actor,value.id);
+            const headers=new Headers(request.headers);headers.delete('Content-Length');
+            return mutateAccount(()=>this.fetch(new Request(new URL('/api/admin/users/'+value.id,url),{method:'DELETE',headers}),env,ctx));
+          }
+          throw new StudyError(400,'Invalid archive action.');
+        }
         if(value.action==='archive')return json(await archive.archive(actor,value));
         if(value.action==='restore')return json(await archive.restore(actor,value));
         if(value.action==='remove')return json(await archive.remove(actor,value,{passwordVerified:actor.role!=='ADMIN'||await verifyAccountPassword(accountEnv.DB,actor,value.password)}));
@@ -836,6 +882,21 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!['GET','HEAD'].includes(method)&&env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
         let approvalGroup=null,approvalActor=null,approvalGroups=null,approvalInvite=null;
         let forward=request,inviteToken='',effectivePath=path,inviteWarning='',signupBody=null,signupInvite=null;
+        const accountDelete=method==='DELETE'&&new RegExp('^/api/admin/users/'+identity+'$').test(path);
+        if(accountDelete){
+          const actor=await identify(accountEnv,request);
+          if(actor?.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
+          if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+          const id=path.split('/')[4],db=studyDatabase(env);
+          if(id===actor.id)throw new StudyError(400,'You cannot delete your own account.');
+          await new AccountArchive(db,accountEnv.DB).beginPurge(actor,id);
+          if(env.CHAT_BRIDGE)await chatCall(env,'CHAT_BRIDGE','global','/purge-account',{accountId:id});
+          await purgeStudyAccount(db,id,env.STAGE_MEDIA);
+        }
+        if(method==='POST'&&new RegExp('^/api/admin/users/'+identity+'/(active|hidden|role|profile)$').test(path)){
+          const db=studyDatabase(env);await ensureAccountArchive(db);
+          if((await db.read('SELECT account_id FROM account_archives WHERE account_id=?',[path.split('/')[4]])).length)throw new StudyError(409,'Restore the account from Archive first.');
+        }
         const passkeysAccount=path==='/api/me/revoke'&&method==='POST'?(await identify(accountEnv,request))?.id:method==='DELETE'&&new RegExp('^/api/admin/users/'+identity+'$').test(path)?path.split('/')[4]:null;
         if(path==='/api/register'&&method==='POST'){
           let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
@@ -873,7 +934,14 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         let response=approvalInvite?.kind==='teacher'&&approvalActor?.role==='ADMIN'
           ?await approveReg(accountEnv,approvalActor,path.split('/')[4],approvalInvite)
-          :await accountWorker.fetch(forward,signupInvite?.kind==='teacher'?{...accountEnv,TRUSTED_INVITE_ROLE:'ADMIN'}:accountEnv,ctx);
+          :await accountWorker.fetch(forward,{...accountEnv,...(signupInvite?.kind==='teacher'?{TRUSTED_INVITE_ROLE:'ADMIN'}:{}),...(accountDelete?{ACCOUNT_ARCHIVE_DELETE_ID:path.split('/')[4]}:{})},ctx);
+        if(accountDelete&&response.status===404&&!(await accountEnv.DB.prepare('SELECT id FROM users WHERE id=?').bind(path.split('/')[4]).first()))response=json({ok:true});
+        if(response.ok&&accountDelete)await studyDatabase(env).atomic([s('DELETE FROM account_archives WHERE account_id=?',[path.split('/')[4]]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
+        if(response.ok&&method==='GET'&&path==='/api/admin/users'){
+          const db=studyDatabase(env);await ensureAccountArchive(db);
+          const archived=new Set((await db.read('SELECT account_id FROM account_archives')).map(row=>row.account_id));
+          const data=await response.json();response=json({...data,users:(data.users||[]).filter(row=>!archived.has(row.id))});
+        }
         if(response.ok&&passkeysAccount){
           try{await new Passkeys(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Passkey cleanup unavailable; revoked account remains blocked.');}
           for(const value of Object.values(oauthProviders))try{await new value.Service(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Federated identity cleanup unavailable; revoked account remains blocked.');}

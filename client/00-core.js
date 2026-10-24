@@ -4,6 +4,7 @@
     let authUser = null;
     let accountChecked = false;
     let viewAccount = null;
+    let materialReviewStudent = null;
     let viewGen = 0;
     let viewSwitching = false;
     let stashOwned = false;
@@ -57,7 +58,7 @@
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
@@ -79,6 +80,7 @@
       if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
       if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
       if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
+      if(['groupteachers','groupstudents'].includes(id))return 'groupdetail';
       if(id==='groupdetail')return 'groups';
       if (student) {
         if (base === "groups" || id === "days") return "days";
@@ -129,7 +131,7 @@
       if (previous && previous.id !== id) stopPageMedia(previous);
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
-      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail"].includes(id) && (viewAccount || !isTeacher())) id = "home";
+      if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
@@ -144,6 +146,7 @@
       if (id === "material" && window.paintMaterial) window.paintMaterial();
       if (id === "groups" && window.paintGroups) window.paintGroups();
       if (id === "groupdetail" && typeof prepareGroupDetail==='function') prepareGroupDetail();
+      if (['groupteachers','groupstudents'].includes(id) && typeof prepareGroupDetail==='function') { prepareGroupDetail();paintGroupPeople(); }
       if (id === "days" && window.paintLmDays) window.paintLmDays();
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
@@ -213,8 +216,9 @@
       const group = classGroups.find((row) => row.id === classGroupId);
       const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
       if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
+      if(['groupteachers','groupstudents'].includes(id))return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id,label:id==='groupteachers'?'Teachers':'Students'}];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
-      if (id === "days") return groupPath(group);
+      if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
         const category=(window.GrammarCategories||[]).find(row=>row.id===stageGrammarGroup);
         return [{id:'library',label:'Library'},{id:'grammarcategories',label:'Grammatical Categories'},...(id!=='grammarcategories'&&category?[{id:'grammarcategory',label:category.title}]:[]),...(id==='grammarrule'?[{id:'grammarrule',label:stageGrammarRule}]:[])];
@@ -417,7 +421,7 @@
       try { sessionStorage.setItem("enquiz-place", JSON.stringify(place)); } catch (e) {}
     }
     function placeKey(place) {
-      if (place.id === 'groupdetail' || place.id === 'days') return [place.id,place.classGroupId].join('|');
+      if (['groupdetail','groupteachers','groupstudents','days'].includes(place.id)) return [place.id,place.classGroupId].join('|');
       if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
       if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
       if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
@@ -492,7 +496,7 @@
         adminAccountId = place.adminAccountId || adminAccountId; adminGroupId = place.adminGroupId || adminGroupId; adminTab = place.adminTab || adminTab;
       }
       if (place.id === 'groups'||place.id==='groupdetail') groupViewLevel = place.groupViewLevel || '';
-      if (['groupdetail','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
+      if (['groupdetail','groupteachers','groupstudents','days'].includes(place.id)&&place.classGroupId)classGroupId=domEntityId(place.classGroupId);
       if (place.id === 'exams'||place.examId) { examViewLevel = place.examViewLevel || ''; examViewGroup = place.examViewGroup ?? null; examSection=place.examSection||'active'; }
       if(place.examId){
         examCurrentId=place.examId;

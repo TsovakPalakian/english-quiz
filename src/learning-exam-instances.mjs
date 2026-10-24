@@ -1,5 +1,6 @@
 import {statement as s,StudyError} from './learning-study.mjs';
 import {legacyLessonFileKey} from './learning-media.mjs';
+import {ensureAccountArchive} from './account-archive.mjs';
 const id=()=>Number.parseInt(crypto.randomUUID().replaceAll('-','').slice(0,12),16)+1;
 export async function instanceCommands(db,source,assignment,recipients,storage,metadata={}){
   const blocks=await db.read('SELECT * FROM exam_blocks WHERE exam_id=? AND deleted_at IS NULL ORDER BY position',[source.id]);
@@ -36,6 +37,18 @@ export async function instanceCommands(db,source,assignment,recipients,storage,m
   return commands;
 }
 export async function instanceAccess(db,examId,account){
+  await ensureAccountArchive(db);
+  if((await db.read('SELECT i.exam_id FROM exam_instances i JOIN account_archives a ON a.account_id=i.account_id WHERE i.exam_id=?',[examId])).length)throw new StudyError(404,'Exam not found.');
   const [row]=await db.read('SELECT account_id,active FROM exam_instances WHERE exam_id=?',[examId]);
   if(row&&(row.account_id!==account||!row.active))throw new StudyError(404,'Exam not found.');
+}
+export async function instanceReviewerIds(db,instance){
+  if(instance?.group_id!=null){
+    const [row]=await db.read("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key=?",[String(instance.group_id)]);
+    if(row){const ids=JSON.parse(row.value_json).teacherIds;if(Array.isArray(ids)&&ids.length)return ids;}
+  }
+  return instance?.reviewer_id?[instance.reviewer_id]:[];
+}
+export async function mayReviewInstance(db,instance,actor){
+  return actor?.role==='DEVELOPER'||actor?.role==='ADMIN'&&(await instanceReviewerIds(db,instance)).includes(actor.id);
 }

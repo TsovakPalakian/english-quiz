@@ -20,7 +20,7 @@
     <nav aria-label="Primary">
       <button type="button" data-jump="home" data-nav-role="student" class="on"><i data-lucide="house" aria-hidden="true"></i>Home</button>
       <button type="button" data-jump="days" data-nav-role="student" hidden><i data-lucide="calendar-days" aria-hidden="true"></i>Lessons</button>
-      <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days,groupdetail" hidden><i data-lucide="users-round" aria-hidden="true"></i>Groups</button>
+      <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days,groupdetail,groupteachers,groupstudents" hidden><i data-lucide="users-round" aria-hidden="true"></i>Groups</button>
       <button type="button" data-jump="exams" data-nav-role="student" hidden><i data-lucide="clipboard-check" aria-hidden="true"></i><span data-exam-menu-label>Exam</span></button>
       <button type="button" data-jump="wordcollections"><i data-lucide="book-open" aria-hidden="true"></i>Words</button>
       <button type="button" data-jump="tenses"><i data-lucide="languages" aria-hidden="true"></i>Grammar</button>
@@ -537,11 +537,22 @@
       <p id="groupDetailStatus" class="hint" role="status"></p>
       <button id="groupDetailRetry" class="btn" type="button" data-group-directory-retry hidden>Retry</button>
       <div class="group-detail-destinations">
+        <button class="file-card" type="button" data-detail-people="teachers"><b id="groupDetailTeacherCount">Teachers</b></button>
+        <button class="file-card" type="button" data-detail-people="students"><b id="groupDetailStudentCount">Students</b></button>
+      </div>
+      <div class="group-detail-destinations">
         <button class="file-card" type="button" data-detail-lessons><b id="groupDetailLessonCount">Lessons</b></button>
         <button class="file-card" type="button" data-detail-exams><b id="groupDetailExamCount">Exams</b><span class="label group-exam-summary" id="groupDetailExamSummary"></span></button>
       </div>
-      <details class="group-people-fold"><summary>Teachers</summary><div id="groupDetailTeachers"></div></details>
-      <details class="group-people-fold"><summary>Students</summary><div id="groupDetailStudents"></div></details>
+    </section>
+    <section id="groupteachers">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Teachers</h1><p class="page-context" data-people-group-name></p></div></div>
+      <div id="groupDetailTeachers"></div>
+    </section>
+    <section id="groupstudents">
+      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Students</h1><p class="page-context" data-people-group-name></p></div></div>
+      <label>Search students<input type="search" id="groupStudentSearch" placeholder="Name, login or email" autocomplete="off"></label>
+      <div id="groupDetailStudents"></div>
     </section>
     <section id="days">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groups">Back</button><div class="page-heading"><h1 id="lmGroupTitle">Lessons</h1><p id="lmGroupName" class="page-context"></p></div></div>

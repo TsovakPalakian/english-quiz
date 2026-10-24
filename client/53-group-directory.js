@@ -20,12 +20,12 @@
       if(!groupDirectoryReady()||groupDirectory.error)return [];
       const ids=new Set(groups.map(group=>String(group.id)));
       const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
-      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login).localeCompare(b.name||b.login));
+      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
     }
     function groupPeopleHTML(users) {
-      return users.length?users.map(user=>{
+      return users.length?users.map((user,index)=>{
         const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
-        return '<'+tag+' class="group-person"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><b>'+esc(user.name||user.login)+'</b><span class="label">'+esc(roleLabel(user.role))+'</span></'+tag+'>';
+        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b><span>'+esc(user.login)+'</span><span>'+esc(user.email||'')+'</span></'+tag+'>';
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
@@ -42,8 +42,8 @@
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       if(groupDirectoryReady()&&!groupDirectory.error){
-        document.querySelector('#groupDetailTeachers').previousElementSibling.textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
-        document.querySelector('#groupDetailStudents').previousElementSibling.textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+        document.getElementById('groupDetailTeacherCount').textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
+        document.getElementById('groupDetailStudentCount').textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
       }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
@@ -52,12 +52,21 @@
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
       paintPagePath('groupdetail');
     }
+    function paintGroupPeople() {
+      paintGroupDetail();
+      const page=document.querySelector('section.on'),group=classGroups.find(row=>row.id===classGroupId);
+      document.querySelectorAll('[data-people-group-name]').forEach(node=>node.textContent=group?.title||'Group unavailable');
+      const query=(document.getElementById('groupStudentSearch')?.value||'').trim().toLocaleLowerCase();
+      document.querySelectorAll('#groupDetailStudents .group-person').forEach(row=>row.hidden=!row.dataset.peopleSearch.includes(query));
+      if(page)paintPagePath(page.id);
+    }
+    document.getElementById('groupStudentSearch')?.addEventListener('input',paintGroupPeople);
     function prepareGroupDetail() {
       if(!isTeacher()||viewAccount)return;
       const key=groupDirectoryKey(),id=classGroupId;
       paintGroupDetail();
       Promise.all([loadGroupDirectory(),!lmServerReady&&typeof stageQueueLessons==='function'?stageQueueLessons():Promise.resolve(),!examReady?examPull():Promise.resolve(),!classGroupsReady?groupPull():Promise.resolve()]).then(()=>{
-        if(key===groupDirectoryKey()&&id===classGroupId&&document.querySelector('section.on')?.id==='groupdetail')paintGroupDetail();
+        if(key===groupDirectoryKey()&&id===classGroupId&&['groupdetail','groupteachers','groupstudents'].includes(document.querySelector('section.on')?.id))paintGroupPeople();
       }).catch(error=>{if(key===groupDirectoryKey())window.LearningMain?.notice?.(error.message,true);});
     }
     document.addEventListener('click',event=>{
@@ -65,11 +74,13 @@
       const group=classGroups.find(row=>row.id===classGroupId);
       if(event.target.closest('[data-group-directory-retry]')){groupDirectory=null;if(document.querySelector('section.on')?.id==='groupdetail')prepareGroupDetail();else paintGroups();return;}
       if(!group)return;
+      const people=event.target.closest('[data-detail-people]');
+      if(people){document.getElementById('groupStudentSearch').value='';visit(people.dataset.detailPeople==='teachers'?'groupteachers':'groupstudents');}
       if(event.target.closest('[data-detail-lessons]'))visit('days');
       const exam=event.target.closest('[data-detail-exam]');
       if(exam||event.target.closest('[data-detail-exams]')){
         examViewGroup=group.id;examViewLevel=accountGroupLevel(group);examSection='active';
-        if(exam){examCurrentId=domEntityId(exam.dataset.detailExam);visit('examblocks');}else visit('exams');
+        if(exam){void examOpenSelected(exam.dataset.detailExam);}else visit('exams');
       }
       if(event.target.closest('[data-account-teacher-toggle],[data-account-group]'))groupDirectory=null;
     });

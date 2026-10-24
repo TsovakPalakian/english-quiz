@@ -1,5 +1,5 @@
     function archiveLabel(type) {
-      return { lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
+      return { account:'Accounts',lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
     }
     let archivePaintToken = 0;
     function paintArchive() {
@@ -10,17 +10,19 @@
         if (token !== archivePaintToken || authUser?.id !== actor || generation !== viewGen || viewAccount) return;
         const items = Array.isArray(data && data.items) ? data.items : [];
         if (!items.length) { box.innerHTML = '<p class="hint">Archive is empty.</p>'; return; }
-        const groups = {};
-        items.forEach((item) => { (groups[item.type] || (groups[item.type] = [])).push(item); });
-        box.innerHTML = Object.keys(groups).map((type) => '<div class="archive-group"><h2 class="lib-h">' + esc(archiveLabel(type)) + '</h2>' + groups[type].map((item) => {
+        const owners=new Map();
+        items.forEach(item=>{const key=isDeveloper()?item.archivedBy||'legacy':actor;if(!owners.has(key))owners.set(key,{name:item.archivedByName||'Unknown teacher',items:[]});owners.get(key).items.push(item);});
+        box.innerHTML=[...owners.values()].map(owner=>{
+        const groups={};owner.items.forEach(item=>(groups[item.type]||(groups[item.type]=[])).push(item));
+        return (isDeveloper()?'<h2>'+esc(owner.name)+'</h2>':'')+Object.keys(groups).map((type) => '<div class="archive-group"><h3 class="lib-h">' + esc(archiveLabel(type)) + '</h3>' + groups[type].map((item) => {
           const when = item.archivedAt ? new Date(item.archivedAt * 1000).toLocaleString() : "";
           const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
-          const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Remove from archive";
+          const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Delete";
           const icon = (path) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
-          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '" aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
+          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
           const label = 'Deleted by ' + (item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + when : "") + hidden;
           return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
-        }).join("") + "</div>").join("");
+        }).join("") + "</div>").join("");}).join('');
       };
       const cached = window.LearningMain.archiveSnapshot?.();
       if (cached) render(cached);
@@ -38,10 +40,12 @@
         if (!password) return;
       }
       if (action === "remove" && isDeveloper() && !confirm("Delete this material permanently? This cannot be undone.")) return;
+      if(action==='remove'&&type==='account'&&!isDeveloper()&&!confirm('Delete this account from the teachers’ archive? Its data will remain available only to the developer.'))return;
       window.LearningMain.perform(async () => {
         viewCache.delete('archive:' + raw);
         if (action === "restore") await window.LearningMain.restoreArchive(type, id);
         else await window.LearningMain.removeArchive(type, id, password);
+        if(type==='account'){groupDirectory=null;classGroupsReady=false;examReady=false;adminAccounts=[];viewCache.delete('admin');}
         paintArchive();
       });
     }
@@ -74,6 +78,10 @@
         if (archivePreviewContext !== job || authUser?.id !== job.actor || viewGen !== job.generation || viewAccount) return;
         const media = '/api/archive/media?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
         document.getElementById("archivePreviewTitle").textContent = data.title || "Archived material";
+        if(type==='account'){
+          body.innerHTML='<p>'+esc(data.account?.name||'')+'</p><p>'+esc(data.account?.login||'')+'</p><p>'+esc(data.account?.email||'')+'</p>';
+          return;
+        }
         body.innerHTML = (data.documents || []).map(doc => '<article class="lm-read"><h3>' + esc(doc.title || "") + '</h3><p>' + esc(doc.description || "") + '</p>' + (doc.blocks || []).map(part => {
           const block = { ...part };
           if (part.fileId || part.localMediaKey || !part.remoteUrl && !part.sample && (part.hasFile || part.name) && ['image','audio','pronunciation','pdf','file'].includes(part.type)) { block.archiveMediaUrl = new URL(media + '&fileId=' + encodeURIComponent(part.fileId || part.id), location.origin).href; delete block.fileId; }

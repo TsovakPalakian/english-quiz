@@ -432,11 +432,12 @@
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canEditLessons() {
+      if(typeof materialReviewStudent!=='undefined'&&materialReviewStudent)return false;
       if (viewAccount) return sessionIsDeveloper();
       return !!(authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function canTuneStudentLessons() {
-      return !!(viewAccount && authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
+      return !!((viewAccount || typeof materialReviewStudent!=='undefined'&&materialReviewStudent) && authUser && (authUser.role === "ADMIN" || authUser.role === "DEVELOPER"));
     }
     function isDeveloper() {
       if (viewAccount) return false;

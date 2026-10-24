@@ -674,7 +674,8 @@ test('Archive preserves materials, records the actor, restores them, and lets te
     assert.equal((await archive.list(teacher)).items.length,0);
     items=(await archive.list(developer)).items;assert.equal(items.length,1);assert.ok(items[0].teacherHiddenAt);
     await archive.archive(student,{type:'card',id:3});
-    assert.equal((await archive.list(student)).items.length,1);assert.equal((await archive.list(teacher)).items.length,1);
+    assert.equal((await archive.list(student)).items.length,1);assert.equal((await archive.list(teacher)).items.length,0,'Each teacher sees only their own archive');
+    await assert.rejects(archive.restore({id:'another-teacher',role:'ADMIN'},{type:'card',id:3}),error=>error.status===404);
     await archive.remove(student,{type:'card',id:3});
     assert.equal((await archive.list(student)).items.length,0);assert.equal((await archive.list(teacher)).items.length,0);
     assert.equal((await archive.list(developer)).items.length,2);

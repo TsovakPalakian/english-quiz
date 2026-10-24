@@ -3417,11 +3417,12 @@ async function decideChange(env, actor, changeId, action) {
 }
 
 async function forgetUser(env, userId, email) {
-  await patchDirectory(env, (directory) => {
+  const saved=await patchDirectory(env, (directory) => {
     directory.users = directory.users.filter((item) => item && item.id !== userId);
     directory.registrations = directory.registrations.filter((item) => item && item.user_id !== userId && item.email !== email);
     directory.changes = directory.changes.filter((item) => item && item.user_id !== userId);
   });
+  if(!saved)throw new Error('Account directory cleanup failed. Retry deletion.');
 }
 
 function forReviewer(actor, rows, users) {
@@ -3683,6 +3684,7 @@ async function deleteAccountFiles(env, userId) {
 
 async function deleteAccount(env, actor, userId) {
   if (!actor || actor.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
+  if(env.ACCOUNT_ARCHIVE_DELETE_ID!==userId)return json({error:'Archive the account before permanent deletion.'},409);
   if (actor.id === userId) return json({ error: "You can't delete your own account." }, 400);
   const row = await env.DB.prepare("SELECT id, role, email FROM users WHERE id = ?").bind(userId).first();
   if (!row) return json({ error: "No such account." }, 404);
@@ -3691,16 +3693,15 @@ async function deleteAccount(env, actor, userId) {
   try {
     await deleteAccountFiles(env, userId);
   } catch (e) {
-    const marked = await accountMediaGone(env, userId);
-    if (!marked) return json({ error: "Could not delete account files. Try again." }, 503);
+    return json({ error: "Could not delete account files. Try again." }, 503);
   }
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_state WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_added WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM user_card_gone WHERE user_id = ?").bind(userId));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM registrations WHERE user_id = ? OR email = ?").bind(userId, row.email));
   await ignoreMissingTable(env.DB.prepare("DELETE FROM account_changes WHERE user_id = ?").bind(userId));
-  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
   await forgetUser(env, userId, row.email);
+  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run();
   return json({ ok: true });
 }
 

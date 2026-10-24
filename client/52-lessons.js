@@ -1726,9 +1726,9 @@
       groupNormalize();
       const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
       const title = document.getElementById("lmGroupTitle");
-      if (title) title.textContent = group?.title || "Lessons";
+      if (title) title.textContent = 'Lessons';
       const name = document.getElementById("lmGroupName");
-      if (name) name.innerHTML = metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
+      if (name) name.innerHTML = esc(group?.title||'')+' · '+metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
