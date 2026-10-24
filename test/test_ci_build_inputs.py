@@ -88,6 +88,39 @@ class BuildInputsTests(unittest.TestCase):
             self.assertFalse((destination / ".env").exists())
             self.assertEqual((destination / "wrangler.toml").stat().st_mode & 0o777, 0o600)
 
+    def test_wordnet_pack_restores_only_the_three_dictionary_files(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as target:
+            root = Path(source)
+            (root / inputs.MEDIA).mkdir(parents=True)
+            (root / "wrangler.toml").write_text('name = "fixture"\n')
+            wordnet = root / inputs.WORDNET
+            wordnet.mkdir(parents=True)
+            for name in inputs.WORDNET_FILES:
+                (wordnet / name).write_text("dictionary fixture " + name)
+            (wordnet / "wordnet.sqlite-wal").write_text("not an input")
+            (root / "accounts.sqlite").write_text("private accounts")
+            output = root / ".local-secrets/wordnet-inputs.tar.gz"
+            with patch("builtins.print"):
+                inputs.pack(root, output, include_wordnet=True)
+            destination = Path(target)
+            self.restore(destination, output.read_bytes())
+            for name in inputs.WORDNET_FILES:
+                self.assertEqual((destination / inputs.WORDNET / name).read_bytes(), (wordnet / name).read_bytes())
+            self.assertFalse((destination / "accounts.sqlite").exists())
+            self.assertFalse((destination / inputs.WORDNET / "wordnet.sqlite-wal").exists())
+            before = output.read_bytes()
+            with self.assertRaises(FileExistsError):
+                inputs.pack(root, output, include_wordnet=True)
+            self.assertEqual(output.read_bytes(), before)
+
+    def test_rejects_partial_wordnet_and_other_sqlite_files(self):
+        for name in [inputs.WORDNET + "/manifest.json", inputs.WORDNET + "/accounts.sqlite", "private/accounts.sqlite"]:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as target:
+                root = Path(target)
+                with self.assertRaises(ValueError):
+                    self.restore(root, self.archive([("wrangler.toml", "file"), (name, "file")]))
+                self.assertFalse((root / "wrangler.toml").exists())
+
     def test_rejects_traversal_links_duplicates_and_unexpected_files(self):
         for entries in [[("../outside", "file")], [("/outside", "file")], [("wrangler.toml", "symlink")], [(".env", "file")], [("wrangler.toml", "file"), ("wrangler.toml", "file")]]:
             with self.subTest(entries=entries), tempfile.TemporaryDirectory() as directory:

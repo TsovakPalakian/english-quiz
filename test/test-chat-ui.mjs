@@ -4,6 +4,7 @@ import {readFileSync,existsSync,mkdtempSync,writeFileSync,mkdirSync,rmSync} from
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import {runInNewContext} from 'node:vm';
+import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
 import {stageContentPolicy} from '../src/learning-embed.mjs';
 import {everydayGroups} from '../src/essential-data.mjs';
@@ -233,7 +234,14 @@ try{
   await page.locator('[data-msg-id="'+photoMsg.id+'"]').click({button:'right'});await page.locator('[data-context-action="copy-media"]').click();await page.locator('#msgStatus').filter({hasText:'Photo copied.'}).waitFor();
   const audioPlayer=page.locator('[data-msg-id="'+voice.id+'"] .chat-audio');await audioPlayer.locator('[data-audio-play]').click();await page.waitForFunction(id=>!document.querySelector('[data-msg-id="'+id+'"] audio').paused,voice.id);await audioPlayer.locator('[data-audio-play]').click();assert.equal(await audioPlayer.locator('audio').evaluate(n=>n.paused),true);await Promise.resolve();
   await page.locator('[data-msg-id="'+voice.id+'"]').click({button:'right'});await page.locator('[data-context-action="forward"]').click();await page.locator('dialog[open] [data-contact-index="1"]').click();await page.locator('dialog[open]').waitFor({state:'hidden'});const forwardedVoice=page.locator('.is-own audio').last();await forwardedVoice.evaluate(async n=>{await n.play();});await page.waitForFunction(()=>[...document.querySelectorAll('.is-own audio')].at(-1).currentTime>0);assert.ok(await forwardedVoice.evaluate(n=>n.duration>0&&n.error===null));await forwardedVoice.evaluate(n=>n.pause());
-  const webm=Buffer.from(await page.evaluate(async()=>{const canvas=document.createElement('canvas');canvas.width=160;canvas.height=90;const context=canvas.getContext('2d'),stream=canvas.captureStream(10),recorder=new MediaRecorder(stream,{mimeType:'video/webm'}),chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);const done=new Promise(resolve=>recorder.onstop=resolve);recorder.start();context.fillStyle='#000000';context.fillRect(0,0,160,90);await new Promise(resolve=>setTimeout(resolve,40));context.fillStyle='#008080';context.fillRect(0,0,160,90);await new Promise(resolve=>setTimeout(resolve,100));context.fillStyle='#ef4444';context.fillRect(20,20,40,40);await new Promise(resolve=>setTimeout(resolve,200));context.fillStyle='#000000';context.fillRect(0,0,160,90);await new Promise(resolve=>setTimeout(resolve,100));recorder.stop();await done;stream.getTracks().forEach(t=>t.stop());return [...new Uint8Array(await new Blob(chunks).arrayBuffer())];}));
+  const videoDirectory=mkdtempSync(testTempRoot()+'/chat-video-fixture-');let webm;
+  try{
+    const videoPath=resolve(videoDirectory,'fixture.webm');
+    // Fixed timestamps keep black boundary frames out of the coloured playback interval.
+    const encoded=spawnSync('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=0x008080:s=160x90:r=30:d=0.5','-vf',"drawbox=x=20:y=20:w=40:h=40:color=0xef4444:t=fill,drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill:enable='lt(t,0.04)+gte(t,0.4)'",'-an','-c:v','libvpx','-deadline','realtime','-cpu-used','8','-pix_fmt','yuv420p',videoPath],{timeout:30000,maxBuffer:1024*1024});
+    assert.ifError(encoded.error);assert.equal(encoded.status,0,encoded.stderr?.toString());
+    webm=readFileSync(videoPath);
+  }finally{rmSync(videoDirectory,{recursive:true,force:true});}
   await page.locator('#msgFile').setInputFiles({name:'Clip.webm',mimeType:'video/webm',buffer:webm});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0);const clip=rows.find(r=>r.files?.[0]?.name==='Clip.webm');await page.locator('[data-msg-id="'+clip.id+'"]').click({button:'right'});await page.locator('[data-context-action="forward"]').click();await page.locator('dialog[open] [data-contact-index="1"]').click();await page.locator('dialog[open]').waitFor({state:'hidden'});const forwardedVideo=page.locator('.is-own video').last();await forwardedVideo.evaluate(async n=>{await n.play();});await page.waitForFunction(()=>[...document.querySelectorAll('.is-own video')].at(-1).videoWidth===160);assert.equal(await forwardedVideo.evaluate(n=>n.error),null);await forwardedVideo.evaluate(n=>n.pause());
   await page.locator('[data-msg-id="'+clip.id+'"]').click({button:'right'});await Promise.resolve();await page.locator('#msgText').click();
   await page.locator('#msgFile').setInputFiles({name:'video-123456.webm',mimeType:'video/webm',buffer:webm});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0);

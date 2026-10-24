@@ -1,5 +1,6 @@
 """Pack or restore only the production builder's non-repository inputs."""
 import hashlib
+import argparse
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -12,6 +13,8 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent.parent
 LIMIT = 512 * 1024 * 1024
 MEDIA = "private/private-migration-media"
+WORDNET = "private/wordnet-3.0"
+WORDNET_FILES = ("manifest.json", "wordnet.sqlite", "LICENSE")
 R2_ACCOUNT = "42a9ebe47d529e3664b914aaf0813a21"
 R2_BUCKET = "learn-english-ci-inputs"
 
@@ -53,29 +56,36 @@ def allowed(name, directory=False):
     if name.startswith("/") or ".." in parts or "\\" in name:
         return False
     if directory:
-        return name.rstrip("/") in ("private", MEDIA)
-    return name == "wrangler.toml" or bool(re.fullmatch(MEDIA + r"/[a-f0-9]{64}\.bin", name))
+        return name.rstrip("/") in ("private", MEDIA, WORDNET)
+    return name == "wrangler.toml" or name in {WORDNET + "/" + item for item in WORDNET_FILES} or bool(re.fullmatch(MEDIA + r"/[a-f0-9]{64}\.bin", name))
 
 
-def pack():
-    directory = ROOT / MEDIA
-    files = [ROOT / "wrangler.toml", *sorted(directory.glob("*.bin"))]
-    if not directory.is_dir() or not files[0].is_file() or len(files) > 33:
+def pack(source_root=None, destination=None, include_wordnet=False):
+    root = Path(source_root or ROOT).resolve()
+    directory = root / MEDIA
+    media = sorted(directory.glob("*.bin"))
+    files = [root / "wrangler.toml", *media]
+    if not directory.is_dir() or directory.is_symlink() or not files[0].is_file() or len(media) > 32:
         raise ValueError("missing or invalid build inputs")
+    if include_wordnet:
+        wordnet = root / WORDNET
+        if not wordnet.is_dir() or wordnet.is_symlink():
+            raise ValueError("missing private WordNet directory")
+        files.extend(wordnet / name for name in WORDNET_FILES)
     if sum(path.stat().st_size for path in files) > LIMIT:
         raise ValueError("build inputs exceed size limit")
     for path in files:
-        if path.is_symlink() or not allowed(path.relative_to(ROOT).as_posix()):
+        if not path.is_file() or path.is_symlink() or not path.resolve().is_relative_to(root) or not allowed(path.relative_to(root).as_posix()):
             raise ValueError("invalid build input")
         if path.suffix == ".bin" and hashlib.sha256(path.read_bytes()).hexdigest() != path.stem:
             raise ValueError("media checksum mismatch")
-    destination = ROOT / ".local-secrets/ci-build-inputs.tar.gz"
+    destination = Path(destination) if destination else root / ".local-secrets/ci-build-inputs.tar.gz"
     destination.parent.mkdir(mode=0o700, exist_ok=True)
     with destination.open("xb") as output:
         os.chmod(destination, 0o600)
         with tarfile.open(fileobj=output, mode="w:gz") as archive:
             for path in files:
-                archive.add(path, arcname=path.relative_to(ROOT).as_posix(), recursive=False)
+                archive.add(path, arcname=path.relative_to(root).as_posix(), recursive=False)
     print(destination)
     print("SHA256=" + hashlib.sha256(destination.read_bytes()).hexdigest())
     print("Private archive created locally; no upload was performed.")
@@ -124,6 +134,9 @@ def restore():
                 entries.append(member)
             if "wrangler.toml" not in names:
                 raise ValueError("production configuration missing")
+            wordnet_files = {WORDNET + "/" + name for name in WORDNET_FILES}
+            if names & wordnet_files and not wordnet_files <= names:
+                raise ValueError("incomplete WordNet archive")
             for member in entries:
                 if member.isdir():
                     continue
@@ -141,8 +154,13 @@ def restore():
 
 if __name__ == "__main__":
     try:
-        if sys.argv[1:] == ["pack"]:
-            pack()
+        if sys.argv[1:2] == ["pack"]:
+            parser = argparse.ArgumentParser(description="Pack approved private CI inputs without overwriting output.")
+            parser.add_argument("--source-root", type=Path)
+            parser.add_argument("--output", type=Path)
+            parser.add_argument("--include-wordnet", action="store_true")
+            args = parser.parse_args(sys.argv[2:])
+            pack(args.source_root, args.output, args.include_wordnet)
         elif sys.argv[1:] == ["restore"]:
             restore()
         else:
