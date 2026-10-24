@@ -1877,10 +1877,8 @@
         if (document.querySelector('section.on')?.id === 'daysetup') refreshDaySetupTime();
       });
     });
-    document.getElementById("dayExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("dayMistakes").onclick = () => openMistakes(quizPool());
     document.getElementById("studyStart").onclick = () => beginQuiz(false);
-    document.getElementById("studyExam").onclick = (e) => { if (!e.target.closest("[data-exam-pass]")) beginQuiz(true); };
     document.getElementById("studyMistakes").onclick = () => openMistakes(allStudyCards());
     document.getElementById("dayq").addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
