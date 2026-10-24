@@ -33,11 +33,12 @@ try{
       data={email:'preview@example.invalid'};
     }
     if(path==='/api/database-context')data={provider:'d1',revision:3,scope:'site'};
+    if(path==='/api/auth/providers')data={google:true,microsoft:false,telegram:false};
     if(path==='/api/me'||path==='/api/me/account')data={user};
     if(path==='/api/accounts/invites')data={kind:'teacher',groupTitle:'A1 Fixture group',expiresAt:Date.now()+3*86400000};
     if(path==='/api/register'){
       const body=route.request().postDataJSON();
-      assert.equal(body.role,'ADMIN');assert.equal(body.emailCode,'123456');assert.equal(body.invite,'teacher-fixture');
+      assert.equal(body.role,undefined);assert.equal(body.emailCode,'123456');assert.equal(body.invite,'teacher-fixture');
       data={status:'pending'};
     }
     if(path==='/api/me/state')data={bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}};
@@ -75,7 +76,9 @@ try{
     await page.screenshot({path:'/private/tmp/lumiscia-guest-'+width+'.png'});
   }
   await page.setViewportSize({width:1440,height:960});
-  await page.evaluate(()=>window.enquizVisit('account'));
+  await page.evaluate(()=>window.enquizVisit('home'));
+  await page.locator('#homeAuth [data-account="show-login"]').click();
+  await page.locator('#loginForm').waitFor({state:'visible'});
   assert.equal(await page.locator('#account').evaluate(node=>getComputedStyle(node).userSelect),'none');
   assert.equal(await page.locator('#loginForm input').first().evaluate(node=>getComputedStyle(node).userSelect),'text');
   for(const width of [390,1440]){
@@ -99,25 +102,25 @@ try{
   assert.equal(await page.locator('[data-google-auth] > svg.auth-google-icon').count(),1);
   assert.equal(await page.locator('[data-google-auth]').innerText(),'Continue with Google');
   assert.equal(await page.locator('.side').isVisible(),false,'Guest registration has no sidebar');
-  assert.equal(await page.locator('#registerForm input[name="role"]').count(),2);
-  await page.locator('#registerForm input[value="ADMIN"]').check();
-  assert.equal(await page.evaluate(()=>new FormData(document.getElementById('registerForm')).get('role')),'ADMIN');
+  assert.equal(await page.locator('#registerForm input[name="role"]').count(),0,'Open registration has no self-serve role choice');
+  assert.equal(await page.locator('[data-registration-providers]').isVisible(),true,'Configured Google appears on registration');
   await page.locator('#authPassword').fill('preview-only');
   await page.locator('[data-auth-password]').click();assert.equal(await page.locator('#authPassword').getAttribute('type'),'text');
   await page.locator('[data-auth-password]').click();assert.equal(await page.locator('#authPassword').getAttribute('type'),'password');
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000});
     await page.evaluate(()=>window.scrollTo(0,0));
-    await page.locator('.auth-tabs [data-account="show-login"]').click();
+    await page.locator('[data-studio-back]').click();
     assert.equal(await page.locator('#loginForm').isVisible(),true);
+    assert.match(await page.locator('[data-studio-back]').textContent(),/Back to home/);
     await page.locator('.auth-create [data-account="show-register"]').click();
-    const buttons=await page.locator('.auth-tabs button').evaluateAll(nodes=>nodes.map(node=>({left:node.getBoundingClientRect().left,right:node.getBoundingClientRect().right,border:getComputedStyle(node).borderTopStyle})));
-    assert.ok(buttons[1].left-buttons[0].right>=10&&buttons.every(button=>button.border==='solid'),'Auth tabs have separate borders and gap');
+    assert.equal(await page.locator('#accountBody .auth-tabs').count(),0,'Registration uses Back to log in, not tabs');
+    assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Auth fits '+width);
     assert.ok(await page.locator('.account-gate .card').evaluate(node=>node.getBoundingClientRect().width<=440),'Compact auth form');
     await page.screenshot({path:'/private/tmp/lumiscia-register-'+width+'.png',fullPage:true});
   }
-  await page.locator('.auth-tabs [data-account="show-login"]').click();
+  await page.locator('[data-studio-back]').click();
   await page.locator('.auth-providers [data-login-mode="otp"]').click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
   assert.equal(await page.locator('#otpCode').isVisible(),false);
   assert.equal(await page.locator('#otpLoginForm button[type="submit"]').isVisible(),false);
@@ -208,10 +211,11 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port+'/?invite=teacher-fixture');
   await page.waitForFunction(()=>accountChecked);
   await page.evaluate(()=>window.enquizVisit('account'));
-  await page.locator('#account .auth-create [data-account="show-register"]').click();
+  if(!await page.locator('[data-invite-email-send]').count())await page.locator('#account [data-account="show-register"]').first().click();
   await page.locator('[data-invite-email-send]').waitFor();
   await page.locator('#registerForm [name="login"]').fill('InvitedTeacher');
   await page.locator('#registerForm [name="email"]').fill('preview@example.invalid');
+  await page.locator('#registerForm [name="name"]').fill('Invited Teacher');
   await page.locator('#registerForm [name="password"]').fill('password1');
   await page.locator('[data-invite-email-send]').click();
   await page.locator('[name="emailCode"]:visible').waitFor();

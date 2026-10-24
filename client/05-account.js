@@ -369,6 +369,7 @@
       if (!hello) return;
       hello.textContent = authUser ? (authUser.firstLogin ? "Welcome! Let's get started" : "Welcome back") : signedOutHello ? "See you soon" : "Hello!";
       hello.style.visibility = accountChecked ? "" : "hidden";
+      document.body?.classList?.toggle("guest-goodbye", !authUser && !!signedOutHello && !!accountChecked);
       const guestActions = document.getElementById("homeAuth");
       if (guestActions) guestActions.hidden = !!authUser || !accountChecked;
     }

@@ -14,6 +14,7 @@ import {SongMediaService} from './learning-song-media.mjs';
 import {ThemeMediaService} from './learning-theme-media.mjs';
 import {LessonMediaService} from './learning-lesson-media.mjs';
 import {stageR2Media,boundedMediaBytes} from './learning-r2-media.mjs';
+import {parseLessonPdfMeta,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
 import {inlineAssetResponse} from './learning-inline-assets.mjs';
 import {ensureStudyProfile} from './learning-profile.mjs';
 import {projectStudentCatalog} from './learning-legacy-read.mjs';
@@ -141,7 +142,9 @@ export default {async fetch(request,env){
     const themePhoto=path.match(/^\/api\/me\/themes\/(user-[a-z0-9-]{1,80})\/photo$/);
     const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
+    const pdfMeta=path==='/api/lessons/parse-pdf'&&method==='POST';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
+      ||pdfMeta
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
@@ -210,6 +213,17 @@ export default {async fetch(request,env){
         return json(await speakoutLesson(db,actor,value,undefined,stageR2Media(env)));
       }
       return json(await speakoutLesson(db,actor,{level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson'))},undefined,stageR2Media(env),url.searchParams.get('revision')==='1'));
+    }
+    if(pdfMeta){
+      if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only a teacher can analyse a lesson PDF.');
+      if(env.LEARNING_LANGUAGE_NETWORK!=='true')throw new StudyError(503,'Language network is off.');
+      const mime=request.headers.get('content-type')?.split(';')[0].trim()||'';
+      if(mime!=='application/pdf')throw new StudyError(415,'Send a PDF.');
+      const declared=request.headers.get('content-length');
+      if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>LESSON_PDF_META_MAX_BYTES))throw new StudyError(413,'PDF must be under 25 MB.');
+      const bytes=await boundedMediaBytes(request);
+      if(bytes.length>LESSON_PDF_META_MAX_BYTES)throw new StudyError(413,'PDF must be under 25 MB.');
+      return json(await parseLessonPdfMeta({bytes,apiKey:env.WORKBENCH_GEMINI_KEY||'',model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',fetchImpl:globalThis.fetch}));
     }
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];

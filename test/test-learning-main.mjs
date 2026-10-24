@@ -2240,7 +2240,7 @@ test('Page restoration keeps examination identity separate from lesson IDs',()=>
   const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',examFind:()=>null,authUser:{role:'USER'},
     workFromLocation:()=>false,sessionStorage:{getItem:()=>JSON.stringify(place)},document:{getElementById:()=>({})},
     lmEnsure(){throw Error('Exam restoration must not search lessons');},examOpenBlock:id=>opened.push(id),show(){}};
-  runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace() {')),scope);
+  runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace(target) {')),scope);
   scope.resumePlace();assert.equal(scope.lmState,examDoc);assert.equal(opened.length,0);
   scope.lmState={id:8};scope.resumePlace();assert.deepEqual(opened,[8]);assert.equal(scope.examCurrentId,9);
   const written=[];

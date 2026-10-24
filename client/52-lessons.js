@@ -1567,6 +1567,53 @@
         }
       });
     }
+    function lmPdfImportStatus(text, bad) {
+      const note = document.getElementById("lmPdfImportStatus");
+      if (note) {
+        note.hidden = !text;
+        note.textContent = text || "";
+        note.classList.toggle("bad", !!bad);
+      }
+    }
+    function lmImportPdfMeta(file) {
+      if (!canEditLessons() || !lmState || !file) return;
+      if ((file.type && file.type !== "application/pdf") || (!file.type && !/\.pdf$/i.test(file.name || ""))) {
+        lmPdfImportStatus("Choose a PDF file.", true);
+        return;
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        lmPdfImportStatus("PDF must be under 25 MB.", true);
+        return;
+      }
+      const drop = document.querySelector("[data-lesson-pdf-import]");
+      const input = document.querySelector("[data-lesson-pdf-import-file]");
+      if (drop) drop.classList.add("is-busy");
+      lmPdfImportStatus("Analysing PDF…", false);
+      accountFetch("/api/lessons/parse-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: file,
+      }).then((data) => {
+        if (!lmState || !canEditLessons()) return;
+        const title = String(data.title || "").trim().slice(0, 80);
+        const description = String(data.description || "").trim().slice(0, 240);
+        if (!title || !description) throw new Error("Could not analyse this PDF.");
+        lmState.title = title;
+        lmState.description = description;
+        const titleField = document.getElementById("lmTitle");
+        const descriptionField = document.getElementById("lmDescription");
+        if (titleField) titleField.value = title;
+        if (descriptionField) descriptionField.value = description;
+        window.TextColors?.sync(descriptionField, lmState.descriptionFormatting);
+        lmSchedule();
+        lmPdfImportStatus("Title and Description filled. Review before publish.", false);
+      }).catch((error) => {
+        lmPdfImportStatus(error.message || "Could not analyse this PDF.", true);
+      }).finally(() => {
+        if (drop) drop.classList.remove("is-busy");
+        if (input) input.value = "";
+      });
+    }
     function lmClearFile(id) {
       const block = lmBlock(id);
       if (block) { block.name = ""; block.size = ""; block.sample = false; block.hasFile = false; block.fileType = ""; }
@@ -1942,6 +1989,8 @@
           lmApplyTextFont(rich, block, { family: fontFamily.value });
           return;
         }
+        const importPdf = event.target.closest("[data-lesson-pdf-import-file]");
+        if (importPdf && importPdf.files && importPdf.files[0]) { lmImportPdfMeta(importPdf.files[0]); return; }
         const file = event.target.closest("[data-file], [data-pdf]");
         if (file && file.files && file.files[0]) lmTakeFile(file.dataset.file || file.dataset.pdf, file.files[0]);
         const correct = event.target.closest("[data-correct]");
@@ -2213,8 +2262,9 @@
       lmRoot.addEventListener("drop", (event) => {
         const drop = event.target.closest(".lm-drop");
         if (drop) {
-          const input = drop.querySelector("[data-file], [data-pdf]");
           const file = event.dataTransfer.files && event.dataTransfer.files[0];
+          if (drop.hasAttribute("data-lesson-pdf-import") && file) { event.preventDefault(); lmImportPdfMeta(file); return; }
+          const input = drop.querySelector("[data-file], [data-pdf]");
           if (input && file) { event.preventDefault(); lmTakeFile(input.dataset.file || input.dataset.pdf, file); }
           return;
         }

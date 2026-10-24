@@ -22,7 +22,7 @@
   addEventListener('wheel',e=>pan(e,e.deltaX,e.deltaY),{passive:false});
   addEventListener('touchstart',e=>{touch=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null;},{passive:true});
   addEventListener('touchmove',e=>{if(touch&&e.touches.length===1){const p=e.touches[0];pan(e,touch.x-p.clientX,touch.y-p.clientY);touch={x:p.clientX,y:p.clientY};}},{passive:false});
-  let redraw=null,refreshText=null;
+  let redraw=null,refreshText=null,frozen=null;
   let recent=[];
   try{recent=JSON.parse(sessionStorage.getItem('lumiscia-catalogue-sky-recent')||'[]');if(!Array.isArray(recent))recent=[];}catch{}
   function next(){
@@ -104,7 +104,7 @@
       canvas.dataset.skyFigureSize=String(result.diagnostic.size||0);
       return result.layout;
     }
-    let current=next(),previous=null,layout=chooseLayout(current),slots=[],phase='gather',phaseStart=performance.now();
+    let current=frozen?.constellation||next(),previous=null,layout=chooseLayout(current),slots=[],phase=frozen?'hold':'gather',phaseStart=performance.now();
     const durations={gather:15000,hold:8000,morph:18000};
     function target(nextLayout){
       labels=[];links.forEach(n=>n.hidden=true);
@@ -117,6 +117,29 @@
       });
     }
     target(layout);
+    if(frozen)labels=layout?.labels||[];
+    let freezeTimer=0;
+    function pauseReturn(){
+      clearTimeout(freezeTimer);
+      if(frozen)frozen.resumeAt=null;
+    }
+    function resumeReturn(){
+      if(!frozen||document.hidden||!document.hasFocus())return;
+      if(frozen.resumeAt===null)frozen.resumeAt=performance.now()+5000;
+      clearTimeout(freezeTimer);
+      freezeTimer=setTimeout(()=>{
+        if(stopped||!frozen)return;
+        if(document.hidden||!document.hasFocus()){pauseReturn();return;}
+        frozen=null;advance(performance.now());
+        if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
+      },Math.max(0,frozen.resumeAt-performance.now()));
+    }
+    function freezeFigure(){
+      frozen={constellation:current,at:performance.now(),resumeAt:null};
+      resumeReturn();
+      if(motion.matches)render(performance.now());
+    }
+    const onVisibility=()=>{if(document.hidden)pauseReturn();else resumeReturn();};
     const ease=t=>t<.5?2*t*t:1-(-2*t+2)**2/2;
     function advance(now){
       if(phase==='hold'){
@@ -152,9 +175,11 @@
     function render(now){
       if(stopped)return;
       const delta=lastTime===null?1:Math.min(3,(now-lastTime)/16.6667);lastTime=now;clock+=delta;
-      if(!motion.matches&&now-phaseStart>durations[phase])advance(now);
-      const t=phase==='hold'?1:ease(Math.min(1,(now-phaseStart)/durations[phase]));
+      const phaseNow=frozen?frozen.at:now;
+      if(!frozen&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
+      const t=phase==='hold'?1:ease(Math.min(1,(phaseNow-phaseStart)/durations[phase]));
       canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=current.abbr;
+      canvas.dataset.skyFrozen=String(!!frozen);
       canvas.dataset.skyScale=String(constellationScale);
       canvas.dataset.skyBackgroundBrightness=String(brightness.background);
       canvas.dataset.skyConstellationBrightness=String(brightness.constellation);
@@ -204,7 +229,7 @@
         }else{link.textContent=b.star.label;delete link.dataset.caption;link.title=b.star.label;}
         link.href=b.star.caption?'https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name):'https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(b.star.hip?'HIP '+b.star.hip:b.star.label);
         link.style.left=b.left+'px';link.style.top=b.top+'px';link.style.width=(b.right-b.left)+'px';link.style.height=(b.bottom-b.top)+'px';
-        const elapsed=now-phaseStart;link.style.opacity=motion.matches?'1':String(ease(Math.min(1,elapsed/1500))*(1-ease(Math.max(0,(elapsed-(durations.hold-1800))/1800))));
+        const elapsed=phaseNow-phaseStart;link.style.opacity=motion.matches||frozen?'1':String(ease(Math.min(1,elapsed/1500))*(1-ease(Math.max(0,(elapsed-(durations.hold-1800))/1800))));
       });
       if(!motion.matches)frameId=requestAnimationFrame(render);
     }
@@ -212,20 +237,29 @@
       if(phase!=='hold'||event.target.closest('a,button,input,form,select,textarea')||uiRects.some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom))return false;
       return slots.slice(0,current.stars.length).some(s=>s.opacity>.5&&Math.hypot(s.x-event.clientX,s.y-event.clientY)<20);
     }
-    const onClick=event=>{if(hit(event))window.open('https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name),'_blank','noopener,noreferrer');};
+    const onClick=event=>{
+      if(event.defaultPrevented||event.button!==0)return;
+      const caption=event.target.closest('.auth-sky-title');
+      if(caption||hit(event)){
+        freezeFigure();
+        if(!caption)window.open('https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name),'_blank','noopener,noreferrer');
+      }
+    };
     const onMove=event=>canvas.classList.toggle('sky-hover',hit(event));
     window.addEventListener('click',onClick);window.addEventListener('mousemove',onMove);
+    window.addEventListener('blur',pauseReturn);window.addEventListener('focus',resumeReturn);document.addEventListener('visibilitychange',onVisibility);
+    resumeReturn();
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
     const mode=document.body.matches('.guest-home')?'home':document.body.matches('.guest-auth')?'account':'';
-    const boxes=mode?uiBoxes(mode):[],key=JSON.stringify([mode,innerWidth,innerHeight,boxes,document.hidden,motion.matches]);
+    const boxes=mode?uiBoxes(mode):[],key=JSON.stringify([mode,innerWidth,innerHeight,boxes,motion.matches]);
     if(key===lifecycle){refreshText?.();return;}lifecycle=key;stop?.();stop=null;canvas.hidden=!mode;
-    if(mode&&!document.hidden)stop=start(mode,boxes);
+    if(mode)stop=start(mode,boxes);else frozen=null;
   }
   new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
   const observer=new ResizeObserver(sync);['home','account'].forEach(id=>{const node=document.getElementById(id);if(node)observer.observe(node);});

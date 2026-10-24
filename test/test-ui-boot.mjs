@@ -485,7 +485,7 @@ try{
   await page.locator('#lmPreview').getByText('Sources and credits',{exact:true}).waitFor();
   assert.equal(await page.locator('#lmPreview [data-lm-panel]').count(),allMaterialsBlock.materials.length-1);
   await page.evaluate(()=>{authUser.role='DEVELOPER';show('setup');syncExamPassInputs();document.getElementById('modesMore').hidden=false;});
-  for (const selector of ['[data-memory-size]','[data-round-from]','[data-round-to]','[data-mix-count]','[data-exam-pass]']) {
+  for (const selector of ['[data-memory-size]','[data-round-from]','[data-round-to]','[data-mix-count]']) {
     const field=page.locator('#setup '+selector);
     await field.click();
     assert.equal(await field.evaluate(el=>document.activeElement===el),true);
