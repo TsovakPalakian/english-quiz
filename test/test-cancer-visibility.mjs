@@ -11,9 +11,11 @@ try{
     const page=await browser.newPage({viewport,reducedMotion:'reduce'});
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
-      assert.ok(body.includes('let current=next(),previous=null')&&body.includes('return result.layout;'));
+      const anchor='let current=frozen?.constellation||next(),previous=null';
+      assert.equal(body.split(anchor).length,2,'Cancer injection anchor occurs exactly once');
+      assert.ok(body.includes('return result.layout;'));
       await route.fulfill({response,body:body
-        .replace('let current=next(),previous=null',"let current=catalogue.find(c=>c.abbr==='Cnc'),previous=null")
+        .replace(anchor,"let current=frozen?.constellation||catalogue.find(c=>c.abbr==='Cnc'),previous=null")
         .replace('return result.layout;','window.cancerLayout=result.layout;return result.layout;')
         .replace('Object.freeze({background:20,constellation:100})','Object.freeze({background:0,constellation:100})')});
     });

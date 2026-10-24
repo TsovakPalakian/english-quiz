@@ -28,7 +28,7 @@ try{
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
       assert.ok(body.includes('let current=frozen?.constellation||next(),previous=null'));
-      await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null','let current=frozen?.constellation||catalogue.find(c=>c.abbr===\'Cru\'),previous=null')});
+      await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null',"let current=frozen?.constellation||(()=>{const c=catalogue.find(c=>c.abbr==='Cru');recent=[...recent.filter(abbr=>abbr!==c.abbr),c.abbr];return c;})(),previous=null")});
     });
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('**/api/auth/password/**',route=>{requests.push({path:new URL(route.request().url()).pathname,body:route.request().postDataJSON()});return route.fulfill({json:{ok:true}});});

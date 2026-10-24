@@ -110,6 +110,11 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       const bytes=await boundedMediaBytes(request);return json(await (upload?service('speech').upload(actor,upload[1],metadata,bytes):service('media').upload(actor,metadata,bytes)));
     }
     const data=await body(request);
+    if(path==='/dictionary/lookup'){
+      if(!['ADMIN','DEVELOPER'].includes(actor.role))fail(403,'Teacher access required.');
+      if(!data||typeof data!=='object'||Array.isArray(data)||Object.keys(data).some(key=>key!=='word')||typeof data.word!=='string'||!data.word.trim()||data.word.length>200)fail(400,'Provide a word of up to 200 characters.');
+      return json(await service('providers').execute('dictionary',{word:data.word.trim()},{signal:request.signal}));
+    }
     if(path==='/legacy/link')return json(await service('mapping').link(actor,data));
     if(path==='/exam-quizzes/assign')return json(await service('examQuizzes').assign(actor,data));
     if(path==='/settings/providers')return json(await service('providers').configure(actor,data));

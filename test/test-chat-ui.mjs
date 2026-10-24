@@ -239,6 +239,7 @@ try{
   await page.locator('#msgFile').setInputFiles({name:'video-123456.webm',mimeType:'video/webm',buffer:webm});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0);
   const round=page.locator('.chat-round-video').first(),roundVideo=round.locator('video');await roundVideo.waitFor();await page.waitForFunction(()=>{const v=document.querySelector('.chat-round-video video');return v&&!v.paused&&v.videoWidth>0;});assert.equal(await roundVideo.evaluate(n=>n.muted),true);assert.equal(await round.evaluate(n=>getComputedStyle(n).borderRadius),'50%');assert.ok(await round.evaluate(n=>Math.abs(n.clientWidth-n.clientHeight)<=1));
   await round.locator('[data-round-sound]').click();assert.equal(await roundVideo.evaluate(n=>n.muted),false);await round.locator('[data-round-sound]').click();assert.equal(await roundVideo.evaluate(n=>n.muted),true);await Promise.resolve();
+  await round.locator('video[poster^="data:image/jpeg"]').waitFor({state:'attached'});
   assert.match(await roundVideo.getAttribute('poster'),/^data:image\/jpeg/);
   const videoPixels=()=>round.locator('canvas').evaluate(n=>[...n.getContext('2d').getImageData(120,120,1,1).data]);
   const pixels=await videoPixels();assert.equal(pixels[3],255);assert.ok(pixels.slice(0,3).some(n=>n>0));await roundVideo.dispatchEvent('waiting');assert.equal(await round.locator('.chat-video-cover').isVisible(),true);assert.equal((await videoPixels())[3],255);await roundVideo.dispatchEvent('playing');assert.equal(await round.locator('.chat-video-cover').isVisible(),true);

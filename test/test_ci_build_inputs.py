@@ -71,6 +71,25 @@ class BuildInputsTests(unittest.TestCase):
                 self.restore(root, packed)
             self.assertEqual((root / "wrangler.toml").read_text(), "keep me")
 
+    def test_trusted_root_alias_uses_its_canonical_location(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            destination = base / "destination"
+            destination.mkdir()
+            alias = base / "alias"
+            alias.symlink_to(destination, target_is_directory=True)
+            self.restore(alias, self.archive([("wrangler.toml", "file")]))
+            self.assertEqual((destination / "wrangler.toml").read_bytes(), b"fixture")
+
+    def test_archive_cannot_follow_a_parent_link_outside_the_root(self):
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = Path(directory)
+            (root / "private").symlink_to(Path(outside), target_is_directory=True)
+            media = inputs.MEDIA + "/" + "0" * 64 + ".bin"
+            with self.assertRaises(ValueError):
+                self.restore(root, self.archive([("wrangler.toml", "file"), (media, "file")]))
+            self.assertEqual(list(Path(outside).iterdir()), [])
+
 
 if __name__ == "__main__":
     unittest.main()

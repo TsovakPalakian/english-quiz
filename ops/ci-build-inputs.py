@@ -55,6 +55,7 @@ class HttpsRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def restore():
+    root = ROOT.resolve()
     url = os.environ.get("CI_BUILD_INPUTS_URL", "")
     expected = os.environ.get("CI_BUILD_INPUTS_SHA256", "").lower()
     if urllib.parse.urlsplit(url).scheme != "https" or not re.fullmatch(r"[a-f0-9]{64}", expected):
@@ -92,15 +93,15 @@ def restore():
             for member in entries:
                 if member.isdir():
                     continue
-                target = ROOT / member.name
-                if not target.resolve().is_relative_to(ROOT) or target.is_symlink():
+                target = root / member.name
+                if not target.resolve().is_relative_to(root) or target.is_symlink():
                     raise ValueError("unsafe destination")
                 target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
                 with archive.extractfile(member) as source, target.open("xb") as destination:
                     os.chmod(target, 0o600)
                     while chunk := source.read(1024 * 1024):
                         destination.write(chunk)
-        (ROOT / MEDIA).mkdir(parents=True, exist_ok=True, mode=0o700)
+        (root / MEDIA).mkdir(parents=True, exist_ok=True, mode=0o700)
     print("Restored verified build inputs; URL and file contents were not logged.")
 
 
