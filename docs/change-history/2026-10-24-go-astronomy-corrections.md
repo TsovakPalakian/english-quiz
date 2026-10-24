@@ -136,3 +136,11 @@ Commit message: `Restored visibility of close-pair star markers in Cancer.`
 🟩 Все 88 исходных JPG и манифест скопированы в `references/constellations/go-astronomy/`. Проверены формат JPEG, количество и SHA-256 всех копий. Приватные оригиналы сохранены. Сайт и сборка не менялись; публикации и commit/push не было.
 
 Commit message: `Added all 88 original constellation images to the project references.`
+
+## Публикация
+
+🟩 По разрешению пользователя опубликовано через корневой `wrangler.toml` на `https://lumiscia.org/`. Основа: коммит `9f9d3f3`; deployment version `4b0df069-f156-4589-ac84-3d95023bf71e`. Production-assets пересобраны; геометрические тесты и diff-check прошли. Загружены новые index.html, catalog-loader.js и preview.js. Справочные изображения не включены в сайт; ручных изменений баз и секретов, commit/push и скриншотов не было.
+
+🟩 Публичные index.html, catalog-loader.js и preview.js ответили HTTP 200; их SHA-256 совпали с локальной production-сборкой. Проверка выполнена без входа в аккаунт и без скриншотов.
+
+Commit message: `Published corrected constellation figures and viewport-relative sky scaling.`
