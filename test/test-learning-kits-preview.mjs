@@ -1,8 +1,9 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 async function fixture(work){const {server,url}=await createQuizReviewPreview({generationEnabled:true});try{await work(url);}finally{await new Promise(resolve=>server.close(resolve));}}
 function client(url){return async(path,data,role='teacher',origin=url)=>{
   const response=await fetch(url+path,{method:data?'POST':'GET',headers:{Cookie:'qr-preview='+role,...(data?{Origin:origin,'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify({mutationId:crypto.randomUUID(),...data})}:{})});
@@ -37,7 +38,7 @@ test('kit HTTP routes enforce roles, explicit senses, origin, CAS, frozen sessio
 const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
 test('connected UI manages metadata, opinions, library, exact meanings, filters and practice locally',async()=>fixture(async url=>{
   let browser;try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     const call=client(url),choose=async role=>{await page.selectOption('#account',role);await page.locator('#account:not([disabled])').waitFor();};
     const nav=async view=>{await page.locator('[data-view="'+view+'"]').click();await page.waitForFunction(view=>document.querySelector('[data-view="'+view+'"]')?.getAttribute('aria-current')==='page'&&!document.querySelector('#account')?.disabled,view);};
@@ -57,13 +58,13 @@ test('connected UI manages metadata, opinions, library, exact meanings, filters 
     await choose('dev');const newMeaning=page.locator('[data-kit-form="meaning"]');await expand(newMeaning);await newMeaning.locator('[name="partOfSpeech"]').fill('verb');await newMeaning.locator('[name="translation"]').fill('полить');await newMeaning.locator('[name="definition"]').fill('Pour liquid over food.');await newMeaning.locator('[type="submit"]').click();await page.locator('#account:not([disabled])').waitFor();assert.match(await page.locator('.kit-panel h3').innerText(),/0 \/ 17/);assert.equal(await page.locator('[data-item]').count(),0);
     // Select the original noun explicitly rather than relying on option order.
     await page.selectOption('#kit-sense',{label:(await page.locator('#kit-sense option').allTextContents()).find(label=>label.startsWith('noun'))});await page.locator('#account:not([disabled])').waitFor();
-    await page.locator('.kit-panel details').evaluateAll(nodes=>nodes.forEach(node=>node.open=false));await page.locator('.kit-panel h2').scrollIntoViewIfNeeded();await page.screenshot({path:'/private/tmp/lumiscia-learning-kit-desktop.png'});await page.setViewportSize({width:390,height:844});await page.locator('.kit-panel h3').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-learning-kit-mobile.png'});
+    await page.locator('.kit-panel details').evaluateAll(nodes=>nodes.forEach(node=>node.open=false));await page.locator('.kit-panel h2').scrollIntoViewIfNeeded();await Promise.resolve();await page.setViewportSize({width:390,height:844});await page.locator('.kit-panel h3').scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await Promise.resolve();
     assert.deepEqual(errors,[]);assert.ok(requests.every(request=>request.startsWith(url)));
   }finally{await browser?.close();}
 }));
 test('kit UI retains failed edits and queue filters, and reports empty results without losing controls',async()=>fixture(async url=>{
   let browser;try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),call=client(url);await page.goto(url);await page.locator('#account:not([disabled])').waitFor();
     const {contexts}=(await call('/local/boot')).data,c=contexts[0];
     const form=page.locator('[data-kit-form="metadata"]');await expand(form);await form.locator('[name="level"]').selectOption('B1');await form.locator('[name="forms"]').fill('drizzles');

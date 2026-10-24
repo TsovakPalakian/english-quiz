@@ -7,6 +7,7 @@ import {boundedProviderBytes} from './bounded-provider-body.mjs';
 import {GenerationQuota} from './generation-quota.mjs';
 import {openWorkbenchPreparation} from './learning-workbench-preparation.mjs';
 import {WorkbenchProviderSettings} from './workbench-provider-settings.mjs';
+import {configuredWordNet} from './wordnet-runtime.mjs';
 const fail=message=>{throw new StudyError(503,message);};
 export const WORKBENCH_PRIVATE_BUCKET='learn-english-workbench-private-media';
 const writes=env=>env.LEARNING_WORKBENCH_ENABLED==='true'&&env.LEARNING_WORKBENCH_WRITES==='true'&&env.STAGE_WRITES==='true'&&env.ACCOUNT_TRANSFER_FROZEN!=='true';
@@ -50,6 +51,7 @@ export function createWorkbenchRuntime({inspect=null,openPreparation=openWorkben
       const google={...common,apiKey:env.WORKBENCH_GEMINI_KEY,quotaProject:env.WORKBENCH_GEMINI_PROJECT,allowDataProcessing:language.allowDataProcessing===true,termsRevision:language.termsRevision};
       const quota=new GenerationQuota(db);
       const configured=await createConfiguredLanguageProviders({db,authorize:allow,quota,
+        wordnet:await configuredWordNet(env),
         whisper:language.whisper===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
         generation:language.generation===true?{...common,accountId:env.WORKBENCH_CF_ACCOUNT_ID,apiToken:env.WORKBENCH_CF_API_TOKEN}:null,
         azure:language.azure===true?{...common,resourceName:env.WORKBENCH_AZURE_RESOURCE,region:env.WORKBENCH_AZURE_REGION||'',apiKey:env.WORKBENCH_AZURE_KEY,termsRevision:language.termsRevision}:null,

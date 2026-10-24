@@ -1,11 +1,12 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 // Local production assets and synthetic APIs only; never visits the live site.
 import {createServer} from 'node:http';
-import {readFileSync,existsSync,mkdirSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname;
@@ -17,7 +18,7 @@ const server=createServer((req,res)=>{
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   const page=await browser.newPage(),errors=[];
   let user=null;
   let otpRequestFails=true;
@@ -73,7 +74,7 @@ try{
     const box=await page.locator('#home').boundingBox();assert.ok(Math.abs(box.x+box.width/2-width/2)<2,'Guest home centered');
     const footer=await page.locator('.site-copyright').boundingBox();assert.ok(footer.y+footer.height<=960,'Guest copyright fits viewport: '+JSON.stringify({footer,home:box}));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-    await page.screenshot({path:'/private/tmp/lumiscia-guest-'+width+'.png'});
+    await Promise.resolve();
   }
   await page.setViewportSize({width:1440,height:960});
   await page.evaluate(()=>window.enquizVisit('home'));
@@ -118,7 +119,7 @@ try{
     assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Auth fits '+width);
     assert.ok(await page.locator('.account-gate .card').evaluate(node=>node.getBoundingClientRect().width<=440),'Compact auth form');
-    await page.screenshot({path:'/private/tmp/lumiscia-register-'+width+'.png',fullPage:true});
+    await Promise.resolve();
   }
   await page.locator('[data-studio-back]').click();
   await page.locator('.auth-providers [data-login-mode="otp"]').click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
@@ -135,8 +136,7 @@ try{
   await page.locator('[data-login-mode="password"].chip').click();assert.equal(await page.locator('#loginForm').isVisible(),true);
   assert.equal(await page.locator('[data-google-auth] > svg.auth-google-icon').count(),1);
   await page.setViewportSize({width:1440,height:1000});
-  await page.screenshot({path:'/private/tmp/lumiscia-login-1440.png',fullPage:true});
-  const screenshots='/private/tmp/english-quiz-saas';mkdirSync(screenshots,{recursive:true});
+  await Promise.resolve();
   const originalStyle=await page.locator('html').getAttribute('style');
   await page.evaluate(()=>{
     document.documentElement.dataset.theme='user';
@@ -159,7 +159,7 @@ try{
       const style=await page.locator('#'+screen+' h1').first().evaluate(node=>getComputedStyle(node).fontSize);
       assert.ok(parseFloat(style)<=30,'Compact heading: '+screen);
       await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
-      await page.screenshot({path:screenshots+'/'+screen+'-'+theme+'-'+width+'.png'});
+      await Promise.resolve();
     }
   }
   await page.evaluate(()=>{document.getElementById('days').classList.remove('on');document.getElementById('library').classList.add('on');});
@@ -185,7 +185,7 @@ try{
     assert.equal(await page.locator('.side nav [data-nav-role="student"]').first().isVisible(),role==='USER','Home preserves student-only navigation');
     assert.equal(await page.locator('.side nav [data-nav-role="staff"]').first().isVisible(),role!=='USER','Home preserves staff-only navigation');
     await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
-    await page.screenshot({path:screenshots+'/home-'+role+'.png'});
+    await Promise.resolve();
     await page.evaluate(()=>window.enquizVisit('library'));
     await page.locator('#library.on').waitFor();
     await page.locator('#shellSearch').fill('entertainment');
@@ -200,7 +200,7 @@ try{
     for(const width of [1440,390]){
       await page.setViewportSize({width,height:960});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),role+' lessons fit '+width);
-      await page.screenshot({path:screenshots+'/lessons-'+role+'-'+width+'.png'});
+      await Promise.resolve();
     }
     assert.equal(await page.locator('#lmNew').isVisible(),role!=='USER','Lesson editing remains role-bound');
     await page.evaluate(()=>window.enquizVisit('home'));
@@ -224,5 +224,5 @@ try{
   await page.waitForFunction(()=>document.querySelector('#loginForm [data-form-status]')?.textContent.includes('inviting teacher or a developer'));
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
   assert.deepEqual(errors,[]);
-  console.log('SaaS: boot, desktop/mobile, light/dark, filters and accessibility passed. Screenshots: '+screenshots);
+  console.log('SaaS: boot, desktop/mobile, light/dark, filters and accessibility passed without screenshots.');
 }finally{await browser?.close();await new Promise(done=>server.close(done));}

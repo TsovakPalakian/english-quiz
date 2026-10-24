@@ -1,8 +1,9 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   for(const mode of ['plain','formatted','rich-tools']){
     const page=await browser.newPage();

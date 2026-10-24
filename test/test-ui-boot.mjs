@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 // Isolated browser regression: synthetic responses, no production account data.
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
@@ -6,7 +7,7 @@ import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import {allMaterialsBlock,sources} from '../ops/practice-all-materials.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || resolveTestDependency('playwright'));
 const root=resolve(process.env.UI_ASSETS_DIR || 'rollback/production-assets');
 const server=createServer((req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname;
@@ -16,7 +17,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':type});res.end(readFileSync(file));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||chromiumExecutable()});
 try{
   const databaseContext=()=>{try{localStorage.setItem('app-database-context-v1','d1:1');}catch{}};
   const page=await browser.newPage();await page.addInitScript(databaseContext);const errors=[],requests=[];
@@ -234,10 +235,10 @@ try{
     await page.locator('[data-stats-range="'+days+'"]').click();
     assert.match(await page.locator('[data-stats-range="'+days+'"]').getAttribute('class'),/primary/);
   }
-  await page.screenshot({path:'/private/tmp/english-quiz-statistics-desktop.png'});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect();return r.width&&r.right>innerWidth+1&&getComputedStyle(el).position!=='fixed';}).slice(-12).map(el=>({tag:el.tagName,id:el.id,cls:el.className,width:el.getBoundingClientRect().width,right:el.getBoundingClientRect().right})))));
-  await page.screenshot({path:'/private/tmp/english-quiz-statistics-mobile.png'});
+  await Promise.resolve();
   await page.setViewportSize({width:1280,height:900});
   await closeSettings();
   await page.locator('[data-jump="archive"]:visible').click();
@@ -281,10 +282,10 @@ try{
   await page.locator('[data-exam-block="12"]').click();
   assert.deepEqual(await page.locator('#material .page-path li').allTextContents(),['Groups','Exams','Fixture exam','Fixture examination block','Edit']);
   await page.setViewportSize({width:390,height:844});
-  await page.screenshot({path:'/private/tmp/english-quiz-breadcrumb-mobile.png'});
+  await Promise.resolve();
   assert.ok(await page.locator('#material .page-path').evaluate(node=>node.scrollWidth<=node.clientWidth),'Breadcrumbs fit mobile');
   await page.setViewportSize({width:1280,height:900});
-  await page.screenshot({path:'/private/tmp/english-quiz-breadcrumb-desktop.png'});
+  await Promise.resolve();
   await page.locator('#lmPublish').click();
   await page.waitForFunction(()=>JSON.parse(localStorage.getItem('enquiz-exams'))[0]?.blocks[0]?.doc.published);
   assert.equal(exam.blocks[0].published,true);
@@ -295,12 +296,12 @@ try{
   await page.locator('[data-jump="archive"]:visible').click();
   await page.locator('[data-archive-open="exam-block:12"]').click();
   await page.locator('#archivePreviewBody').getByText('Fixture material',{exact:true}).waitFor();
-  await page.screenshot({path:'/private/tmp/english-quiz-archive-preview.png'});
+  await Promise.resolve();
   await page.locator('#archivePreviewDialog').getByRole('button',{name:'Close',exact:true}).click();
   assert.equal(await page.locator('#archivePreviewDialog').isVisible(),false);
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.locator('[data-archive-open="exam-block:12"]').evaluate(el=>{const rect=el.closest('.day-row').getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth;}),true);
-  await page.screenshot({path:'/private/tmp/english-quiz-archive-mobile.png'});
+  await Promise.resolve();
   await page.setViewportSize({width:1280,height:900});
   await page.locator('[data-archive-restore="exam-block:12"]').click();
   await page.waitForFunction(()=>!document.querySelector('[data-archive-restore="exam-block:12"]'));
@@ -343,7 +344,7 @@ try{
   await page.reload();
   await page.waitForFunction(()=>document.documentElement.dataset.paintedTheme==='user-second'&&document.documentElement.style.getPropertyValue('--theme-photo').includes('data:image/jpeg'));
   assert.equal(await page.evaluate(()=>localStorage.getItem('enquiz-theme')),'user-second');
-  await page.screenshot({path:'/private/tmp/english-quiz-theme-empty-cache.png'});
+  await Promise.resolve();
   await (await openSettings()).locator('[data-settings-logout]').click();
   await page.getByText('See you soon',{exact:true}).waitFor();
   assert.equal(await page.locator('section.on').getAttribute('id'),'home');
@@ -389,7 +390,7 @@ try{
   await racePage.locator('[data-exam-block="12"]').getByText(/^Published · Maximum/).waitFor();
   await racePage.reload();await racePage.locator('[data-exam-block="12"]').getByText(/^Published · Maximum/).waitFor();
   assert.equal(exam.blocks[0].published,true);
-  await racePage.screenshot({path:'/private/tmp/english-quiz-exam-publish-test.png'});
+  await Promise.resolve();
   await page.evaluate(()=>window.LearningMain.notice('Dismissible fixture error',true));
   await page.locator('#learning-main-dismiss').click();assert.equal(await page.locator('#learning-main-banner').isVisible(),false);
   await page.evaluate(()=>window.enquizVisit('guide'));
@@ -468,9 +469,9 @@ try{
   assert.equal(copyWrites,0);assert.equal(await page.locator('#contentCopyDialog').isVisible(),false);
   await page.locator('#lmCopy').click();await page.locator('#contentCopyContainer').selectOption('42');
   await page.locator('#contentCopyName').fill('Independent lesson copy');
-  await page.screenshot({path:'/private/tmp/english-quiz-copy-desktop.png'});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});
-  await page.screenshot({path:'/private/tmp/english-quiz-copy-mobile.png'});
+  await Promise.resolve();
   assert.equal(await page.locator('.content-copy-panel').evaluate(el=>{const rect=el.getBoundingClientRect();return rect.left>=0&&rect.right<=innerWidth&&el.scrollWidth<=el.clientWidth;}),true);
   await page.setViewportSize({width:1280,height:900});
   await page.locator('#contentCopySubmit').click();
@@ -525,10 +526,10 @@ try{
   assert.equal(await page.locator('#seName').innerText(),'1A Fixture lesson');
   assert.equal(await page.locator('#seTitle,#seDate,#seClass,#seUnit,#seLesson,#seTabs').count(),0);
   await page.locator('#seDescription').fill('Independent Speakout description');
-  await page.screenshot({path:'/tmp/speakout-editor-desktop.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.locator('#speakouteditor').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
-  await page.screenshot({path:'/tmp/speakout-editor-mobile.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:1280,height:900});
   assert.ok(await page.locator('#seType option').count()>20);
   await page.locator('#seAdd').click();await page.locator('[data-se-add="text"]').click();
@@ -559,10 +560,10 @@ try{
   await speakCards.locator('[data-se-remove-item]').first().click();
   assert.equal(await speakCards.locator('[data-se-item-field="front"]').count(),1);
   await page.evaluate(()=>window.scrollTo(0,0));
-  await page.screenshot({path:'/tmp/speakout-content-desktop.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.locator('#speakouteditor').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
-  await page.screenshot({path:'/tmp/speakout-content-mobile.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:1280,height:900});
   await page.locator('#seAdd').click();await page.locator('[data-se-add="task"]').click();
   const task=page.locator('[data-se-block]').filter({has:page.locator('[data-se-field="text"]')});
@@ -690,7 +691,7 @@ try{
   assert.equal(Object.values(formatting).some(items=>Object.values(items).some(value=>value.runs.some(run=>run.marks.strike&&run.marks.color==='#c62828'&&run.marks.size===24))),true,JSON.stringify(formatting));
   await page.locator('#learning-main-dismiss').click();
   await page.locator('#lmPreview .review-edit').first().scrollIntoViewIfNeeded();
-  await page.screenshot({path:'/private/tmp/english-quiz-review-cards.png'});
+  await Promise.resolve();
   await page.locator('#assessmentPublish').click();await page.waitForFunction(()=>lmState.assessmentState==='published'&&!lmState.assessmentBusy);
   assert.equal(await page.locator('#lmPreview [data-exam-points]').first().isEnabled(),false);
   assert.equal(await page.locator('#assessmentAmend').isVisible(),false);
@@ -749,10 +750,10 @@ try{
   await choices.locator('[data-item-add]').click();assert.equal(await page.locator('#lmBlocks .material-item-max').count(),2);
   assert.ok(await page.locator('#lmBlocks .material-item-max input').evaluateAll(fields=>fields.every(field=>field.getBoundingClientRect().height===40)),'Each item maximum is compact');
   assert.ok(await page.locator('#lmBlocks [data-field=assignmentKey]').evaluateAll(fields=>fields.every(field=>field.getBoundingClientRect().height<=50)),'Assignment fields are not stretched');
-  await page.screenshot({path:'/private/tmp/english-quiz-material-upgrades-desktop.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.locator('#lmBlocks').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Material authoring fits mobile');
-  await page.screenshot({path:'/private/tmp/english-quiz-material-upgrades-mobile.png',fullPage:true});
+  await Promise.resolve();
   await page.setViewportSize({width:1280,height:900});
   await page.evaluate(()=>{lmState={id:701,title:'Practice only',description:'',tab:'overview',mode:'edit',blocks:[{id:'old-task',type:'task',title:'Task',assessed:true,maxPoints:9},{id:'old-exercise',type:'exercise',items:[{prompt:'Practice',kind:'choice',options:['a','b']}],assessed:true,maxPoints:5}]};lmShow('edit');});
   assert.equal(await page.locator('#lmBlocks [data-field="assessed"],#lmBlocks [data-field="maxPoints"],#lmBlocks .material-item-max').count(),0);

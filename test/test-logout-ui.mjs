@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
@@ -11,7 +12,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream'});res.end(readFileSync(file));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
@@ -53,6 +54,6 @@ try{
   assert.equal(await page.locator('#home .hello').innerText(),'See you soon');
   assert.deepEqual(await page.locator('#homeDemo .overview b').allTextContents(),['0','—','0','0']);
   assert.equal(await page.evaluate(()=>stageActivity.seconds),0);assert.equal(await page.evaluate(()=>stageTimeSeconds),0);
-  await page.screenshot({path:'/private/tmp/logout-cleared.png'});
+  await Promise.resolve();
   assert.deepEqual(errors,[]);console.log('Logout immediately clears cached statistics, resets activity and preserves See you soon without reload');
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

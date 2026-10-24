@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -6,7 +7,7 @@ import assert from 'node:assert/strict';
 import {examWorkflowDemo} from '../ops/exam-workflow-demo.mjs';
 import {studentExamContent} from '../src/learning-exams.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
@@ -14,7 +15,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream'});res.end(readFileSync(file));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[],writes=[];
   page.on('pageerror',error=>{errors.push(error.message);console.error(error.message);});
@@ -63,7 +64,7 @@ try{
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exam.*1/);
   await page.locator('[data-exam-level="A1"]').click();
   assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 1','ready · 1','completed · 1']);
-  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await page.screenshot({path:'/private/tmp/compact-exam-metrics.png'});await page.setViewportSize({width:1280,height:900});
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await Promise.resolve();await page.setViewportSize({width:1280,height:900});
   assert.equal(await page.locator('[data-exam-group-view]').count(),2,'Empty lesson subgroups remain visible');
   assert.equal(await page.locator('#examList button').filter({hasText:/^Back$/}).count(),0);
   await page.locator('[data-exam-group-view="41"]').click();
@@ -78,7 +79,7 @@ try{
   await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();
   assert.deepEqual(await page.locator('.exam-assign-dialog select option').allTextContents(),['Choose recipient','Whole group · A1 Group','Student']);
   assert.ok(await page.locator('[data-exam-assign="11"]').evaluate(node=>getComputedStyle(node).borderRadius==='0px'&&getComputedStyle(node).backgroundColor==='rgba(0, 0, 0, 0)'));
-  await page.screenshot({path:'/private/tmp/exam-assignment-dialog.png'});
+  await Promise.resolve();
   await page.locator('.exam-assign-dialog [data-cancel]').click();await page.locator('.exam-assign-dialog').waitFor({state:'detached'});
   await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();await page.mouse.click(1,1);await page.locator('.exam-assign-dialog').waitFor({state:'detached'});
   await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();
@@ -146,8 +147,8 @@ try{
   await page.locator('#examListSearch').focus();
   assert.equal(await page.locator('#examListSearch').evaluate(node=>getComputedStyle(node).outlineOffset),'-2px');
   assert.ok(await page.locator('#exams').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam list fits smallest viewport');
-  await page.screenshot({path:'/private/tmp/exams-mobile.png',fullPage:true});
-  await page.setViewportSize({width:1280,height:900});await page.screenshot({path:'/private/tmp/exams-desktop.png',fullPage:true});
+  await Promise.resolve();
+  await page.setViewportSize({width:1280,height:900});await Promise.resolve();
   await page.evaluate(()=>{lmState={id:99,title:'Lesson',mode:'edit',tab:'overview',blocks:[]};window.enquizVisit('material');lmShow('edit');});
   await page.locator('#lmAdd').click();
   assert.equal(await page.locator('[data-material-quiz-menu]').count(),1,'Lesson quiz menu is unchanged');
@@ -175,7 +176,7 @@ try{
     assert.equal(await group.locator('.content-group').isVisible(),true);assert.equal(await group.locator('.lm-assignment').isVisible(),true);
     await page.evaluate(()=>{authUser.role='USER';lmRenderPreview();examDress();});assert.equal(await group.isVisible(),true,'Learner sees container');assert.equal(await group.getByText('How are you?',{exact:true}).isVisible(),true);
   }
-  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Content group fits '+width);}await page.screenshot({path:'/private/tmp/content-group-mobile.png',fullPage:true});
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Content group fits '+width);}await Promise.resolve();
   for(const examOwned of [false,true])for(const published of [false,true]){
     await page.evaluate(({examOwned,published})=>{
       authUser.role='DEVELOPER';lmState={...lmBlankMaterial(),id:99,title:'Task fixture',examOwned,published,mode:'preview',tab:'overview',blocks:[
@@ -197,7 +198,7 @@ try{
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
   assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exam.*2/s);
-  await page.screenshot({path:'/private/tmp/student-exam-navigation.png'});
+  await Promise.resolve();
   let started=false;
   await page.route('**/api/exams/workflow*',async route=>{if(route.request().method()==='POST'&&route.request().postDataJSON().action==='started')started=true;await route.fulfill({contentType:'application/json',body:JSON.stringify({examId:51,state:started?'in_progress':'assigned',canStart:!started,history:[{action:'viewed'},...(started?[{action:'started'}]:[])],blocks:1,submitted:0})});});
   await page.locator('[data-exam-open="51"]').click();await page.locator('[data-exam-block="52"]').click();
@@ -219,7 +220,7 @@ try{
     assert.equal(await page.locator('#lmPreview [data-lm-panel]').count(),parts.filter(part=>!part.contentGroup&&part.type!=='wordcard').length,block.title+' retains every content panel');
     for(const part of parts.filter(part=>part.type==='wordcard'))assert.equal(await page.locator('[data-lm-word="'+part.id+'"]').count(),1);
     for(const width of [1280,375]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),block.title+' fits '+width);}
-    if(block.title.startsWith('05'))await page.screenshot({path:'/private/tmp/exam-demo-groups-mobile.png',fullPage:true});
+    if(block.title.startsWith('05'))await Promise.resolve();
     if(block.title.startsWith('03')){
       await page.evaluate(()=>{viewAccount={id:'b'.repeat(32),role:'USER'};lmState.studentSaved=true;lmState.assessmentState='reviewing';examDress();});
       for(const width of [1076,375,320]){
@@ -230,7 +231,7 @@ try{
         assert.ok(await grading.evaluate(node=>{const fields=[...node.querySelectorAll('input,select')];return fields.every(field=>field.offsetHeight===42)&& (innerWidth<=380||Math.abs(fields[0].getBoundingClientRect().y-fields[1].getBoundingClientRect().y)<1); }),'Grading controls align at '+width);
       }
       await page.setViewportSize({width:1076,height:900});
-      await page.locator('#lmPreview [data-mq-question]').first().screenshot({path:'/private/tmp/exam-choice-alignment.png'});
+      await Promise.resolve();
       await page.evaluate(()=>{viewAccount=null;});
     }
     if(block.title.startsWith('04')){
@@ -250,7 +251,7 @@ try{
       assert.equal(await page.locator('[data-exam-review-note="examPrivateNote"]').inputValue(),'Private draft');
       assert.equal(await page.locator('[data-exam-recommendation]').count(),1,'Repeated fill does not duplicate AI review control');
       await feedback.fill(longNote);
-      await page.screenshot({path:'/private/tmp/exam-review-notes-mobile.png',fullPage:true});
+      await Promise.resolve();
       assert.equal(await page.locator('#assessmentPublish').innerText(),'Publish review');
       await page.evaluate(()=>{lmState.assessmentState='published';examDress();});
       assert.equal(await page.locator('#examSave').isVisible(),false);

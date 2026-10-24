@@ -1,18 +1,21 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport,reducedMotion:'reduce'});
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
-      assert.ok(body.includes('let current=next(),previous=null')&&body.includes('return result.layout;'));
+      const anchor='let current=frozen?.constellation||next(),previous=null';
+      assert.equal(body.split(anchor).length,2,'Cancer injection anchor occurs exactly once');
+      assert.ok(body.includes('return result.layout;'));
       await route.fulfill({response,body:body
-        .replace('let current=next(),previous=null',"let current=catalogue.find(c=>c.abbr==='Cnc'),previous=null")
+        .replace(anchor,"let current=frozen?.constellation||catalogue.find(c=>c.abbr==='Cnc'),previous=null")
         .replace('return result.layout;','window.cancerLayout=result.layout;return result.layout;')
         .replace('Object.freeze({background:20,constellation:100})','Object.freeze({background:0,constellation:100})')});
     });

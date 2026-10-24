@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -5,7 +6,7 @@ import {readFileSync} from 'node:fs';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {bundleSource} from '../ops/build-preview.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 test('local backend UI saves to SQLite and enforces review workflow without production requests',async()=>{
   const {server,url}=await createQuizReviewPreview();let browser;
   try{
@@ -26,7 +27,7 @@ test('local backend UI saves to SQLite and enforces review workflow without prod
     const boot=(await call('/local/boot')).data,c=boot.contexts.find(c=>!c.personal);
     const invalid={mutationId:crypto.randomUUID(),groupId:c.groupId,lessonId:c.lessonId,cardId:3,senseId:c.senseId,type:'Gap',content:{explanation:'Light rain.',items:[{shown:'A fine ____ fell.',answer:'drizzle'}]}};
     assert.equal((await call('/local/quizzes',invalid)).status,403,'Cannot submit personal-card quizzes');
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1400,height:1000}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     await page.goto(url);await page.locator('#context').waitFor();
@@ -71,10 +72,10 @@ test('local backend UI saves to SQLite and enforces review workflow without prod
     await choose('student');await nav('word');await page.locator('#context').selectOption('personal');
     await page.locator('[data-item="'+created.id+'"]').waitFor({state:'attached'});await reveal(created.id);
     assert.equal(await page.locator('[data-item="'+created.id+'"] [data-action="edit"]').count(),0);
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-backend-desktop.png',fullPage:false});
+    await Promise.resolve();
     await page.setViewportSize({width:390,height:844});await page.locator('[data-item="'+created.id+'"]').scrollIntoViewIfNeeded();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-backend-mobile.png',fullPage:false});
+    await Promise.resolve();
     assert.ok(requests.every(r=>r.startsWith(url)),'Local requests only');assert.deepEqual(errors,[]);
     assert.equal(bundleSource('preview.js').includes('Local-only pilot'),false);
     assert.doesNotMatch(readFileSync('src/learning-production-worker.mjs','utf8'),/quiz-review/);

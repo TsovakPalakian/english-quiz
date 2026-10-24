@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-async function preview(work){const {server,url}=await createQuizReviewPreview();let browser;try{browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});await work(await browser.newPage({viewport:{width:1280,height:960}}),url);}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}}
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
+async function preview(work){const {server,url}=await createQuizReviewPreview();let browser;try{browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});await work(await browser.newPage({viewport:{width:1280,height:960}}),url);}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}}
 const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
 test('developer enables the chain, teachers see its status/history and students see no controls',async()=>preview(async(page,url)=>{
   const post=(path,data)=>fetch(url+path,{method:'POST',headers:{Origin:url,Cookie:'qr-preview=dev','Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),...data})});
@@ -24,8 +25,8 @@ test('developer enables the chain, teachers see its status/history and students 
   await chain.locator('[data-pipeline-history] > summary').click();await chain.locator('.history-event').first().waitFor();assert.equal(await chain.locator('.history-event').count(),3);
   assert.equal(await node.locator('.verified').count(),0);
   await page.locator('[data-view="word"]').click();await page.locator('[data-view="queue"]').click();assert.equal(await chain.locator('[data-pipeline-history]').evaluate(node=>node.open),true);
-  await page.screenshot({path:'/private/tmp/lumiscia-pipeline-desktop.png'});await page.setViewportSize({width:390,height:844});await chain.scrollIntoViewIfNeeded();
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'/private/tmp/lumiscia-pipeline-mobile.png'});
+  await Promise.resolve();await page.setViewportSize({width:390,height:844});await chain.scrollIntoViewIfNeeded();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await Promise.resolve();
   await page.selectOption('#account','outsider');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('#pipeline-settings-form').count(),0);assert.equal(await page.locator('[data-expand="pipeline-'+job.id+'"]').count(),1);
   await page.selectOption('#account','student');await page.locator('#account:not([disabled])').waitFor();assert.equal(await page.locator('[data-pipeline-history]').count(),0);assert.equal(await page.locator('#pipeline-settings-form').count(),0);assert.deepEqual(errors,[]);
 }));

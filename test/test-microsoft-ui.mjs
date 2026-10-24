@@ -1,16 +1,17 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<html><body></body></html>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const accountSource=readFileSync('client/05-account.js','utf8');
 const paint=accountSource.slice(accountSource.indexOf('    function paintAccountForm('),accountSource.indexOf('    function paintProfile('));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const enabled of [false,true]){
     const page=await browser.newPage();let providerCalls=0,pending=true;
     await page.route('**/api/**',async route=>{

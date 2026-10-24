@@ -5,6 +5,8 @@
   "scripts": {
     "test": "vitest",
     "check": "node ops/check-all.mjs",
+    "check:remote": "node ops/check-remote.mjs",
+    "hooks:install": "node ops/install-check-hook.mjs",
     "build:preview": "node ops/build-preview.mjs",
     "preview:workbench": "node ops/build-learning-production-assets.mjs && node ops/preview-learning-workbench.mjs",
     "probe:gemini": "node --env-file-if-exists=.gemini.local.env ops/probe-gemini-quiz.mjs",
@@ -20,10 +22,14 @@
   },
   "devDependencies": {
     "@vitest/ui": "^1.6.0",
+    "esbuild": "0.28.2",
     "happy-dom": "^21.0.3",
     "jsdom": "^29.1.1",
     "jsqr": "1.4.0",
-    "vitest": "^1.6.0"
+    "miniflare": "5.20261019.2-beta",
+    "playwright": "1.62.1",
+    "vitest": "^1.6.0",
+    "wrangler": "4.152.0"
   },
   "vitest": {
     "include": [

@@ -1,18 +1,22 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync} from 'node:fs';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();let browser;
 const results=[];
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  mkdirSync('/tmp/lumiscia-go-audit',{recursive:true});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport,reducedMotion:'reduce'});
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
-      const probe=`window.auditSkyLayouts=()=>catalogue.map(c=>{const result=astro.fitFigure(c,w,h,uiRects,(text,size)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;},constellationScale),l=result.layout;return {...result.diagnostic,overlaps:l?!astro.clearFigure(c,l.stars.filter(p=>astro.inViewport(p,w,h)),uiRects)||l.labels.some(box=>uiRects.some(r=>astro.intersects(box,r))||c.lines.some(([i,j])=>astro.segmentHitsBox(l.stars[i],l.stars[j],box))):false,cropped:l?l.stars.slice(0,c.stars.length).some(p=>p.x<18||p.x>w-18||p.y<18||p.y>h-18):false,scaleVisible:l?.labels.some(b=>b.star.caption&&b.star.scaleLabel)||false};});let current=next(),previous=null`;
-      await route.fulfill({response,body:body.replace('let current=next(),previous=null',probe)});
+      const anchor='let current=frozen?.constellation||next(),previous=null';
+      assert.equal(body.split(anchor).length,2,'Sky audit injection anchor occurs exactly once');
+      const probe=`window.auditSkyLayouts=()=>catalogue.map(c=>{const result=astro.fitFigure(c,w,h,uiRects,(text,size)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;},constellationScale),l=result.layout;return {...result.diagnostic,overlaps:l?!astro.clearFigure(c,l.stars.filter(p=>astro.inViewport(p,w,h)),uiRects)||l.labels.some(box=>uiRects.some(r=>astro.intersects(box,r))||c.lines.some(([i,j])=>astro.segmentHitsBox(l.stars[i],l.stars[j],box))):false,cropped:l?l.stars.slice(0,c.stars.length).some(p=>p.x<18||p.x>w-18||p.y<18||p.y>h-18):false,scaleVisible:l?.labels.some(b=>b.star.caption&&b.star.scaleLabel)||false};});`;
+      await route.fulfill({response,body:body.replace(anchor,probe+anchor)});
     });
     await page.goto(preview.url);await page.waitForSelector('body.guest-home');
     for(const mode of ['home','login','registration','recovery']){
@@ -45,4 +49,7 @@ try{
     await page.close();
   }
   assert.ok(results.every(r=>r.figures.every(f=>f.placed)),'See /tmp/lumiscia-go-audit/layout-results.json for exact UI blockers');
-}finally{writeFileSync('/tmp/lumiscia-go-audit/layout-results.json',JSON.stringify(results,null,2));await browser?.close();await preview.close();}
+}finally{
+  try{writeFileSync('/tmp/lumiscia-go-audit/layout-results.json',JSON.stringify(results,null,2));}
+  finally{try{await browser?.close();}finally{await preview.close();}}
+}

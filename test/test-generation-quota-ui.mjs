@@ -1,12 +1,13 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('developer quota UI is read-only, lazy, paginated, responsive and isolated across role changes',async()=>{
   const {server,url}=await createQuizReviewPreview({requestLimit:1,generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);await page.locator('#account:not([disabled])').waitFor();
@@ -25,7 +26,7 @@ test('developer quota UI is read-only, lazy, paginated, responsive and isolated 
     await page.locator('[data-action="quota-refresh"]').click();await page.getByText('Quota exhausted',{exact:true}).waitFor();
     await page.locator('#quota-history .attempt-entry').waitFor();assert.deepEqual(await page.locator('.quota-counts dd').allTextContents(),['0','1','1']);
     assert.match(await page.locator('#quota-history').innerText(),/Started/);
-    await page.screenshot({path:'/private/tmp/lumiscia-quota-desktop.png'});
+    await Promise.resolve();
     let mode='error',release,historyCalls=0;
     const rows=['reserved','started','released'].map((state,i)=>({id:crypto.randomUUID(),state,windowStart:0,createdAt:10000+i,changedAt:20000+i,source:{model:'<img src=x onerror=alert(1)>/'+('long-model-'.repeat(12)),provider:'fixture',version:'v1',configurationRevision:2}}));
     await page.route('**/local/quota/history**',async route=>{
@@ -42,7 +43,7 @@ test('developer quota UI is read-only, lazy, paginated, responsive and isolated 
     assert.equal(await page.locator('[data-action="quota-history-more"]').count(),0);assert.ok(historyCalls>=3);
     await page.setViewportSize({width:390,height:844});await page.selectOption('#theme','ocean');await page.locator('#quota-history .attempt-entry').first().scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-    await page.screenshot({path:'/private/tmp/lumiscia-quota-mobile.png'});
+    await Promise.resolve();
     let summaryError=true;
     await page.route('**/local/quota',route=>route.fulfill({status:summaryError?503:200,contentType:'application/json',body:JSON.stringify(summaryError?{error:'Quota temporarily unavailable.'}:{provider:'fixture',remaining:0,used:1,requestLimit:1,windowStart:0,windowEnd:86400000})}));
     await page.locator('[data-action="quota-refresh"]').click();await page.getByText('Quota temporarily unavailable.',{exact:true}).waitFor();

@@ -1,11 +1,12 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 async function preview(work,options={}){
   const {server,url}=await createQuizReviewPreview(options);let browser;
-  try{browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});const page=await browser.newPage({viewport:{width:1280,height:960}});await work(page,url);}
+  try{browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});const page=await browser.newPage({viewport:{width:1280,height:960}});await work(page,url);}
   finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 }
 const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
@@ -39,10 +40,10 @@ test('queue UI runs configured synthetic reviews, preserves collapsed history an
   await panel.locator('[data-independent-action="run"]').click();
   await page.waitForFunction(id=>document.querySelector('[data-independent="'+id+'"]')?.querySelectorAll('.attempt-entry').length===2,q.id);
   assert.equal(await panel.locator('[data-independent-history]').evaluate(n=>n.open),false);
-  await page.screenshot({path:'/private/tmp/lumiscia-independent-review-desktop.png'});
+  await Promise.resolve();
   await page.setViewportSize({width:390,height:844});await panel.scrollIntoViewIfNeeded();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.screenshot({path:'/private/tmp/lumiscia-independent-review-mobile.png'});
+  await Promise.resolve();
   await page.selectOption('#account','student');await page.locator('#account:not([disabled])').waitFor();
   assert.equal(await page.locator('[data-independent]').count(),0);assert.equal(await page.locator('[data-view="queue"]').isVisible(),false);
   assert.deepEqual(errors,[]);assert.ok(requests.every(path=>path.startsWith(url+'/')));
@@ -97,7 +98,7 @@ test('UI shows deadline and interruption, blocks pending runs and offers bounded
   assert.match(await panel.locator('[data-independent-latest]').innerText(),/Check interrupted/);
   await page.setViewportSize({width:390,height:844});await panel.scrollIntoViewIfNeeded();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.screenshot({path:'/private/tmp/lumiscia-independent-review-retry-mobile.png'});
+  await Promise.resolve();
   phase='real';await panel.locator('[data-independent-action="retry"]').click();
   await panel.getByRole('button',{name:'Retry check · 1 left',exact:true}).waitFor();
   await panel.locator('[data-independent-history] > summary').click();
@@ -128,7 +129,7 @@ test('shared quota UI fails closed, blocks exhausted runs/retries and refreshes 
   assert.match(await panel.locator('[data-independent-latest]').innerText(),/No checker call was made/);
   assert.equal(await panel.locator('[data-independent-action="retry"]').isDisabled(),true);
   await page.setViewportSize({width:390,height:844});await panel.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-  await page.screenshot({path:'/private/tmp/lumiscia-review-quota-mobile.png'});
+  await Promise.resolve();
   await post('/local/quota',{expectedRevision:1,requestLimit:2,reason:'Permit the explicit retry.'});
   await panel.locator('[data-independent-action="refresh"]').click();await page.waitForFunction(id=>document.querySelector('[data-independent="'+id+'"] [data-independent-quota]')?.textContent.includes('1 / 2'),q.id);
   await panel.locator('[data-independent-action="retry"]').click();await page.waitForFunction(id=>document.querySelector('[data-independent="'+id+'"] [data-independent-quota]')?.textContent.includes('0 / 2'),q.id);

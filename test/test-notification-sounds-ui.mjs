@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import recordings from '../production/notification-catalog.json' with {type:'json'};
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
-const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
+const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage({viewport:{width:1000,height:900}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
   let settings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},counter=0,audio,failPreview=false;
@@ -39,7 +40,7 @@ try{
   await dialog.locator('option[value=custom-one]').waitFor({state:'attached'});assert.equal(settings.sounds[0].duration,10);
   await dialog.locator('[data-preview]').click();
   for(const width of [1000,320]){await page.setViewportSize({width,height:800});assert.ok(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth+1));}
-  await page.screenshot({path:'/private/tmp/notification-sounds-mobile.png'});
+  await Promise.resolve();
   await dialog.locator('[data-remove]').click();await dialog.locator('option[value=custom-one]').waitFor({state:'detached'});assert.equal(settings.sounds.length,0);
   await dialog.locator('[data-close]').click();
   const chat=readFileSync('production/chat.js','utf8'),editor=chat.slice(chat.indexOf('  function settingsSoundEditor(root) {'),chat.indexOf('  function dressUserSettings(pane) {'));

@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {createServer} from 'node:http';
@@ -5,7 +6,7 @@ import {DatabaseSync} from 'node:sqlite';
 import assert from 'node:assert/strict';
 import {Passkeys} from '../src/passkeys.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 const sql=new DatabaseSync(':memory:');sql.exec('CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key))');
 const args=command=>command.args.map(arg=>arg.type==='null'?null:['integer','float'].includes(arg.type)?Number(arg.value):arg.value);
 const db={read:async(query,values=[])=>sql.prepare(query).all(...values),atomic:async commands=>{
@@ -17,7 +18,7 @@ const origin='http://localhost:'+server.address().port,service=new Passkeys(db,o
 const actor={id:'fixture-student',login:'Student',name:'Student'},session={sid:'fixture-session'};
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   const page=await browser.newPage();await page.goto(origin);
   await page.addScriptTag({content:readFileSync('node_modules/@simplewebauthn/browser/dist/bundle/index.umd.min.js','utf8')});
   const cdp=await page.context().newCDPSession(page);await cdp.send('WebAuthn.enable');

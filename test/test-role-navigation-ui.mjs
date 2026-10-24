@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
@@ -13,7 +14,7 @@ const server=createServer((req,res)=>{
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const role of ['DEVELOPER','ADMIN','USER']){
     const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
     await page.context().grantPermissions(['clipboard-read','clipboard-write']);
@@ -164,14 +165,14 @@ try{
       await page.setViewportSize({width,height:1000});
       await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),role+' fits '+width);
-      await page.screenshot({path:'/private/tmp/role-navigation-'+role+'-'+width+'.png'});
+      await Promise.resolve();
     }
     await page.setViewportSize({width:1440,height:1000});
     await page.locator('.side nav [data-user-settings]').click();
     await page.locator('dialog.user-settings[open]').waitFor();
     await page.waitForFunction(()=>[...document.querySelectorAll('.user-settings [data-settings-tab]:not([data-settings-tab="display"])')].every(button=>button.querySelector('svg')));
     assert.equal(await page.locator('.user-settings i[data-chat-icon]').count(),0,'Settings icons are included in production bundle');
-    await page.screenshot({path:'/private/tmp/role-settings-'+role+'.png'});
+    await Promise.resolve();
     await page.evaluate(()=>document.querySelector('dialog.user-settings').close());
     await page.locator('.side nav [data-msg-open]').click();await page.locator('#messages.on').waitFor();
     assert.equal(await page.locator('#msgAssign').count(),0,'Chat has no Assign exam button for any role');

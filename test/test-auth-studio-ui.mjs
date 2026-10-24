@@ -1,10 +1,11 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport}),errors=[],requests=[];
     await page.clock.install();
@@ -27,7 +28,7 @@ try{
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
       assert.ok(body.includes('let current=frozen?.constellation||next(),previous=null'));
-      await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null','let current=frozen?.constellation||catalogue.find(c=>c.abbr===\'Cru\'),previous=null')});
+      await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null',"let current=frozen?.constellation||(()=>{const c=catalogue.find(c=>c.abbr==='Cru');recent=[...recent.filter(abbr=>abbr!==c.abbr),c.abbr];return c;})(),previous=null")});
     });
     page.on('pageerror',error=>errors.push(error.message));
     await page.route('**/api/auth/password/**',route=>{requests.push({path:new URL(route.request().url()).pathname,body:route.request().postDataJSON()});return route.fulfill({json:{ok:true}});});

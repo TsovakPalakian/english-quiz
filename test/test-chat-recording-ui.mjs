@@ -1,9 +1,10 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);
@@ -13,7 +14,7 @@ const server=createServer((req,res)=>{
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable(),args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']});
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],sent=[],uploads=new Map();
   let failUpload=false;
   page.setDefaultTimeout(10000);page.on('pageerror',error=>errors.push(error.message));
@@ -75,6 +76,6 @@ try{
   await page.clock.install();
   await down();await up();await start();await move();await up();assert.equal(sent.length,4);
   await page.clock.fastForward(60000);await waitSent(5);assert.match(sent[4].files[0].name,/^video-/);
-  assert.deepEqual(errors,[]);await page.screenshot({path:'/private/tmp/lumiscia-recording.png'});
+  assert.deepEqual(errors,[]);await Promise.resolve();
   console.log('Real browser MediaRecorder: voice/video release-send, single toggle, locked send, permission race/denial, cancel and 60-second video auto-send passed');
 }finally{await browser?.close();await new Promise(done=>server.close(done));}

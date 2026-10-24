@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -99,7 +100,7 @@ test('network-off, read-only and revoked caller gates never dispatch transports'
 });
 test('main developer UI manages real-provider selections, budgets and approvals without dispatching AI',async()=>{
   const {createServer}=await import('node:http'),{once}=await import('node:events'),{createRequire}=await import('node:module');
-  const {chromium}=createRequire(import.meta.url)('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+  const {chromium}=createRequire(import.meta.url)(resolveTestDependency('playwright'));
   const f=await setup();let server,browser,actor=actors.dev;
   try{
     const script=`window.authUser=${JSON.stringify(actors.dev)};window.accountReady=true;window.viewAccount=null;window.viewSwitching=false;window.viewGen=1;window.lmState={};window.classGroups=[];window.esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));window.LearningMain={capabilities:()=>({learningWorkbench:true}),fetch:async(path,options={})=>{const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw Error(data.error);return data;}};${readFileSync(new URL('../client/52a-workbench.js',import.meta.url),'utf8')}\nLearningWorkbench.reset();`;
@@ -115,7 +116,7 @@ test('main developer UI manages real-provider selections, budgets and approvals 
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
       }catch(error){res.writeHead(error.status||400,{'content-type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.setDefaultTimeout(6000);page.on('pageerror',error=>errors.push(error.message));
     await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-workbench-providers]:visible').click();
     await page.getByRole('button',{name:'Initialize providers',exact:true}).click();await page.locator('#provider-generation').waitFor();

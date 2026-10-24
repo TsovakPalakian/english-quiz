@@ -1,3 +1,4 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -6,7 +7,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {openLocalGeminiProvider} from '../ops/local-gemini-preview-provider.mjs';
 import {createLearningWorkbenchPreview} from '../ops/preview-learning-workbench.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 test('developer selects Gemini and explicitly dispatches one lesson quiz from the local UI',async()=>{
   const dir=mkdtempSync(join(tmpdir(),'gemini-ui-'));let gemini,preview,browser,calls=0;
   try{
@@ -15,7 +16,7 @@ test('developer selects Gemini and explicitly dispatches one lesson quiz from th
       return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({type,meaning,content:{explanation:'Drizzle is light rain.',items:[{front:meaning.en,back:meaning.translation}]}})}]}}]});
     }});
     preview=await createLearningWorkbenchPreview({gemini});
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const context=await browser.newContext();await context.addCookies([{name:'local-workbench-role',value:'dev',url:preview.url}]);
     const page=await context.newPage();page.setDefaultTimeout(10000);
     await page.goto(preview.url+'/__local/providers');await page.locator('#provider-generation').waitFor();

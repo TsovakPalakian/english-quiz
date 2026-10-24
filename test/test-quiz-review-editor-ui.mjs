@@ -1,14 +1,15 @@
+import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {reviewSamples} from './quiz-review-samples.mjs';
 const require=createRequire(import.meta.url);
-const {chromium}=require('/Users/tsovakpalakian/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const {chromium}=require(resolveTestDependency('playwright'));
 test('all 17 quiz types save and reopen in the local browser editor, retaining every item',async()=>{
   const {server,url}=await createQuizReviewPreview();let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});
+    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     await page.goto(url);await page.locator('#context').waitFor();
@@ -37,7 +38,7 @@ test('all 17 quiz types save and reopen in the local browser editor, retaining e
       if(type==='Select all'){
         await page.setViewportSize({width:390,height:844});
         assert.ok(await page.locator('#editor').evaluate(n=>n.scrollWidth<=n.clientWidth),'Mobile editor overflow');
-        await page.screenshot({path:'/private/tmp/lumiscia-quiz-editor-mobile.png',fullPage:false});await page.setViewportSize({width:1280,height:960});
+        await Promise.resolve();await page.setViewportSize({width:1280,height:960});
       }
       await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#editor').waitFor({state:'hidden'});
       const data=await page.evaluate(async()=>await(await fetch('/local/mine')).json());
@@ -48,7 +49,7 @@ test('all 17 quiz types save and reopen in the local browser editor, retaining e
       assert.equal(await page.locator('[data-editor-item]').count(),items.length,type);
       assert.equal(await page.locator('#edit-type').isDisabled(),true);
       await page.locator('#edit-explanation').fill('Reopened: '+type);
-      if(type==='Match')await page.screenshot({path:'/private/tmp/lumiscia-quiz-editor-pairs.png',fullPage:false});
+      if(type==='Match')await Promise.resolve();
       await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#editor').waitFor({state:'hidden'});
       const saved=await page.evaluate(async id=>(await(await fetch('/local/quizzes/'+id)).json()).quiz,q.id);
       assert.deepEqual(saved.content.items,items,'Reopen '+type);assert.equal(saved.revision,2);
@@ -66,7 +67,7 @@ test('all 17 quiz types save and reopen in the local browser editor, retaining e
     await page.locator('#theme').selectOption('ocean');await page.locator('[data-view="word"]').click();await page.locator('[data-action="create"]').click();
     await page.locator('#edit-type').selectOption('Memory');await page.setViewportSize({width:390,height:844});
     assert.ok(await page.locator('#editor').evaluate(n=>n.scrollWidth<=n.clientWidth));
-    await page.screenshot({path:'/private/tmp/lumiscia-quiz-editor-ocean.png',fullPage:false});
+    await Promise.resolve();
     assert.deepEqual(errors,[]);assert.ok(requests.every(u=>u.startsWith(url)));
     console.log('Saved and reopened all 17 types, including multiple items, pairs and multiple correct answers.');
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
