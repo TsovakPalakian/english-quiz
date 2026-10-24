@@ -12,6 +12,40 @@ import urllib.request
 ROOT = Path(__file__).resolve().parent.parent
 LIMIT = 512 * 1024 * 1024
 MEDIA = "private/private-migration-media"
+R2_ACCOUNT = "42a9ebe47d529e3664b914aaf0813a21"
+R2_BUCKET = "learn-english-ci-inputs"
+
+
+def build_input_url(expected):
+    if not re.fullmatch(r"[a-f0-9]{64}", expected):
+        raise ValueError("configure archive SHA256")
+    key = os.environ.get("CI_R2_ACCESS_KEY_ID", "").strip()
+    secret = os.environ.get("CI_R2_SECRET_ACCESS_KEY", "").strip()
+    if key or secret:
+        if not key or not secret or any(c.isspace() for c in key + secret):
+            raise ValueError("configure both R2 read-only credentials")
+        # Sign in memory for this job; never persist or log the URL or keys.
+        import boto3
+        from botocore.config import Config
+
+        client = boto3.client(
+            "s3",
+            endpoint_url=f"https://{R2_ACCOUNT}.r2.cloudflarestorage.com",
+            region_name="auto",
+            aws_access_key_id=key,
+            aws_secret_access_key=secret,
+            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        )
+        try:
+            return client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": R2_BUCKET, "Key": f"ci-build-inputs/{expected}.tar.gz"},
+                ExpiresIn=900,
+                HttpMethod="GET",
+            )
+        finally:
+            client.close()
+    return os.environ.get("CI_BUILD_INPUTS_URL", "")
 
 
 def allowed(name, directory=False):
@@ -56,8 +90,8 @@ class HttpsRedirect(urllib.request.HTTPRedirectHandler):
 
 def restore():
     root = ROOT.resolve()
-    url = os.environ.get("CI_BUILD_INPUTS_URL", "")
     expected = os.environ.get("CI_BUILD_INPUTS_SHA256", "").lower()
+    url = build_input_url(expected)
     if urllib.parse.urlsplit(url).scheme != "https" or not re.fullmatch(r"[a-f0-9]{64}", expected):
         raise ValueError("configure HTTPS input URL and SHA256")
     opener = urllib.request.build_opener(HttpsRedirect())

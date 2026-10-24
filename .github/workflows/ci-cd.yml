@@ -50,10 +50,11 @@ jobs:
           grep -q '^Samantha ' <<< "$voices"
           grep -q '^Daniel ' <<< "$voices"
       - name: Restore verified private build inputs
-        run: python3 ops/ci-build-inputs.py restore
-        env:
-          CI_BUILD_INPUTS_URL: ${{ secrets.CI_BUILD_INPUTS_URL }}
-          CI_BUILD_INPUTS_SHA256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
+        uses: ./.github/actions/restore-ci-inputs
+        with:
+          r2-access-key-id: ${{ secrets.CI_R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.CI_R2_SECRET_ACCESS_KEY }}
+          sha256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
       - name: Install pinned PDF runtime
         run: npm install --prefix rollback/pdfjs-runtime --no-save --package-lock=false --ignore-scripts pdfjs-dist@6.4.299
       - name: Build production assets for browser checks
@@ -79,10 +80,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Restore the same verified build inputs
-        run: python3 ops/ci-build-inputs.py restore
-        env:
-          CI_BUILD_INPUTS_URL: ${{ secrets.CI_BUILD_INPUTS_URL }}
-          CI_BUILD_INPUTS_SHA256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
+        uses: ./.github/actions/restore-ci-inputs
+        with:
+          r2-access-key-id: ${{ secrets.CI_R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.CI_R2_SECRET_ACCESS_KEY }}
+          sha256: ${{ secrets.CI_BUILD_INPUTS_SHA256 }}
       - name: Install pinned PDF runtime
         run: npm install --prefix rollback/pdfjs-runtime --no-save --package-lock=false --ignore-scripts pdfjs-dist@6.4.299
       - name: Build production assets

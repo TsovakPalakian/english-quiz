@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -18,8 +19,41 @@ class BuildInputsTests(unittest.TestCase):
         env = {"CI_BUILD_INPUTS_URL": "https://example.invalid/private-archive", "CI_BUILD_INPUTS_SHA256": digest or hashlib.sha256(archive).hexdigest()}
         opener = unittest.mock.Mock()
         opener.open.return_value = io.BytesIO(archive)
-        with patch.object(inputs, "ROOT", root), patch.dict(os.environ, env), patch.object(inputs.urllib.request, "build_opener", return_value=opener):
+        with patch.object(inputs, "ROOT", root), patch.dict(os.environ, env, clear=True), patch.object(inputs.urllib.request, "build_opener", return_value=opener):
             inputs.restore()
+
+    def test_r2_signature_is_fresh_scoped_and_never_printed(self):
+        client = unittest.mock.Mock()
+        client.generate_presigned_url.side_effect = ["https://example.invalid/first-signature", "https://example.invalid/second-signature"]
+        factory = unittest.mock.Mock(return_value=client)
+        config = unittest.mock.Mock(return_value="fixture-config")
+        modules = {"boto3": SimpleNamespace(client=factory), "botocore.config": SimpleNamespace(Config=config)}
+        env = {"CI_R2_ACCESS_KEY_ID": "fixture-key", "CI_R2_SECRET_ACCESS_KEY": "fixture-secret", "CI_BUILD_INPUTS_URL": "https://example.invalid/stale"}
+        with patch.dict(os.environ, env, clear=True), patch.dict("sys.modules", modules), patch("builtins.print") as printed:
+            self.assertEqual(inputs.build_input_url("a" * 64), "https://example.invalid/first-signature")
+            self.assertEqual(inputs.build_input_url("a" * 64), "https://example.invalid/second-signature")
+            printed.assert_not_called()
+        config.assert_called_with(signature_version="s3v4", s3={"addressing_style": "path"})
+        factory.assert_called_with("s3", endpoint_url=f"https://{inputs.R2_ACCOUNT}.r2.cloudflarestorage.com", region_name="auto", aws_access_key_id="fixture-key", aws_secret_access_key="fixture-secret", config="fixture-config")
+        self.assertEqual(client.close.call_count, 2)
+        client.generate_presigned_url.assert_called_with("get_object", Params={"Bucket": inputs.R2_BUCKET, "Key": "ci-build-inputs/" + "a" * 64 + ".tar.gz"}, ExpiresIn=900, HttpMethod="GET")
+
+    def test_r2_rejects_partial_credentials_and_bad_digest(self):
+        for env in [{"CI_R2_ACCESS_KEY_ID": "fixture-key"}, {"CI_R2_SECRET_ACCESS_KEY": "fixture-secret"}, {"CI_R2_ACCESS_KEY_ID": "bad key", "CI_R2_SECRET_ACCESS_KEY": "fixture-secret"}]:
+            with self.subTest(env=list(env)), patch.dict(os.environ, {**env, "CI_BUILD_INPUTS_URL": "https://example.invalid/stale"}, clear=True):
+                with self.assertRaises(ValueError):
+                    inputs.build_input_url("a" * 64)
+        with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
+            inputs.build_input_url("../invalid")
+
+    def test_r2_signing_failure_closes_client(self):
+        client = unittest.mock.Mock()
+        client.generate_presigned_url.side_effect = RuntimeError("fixture signing failure")
+        modules = {"boto3": SimpleNamespace(client=unittest.mock.Mock(return_value=client)), "botocore.config": SimpleNamespace(Config=unittest.mock.Mock())}
+        with patch.dict(os.environ, {"CI_R2_ACCESS_KEY_ID": "fixture-key", "CI_R2_SECRET_ACCESS_KEY": "fixture-secret"}, clear=True), patch.dict("sys.modules", modules):
+            with self.assertRaises(RuntimeError):
+                inputs.build_input_url("a" * 64)
+        client.close.assert_called_once()
 
     def archive(self, names):
         output = io.BytesIO()
