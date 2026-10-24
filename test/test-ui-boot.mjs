@@ -181,8 +181,9 @@ try{
   assert.equal(await page.locator('.side .brand-account').count(),0);
   await page.locator('[data-jump="admin"]:visible').first().click();
   assert.equal(await page.locator('[data-jump="admin"] svg').count(),2);
-  assert.equal(await page.locator('[data-admin-tab]').count(),3);
+  assert.deepEqual(await page.locator('[data-admin-tab]').evaluateAll(nodes=>nodes.map(node=>node.dataset.adminTab)),['accounts','requests','invite','history']);
   await page.waitForFunction(()=>document.querySelector('[data-admin-tab="requests"]')?.textContent==='Approval requests · 1');
+  assert.deepEqual(await page.locator('[data-admin-tab]').evaluateAll(nodes=>nodes.map(node=>node.textContent.split(' · ')[0].trim())),['Approved accounts & Groups','Approval requests','Invite','Registration history']);
   assert.deepEqual(await page.locator('[data-jump="admin"]').allTextContents(),['Accounts · 1','Accounts · 1']);
   await page.locator('#adminAccountSearch').fill('student@example.invalid');
   assert.equal(await page.locator('#adminAccountList [data-account="user"]').count(),1);
