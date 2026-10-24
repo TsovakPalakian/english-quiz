@@ -190,7 +190,11 @@
         accountChecked = true;
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
-          if (personal) { leaveAccount(); return; }
+          if (personal) {
+            let authEntry=false;
+            try{authEntry=JSON.parse(sessionStorage.getItem('enquiz-place')||'null')?.id==='account'&&!!(sessionStorage.getItem('enquiz-auth-flash')||window.MicrosoftSignIn?.pending()||window.TelegramSignIn?.pending());}catch{}
+            return leaveAccount({authEntry}).then(() => finishPlace(authEntry?'account':undefined));
+          }
           try { localStorage.removeItem(CUSTOM_THEME_KEY); localStorage.removeItem(THEME_PICTURE_KEY); } catch (e) {}
           settleThemeAudience();
           paintHomeAccount();

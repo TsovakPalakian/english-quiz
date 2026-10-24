@@ -430,13 +430,16 @@
           '</div></div>';
         return;
       }
-      paintAccountForm(false);
+      let register=false;
+      try{register=sessionStorage.getItem('enquiz-auth-form')==='register';}catch{}
+      paintAccountForm(register);
     }
     function paintAccountForm(register) {
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
       if(window.MicrosoftSignIn?.pending()){window.MicrosoftSignIn.paint(box);return;}
       if(window.TelegramSignIn?.pending()){window.TelegramSignIn.paint(box);return;}
+      try{sessionStorage.setItem('enquiz-auth-form',register?'register':'login');}catch{}
       let flash = "";
       try {
         flash = sessionStorage.getItem("enquiz-auth-flash") || "";
@@ -467,7 +470,7 @@
           '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'</div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+'</div></div></div></div>';
         decorate();
         return;
       }

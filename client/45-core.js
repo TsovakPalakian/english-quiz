@@ -11,6 +11,9 @@
     let placeBoot = false;
     function resumePlace() {
       if (!accountChecked) return;
+      let invitedRegistration=false;
+      try{invitedRegistration=!authUser&&!!sessionStorage.getItem('enquiz-invite')&&sessionStorage.getItem('enquiz-auth-form')==='register';}catch{}
+      if(invitedRegistration){show('account');return;}
       if (workFromLocation()) return;
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
@@ -91,9 +94,9 @@
       }
       restore(place);
     }
-    function finishPlace() {
+    function finishPlace(target) {
       placeBoot = true;
-      resumePlace();
+      if(target)show(target);else resumePlace();
       if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
       document.body.removeAttribute('data-shell-pending');
     }

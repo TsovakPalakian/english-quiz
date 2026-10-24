@@ -12983,13 +12983,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           '</div></div>';
         return;
       }
-      paintAccountForm(false);
+      let register=false;
+      try{register=sessionStorage.getItem('enquiz-auth-form')==='register';}catch{}
+      paintAccountForm(register);
     }
     function paintAccountForm(register) {
       const box = document.getElementById("accountBody");
       if (!box || authUser) return;
       if(window.MicrosoftSignIn?.pending()){window.MicrosoftSignIn.paint(box);return;}
       if(window.TelegramSignIn?.pending()){window.TelegramSignIn.paint(box);return;}
+      try{sessionStorage.setItem('enquiz-auth-form',register?'register':'login');}catch{}
       let flash = "";
       try {
         flash = sessionStorage.getItem("enquiz-auth-flash") || "";
@@ -13020,7 +13023,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'</div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+'</div></div></div></div>';
         decorate();
         return;
       }
@@ -14212,9 +14215,11 @@ const STUDIO_CONSTELLATIONS = [{
       const pending=()=>{try{return sessionStorage.getItem(pendingKey)==='1';}catch{return false;}};
       const clear=()=>{try{sessionStorage.removeItem(pendingKey);}catch{}};
       async function decorate(root){
+        root.querySelectorAll('[data-google-auth]').forEach(button=>{button.hidden=true;});
         if(!federatedProviders)federatedProviders=api('/api/auth/providers').catch(()=>{federatedProviders=null;return {};});
-        const enabled=(await federatedProviders)[provider]===true;
-        root.querySelectorAll('[data-'+provider+'-auth]').forEach(button=>{button.hidden=!enabled;});
+        const configured=await federatedProviders;
+        for(const service of ['google','microsoft','telegram'])root.querySelectorAll('[data-'+service+'-auth]').forEach(button=>{button.hidden=configured[service]!==true;});
+        root.querySelectorAll('[data-registration-providers]').forEach(group=>{group.hidden=!['google','microsoft','telegram'].some(service=>configured[service]===true);});
       }
       function paint(box){
         box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Microsoft sign-in</h1><form class="auth-code-confirm" data-microsoft-confirm><label for="microsoftEmail">Email</label><input id="microsoftEmail" name="email" type="email" autocomplete="email" maxlength="120" required><button type="button" class="btn auth-code-send" data-microsoft-send>Send code</button><label for="microsoftCode" data-ms-code hidden>Email code</label><input id="microsoftCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required disabled data-ms-code hidden><p class="hint" role="status"></p><button type="submit" class="btn primary" data-ms-code hidden disabled>Confirm and continue</button></form><button class="btn" type="button" data-microsoft-cancel>Back to Log in</button></div></div>'.replaceAll('microsoft',provider).replaceAll('Microsoft',label);
@@ -15598,6 +15603,7 @@ const STUDIO_CONSTELLATIONS = [{
           history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
         }
         const saved=token||sessionStorage.getItem('enquiz-invite');
+        if(saved&&!params.has('auth')&&(token||!sessionStorage.getItem('enquiz-auth-form')))sessionStorage.setItem('enquiz-auth-form','register');
         if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
           if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
           offerTeacherInvite();
@@ -15635,7 +15641,7 @@ const STUDIO_CONSTELLATIONS = [{
           telegram_error: "Telegram sign-in failed. Try again."
         };
         if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
-        if(auth==='pending')sessionStorage.removeItem('enquiz-invite');
+        if(auth==='pending'){sessionStorage.removeItem('enquiz-invite');sessionStorage.setItem('enquiz-auth-form','login');}
         if(auth==='microsoft_verify')sessionStorage.setItem('enquiz-microsoft-verify','1');
         if(auth.startsWith('microsoft')||auth==='pending')sessionStorage.setItem('enquiz-place',JSON.stringify({id:'account'}));
         if(['microsoft','microsoft_denied','microsoft_error'].includes(auth))sessionStorage.removeItem('enquiz-microsoft-verify');
@@ -15746,8 +15752,8 @@ const STUDIO_CONSTELLATIONS = [{
         applyTheme(DEFAULT_THEME, { sync: false, persist: false });
         settleThemeAudience();
         paintHomeAccount();
-        paintAccount();
-        show("home");
+        if(!options?.authEntry)paintAccount();
+        show('home');
         document.body.removeAttribute('data-shell-pending');
       });
     }
@@ -16082,6 +16088,9 @@ const STUDIO_CONSTELLATIONS = [{
     let placeBoot = false;
     function resumePlace() {
       if (!accountChecked) return;
+      let invitedRegistration=false;
+      try{invitedRegistration=!authUser&&!!sessionStorage.getItem('enquiz-invite')&&sessionStorage.getItem('enquiz-auth-form')==='register';}catch{}
+      if(invitedRegistration){show('account');return;}
       if (workFromLocation()) return;
       let place = null;
       try { place = JSON.parse(sessionStorage.getItem("enquiz-place") || "null"); }
@@ -16162,9 +16171,9 @@ const STUDIO_CONSTELLATIONS = [{
       }
       restore(place);
     }
-    function finishPlace() {
+    function finishPlace(target) {
       placeBoot = true;
-      resumePlace();
+      if(target)show(target);else resumePlace();
       if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
       document.body.removeAttribute('data-shell-pending');
     }
@@ -16449,7 +16458,11 @@ const STUDIO_CONSTELLATIONS = [{
         accountChecked = true;
         if (!data.user) {
           const personal = localStorage.getItem(SONG_KEY) || localStorage.getItem(ADDED_KEY) || localStorage.getItem(LEARNED_KEY) || localStorage.getItem(MISTAKE_KEY) || localStorage.getItem(VARIANT_KEY) || localStorage.getItem(EDIT_KEY) || localStorage.getItem("enquiz-auth-on") || localStorage.getItem("enquiz-dev-stash") || localStorage.getItem("enquiz-view-id");
-          if (personal) { leaveAccount(); return; }
+          if (personal) {
+            let authEntry=false;
+            try{authEntry=JSON.parse(sessionStorage.getItem('enquiz-place')||'null')?.id==='account'&&!!(sessionStorage.getItem('enquiz-auth-flash')||window.MicrosoftSignIn?.pending()||window.TelegramSignIn?.pending());}catch{}
+            return leaveAccount({authEntry}).then(() => finishPlace(authEntry?'account':undefined));
+          }
           try { localStorage.removeItem(CUSTOM_THEME_KEY); localStorage.removeItem(THEME_PICTURE_KEY); } catch (e) {}
           settleThemeAudience();
           paintHomeAccount();

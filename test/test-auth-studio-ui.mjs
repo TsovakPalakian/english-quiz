@@ -150,7 +150,7 @@ try{
     assert.equal(requests.length,2);assert.equal(requests[1].body.password,'new-password');
     await page.locator('.auth-create button').click();await page.locator('#registerForm').waitFor({state:'visible'});
     assert.equal(await page.locator('#registerForm').evaluate(n=>n.getBoundingClientRect().width),loginWidth,'Registration and login have identical widths');
-    assert.equal(await page.locator('[data-google-auth]').count(),0);
+    await page.locator('[data-google-auth]').waitFor({state:'visible'});
     assert.equal(await page.locator('#registerForm [name="role"]').count(),0);
     assert.equal(await page.locator('#accountBody .auth-tabs').count(),0);
     assert.equal(await page.locator('#registerForm [name="name"]').getAttribute('required'),'');

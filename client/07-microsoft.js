@@ -8,9 +8,11 @@
       const pending=()=>{try{return sessionStorage.getItem(pendingKey)==='1';}catch{return false;}};
       const clear=()=>{try{sessionStorage.removeItem(pendingKey);}catch{}};
       async function decorate(root){
+        root.querySelectorAll('[data-google-auth]').forEach(button=>{button.hidden=true;});
         if(!federatedProviders)federatedProviders=api('/api/auth/providers').catch(()=>{federatedProviders=null;return {};});
-        const enabled=(await federatedProviders)[provider]===true;
-        root.querySelectorAll('[data-'+provider+'-auth]').forEach(button=>{button.hidden=!enabled;});
+        const configured=await federatedProviders;
+        for(const service of ['google','microsoft','telegram'])root.querySelectorAll('[data-'+service+'-auth]').forEach(button=>{button.hidden=configured[service]!==true;});
+        root.querySelectorAll('[data-registration-providers]').forEach(group=>{group.hidden=!['google','microsoft','telegram'].some(service=>configured[service]===true);});
       }
       function paint(box){
         box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Microsoft sign-in</h1><form class="auth-code-confirm" data-microsoft-confirm><label for="microsoftEmail">Email</label><input id="microsoftEmail" name="email" type="email" autocomplete="email" maxlength="120" required><button type="button" class="btn auth-code-send" data-microsoft-send>Send code</button><label for="microsoftCode" data-ms-code hidden>Email code</label><input id="microsoftCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required disabled data-ms-code hidden><p class="hint" role="status"></p><button type="submit" class="btn primary" data-ms-code hidden disabled>Confirm and continue</button></form><button class="btn" type="button" data-microsoft-cancel>Back to Log in</button></div></div>'.replaceAll('microsoft',provider).replaceAll('Microsoft',label);

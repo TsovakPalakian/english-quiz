@@ -45,6 +45,7 @@
           history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
         }
         const saved=token||sessionStorage.getItem('enquiz-invite');
+        if(saved&&!params.has('auth')&&(token||!sessionStorage.getItem('enquiz-auth-form')))sessionStorage.setItem('enquiz-auth-form','register');
         if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
           if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
           offerTeacherInvite();
@@ -82,7 +83,7 @@
           telegram_error: "Telegram sign-in failed. Try again."
         };
         if (messages[auth]) sessionStorage.setItem("enquiz-auth-flash", messages[auth]);
-        if(auth==='pending')sessionStorage.removeItem('enquiz-invite');
+        if(auth==='pending'){sessionStorage.removeItem('enquiz-invite');sessionStorage.setItem('enquiz-auth-form','login');}
         if(auth==='microsoft_verify')sessionStorage.setItem('enquiz-microsoft-verify','1');
         if(auth.startsWith('microsoft')||auth==='pending')sessionStorage.setItem('enquiz-place',JSON.stringify({id:'account'}));
         if(['microsoft','microsoft_denied','microsoft_error'].includes(auth))sessionStorage.removeItem('enquiz-microsoft-verify');
@@ -193,8 +194,8 @@
         applyTheme(DEFAULT_THEME, { sync: false, persist: false });
         settleThemeAudience();
         paintHomeAccount();
-        paintAccount();
-        show("home");
+        if(!options?.authEntry)paintAccount();
+        show('home');
         document.body.removeAttribute('data-shell-pending');
       });
     }

@@ -15,7 +15,7 @@ try{
     const page=await browser.newPage();let providerCalls=0,pending=true;
     await page.route('**/api/**',async route=>{
       const path=new URL(route.request().url()).pathname;let value={};
-      if(path==='/api/auth/providers'){providerCalls++;value={microsoft:enabled};}
+      if(path==='/api/auth/providers'){providerCalls++;value={google:true,microsoft:enabled};}
       if(path==='/api/auth/microsoft/profile')value={email:'student@example.invalid',name:'Student'};
       if(path==='/api/auth/microsoft/verify'){
         assert.deepEqual(route.request().postDataJSON(),{email:'student@example.invalid',code:'123456'});
@@ -32,11 +32,11 @@ try{
     for(const register of [false,true]){
       await page.evaluate(register=>paintAccountForm(register),register);
       await page.evaluate(()=>MicrosoftSignIn.decorate(document.getElementById('accountBody')));
-      assert.equal(await page.locator('[data-microsoft-auth]').isVisible(),enabled&&!register);
+      assert.equal(await page.locator('[data-microsoft-auth]').isVisible(),enabled);
       if(register){
-        assert.equal(await page.locator('[data-google-auth]').count(),0,'Registration is a plain application form');
-        assert.equal(await page.locator('.auth-divider').count(),0);
-        assert.equal(await page.locator('[data-microsoft-auth],[data-telegram-auth],[data-passkey-login]').count(),0,'Other sign-in providers stay on Log in');
+        assert.equal(await page.locator('[data-google-auth]').isVisible(),true);
+        assert.equal(await page.locator('.auth-divider').isVisible(),true);
+        assert.equal(await page.locator('[data-passkey-login]').count(),0,'Passkeys are not a registration provider');
       }
       if(enabled&&!register)for(const width of [390,1000]){
         await page.setViewportSize({width,height:1000});
@@ -68,5 +68,5 @@ try{
     }
     await page.close();
   }
-  console.log('Microsoft UI: configuration gating, login branding, registration without provider buttons, code spacing, mobile/desktop spacing, email confirmation and pending/active outcomes passed');
+  console.log('Microsoft UI: configured login/registration providers, spacing, email confirmation and pending/active outcomes passed');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
