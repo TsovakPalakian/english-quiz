@@ -52,9 +52,11 @@ try{
   const cleanup=await service.issue('register',{actor,session,rateKey:'cleanup'});
   await service.removeAccount(actor.id);
   await assert.rejects(service.challenge(cleanup.token,'register',actor,session),error=>error.status===400);
-  let keys=[];
+  let keys=[],optionsError=false;
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/api/**',async route=>{
     const path=new URL(route.request().url()).pathname;
+    if(path==='/api/auth/passkeys/options'&&optionsError)return route.fulfill({status:503,json:{error:'Passkeys temporarily unavailable.'}});
     let value={};
     if(path==='/api/me/passkeys')value={passkeys:keys};
     else if(path.endsWith('/options'))value={options:{}};
@@ -63,7 +65,7 @@ try{
     else if(path==='/api/auth/passkeys/verify')value={user:{id:actor.id}};
     await route.fulfill({json:value});
   });
-  await page.setContent('<dialog open class="chat-dialog user-settings"><div class="chat-settings-content"><div id="passkeys"></div><button data-passkey-login>Log in with passkey</button><p data-passkey-status></p></div></dialog>');
+  await page.setContent('<dialog open class="chat-dialog user-settings"><div class="chat-settings-content"><div id="passkeys"></div><div class="account-gate"><div class="card"><div class="auth-providers"><button data-passkey-login>Log in with passkey</button></div><p data-passkey-status role="status"></p></div></div></div></dialog>');
   await page.addStyleTag({content:readFileSync('site/preview.css','utf8')+readFileSync('production/chat.css','utf8')});
   await page.addScriptTag({content:readFileSync('production/chat-icons.js','utf8')});
   await page.addScriptTag({content:'let inviteDetails=null;async function enterAccount(user){window.signedInUser=user;} SimpleWebAuthnBrowser.startRegistration=async()=>({id:"fixture"});SimpleWebAuthnBrowser.startAuthentication=async()=>({id:"fixture"});'});
@@ -82,11 +84,21 @@ try{
     const bounds=await page.locator('#passkeys').evaluate(node=>({width:node.scrollWidth,available:node.clientWidth}));
     assert.ok(bounds.width<=bounds.available+1,'Passkey controls fit on mobile and desktop');
   }
-  await page.screenshot({path:'/private/tmp/lumiscia-passkeys-390.png'});
   await page.locator('[data-passkey-code]').click();await page.locator('[data-passkey-code-value]').fill('123456');
   await page.getByRole('button',{name:'Remove My <device>',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('[data-passkey-list]').textContent==='No passkeys added.');
   await page.locator('[data-passkey-login]').click();
   await page.waitForFunction(()=>window.signedInUser?.id==='fixture-student');
+  await page.waitForFunction(()=>!document.querySelector('[data-passkey-login]').disabled);
+  optionsError=true;
+  await page.locator('[data-passkey-login]').click();
+  await page.waitForFunction(()=>document.querySelector('.account-gate [data-passkey-status]').textContent==='Passkeys temporarily unavailable.');
+  assert.equal(await page.locator('[data-passkey-login]').isEnabled(),true);
+  optionsError=false;
+  await page.evaluate(()=>{SimpleWebAuthnBrowser.startAuthentication=async()=>{throw new DOMException('Cancelled','NotAllowedError');};});
+  await page.locator('[data-passkey-login]').click();
+  await page.waitForFunction(()=>document.querySelector('.account-gate [data-passkey-status]').textContent==='Passkey request cancelled.');
+  assert.equal(await page.locator('[data-passkey-login]').isEnabled(),true);
+  assert.deepEqual(errors,[]);
   console.log('Passkeys: native WebAuthn signatures/UV, session/origin binding, replay/race, expiry, ownership, removal, confirmation-code UI and sign-in passed');
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));sql.close();}

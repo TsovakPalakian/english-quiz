@@ -14194,8 +14194,8 @@ const STUDIO_CONSTELLATIONS = [{
       return {supported,login,mount,message};
     })();
     document.addEventListener('click',async event=>{
-      const button=event.target.closest('[data-passkey-login]');if(!button)return;
-      const status=button.parentElement.querySelector('[data-passkey-status]');button.disabled=true;status.textContent='';
+      const button=event.target.closest('[data-passkey-login]');if(!button||button.disabled)return;
+      const status=(button.closest('.account-gate')||button.parentElement).querySelector('[data-passkey-status]');button.disabled=true;status.textContent='';
       try{
         if(inviteDetails?.kind==='teacher')throw Error('Accept this teacher invite using email code or Google.');
         const result=await window.LumisciaPasskeys.login();
