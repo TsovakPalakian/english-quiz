@@ -223,7 +223,7 @@ try{
   await openDelete();await page.locator('dialog[open]').getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(commands.filter(c=>c==='delete').length,deletesBefore);
   await openDelete();await page.mouse.click(3,3);await page.locator('.chat-delete-confirm').waitFor({state:'detached'});assert.equal(commands.filter(c=>c==='delete').length,deletesBefore);
   await openDelete();await page.locator('dialog[open]').getByRole('button',{name:'Deleted',exact:true}).click();await page.locator('[data-msg-id="'+removable.id+'"].is-deleted').waitFor();
-  const wav=Buffer.alloc(8044);wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(8000,40);
+  const wav=Buffer.alloc(44+8000*2*10);wav.write('RIFF',0);wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(8000,24);wav.writeUInt32LE(16000,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(wav.length-44,40);
   await page.locator('#msgFile').setInputFiles({name:'Voice.wav',mimeType:'audio/wav',buffer:wav});await page.waitForFunction(()=>document.querySelectorAll('.chat-upload').length===0);const voice=rows.find(r=>r.files?.[0]?.name==='Voice.wav');
   await page.locator('[data-msg-id="'+voice.id+'"]').click({button:'right'});const downloadEvent=page.waitForEvent('download');await page.locator('[data-context-action="save"]').click();assert.equal((await downloadEvent).suggestedFilename(),'Voice.wav');
   await page.context().grantPermissions(['clipboard-read','clipboard-write']);
@@ -232,7 +232,14 @@ try{
   await page.waitForFunction(()=>document.querySelector('.chat-upload[data-upload-state="ready"] strong')?.textContent==='Photo.png');
   await page.locator('#msgText').press('Enter');await page.locator('img[alt="Photo.png"]').waitFor();const photoMsg=rows.find(r=>r.files?.[0]?.name==='Photo.png');assert.ok(photoMsg);
   await page.locator('[data-msg-id="'+photoMsg.id+'"]').click({button:'right'});await page.locator('[data-context-action="copy-media"]').click();await page.locator('#msgStatus').filter({hasText:'Photo copied.'}).waitFor();
-  const audioPlayer=page.locator('[data-msg-id="'+voice.id+'"] .chat-audio');await audioPlayer.locator('[data-audio-play]').click();await page.waitForFunction(id=>!document.querySelector('[data-msg-id="'+id+'"] audio').paused,voice.id);await audioPlayer.locator('[data-audio-play]').click();assert.equal(await audioPlayer.locator('audio').evaluate(n=>n.paused),true);await Promise.resolve();
+  const audioPlayer=page.locator('[data-msg-id="'+voice.id+'"] .chat-audio'),voiceAudio=audioPlayer.locator('audio');
+  await voiceAudio.evaluate(n=>n.addEventListener('playing',()=>{n.dataset.fixturePlaying='true';},{once:true}));
+  await audioPlayer.locator('[data-audio-play]').click();
+  await audioPlayer.locator('audio[data-fixture-playing="true"]').waitFor({state:'attached'});
+  assert.equal(await voiceAudio.evaluate(n=>n.error),null);
+  assert.equal(await voiceAudio.evaluate(n=>n.duration),10);
+  assert.equal(await voiceAudio.evaluate(n=>n.paused),false);
+  await audioPlayer.locator('[data-audio-play]').click();assert.equal(await voiceAudio.evaluate(n=>n.paused),true);await Promise.resolve();
   await page.locator('[data-msg-id="'+voice.id+'"]').click({button:'right'});await page.locator('[data-context-action="forward"]').click();await page.locator('dialog[open] [data-contact-index="1"]').click();await page.locator('dialog[open]').waitFor({state:'hidden'});const forwardedVoice=page.locator('.is-own audio').last();await forwardedVoice.evaluate(async n=>{await n.play();});await page.waitForFunction(()=>[...document.querySelectorAll('.is-own audio')].at(-1).currentTime>0);assert.ok(await forwardedVoice.evaluate(n=>n.duration>0&&n.error===null));await forwardedVoice.evaluate(n=>n.pause());
   const videoDirectory=mkdtempSync(testTempRoot()+'/chat-video-fixture-');let webm;
   try{
