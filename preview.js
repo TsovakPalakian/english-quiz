@@ -16063,11 +16063,32 @@ const STUDIO_CONSTELLATIONS = [{
         return;
       }
       if (action === "delete-user") {
-        if (!sessionIsDeveloper() || viewAccount) return;
+        if (!sessionIsDeveloper() || viewAccount || button.disabled) return;
         if (!confirm("Delete this account permanently? The login, cards and songs stored for it will be removed.")) return;
-        accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id), { method: "DELETE" })
-          .then(() => paintAdmin())
-          .catch((err) => alert(err.message));
+        const id=button.dataset.id,user=adminAccounts.find(row=>row.id===id);
+        const name=user?.name||user?.login||id;
+        button.disabled=true;
+        accountFetch("/api/admin/users/" + encodeURIComponent(id), { method: "DELETE" })
+          .then(() => {
+            ++adminPaintToken;++adminUserPaintToken;
+            adminAccountId=null;adminSelectedUser=null;
+            adminAccounts=adminAccounts.filter(row=>row.id!==id);
+            adminMembers=adminMembers.filter(row=>row.accountId!==id);
+            viewCache.delete('admin');viewCache.delete('adminuser:'+id);
+            for(let i=navStack.length-1;i>=0;i--)if(navStack[i].adminAccountId===id){
+              if(navStack[i].id==='adminuser')navStack.splice(i,1);else navStack[i].adminAccountId=null;
+            }
+            try{sessionStorage.setItem('enquiz-place',JSON.stringify({id:'admin',adminTab:'accounts'}));}catch{}
+            const dialog=document.createElement('dialog');
+            dialog.className='account-deleted-dialog';
+            dialog.setAttribute('aria-labelledby','deletedAccountTitle');
+            dialog.innerHTML='<h2 id="deletedAccountTitle">Account deleted</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+            dialog.querySelector('p').textContent='The account for '+name+' has been deleted.';
+            dialog.addEventListener('cancel',event=>event.preventDefault());
+            dialog.addEventListener('close',()=>{dialog.remove();adminTab='accounts';show('admin');paintAdmin();},{once:true});
+            document.body.append(dialog);dialog.showModal();
+          })
+          .catch((err) => {button.disabled=false;alert(err.message);});
         return;
       }
       if (action === "user") {
