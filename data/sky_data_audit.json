@@ -1,12 +1,12 @@
 {
   "checkedOn": "2026-10-24",
   "scope": "All active catalogue rows; no scientific data modified by this audit",
-  "catalogueSha256": "324e9c6b20e91cf14b54bbb4d7510505d212963cfe78251225a54d3be36b0c8a",
+  "catalogueSha256": "0f108c7384cb44a0d31b8b04741c703bfd99a206eb172d95456a367f7d58eefc",
   "counts": {
     "constellations": 88,
-    "starEntries": 836,
-    "uniqueHip": 823,
-    "edges": 743,
+    "starEntries": 852,
+    "uniqueHip": 839,
+    "edges": 777,
     "objects": 157,
     "galaxyLabelledObjects": 49,
     "components": 8,
@@ -40,8 +40,8 @@
     }
   ],
   "verifiedFields": {
-    "positions": 998,
-    "stellarPhotometry": 841,
+    "positions": 1014,
+    "stellarPhotometry": 857,
     "objectPhotometryAndSizes": 147
   },
   "integrityErrors": [],

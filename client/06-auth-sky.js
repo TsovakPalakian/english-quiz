@@ -37,7 +37,7 @@
     const brand=mode==='home'?'#home .studio-brand':'#account .auth-brand';
     const roots=[...document.querySelectorAll(brand+','+(mode==='home'?'#homeAuth':'#accountBody')+',.site-copyright')];
     return roots
-      .map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height).map(r=>({left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height}));
+      .map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,element:n.id?'#'+n.id:'.'+[...n.classList].join('.')};}).filter(r=>r.width&&r.height);
   }
   function textBoxes(mode){
     const result=[];
@@ -68,8 +68,8 @@
     canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
     canvas.dataset.skyProjection='gnomonic-j2000';
     canvas.dataset.skyFlybyCount='0';
-    const pad=r=>({left:r.left-4,right:r.right+4,top:r.top-4,bottom:r.bottom+4});
-    const uiRects=boxes.map(pad),labelRects=uiRects;
+    const pad=r=>({left:r.left-4,right:r.right+4,top:r.top-4,bottom:r.bottom+4,element:r.element});
+    const uiRects=boxes.map(pad);
     const obstacles=[];
     let labels=[],frameId=0,stopped=false,lastTime=null,clock=0;
     const delay=()=>geometry.flybyDelay()*(mode==='home'?2+Math.random()*3:1);
@@ -81,7 +81,6 @@
     const backgroundObstacles=logoRects.map(r=>geometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,(r.right-r.left)/2,(r.bottom-r.top)/2,'rounded'));
     const inside=p=>obstacles.some(o=>geometry.contains(p,o.points));
     const labelContains=p=>labels.some(b=>p.x>b.left-4&&p.x<b.right+4&&p.y>b.top-4&&p.y<b.bottom+4);
-    const blockedBox=b=>labelRects.some(r=>astro.intersects(b,r));
     const starBlocked=(p,r=8)=>logoRects.some(b=>astro.intersects(b,{left:p.x-r,right:p.x+r,top:p.y-r,bottom:p.y+r}))||labelContains(p);
     function safePoint(background=false){
       for(let i=0;i<120;i++){const p={x:12+Math.random()*Math.max(1,w-24),y:12+Math.random()*Math.max(1,h-24)};if((background||!inside(p))&&!starBlocked(p))return p;}
@@ -96,30 +95,14 @@
       const a=Math.random()*Math.PI*2,speed=.025+Math.random()*.06;
       return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2};
     });
+    const layoutIssues=new Map();
     function chooseLayout(c){
       const measure=(text,size=12)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;};
-      const base=astro.preferredSize(c,w,h)*constellationScale;
-      const centres=Array.from({length:70},()=>({cx:20+Math.random()*Math.max(1,w-40),cy:20+Math.random()*Math.max(1,h-40)}));
-      // A deterministic fallback prevents a valid narrow gap being missed by random sampling.
-      for(let cy=20;cy<h-20;cy+=24)for(let cx=20;cx<w-20;cx+=24)centres.push({cx,cy});
-      for(const factor of [1,.84,.68,.52,.4,.3,.22,.16,.1,.08,.06,.05]){
-        for(const {cx,cy} of centres){
-          const candidate=astro.layout(c,cx,cy,base*factor);
-          const core=candidate.stars.slice(0,c.stars.length),visible=candidate.stars.filter(p=>astro.inViewport(p,w,h));
-          if(core.some(p=>p.x<18||p.x>w-18||p.y<18||p.y>h-18))continue;
-          if(!astro.clearFigure(c,visible,uiRects))continue;
-          if(visible.some(p=>starBlocked(p,astro.appearance(p.mag,p.bv).radius*4)))continue;
-          const labelBlocked=b=>blockedBox(b)||c.lines.some(([i,j])=>astro.segmentHitsBox(candidate.stars[i],candidate.stars[j],b));
-          const boxes=astro.labels(visible,w,h,labelBlocked,text=>measure(text),astro.brightest(c.stars,c.abbr)?.id);
-          if(boxes.filter(b=>b.star.landmark).length!==visible.filter(p=>p.landmark).length||!boxes.some(b=>b.star.primary))continue;
-          const title=astro.caption(core,c.name,w,h,b=>labelBlocked(b)||visible.some(p=>astro.intersects(b,{left:p.x-10,right:p.x+10,top:p.y-10,bottom:p.y+10})),text=>measure(text,18),boxes);
-          if(!title)continue;
-          const baseLayout={...candidate,frame:{cx,cy,size:base*factor},labels:[...boxes,title]};
-          candidate.stars.forEach((s,i)=>{s.spacing=Math.min(...candidate.stars.filter((_,j)=>j!==i).map(p=>Math.hypot(p.x-s.x,p.y-s.y)));});
-          return baseLayout;
-        }
-      }
-      return null;
+      const result=astro.fitFigure(c,w,h,uiRects,measure,constellationScale);
+      if(result.diagnostic.placed&&!result.diagnostic.interfaceLimited)layoutIssues.delete(c.abbr);else layoutIssues.set(c.abbr,result.diagnostic);
+      canvas.dataset.skyLayoutIssues=JSON.stringify([...layoutIssues.values()]);
+      canvas.dataset.skyFigureSize=String(result.diagnostic.size||0);
+      return result.layout;
     }
     let current=next(),previous=null,layout=chooseLayout(current),slots=[],phase='gather',phaseStart=performance.now();
     const durations={gather:15000,hold:8000,morph:18000};

@@ -1,0 +1,1436 @@
+{
+  "provider": "Go Astronomy, visually reviewed line figures",
+  "reviewedOn": "2026-10-24",
+  "reviewedOverrides": {
+    "And": {
+      "id": "Go-Astronomy And",
+      "lines": [
+        [
+          677,
+          3092,
+          5447,
+          9640
+        ],
+        [
+          113726,
+          116631,
+          116805,
+          116584
+        ],
+        [
+          116631,
+          2912,
+          3092
+        ],
+        [
+          2912,
+          5447,
+          4436,
+          3881,
+          5434,
+          7607
+        ],
+        [
+          3092,
+          3031,
+          3693,
+          4463
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Andromeda",
+      "image": "https://www.go-astronomy.com/images/constellations/Andromeda.jpg",
+      "imageSha256": "bc91d989c475d609fb2a243e342cc2546a96199954a3edd0921488d7b17e9b20",
+      "designationPaths": [
+        "Alp Del Bet Gam-1",
+        "Omi Iot Kap Lam",
+        "Iot Pi Del",
+        "Pi Bet Mu Nu Phi 51",
+        "Del Eps Zet Eta"
+      ]
+    },
+    "Aqr": {
+      "id": "Go-Astronomy Aqr",
+      "lines": [
+        [
+          111497,
+          110960,
+          110672,
+          109074,
+          110395,
+          110960
+        ],
+        [
+          110395,
+          109074,
+          106278,
+          103045,
+          102618
+        ],
+        [
+          109139,
+          106278
+        ],
+        [
+          109074,
+          110003,
+          112961,
+          114724,
+          115033,
+          113136,
+          112716,
+          112961
+        ],
+        [
+          115033,
+          115438,
+          115669,
+          116247
+        ],
+        [
+          115033,
+          114341,
+          114375,
+          114119
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Aquarius",
+      "image": "https://www.go-astronomy.com/images/constellations/Aquarius.jpg",
+      "imageSha256": "9f5f22fd35d093d43ea0070cf3f735ee4f3990e2e6f83d226d3d7d541ef320f6",
+      "designationPaths": [
+        "Eta Zet-1 Pi Alp Gam Zet-1",
+        "Gam Alp Bet Mu Eps",
+        "Iot Bet",
+        "Alp The Lam Phi Psi-2 Del Tau-2 Lam",
+        "Psi-2 98 99 101",
+        "Psi-2 88 89 86"
+      ]
+    },
+    "Aql": {
+      "id": "Go-Astronomy Aql",
+      "lines": [
+        [
+          98036,
+          97649,
+          97278,
+          95501,
+          93805,
+          93747,
+          93244
+        ],
+        [
+          93747,
+          95501,
+          97804,
+          99473,
+          96468,
+          93805
+        ],
+        [
+          93805,
+          93429
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Aquila",
+      "image": "https://www.go-astronomy.com/images/constellations/Aquila.jpg",
+      "imageSha256": "d9ed73afa787dfc294cc2ec149fa37a3de09b94b1987ac8252e94430438b5213",
+      "designationPaths": [
+        "Bet Alp Gam Del Lam Zet Eps",
+        "Zet Del Eta The Iot Lam",
+        "Lam 12"
+      ]
+    },
+    "Ara": {
+      "id": "Go-Astronomy Ara",
+      "lines": [
+        [
+          88714,
+          85792,
+          85258,
+          85267,
+          85727,
+          82363,
+          83081,
+          83153,
+          85792
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Ara",
+      "image": "https://www.go-astronomy.com/images/constellations/Ara.jpg",
+      "imageSha256": "611bd9d8d2d3fd707fc68b8c6ccc0ef71e3ba918bd927c6d4daf6fb27e385842",
+      "designationPaths": [
+        "The Alp Bet Gam Del Eta Zet Eps-1 Alp"
+      ]
+    },
+    "Aur": {
+      "id": "Go-Astronomy Aur",
+      "lines": [
+        [
+          25428,
+          23015,
+          23767,
+          24608,
+          28360,
+          28380,
+          25428
+        ],
+        [
+          23767,
+          23453,
+          23416,
+          24608,
+          28358,
+          28360
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Auriga",
+      "image": "https://www.go-astronomy.com/images/constellations/Auriga.jpg",
+      "imageSha256": "509e323d3c41c55192d484cd7bbdab05239873dcf5a3b0c9ec18344409db7e7e",
+      "designationPaths": [
+        "Bet.Tau Iot Eta Alp Bet The Bet.Tau",
+        "Eta Zet Eps Alp Del Bet"
+      ]
+    },
+    "CMa": {
+      "id": "Go-Astronomy CMa",
+      "lines": [
+        [
+          32349,
+          30324,
+          31592,
+          33152,
+          33579,
+          33856,
+          34444,
+          33977,
+          32349
+        ],
+        [
+          32349,
+          33347,
+          34045,
+          33160,
+          33347
+        ],
+        [
+          34444,
+          35037,
+          35904,
+          34444
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Canis+Major",
+      "image": "https://www.go-astronomy.com/images/constellations/Canis%20Major.jpg",
+      "imageSha256": "0f4bd12820454613d3ecf5f57a86e6c95927dc358c0656d6853d38ff2efae0ec",
+      "designationPaths": [
+        "Alp Bet Nu-2 Omi-1 Eps Sig Del Omi-2 Alp",
+        "Alp Iot Gam The Iot",
+        "Del Ome Eta Del"
+      ]
+    },
+    "Cap": {
+      "id": "Go-Astronomy Cap",
+      "lines": [
+        [
+          100064,
+          100345,
+          101027,
+          102485,
+          102978,
+          105881,
+          107556,
+          106985,
+          105515,
+          104139,
+          100064
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Capricornus",
+      "image": "https://www.go-astronomy.com/images/constellations/Capricornus.jpg",
+      "imageSha256": "1a874800babd6ee32041cfa700ce58fcb644a6803c6133c8107623ab02b1d18b",
+      "designationPaths": [
+        "Alp-2 Bet Rho Psi Ome Zet Del Gam Iot The Alp-2"
+      ]
+    },
+    "Car": {
+      "id": "Go-Astronomy Car",
+      "lines": [
+        [
+          30438,
+          45238,
+          50099,
+          52419,
+          50371,
+          45556,
+          42568,
+          41037,
+          38827
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Carina",
+      "image": "https://www.go-astronomy.com/images/constellations/Carina.jpg",
+      "imageSha256": "38785437c27db111b0a92794b9d705d4ce1bd5940ec586df99c935f62f7e4470",
+      "designationPaths": [
+        "Alp Bet Ome The V337 Iot HIP42568 Eps Chi"
+      ]
+    },
+    "Cen": {
+      "id": "Go-Astronomy Cen",
+      "lines": [
+        [
+          61932,
+          66657,
+          68702,
+          71681
+        ],
+        [
+          66657,
+          68002,
+          61932
+        ],
+        [
+          68002,
+          68282,
+          68245,
+          71352,
+          73334
+        ],
+        [
+          68245,
+          68862,
+          70090,
+          68933,
+          67464,
+          68002
+        ],
+        [
+          55425,
+          59196,
+          60823,
+          61932
+        ],
+        [
+          60823,
+          59449,
+          56243
+        ],
+        [
+          67464,
+          65936,
+          65109,
+          61789
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Centaurus",
+      "image": "https://www.go-astronomy.com/images/constellations/Centaurus.jpg",
+      "imageSha256": "63784ae05d2c13ddc138a841d90940f1246dbef6dc24b218aa7f4852e1c6c8d6",
+      "designationPaths": [
+        "Gam Eps Bet Alp-2",
+        "Eps Zet Gam",
+        "Zet Ups-1 Phi Eta Kap",
+        "Phi Chi Psi The Nu Zet",
+        "Pi Del Sig Gam",
+        "Sig Rho Omi-1",
+        "Nu HIP65936 Iot HIP61789"
+      ]
+    },
+    "Cet": {
+      "id": "Go-Astronomy Cet",
+      "lines": [
+        [
+          12706,
+          14135,
+          13954,
+          12828,
+          11484,
+          12706,
+          12387,
+          10826,
+          8645,
+          8102,
+          3419,
+          1562,
+          5364,
+          6537,
+          8645
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Cetus",
+      "image": "https://www.go-astronomy.com/images/constellations/Cetus.jpg",
+      "imageSha256": "4b9b3751ab079bf8548f78026a5faec96a56bf637a46dc8f1a60948969aeda57",
+      "designationPaths": [
+        "Gam Alp Lam Mu Xi-2 Gam Del Omi Zet Tau Bet Iot Eta The Zet"
+      ]
+    },
+    "Col": {
+      "id": "Go-Astronomy Col",
+      "lines": [
+        [
+          25859,
+          26634,
+          27628,
+          28199,
+          30277
+        ],
+        [
+          27628,
+          28328
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Columba",
+      "image": "https://www.go-astronomy.com/images/constellations/Columba.jpg",
+      "imageSha256": "b1a281be9a88ffca9f8236689510b4e0754ca28e5893c50f19e2bdfb47f5eed6",
+      "designationPaths": [
+        "Eps Alp Bet Gam Del",
+        "Bet Eta"
+      ]
+    },
+    "CrA": {
+      "id": "Go-Astronomy CrA",
+      "lines": [
+        [
+          93174,
+          93825,
+          94114,
+          94160,
+          94005,
+          93542,
+          90982
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Corona+Australis",
+      "image": "https://www.go-astronomy.com/images/constellations/Corona%20Australis.jpg",
+      "imageSha256": "56fd6e714fac3f88bbfa98fcd8593a3f7baee9a99af38fe6b157fa31ee654a27",
+      "designationPaths": [
+        "Eps Gam Alp Bet Del Zet The"
+      ]
+    },
+    "Crt": {
+      "id": "Go-Astronomy Crt",
+      "lines": [
+        [
+          53740,
+          54682,
+          55705,
+          57283,
+          58188
+        ],
+        [
+          55705,
+          55282,
+          55687,
+          56633
+        ],
+        [
+          55282,
+          53740
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Crater",
+      "image": "https://www.go-astronomy.com/images/constellations/Crater.jpg",
+      "imageSha256": "12a391a2f7bf1cda41d98595b6e4a7bbb4bca5d314401e6467038436410c4574",
+      "designationPaths": [
+        "Alp Bet Gam Zet Eta",
+        "Gam Del Eps The",
+        "Del Alp"
+      ]
+    },
+    "Cyg": {
+      "id": "Go-Astronomy Cyg",
+      "lines": [
+        [
+          102098,
+          100453,
+          102488,
+          104732,
+          103413,
+          102098
+        ],
+        [
+          102098,
+          99848,
+          95853,
+          94779
+        ],
+        [
+          95853,
+          97165,
+          100453,
+          98110,
+          95947
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Cygnus",
+      "image": "https://www.go-astronomy.com/images/constellations/Cygnus.jpg",
+      "imageSha256": "ff5e0fca408c8d13d4acedd19c5036b1b0d546aad091baafbc22038075dad046",
+      "designationPaths": [
+        "Alp Gam Eps Zet Nu Alp",
+        "Alp 32 Iot-2 Kap",
+        "Iot-2 Del Gam Eta Bet-1"
+      ]
+    },
+    "Eri": {
+      "id": "Go-Astronomy Eri",
+      "lines": [
+        [
+          23875,
+          22109,
+          21444,
+          19587,
+          18543,
+          17593,
+          16537,
+          13701,
+          12843,
+          13288,
+          14146,
+          15474,
+          16611,
+          17651,
+          21393,
+          20535,
+          20042,
+          17874,
+          13847,
+          12486,
+          11407,
+          10602,
+          9007,
+          7588
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Eridanus",
+      "image": "https://www.go-astronomy.com/images/constellations/Eridanus.jpg",
+      "imageSha256": "28bd9806ff9cc17659378ec89764a6c3e9733971d3b6f9c7b6a69866204ebc5c",
+      "designationPaths": [
+        "Bet Mu Nu Omi-1 Gam Pi Eps Eta Tau-1 Tau-2 Tau-3 Tau-4 Tau-5 Tau-6 Ups-2 43 Ups-4 HIP17874 The-1 Iot Kap Phi Chi Alp"
+      ]
+    },
+    "For": {
+      "id": "Go-Astronomy For",
+      "lines": [
+        [
+          14879,
+          11918,
+          9677,
+          13147,
+          14879
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Fornax",
+      "image": "https://www.go-astronomy.com/images/constellations/Fornax.jpg",
+      "imageSha256": "333569d438cd72bf58b68699ecb89d4c45000fb3d6234a9d826579ddb5223e75",
+      "designationPaths": [
+        "Alp Ome Nu Bet Alp"
+      ]
+    },
+    "Gem": {
+      "id": "Go-Astronomy Gem",
+      "lines": [
+        [
+          36850,
+          34693,
+          33018
+        ],
+        [
+          34693,
+          36046,
+          36962,
+          37826
+        ],
+        [
+          36962,
+          37740
+        ],
+        [
+          36962,
+          35550,
+          35350,
+          32362
+        ],
+        [
+          35550,
+          34088,
+          31681
+        ],
+        [
+          34693,
+          32246,
+          30883
+        ],
+        [
+          32246,
+          30343,
+          29655
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Gemini",
+      "image": "https://www.go-astronomy.com/images/constellations/Gemini.jpg",
+      "imageSha256": "bba47535d6c8d1ec4748ca34fde3eaa71cced5bc350b8037854d3043e9b73349",
+      "designationPaths": [
+        "Alp Tau The",
+        "Tau Iot Ups Bet",
+        "Ups Kap",
+        "Ups Del Lam Xi",
+        "Del Zet Gam",
+        "Tau Eps Nu",
+        "Eps Mu Eta"
+      ]
+    },
+    "Her": {
+      "id": "Go-Astronomy Her",
+      "lines": [
+        [
+          84379,
+          84345,
+          80816,
+          80170,
+          80463,
+          81008
+        ],
+        [
+          80816,
+          81693,
+          83207,
+          84379,
+          85693,
+          86974,
+          87933,
+          88794
+        ],
+        [
+          81693,
+          81833,
+          81126,
+          79992,
+          79101,
+          77760
+        ],
+        [
+          81833,
+          84380,
+          83207
+        ],
+        [
+          84380,
+          85112,
+          87808,
+          86414
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Hercules",
+      "image": "https://www.go-astronomy.com/images/constellations/Hercules.jpg",
+      "imageSha256": "ef84424a7c81937221d1c2671370f01696ba33ba6fe4b3b2bd0dc5302e80e907",
+      "designationPaths": [
+        "Del Alp Bet Gam Ome 29",
+        "Bet Zet Eps Del Lam Mu Xi Omi",
+        "Zet Eta Sig Tau Phi Chi",
+        "Eta Pi Eps",
+        "Pi Rho The Iot"
+      ]
+    },
+    "Hya": {
+      "id": "Go-Astronomy Hya",
+      "lines": [
+        [
+          43109,
+          42313,
+          42402,
+          42799,
+          43109,
+          43813,
+          45336,
+          47431,
+          46390,
+          48356,
+          49841,
+          51069,
+          52943,
+          53740,
+          54682,
+          56343,
+          57936,
+          64962,
+          68895
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Hydra",
+      "image": "https://www.go-astronomy.com/images/constellations/Hydra.jpg",
+      "imageSha256": "b2228ef28f516ee79512c5dc0e988ce469033a6a49cef2495a5b70bc3be591e8",
+      "designationPaths": [
+        "Eps Del Sig Eta Eps Zet The Iot Alp Ups-1 Lam Mu Nu Alp.Crt Bet.Crt Xi Bet Gam Pi"
+      ]
+    },
+    "Hyi": {
+      "id": "Go-Astronomy Hyi",
+      "lines": [
+        [
+          9236,
+          12394,
+          17678,
+          2021,
+          9236
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Hydrus",
+      "image": "https://www.go-astronomy.com/images/constellations/Hydrus.jpg",
+      "imageSha256": "8c95d861d414b6fc95e17c470a445f55eccfffedc08545710de861ce79c2ea50",
+      "designationPaths": [
+        "Alp Eps Gam Bet Alp"
+      ]
+    },
+    "Leo": {
+      "id": "Go-Astronomy Leo",
+      "lines": [
+        [
+          49669,
+          49583,
+          50583,
+          50335,
+          48455,
+          47908
+        ],
+        [
+          50583,
+          54872,
+          57632,
+          54879,
+          54872
+        ],
+        [
+          54879,
+          49583,
+          47908,
+          46750,
+          46146,
+          48455
+        ],
+        [
+          54879,
+          55642,
+          55434
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Leo",
+      "image": "https://www.go-astronomy.com/images/constellations/Leo.jpg",
+      "imageSha256": "dc6be4e2e6691cf293d120048b855999eea8893c4ef3865619e70460a4725f79",
+      "designationPaths": [
+        "Alp Eta Gam-1 Zet Mu Eps",
+        "Gam-1 Del Bet The Del",
+        "The Eta Eps Lam Kap Mu",
+        "The Iot Sig"
+      ]
+    },
+    "Lep": {
+      "id": "Go-Astronomy Lep",
+      "lines": [
+        [
+          23685,
+          24305,
+          25985,
+          25606,
+          23685
+        ],
+        [
+          24845,
+          24305,
+          24327
+        ],
+        [
+          25606,
+          27072,
+          27654,
+          28910,
+          28103,
+          27288,
+          25985
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Lepus",
+      "image": "https://www.go-astronomy.com/images/constellations/Lepus.jpg",
+      "imageSha256": "37f38928c2414f4fcdcbf3f5a77f1e2ca95901f13b567c4a91447480d236c5c7",
+      "designationPaths": [
+        "Eps Mu Alp Bet Eps",
+        "Lam Mu Kap",
+        "Bet Gam Del The Eta Zet Alp"
+      ]
+    },
+    "Lup": {
+      "id": "Go-Astronomy Lup",
+      "lines": [
+        [
+          71860,
+          74395,
+          75264,
+          76297,
+          75141,
+          73273
+        ],
+        [
+          76297,
+          78384,
+          75177,
+          77634,
+          78384,
+          74395
+        ],
+        [
+          75264,
+          74911,
+          74395
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Lupus",
+      "image": "https://www.go-astronomy.com/images/constellations/Lupus.jpg",
+      "imageSha256": "955946ed9335682a6fce156ba7e16125098c1fdc773585ae3449cb3940bdc055",
+      "designationPaths": [
+        "Alp Zet Eps Gam Del Bet",
+        "Gam Eta Phi-1 Chi Eta Zet",
+        "Eps Mu Zet"
+      ]
+    },
+    "Mon": {
+      "id": "Go-Astronomy Mon",
+      "lines": [
+        [
+          31978,
+          31216,
+          30419,
+          32578,
+          31216
+        ],
+        [
+          32578,
+          34769,
+          30867,
+          29651
+        ],
+        [
+          34769,
+          39863,
+          37447
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Monoceros",
+      "image": "https://www.go-astronomy.com/images/constellations/Monoceros.jpg",
+      "imageSha256": "23bd741aa1638a81d061671ab6f15bdd7ebd30e676276b061ffb8114b465f459",
+      "designationPaths": [
+        "15 13 Eps 18 13",
+        "18 Del Bet Gam",
+        "Del Zet Alp"
+      ]
+    },
+    "Oph": {
+      "id": "Go-Astronomy Oph",
+      "lines": [
+        [
+          86032,
+          83000,
+          80883,
+          79593,
+          79882,
+          80628,
+          81377,
+          84012,
+          86742,
+          86032
+        ],
+        [
+          86742,
+          87108,
+          88048
+        ],
+        [
+          83000,
+          81377,
+          80894,
+          80569,
+          80343,
+          80473
+        ],
+        [
+          84012,
+          84970,
+          85423
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
+      "image": "https://www.go-astronomy.com/images/constellations/Ophiuchus.jpg",
+      "imageSha256": "e0504cabd0d769de06603e39e4c9489a303edac142a4454e5d30fa2222dbebff",
+      "designationPaths": [
+        "Alp Kap Lam Del Eps Ups Zet Eta Bet Alp",
+        "Bet Gam Nu",
+        "Kap Zet Phi Chi Psi Rho",
+        "Eta The 45"
+      ]
+    },
+    "Ori": {
+      "id": "Go-Astronomy Ori",
+      "lines": [
+        [
+          27989,
+          26727,
+          27366,
+          24436,
+          25281,
+          25930,
+          26311,
+          26727
+        ],
+        [
+          25930,
+          25336,
+          26207,
+          27989
+        ],
+        [
+          27989,
+          25336
+        ],
+        [
+          23607,
+          22957,
+          22845,
+          22509,
+          22449,
+          25336
+        ],
+        [
+          22449,
+          22549,
+          22797,
+          23123
+        ],
+        [
+          27989,
+          28614,
+          29038,
+          27913,
+          28716,
+          29426,
+          28614
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Orion",
+      "image": "https://www.go-astronomy.com/images/constellations/Orion.jpg",
+      "imageSha256": "3cc986859a5888bd01e657e2f42e21851f72bdfeccb399fde12d1364f7d6affb",
+      "designationPaths": [
+        "Alp Zet Kap Bet Eta Del Eps Zet",
+        "Del Gam Lam Alp",
+        "Alp Gam",
+        "11 Omi-2 Pi-1 Pi-2 Pi-3 Gam",
+        "Pi-3 Pi-4 Pi-5 Pi-6",
+        "Alp Mu Nu Chi-1 Chi-2 Xi Mu"
+      ]
+    },
+    "Pav": {
+      "id": "Go-Astronomy Pav",
+      "lines": [
+        [
+          100751,
+          99240,
+          102395,
+          105858,
+          100751
+        ],
+        [
+          91792,
+          99240,
+          98495
+        ],
+        [
+          99240,
+          93015,
+          88866,
+          86929
+        ],
+        [
+          88866,
+          90098,
+          92609,
+          99240
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Pavo",
+      "image": "https://www.go-astronomy.com/images/constellations/Pavo.jpg",
+      "imageSha256": "d57bb85d566b1994b67bd95cd513df016a08c4efebe4174ec2f4319410d6002f",
+      "designationPaths": [
+        "Alp Del Bet Gam Alp",
+        "Zet Del Eps",
+        "Del Kap Pi Eta",
+        "Pi Xi Lam Del"
+      ]
+    },
+    "Per": {
+      "id": "Go-Astronomy Per",
+      "lines": [
+        [
+          17448,
+          18246,
+          18614,
+          18532,
+          17529,
+          17358,
+          15863,
+          14328,
+          13268,
+          13531,
+          14632,
+          15863
+        ],
+        [
+          14328,
+          13531
+        ],
+        [
+          17358,
+          19812,
+          19167
+        ],
+        [
+          17529,
+          14576,
+          14668,
+          14632,
+          12777
+        ],
+        [
+          14576,
+          14354
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Perseus",
+      "image": "https://www.go-astronomy.com/images/constellations/Perseus.jpg",
+      "imageSha256": "eccfd4f3d0b46a8e89133e69312e7d253170d03f09b1f8fa42ed56ec49e946d8",
+      "designationPaths": [
+        "Omi Zet Xi Eps Nu Del Alp Gam Eta Tau Iot Alp",
+        "Gam Tau",
+        "Del Mu Lam",
+        "Nu Bet Kap Iot The",
+        "Bet Rho"
+      ]
+    },
+    "Phe": {
+      "id": "Go-Astronomy Phe",
+      "lines": [
+        [
+          2081,
+          5165,
+          5862,
+          6867,
+          7083,
+          5348,
+          5165
+        ],
+        [
+          2081,
+          765,
+          5165
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Phoenix",
+      "image": "https://www.go-astronomy.com/images/constellations/Phoenix.jpg",
+      "imageSha256": "199d1e0a6c6e48fff7b1d21c95cc2f193d14a0e823b55588184fd21b91797c89",
+      "designationPaths": [
+        "Alp Bet Nu Gam Del Zet Bet",
+        "Alp Eps Bet"
+      ]
+    },
+    "Psc": {
+      "id": "Go-Astronomy Psc",
+      "lines": [
+        [
+          5742,
+          6193,
+          5586,
+          5742,
+          7097,
+          8198,
+          9487,
+          7884,
+          7007,
+          5737,
+          4906,
+          3786,
+          118268,
+          116771,
+          115830,
+          114971,
+          115738,
+          116928,
+          116771
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Pisces",
+      "image": "https://www.go-astronomy.com/images/constellations/Pisces.jpg",
+      "imageSha256": "66708914252af939fb591c9d33cb6d2f28f3bf0569851c50f98b9234614a1a92",
+      "designationPaths": [
+        "Phi Ups Tau Phi Eta Omi Alp Nu Mu Zet Eps Del Ome Iot The Gam Kap Lam Iot"
+      ]
+    },
+    "Pup": {
+      "id": "Go-Astronomy Pup",
+      "lines": [
+        [
+          39429,
+          39757,
+          38835,
+          38170,
+          37229,
+          35264,
+          31685,
+          32768,
+          36377,
+          39429
+        ],
+        [
+          39429,
+          35264
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Puppis",
+      "image": "https://www.go-astronomy.com/images/constellations/Puppis.jpg",
+      "imageSha256": "91c4d8271c915c06d0253c4d6f6e20451b2c385589a3affdce8318cfe691b458",
+      "designationPaths": [
+        "Zet Rho HIP38835 Xi HIP37229 Pi Nu Tau Sig Zet",
+        "Zet Pi"
+      ]
+    },
+    "Pyx": {
+      "id": "Go-Astronomy Pyx",
+      "lines": [
+        [
+          43409,
+          42828,
+          42515
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Pyxis",
+      "image": "https://www.go-astronomy.com/images/constellations/Pyxis.jpg",
+      "imageSha256": "c7666fb40863e6113f828c1f3d9e35e1aaad66516f6de77158f9a70b7e048927",
+      "designationPaths": [
+        "Gam Alp Bet"
+      ]
+    },
+    "Sgr": {
+      "id": "Go-Astronomy Sgr",
+      "lines": [
+        [
+          89642,
+          90185,
+          88635,
+          89931,
+          90185,
+          93506,
+          92041,
+          89931,
+          90496,
+          92041,
+          92855,
+          93864,
+          93506
+        ],
+        [
+          90496,
+          89341
+        ],
+        [
+          92855,
+          93683,
+          94141,
+          95168
+        ],
+        [
+          94141,
+          93085,
+          93683
+        ],
+        [
+          93864,
+          98066,
+          98162,
+          98688,
+          98421,
+          98412,
+          98032,
+          95241,
+          95347,
+          98032
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Sagittarius",
+      "image": "https://www.go-astronomy.com/images/constellations/Sagittarius.jpg",
+      "imageSha256": "a64fd36649e48642016d49fe3f31233e8ba1ed6de1f0809ceb8784ddb752794c",
+      "designationPaths": [
+        "Eta Eps Gam-2 Del Eps Zet Phi Del Lam Phi Sig Tau Zet",
+        "Lam Mu",
+        "Sig Omi Pi Rho-1",
+        "Pi Xi-2 Omi",
+        "Tau Ome HIP98162 HIP98688 The-2 The-1 Iot Bet-1 Alp Iot"
+      ]
+    },
+    "Sco": {
+      "id": "Go-Astronomy Sco",
+      "lines": [
+        [
+          79374,
+          78820,
+          78401,
+          78265,
+          78104
+        ],
+        [
+          78401,
+          80112,
+          80763,
+          81266,
+          82396,
+          82514,
+          82729,
+          84143,
+          86228,
+          87073,
+          86670,
+          85696,
+          85927
+        ],
+        [
+          86670,
+          85927
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Scorpius",
+      "image": "https://www.go-astronomy.com/images/constellations/Scorpius.jpg",
+      "imageSha256": "a6cec3eab27d03cca57c467cd32431f00869caac4e52abffa58a7c797787667e",
+      "designationPaths": [
+        "Nu Bet-1 Del Pi Rho",
+        "Del Sig Alp Tau Eps Mu-1 Zet-2 Eta The Iot-1 Kap Ups Lam",
+        "Kap Lam"
+      ]
+    },
+    "Sct": {
+      "id": "Go-Astronomy Sct",
+      "lines": [
+        [
+          92175,
+          91117,
+          90595,
+          91726,
+          91845,
+          92175
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Scutum",
+      "image": "https://www.go-astronomy.com/images/constellations/Scutum.jpg",
+      "imageSha256": "e13b2db14563785b8d2ab1d9437bc952ba39fb33ec6fc9e9da525061e4d0a388",
+      "designationPaths": [
+        "Bet Alp Gam Del Eps Bet"
+      ]
+    },
+    "Ser": {
+      "id": "Go-Astronomy Ser",
+      "lines": [
+        [
+          77233,
+          78072,
+          77450,
+          76852,
+          77233,
+          76276,
+          77070,
+          77622,
+          77516,
+          79593
+        ],
+        [
+          84012,
+          86263,
+          88048,
+          89962,
+          92946
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Serpens",
+      "image": "https://www.go-astronomy.com/images/constellations/Serpens.jpg",
+      "imageSha256": "1965ea01d9b9aa0ed5aa5f9a93e3c71f18c300fbf333b977da8bfd43af6b45a6",
+      "designationPaths": [
+        "Bet Gam Kap Iot Bet Del Alp Eps Mu Del.Oph",
+        "Eta.Oph Xi Nu.Oph Eta The-1"
+      ]
+    },
+    "Sex": {
+      "id": "Go-Astronomy Sex",
+      "lines": [
+        [
+          48437,
+          49641,
+          51437,
+          51362
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Sextans",
+      "image": "https://www.go-astronomy.com/images/constellations/Sextans.jpg",
+      "imageSha256": "3e3accc1557c51051052b3cf2a3ef5586519cca498f466d3ad195f9bef433c06",
+      "designationPaths": [
+        "Gam Alp Bet Del"
+      ]
+    },
+    "Tau": {
+      "id": "Go-Astronomy Tau",
+      "lines": [
+        [
+          26451,
+          21421,
+          20894,
+          20205,
+          20455,
+          20889,
+          25428
+        ],
+        [
+          20205,
+          18724,
+          16083
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Taurus",
+      "image": "https://www.go-astronomy.com/images/constellations/Taurus.jpg",
+      "imageSha256": "9e80f551abbf873756ca2cd6ae442249489ba609a5da3019202972b419353bd1",
+      "designationPaths": [
+        "Zet Alp The-2 Gam Del-1 Eps Bet",
+        "Gam Lam Xi"
+      ]
+    },
+    "UMa": {
+      "id": "Go-Astronomy UMa",
+      "lines": [
+        [
+          58001,
+          57399,
+          54539,
+          50801,
+          50372,
+          50801
+        ],
+        [
+          57399,
+          55219,
+          55203
+        ],
+        [
+          59774,
+          54061,
+          53910,
+          58001,
+          59774,
+          62956,
+          65378,
+          67301
+        ],
+        [
+          54061,
+          46733,
+          48319,
+          53910
+        ],
+        [
+          46733,
+          41704,
+          48319,
+          46853,
+          44471,
+          44127
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Ursa+Major",
+      "image": "https://www.go-astronomy.com/images/constellations/Ursa%20Major.jpg",
+      "imageSha256": "d469d9494982757a04444dec3af954bcd389af9fad7f29130d89098fac4bacb2",
+      "designationPaths": [
+        "Gam Chi Psi Mu Lam Mu",
+        "Chi Nu HIP55203",
+        "Del Alp Bet Gam Del Eps Zet Eta",
+        "Alp 23 Ups Bet",
+        "23 Omi Ups The Kap Iot"
+      ]
+    },
+    "Vel": {
+      "id": "Go-Astronomy Vel",
+      "lines": [
+        [
+          39953,
+          44816,
+          46651,
+          50191,
+          51986,
+          52727,
+          48774,
+          45941,
+          42913,
+          42536,
+          39953
+        ],
+        [
+          45941,
+          46701
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Vela",
+      "image": "https://www.go-astronomy.com/images/constellations/Vela.jpg",
+      "imageSha256": "1368077624b5a92db8013d89ffd68b61feb85905a97502b89094eae81198693b",
+      "designationPaths": [
+        "Gam-2 Lam Psi HIP50191 HIP51986 Mu Phi Kap Del Omi Gam-2",
+        "Kap HIP46701"
+      ]
+    },
+    "Vir": {
+      "id": "Go-Astronomy Vir",
+      "lines": [
+        [
+          60129,
+          58948,
+          57380,
+          57757,
+          60129,
+          61941,
+          63090,
+          63608
+        ],
+        [
+          61941,
+          64238,
+          65474
+        ],
+        [
+          61941,
+          66249,
+          68520,
+          72220
+        ],
+        [
+          66249,
+          69701,
+          71957
+        ]
+      ],
+      "page": "https://www.go-astronomy.com/constellations.php?Name=Virgo",
+      "image": "https://www.go-astronomy.com/images/constellations/Virgo.jpg",
+      "imageSha256": "da4504cc86c186c97048150cc940f0e91c6644c3aeb93362b5232d82b91029ca",
+      "designationPaths": [
+        "Eta Omi Nu Bet Eta Gam Del Eps",
+        "Gam The Alp",
+        "Gam Zet Tau 109",
+        "Zet Iot Mu"
+      ]
+    }
+  },
+  "coordinates": "Pinned HYG 4.1; no image-derived or manually displaced coordinates",
+  "hygSha256": "d9f69fd86bbf90a4e4d52b4c5c53eacfa6dfc0bfdef85bfd94f095e0bebe4ebd",
+  "notes": [
+    "Source images are referenced, not redistributed. Connection conventions are not IAU boundaries.",
+    "Unlabelled bright vertices were cross-checked with HYG positions and neighbouring labelled stars; no faint nearest-neighbour imports.",
+    "Puppis southern vertex is sigma (HIP36377); the chart labels it delta, which is not its HYG designation.",
+    "Carina chart rho corresponds to V337 Car (HIP50371); the intermediate iota-epsilon vertex is HIP42568.",
+    "Vela southern branch is HIP46701, not lambda/Suhail (HIP44816).",
+    "Sagittarius omega is retained at its HYG coordinates, not replaced by 52 Sgr to imitate the raster position. The chart position is not an astrometric measurement; this part cannot be promised pixel-identical. The tail includes HIP98162/HIP98688 and both theta stars.",
+    "Seven unresolved binary-component cases from the audit were not replaced."
+  ]
+}

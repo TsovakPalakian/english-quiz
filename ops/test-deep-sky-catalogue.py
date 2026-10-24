@@ -24,7 +24,7 @@ class DeepSkyTests(unittest.TestCase):
         self.assertEqual(len(self.objects), 157)
         self.assertEqual(len(self.objects) + sum(len(c['deepSkyObjects']) for c in self.archive), 159)
         for old, new in zip(before, self.data):
-            if new['abbr'] == 'Oph':
+            if new['abbr'] == 'Oph' and old['abbr'] == 'Ser':
                 new = self.archive[0]
             self.assertEqual([o['id'] for o in old['deepSkyObjects']], [o['id'] for o in new['deepSkyObjects']])
             for a, b in zip(old['deepSkyObjects'], new['deepSkyObjects']):

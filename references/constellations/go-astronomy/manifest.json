@@ -1,0 +1,706 @@
+[
+  {
+    "abbr": "And",
+    "name": "Andromeda",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Andromeda",
+    "image": "https://www.go-astronomy.com/images/constellations/Andromeda.jpg",
+    "sha256": "bc91d989c475d609fb2a243e342cc2546a96199954a3edd0921488d7b17e9b20",
+    "bytes": 54438
+  },
+  {
+    "abbr": "Ant",
+    "name": "Antlia",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Antlia",
+    "image": "https://www.go-astronomy.com/images/constellations/Antlia.jpg",
+    "sha256": "882e9435351217b6876b3ba6fb67c2bfa956ca920b62dc3430fb40dc19b98900",
+    "bytes": 71398
+  },
+  {
+    "abbr": "Aps",
+    "name": "Apus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Apus",
+    "image": "https://www.go-astronomy.com/images/constellations/Apus.jpg",
+    "sha256": "3bd86471fbdc398e1bb98e6bfa017893ef726b7eeb8cb3ed74167818784e3cc6",
+    "bytes": 74688
+  },
+  {
+    "abbr": "Aqr",
+    "name": "Aquarius",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Aquarius",
+    "image": "https://www.go-astronomy.com/images/constellations/Aquarius.jpg",
+    "sha256": "9f5f22fd35d093d43ea0070cf3f735ee4f3990e2e6f83d226d3d7d541ef320f6",
+    "bytes": 75464
+  },
+  {
+    "abbr": "Aql",
+    "name": "Aquila",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Aquila",
+    "image": "https://www.go-astronomy.com/images/constellations/Aquila.jpg",
+    "sha256": "d9ed73afa787dfc294cc2ec149fa37a3de09b94b1987ac8252e94430438b5213",
+    "bytes": 78573
+  },
+  {
+    "abbr": "Ara",
+    "name": "Ara",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Ara",
+    "image": "https://www.go-astronomy.com/images/constellations/Ara.jpg",
+    "sha256": "611bd9d8d2d3fd707fc68b8c6ccc0ef71e3ba918bd927c6d4daf6fb27e385842",
+    "bytes": 90037
+  },
+  {
+    "abbr": "Ari",
+    "name": "Aries",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Aries",
+    "image": "https://www.go-astronomy.com/images/constellations/Aries.jpg",
+    "sha256": "20cda330daebf89f0c4b2ed5bdfc42a57ee5a84d284a2ea0eb73177e23c6aa39",
+    "bytes": 43980
+  },
+  {
+    "abbr": "Aur",
+    "name": "Auriga",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Auriga",
+    "image": "https://www.go-astronomy.com/images/constellations/Auriga.jpg",
+    "sha256": "509e323d3c41c55192d484cd7bbdab05239873dcf5a3b0c9ec18344409db7e7e",
+    "bytes": 61549
+  },
+  {
+    "abbr": "Boo",
+    "name": "Boötes",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Bootes",
+    "image": "https://www.go-astronomy.com/images/constellations/Bootes.jpg",
+    "sha256": "06304c6ab8c00e215cfe71b0b812b9c742b068061b372a7494af413ec696fed3",
+    "bytes": 55224
+  },
+  {
+    "abbr": "Cae",
+    "name": "Caelum",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Caelum",
+    "image": "https://www.go-astronomy.com/images/constellations/Caelum.jpg",
+    "sha256": "73c8d24ac5f28c3e00523da1d770da8529e49edb8a8448c10b370109e3c575c2",
+    "bytes": 36241
+  },
+  {
+    "abbr": "Cam",
+    "name": "Camelopardalis",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Camelopardalis",
+    "image": "https://www.go-astronomy.com/images/constellations/Camelopardalis.jpg",
+    "sha256": "84fc99a62fe9ecfe2b4b96c1eefe50c676715fd3db6709a384784a9034802650",
+    "bytes": 80985
+  },
+  {
+    "abbr": "Cnc",
+    "name": "Cancer",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Cancer",
+    "image": "https://www.go-astronomy.com/images/constellations/Cancer.jpg",
+    "sha256": "75c33aa75c1aeb526113217faf65f5c889091dc1b3fe9ad58d686834c9ddef46",
+    "bytes": 44891
+  },
+  {
+    "abbr": "CVn",
+    "name": "Canes Venatici",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Canes+Venatici",
+    "image": "https://www.go-astronomy.com/images/constellations/Canes%20Venatici.jpg",
+    "sha256": "a42ce665e58318390e12478fa9a99d96db694c433fef53e75ff74e427badb96c",
+    "bytes": 92930
+  },
+  {
+    "abbr": "CMa",
+    "name": "Canis Major",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Canis+Major",
+    "image": "https://www.go-astronomy.com/images/constellations/Canis%20Major.jpg",
+    "sha256": "0f4bd12820454613d3ecf5f57a86e6c95927dc358c0656d6853d38ff2efae0ec",
+    "bytes": 56213
+  },
+  {
+    "abbr": "CMi",
+    "name": "Canis Minor",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Canis+Minor",
+    "image": "https://www.go-astronomy.com/images/constellations/Canis%20Minor.jpg",
+    "sha256": "bbf5716ff062c48c51a6d4154f3684292de0d448876d045744ce8e421ee8ac3f",
+    "bytes": 94210
+  },
+  {
+    "abbr": "Cap",
+    "name": "Capricornus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Capricornus",
+    "image": "https://www.go-astronomy.com/images/constellations/Capricornus.jpg",
+    "sha256": "1a874800babd6ee32041cfa700ce58fcb644a6803c6133c8107623ab02b1d18b",
+    "bytes": 79178
+  },
+  {
+    "abbr": "Car",
+    "name": "Carina",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Carina",
+    "image": "https://www.go-astronomy.com/images/constellations/Carina.jpg",
+    "sha256": "38785437c27db111b0a92794b9d705d4ce1bd5940ec586df99c935f62f7e4470",
+    "bytes": 56641
+  },
+  {
+    "abbr": "Cas",
+    "name": "Cassiopeia",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Cassiopeia",
+    "image": "https://www.go-astronomy.com/images/constellations/Cassiopeia.jpg",
+    "sha256": "e98872ad3e9ad9c0e831e9863c7f685bbdaa685595fef1fd4b71cc9ae468c637",
+    "bytes": 82653
+  },
+  {
+    "abbr": "Cen",
+    "name": "Centaurus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Centaurus",
+    "image": "https://www.go-astronomy.com/images/constellations/Centaurus.jpg",
+    "sha256": "63784ae05d2c13ddc138a841d90940f1246dbef6dc24b218aa7f4852e1c6c8d6",
+    "bytes": 45990
+  },
+  {
+    "abbr": "Cep",
+    "name": "Cepheus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Cepheus",
+    "image": "https://www.go-astronomy.com/images/constellations/Cepheus.jpg",
+    "sha256": "202d5c7eea1c2d1378a0a38c36937a7fa926f6c4d5502da9fc495e8286748ec5",
+    "bytes": 53455
+  },
+  {
+    "abbr": "Cet",
+    "name": "Cetus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Cetus",
+    "image": "https://www.go-astronomy.com/images/constellations/Cetus.jpg",
+    "sha256": "4b9b3751ab079bf8548f78026a5faec96a56bf637a46dc8f1a60948969aeda57",
+    "bytes": 87990
+  },
+  {
+    "abbr": "Cha",
+    "name": "Chamaeleon",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Chamaeleon",
+    "image": "https://www.go-astronomy.com/images/constellations/Chamaeleon.jpg",
+    "sha256": "a35134c167418a6df75388516f5d07cac409060ed2dee56349c9cb52f57a6fd9",
+    "bytes": 37348
+  },
+  {
+    "abbr": "Cir",
+    "name": "Circinus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Circinus",
+    "image": "https://www.go-astronomy.com/images/constellations/Circinus.jpg",
+    "sha256": "66120a4d88a2b4adbaec4a049cb5c2f8f37219feacde6f2c32a0eee9d9ba5bfd",
+    "bytes": 73251
+  },
+  {
+    "abbr": "Col",
+    "name": "Columba",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Columba",
+    "image": "https://www.go-astronomy.com/images/constellations/Columba.jpg",
+    "sha256": "b1a281be9a88ffca9f8236689510b4e0754ca28e5893c50f19e2bdfb47f5eed6",
+    "bytes": 73690
+  },
+  {
+    "abbr": "Com",
+    "name": "Coma Berenices",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Coma+Berenices",
+    "image": "https://www.go-astronomy.com/images/constellations/Coma%20Berenices.jpg",
+    "sha256": "c799cb6b096baa246cdd7da9417d00bc327d1e5c9c2426dcbdd560c66232e2f3",
+    "bytes": 89523
+  },
+  {
+    "abbr": "CrA",
+    "name": "Corona Australis",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Corona+Australis",
+    "image": "https://www.go-astronomy.com/images/constellations/Corona%20Australis.jpg",
+    "sha256": "56fd6e714fac3f88bbfa98fcd8593a3f7baee9a99af38fe6b157fa31ee654a27",
+    "bytes": 62846
+  },
+  {
+    "abbr": "CrB",
+    "name": "Corona Borealis",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Corona+Borealis",
+    "image": "https://www.go-astronomy.com/images/constellations/Corona%20Borealis.jpg",
+    "sha256": "9e988d00cdefb140d55a4628f70741b9cbf4e85dcc1e421fb2f629859ac24400",
+    "bytes": 94979
+  },
+  {
+    "abbr": "Crv",
+    "name": "Corvus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Corvus",
+    "image": "https://www.go-astronomy.com/images/constellations/Corvus.jpg",
+    "sha256": "b2bf8b1ab487e6484671abad0de7fb8f422fa870a73eead9cb31f578c07d1102",
+    "bytes": 101102
+  },
+  {
+    "abbr": "Crt",
+    "name": "Crater",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Crater",
+    "image": "https://www.go-astronomy.com/images/constellations/Crater.jpg",
+    "sha256": "12a391a2f7bf1cda41d98595b6e4a7bbb4bca5d314401e6467038436410c4574",
+    "bytes": 46785
+  },
+  {
+    "abbr": "Cru",
+    "name": "Crux",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Crux",
+    "image": "https://www.go-astronomy.com/images/constellations/Crux.jpg",
+    "sha256": "6d43f2dd4a45569387eeccaded521f2ea128f601e5735333d1927a53093d67fc",
+    "bytes": 88910
+  },
+  {
+    "abbr": "Cyg",
+    "name": "Cygnus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Cygnus",
+    "image": "https://www.go-astronomy.com/images/constellations/Cygnus.jpg",
+    "sha256": "ff5e0fca408c8d13d4acedd19c5036b1b0d546aad091baafbc22038075dad046",
+    "bytes": 56973
+  },
+  {
+    "abbr": "Del",
+    "name": "Delphinus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Delphinus",
+    "image": "https://www.go-astronomy.com/images/constellations/Delphinus.jpg",
+    "sha256": "42f93562c37e102e0b84e09c6875e6fa399e57eada0db23ce6c6a10489acc9be",
+    "bytes": 78659
+  },
+  {
+    "abbr": "Dor",
+    "name": "Dorado",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Dorado",
+    "image": "https://www.go-astronomy.com/images/constellations/Dorado.jpg",
+    "sha256": "b2f8a82621c1b596a3372cbabf1d61240dacb8356b90362b67742879b814aa1f",
+    "bytes": 48737
+  },
+  {
+    "abbr": "Dra",
+    "name": "Draco",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Draco",
+    "image": "https://www.go-astronomy.com/images/constellations/Draco.jpg",
+    "sha256": "0ea9c57e05a8bcb61a5c8d7325d9e714ea028811c5db89433d3cfba289c66708",
+    "bytes": 84273
+  },
+  {
+    "abbr": "Equ",
+    "name": "Equuleus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Equuleus",
+    "image": "https://www.go-astronomy.com/images/constellations/Equuleus.jpg",
+    "sha256": "e344d6274a9292087ff9aff9fe687d8820216b4775e439a80c1b7cc145e5542f",
+    "bytes": 110267
+  },
+  {
+    "abbr": "Eri",
+    "name": "Eridanus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Eridanus",
+    "image": "https://www.go-astronomy.com/images/constellations/Eridanus.jpg",
+    "sha256": "28bd9806ff9cc17659378ec89764a6c3e9733971d3b6f9c7b6a69866204ebc5c",
+    "bytes": 103241
+  },
+  {
+    "abbr": "For",
+    "name": "Fornax",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Fornax",
+    "image": "https://www.go-astronomy.com/images/constellations/Fornax.jpg",
+    "sha256": "333569d438cd72bf58b68699ecb89d4c45000fb3d6234a9d826579ddb5223e75",
+    "bytes": 43992
+  },
+  {
+    "abbr": "Gem",
+    "name": "Gemini",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Gemini",
+    "image": "https://www.go-astronomy.com/images/constellations/Gemini.jpg",
+    "sha256": "bba47535d6c8d1ec4748ca34fde3eaa71cced5bc350b8037854d3043e9b73349",
+    "bytes": 60165
+  },
+  {
+    "abbr": "Gru",
+    "name": "Grus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Grus",
+    "image": "https://www.go-astronomy.com/images/constellations/Grus.jpg",
+    "sha256": "77addea5dc67a3823cb09dd881d8a7aa729a55b797b80592079af9d26596a907",
+    "bytes": 79451
+  },
+  {
+    "abbr": "Her",
+    "name": "Hercules",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Hercules",
+    "image": "https://www.go-astronomy.com/images/constellations/Hercules.jpg",
+    "sha256": "ef84424a7c81937221d1c2671370f01696ba33ba6fe4b3b2bd0dc5302e80e907",
+    "bytes": 94622
+  },
+  {
+    "abbr": "Hor",
+    "name": "Horologium",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Horologium",
+    "image": "https://www.go-astronomy.com/images/constellations/Horologium.jpg",
+    "sha256": "f58a6ef3f6c98248a28069a2fdf79ee103e829cd46ea1640f3d9c2205af83c70",
+    "bytes": 83745
+  },
+  {
+    "abbr": "Hya",
+    "name": "Hydra",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Hydra",
+    "image": "https://www.go-astronomy.com/images/constellations/Hydra.jpg",
+    "sha256": "b2228ef28f516ee79512c5dc0e988ce469033a6a49cef2495a5b70bc3be591e8",
+    "bytes": 65874
+  },
+  {
+    "abbr": "Hyi",
+    "name": "Hydrus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Hydrus",
+    "image": "https://www.go-astronomy.com/images/constellations/Hydrus.jpg",
+    "sha256": "8c95d861d414b6fc95e17c470a445f55eccfffedc08545710de861ce79c2ea50",
+    "bytes": 81015
+  },
+  {
+    "abbr": "Ind",
+    "name": "Indus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Indus",
+    "image": "https://www.go-astronomy.com/images/constellations/Indus.jpg",
+    "sha256": "fbf4fc4b891a95c4e0fbd511644094df2577e8dd08dd165eb4621c60217fa103",
+    "bytes": 104757
+  },
+  {
+    "abbr": "Lac",
+    "name": "Lacerta",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Lacerta",
+    "image": "https://www.go-astronomy.com/images/constellations/Lacerta.jpg",
+    "sha256": "513b829a1e5d9d844007254e6c7dd7c6c935c1ca0abaa85508eba79b9d29a632",
+    "bytes": 72138
+  },
+  {
+    "abbr": "Leo",
+    "name": "Leo",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Leo",
+    "image": "https://www.go-astronomy.com/images/constellations/Leo.jpg",
+    "sha256": "dc6be4e2e6691cf293d120048b855999eea8893c4ef3865619e70460a4725f79",
+    "bytes": 79940
+  },
+  {
+    "abbr": "LMi",
+    "name": "Leo Minor",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Leo+Minor",
+    "image": "https://www.go-astronomy.com/images/constellations/Leo%20Minor.jpg",
+    "sha256": "a14be485f295ff155bf30cf364d3f9378fe61ede04129eb5eaaefbfcffe1ed33",
+    "bytes": 57278
+  },
+  {
+    "abbr": "Lep",
+    "name": "Lepus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Lepus",
+    "image": "https://www.go-astronomy.com/images/constellations/Lepus.jpg",
+    "sha256": "37f38928c2414f4fcdcbf3f5a77f1e2ca95901f13b567c4a91447480d236c5c7",
+    "bytes": 86722
+  },
+  {
+    "abbr": "Lib",
+    "name": "Libra",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Libra",
+    "image": "https://www.go-astronomy.com/images/constellations/Libra.jpg",
+    "sha256": "3f56d3e5c78cdb744d369290c3a9982c99f45ad2b7b48a6142ebb70f67190281",
+    "bytes": 55600
+  },
+  {
+    "abbr": "Lup",
+    "name": "Lupus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Lupus",
+    "image": "https://www.go-astronomy.com/images/constellations/Lupus.jpg",
+    "sha256": "955946ed9335682a6fce156ba7e16125098c1fdc773585ae3449cb3940bdc055",
+    "bytes": 78378
+  },
+  {
+    "abbr": "Lyn",
+    "name": "Lynx",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Lynx",
+    "image": "https://www.go-astronomy.com/images/constellations/Lynx.jpg",
+    "sha256": "ce8bfa1d0d1ded0fb357e1b68432b389aa15febfd0727b35ab621c7c7901ed23",
+    "bytes": 47410
+  },
+  {
+    "abbr": "Lyr",
+    "name": "Lyra",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Lyra",
+    "image": "https://www.go-astronomy.com/images/constellations/Lyra.jpg",
+    "sha256": "741a1c4fd4f15bb19bbb320abc284346f883da828a4b4eb93b496279c936be37",
+    "bytes": 65266
+  },
+  {
+    "abbr": "Men",
+    "name": "Mensa",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Mensa",
+    "image": "https://www.go-astronomy.com/images/constellations/Mensa.jpg",
+    "sha256": "51d11dfc5fe705be678c13e251b07689a5b799ae7c058cfb3fb7c29d4fc47ad9",
+    "bytes": 123719
+  },
+  {
+    "abbr": "Mic",
+    "name": "Microscopium",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Microscopium",
+    "image": "https://www.go-astronomy.com/images/constellations/Microscopium.jpg",
+    "sha256": "ec42f15fd9715aa8ff3e0a63ee1af2a0a552e596d1bbb831773d1c3cde6a578f",
+    "bytes": 103616
+  },
+  {
+    "abbr": "Mon",
+    "name": "Monoceros",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Monoceros",
+    "image": "https://www.go-astronomy.com/images/constellations/Monoceros.jpg",
+    "sha256": "23bd741aa1638a81d061671ab6f15bdd7ebd30e676276b061ffb8114b465f459",
+    "bytes": 48803
+  },
+  {
+    "abbr": "Mus",
+    "name": "Musca",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Musca",
+    "image": "https://www.go-astronomy.com/images/constellations/Musca.jpg",
+    "sha256": "f681dbfd3c87a66ac3b788f7aa4a87993f9178f829019ba5965e09411b3d110d",
+    "bytes": 81909
+  },
+  {
+    "abbr": "Nor",
+    "name": "Norma",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Norma",
+    "image": "https://www.go-astronomy.com/images/constellations/Norma.jpg",
+    "sha256": "ac2a4323a09744fcca67dc758a85010d44761f60e3a7191f2cf0f252275d4056",
+    "bytes": 38450
+  },
+  {
+    "abbr": "Oct",
+    "name": "Octans",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Octans",
+    "image": "https://www.go-astronomy.com/images/constellations/Octans.jpg",
+    "sha256": "9f323da907831b4f70a06efb1ebcb4c05385dd3cffde34b9fbb74b194e19b423",
+    "bytes": 44214
+  },
+  {
+    "abbr": "Oph",
+    "name": "Ophiuchus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
+    "image": "https://www.go-astronomy.com/images/constellations/Ophiuchus.jpg",
+    "sha256": "e0504cabd0d769de06603e39e4c9489a303edac142a4454e5d30fa2222dbebff",
+    "bytes": 98250
+  },
+  {
+    "abbr": "Ori",
+    "name": "Orion",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Orion",
+    "image": "https://www.go-astronomy.com/images/constellations/Orion.jpg",
+    "sha256": "3cc986859a5888bd01e657e2f42e21851f72bdfeccb399fde12d1364f7d6affb",
+    "bytes": 63046
+  },
+  {
+    "abbr": "Pav",
+    "name": "Pavo",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Pavo",
+    "image": "https://www.go-astronomy.com/images/constellations/Pavo.jpg",
+    "sha256": "d57bb85d566b1994b67bd95cd513df016a08c4efebe4174ec2f4319410d6002f",
+    "bytes": 51943
+  },
+  {
+    "abbr": "Peg",
+    "name": "Pegasus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Pegasus",
+    "image": "https://www.go-astronomy.com/images/constellations/Pegasus.jpg",
+    "sha256": "6ea2a22015d62a84ce6dddc9f0602a1819c72c3915097cbb81a3b2f86ab50da7",
+    "bytes": 55875
+  },
+  {
+    "abbr": "Per",
+    "name": "Perseus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Perseus",
+    "image": "https://www.go-astronomy.com/images/constellations/Perseus.jpg",
+    "sha256": "eccfd4f3d0b46a8e89133e69312e7d253170d03f09b1f8fa42ed56ec49e946d8",
+    "bytes": 52592
+  },
+  {
+    "abbr": "Phe",
+    "name": "Phoenix",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Phoenix",
+    "image": "https://www.go-astronomy.com/images/constellations/Phoenix.jpg",
+    "sha256": "199d1e0a6c6e48fff7b1d21c95cc2f193d14a0e823b55588184fd21b91797c89",
+    "bytes": 53107
+  },
+  {
+    "abbr": "Pic",
+    "name": "Pictor",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Pictor",
+    "image": "https://www.go-astronomy.com/images/constellations/Pictor.jpg",
+    "sha256": "00d58e6c36f14977c24ec4b788228401c97efc1ff305a01775aa96a9bc08726d",
+    "bytes": 71457
+  },
+  {
+    "abbr": "Psc",
+    "name": "Pisces",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Pisces",
+    "image": "https://www.go-astronomy.com/images/constellations/Pisces.jpg",
+    "sha256": "66708914252af939fb591c9d33cb6d2f28f3bf0569851c50f98b9234614a1a92",
+    "bytes": 82530
+  },
+  {
+    "abbr": "PsA",
+    "name": "Piscis Austrinus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Piscis+Austrinus",
+    "image": "https://www.go-astronomy.com/images/constellations/Piscis%20Austrinus.jpg",
+    "sha256": "492c535a55e0e67a752e300a27437dcc9a55eecf87b0b7913b98ec3e28dcfc1c",
+    "bytes": 44107
+  },
+  {
+    "abbr": "Pup",
+    "name": "Puppis",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Puppis",
+    "image": "https://www.go-astronomy.com/images/constellations/Puppis.jpg",
+    "sha256": "91c4d8271c915c06d0253c4d6f6e20451b2c385589a3affdce8318cfe691b458",
+    "bytes": 72109
+  },
+  {
+    "abbr": "Pyx",
+    "name": "Pyxis",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Pyxis",
+    "image": "https://www.go-astronomy.com/images/constellations/Pyxis.jpg",
+    "sha256": "c7666fb40863e6113f828c1f3d9e35e1aaad66516f6de77158f9a70b7e048927",
+    "bytes": 66298
+  },
+  {
+    "abbr": "Ret",
+    "name": "Reticulum",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Reticulum",
+    "image": "https://www.go-astronomy.com/images/constellations/Reticulum.jpg",
+    "sha256": "46493390eee5ef7b0ecd0b257c415bbb6aeb2b8a9d1d5a5f04cdc85397d69acc",
+    "bytes": 102832
+  },
+  {
+    "abbr": "Sge",
+    "name": "Sagitta",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Sagitta",
+    "image": "https://www.go-astronomy.com/images/constellations/Sagitta.jpg",
+    "sha256": "1afdca108a3ccfc634e2af1d836b699fb17214587c28069f87a484c800cf9fe1",
+    "bytes": 69939
+  },
+  {
+    "abbr": "Sgr",
+    "name": "Sagittarius",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Sagittarius",
+    "image": "https://www.go-astronomy.com/images/constellations/Sagittarius.jpg",
+    "sha256": "a64fd36649e48642016d49fe3f31233e8ba1ed6de1f0809ceb8784ddb752794c",
+    "bytes": 63633
+  },
+  {
+    "abbr": "Sco",
+    "name": "Scorpius",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Scorpius",
+    "image": "https://www.go-astronomy.com/images/constellations/Scorpius.jpg",
+    "sha256": "a6cec3eab27d03cca57c467cd32431f00869caac4e52abffa58a7c797787667e",
+    "bytes": 68746
+  },
+  {
+    "abbr": "Scl",
+    "name": "Sculptor",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Sculptor",
+    "image": "https://www.go-astronomy.com/images/constellations/Sculptor.jpg",
+    "sha256": "c7369de856eca1ff0a0571236e1acd9a62b0f994d69a79666eec91e8ab5c3b06",
+    "bytes": 81206
+  },
+  {
+    "abbr": "Sct",
+    "name": "Scutum",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Scutum",
+    "image": "https://www.go-astronomy.com/images/constellations/Scutum.jpg",
+    "sha256": "e13b2db14563785b8d2ab1d9437bc952ba39fb33ec6fc9e9da525061e4d0a388",
+    "bytes": 44285
+  },
+  {
+    "abbr": "Ser",
+    "name": "Serpens",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Serpens",
+    "image": "https://www.go-astronomy.com/images/constellations/Serpens.jpg",
+    "sha256": "1965ea01d9b9aa0ed5aa5f9a93e3c71f18c300fbf333b977da8bfd43af6b45a6",
+    "bytes": 89131
+  },
+  {
+    "abbr": "Sex",
+    "name": "Sextans",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Sextans",
+    "image": "https://www.go-astronomy.com/images/constellations/Sextans.jpg",
+    "sha256": "3e3accc1557c51051052b3cf2a3ef5586519cca498f466d3ad195f9bef433c06",
+    "bytes": 35855
+  },
+  {
+    "abbr": "Tau",
+    "name": "Taurus",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Taurus",
+    "image": "https://www.go-astronomy.com/images/constellations/Taurus.jpg",
+    "sha256": "9e80f551abbf873756ca2cd6ae442249489ba609a5da3019202972b419353bd1",
+    "bytes": 77131
+  },
+  {
+    "abbr": "Tel",
+    "name": "Telescopium",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Telescopium",
+    "image": "https://www.go-astronomy.com/images/constellations/Telescopium.jpg",
+    "sha256": "25de84b51338b9d40d51ac946935d393b73cc278b1d2ede765d01a67b1c8cce1",
+    "bytes": 65345
+  },
+  {
+    "abbr": "Tri",
+    "name": "Triangulum",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Triangulum",
+    "image": "https://www.go-astronomy.com/images/constellations/Triangulum.jpg",
+    "sha256": "478afcc819de5c47326883474e7f444f3e07208bdffbeacf37d048c43ff218a5",
+    "bytes": 46671
+  },
+  {
+    "abbr": "TrA",
+    "name": "Triangulum Australe",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Triangulum+Australe",
+    "image": "https://www.go-astronomy.com/images/constellations/Triangulum%20Australe.jpg",
+    "sha256": "ba90b5120d74bf94da6aa3769fc439f6526c75e2b09e171333e7459d01dc13e9",
+    "bytes": 63504
+  },
+  {
+    "abbr": "Tuc",
+    "name": "Tucana",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Tucana",
+    "image": "https://www.go-astronomy.com/images/constellations/Tucana.jpg",
+    "sha256": "404ec8a706d198d071ef9ec966afb61b67c219d6d57755ffb5a40abb95b3d6ac",
+    "bytes": 38873
+  },
+  {
+    "abbr": "UMa",
+    "name": "Ursa Major",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Ursa+Major",
+    "image": "https://www.go-astronomy.com/images/constellations/Ursa%20Major.jpg",
+    "sha256": "d469d9494982757a04444dec3af954bcd389af9fad7f29130d89098fac4bacb2",
+    "bytes": 63466
+  },
+  {
+    "abbr": "UMi",
+    "name": "Ursa Minor",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Ursa+Minor",
+    "image": "https://www.go-astronomy.com/images/constellations/Ursa%20Minor.jpg",
+    "sha256": "45567ec89aff36afc6a98a4079ace907c80e5e4ddc8128ee840331f574469762",
+    "bytes": 69106
+  },
+  {
+    "abbr": "Vel",
+    "name": "Vela",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Vela",
+    "image": "https://www.go-astronomy.com/images/constellations/Vela.jpg",
+    "sha256": "1368077624b5a92db8013d89ffd68b61feb85905a97502b89094eae81198693b",
+    "bytes": 55823
+  },
+  {
+    "abbr": "Vir",
+    "name": "Virgo",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Virgo",
+    "image": "https://www.go-astronomy.com/images/constellations/Virgo.jpg",
+    "sha256": "da4504cc86c186c97048150cc940f0e91c6644c3aeb93362b5232d82b91029ca",
+    "bytes": 52816
+  },
+  {
+    "abbr": "Vol",
+    "name": "Volans",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Volans",
+    "image": "https://www.go-astronomy.com/images/constellations/Volans.jpg",
+    "sha256": "b26c607d805cadc3601ed5292bc76f950e7f7e44cbcc12f8f0681785e5f6dcd5",
+    "bytes": 53853
+  },
+  {
+    "abbr": "Vul",
+    "name": "Vulpecula",
+    "page": "https://www.go-astronomy.com/constellations.php?Name=Vulpecula",
+    "image": "https://www.go-astronomy.com/images/constellations/Vulpecula.jpg",
+    "sha256": "e644703ae9daaf7105ba38b72620a6b40be1ef1f7a54e5d63cce033ac0ce4f3a",
+    "bytes": 64713
+  }
+]

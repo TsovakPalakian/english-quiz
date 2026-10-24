@@ -12,13 +12,40 @@ assert.equal(astro.segmentHitsBox({x:0,y:0},{x:30,y:30},obstacle),false);
 assert.equal(astro.clearFigure({lines:[[0,1]]},[{x:0,y:50},{x:100,y:50}],[obstacle]),false,'A line crossing the UI is rejected even with both stars outside');
 assert.ok(astro.clearFigure({lines:[[0,1]]},[{x:0,y:0},{x:100,y:0}],[obstacle]));
 assert.ok(new Set(sky.map(c=>Math.round(astro.preferredSize(c,1440,1000)))).size>10,'Figure scale depends on its own projected spacing');
+for(const c of sky){
+  for(const [width,height] of [[1440,1000],[390,844],[844,390]]){
+    const base=astro.preferredSize(c,width,height);
+    assert.ok(base>0);
+    assert.ok(Math.abs(astro.preferredSize(c,width*2,height*2)-base*2)<1e-8,c.abbr+' scales with the viewport, not fixed pixels');
+    assert.ok(Math.abs(astro.preferredSize(c,width/2,height/2)-base/2)<1e-8);
+  }
+}
+for(const c of sky){
+  const result=astro.fitFigure(c,390,844,[],(text,size)=>text.length*size*.55,2,()=>.5);
+  assert.ok(result.layout,c.abbr+' fits a mobile viewport without interface obstacles');
+  const core=result.layout.stars.slice(0,c.stars.length);
+  assert.ok(core.every(p=>p.x>=18&&p.x<=372&&p.y>=18&&p.y<=826));
+  assert.equal(result.layout.labels.some((b,i,all)=>all.slice(i+1).some(p=>astro.intersects(b,p))),false);
+}
+const noSpace=astro.fitFigure(sky.find(c=>c.abbr==='Cnc'),390,844,[{left:0,right:390,top:0,bottom:844,element:'#accountBody'}],s=>s.length*7);
+assert.equal(noSpace.layout,null);assert.equal(noSpace.diagnostic.blockers[0].element,'#accountBody');
 const raw=JSON.parse(readFileSync('data/constellations_catalogue.json','utf8'));
+const cancer=sky.find(c=>c.abbr==='Cnc');
+for(const size of [120,350,900]){
+  const stars=astro.layout(cancer,500,500,size).stars,spacing=astro.markerSpacing(stars);
+  const index=stars.findIndex(s=>s.id==='iota_cnc'),secondary=stars.find(s=>s.hip===43100);
+  assert.ok(astro.angularDistance(stars[index],secondary)<1/60);
+  assert.equal(Math.min(astro.appearance(stars[index].mag).radius,spacing[index]*.28),astro.appearance(stars[index].mag).radius,'The bright upper Cancer star does not shrink into a subpixel point');
+}
+assert.equal(astro.markerSpacing([{ra:0,dec:0,x:0,y:0},{ra:1,dec:0,x:10,y:0}])[0],10,'Ordinary separated stars still limit overlapping glow');
 assert.equal(sky.length,88,'All 88 sourced constellations are drawn once, including Ophiuchus');
 for(const c of sky){
   const original=raw.find(x=>x.abbr===c.abbr);
-  assert.equal(c.stars.length,original.stars.length,'Disconnected stars are retained');
+  const connected=new Set(original.connections.flat());
+  const displayed=original.stars.filter(s=>!s.catalogue.constellation||s.catalogue.constellation===c.abbr||connected.has(s.id));
+  assert.equal(c.stars.length,displayed.length,'Own disconnected stars and connected neighbouring vertices are retained');
   for(let i=0;i<c.stars.length;i++){
-    const s=c.stars[i],source=original.stars[i];
+    const s=c.stars[i],source=displayed[i];
     assert.equal(s.mag,source.photometry.apparentMagnitude,'Renderer uses sourced V, not historical magnitude');
     assert.equal(s.ra,source.coordinates.rightAscensionDeg);assert.equal(s.dec,source.coordinates.declinationDeg);
     assert.equal(s.hip,source.catalogue.hip);

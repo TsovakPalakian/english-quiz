@@ -5,6 +5,8 @@ import hashlib
 import importlib.util
 import json
 import math
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +98,9 @@ def main():
     data(ROOT/'data/constellation_refinements_source.json', source)
     data(complete.stellar.SOURCE, hyg)
     data(catalogue, entries)
+    if (ROOT/'data/constellation_go_astronomy_source.json').exists():
+        # Rebuilding the comparison atlas must not replace later reviewed Go figures.
+        subprocess.run([sys.executable,str(ROOT/'ops/complete-constellation-figures.py'),'--write'],check=True,capture_output=True)
     print(json.dumps({'reviewed': len(entries), 'updatedFigures': reviewed, 'FornaxStars': len(next(c for c in entries if c['abbr']=='For')['stars'])}))
 
 

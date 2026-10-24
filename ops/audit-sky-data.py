@@ -114,6 +114,9 @@ def audit(raw_paths=None):
     refinements=DATA/'constellation_refinements_source.json'
     if refinements.exists():
         figures.update(json.loads(refinements.read_text())['reviewedOverrides'])
+    go_figures=DATA/'constellation_go_astronomy_source.json'
+    if go_figures.exists():
+        figures.update(json.loads(go_figures.read_text())['reviewedOverrides'])
     check(len(data) == 88 and len({c['abbr'] for c in data}) == 88, 'constellation_uniqueness', 'catalogue')
     check({c['abbr'] for c in data} == set(figures), 'constellation_coverage', 'catalogue')
     root_ids, hip_positions = [], defaultdict(list)

@@ -46,6 +46,9 @@ def figure_map(source):
     path=DATA/'constellation_refinements_source.json'
     if path.exists():
         figures.update(json.loads(path.read_text())['reviewedOverrides'])
+    path=DATA/'constellation_go_astronomy_source.json'
+    if path.exists():
+        figures.update(json.loads(path.read_text())['reviewedOverrides'])
     return figures
 
 
@@ -235,6 +238,10 @@ def main():
                              'previousConnections': previous_edges}
         if figures[c['abbr']]['id'].startswith('D3-Celestial'):
             c['figureSource']['override']='constellation_refinements_source.json'
+        if figures[c['abbr']]['id'].startswith('Go-Astronomy'):
+            c['figureSource'].update({'provider': 'Go Astronomy', 'source': 'constellation_go_astronomy_source.json', 'override': 'constellation_go_astronomy_source.json',
+                                     'url': figures[c['abbr']]['page'], 'imageSha256': figures[c['abbr']]['imageSha256']})
+            c['figureSource'].pop('gitBlobSha1',None)
         changes.append({'abbr': c['abbr'], 'addedStars': len(c['stars']) - before,
                         'stars': len(c['stars']), 'connections': len(edges)})
     hyg['rows'] = [{k: r[k] for k in stellar.FIELDS} for r in rows if r['id'] in needed]
@@ -254,7 +261,7 @@ def main():
         'starIdentityCorrections': identities,
         'displayPhotometry': display_counts,
         'photometrySearch': 'Pinned OpenNGC NGC/addendum, HYG, existing individually checked SIMBAD/Green references and Harris 1996 (2010 edition). SIMBAD NGC1851 basic page has no V; Harris supplies integrated V_t. SIMBAD TAP mirror unavailable. No exhaustive literature claim.',
-        'limitations': ['Atlas lines are Sky & Telescope conventions, not official IAU connection rules.',
+        'limitations': ['Atlas lines combine reviewed Go Astronomy figures and retained D3/Sky & Telescope conventions, not official IAU connection rules.',
                        'Supplement HIP55203 uses published rounded J2000 coordinates and V, not fabricated HYG metadata.',
                        'Existing unconnected stars retained; not an exhaustive stellar census.',
                        'Measured missing V values remain null. Display estimates are not object measurements.',

@@ -61,11 +61,67 @@ const StudioSkyAstronomy=(()=>{
     return !stars.some(s=>rects.some(r=>intersects(r,{left:s.x-10,right:s.x+10,top:s.y-10,bottom:s.y+10})))&&
       !c.lines.some(([a,b])=>rects.some(r=>segmentHitsBox(stars[a],stars[b],r)));
   }
+  function markerSpacing(stars){
+    // Close catalogue pairs may blend, but must not erase each other's markers.
+    return stars.map((s,i)=>Math.min(...stars.filter((p,j)=>i!==j&&angularDistance(s,p)>=1/60).map(p=>Math.hypot(p.x-s.x,p.y-s.y))));
+  }
   function preferredSize(c,width,height){
     const core=c.points.slice(0,c.stars.length),span=Math.max(c.bounds.width,c.bounds.height);
     const gaps=core.map((s,i)=>Math.min(...core.filter((_,j)=>i!==j).map(p=>Math.hypot(p.x-s.x,p.y-s.y)/span))).filter(d=>d>1e-5).sort((a,b)=>a-b);
     const gap=gaps[Math.floor(gaps.length*.2)]||.1;
-    return Math.max(100,Math.min(width*.9,height*.85,24/gap));
+    const screen=Math.max(0,Math.min(width,height));
+    // All size targets are viewport-relative; uniform resizing preserves the base scale ratio.
+    return Math.max(screen*.25,Math.min(width*.9,height*.85,screen*.024/gap));
+  }
+  function freeFrames(width,height,rects){
+    let frames=[{left:18,top:18,right:width-18,bottom:height-18}];
+    for(const r of rects){
+      frames=frames.flatMap(f=>!intersects(f,r)?[f]:[
+        {...f,right:Math.min(f.right,r.left)}, {...f,left:Math.max(f.left,r.right)},
+        {...f,bottom:Math.min(f.bottom,r.top)}, {...f,top:Math.max(f.top,r.bottom)}
+      ]).filter(f=>f.right-f.left>=24&&f.bottom-f.top>=24);
+      frames=frames.filter((f,i)=>!frames.some((g,j)=>i!==j&&g.left<=f.left&&g.right>=f.right&&g.top<=f.top&&g.bottom>=f.bottom&&(g.left<f.left||g.right>f.right||g.top<f.top||g.bottom>f.bottom||j<i)));
+    }
+    return frames;
+  }
+  function fitFigure(c,width,height,rects,measure,scale=2,random=Math.random){
+    const base=preferredSize(c,width,height)*scale,span=Math.max(c.bounds.width,c.bounds.height);
+    const frames=freeFrames(width,height,rects),candidates=[];
+    for(const f of frames){
+      const size=Math.min(base,(f.right-f.left-20)*span/c.bounds.width,(f.bottom-f.top-20)*span/c.bounds.height);
+      if(size<=0)continue;
+      for(const factor of [1,.9,.8,.65,.5,.35,.28,.22,.16]){
+        const s=size*factor,halfX=s*c.bounds.width/span/2,halfY=s*c.bounds.height/span/2;
+        const left=f.left+halfX+10,right=f.right-halfX-10,top=f.top+halfY+10,bottom=f.bottom-halfY-10;
+        const positions=[[(left+right)/2,(top+bottom)/2],[left,top],[right,bottom],[left,bottom],[right,top]];
+        for(let i=0;i<5;i++)positions.push([left+random()*(right-left),top+random()*(bottom-top)]);
+        for(const [cx,cy] of positions)candidates.push({cx,cy,size:s,tie:random()});
+      }
+    }
+    candidates.sort((a,b)=>b.size-a.size||a.tie-b.tie);
+    const primaryId=brightest(c.stars,c.abbr)?.id;
+    for(const frame of candidates){
+      const candidate=layout(c,frame.cx,frame.cy,frame.size),core=candidate.stars.slice(0,c.stars.length);
+      if(core.some(p=>p.x<18||p.x>width-18||p.y<18||p.y>height-18))continue;
+      const visible=candidate.stars.filter(p=>inViewport(p,width,height));
+      if(!clearFigure(c,visible,rects))continue;
+      if(visible.some(p=>{const r=appearance(p.mag,p.bv).radius*4;return rects.some(b=>intersects(b,{left:p.x-r,right:p.x+r,top:p.y-r,bottom:p.y+r}));}))continue;
+      const blocked=b=>rects.some(r=>intersects(b,r))||c.lines.some(([i,j])=>segmentHitsBox(candidate.stars[i],candidate.stars[j],b));
+      const boxes=labels(visible,width,height,blocked,text=>measure(text,12),primaryId);
+      if(boxes.filter(b=>b.star.landmark).length!==visible.filter(p=>p.landmark).length||!boxes.some(b=>b.star.primary))continue;
+      const title=caption(core,c.name,width,height,blocked,text=>measure(text,18),boxes);
+      if(!title)continue;
+      const spacing=markerSpacing(candidate.stars);
+      candidate.stars.forEach((s,i)=>{s.spacing=spacing[i];});
+      const gaps=core.flatMap((s,i)=>core.slice(i+1).map(p=>({distance:Math.hypot(p.x-s.x,p.y-s.y),stars:[s.name,p.name]}))).sort((a,b)=>a.distance-b.distance);
+      const unobstructed=Math.min(base,(width-56)*span/c.bounds.width,(height-56)*span/c.bounds.height);
+      const interfaceLimited=rects.length>0&&frame.size<unobstructed*.5;
+      return {layout:{...candidate,frame,labels:[...boxes,title]},diagnostic:{abbr:c.abbr,viewport:{width,height},placed:true,size:frame.size,closestPair:gaps[0]||null,
+        interfaceLimited,blockers:interfaceLimited?rects.map(r=>({element:r.element||'interface',left:r.left,right:r.right,top:r.top,bottom:r.bottom})):[]}};
+    }
+    return {layout:null,diagnostic:{abbr:c.abbr,viewport:{width,height},placed:false,
+      reason:frames.length?'No complete figure with its title, main star and visible landmark labels fits the available space.':'Interface occupies all available space.',
+      blockers:rects.map(r=>({element:r.element||'interface',left:r.left,right:r.right,top:r.top,bottom:r.bottom}))}};
   }
   const brightest=(stars,abbr=null)=>stars.filter(s=>Number.isFinite(s.mag)&&(!abbr||!s.constellation||s.constellation===abbr)).reduce((best,s)=>!best||s.mag<best.mag?s:best,null);
   function labels(stars,width,height,blocked,measure,primaryId=null){
@@ -99,5 +155,5 @@ const StudioSkyAstronomy=(()=>{
   }
   const exposedAlpha=(alpha,gain)=>1-(1-Math.max(0,Math.min(1,alpha)))**gain;
   const controlFactor=(position,maximum=4)=>{const p=Math.max(0,Math.min(1000,position));return p<=500?p/500:maximum**((p-500)/500);};
-  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,preferredSize};
+  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure};
 })();

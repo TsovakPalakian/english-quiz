@@ -2,8 +2,8 @@
   "source": "https://raw.githubusercontent.com/Stellarium/stellarium/master/skycultures/modern_st/index.json",
   "sourceBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
   "constellations": 88,
-  "stars": 836,
-  "connections": 743,
+  "stars": 852,
+  "connections": 777,
   "ignoredZeroLengthSourceEdges": [],
   "crossBoundaryFigureVertices": [
     {
@@ -104,20 +104,20 @@
     {
       "abbr": "Aqr",
       "addedStars": 12,
-      "stars": 18,
-      "connections": 14
+      "stars": 22,
+      "connections": 22
     },
     {
       "abbr": "Aql",
       "addedStars": 6,
       "stars": 11,
-      "connections": 9
+      "connections": 12
     },
     {
       "abbr": "Ara",
       "addedStars": 4,
       "stars": 8,
-      "connections": 6
+      "connections": 8
     },
     {
       "abbr": "Ari",
@@ -129,7 +129,7 @@
       "abbr": "Aur",
       "addedStars": 4,
       "stars": 9,
-      "connections": 10
+      "connections": 11
     },
     {
       "abbr": "Boo",
@@ -164,8 +164,8 @@
     {
       "abbr": "CMa",
       "addedStars": 5,
-      "stars": 13,
-      "connections": 11
+      "stars": 14,
+      "connections": 15
     },
     {
       "abbr": "CMi",
@@ -182,8 +182,8 @@
     {
       "abbr": "Car",
       "addedStars": 11,
-      "stars": 17,
-      "connections": 18
+      "stars": 18,
+      "connections": 8
     },
     {
       "abbr": "Cas",
@@ -195,7 +195,7 @@
       "abbr": "Cen",
       "addedStars": 16,
       "stars": 23,
-      "connections": 15
+      "connections": 22
     },
     {
       "abbr": "Cep",
@@ -207,7 +207,7 @@
       "abbr": "Cet",
       "addedStars": 8,
       "stars": 14,
-      "connections": 15
+      "connections": 14
     },
     {
       "abbr": "Cha",
@@ -225,7 +225,7 @@
       "abbr": "Col",
       "addedStars": 3,
       "stars": 6,
-      "connections": 4
+      "connections": 5
     },
     {
       "abbr": "Com",
@@ -237,7 +237,7 @@
       "abbr": "CrA",
       "addedStars": 2,
       "stars": 8,
-      "connections": 7
+      "connections": 6
     },
     {
       "abbr": "CrB",
@@ -255,7 +255,7 @@
       "abbr": "Crt",
       "addedStars": 5,
       "stars": 9,
-      "connections": 9
+      "connections": 8
     },
     {
       "abbr": "Cru",
@@ -267,7 +267,7 @@
       "abbr": "Cyg",
       "addedStars": 5,
       "stars": 11,
-      "connections": 8
+      "connections": 12
     },
     {
       "abbr": "Del",
@@ -296,20 +296,20 @@
     {
       "abbr": "Eri",
       "addedStars": 25,
-      "stars": 31,
-      "connections": 26
+      "stars": 32,
+      "connections": 23
     },
     {
       "abbr": "For",
       "addedStars": 0,
       "stars": 4,
-      "connections": 2
+      "connections": 4
     },
     {
       "abbr": "Gem",
       "addedStars": 12,
       "stars": 17,
-      "connections": 11
+      "connections": 15
     },
     {
       "abbr": "Gru",
@@ -321,7 +321,7 @@
       "abbr": "Her",
       "addedStars": 16,
       "stars": 21,
-      "connections": 17
+      "connections": 22
     },
     {
       "abbr": "Hor",
@@ -339,7 +339,7 @@
       "abbr": "Hyi",
       "addedStars": 1,
       "stars": 6,
-      "connections": 5
+      "connections": 4
     },
     {
       "abbr": "Ind",
@@ -357,7 +357,7 @@
       "abbr": "Leo",
       "addedStars": 8,
       "stars": 13,
-      "connections": 9
+      "connections": 16
     },
     {
       "abbr": "LMi",
@@ -369,7 +369,7 @@
       "abbr": "Lep",
       "addedStars": 7,
       "stars": 11,
-      "connections": 10
+      "connections": 12
     },
     {
       "abbr": "Lib",
@@ -411,7 +411,7 @@
       "abbr": "Mon",
       "addedStars": 5,
       "stars": 9,
-      "connections": 8
+      "connections": 9
     },
     {
       "abbr": "Mus",
@@ -435,19 +435,19 @@
       "abbr": "Oph",
       "addedStars": 17,
       "stars": 17,
-      "connections": 17
+      "connections": 18
     },
     {
       "abbr": "Ori",
       "addedStars": 15,
       "stars": 23,
-      "connections": 24
+      "connections": 25
     },
     {
       "abbr": "Pav",
       "addedStars": 7,
       "stars": 11,
-      "connections": 10
+      "connections": 12
     },
     {
       "abbr": "Peg",
@@ -459,13 +459,13 @@
       "abbr": "Per",
       "addedStars": 14,
       "stars": 24,
-      "connections": 23
+      "connections": 19
     },
     {
       "abbr": "Phe",
       "addedStars": 2,
-      "stars": 6,
-      "connections": 7
+      "stars": 7,
+      "connections": 8
     },
     {
       "abbr": "Pic",
@@ -477,7 +477,7 @@
       "abbr": "Psc",
       "addedStars": 10,
       "stars": 22,
-      "connections": 23
+      "connections": 18
     },
     {
       "abbr": "PsA",
@@ -488,14 +488,14 @@
     {
       "abbr": "Pup",
       "addedStars": 8,
-      "stars": 13,
-      "connections": 11
+      "stars": 14,
+      "connections": 10
     },
     {
       "abbr": "Pyx",
       "addedStars": 1,
       "stars": 4,
-      "connections": 3
+      "connections": 2
     },
     {
       "abbr": "Ret",
@@ -512,14 +512,14 @@
     {
       "abbr": "Sgr",
       "addedStars": 9,
-      "stars": 25,
-      "connections": 29
+      "stars": 28,
+      "connections": 27
     },
     {
       "abbr": "Sco",
       "addedStars": 13,
       "stars": 18,
-      "connections": 13
+      "connections": 17
     },
     {
       "abbr": "Scl",
@@ -530,8 +530,8 @@
     {
       "abbr": "Sct",
       "addedStars": 0,
-      "stars": 4,
-      "connections": 4
+      "stars": 5,
+      "connections": 5
     },
     {
       "abbr": "Ser",
@@ -549,7 +549,7 @@
       "abbr": "Tau",
       "addedStars": 8,
       "stars": 12,
-      "connections": 11
+      "connections": 8
     },
     {
       "abbr": "Tel",
@@ -590,14 +590,14 @@
     {
       "abbr": "Vel",
       "addedStars": 3,
-      "stars": 8,
-      "connections": 7
+      "stars": 11,
+      "connections": 11
     },
     {
       "abbr": "Vir",
       "addedStars": 7,
       "stars": 14,
-      "connections": 12
+      "connections": 14
     },
     {
       "abbr": "Vol",
@@ -978,7 +978,7 @@
   },
   "photometrySearch": "Pinned OpenNGC NGC/addendum, HYG, existing individually checked SIMBAD/Green references and Harris 1996 (2010 edition). SIMBAD NGC1851 basic page has no V; Harris supplies integrated V_t. SIMBAD TAP mirror unavailable. No exhaustive literature claim.",
   "limitations": [
-    "Atlas lines are Sky & Telescope conventions, not official IAU connection rules.",
+    "Atlas lines combine reviewed Go Astronomy figures and retained D3/Sky & Telescope conventions, not official IAU connection rules.",
     "Supplement HIP55203 uses published rounded J2000 coordinates and V, not fabricated HYG metadata.",
     "Existing unconnected stars retained; not an exhaustive stellar census.",
     "Measured missing V values remain null. Display estimates are not object measurements.",

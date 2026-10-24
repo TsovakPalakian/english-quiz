@@ -694,7 +694,7 @@
         "bayer": "Psi And",
         "spectralType": "G5Ib",
         "magnitude": 4.97,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -726,40 +726,20 @@
     ],
     "connections": [
       [
-        "almach",
+        "alpheratz",
+        "delta_and"
+      ],
+      [
+        "delta_and",
         "mirach"
       ],
       [
         "mirach",
-        "delta_and"
+        "almach"
       ],
       [
-        "delta_and",
-        "alpheratz"
-      ],
-      [
-        "hip_4463",
-        "zeta_and"
-      ],
-      [
-        "zeta_and",
-        "hip_3031"
-      ],
-      [
-        "hip_3031",
-        "delta_and"
-      ],
-      [
-        "delta_and",
-        "hip_2912"
-      ],
-      [
-        "hip_2912",
+        "omicron_and",
         "hip_116631"
-      ],
-      [
-        "hip_116631",
-        "omicron_and"
       ],
       [
         "hip_116631",
@@ -768,6 +748,18 @@
       [
         "hip_116805",
         "lambda_and"
+      ],
+      [
+        "hip_116631",
+        "hip_2912"
+      ],
+      [
+        "hip_2912",
+        "delta_and"
+      ],
+      [
+        "hip_2912",
+        "mirach"
       ],
       [
         "mirach",
@@ -786,8 +778,16 @@
         "star_51_and"
       ],
       [
-        "hip_116805",
-        "hip_117221"
+        "delta_and",
+        "hip_3031"
+      ],
+      [
+        "hip_3031",
+        "zeta_and"
+      ],
+      [
+        "zeta_and",
+        "hip_4463"
       ]
     ],
     "deepSkyObjects": [
@@ -1136,10 +1136,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial And",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy And",
       "previousConnections": [
         [
           "alpheratz",
@@ -1150,7 +1149,9 @@
           "almach"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Andromeda",
+      "imageSha256": "bc91d989c475d609fb2a243e342cc2546a96199954a3edd0921488d7b17e9b20"
     }
   },
   {
@@ -1807,7 +1808,7 @@
         "radius": 4,
         "x": 30,
         "y": 55,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -2145,7 +2146,7 @@
         "bayer": "Phi Aqr",
         "spectralType": "M2III",
         "magnitude": 4.22,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -2288,7 +2289,7 @@
         "bayer": "Tau-2 Aqr",
         "spectralType": "K5III",
         "magnitude": 4.05,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -2358,7 +2359,7 @@
         "bayer": "104 Aqr",
         "spectralType": "G2Ib/II",
         "magnitude": 4.82,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -2386,19 +2387,159 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_114375",
+        "name": "89 Aqr",
+        "bayer": "89 Aqr",
+        "spectralType": "A3IV:",
+        "magnitude": 4.71,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "23h 09m 54.896s",
+          "declination": "-22° 27′ 27.40″",
+          "rightAscensionDeg": 347.478735,
+          "declinationDeg": -22.457611
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 114013,
+          "hip": 114375,
+          "hd": 218640,
+          "hr": 8817,
+          "bayer": "",
+          "constellation": "Aqr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.71,
+          "colorIndexBV": 0.674,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_115669",
+        "name": "99 Aqr",
+        "bayer": "99 Aqr",
+        "spectralType": "K4III",
+        "magnitude": 4.38,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "23h 26m 02.789s",
+          "declination": "-20° 38′ 31.25″",
+          "rightAscensionDeg": 351.51162,
+          "declinationDeg": -20.642014
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 115304,
+          "hip": 115669,
+          "hd": 220704,
+          "hr": 8906,
+          "bayer": "",
+          "constellation": "Aqr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.38,
+          "colorIndexBV": 1.46,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_114119",
+        "name": "86 Aqr",
+        "bayer": "86 Aqr",
+        "spectralType": "G8III",
+        "magnitude": 4.48,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "23h 06m 40.842s",
+          "declination": "-23° 44′ 35.21″",
+          "rightAscensionDeg": 346.670175,
+          "declinationDeg": -23.743115
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 113757,
+          "hip": 114119,
+          "hd": 218240,
+          "hr": 8789,
+          "bayer": "",
+          "constellation": "Aqr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.48,
+          "colorIndexBV": 0.892,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_116247",
+        "name": "101 Aqr",
+        "bayer": "101 Aqr",
+        "spectralType": "A0V",
+        "magnitude": 4.7,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "23h 33m 16.625s",
+          "declination": "-20° 54′ 52.21″",
+          "rightAscensionDeg": 353.31927,
+          "declinationDeg": -20.914504
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 115881,
+          "hip": 116247,
+          "hd": 221565,
+          "hr": 8939,
+          "bayer": "",
+          "constellation": "Aqr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.7,
+          "colorIndexBV": 0.02,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
       [
-        "hip_102618",
-        "hip_103045"
+        "hip_111497",
+        "zeta_aqr"
       ],
       [
-        "hip_103045",
-        "beta_aqr"
+        "zeta_aqr",
+        "hip_110672"
       ],
       [
-        "beta_aqr",
+        "hip_110672",
         "alpha_aqr"
       ],
       [
@@ -2410,40 +2551,72 @@
         "zeta_aqr"
       ],
       [
-        "zeta_aqr",
-        "hip_111497"
-      ],
-      [
-        "hip_111497",
-        "hip_112961"
-      ],
-      [
-        "hip_112961",
-        "hip_115033"
-      ],
-      [
-        "hip_115033",
-        "hip_114341"
+        "alpha_aqr",
+        "beta_aqr"
       ],
       [
         "beta_aqr",
-        "hip_109139"
+        "hip_103045"
+      ],
+      [
+        "hip_103045",
+        "hip_102618"
+      ],
+      [
+        "hip_109139",
+        "beta_aqr"
       ],
       [
         "alpha_aqr",
         "hip_110003"
       ],
       [
-        "zeta_aqr",
-        "hip_110672"
+        "hip_110003",
+        "hip_112961"
       ],
       [
-        "hip_115438",
+        "hip_112961",
+        "hip_114724"
+      ],
+      [
+        "hip_114724",
         "hip_115033"
       ],
       [
         "hip_115033",
-        "hip_116901"
+        "delta_aqr"
+      ],
+      [
+        "delta_aqr",
+        "hip_112716"
+      ],
+      [
+        "hip_112716",
+        "hip_112961"
+      ],
+      [
+        "hip_115033",
+        "hip_115438"
+      ],
+      [
+        "hip_115438",
+        "hip_115669"
+      ],
+      [
+        "hip_115669",
+        "hip_116247"
+      ],
+      [
+        "hip_115033",
+        "hip_114341"
+      ],
+      [
+        "hip_114341",
+        "hip_114375"
+      ],
+      [
+        "hip_114375",
+        "hip_114119"
       ]
     ],
     "deepSkyObjects": [
@@ -2547,10 +2720,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Aqr",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Aqr",
       "previousConnections": [
         [
           "beta_aqr",
@@ -2565,7 +2737,9 @@
           "delta_aqr"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Aquarius",
+      "imageSha256": "9f5f22fd35d093d43ea0070cf3f735ee4f3990e2e6f83d226d3d7d541ef320f6"
     }
   },
   {
@@ -2937,7 +3111,7 @@
         "bayer": "Eps Aql",
         "spectralType": "K2III",
         "magnitude": 4.02,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -2972,7 +3146,7 @@
         "bayer": "12 Aql",
         "spectralType": "K1IIIvar",
         "magnitude": 4.02,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -3007,7 +3181,7 @@
         "bayer": "Iot Aql",
         "spectralType": "B5III",
         "magnitude": 4.36,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -3039,40 +3213,52 @@
     ],
     "connections": [
       [
-        "gamma_aql",
-        "alpha_aql"
-      ],
-      [
-        "alpha_aql",
-        "beta_aql"
-      ],
-      [
         "beta_aql",
-        "theta_aql"
-      ],
-      [
-        "theta_aql",
-        "hip_97804"
-      ],
-      [
-        "hip_97804",
-        "hip_95501"
-      ],
-      [
-        "hip_95501",
-        "zeta_aql"
-      ],
-      [
-        "zeta_aql",
         "alpha_aql"
       ],
       [
         "alpha_aql",
+        "gamma_aql"
+      ],
+      [
+        "gamma_aql",
         "hip_95501"
       ],
       [
         "hip_95501",
         "hip_93805"
+      ],
+      [
+        "hip_93805",
+        "zeta_aql"
+      ],
+      [
+        "zeta_aql",
+        "hip_93244"
+      ],
+      [
+        "zeta_aql",
+        "hip_95501"
+      ],
+      [
+        "hip_95501",
+        "hip_97804"
+      ],
+      [
+        "hip_97804",
+        "theta_aql"
+      ],
+      [
+        "theta_aql",
+        "hip_96468"
+      ],
+      [
+        "hip_96468",
+        "hip_93805"
+      ],
+      [
+        "hip_93805",
+        "hip_93429"
       ]
     ],
     "deepSkyObjects": [
@@ -3127,10 +3313,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Aql",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Aql",
       "previousConnections": [
         [
           "gamma_aql",
@@ -3149,7 +3334,9 @@
           "theta_aql"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Aquila",
+      "imageSha256": "d9ed73afa787dfc294cc2ec149fa37a3de09b94b1987ac8252e94430438b5213"
     }
   },
   {
@@ -3473,7 +3660,7 @@
         "bayer": "The Ara",
         "spectralType": "B2Ib",
         "magnitude": 3.65,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -3505,6 +3692,18 @@
     ],
     "connections": [
       [
+        "hip_88714",
+        "alpha_ara"
+      ],
+      [
+        "alpha_ara",
+        "beta_ara"
+      ],
+      [
+        "beta_ara",
+        "gamma_ara"
+      ],
+      [
         "gamma_ara",
         "hip_85727"
       ],
@@ -3523,10 +3722,6 @@
       [
         "hip_83153",
         "alpha_ara"
-      ],
-      [
-        "alpha_ara",
-        "beta_ara"
       ]
     ],
     "deepSkyObjects": [
@@ -3624,10 +3819,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Ara",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Ara",
       "previousConnections": [
         [
           "beta_ara",
@@ -3646,7 +3840,9 @@
           "beta_ara"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Ara",
+      "imageSha256": "611bd9d8d2d3fd707fc68b8c6ccc0ef71e3ba918bd927c6d4daf6fb27e385842"
     }
   },
   {
@@ -4388,44 +4584,48 @@
     ],
     "connections": [
       [
-        "menkalinan",
-        "capella"
-      ],
-      [
-        "capella",
-        "hip_23767"
-      ],
-      [
-        "hip_23767",
+        "hip_25428",
         "iota_aur"
       ],
       [
         "iota_aur",
-        "hip_25428"
+        "hip_23767"
       ],
       [
-        "hip_25428",
-        "theta_aur"
-      ],
-      [
-        "theta_aur",
-        "menkalinan"
-      ],
-      [
-        "menkalinan",
-        "hip_28358"
-      ],
-      [
-        "hip_28358",
+        "hip_23767",
         "capella"
       ],
       [
         "capella",
+        "menkalinan"
+      ],
+      [
+        "menkalinan",
+        "theta_aur"
+      ],
+      [
+        "theta_aur",
+        "hip_25428"
+      ],
+      [
+        "hip_23767",
+        "hip_23453"
+      ],
+      [
+        "hip_23453",
         "epsilon_aur"
       ],
       [
         "epsilon_aur",
-        "hip_23453"
+        "capella"
+      ],
+      [
+        "capella",
+        "hip_28358"
+      ],
+      [
+        "hip_28358",
+        "menkalinan"
       ]
     ],
     "deepSkyObjects": [
@@ -4578,10 +4778,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Aur",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Aur",
       "previousConnections": [
         [
           "capella",
@@ -4604,7 +4803,9 @@
           "capella"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Auriga",
+      "imageSha256": "509e323d3c41c55192d484cd7bbdab05239873dcf5a3b0c9ec18344409db7e7e"
     }
   },
   {
@@ -7064,7 +7265,7 @@
         "bayer": "Nu-2 CMa",
         "spectralType": "K1III+...",
         "magnitude": 3.95,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -7099,7 +7300,7 @@
         "bayer": "Omi-1 CMa",
         "spectralType": "K3Iab",
         "magnitude": 3.89,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -7245,7 +7446,7 @@
         "bayer": "Zet CMa",
         "spectralType": "B2.5V",
         "magnitude": 3.02,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -7349,36 +7550,78 @@
             2.985
           ]
         }
+      },
+      {
+        "id": "hip_35037",
+        "name": "Ome CMa",
+        "bayer": "Ome CMa",
+        "spectralType": "B2IV/Ve",
+        "magnitude": 4.01,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "07h 14m 48.656s",
+          "declination": "-26° 46′ 21.60″",
+          "rightAscensionDeg": 108.702735,
+          "declinationDeg": -26.772667
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 34943,
+          "hip": 35037,
+          "hd": 56139,
+          "hr": 2749,
+          "bayer": "Ome",
+          "constellation": "CMa",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.01,
+          "colorIndexBV": -0.15,
+          "variableDesignation": "Ome",
+          "variableMagnitudeRange": [
+            4.025,
+            3.775
+          ]
+        }
       }
     ],
     "connections": [
       [
-        "mirzam",
-        "sirius"
-      ],
-      [
         "sirius",
-        "hip_33977"
+        "mirzam"
       ],
       [
-        "hip_33977",
-        "wezen"
+        "mirzam",
+        "hip_31592"
       ],
       [
-        "wezen",
-        "hip_33856"
+        "hip_31592",
+        "hip_33152"
       ],
       [
-        "hip_33856",
+        "hip_33152",
         "adhara"
       ],
       [
         "adhara",
-        "hip_30122"
+        "hip_33856"
       ],
       [
-        "aludra",
+        "hip_33856",
         "wezen"
+      ],
+      [
+        "wezen",
+        "hip_33977"
+      ],
+      [
+        "hip_33977",
+        "sirius"
       ],
       [
         "sirius",
@@ -7395,6 +7638,18 @@
       [
         "hip_33160",
         "hip_33347"
+      ],
+      [
+        "wezen",
+        "hip_35037"
+      ],
+      [
+        "hip_35037",
+        "aludra"
+      ],
+      [
+        "aludra",
+        "wezen"
       ]
     ],
     "deepSkyObjects": [
@@ -7487,21 +7742,20 @@
           "reviewNotes": []
         },
         "displayPhotometry": {
-          "magnitudeV": 1.0926766637348773,
+          "magnitudeV": 1.1674666259455966,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "CMa",
-          "sampleSize": 13,
+          "sampleSize": 14,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial CMa",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy CMa",
       "previousConnections": [
         [
           "mirzam",
@@ -7520,7 +7774,9 @@
           "aludra"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Canis+Major",
+      "imageSha256": "0f4bd12820454613d3ecf5f57a86e6c95927dc358c0656d6853d38ff2efae0ec"
     }
   },
   {
@@ -7842,7 +8098,7 @@
         "radius": 4,
         "x": 20,
         "y": 55,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8062,7 +8318,7 @@
         "bayer": "Alp-1 Cap",
         "spectralType": "G3Ib",
         "magnitude": 4.3,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8167,7 +8423,7 @@
     ],
     "connections": [
       [
-        "hip_100027",
+        "algedi",
         "dabih"
       ],
       [
@@ -8204,7 +8460,7 @@
       ],
       [
         "hip_104139",
-        "hip_100027"
+        "algedi"
       ]
     ],
     "deepSkyObjects": [
@@ -8259,10 +8515,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Cap",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Cap",
       "previousConnections": [
         [
           "dabih",
@@ -8281,7 +8536,9 @@
           "dabih"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Capricornus",
+      "imageSha256": "1a874800babd6ee32041cfa700ce58fcb644a6803c6133c8107623ab02b1d18b"
     }
   },
   {
@@ -8567,7 +8824,7 @@
         "bayer": "PP Car",
         "spectralType": "B4Vne",
         "magnitude": 3.3,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8643,7 +8900,7 @@
         "bayer": "Del Vel",
         "spectralType": "A1V",
         "magnitude": 1.93,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8681,7 +8938,7 @@
         "bayer": "",
         "spectralType": "K0III-IV...",
         "magnitude": 3.78,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8716,7 +8973,7 @@
         "bayer": "",
         "spectralType": "G8III",
         "magnitude": 4.62,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8751,7 +9008,7 @@
         "bayer": "V533 Car",
         "spectralType": "A6Ia",
         "magnitude": 4.59,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8789,7 +9046,7 @@
         "bayer": "V382 Car",
         "spectralType": "G0Ia0",
         "magnitude": 3.93,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8865,7 +9122,7 @@
         "bayer": "Gam-2 Vel",
         "spectralType": "WC8 + O9I",
         "magnitude": 1.75,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8903,7 +9160,7 @@
         "bayer": "Nu Pup",
         "spectralType": "B8III SB",
         "magnitude": 3.17,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8938,7 +9195,7 @@
         "bayer": "V371 Car",
         "spectralType": "B9Ia",
         "magnitude": 5.11,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -8969,13 +9226,47 @@
             5.077
           ]
         }
+      },
+      {
+        "id": "hip_42568",
+        "name": "V343 Car",
+        "bayer": "V343 Car",
+        "spectralType": "B1.5III",
+        "magnitude": 4.31,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "08h 40m 37.031s",
+          "declination": "-59° 45′ 39.61″",
+          "rightAscensionDeg": 130.154295,
+          "declinationDeg": -59.761003
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 42449,
+          "hip": 42568,
+          "hd": 74375,
+          "hr": 3457,
+          "bayer": "",
+          "constellation": "Car",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.31,
+          "colorIndexBV": -0.117,
+          "variableDesignation": "V343",
+          "variableMagnitudeRange": [
+            4.32,
+            4.3
+          ]
+        }
       }
     ],
     "connections": [
-      [
-        "hip_31685",
-        "canopus"
-      ],
       [
         "canopus",
         "miaplacidus"
@@ -8990,10 +9281,6 @@
       ],
       [
         "hip_52419",
-        "hip_51576"
-      ],
-      [
-        "hip_51576",
         "hip_50371"
       ],
       [
@@ -9002,47 +9289,15 @@
       ],
       [
         "aspidiske",
+        "hip_42568"
+      ],
+      [
+        "hip_42568",
         "avior"
       ],
       [
         "avior",
         "hip_38827"
-      ],
-      [
-        "hip_38827",
-        "hip_39953"
-      ],
-      [
-        "hip_39953",
-        "hip_42913"
-      ],
-      [
-        "hip_42913",
-        "aspidiske"
-      ],
-      [
-        "hip_52419",
-        "hip_54301"
-      ],
-      [
-        "hip_54301",
-        "hip_54461"
-      ],
-      [
-        "hip_54461",
-        "hip_54751"
-      ],
-      [
-        "hip_54751",
-        "hip_54463"
-      ],
-      [
-        "hip_54463",
-        "hip_53253"
-      ],
-      [
-        "hip_53253",
-        "hip_51576"
       ]
     ],
     "deepSkyObjects": [
@@ -9086,11 +9341,11 @@
           "reviewNotes": []
         },
         "displayPhotometry": {
-          "magnitudeV": 1.8060278493794935,
+          "magnitudeV": 1.8732363355560597,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Car",
-          "sampleSize": 14,
+          "sampleSize": 15,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
@@ -9135,11 +9390,11 @@
           "reviewNotes": []
         },
         "displayPhotometry": {
-          "magnitudeV": 1.8060278493794935,
+          "magnitudeV": 1.8732363355560597,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Car",
-          "sampleSize": 14,
+          "sampleSize": 15,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
@@ -9195,10 +9450,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Car",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Car",
       "previousConnections": [
         [
           "canopus",
@@ -9217,7 +9471,9 @@
           "canopus"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Carina",
+      "imageSha256": "38785437c27db111b0a92794b9d705d4ce1bd5940ec586df99c935f62f7e4470"
     }
   },
   {
@@ -10030,7 +10286,7 @@
         "bayer": "Ups-1 Cen",
         "spectralType": "B2IV-V",
         "magnitude": 3.87,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10065,7 +10321,7 @@
         "bayer": "Phi Cen",
         "spectralType": "B2IV",
         "magnitude": 3.83,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10138,7 +10394,7 @@
         "bayer": "Chi Cen",
         "spectralType": "B2V",
         "magnitude": 4.36,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10176,7 +10432,7 @@
         "bayer": "Psi Cen",
         "spectralType": "A0IV",
         "magnitude": 4.05,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10430,7 +10686,7 @@
         "bayer": "",
         "spectralType": "G8II/III",
         "magnitude": 3.9,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10500,7 +10756,7 @@
         "bayer": "",
         "spectralType": "B8II/III",
         "magnitude": 4.63,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10570,7 +10826,7 @@
         "bayer": "Mu Cen",
         "spectralType": "B2IV-Ve",
         "magnitude": 3.47,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -10640,6 +10896,62 @@
     ],
     "connections": [
       [
+        "gamma_cen",
+        "epsilon_cen"
+      ],
+      [
+        "epsilon_cen",
+        "hadar"
+      ],
+      [
+        "hadar",
+        "hip_71681"
+      ],
+      [
+        "epsilon_cen",
+        "hip_68002"
+      ],
+      [
+        "hip_68002",
+        "gamma_cen"
+      ],
+      [
+        "hip_68002",
+        "hip_68282"
+      ],
+      [
+        "hip_68282",
+        "hip_68245"
+      ],
+      [
+        "hip_68245",
+        "hip_71352"
+      ],
+      [
+        "hip_71352",
+        "hip_73334"
+      ],
+      [
+        "hip_68245",
+        "hip_68862"
+      ],
+      [
+        "hip_68862",
+        "hip_70090"
+      ],
+      [
+        "hip_70090",
+        "menkent"
+      ],
+      [
+        "menkent",
+        "hip_67464"
+      ],
+      [
+        "hip_67464",
+        "hip_68002"
+      ],
+      [
         "hip_55425",
         "hip_59196"
       ],
@@ -10652,52 +10964,24 @@
         "gamma_cen"
       ],
       [
-        "gamma_cen",
-        "epsilon_cen"
-      ],
-      [
-        "epsilon_cen",
-        "hip_68002"
-      ],
-      [
-        "hip_68002",
-        "hip_67472"
-      ],
-      [
-        "hip_67472",
-        "hip_67464"
-      ],
-      [
-        "hip_67464",
-        "menkent"
-      ],
-      [
-        "menkent",
-        "hip_71352"
-      ],
-      [
-        "hip_71352",
-        "hip_73334"
-      ],
-      [
-        "hip_67464",
-        "hip_65109"
-      ],
-      [
-        "hip_71681",
-        "epsilon_cen"
-      ],
-      [
-        "epsilon_cen",
-        "hadar"
-      ],
-      [
         "hip_60823",
         "hip_59449"
       ],
       [
         "hip_59449",
         "hip_56243"
+      ],
+      [
+        "hip_67464",
+        "hip_65936"
+      ],
+      [
+        "hip_65936",
+        "hip_65109"
+      ],
+      [
+        "hip_65109",
+        "hip_61789"
       ]
     ],
     "deepSkyObjects": [
@@ -10850,10 +11134,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Cen",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Cen",
       "previousConnections": [
         [
           "alpha_cen",
@@ -10872,7 +11155,9 @@
           "menkent"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Centaurus",
+      "imageSha256": "63784ae05d2c13ddc138a841d90940f1246dbef6dc24b218aa7f4852e1c6c8d6"
     }
   },
   {
@@ -12086,7 +12371,7 @@
         "bayer": "Nu Cet",
         "spectralType": "G8III",
         "magnitude": 4.87,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -12119,26 +12404,22 @@
     "connections": [
       [
         "hip_12706",
-        "hip_12093"
-      ],
-      [
-        "hip_12093",
-        "hip_11484"
-      ],
-      [
-        "hip_11484",
-        "hip_12828"
-      ],
-      [
-        "hip_12828",
-        "hip_13954"
-      ],
-      [
-        "hip_13954",
         "menkar"
       ],
       [
         "menkar",
+        "hip_13954"
+      ],
+      [
+        "hip_13954",
+        "hip_12828"
+      ],
+      [
+        "hip_12828",
+        "hip_11484"
+      ],
+      [
+        "hip_11484",
         "hip_12706"
       ],
       [
@@ -12279,10 +12560,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Cet",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Cet",
       "previousConnections": [
         [
           "menkar",
@@ -12301,7 +12581,9 @@
           "deneb_kaitos"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Cetus",
+      "imageSha256": "4b9b3751ab079bf8548f78026a5faec96a56bf637a46dc8f1a60948969aeda57"
     }
   },
   {
@@ -13114,7 +13396,7 @@
         "bayer": "Gam Col",
         "spectralType": "B2.5IV",
         "magnitude": 4.36,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -13181,16 +13463,20 @@
     ],
     "connections": [
       [
-        "hip_30277",
-        "wazn"
-      ],
-      [
-        "wazn",
+        "epsilon_col",
         "phact"
       ],
       [
         "phact",
-        "epsilon_col"
+        "wazn"
+      ],
+      [
+        "wazn",
+        "hip_28199"
+      ],
+      [
+        "hip_28199",
+        "hip_30277"
       ],
       [
         "wazn",
@@ -13251,10 +13537,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Col",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Col",
       "previousConnections": [
         [
           "phact",
@@ -13265,7 +13550,9 @@
           "epsilon_col"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Columba",
+      "imageSha256": "b1a281be9a88ffca9f8236689510b4e0754ca28e5893c50f19e2bdfb47f5eed6"
     }
   },
   {
@@ -13791,7 +14078,7 @@
         "bayer": "Eta-2 CrA",
         "spectralType": "B9IV",
         "magnitude": 5.6,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -13917,10 +14204,6 @@
       ],
       [
         "hip_93542",
-        "hip_92382"
-      ],
-      [
-        "hip_92382",
         "hip_90982"
       ]
     ],
@@ -14027,10 +14310,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial CrA",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy CrA",
       "previousConnections": [
         [
           "meridiana",
@@ -14041,7 +14323,9 @@
           "beta_cra"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Corona+Australis",
+      "imageSha256": "56fd6e714fac3f88bbfa98fcd8593a3f7baee9a99af38fe6b157fa31ee654a27"
     }
   },
   {
@@ -15217,7 +15501,7 @@
         "bayer": "Lam Crt",
         "spectralType": "F3IV",
         "magnitude": 5.08,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -15249,27 +15533,11 @@
     ],
     "connections": [
       [
-        "hip_56633",
-        "hip_55687"
-      ],
-      [
-        "hip_55687",
-        "delta_crt"
-      ],
-      [
-        "delta_crt",
-        "alkes"
-      ],
-      [
         "alkes",
         "hip_54682"
       ],
       [
         "hip_54682",
-        "hip_55598"
-      ],
-      [
-        "hip_55598",
         "gamma_crt"
       ],
       [
@@ -15281,8 +15549,20 @@
         "hip_58188"
       ],
       [
+        "gamma_crt",
+        "delta_crt"
+      ],
+      [
         "delta_crt",
-        "gamma_crt"
+        "hip_55687"
+      ],
+      [
+        "hip_55687",
+        "hip_56633"
+      ],
+      [
+        "delta_crt",
+        "alkes"
       ]
     ],
     "deepSkyObjects": [
@@ -15337,10 +15617,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Crt",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Crt",
       "previousConnections": [
         [
           "gamma_crt",
@@ -15351,7 +15630,9 @@
           "alkes"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Crater",
+      "imageSha256": "12a391a2f7bf1cda41d98595b6e4a7bbb4bca5d314401e6467038436410c4574"
     }
   },
   {
@@ -16034,7 +16315,7 @@
         "bayer": "32 Cyg",
         "spectralType": "K3Ib-II comp",
         "magnitude": 3.96,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -16072,7 +16353,7 @@
         "bayer": "Nu Cyg",
         "spectralType": "A1Vn",
         "magnitude": 3.94,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -16174,19 +16455,31 @@
     ],
     "connections": [
       [
-        "hip_104732",
-        "gienah_cyg"
-      ],
-      [
-        "gienah_cyg",
+        "deneb",
         "sadr"
       ],
       [
         "sadr",
-        "delta_cyg"
+        "gienah_cyg"
       ],
       [
-        "delta_cyg",
+        "gienah_cyg",
+        "hip_104732"
+      ],
+      [
+        "hip_104732",
+        "hip_103413"
+      ],
+      [
+        "hip_103413",
+        "deneb"
+      ],
+      [
+        "deneb",
+        "hip_99848"
+      ],
+      [
+        "hip_99848",
         "hip_95853"
       ],
       [
@@ -16194,7 +16487,11 @@
         "hip_94779"
       ],
       [
-        "deneb",
+        "hip_95853",
+        "delta_cyg"
+      ],
+      [
+        "delta_cyg",
         "sadr"
       ],
       [
@@ -16352,10 +16649,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Cyg",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Cyg",
       "previousConnections": [
         [
           "deneb",
@@ -16374,7 +16670,9 @@
           "delta_cyg"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Cygnus",
+      "imageSha256": "ff5e0fca408c8d13d4acedd19c5036b1b0d546aad091baafbc22038075dad046"
     }
   },
   {
@@ -18466,7 +18764,7 @@
         "radius": 4,
         "x": 45,
         "y": 45,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -18784,7 +19082,7 @@
         "bayer": "Pi Cet",
         "spectralType": "B7IV",
         "magnitude": 4.24,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -19248,7 +19546,7 @@
         "bayer": "",
         "spectralType": "K0III",
         "magnitude": 4.57,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -19283,7 +19581,7 @@
         "bayer": "",
         "spectralType": "G8V",
         "magnitude": 4.26,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -19486,6 +19784,41 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_13288",
+        "name": "Angetenar",
+        "bayer": "Tau-2 Eri",
+        "spectralType": "K0III",
+        "magnitude": 4.76,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "02h 51m 02.322s",
+          "declination": "-21° 00′ 14.47″",
+          "rightAscensionDeg": 42.759675,
+          "declinationDeg": -21.004019
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 13254,
+          "hip": 13288,
+          "hd": 17824,
+          "hr": 850,
+          "bayer": "Tau-2",
+          "constellation": "Eri",
+          "properName": "Angetenar",
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.76,
+          "colorIndexBV": 0.906,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
@@ -19511,10 +19844,6 @@
       ],
       [
         "hip_17593",
-        "rana"
-      ],
-      [
-        "rana",
         "hip_16537"
       ],
       [
@@ -19523,14 +19852,14 @@
       ],
       [
         "hip_13701",
-        "hip_12770"
-      ],
-      [
-        "hip_12770",
         "hip_12843"
       ],
       [
         "hip_12843",
+        "hip_13288"
+      ],
+      [
+        "hip_13288",
         "hip_14146"
       ],
       [
@@ -19563,14 +19892,6 @@
       ],
       [
         "hip_17874",
-        "hip_16870"
-      ],
-      [
-        "hip_16870",
-        "hip_15510"
-      ],
-      [
-        "hip_15510",
         "theta_eri"
       ],
       [
@@ -19635,21 +19956,20 @@
           "reviewNotes": []
         },
         "displayPhotometry": {
-          "magnitudeV": 3.253210749862061,
+          "magnitudeV": 3.279815074539711,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Eri",
-          "sampleSize": 30,
+          "sampleSize": 31,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Eri",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Eri",
       "previousConnections": [
         [
           "cursa",
@@ -19668,7 +19988,9 @@
           "achernar"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Eridanus",
+      "imageSha256": "28bd9806ff9cc17659378ec89764a6c3e9733971d3b6f9c7b6a69866204ebc5c"
     }
   },
   {
@@ -19842,7 +20164,7 @@
         "bayer": "Ome For",
         "spectralType": "B9V",
         "magnitude": 4.96,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -19875,11 +20197,19 @@
     "connections": [
       [
         "alpha_for",
+        "hip_11918"
+      ],
+      [
+        "hip_11918",
+        "nu_for"
+      ],
+      [
+        "nu_for",
         "beta_for"
       ],
       [
         "beta_for",
-        "nu_for"
+        "alpha_for"
       ]
     ],
     "deepSkyObjects": [
@@ -19983,10 +20313,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial For",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy For",
       "previousConnections": [
         [
           "alpha_for",
@@ -19997,7 +20326,9 @@
           "nu_for"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Fornax",
+      "imageSha256": "333569d438cd72bf58b68699ecb89d4c45000fb3d6234a9d826579ddb5223e75"
     }
   },
   {
@@ -20408,7 +20739,7 @@
         "bayer": "Kap Gem",
         "spectralType": "G8III",
         "magnitude": 3.57,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -20443,7 +20774,7 @@
         "bayer": "Iot Gem",
         "spectralType": "G9III+...",
         "magnitude": 3.78,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -20513,7 +20844,7 @@
         "bayer": "The Gem",
         "spectralType": "A3III",
         "magnitude": 3.6,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -20583,7 +20914,7 @@
         "bayer": "Nu Gem",
         "spectralType": "B6III",
         "magnitude": 4.13,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -20688,32 +21019,40 @@
     ],
     "connections": [
       [
-        "hip_29655",
-        "tejat"
-      ],
-      [
-        "tejat",
-        "hip_32246"
-      ],
-      [
-        "hip_32246",
+        "castor",
         "hip_34693"
       ],
       [
         "hip_34693",
-        "castor"
+        "hip_33018"
       ],
       [
-        "castor",
-        "pollux"
+        "hip_34693",
+        "hip_36046"
       ],
       [
-        "pollux",
+        "hip_36046",
         "hip_36962"
       ],
       [
         "hip_36962",
+        "pollux"
+      ],
+      [
+        "hip_36962",
+        "hip_37740"
+      ],
+      [
+        "hip_36962",
         "wasat"
+      ],
+      [
+        "wasat",
+        "hip_35350"
+      ],
+      [
+        "hip_35350",
+        "hip_32362"
       ],
       [
         "wasat",
@@ -20724,12 +21063,20 @@
         "alhena"
       ],
       [
-        "alhena",
-        "hip_32362"
+        "hip_34693",
+        "hip_32246"
       ],
       [
-        "wasat",
-        "hip_35350"
+        "hip_32246",
+        "hip_30883"
+      ],
+      [
+        "hip_32246",
+        "tejat"
+      ],
+      [
+        "tejat",
+        "hip_29655"
       ]
     ],
     "deepSkyObjects": [
@@ -20833,10 +21180,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Gem",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Gem",
       "previousConnections": [
         [
           "castor",
@@ -20855,7 +21201,9 @@
           "pollux"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Gemini",
+      "imageSha256": "bba47535d6c8d1ec4748ca34fde3eaa71cced5bc350b8037854d3043e9b73349"
     }
   },
   {
@@ -21895,7 +22243,7 @@
         "bayer": "Iot Her",
         "spectralType": "B3V SB",
         "magnitude": 3.82,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -21933,7 +22281,7 @@
         "bayer": "Lam Her",
         "spectralType": "K3IIIvar",
         "magnitude": 4.41,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -22111,7 +22459,7 @@
         "bayer": "Ome Her",
         "spectralType": "B9p Cr",
         "magnitude": 4.57,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -22149,7 +22497,7 @@
         "bayer": "29 Her",
         "spectralType": "K4III",
         "magnitude": 4.84,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -22181,12 +22529,52 @@
     ],
     "connections": [
       [
-        "hip_80170",
+        "sarin",
+        "rasalgethi"
+      ],
+      [
+        "rasalgethi",
         "kornephoros"
       ],
       [
         "kornephoros",
+        "hip_80170"
+      ],
+      [
+        "hip_80170",
+        "hip_80463"
+      ],
+      [
+        "hip_80463",
+        "hip_81008"
+      ],
+      [
+        "kornephoros",
         "hip_81693"
+      ],
+      [
+        "hip_81693",
+        "hip_83207"
+      ],
+      [
+        "hip_83207",
+        "sarin"
+      ],
+      [
+        "sarin",
+        "hip_85693"
+      ],
+      [
+        "hip_85693",
+        "mu_her"
+      ],
+      [
+        "mu_her",
+        "hip_87933"
+      ],
+      [
+        "hip_87933",
+        "hip_88794"
       ],
       [
         "hip_81693",
@@ -22209,19 +22597,7 @@
         "hip_77760"
       ],
       [
-        "hip_81693",
-        "hip_83207"
-      ],
-      [
         "hip_81833",
-        "pi_her"
-      ],
-      [
-        "hip_87808",
-        "hip_85112"
-      ],
-      [
-        "hip_85112",
         "pi_her"
       ],
       [
@@ -22229,24 +22605,16 @@
         "hip_83207"
       ],
       [
-        "hip_83207",
-        "sarin"
+        "pi_her",
+        "hip_85112"
       ],
       [
-        "sarin",
-        "mu_her"
+        "hip_85112",
+        "hip_87808"
       ],
       [
-        "mu_her",
-        "hip_87933"
-      ],
-      [
-        "hip_87933",
-        "hip_88794"
-      ],
-      [
-        "rasalgethi",
-        "kornephoros"
+        "hip_87808",
+        "hip_86414"
       ]
     ],
     "deepSkyObjects": [
@@ -22350,10 +22718,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Her",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Her",
       "previousConnections": [
         [
           "rasalgethi",
@@ -22372,7 +22739,9 @@
           "mu_her"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Hercules",
+      "imageSha256": "ef84424a7c81937221d1c2671370f01696ba33ba6fe4b3b2bd0dc5302e80e907"
     }
   },
   {
@@ -23013,7 +23382,7 @@
         "bayer": "Rho Hya",
         "spectralType": "A0Vn",
         "magnitude": 4.35,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -23404,7 +23773,7 @@
         "bayer": "Alp Crt",
         "spectralType": "K1III",
         "magnitude": 4.08,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -23439,7 +23808,7 @@
         "bayer": "Bet Crt",
         "spectralType": "A1V",
         "magnitude": 4.46,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -23547,7 +23916,7 @@
         "bayer": "58 Hya",
         "spectralType": "K3III",
         "magnitude": 4.42,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -23580,22 +23949,18 @@
     "connections": [
       [
         "hip_43109",
-        "hip_43234"
-      ],
-      [
-        "hip_43234",
-        "hip_42799"
-      ],
-      [
-        "hip_42799",
-        "hip_42402"
-      ],
-      [
-        "hip_42402",
         "hip_42313"
       ],
       [
         "hip_42313",
+        "hip_42402"
+      ],
+      [
+        "hip_42402",
+        "hip_42799"
+      ],
+      [
+        "hip_42799",
         "hip_43109"
       ],
       [
@@ -23632,6 +23997,14 @@
       ],
       [
         "nu_hya",
+        "hip_53740"
+      ],
+      [
+        "hip_53740",
+        "hip_54682"
+      ],
+      [
+        "hip_54682",
         "hip_56343"
       ],
       [
@@ -23645,10 +24018,6 @@
       [
         "gamma_hya",
         "pi_hya"
-      ],
-      [
-        "pi_hya",
-        "hip_72571"
       ]
     ],
     "deepSkyObjects": [
@@ -23801,10 +24170,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Hya",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Hya",
       "previousConnections": [
         [
           "zeta_hya",
@@ -23823,7 +24191,9 @@
           "pi_hya"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Hydra",
+      "imageSha256": "b2228ef28f516ee79512c5dc0e988ce469033a6a49cef2495a5b70bc3be591e8"
     }
   },
   {
@@ -23994,7 +24364,7 @@
         "bayer": "Del Hyi",
         "spectralType": "A3V",
         "magnitude": 4.08,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -24029,7 +24399,7 @@
         "bayer": "Eta-2 Hyi",
         "spectralType": "G5III",
         "magnitude": 4.68,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -24096,23 +24466,19 @@
     ],
     "connections": [
       [
-        "beta_hyi",
-        "gamma_hyi"
-      ],
-      [
-        "gamma_hyi",
+        "alpha_hyi",
         "hip_12394"
       ],
       [
         "hip_12394",
-        "hip_11001"
+        "gamma_hyi"
       ],
       [
-        "hip_11001",
-        "hip_8928"
+        "gamma_hyi",
+        "beta_hyi"
       ],
       [
-        "hip_8928",
+        "beta_hyi",
         "alpha_hyi"
       ]
     ],
@@ -24168,10 +24534,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Hyi",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Hyi",
       "previousConnections": [
         [
           "beta_hyi",
@@ -24182,7 +24547,9 @@
           "gamma_hyi"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Hydrus",
+      "imageSha256": "8c95d861d414b6fc95e17c470a445f55eccfffedc08545710de861ce79c2ea50"
     }
   },
   {
@@ -25434,7 +25801,7 @@
         "bayer": "Kap Leo",
         "spectralType": "K2III",
         "magnitude": 4.47,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -25469,7 +25836,7 @@
         "bayer": "Lam Leo",
         "spectralType": "K5IIIvar",
         "magnitude": 4.32,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -25504,7 +25871,7 @@
         "bayer": "Iot Leo",
         "spectralType": "F2IV SB",
         "magnitude": 4.0,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -25539,7 +25906,7 @@
         "bayer": "Sig Leo",
         "spectralType": "B9.5Vs",
         "magnitude": 4.05,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -25580,6 +25947,18 @@
       ],
       [
         "algieba",
+        "hip_50335"
+      ],
+      [
+        "hip_50335",
+        "rasalas"
+      ],
+      [
+        "rasalas",
+        "hip_47908"
+      ],
+      [
+        "algieba",
         "zosma"
       ],
       [
@@ -25592,19 +25971,35 @@
       ],
       [
         "hip_54879",
-        "regulus"
+        "zosma"
       ],
       [
-        "algieba",
-        "hip_50335"
+        "hip_54879",
+        "hip_49583"
       ],
       [
-        "hip_50335",
+        "hip_49583",
+        "hip_47908"
+      ],
+      [
+        "hip_47908",
+        "hip_46750"
+      ],
+      [
+        "hip_46750",
+        "hip_46146"
+      ],
+      [
+        "hip_46146",
         "rasalas"
       ],
       [
-        "rasalas",
-        "hip_47908"
+        "hip_54879",
+        "hip_55642"
+      ],
+      [
+        "hip_55642",
+        "hip_55434"
       ]
     ],
     "deepSkyObjects": [
@@ -25757,10 +26152,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Leo",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Leo",
       "previousConnections": [
         [
           "rasalas",
@@ -25783,7 +26177,9 @@
           "algieba"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Leo",
+      "imageSha256": "dc6be4e2e6691cf293d120048b855999eea8893c4ef3865619e70460a4725f79"
     }
   },
   {
@@ -26553,28 +26949,28 @@
     ],
     "connections": [
       [
-        "hip_28910",
-        "hip_28103"
-      ],
-      [
-        "hip_28103",
-        "hip_27288"
-      ],
-      [
-        "hip_27288",
-        "arneb"
-      ],
-      [
-        "arneb",
+        "hip_23685",
         "hip_24305"
       ],
       [
         "hip_24305",
+        "arneb"
+      ],
+      [
+        "arneb",
+        "nihal"
+      ],
+      [
+        "nihal",
         "hip_23685"
       ],
       [
-        "hip_23685",
-        "nihal"
+        "hip_24845",
+        "hip_24305"
+      ],
+      [
+        "hip_24305",
+        "hip_24327"
       ],
       [
         "nihal",
@@ -26585,12 +26981,20 @@
         "delta_lep"
       ],
       [
-        "hip_24327",
-        "hip_24305"
+        "delta_lep",
+        "hip_28910"
       ],
       [
-        "hip_24305",
-        "hip_24845"
+        "hip_28910",
+        "hip_28103"
+      ],
+      [
+        "hip_28103",
+        "hip_27288"
+      ],
+      [
+        "hip_27288",
+        "arneb"
       ]
     ],
     "deepSkyObjects": [
@@ -26690,10 +27094,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Lep",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Lep",
       "previousConnections": [
         [
           "arneb",
@@ -26712,7 +27115,9 @@
           "nihal"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Lepus",
+      "imageSha256": "37f38928c2414f4fcdcbf3f5a77f1e2ca95901f13b567c4a91447480d236c5c7"
     }
   },
   {
@@ -27573,7 +27978,7 @@
         "bayer": "Psi-1 Lup",
         "spectralType": "G8/K0III",
         "magnitude": 4.66,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -27608,7 +28013,7 @@
         "bayer": "The Lup",
         "spectralType": "B2.5Vn",
         "magnitude": 4.22,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -27640,35 +28045,11 @@
     ],
     "connections": [
       [
-        "hip_77634",
-        "hip_76705"
-      ],
-      [
-        "hip_76705",
-        "hip_75177"
-      ],
-      [
-        "hip_75177",
-        "delta_lup"
-      ],
-      [
-        "delta_lup",
-        "beta_lup"
-      ],
-      [
-        "beta_lup",
-        "alpha_lup"
-      ],
-      [
         "alpha_lup",
         "hip_74395"
       ],
       [
         "hip_74395",
-        "hip_74911"
-      ],
-      [
-        "hip_74911",
         "hip_75264"
       ],
       [
@@ -27677,15 +28058,39 @@
       ],
       [
         "gamma_lup",
+        "delta_lup"
+      ],
+      [
+        "delta_lup",
+        "beta_lup"
+      ],
+      [
+        "gamma_lup",
         "hip_78384"
       ],
       [
         "hip_78384",
-        "hip_78918"
+        "hip_75177"
       ],
       [
-        "delta_lup",
-        "gamma_lup"
+        "hip_75177",
+        "hip_77634"
+      ],
+      [
+        "hip_77634",
+        "hip_78384"
+      ],
+      [
+        "hip_78384",
+        "hip_74395"
+      ],
+      [
+        "hip_75264",
+        "hip_74911"
+      ],
+      [
+        "hip_74911",
+        "hip_74395"
       ]
     ],
     "deepSkyObjects": [
@@ -27788,10 +28193,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Lup",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Lup",
       "previousConnections": [
         [
           "alpha_lup",
@@ -27814,7 +28218,9 @@
           "alpha_lup"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Lupus",
+      "imageSha256": "955946ed9335682a6fce156ba7e16125098c1fdc773585ae3449cb3940bdc055"
     }
   },
   {
@@ -29782,11 +30188,23 @@
     ],
     "connections": [
       [
-        "alpha_mon",
-        "hip_39863"
+        "hip_31978",
+        "hip_31216"
       ],
       [
-        "hip_39863",
+        "hip_31216",
+        "hip_30419"
+      ],
+      [
+        "hip_30419",
+        "hip_32578"
+      ],
+      [
+        "hip_32578",
+        "hip_31216"
+      ],
+      [
+        "hip_32578",
         "delta_mon"
       ],
       [
@@ -29799,19 +30217,11 @@
       ],
       [
         "delta_mon",
-        "hip_32578"
+        "hip_39863"
       ],
       [
-        "hip_32578",
-        "hip_30419"
-      ],
-      [
-        "hip_30419",
-        "hip_31216"
-      ],
-      [
-        "hip_31216",
-        "hip_31978"
+        "hip_39863",
+        "alpha_mon"
       ]
     ],
     "deepSkyObjects": [
@@ -30029,10 +30439,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Mon",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Mon",
       "previousConnections": [
         [
           "alpha_mon",
@@ -30047,7 +30456,9 @@
           "delta_mon"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Monoceros",
+      "imageSha256": "23bd741aa1638a81d061671ab6f15bdd7ebd30e676276b061ffb8114b465f459"
     }
   },
   {
@@ -31186,7 +31597,7 @@
         "bayer": "Ups Oph",
         "spectralType": "A3m",
         "magnitude": 4.62,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -31612,18 +32023,6 @@
     ],
     "connections": [
       [
-        "hip_88048",
-        "hip_87108"
-      ],
-      [
-        "hip_87108",
-        "hip_86742"
-      ],
-      [
-        "hip_86742",
-        "hip_86032"
-      ],
-      [
         "hip_86032",
         "hip_83000"
       ],
@@ -31641,11 +32040,31 @@
       ],
       [
         "hip_79882",
+        "hip_80628"
+      ],
+      [
+        "hip_80628",
         "hip_81377"
       ],
       [
         "hip_81377",
         "hip_84012"
+      ],
+      [
+        "hip_84012",
+        "hip_86742"
+      ],
+      [
+        "hip_86742",
+        "hip_86032"
+      ],
+      [
+        "hip_86742",
+        "hip_87108"
+      ],
+      [
+        "hip_87108",
+        "hip_88048"
       ],
       [
         "hip_83000",
@@ -31668,10 +32087,6 @@
         "hip_80473"
       ],
       [
-        "hip_86742",
-        "hip_84012"
-      ],
-      [
         "hip_84012",
         "hip_84970"
       ],
@@ -31684,12 +32099,13 @@
     "goAstronomyUrl": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
     "metadataSource": "constellation_figures_source.json",
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Oph",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Oph",
       "previousConnections": [],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
+      "imageSha256": "e0504cabd0d769de06603e39e4c9489a303edac142a4454e5d30fa2222dbebff"
     }
   },
   {
@@ -32586,7 +33002,7 @@
         "bayer": "15 Ori",
         "spectralType": "F2IV",
         "magnitude": 4.81,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -32618,64 +33034,16 @@
     ],
     "connections": [
       [
-        "hip_29038",
-        "hip_27913"
-      ],
-      [
-        "hip_27913",
-        "hip_28716"
-      ],
-      [
-        "hip_28716",
-        "hip_29426"
-      ],
-      [
-        "hip_29426",
-        "hip_28614"
-      ],
-      [
-        "hip_28614",
-        "betelgeuse"
-      ],
-      [
         "betelgeuse",
-        "bellatrix"
+        "alnitak"
       ],
       [
-        "bellatrix",
-        "hip_22845"
+        "alnitak",
+        "saiph"
       ],
       [
-        "hip_23123",
-        "hip_22797"
-      ],
-      [
-        "hip_22797",
-        "hip_22549"
-      ],
-      [
-        "hip_22549",
-        "hip_22449"
-      ],
-      [
-        "hip_22449",
-        "hip_22509"
-      ],
-      [
-        "hip_22509",
-        "hip_22845"
-      ],
-      [
-        "hip_22845",
-        "hip_22957"
-      ],
-      [
-        "hip_22957",
-        "hip_23607"
-      ],
-      [
-        "hip_23607",
-        "hip_24010"
+        "saiph",
+        "rigel"
       ],
       [
         "rigel",
@@ -32684,6 +33052,14 @@
       [
         "hip_25281",
         "mintaka"
+      ],
+      [
+        "mintaka",
+        "alnilam"
+      ],
+      [
+        "alnilam",
+        "alnitak"
       ],
       [
         "mintaka",
@@ -32699,19 +33075,63 @@
       ],
       [
         "betelgeuse",
-        "alnitak"
+        "bellatrix"
       ],
       [
-        "alnitak",
-        "saiph"
+        "hip_23607",
+        "hip_22957"
       ],
       [
-        "alnitak",
-        "alnilam"
+        "hip_22957",
+        "hip_22845"
       ],
       [
-        "alnilam",
-        "mintaka"
+        "hip_22845",
+        "hip_22509"
+      ],
+      [
+        "hip_22509",
+        "hip_22449"
+      ],
+      [
+        "hip_22449",
+        "bellatrix"
+      ],
+      [
+        "hip_22449",
+        "hip_22549"
+      ],
+      [
+        "hip_22549",
+        "hip_22797"
+      ],
+      [
+        "hip_22797",
+        "hip_23123"
+      ],
+      [
+        "betelgeuse",
+        "hip_28614"
+      ],
+      [
+        "hip_28614",
+        "hip_29038"
+      ],
+      [
+        "hip_29038",
+        "hip_27913"
+      ],
+      [
+        "hip_27913",
+        "hip_28716"
+      ],
+      [
+        "hip_28716",
+        "hip_29426"
+      ],
+      [
+        "hip_29426",
+        "hip_28614"
       ]
     ],
     "deepSkyObjects": [
@@ -32864,10 +33284,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Ori",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Ori",
       "previousConnections": [
         [
           "betelgeuse",
@@ -32902,7 +33321,9 @@
           "alnitak"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Orion",
+      "imageSha256": "3cc986859a5888bd01e657e2f42e21851f72bdfeccb399fde12d1364f7d6affb"
     }
   },
   {
@@ -33223,7 +33644,7 @@
         "bayer": "Kap Pav",
         "spectralType": "F5Ib-II:",
         "magnitude": 4.4,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -33367,22 +33788,34 @@
     "connections": [
       [
         "peacock",
-        "beta_pav"
-      ],
-      [
-        "beta_pav",
         "delta_pav"
       ],
       [
         "delta_pav",
-        "hip_92609"
+        "beta_pav"
       ],
       [
-        "hip_92609",
-        "hip_90098"
+        "beta_pav",
+        "hip_105858"
       ],
       [
-        "hip_90098",
+        "hip_105858",
+        "peacock"
+      ],
+      [
+        "hip_91792",
+        "delta_pav"
+      ],
+      [
+        "delta_pav",
+        "hip_98495"
+      ],
+      [
+        "delta_pav",
+        "hip_93015"
+      ],
+      [
+        "hip_93015",
         "hip_88866"
       ],
       [
@@ -33390,20 +33823,16 @@
         "eta_pav"
       ],
       [
-        "eta_pav",
-        "hip_91792"
+        "hip_88866",
+        "hip_90098"
       ],
       [
-        "hip_91792",
-        "hip_98495"
+        "hip_90098",
+        "hip_92609"
       ],
       [
-        "hip_98495",
-        "beta_pav"
-      ],
-      [
-        "beta_pav",
-        "hip_105858"
+        "hip_92609",
+        "delta_pav"
       ]
     ],
     "deepSkyObjects": [
@@ -33507,10 +33936,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Pav",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Pav",
       "previousConnections": [
         [
           "peacock",
@@ -33525,7 +33953,9 @@
           "eta_pav"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Pavo",
+      "imageSha256": "d57bb85d566b1994b67bd95cd513df016a08c4efebe4174ec2f4319410d6002f"
     }
   },
   {
@@ -34844,7 +35274,7 @@
         "bayer": "48 Per",
         "spectralType": "B3Ve",
         "magnitude": 3.96,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35025,7 +35455,7 @@
         "bayer": "Phi Per",
         "spectralType": "B2Vpe",
         "magnitude": 4.01,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35063,7 +35493,7 @@
         "bayer": "Pi Per",
         "spectralType": "A2Vn",
         "magnitude": 4.68,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35098,7 +35528,7 @@
         "bayer": "",
         "spectralType": "K2",
         "magnitude": 5.89,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35133,7 +35563,7 @@
         "bayer": "Ome Per",
         "spectralType": "K1III",
         "magnitude": 4.61,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35168,7 +35598,7 @@
         "bayer": "Psi Per",
         "spectralType": "B5Ve",
         "magnitude": 4.32,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -35259,10 +35689,6 @@
       ],
       [
         "hip_17358",
-        "hip_16826"
-      ],
-      [
-        "hip_16826",
         "mirfak"
       ],
       [
@@ -35283,51 +35709,39 @@
       ],
       [
         "hip_14632",
-        "hip_14668"
+        "mirfak"
       ],
       [
-        "hip_14668",
-        "algol"
+        "gamma_per",
+        "hip_13531"
       ],
       [
-        "algol",
-        "hip_14817"
-      ],
-      [
-        "hip_14817",
-        "hip_14354"
-      ],
-      [
-        "hip_14354",
-        "hip_13879"
-      ],
-      [
-        "hip_13879",
-        "hip_13949"
-      ],
-      [
-        "hip_13949",
-        "algol"
-      ],
-      [
-        "hip_19167",
+        "hip_17358",
         "hip_19812"
       ],
       [
         "hip_19812",
-        "hip_19343"
+        "hip_19167"
       ],
       [
-        "hip_19343",
-        "hip_17358"
+        "hip_17529",
+        "algol"
+      ],
+      [
+        "algol",
+        "hip_14668"
+      ],
+      [
+        "hip_14668",
+        "hip_14632"
       ],
       [
         "hip_14632",
         "hip_12777"
       ],
       [
-        "hip_12777",
-        "hip_8068"
+        "algol",
+        "hip_14354"
       ]
     ],
     "deepSkyObjects": [
@@ -35431,10 +35845,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Per",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Per",
       "previousConnections": [
         [
           "gamma_per",
@@ -35453,7 +35866,9 @@
           "epsilon_per"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Perseus",
+      "imageSha256": "eccfd4f3d0b46a8e89133e69312e7d253170d03f09b1f8fa42ed56ec49e946d8"
     }
   },
   {
@@ -35738,6 +36153,41 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_5862",
+        "name": "Nu Phe",
+        "bayer": "Nu Phe",
+        "spectralType": "F8V",
+        "magnitude": 4.97,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "01h 15m 10.955s",
+          "declination": "-45° 31′ 53.99″",
+          "rightAscensionDeg": 18.795645,
+          "declinationDeg": -45.531664
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 5849,
+          "hip": 5862,
+          "hd": 7570,
+          "hr": 370,
+          "bayer": "Nu",
+          "constellation": "Phe",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.97,
+          "colorIndexBV": 0.571,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
@@ -35747,6 +36197,10 @@
       ],
       [
         "beta_phe",
+        "hip_5862"
+      ],
+      [
+        "hip_5862",
         "gamma_phe"
       ],
       [
@@ -35762,12 +36216,12 @@
         "beta_phe"
       ],
       [
-        "beta_phe",
+        "ankaa",
         "hip_765"
       ],
       [
         "hip_765",
-        "ankaa"
+        "beta_phe"
       ]
     ],
     "deepSkyObjects": [
@@ -35952,21 +36406,20 @@
           "scope": "component measurements only; no verified integrated group magnitude"
         },
         "displayPhotometry": {
-          "magnitudeV": 3.322528333621821,
+          "magnitudeV": 3.4509220741164754,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Phe",
-          "sampleSize": 6,
+          "sampleSize": 7,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Phe",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Phe",
       "previousConnections": [
         [
           "ankaa",
@@ -35985,7 +36438,9 @@
           "ankaa"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Phoenix",
+      "imageSha256": "199d1e0a6c6e48fff7b1d21c95cc2f193d14a0e823b55588184fd21b91797c89"
     }
   },
   {
@@ -36840,7 +37295,7 @@
         "bayer": "Chi Psc",
         "spectralType": "K0III",
         "magnitude": 4.66,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -36945,7 +37400,7 @@
         "bayer": "Xi Psc",
         "spectralType": "K0III SB",
         "magnitude": 4.61,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -36980,7 +37435,7 @@
         "bayer": "Bet Psc",
         "spectralType": "B6Ve",
         "magnitude": 4.48,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -37015,7 +37470,7 @@
         "bayer": "7 Psc",
         "spectralType": "K2III",
         "magnitude": 5.05,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -37050,7 +37505,7 @@
         "bayer": "19 Psc",
         "spectralType": "C5II",
         "magnitude": 4.95,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -37086,22 +37541,18 @@
     "connections": [
       [
         "hip_5742",
-        "hip_5586"
-      ],
-      [
-        "hip_5586",
         "hip_6193"
       ],
       [
         "hip_6193",
+        "hip_5586"
+      ],
+      [
+        "hip_5586",
         "hip_5742"
       ],
       [
         "hip_5742",
-        "hip_5571"
-      ],
-      [
-        "hip_5571",
         "eta_psc"
       ],
       [
@@ -37114,10 +37565,6 @@
       ],
       [
         "alpha_psc",
-        "hip_8833"
-      ],
-      [
-        "hip_8833",
         "hip_7884"
       ],
       [
@@ -37150,10 +37597,6 @@
       ],
       [
         "hip_115830",
-        "hip_115227"
-      ],
-      [
-        "hip_115227",
         "gamma_psc"
       ],
       [
@@ -37166,15 +37609,7 @@
       ],
       [
         "hip_116928",
-        "hip_117245"
-      ],
-      [
-        "hip_117245",
         "hip_116771"
-      ],
-      [
-        "gamma_psc",
-        "hip_113889"
       ]
     ],
     "deepSkyObjects": [
@@ -37229,10 +37664,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Psc",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Psc",
       "previousConnections": [
         [
           "omicron_psc",
@@ -37251,7 +37685,9 @@
           "omega_psc"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Pisces",
+      "imageSha256": "66708914252af939fb591c9d33cb6d2f28f3bf0569851c50f98b9234614a1a92"
     }
   },
   {
@@ -37886,7 +38322,7 @@
         "radius": 4,
         "x": 70,
         "y": 35,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -37928,7 +38364,7 @@
         "bayer": "Gam-2 Vel",
         "spectralType": "WC8 + O9I",
         "magnitude": 1.75,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -38001,7 +38437,7 @@
         "bayer": "",
         "spectralType": "B8V",
         "magnitude": 4.65,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -38144,7 +38580,7 @@
         "bayer": "3 Pup",
         "spectralType": "A2Iab",
         "magnitude": 3.94,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -38179,7 +38615,7 @@
         "bayer": "Omi Pup",
         "spectralType": "B1IV:nne",
         "magnitude": 4.4,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -38245,52 +38681,86 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_36377",
+        "name": "Sig Pup",
+        "bayer": "Sig Pup",
+        "spectralType": "K5III SB",
+        "magnitude": 3.25,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "07h 29m 13.844s",
+          "declination": "-43° 18′ 05.16″",
+          "rightAscensionDeg": 112.307685,
+          "declinationDeg": -43.301432
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 36274,
+          "hip": 36377,
+          "hd": 59717,
+          "hr": 2878,
+          "bayer": "Sig",
+          "constellation": "Pup",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.25,
+          "colorIndexBV": 1.509,
+          "variableDesignation": "Sig",
+          "variableMagnitudeRange": [
+            3.265,
+            3.225
+          ]
+        }
       }
     ],
     "connections": [
       [
-        "hip_31685",
-        "hip_35264"
-      ],
-      [
-        "hip_35264",
-        "hip_36917"
-      ],
-      [
-        "hip_36917",
-        "hip_37229"
-      ],
-      [
-        "hip_37229",
-        "asmidiske"
-      ],
-      [
-        "asmidiske",
-        "hip_38835"
-      ],
-      [
-        "hip_38835",
+        "naos",
         "tureis"
       ],
       [
         "tureis",
+        "hip_38835"
+      ],
+      [
+        "hip_38835",
+        "asmidiske"
+      ],
+      [
+        "asmidiske",
+        "hip_37229"
+      ],
+      [
+        "hip_37229",
+        "hip_35264"
+      ],
+      [
+        "hip_35264",
+        "hip_31685"
+      ],
+      [
+        "hip_31685",
+        "tau_pup"
+      ],
+      [
+        "tau_pup",
+        "hip_36377"
+      ],
+      [
+        "hip_36377",
         "naos"
       ],
       [
         "naos",
-        "hip_39953"
-      ],
-      [
-        "asmidiske",
-        "hip_38070"
-      ],
-      [
-        "hip_38070",
-        "hip_37677"
-      ],
-      [
-        "hip_37677",
-        "hip_36917"
+        "hip_35264"
       ]
     ],
     "deepSkyObjects": [
@@ -38443,10 +38913,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Pup",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Pup",
       "previousConnections": [
         [
           "tureis",
@@ -38461,7 +38930,9 @@
           "tau_pup"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Puppis",
+      "imageSha256": "91c4d8271c915c06d0253c4d6f6e20451b2c385589a3affdce8318cfe691b458"
     }
   },
   {
@@ -38632,7 +39103,7 @@
         "bayer": "Zet Pup",
         "spectralType": "O5IAf",
         "magnitude": 2.21,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -38667,16 +39138,12 @@
     ],
     "connections": [
       [
-        "hip_39429",
-        "beta_pyx"
-      ],
-      [
-        "beta_pyx",
+        "gamma_pyx",
         "alpha_pyx"
       ],
       [
         "alpha_pyx",
-        "gamma_pyx"
+        "beta_pyx"
       ]
     ],
     "deepSkyObjects": [
@@ -38731,10 +39198,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Pyx",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Pyx",
       "previousConnections": [
         [
           "beta_pyx",
@@ -38745,7 +39211,9 @@
           "gamma_pyx"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Pyxis",
+      "imageSha256": "c7666fb40863e6113f828c1f3d9e35e1aaad66516f6de77158f9a70b7e048927"
     }
   },
   {
@@ -39962,7 +40430,7 @@
         "bayer": "Nu-1 Sgr",
         "spectralType": "K1II",
         "magnitude": 4.86,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -39997,7 +40465,7 @@
         "bayer": "Psi Sgr",
         "spectralType": "K0/K1III+..",
         "magnitude": 4.86,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -40032,7 +40500,7 @@
         "bayer": "43 Sgr",
         "spectralType": "K0III",
         "magnitude": 4.88,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -40067,7 +40535,7 @@
         "bayer": "Ups Sgr",
         "spectralType": "F2p",
         "magnitude": 4.52,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -40175,7 +40643,7 @@
         "bayer": "Chi-1 Sgr",
         "spectralType": "A4IV/V",
         "magnitude": 5.02,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -40210,7 +40678,7 @@
         "bayer": "52 Sgr",
         "spectralType": "B8/B9V",
         "magnitude": 4.59,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -40343,6 +40811,114 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_98688",
+        "name": "62 Sgr",
+        "bayer": "62 Sgr",
+        "spectralType": "M4III",
+        "magnitude": 4.43,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "20h 02m 39.476s",
+          "declination": "-27° 42′ 35.44″",
+          "rightAscensionDeg": 300.664485,
+          "declinationDeg": -27.709845
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 98375,
+          "hip": 98688,
+          "hd": 189763,
+          "hr": 7650,
+          "bayer": "",
+          "constellation": "Sgr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.43,
+          "colorIndexBV": 1.64,
+          "variableDesignation": "V3872",
+          "variableMagnitudeRange": [
+            4.499,
+            4.349
+          ]
+        }
+      },
+      {
+        "id": "hip_98162",
+        "name": "59 Sgr",
+        "bayer": "59 Sgr",
+        "spectralType": "K3III",
+        "magnitude": 4.54,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "19h 56m 56.832s",
+          "declination": "-27° 10′ 11.64″",
+          "rightAscensionDeg": 299.2368,
+          "declinationDeg": -27.169899
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 97851,
+          "hip": 98162,
+          "hd": 188603,
+          "hr": 7604,
+          "bayer": "",
+          "constellation": "Sgr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.54,
+          "colorIndexBV": 1.462,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_98421",
+        "name": "The-2 Sgr",
+        "bayer": "The-2 Sgr",
+        "spectralType": "A4/A5IV",
+        "magnitude": 5.3,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "19h 59m 51.342s",
+          "declination": "-34° 41′ 52.08″",
+          "rightAscensionDeg": 299.963925,
+          "declinationDeg": -34.697799
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 98110,
+          "hip": 98421,
+          "hd": 189118,
+          "hr": 7624,
+          "bayer": "The-2",
+          "constellation": "Sgr",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 5.3,
+          "colorIndexBV": 0.17,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
@@ -40352,70 +40928,14 @@
       ],
       [
         "kaus_australis",
-        "kaus_medius"
-      ],
-      [
-        "kaus_medius",
-        "kaus_borealis"
-      ],
-      [
-        "kaus_borealis",
-        "hip_89341"
-      ],
-      [
-        "hip_95241",
-        "hip_95347"
-      ],
-      [
-        "hip_95347",
-        "ascella"
-      ],
-      [
-        "ascella",
-        "hip_92041"
-      ],
-      [
-        "hip_92041",
-        "kaus_borealis"
-      ],
-      [
-        "hip_98032",
-        "hip_98412"
-      ],
-      [
-        "hip_98412",
-        "hip_98066"
-      ],
-      [
-        "hip_98066",
-        "hip_96465"
-      ],
-      [
-        "hip_96465",
-        "hip_95477"
-      ],
-      [
-        "hip_95477",
-        "hip_94643"
-      ],
-      [
-        "hip_94643",
-        "nunki"
-      ],
-      [
-        "nunki",
-        "hip_92041"
-      ],
-      [
-        "hip_92041",
-        "kaus_medius"
-      ],
-      [
-        "kaus_medius",
         "hip_88635"
       ],
       [
         "hip_88635",
+        "kaus_medius"
+      ],
+      [
+        "kaus_medius",
         "kaus_australis"
       ],
       [
@@ -40424,11 +40944,35 @@
       ],
       [
         "ascella",
+        "hip_92041"
+      ],
+      [
+        "hip_92041",
+        "kaus_medius"
+      ],
+      [
+        "kaus_medius",
+        "kaus_borealis"
+      ],
+      [
+        "kaus_borealis",
+        "hip_92041"
+      ],
+      [
+        "hip_92041",
+        "nunki"
+      ],
+      [
+        "nunki",
         "hip_93864"
       ],
       [
         "hip_93864",
-        "nunki"
+        "ascella"
+      ],
+      [
+        "kaus_borealis",
+        "hip_89341"
       ],
       [
         "nunki",
@@ -40440,27 +40984,51 @@
       ],
       [
         "hip_94141",
-        "hip_94820"
-      ],
-      [
-        "hip_94820",
         "hip_95168"
       ],
       [
-        "hip_95168",
-        "hip_95176"
-      ],
-      [
-        "hip_93683",
+        "hip_94141",
         "hip_93085"
       ],
       [
         "hip_93085",
-        "hip_92761"
+        "hip_93683"
       ],
       [
-        "hip_92761",
-        "nunki"
+        "hip_93864",
+        "hip_98066"
+      ],
+      [
+        "hip_98066",
+        "hip_98162"
+      ],
+      [
+        "hip_98162",
+        "hip_98688"
+      ],
+      [
+        "hip_98688",
+        "hip_98421"
+      ],
+      [
+        "hip_98421",
+        "hip_98412"
+      ],
+      [
+        "hip_98412",
+        "hip_98032"
+      ],
+      [
+        "hip_98032",
+        "hip_95241"
+      ],
+      [
+        "hip_95241",
+        "hip_95347"
+      ],
+      [
+        "hip_95347",
+        "hip_98032"
       ]
     ],
     "deepSkyObjects": [
@@ -40645,21 +41213,20 @@
           "status": "not verified; original magnitude retained separately"
         },
         "displayPhotometry": {
-          "magnitudeV": 3.3056801322164207,
+          "magnitudeV": 3.393046304293211,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Sgr",
-          "sampleSize": 25,
+          "sampleSize": 28,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Sgr",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Sgr",
       "previousConnections": [
         [
           "kaus_australis",
@@ -40682,7 +41249,9 @@
           "kaus_borealis"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Sagittarius",
+      "imageSha256": "a64fd36649e48642016d49fe3f31233e8ba1ed6de1f0809ceb8784ddb752794c"
     }
   },
   {
@@ -40910,7 +41479,7 @@
         "radius": 5,
         "x": 80,
         "y": 70,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -41349,7 +41918,7 @@
         "bayer": "Nu Sco",
         "spectralType": "B2IV",
         "magnitude": 4.0,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -41384,7 +41953,7 @@
         "bayer": "Rho Sco",
         "spectralType": "B2IV/V",
         "magnitude": 3.87,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -41416,12 +41985,20 @@
     ],
     "connections": [
       [
-        "hip_78265",
+        "hip_79374",
+        "hip_78820"
+      ],
+      [
+        "hip_78820",
         "dschubba"
       ],
       [
         "dschubba",
-        "hip_78820"
+        "hip_78265"
+      ],
+      [
+        "hip_78265",
+        "hip_78104"
       ],
       [
         "dschubba",
@@ -41462,6 +42039,14 @@
       [
         "hip_87073",
         "hip_86670"
+      ],
+      [
+        "hip_86670",
+        "lesath"
+      ],
+      [
+        "lesath",
+        "shaula"
       ],
       [
         "hip_86670",
@@ -41618,10 +42203,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Sco",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Sco",
       "previousConnections": [
         [
           "dschubba",
@@ -41640,7 +42224,9 @@
           "lesath"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Scorpius",
+      "imageSha256": "a6cec3eab27d03cca57c467cd32431f00869caac4e52abffa58a7c797787667e"
     }
   },
   {
@@ -42179,24 +42765,63 @@
           "rightAscension": 7.87,
           "declination": 2.02
         }
+      },
+      {
+        "id": "hip_91845",
+        "name": "Eps Sct",
+        "bayer": "Eps Sct",
+        "spectralType": "G8II",
+        "magnitude": 4.88,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "18h 43m 31.253s",
+          "declination": "-08° 16′ 30.77″",
+          "rightAscensionDeg": 280.88022,
+          "declinationDeg": -8.275215
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 91559,
+          "hip": 91845,
+          "hd": 173009,
+          "hr": 7032,
+          "bayer": "Eps",
+          "constellation": "Sct",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.88,
+          "colorIndexBV": 1.112,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
       [
-        "alpha_sct",
-        "beta_sct"
-      ],
-      [
         "beta_sct",
-        "delta_sct"
+        "alpha_sct"
       ],
       [
-        "delta_sct",
+        "alpha_sct",
         "gamma_sct"
       ],
       [
         "gamma_sct",
-        "alpha_sct"
+        "delta_sct"
+      ],
+      [
+        "delta_sct",
+        "hip_91845"
+      ],
+      [
+        "hip_91845",
+        "beta_sct"
       ]
     ],
     "deepSkyObjects": [
@@ -42300,10 +42925,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Sct",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Sct",
       "previousConnections": [
         [
           "alpha_sct",
@@ -42318,7 +42942,9 @@
           "delta_sct"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Scutum",
+      "imageSha256": "e13b2db14563785b8d2ab1d9437bc952ba39fb33ec6fc9e9da525061e4d0a388"
     }
   },
   {
@@ -42447,7 +43073,7 @@
         "radius": 4,
         "x": 60,
         "y": 45,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -42887,7 +43513,7 @@
         "bayer": "Tau Oph",
         "spectralType": "F5V+...",
         "magnitude": 4.77,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -42920,18 +43546,18 @@
     "connections": [
       [
         "hip_77233",
-        "hip_76852"
-      ],
-      [
-        "hip_76852",
-        "hip_77450"
-      ],
-      [
-        "hip_77450",
         "hip_78072"
       ],
       [
         "hip_78072",
+        "hip_77450"
+      ],
+      [
+        "hip_77450",
+        "hip_76852"
+      ],
+      [
+        "hip_76852",
         "hip_77233"
       ],
       [
@@ -42948,6 +43574,10 @@
       ],
       [
         "hip_77622",
+        "mu_ser"
+      ],
+      [
+        "mu_ser",
         "hip_79593"
       ],
       [
@@ -42960,10 +43590,6 @@
       ],
       [
         "hip_88048",
-        "hip_88404"
-      ],
-      [
-        "hip_88404",
         "eta_ser"
       ],
       [
@@ -43072,10 +43698,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Ser",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Ser",
       "previousConnections": [
         [
           "eta_ser",
@@ -43090,7 +43715,9 @@
           "xi_ser"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Serpens",
+      "imageSha256": "1965ea01d9b9aa0ed5aa5f9a93e3c71f18c300fbf333b977da8bfd43af6b45a6"
     }
   },
   {
@@ -43296,16 +43923,16 @@
     ],
     "connections": [
       [
-        "alpha_sex",
-        "gamma_sex"
-      ],
-      [
         "gamma_sex",
-        "delta_sex"
+        "alpha_sex"
       ],
       [
-        "delta_sex",
+        "alpha_sex",
         "hip_51437"
+      ],
+      [
+        "hip_51437",
+        "delta_sex"
       ]
     ],
     "deepSkyObjects": [
@@ -43360,10 +43987,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Sex",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Sex",
       "previousConnections": [
         [
           "gamma_sex",
@@ -43374,7 +44000,9 @@
           "delta_sex"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Sextans",
+      "imageSha256": "3e3accc1557c51051052b3cf2a3ef5586519cca498f466d3ad195f9bef433c06"
     }
   },
   {
@@ -43780,7 +44408,7 @@
         "bayer": "Nu Tau",
         "spectralType": "A1V",
         "magnitude": 3.91,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -43815,7 +44443,7 @@
         "bayer": "Omi Tau",
         "spectralType": "G8III",
         "magnitude": 3.61,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -43850,7 +44478,7 @@
         "bayer": "10 Tau",
         "spectralType": "F9V",
         "magnitude": 4.29,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -43912,18 +44540,6 @@
       [
         "lambda_tau",
         "hip_16083"
-      ],
-      [
-        "hip_16083",
-        "hip_18907"
-      ],
-      [
-        "hip_16083",
-        "hip_15900"
-      ],
-      [
-        "hip_15900",
-        "hip_16852"
       ]
     ],
     "deepSkyObjects": [
@@ -44076,10 +44692,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Tau",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Tau",
       "previousConnections": [
         [
           "elnath",
@@ -44094,7 +44709,9 @@
           "zeta_tau"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Taurus",
+      "imageSha256": "9e80f551abbf873756ca2cd6ae442249489ba609a5da3019202972b419353bd1"
     }
   },
   {
@@ -46059,7 +46676,7 @@
         "bayer": "Phi UMa",
         "spectralType": "A3IV",
         "magnitude": 4.55,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -46091,6 +46708,30 @@
     ],
     "connections": [
       [
+        "phecda",
+        "hip_57399"
+      ],
+      [
+        "hip_57399",
+        "hip_54539"
+      ],
+      [
+        "hip_54539",
+        "hip_50801"
+      ],
+      [
+        "hip_50801",
+        "hip_50372"
+      ],
+      [
+        "hip_57399",
+        "hip_55219"
+      ],
+      [
+        "hip_55219",
+        "hip_55203"
+      ],
+      [
         "megrez",
         "dubhe"
       ],
@@ -46119,32 +46760,16 @@
         "alkaid"
       ],
       [
-        "phecda",
-        "hip_57399"
-      ],
-      [
-        "hip_57399",
-        "hip_55219"
-      ],
-      [
-        "hip_55219",
-        "hip_55203"
-      ],
-      [
-        "hip_57399",
-        "hip_54539"
-      ],
-      [
-        "hip_54539",
-        "hip_50801"
-      ],
-      [
-        "hip_54539",
-        "hip_50372"
-      ],
-      [
         "dubhe",
         "hip_46733"
+      ],
+      [
+        "hip_46733",
+        "hip_48319"
+      ],
+      [
+        "hip_48319",
+        "merak"
       ],
       [
         "hip_46733",
@@ -46156,23 +46781,15 @@
       ],
       [
         "hip_48319",
-        "merak"
-      ],
-      [
-        "merak",
-        "hip_48402"
-      ],
-      [
-        "hip_48402",
         "hip_46853"
       ],
       [
         "hip_46853",
-        "hip_44127"
+        "hip_44471"
       ],
       [
         "hip_44471",
-        "hip_46853"
+        "hip_44127"
       ]
     ],
     "deepSkyObjects": [
@@ -46325,10 +46942,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial UMa",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy UMa",
       "previousConnections": [
         [
           "dubhe",
@@ -46359,7 +46975,9 @@
           "alkaid"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Ursa+Major",
+      "imageSha256": "d469d9494982757a04444dec3af954bcd389af9fad7f29130d89098fac4bacb2"
     }
   },
   {
@@ -47201,36 +47819,163 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_42536",
+        "name": "Omi Vel",
+        "bayer": "Omi Vel",
+        "spectralType": "B3IV",
+        "magnitude": 3.6,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "08h 40m 17.594s",
+          "declination": "-52° 55′ 18.79″",
+          "rightAscensionDeg": 130.07331,
+          "declinationDeg": -52.921887
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 42416,
+          "hip": 42536,
+          "hd": 74195,
+          "hr": 3447,
+          "bayer": "Omi",
+          "constellation": "Vel",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.6,
+          "colorIndexBV": -0.168,
+          "variableDesignation": "Omi",
+          "variableMagnitudeRange": [
+            3.623,
+            3.573
+          ]
+        }
+      },
+      {
+        "id": "hip_51986",
+        "name": "HIP 51986",
+        "bayer": "",
+        "spectralType": "A3m+...",
+        "magnitude": 3.84,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "10h 37m 18.181s",
+          "declination": "-48° 13′ 32.23″",
+          "rightAscensionDeg": 159.325755,
+          "declinationDeg": -48.22562
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 51837,
+          "hip": 51986,
+          "hd": 92139,
+          "hr": 4167,
+          "bayer": "",
+          "constellation": "Vel",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.84,
+          "colorIndexBV": 0.3,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_46701",
+        "name": "N Vel",
+        "bayer": "N Vel",
+        "spectralType": "K5III",
+        "magnitude": 3.16,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "09h 31m 13.336s",
+          "declination": "-57° 02′ 03.76″",
+          "rightAscensionDeg": 142.805565,
+          "declinationDeg": -57.034377
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 46568,
+          "hip": 46701,
+          "hd": 82668,
+          "hr": 3803,
+          "bayer": "",
+          "constellation": "Vel",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.16,
+          "colorIndexBV": 1.538,
+          "variableDesignation": "N",
+          "variableMagnitudeRange": [
+            3.169,
+            3.149
+          ]
+        }
       }
     ],
     "connections": [
       [
-        "delta_vel",
-        "kappa_vel"
-      ],
-      [
-        "kappa_vel",
-        "hip_48774"
-      ],
-      [
-        "hip_48774",
-        "mu_vel"
-      ],
-      [
-        "mu_vel",
-        "hip_50191"
-      ],
-      [
-        "hip_50191",
-        "hip_46651"
-      ],
-      [
-        "hip_46651",
+        "gamma_vel",
         "lambda_vel"
       ],
       [
         "lambda_vel",
+        "hip_46651"
+      ],
+      [
+        "hip_46651",
+        "hip_50191"
+      ],
+      [
+        "hip_50191",
+        "hip_51986"
+      ],
+      [
+        "hip_51986",
+        "mu_vel"
+      ],
+      [
+        "mu_vel",
+        "hip_48774"
+      ],
+      [
+        "hip_48774",
+        "kappa_vel"
+      ],
+      [
+        "kappa_vel",
+        "delta_vel"
+      ],
+      [
+        "delta_vel",
+        "hip_42536"
+      ],
+      [
+        "hip_42536",
         "gamma_vel"
+      ],
+      [
+        "kappa_vel",
+        "hip_46701"
       ]
     ],
     "deepSkyObjects": [
@@ -47371,21 +48116,20 @@
           "minorAxis": 255
         },
         "displayPhotometry": {
-          "magnitudeV": 2.5167081504932876,
+          "magnitudeV": 2.7086875209917687,
           "estimated": true,
           "method": "constellation-mean-linear-V-flux",
           "constellation": "Vel",
-          "sampleSize": 8,
+          "sampleSize": 11,
           "sampleScope": "unique catalogued stars assigned to this constellation",
           "note": "Conditional marker brightness, not measured object photometry"
         }
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Vel",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Vel",
       "previousConnections": [
         [
           "gamma_vel",
@@ -47408,7 +48152,9 @@
           "mu_vel"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Vela",
+      "imageSha256": "1368077624b5a92db8013d89ffd68b61feb85905a97502b89094eae81198693b"
     }
   },
   {
@@ -47801,7 +48547,7 @@
         "bayer": "Omi Vir",
         "spectralType": "G8III",
         "magnitude": 4.12,
-        "isSkeleton": false,
+        "isSkeleton": true,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -48011,6 +48757,14 @@
     ],
     "connections": [
       [
+        "hip_60129",
+        "hip_58948"
+      ],
+      [
+        "hip_58948",
+        "hip_57380"
+      ],
+      [
         "hip_57380",
         "zavijava"
       ],
@@ -48024,6 +48778,14 @@
       ],
       [
         "porrima",
+        "auva"
+      ],
+      [
+        "auva",
+        "vindemiatrix"
+      ],
+      [
+        "porrima",
         "hip_64238"
       ],
       [
@@ -48031,23 +48793,7 @@
         "spica"
       ],
       [
-        "spica",
-        "syrma"
-      ],
-      [
-        "syrma",
-        "hip_71957"
-      ],
-      [
-        "vindemiatrix",
-        "auva"
-      ],
-      [
-        "auva",
-        "porrima"
-      ],
-      [
-        "hip_64238",
+        "porrima",
         "heze"
       ],
       [
@@ -48057,6 +48803,14 @@
       [
         "hip_68520",
         "hip_72220"
+      ],
+      [
+        "heze",
+        "syrma"
+      ],
+      [
+        "syrma",
+        "hip_71957"
       ]
     ],
     "deepSkyObjects": [
@@ -48209,10 +48963,9 @@
       }
     ],
     "figureSource": {
-      "provider": "Stellarium Modern (Sky & Telescope)",
-      "source": "constellation_figures_source.json",
-      "sourceId": "D3-Celestial Vir",
-      "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
+      "provider": "Go Astronomy",
+      "source": "constellation_go_astronomy_source.json",
+      "sourceId": "Go-Astronomy Vir",
       "previousConnections": [
         [
           "spica",
@@ -48239,7 +48992,9 @@
           "syrma"
         ]
       ],
-      "override": "constellation_refinements_source.json"
+      "override": "constellation_go_astronomy_source.json",
+      "url": "https://www.go-astronomy.com/constellations.php?Name=Virgo",
+      "imageSha256": "da4504cc86c186c97048150cc940f0e91c6644c3aeb93362b5232d82b91029ca"
     }
   },
   {
