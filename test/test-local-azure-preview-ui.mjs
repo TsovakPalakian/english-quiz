@@ -25,7 +25,10 @@ test('Azure selection stays Off until saved and speech consent names the real pr
     await page.locator('[data-workbench-lesson-speech]:visible').first().click();
     await page.getByText('A fine drizzle is falling outside.',{exact:true}).waitFor();
     const consent=page.locator('[data-speech-form="analyze"] label');assert.match(await consent.innerText(),/microsoft-azure/);assert.ok(!await page.locator('[data-speech-form="analyze"] input').isChecked());assert.equal(calls,0);
-    await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.learning-kit-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
+    const speech=page.locator('#material .learning-speech-inline');await speech.waitFor();
+    assert.equal(await page.locator('dialog.learning-kit-dialog').count(),0);
+    const tab=page.locator('[data-workbench-lesson-speech]:visible');assert.equal(await tab.textContent(),'Speech');assert.equal(await tab.getAttribute('aria-selected'),'true');
+    await page.setViewportSize({width:390,height:844});assert.ok(await speech.evaluate(node=>node.scrollWidth<=node.clientWidth+1));
     await Promise.resolve();
   }finally{await browser?.close();await preview?.close();azure?.close();rmSync(dir,{recursive:true,force:true});}
 });

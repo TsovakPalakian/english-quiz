@@ -669,6 +669,7 @@
     }
     function lmTab() {
       const id = lmState && lmState.tab;
+      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
       return "overview";
     }
@@ -1089,6 +1090,10 @@
         status.textContent = lmState.published ? "Published" : "Draft";
         status.classList.toggle("is-live", !!lmState.published);
       }
+      if(lmTab()==='speech'){
+        if(!box.querySelector('#lmSpeechPanel'))box.innerHTML='<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>';
+        lmPaintChrome();lmPaintTabTools();window.LearningWorkbench?.mountLessonSpeech();return;
+      }
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
       box.innerHTML = blocks.length ? blocks.map((block) => {
@@ -1268,9 +1273,12 @@
     function lmRenderPreview() {
       const box = document.getElementById("lmPreview");
       if (!box || !lmState) return;
-      const parts = lmPreviewParts(lmBlocksFor());
+      const speech=lmTab()==='speech';
+      if(speech&&box.querySelector('#lmSpeechPanel')){window.LearningWorkbench?.mountLessonSpeech();return;}
+      const parts = speech?'<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>':lmPreviewParts(lmBlocksFor());
       const when = lmLongDate(lmState.date);
       box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + "</p>" + lmChromeHtml() + parts + "</article>";
+      if(speech){window.LearningWorkbench?.mountLessonSpeech();return;}
       dressWords(box);
       box.querySelectorAll('.lm-read-card').forEach(card => {
         const title = card.querySelector('b'), details = document.createElement('details'); details.className = 'lm-study-card';
@@ -1389,7 +1397,7 @@
     }
     function lmPaintTabTools() {
       const tab = lmTab();
-      const names = { overview: "Overview", words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF" };
+      const names = { overview: "Overview", words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF", speech:"Speech" };
       const title = document.getElementById("lmPageTitle");
       if (title) title.textContent = names[tab] || "Overview";
       const word = document.getElementById("lmWordAdd");

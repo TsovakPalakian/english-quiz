@@ -40,7 +40,7 @@ yield "00. Fixture and browser setup";
     server=createServer(async(req,res)=>{
       try{
         const origin='http://127.0.0.1:'+server.address().port;
-        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
+        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><main class="wrap"><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section></main><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
         if(req.url==='/style.css'){res.setHeader('Content-Type','text/css');res.end(readFileSync(new URL('../site/preview.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../site/main-stage.css',import.meta.url),'utf8'));return;}
         if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(speechUIFactory()+reviewEditorFactory()+script);return;}
         if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}
@@ -110,8 +110,13 @@ yield "00. Fixture and browser setup";
     await page.locator('[data-workbench-close]').click();
     await page.evaluate(()=>document.querySelector('#lesson').insertAdjacentHTML('afterbegin',LearningWorkbench.lessonSpeechButton()));
     await page.locator('[data-workbench-lesson-speech]').click();
+    assert.equal(await page.locator('dialog').count(),0);
+    assert.equal(await page.locator('[data-workbench-lesson-speech]').textContent(),'Speech');
+    assert.equal(await page.locator('[data-workbench-lesson-speech] svg,[data-workbench-lesson-speech] i').count(),0);
     yield "18. selectOption";
     await page.selectOption('[data-workbench-group]','1');await page.locator('#speech-task').waitFor();
+    assert.equal(await page.locator('#material .learning-speech-inline #speech-task').count(),1);
+    assert.equal(await page.locator('[data-speech-action="record"]').evaluate(node=>node.classList.contains('btn')),true);
     assert.equal(await page.locator('[data-workbench-sense]').count(),0);assert.equal(await page.locator('#speech-file').isDisabled(),true);
     assert.ok(requests.some(path=>new URL(path).pathname.endsWith('/speech/tasks')&&new URL(path).searchParams.has('lessonId')&&!new URL(path).searchParams.has('cardId')));
     yield "19. evaluate";
@@ -123,10 +128,16 @@ yield "00. Fixture and browser setup";
     await page.locator('[name=lessonContext]').waitFor({state:'attached'});await page.locator('[data-speech-form=task]').evaluate(node=>node.closest('details').open=true);
     yield "21. selectOption";
     await page.selectOption('[name=lessonContext]','0');await page.locator('[data-speech-form=task] [name=prompt]').fill('Read the selected lesson word.');await page.locator('[data-speech-form=task] [name=reference]').fill('drizzle');
+    await page.waitForFunction(()=>{
+      const button=document.querySelector('[data-speech-form=task] button');if(!button||button.disabled)return false;
+      button.scrollIntoView({block:'center',behavior:'instant'});
+      const rect=button.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+      return rect.width>0&&rect.height>0&&document.elementFromPoint(x,y)?.closest('button')===button;
+    });
     await page.locator('[data-speech-form=task] button').click();
     yield "22. waitForFunction";
     await page.waitForFunction(()=>document.querySelector('#speech-task')?.options.length===2);
-    await page.locator('[data-workbench-close]').click();
+    await page.evaluate(()=>LearningWorkbench.close());
     await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();
     yield "23. dialog details / checks";
     await page.locator('dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
