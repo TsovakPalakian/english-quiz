@@ -49,6 +49,25 @@ try{
       await page.locator('#loginForm').waitFor({state:'visible'});
       assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
     }
+    if(kind==='teacher'){
+      assert.equal(await page.locator('#accountBody').evaluate(node=>getComputedStyle(node).scrollbarWidth),'none');
+      await page.locator('[data-registration-providers] [data-login-mode="otp"]').click();
+      await page.locator('#otpLoginForm').waitFor({state:'visible'});
+      assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),'fixture-teacher');
+      await page.route('**/api/auth/otp/request',route=>route.fulfill({json:{email:'teacher@example.invalid'}}));
+      await page.route('**/api/auth/otp/verify',route=>{
+        assert.deepEqual(route.request().postDataJSON(),{email:'teacher@example.invalid',name:'Invited Teacher',code:'123456',invite:'fixture-teacher'});
+        return route.fulfill({json:{status:'pending'}});
+      });
+      await page.locator('#otpLoginForm [name="email"]').fill('teacher@example.invalid');
+      await page.locator('#otpLoginForm [name="name"]').fill('Invited Teacher');
+      await page.locator('[data-otp-send]').click();
+      await page.locator('#otpLoginForm [name="code"]').fill('123456');
+      await page.locator('#otpLoginForm [type="submit"]').click();
+      await page.locator('#loginForm [data-form-status]').filter({hasText:'Waiting for approval'}).waitFor();
+      assert.equal(await page.locator('#registerForm').count(),0);
+      assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
+    }
     assert.deepEqual(errors,[]);await page.close();
   }
   for(const configuration of [{google:false,microsoft:false,telegram:false},{google:true,microsoft:false,telegram:true},null]){

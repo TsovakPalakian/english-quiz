@@ -102,6 +102,18 @@ function examPaintWorkflow(){
 const examStatusOriginal=assessmentStatus;
 assessmentStatus=function(message,doc=lmState){examStatusOriginal(message,doc);if(doc?.examOwned){if(authUser?.role==='USER'&&!viewAccount&&!doc.studentSaved){const submit=document.getElementById('examSave');if(submit&&(!examWorkflowRow||examWorkflowRow.examId!==doc.examId||!examWorkflowRow.history.some(event=>event.action==='started')))submit.disabled=true;}void examLoadWorkflow(doc);examPaintWorkflow();}};
 const examBlocksHeadingOriginal=examPaintBlocks;
+const examListHeadingOriginal=examPaintList;
+examPaintList=function(){
+  examListHeadingOriginal();
+  const heading=document.querySelector('#exams .meta h1');
+  if(heading)heading.textContent='Exams';
+  const context=document.getElementById('examGroupName');
+  if(context){
+    const group=classGroups.find(row=>String(row.id)===String(examViewGroup));
+    context.textContent=group?.title||(examViewGroup==='unassigned'?'Unassigned':'');
+    context.hidden=!context.textContent;
+  }
+};
 examPaintBlocks=function(){examBlocksHeadingOriginal();const exam=examFind(examCurrentId),title=classGroups.find(group=>String(group.id)===String(exam?.groupId))?.title||exam?.groupTitle;const heading=document.querySelector('#examblocks .meta h1');if(heading)heading.textContent='Examination blocks';const context=document.getElementById('examBlocksName');if(context)context.textContent=[title,exam?.title].filter(Boolean).join(' · ');};
 document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-exam-workflow]');if(!button||!lmState?.examOwned)return;button.disabled=true;
