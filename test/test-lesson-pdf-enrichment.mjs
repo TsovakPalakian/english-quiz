@@ -15,6 +15,27 @@ test('PDF phrases retain Russian translation and English meaning',()=>{
   const result=normalizeLessonPdfDraft(data);
   assert.equal(result.phrases[0].translation,'Как дела?');assert.equal(result.phrases[0].meaning,data.phrases[0].meaning);
 });
+test('partial PDF imports fill a missing required title without replacing unchecked manual metadata',()=>{
+  const c=context(),data=lessonPdfFixture(),draft={title:'   ',description:'Teacher description',unit:'Manual unit',lesson:'Manual lesson'};
+  c.lmPdfApplyMetadata(draft,data,false);
+  assert.equal(draft.title,data.title);assert.equal(draft.description,'Teacher description');assert.equal(draft.unit,'Manual unit');assert.equal(draft.lesson,'Manual lesson');
+  draft.title='Teacher title';c.lmPdfApplyMetadata(draft,data,false);assert.equal(draft.title,'Teacher title');
+  c.lmPdfApplyMetadata(draft,data,true);assert.equal(draft.title,data.title);assert.equal(draft.description,data.description);
+  assert.throws(()=>c.lmPdfApplyMetadata({title:''},{...data,title:' '},false),/title/i);
+});
+test('failed PDF saves retain prepared content and retries do not append duplicate blocks',async()=>{
+  const c=context({saveLesson:async()=>{throw Error('Save unavailable');}}),current={title:'',blocks:[]};let persisted=0;
+  c.lmKeepLesson=()=>{};c.lmPersist=()=>persisted++;
+  const draft={title:'PDF title',blocks:[]},groups=await c.lmPdfDraftBlocks(lessonPdfFixture(),'pdf'),selected=new Set(['rules','classwork']);
+  await c.lmPdfAppendSections(draft,groups,selected,'pdf','x.pdf');
+  await assert.rejects(c.lmPdfSavePreparedDraft(draft,current,()=>true),/Save unavailable/);
+  assert.equal(current.title,'PDF title');assert.equal(current.blocks.length,draft.blocks.length);assert.equal(persisted,1);
+  assert.equal(await c.lmPdfAppendSections(current,groups,selected,'pdf','x.pdf'),0);
+  c.window.LearningMain.saveLesson=async material=>{material.id=31;material.stageRevision=1;};
+  await c.lmPdfSavePreparedDraft(current,current,()=>true);assert.equal(current.id,31);assert.equal(current.stageRevision,1);assert.equal(persisted,2);
+  c.window.LearningMain.saveLesson=async()=>{throw Error('Changed account');};
+  const other={title:'Other lesson',blocks:[]};await assert.rejects(c.lmPdfSavePreparedDraft(draft,other,()=>false),/Changed account/);assert.equal(other.title,'Other lesson');assert.equal(persisted,2);
+});
 test('new provider drafts reject sparse practice and missing translations instead of showing a complete lesson',async()=>{
   const reply=async data=>parseLessonPdfMeta({bytes:new TextEncoder().encode('%PDF-1.4\n'),apiKey:'key',model:'gemini-test',full:true,fetchImpl:async()=>Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(data)}]}}]})});
   await assert.rejects(reply(lessonPdfFixture()),e=>e.status===502&&/practice/i.test(e.message));

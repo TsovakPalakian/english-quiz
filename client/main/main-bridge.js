@@ -10,7 +10,7 @@
   const personalKey='learning-main-personal-pending-v3',quizProgress=new Map(),cardProgress=new Map(),savedResponses=new Map();
   let personalQueue=[],personalRunning=false,personalReady=false,personalTimer,unloading=false,personalFlight=null;
   try{const saved=JSON.parse(localStorage.getItem(personalKey)||'[]');if(Array.isArray(saved))personalQueue=saved;}catch{localStorage.removeItem(personalKey);}
-  let actorId='',busy=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
+  let actorId='',busy=false,preparing=false,pending=null,addedRevision=0,themeRevision=0,customRevision=0,themeRecovering=false,backendCapabilities={};
   let confirmedThemes={};
   const mediaAllowed=()=>['127.0.0.1','learn-english-learning-integrated-test.east-tarsal.workers.dev'].includes(location.hostname);
   const clone=value=>JSON.parse(JSON.stringify(value));
@@ -300,7 +300,9 @@
   }
   async function write(path,method,body){
     if(!actorId)throw new Error('Сначала войдите в существующий аккаунт.');
-    if(personalQueue.length)throw new Error('Сначала дождитесь сохранения личных ответов или повторите неподтверждённую запись.');
+    // perform() confirms earlier personal writes before entering busy mode.
+    // Events queued during that exclusive action belong after it, not before it.
+    if(personalQueue.length&&!busy)throw new Error('Сначала дождитесь сохранения личных ответов или повторите неподтверждённую запись.');
     const intent=JSON.stringify({path,method,body});
     if(pending && (pending.actorId!==actorId || pending.intent!==intent))throw new Error('Есть неподтверждённая операция. Используйте «Повторить» или «Проверить сервер».');
     if(!pending){pending={actorId,path,method,intent,body:{...body,mutationId:crypto.randomUUID()}};localStorage.setItem(queueKey,JSON.stringify(pending));}
@@ -367,14 +369,23 @@
     return {pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg'}[ext]||'';
   };
   async function perform(action,status){
-    if(busy){notice('Дождитесь ответа на текущую запись.',true);return;}busy=true;
+    if(busy||preparing){notice('Дождитесь ответа на текущую запись.',true);return;}
+    preparing=true;const startedActor=actorId,startedView=typeof viewGen==='undefined'?null:viewGen,startedTarget=typeof viewAccount==='undefined'?'':viewAccount?.id||'';
     const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#stageNewCard button,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
     const disabled=buttons.map(b=>b.disabled);for(const b of buttons)b.disabled=true;
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
     notice('Сохранение в тестовую Learning…');
-    try{await action();notice('Подтверждено тестовой Learning.');if(status)status.textContent='Сохранено на тестовом сервере.';}
+    try{
+      // Keep the personal drainer unlocked until it has confirmed prior writes.
+      // preparing prevents a second material action from overtaking this preflight.
+      await drainPersonal();
+      if(actorId!==startedActor||(typeof viewGen==='undefined'?null:viewGen)!==startedView||(typeof viewAccount==='undefined'?'':viewAccount?.id||'')!==startedTarget)throw new Error('The account or view changed. Reopen the lesson before saving.');
+      if(personalQueue.length)throw new Error('Personal changes are not saved yet. Retry their save or check the unconfirmed operation.');
+      busy=true;preparing=false;
+      await action();notice('Подтверждено тестовой Learning.');if(status){status.textContent='Сохранено на тестовом сервере.';status.classList?.remove('bad');}
+    }
     catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message,stack:error.stack});if(status){status.textContent=error.message;status.classList.add('bad');}}
-    finally{busy=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
+    finally{busy=false;preparing=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
   }
   function savePersonal(){
     if(personalQueue.length)localStorage.setItem(personalKey,JSON.stringify(personalQueue));else localStorage.removeItem(personalKey);

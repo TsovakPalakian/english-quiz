@@ -21,6 +21,7 @@ const fileName=process.env.PDF_UI_FILE?basename(process.env.PDF_UI_FILE):'fixtur
 const pdf=process.env.PDF_UI_FILE?readFileSync(process.env.PDF_UI_FILE):Buffer.from('%PDF-1.4\n% isolated UI fixture\n');
 const source={pages:[1],generated:false};
 const fixture=lessonPdfFixture({practice:true});fixture.words.push({...fixture.words[0],meaning:'an expression of surprise',example:'Hello! What is happening here?'});
+fixture.classwork.reverse(); // Model order is not authoritative; the server normalizes stages.
 fixture.rules.push({...fixture.rules[0],title:'Noun',explanation:'Names identify people.'});
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
@@ -36,7 +37,7 @@ try{
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||chromiumExecutable()});
   const page=await browser.newPage(),errors=[],findings=[];
   const user={id:'a'.repeat(32),login:'pdf_ui_test',name:'PDF UI test',email:'pdf@example.invalid',role:'DEVELOPER'};
-  let nextId=100,analysed=null,analysisCalls=0,uploads=0,role='DEVELOPER',imports=0,alertCalls=0;const responses=new Map(),dictionaryCards=new Map();
+  let nextId=100,analysed=null,analysisCalls=0,uploads=0,role='DEVELOPER',imports=0,alertCalls=0,archiveCalls=0,failNewDraftSave=false;const responses=new Map(),dictionaryCards=new Map(),createBodies=[],writeOrder=[];
   const lesson={id:31,stageRevision:1,title:'PDF UI draft',description:'',className:'A1',unit:'',lesson:'',date:'2026-10-25',published:false,mode:'edit',blocks:[{id:32,stageBlockRevision:1,type:'text',tab:'homework',html:'<p>Teacher homework — keep unchanged</p>'}]};
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>localStorage.setItem('app-database-context-v1','d1:1'));
@@ -66,7 +67,10 @@ try{
         return respond(reply);
       }
       if(path==='/api/catalogs/GRAMMAR')return respond({document:{topics:[],comparisons:[]}});
+      if(path==='/api/archive'&&method==='POST'){archiveCalls++;return respond({saved:true});}
+      if(path==='/api/stats/event'){writeOrder.push('personal');return respond({saved:true});}
       if(path==='/api/cards/lookup'){
+        writeOrder.push('dictionary');
         const body=request.postDataJSON();assert.ok(body.context.meaning);assert.ok(body.context.translation);
         const key=JSON.stringify([body.word,body.context.meaning]);
         if(!dictionaryCards.has(key))dictionaryCards.set(key,{id:++nextId,en:body.word,ru:body.context.translation,stageScope:'shared',data:{cambridge:{definition:body.context.meaning}},pdfSense:body.context});
@@ -111,6 +115,13 @@ try{
       if(path==='/api/me'||path==='/api/me/account')return respond({user:{...user,role},locked:false});
       if(path==='/api/me/themes')return respond({accountId:user.id,theme:'light',themes:[],stageThemeRevision:0,stageCustomRevision:0});
       if(path==='/api/me/state')return respond({bootstrap:true,stats:{theme:'light'},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}});
+      if(path==='/api/lessons'&&method==='POST'){
+        const body=request.postDataJSON();createBodies.push(body);assert.ok(body.changes.title.trim());assert.ok(body.blocks.length);
+        for(const block of body.blocks){assert.equal(block.expectedRevision,0);assert.equal(block.id,undefined);}
+        if(failNewDraftSave){failNewDraftSave=false;return respond({error:'Temporary save failure'},503);}
+        Object.assign(lesson,body.changes,{stageRevision:1,blocks:body.blocks.map(block=>({...block.content,id:++nextId,type:block.type,tab:block.tab,stageBlockRevision:1}))});
+        return respond({id:31,revision:1,blocks:lesson.blocks.map(block=>({id:block.id,revision:1}))});
+      }
       if(path==='/api/lessons'){
         const view=structuredClone(lesson);
         if(role==='USER')for(const block of view.blocks){
@@ -161,11 +172,15 @@ try{
     const checkbox=detail.locator('input');
     if((await detail.locator('summary').textContent()).trim().startsWith('Words'))await checkbox.check();else await checkbox.uncheck();
   }
+  writeOrder.length=0;
+  await page.evaluate(()=>LearningMain.event('view','lessons','open',0));
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('learning-main-personal-pending-v3')).length),1);
   await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();
   await page.waitForFunction(()=>!document.querySelector('#lmPdfDraftDialog')||document.querySelector('#lmPdfDraftDialog [role=status]')?.classList.contains('bad'));
   assert.equal(await dialog.count(),0,await page.locator('#lmPdfImportStatus').textContent());
   assert.equal(lesson.blocks.length,1+analysed.words.length);assert.equal(uploads,0);assert.equal(alertCalls,0);
   assert.equal(dictionaryCards.size,analysed.words.length);
+  assert.equal(writeOrder[0],'personal');assert.ok(writeOrder.indexOf('dictionary')>0,'Personal writes must finish before dictionary card creation');
   await importPdf(undefined,true);
   await dialog.locator('details').first().locator('input').check();
   yield "03. click";
@@ -234,6 +249,30 @@ try{
   assert.equal(await page.locator('[data-pdf-feedback="'+exercise.id+'"]').textContent(),exercise.pdfTeacherNotes);
   const studentBlocks=await page.evaluate(()=>lmState.blocks);
   for(const task of studentBlocks.filter(b=>b.type==='task')){assert.equal(task.pdfTeacherNotes,undefined);assert.equal(task.pdfFeedback,undefined);}
+  yield '09. A new untitled draft imports selected Classwork and retains it after save failure';
+  role='DEVELOPER';await page.reload();await page.waitForFunction(()=>accountReady&&authUser?.role==='DEVELOPER');await openLesson();await page.waitForFunction(()=>window.MaterialQuiz?.types);
+  await page.evaluate(()=>{
+    lmState={id:'lm-pdf-unsaved',title:'',description:'Teacher description to preserve',className:'A1',unit:'',lesson:'',date:'2026-10-25',published:false,mode:'edit',blocks:[]};
+    lmKeepLesson();show('material');lmShow('edit');
+  });
+  await importPdf();
+  for(const detail of await dialog.locator('details').all()){
+    const selected=(await detail.locator('summary').textContent()).trim().startsWith('Classwork');await detail.locator('input').setChecked(selected);
+  }
+  failNewDraftSave=true;await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();
+  await page.waitForFunction(()=>document.querySelector('#lmPdfDraftDialog [role=status].bad'));
+  assert.equal(createBodies.length,1);assert.equal(createBodies[0].changes.title,analysed.title);assert.equal(createBodies[0].changes.description,'Teacher description to preserve');
+  const retained=await page.evaluate(()=>({title:lmState.title,blocks:lmState.blocks.length,revision:lmState.stageRevision}));
+  assert.equal(retained.title,analysed.title);assert.equal(retained.blocks,analysed.classwork.length);assert.ok(!retained.revision);
+  yield '10. Retrying an unconfirmed new-draft save keeps the same mutation and all prepared blocks';
+  await page.locator('#learning-main-dismiss').click();
+  await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();await page.waitForFunction(()=>!document.querySelector('#lmPdfDraftDialog'));
+  assert.equal(createBodies.length,2);assert.deepEqual(createBodies[1],createBodies[0]);assert.equal(lesson.blocks.length,analysed.classwork.length);assert.equal(lesson.title,analysed.title);assert.equal(lesson.description,'Teacher description to preserve');
+  yield '11. Deleting an empty unsaved draft does not create or archive a server lesson';
+  const deleteId=await page.evaluate(()=>{lmCreateLesson();lmState.title='';lmKeepLesson();lmPersist();const id=lmState.id;show('days');paintLmDays();return id;});
+  const confirm=page.waitForEvent('dialog');const deletion=page.locator('[data-lm-delete="'+deleteId+'"]:visible').click();await (await confirm).accept();await deletion;
+  await page.waitForFunction(id=>!lmLibrary.materials.some(row=>row.id===id),deleteId);
+  assert.equal(createBodies.length,2);assert.equal(archiveCalls,0);assert.equal(await page.locator('[data-lm-delete="'+deleteId+'"]').count(),0);
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({ui:'passed',file:fileName,sha256:createHash('sha256').update(pdf).digest('hex'),analysis:live?'real Gemini':'synthetic fixture',storage:'isolated in-memory API, not real D1/R2',blocks:count,uploads,findings}));
 }finally{releaseAnalysis();await browser?.close();await new Promise(resolve=>server.close(resolve));}

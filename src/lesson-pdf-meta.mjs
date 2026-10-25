@@ -70,11 +70,12 @@ export function normalizeLessonPdfDraft(value,{requirePractice=false}={}){
       return {stage:r.stage,title:clean(r.title,160,true),text:clean(r.text,3000,true),kind:r.kind,options,answer:r.kind==='choice'?r.answer:-1,feedback,criteria,teacherAnswer,...provenance(r)};
     }),
   };
-  let previousStage=-1;const present=new Set(),activities=new Set();
+  // Group already validated tasks by their declared stage. Array sorting is
+  // stable, so the model's order within each stage and every source item stay intact.
+  result.classwork.sort((a,b)=>LESSON_PDF_STAGES.indexOf(a.stage)-LESSON_PDF_STAGES.indexOf(b.stage));
+  const present=new Set(),activities=new Set();
   for(const task of result.classwork){
-    const stage=LESSON_PDF_STAGES.indexOf(task.stage);
-    if(stage<previousStage)fail(502,'Classwork learning stages are out of order.');
-    previousStage=stage;present.add(task.stage);
+    present.add(task.stage);
     const signature=JSON.stringify([task.kind,canonical(task.text),task.options.map(canonical)]);
     if(activities.has(signature))fail(502,'Classwork contains a repeated activity instead of distinct learning stages.');
     activities.add(signature);
