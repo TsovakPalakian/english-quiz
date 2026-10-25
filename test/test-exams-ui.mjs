@@ -143,7 +143,18 @@ try{
     assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam editor fits '+width);
   }
   await page.locator('#material [data-path-exam-group="41"]').click();
-  assert.equal(await page.locator('#examOverview .metric-pairs').evaluate(node=>getComputedStyle(node).gridTemplateColumns.split(' ').length),2);
+  const metrics=page.locator('#examOverview .metric-pairs');
+  await metrics.waitFor({state:'visible'});
+  await metrics.scrollIntoViewIfNeeded();
+  const layout=await page.waitForFunction(()=>{
+    const node=document.querySelector('#examOverview .metric-pairs');
+    if(!node?.getClientRects().length)return false;
+    const style=getComputedStyle(node),columns=style.gridTemplateColumns;
+    if(style.display!=='grid'||columns==='none')return false;
+    const count=columns.trim().split(/\s+/).length;
+    return count===2?{columns:count}:false;
+  },null,{timeout:10000});
+  try{assert.equal((await layout.jsonValue()).columns,2);}finally{await layout.dispose();}
   await page.locator('#examListSearch').focus();
   assert.equal(await page.locator('#examListSearch').evaluate(node=>getComputedStyle(node).outlineOffset),'-2px');
   assert.ok(await page.locator('#exams').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam list fits smallest viewport');
