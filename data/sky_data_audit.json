@@ -1,12 +1,12 @@
 {
   "checkedOn": "2026-10-24",
   "scope": "All active catalogue rows; no scientific data modified by this audit",
-  "catalogueSha256": "0f108c7384cb44a0d31b8b04741c703bfd99a206eb172d95456a367f7d58eefc",
+  "catalogueSha256": "e625e48fcff5d08c9bd22391b3051d87cba9ed2c37bfacc50cd26fa5a3f596de",
   "counts": {
     "constellations": 88,
-    "starEntries": 852,
-    "uniqueHip": 839,
-    "edges": 777,
+    "starEntries": 854,
+    "uniqueHip": 840,
+    "edges": 776,
     "objects": 157,
     "galaxyLabelledObjects": 49,
     "components": 8,
@@ -40,8 +40,8 @@
     }
   ],
   "verifiedFields": {
-    "positions": 1014,
-    "stellarPhotometry": 857,
+    "positions": 1016,
+    "stellarPhotometry": 859,
     "objectPhotometryAndSizes": 147
   },
   "integrityErrors": [],
@@ -2498,6 +2498,10 @@
     {
       "entry": "Hya/hip_54682",
       "catalogueConstellation": "Crt"
+    },
+    {
+      "entry": "Oph/hip_86263",
+      "catalogueConstellation": "Ser"
     },
     {
       "entry": "Peg/hip_677",

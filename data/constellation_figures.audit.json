@@ -2,8 +2,8 @@
   "source": "https://raw.githubusercontent.com/Stellarium/stellarium/master/skycultures/modern_st/index.json",
   "sourceBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
   "constellations": 88,
-  "stars": 852,
-  "connections": 777,
+  "stars": 854,
+  "connections": 776,
   "ignoredZeroLengthSourceEdges": [],
   "crossBoundaryFigureVertices": [
     {
@@ -40,6 +40,11 @@
       "figure": "Hya",
       "star": "hip_54682",
       "catalogueConstellation": "Crt"
+    },
+    {
+      "figure": "Oph",
+      "star": "hip_86263",
+      "catalogueConstellation": "Ser"
     },
     {
       "figure": "Peg",
@@ -433,9 +438,9 @@
     },
     {
       "abbr": "Oph",
-      "addedStars": 17,
-      "stars": 17,
-      "connections": 18
+      "addedStars": 19,
+      "stars": 19,
+      "connections": 17
     },
     {
       "abbr": "Ori",
