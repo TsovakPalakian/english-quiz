@@ -616,7 +616,8 @@
       const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(word));
       return rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===word.trim().toLowerCase());
     },
-    lookupLessonCard:word=>write('/api/cards/lookup','POST',{word}),
+    lookupLessonCard:(word,context)=>write('/api/cards/lookup','POST',{word,...(context?{context}:{})}),
+    pdfGrammarAlerts:(lessonId,source)=>api('/api/messages/pdf-grammar',{method:'POST',body:JSON.stringify({lessonId,source})}),
     async newManagedCard(accountId,en,ru,place){
       if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
       const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru,...(place?{place}:{})}});

@@ -13,6 +13,7 @@ import worker,{StageAuth,StageAuthBudget,reserveBudget} from '../src/learning-st
 import {snapshot,restore,reverse,auditReverse} from '../ops/learning-backup.mjs';
 import {migrationReview} from '../ops/learning-migration-review.mjs';
 import {applyLearningSchema} from './learning-test-schema.mjs';
+import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');
   applyLearningSchema(sqlite);
@@ -24,6 +25,38 @@ function fixture(){
   return {sqlite,db,own:{id:'u1',role:'USER'},other:{id:'u2',role:'USER'},dev:{id:'dev',role:'DEVELOPER'}};
 }
 const mutation=()=>crypto.randomUUID();
+test('PDF lookup adapter distinguishes real dictionary absence from an outage and forwards sense context',async()=>{
+  const f=fixture();let providerStatus=404,lookups=0;
+  const app=integratedWorker({authenticate:async()=>f.dev,studyDatabase:()=>f.db,accountWorker:{fetch:async request=>{
+    lookups++;assert.equal(new URL(request.url).searchParams.get('context'),'land beside a river');return Response.json(providerStatus===404?{found:false,error:'No entry'}:{error:'Rate limited'},{status:providerStatus});
+  }}});
+  const env={DB:{prepare(){throw Error('This isolated lookup must not read account tables');}},STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:'test.invalid'};
+  const context={meaning:'land beside a river',translation:'берег',example:'By the river bank.'};
+  const call=(word='bank')=>app.fetch(new Request('https://test.invalid/api/cards/lookup',{method:'POST',headers:{Origin:'https://test.invalid'},body:JSON.stringify({mutationId:mutation(),word,context})}),env);
+  try{
+    assert.equal((await call()).status,200);assert.equal(lookups,1);
+    providerStatus=429;assert.equal((await call()).status,429);
+    assert.equal((await call('a long contextual phrase '.repeat(5))).status,200);assert.equal(lookups,2,'Long PDF phrases must not be sent to the short-query dictionary endpoint');
+  }finally{f.sqlite.close();}
+});
+test('PDF contextual dictionary cards preserve homonyms, full provider details and retry identity',async()=>{
+  const f=fixture(),service=new PersonalService(f.db),lookup=async()=>({found:true,word:'bank',ru:'банк',cambridge:{pos:'noun',uk:'ipa',definition:'a financial institution',examples:['Keep the provider example']}});
+  const context={meaning:'land beside a river',translation:'берег',example:'We sat on the bank.'};
+  try{
+    const ordinary=await service.lookupSharedCard(f.dev,{mutationId:mutation(),word:'bank'},lookup);
+    const body={mutationId:mutation(),word:'bank',context};
+    const river=await service.lookupSharedCard(f.dev,body,lookup);
+    assert.notEqual(river.id,ordinary.id);assert.equal(river.ru,'берег');
+    assert.deepEqual(await service.lookupSharedCard(f.dev,body,()=>{throw Error('Replay must not lookup');}),river);
+    const extra=JSON.parse(f.sqlite.prepare('SELECT extra_json FROM cards WHERE id=?').get(river.id).extra_json);
+    assert.equal(extra.pdfSense.meaning,context.meaning);assert.equal(extra.data.cambridge.examples[0],'Keep the provider example');
+    assert.match(extra.data.ruSource,/PDF lesson draft/);
+    assert.equal((await service.lookupSharedCard(f.dev,{...body,mutationId:mutation()},lookup)).id,river.id);
+    const sameTranslation=await service.lookupSharedCard(f.dev,{...body,mutationId:mutation(),context:{...context,meaning:'a financial institution'}},lookup);assert.notEqual(sameTranslation.id,river.id,'Identical translations do not collapse distinct English senses');
+    const fallback=await service.lookupSharedCard(f.dev,{mutationId:mutation(),word:'a source phrase',context},async()=>({found:false}));assert.ok(fallback.id);
+    await assert.rejects(service.lookupSharedCard(f.own,{...body,mutationId:mutation()},lookup),e=>e.status===403);
+  }finally{f.sqlite.close();}
+});
 test('Shared dictionary lookup creates one definition, replays before lookup and preserves existing/shared/private data',async()=>{
   const f=fixture(),service=new PersonalService(f.db);let lookups=0;
   const data={found:true,word:'new fixture word',ru:'translation',cambridge:{pos:'adjective',uk:'ipa'},wooordhunt:{us:'ipa-us'}};

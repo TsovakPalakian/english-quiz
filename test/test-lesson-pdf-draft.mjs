@@ -129,9 +129,9 @@ test('imported exercise feedback stays hidden before checking and appears afterw
 test('full PDF requests use the full schema without changing the metadata-only contract',async()=>{
   let payload;
   const result=await parseLessonPdfMeta({full:true,bytes:new TextEncoder().encode('%PDF-1.4\n'),apiKey:'fixture-key',model:'gemini-3.5-flash-lite',fetchImpl:async(url,init)=>{
-    payload=JSON.parse(init.body);return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(fixture())}]}}]});
+    payload=JSON.parse(init.body);return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(fixture({practice:true}))}]}}]});
   }});
-  assert.equal(result.classwork.length,5);
+  assert.equal(result.classwork.length,10);
   assert.ok(payload.generationConfig.maxOutputTokens>512);
   assert.ok(payload.generationConfig.responseFormat.text.schema.properties.classwork);
   assert.match(payload.systemInstruction.parts[0].text,/untrusted/);

@@ -20,7 +20,8 @@ if(live&&!process.env.PDF_UI_FILE)throw Error('PDF_UI_FILE is required for live 
 const fileName=process.env.PDF_UI_FILE?basename(process.env.PDF_UI_FILE):'fixture.pdf';
 const pdf=process.env.PDF_UI_FILE?readFileSync(process.env.PDF_UI_FILE):Buffer.from('%PDF-1.4\n% isolated UI fixture\n');
 const source={pages:[1],generated:false};
-const fixture=lessonPdfFixture();fixture.words.push({...fixture.words[0],meaning:'an expression of surprise',example:'Hello! What is happening here?'});
+const fixture=lessonPdfFixture({practice:true});fixture.words.push({...fixture.words[0],meaning:'an expression of surprise',example:'Hello! What is happening here?'});
+fixture.rules.push({...fixture.rules[0],title:'Noun',explanation:'Names identify people.'});
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
   const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,'.'+(path==='/'?'/index.html':path));
@@ -30,11 +31,12 @@ const server=createServer((req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
+let releaseAnalysis;const analysisGate=new Promise(resolve=>releaseAnalysis=resolve);
 try{
   browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||chromiumExecutable()});
   const page=await browser.newPage(),errors=[],findings=[];
   const user={id:'a'.repeat(32),login:'pdf_ui_test',name:'PDF UI test',email:'pdf@example.invalid',role:'DEVELOPER'};
-  let nextId=100,analysed=null,analysisCalls=0,uploads=0,role='DEVELOPER',imports=0;const responses=new Map();
+  let nextId=100,analysed=null,analysisCalls=0,uploads=0,role='DEVELOPER',imports=0,alertCalls=0;const responses=new Map(),dictionaryCards=new Map();
   const lesson={id:31,stageRevision:1,title:'PDF UI draft',description:'',className:'A1',unit:'',lesson:'',date:'2026-10-25',published:false,mode:'edit',blocks:[{id:32,stageBlockRevision:1,type:'text',tab:'homework',html:'<p>Teacher homework — keep unchanged</p>'}]};
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>localStorage.setItem('app-database-context-v1','d1:1'));
@@ -52,15 +54,29 @@ try{
     try{
       if(path==='/api/lessons/parse-pdf'){
         assert.equal(method,'POST');assert.deepEqual(request.postDataBuffer(),pdf);
+        await analysisGate;
         if(!analysed){
           const cache=live&&process.env.PDF_UI_CACHE;
           const sha=createHash('sha256').update(pdf).digest('hex');
-          if(cache&&existsSync(cache)){const saved=JSON.parse(readFileSync(cache,'utf8'));assert.equal(saved.sha,sha);if(saved.version===2)analysed=normalizeLessonPdfDraft(saved.draft);}
-          if(!analysed){analysisCalls++;analysed=live?await parseLessonPdfMeta({bytes:pdf,full:true,apiKey:process.env.GEMINI_API_KEY,model:process.env.PDF_UI_MODEL||'gemini-3.5-flash-lite',timeoutMs:60000}):normalizeLessonPdfDraft(fixture);if(cache)writeFileSync(cache,JSON.stringify({version:2,sha,draft:analysed}),{mode:0o600});}
+          if(cache&&existsSync(cache)){const saved=JSON.parse(readFileSync(cache,'utf8'));assert.equal(saved.sha,sha);if(saved.version===3)analysed=normalizeLessonPdfDraft(saved.draft,{requirePractice:true});}
+          if(!analysed){analysisCalls++;analysed=live?await parseLessonPdfMeta({bytes:pdf,full:true,apiKey:process.env.GEMINI_API_KEY,model:process.env.PDF_UI_MODEL||'gemini-3.5-flash-lite',timeoutMs:60000}):normalizeLessonPdfDraft(fixture);if(cache)writeFileSync(cache,JSON.stringify({version:3,sha,draft:analysed}),{mode:0o600});}
         }
         const reply=structuredClone(analysed);
         if(imports++)for(const tab of ['words','phrases','rules'])reply[tab].reverse();
         return respond(reply);
+      }
+      if(path==='/api/catalogs/GRAMMAR')return respond({document:{topics:[],comparisons:[]}});
+      if(path==='/api/cards/lookup'){
+        const body=request.postDataJSON();assert.ok(body.context.meaning);assert.ok(body.context.translation);
+        const key=JSON.stringify([body.word,body.context.meaning]);
+        if(!dictionaryCards.has(key))dictionaryCards.set(key,{id:++nextId,en:body.word,ru:body.context.translation,stageScope:'shared',data:{cambridge:{definition:body.context.meaning}},pdfSense:body.context});
+        return respond(dictionaryCards.get(key));
+      }
+      const dictionaryPath=path.match(/^\/api\/cards\/(\d+)\/dictionary$/);
+      if(dictionaryPath)return respond([...dictionaryCards.values()].find(card=>card.id===Number(dictionaryPath[1])));
+      if(path==='/api/messages/pdf-grammar'){
+        const body=request.postDataJSON();assert.equal(body.lessonId,31);
+        assert.ok(lesson.blocks.some(b=>b.pdfImport?.source===body.source&&b.pdfGrammarMissing));alertCalls++;return respond({sent:1});
       }
       const answerPath=path.match(/^\/api\/lessons\/31\/blocks\/(\d+)\/response$/);
       if(answerPath&&method==='PUT'){
@@ -86,7 +102,7 @@ try{
         for(const item of body.upserts||[]){
           let block=lesson.blocks.find(b=>b.id===item.id);
           if(block){assert.equal(item.expectedRevision,block.stageBlockRevision);Object.assign(block,item.content);block.stageBlockRevision++;}
-          else{block={...item.content,id:++nextId,type:item.type,tab:item.tab,stageBlockRevision:1};lesson.blocks.push(block);}
+          else{block={...item.content,id:++nextId,type:item.type,tab:item.tab,stageBlockRevision:1,stageDefinition:{type:item.type,tab:item.tab,cardId:item.cardId,content:item.content}};if(item.cardId)Object.assign(block,[...dictionaryCards.values()].find(card=>card.id===item.cardId),{id:block.id,word:[...dictionaryCards.values()].find(card=>card.id===item.cardId).en,stageId:item.cardId});lesson.blocks.push(block);}
         }
         assert.equal((body.deletes||[]).length,0);lesson.stageRevision++;
         return respond({id:31,revision:lesson.stageRevision,blocks:lesson.blocks.map(b=>({id:b.id,revision:b.stageBlockRevision}))});
@@ -98,6 +114,7 @@ try{
       if(path==='/api/lessons'){
         const view=structuredClone(lesson);
         if(role==='USER')for(const block of view.blocks){
+          if(block.stageDefinition?.content)delete block.stageDefinition.content.pdfTeacherNotes;
           const feedback=lessonPdfExerciseFeedback(block.type,block),saved=responses.get(block.id);
           delete block.pdfTeacherNotes;delete block.pdfFeedback;block.stageResponseRevision=saved?.revision||0;
           if(saved?.blockRevision===block.stageBlockRevision){
@@ -114,18 +131,42 @@ try{
   });
   await page.goto('https://lumiscia.org/');
   await page.waitForFunction(()=>typeof lmOpenLesson==='function'&&accountReady&&authUser?.role==='DEVELOPER');
-  await page.evaluate(()=>lmOpenLesson(31));
+  const openLesson=()=>page.evaluate(async()=>{await stagePullLessons();await groupPull(true);lmOpenLesson(31);});
+  await openLesson();
   yield "02. #material.on / checks";
   await page.locator('#material.on').waitFor();
   const homework=JSON.stringify(lesson.blocks[0]);
-  const importPdf=async()=>{
-    await page.locator('[data-lesson-pdf-import-file]').setInputFiles({name:fileName,mimeType:'application/pdf',buffer:pdf});
+  const importPdf=async(inspect,viaButton=false)=>{
+    const input={name:fileName,mimeType:'application/pdf',buffer:pdf};
+    if(viaButton){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Import another PDF'}).click();await (await chooser).setFiles(input);}
+    else await page.locator('[data-lesson-pdf-import-file]').setInputFiles(input);
+    if(inspect)await inspect();
     await page.waitForFunction(()=>document.querySelector('#lmPdfDraftDialog[open]')||document.querySelector('#lmPdfImportStatus.bad'),{},{timeout:75000});
     assert.equal(await page.locator('#lmPdfDraftDialog[open]').count(),1,await page.locator('#lmPdfImportStatus').textContent());
   };
-  await importPdf();
+  await importPdf(async()=>{
+    const indicator=page.locator('#lmPdfProgress [role=progressbar]');await indicator.waitFor();
+    assert.equal(await indicator.getAttribute('aria-valuenow'),null,'Unknown model progress must not show an invented percentage');
+    assert.match(await indicator.textContent(),/Analysing PDF/);assert.equal(dictionaryCards.size,0);releaseAnalysis();
+  });
+  assert.equal(await page.locator('#lmPdfProgress [role=progressbar]').getAttribute('aria-valuenow'),'100');
   const dialog=page.locator('#lmPdfDraftDialog');assert.equal(await dialog.locator('details').count(),7);
   assert.equal(lesson.blocks.length,1,'Preview must not write lesson content');
+  assert.equal(dictionaryCards.size,0,'Preview must not create dictionary cards');assert.equal(alertCalls,0);
+  yield '02a. Cancelling leaves no writes and restores the PDF uploader';
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).click();assert.equal(await page.locator('#lmPdfProgress').count(),0);
+  assert.equal(await page.locator('[data-lesson-pdf-import]').isVisible(),true);assert.equal(lesson.blocks.length,1);assert.equal(dictionaryCards.size,0);await importPdf();
+  yield '03a. Partial draft imports only selected words';
+  for(const detail of await dialog.locator('details').all()){
+    const checkbox=detail.locator('input');
+    if((await detail.locator('summary').textContent()).trim().startsWith('Words'))await checkbox.check();else await checkbox.uncheck();
+  }
+  await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();
+  await page.waitForFunction(()=>!document.querySelector('#lmPdfDraftDialog')||document.querySelector('#lmPdfDraftDialog [role=status]')?.classList.contains('bad'));
+  assert.equal(await dialog.count(),0,await page.locator('#lmPdfImportStatus').textContent());
+  assert.equal(lesson.blocks.length,1+analysed.words.length);assert.equal(uploads,0);assert.equal(alertCalls,0);
+  assert.equal(dictionaryCards.size,analysed.words.length);
+  await importPdf(undefined,true);
   await dialog.locator('details').first().locator('input').check();
   yield "03. click";
   await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();
@@ -139,7 +180,23 @@ try{
   for(const section of ['overview','words','phrases','rules','classwork'])if(section==='overview'||analysed[section]?.length)assert.ok(lesson.blocks.some(b=>b.tab===section),'Missing section '+section);
   assert.deepEqual([...new Set(lesson.blocks.filter(b=>b.tab==='classwork').map(b=>b.pdfImport.stage))],['explanation','comprehension','guided','independent','final']);
   if(!live)assert.equal(lesson.blocks.filter(b=>b.tab==='words').length,2,'Both contextual meanings must be visible in the imported lesson');
-  const rule=lesson.blocks.find(b=>b.tab==='rules');
+  assert.equal(dictionaryCards.size,analysed.words.length+analysed.phrases.length);
+  for(const block of lesson.blocks.filter(b=>['words','phrases'].includes(b.tab))){assert.equal(block.type,'wordcard');assert.ok(block.stageId);assert.ok(block.pdfVocabulary.meaning);assert.ok(block.ru);}
+  yield '03b. Full vocabulary cards expose English meanings and Russian translations';
+  for(const tab of ['words','phrases']){
+    await page.locator('[data-lm-tab="'+tab+'"]:visible').first().click();
+    const block=lesson.blocks.find(b=>b.tab===tab);if(block){const text=await page.locator('[data-lm-word="'+block.id+'"]:visible').textContent();assert.ok(text.includes(block.pdfVocabulary.meaning));assert.ok(text.includes(block.ru));}
+  }
+  yield '03c. Opening an imported card preserves its exact sense and shared dictionary identity';
+  const imported=lesson.blocks.find(b=>b.tab==='phrases');
+  if(imported){
+    await page.locator('[data-lm-word="'+imported.id+'"]:visible .en').click();
+    await page.waitForFunction(id=>document.querySelector('#made.on')&&madeItem?.stageId===id,imported.stageId,{timeout:5000}).catch(async error=>{throw new Error(error.message+' '+JSON.stringify({errors,state:await page.evaluate(id=>({section:document.querySelector('section.on')?.id,item:typeof madeItem==='undefined'?null:{word:madeItem?.word,stageId:madeItem?.stageId},block:lmState.blocks.find(b=>b.id===id),handler:typeof stageHydrateMade,notice:document.querySelector('#stageNotice')?.textContent}),imported.id)}));});
+    assert.equal(await page.locator('#made [data-pdf-meaning]').textContent(),imported.pdfVocabulary.meaning);
+    await page.locator('#made [data-nav-back]').click();await page.locator('#material.on').waitFor();
+  }
+  if(!live){assert.equal(lesson.blocks.find(b=>b.grammarRule==='Noun').type,'rule');assert.equal(alertCalls,1);}
+  const rule=lesson.blocks.find(b=>b.tab==='rules'&&b.type==='text');
   if(rule){
     await page.locator('[data-lm-tab="rules"]:visible').first().click();
     await page.locator('[data-rich="'+rule.id+'"]:visible').fill('Teacher correction — preserve this explanation');
@@ -153,12 +210,12 @@ try{
   if(rule)assert.match(rule.html,/Teacher correction/);
   await page.reload();
     yield "05. waitForFunction";
-    await page.waitForFunction(()=>accountReady&&typeof lmOpenLesson==='function');await page.evaluate(()=>lmOpenLesson(31));
+    await page.waitForFunction(()=>accountReady&&typeof lmOpenLesson==='function');await openLesson();
   const restored=await page.evaluate(()=>({title:lmState.title,blocks:lmState.blocks.length,homework:lmState.blocks.find(b=>b.tab==='homework')?.html}));
   assert.equal(restored.title,analysed.title);assert.equal(restored.blocks,count);assert.match(restored.homework,/keep unchanged/);
   yield '06. Learner feedback is private before checking';
   role='USER';lesson.published=true;
-  await page.reload();await page.waitForFunction(()=>accountReady&&authUser?.role==='USER');await page.evaluate(()=>lmOpenLesson(31));
+  await page.reload();await page.waitForFunction(()=>accountReady&&authUser?.role==='USER');await openLesson();
   await page.locator('[data-lm-tab="classwork"]:visible').first().click();
   const exercise=lesson.blocks.find(b=>b.type==='exercise'&&b.pdfTeacherNotes);assert.ok(exercise);
   const hidden=await page.evaluate(id=>JSON.stringify(lmState.blocks.find(b=>b.id===id)),exercise.id);assert.ok(!hidden.includes(exercise.pdfTeacherNotes));
@@ -173,12 +230,12 @@ try{
   await check.click();await page.waitForFunction(id=>lmState.blocks.find(b=>b.id===id)?.items[0].correct===true,exercise.id);
   assert.equal(await page.locator('[data-pdf-feedback="'+exercise.id+'"]').textContent(),exercise.pdfTeacherNotes);
   yield '08. Checked feedback survives reload without revealing open-task samples';
-  await page.reload();await page.waitForFunction(()=>accountReady&&authUser?.role==='USER');await page.evaluate(()=>lmOpenLesson(31));await page.locator('[data-lm-tab="classwork"]:visible').first().click();
+  await page.reload();await page.waitForFunction(()=>accountReady&&authUser?.role==='USER');await openLesson();await page.locator('[data-lm-tab="classwork"]:visible').first().click();
   assert.equal(await page.locator('[data-pdf-feedback="'+exercise.id+'"]').textContent(),exercise.pdfTeacherNotes);
   const studentBlocks=await page.evaluate(()=>lmState.blocks);
   for(const task of studentBlocks.filter(b=>b.type==='task')){assert.equal(task.pdfTeacherNotes,undefined);assert.equal(task.pdfFeedback,undefined);}
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({ui:'passed',file:fileName,sha256:createHash('sha256').update(pdf).digest('hex'),analysis:live?'real Gemini':'synthetic fixture',storage:'isolated in-memory API, not real D1/R2',blocks:count,uploads,findings}));
-}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
+}finally{releaseAnalysis();await browser?.close();await new Promise(resolve=>server.close(resolve));}
 
 });

@@ -124,27 +124,37 @@ function lessonBlock(value){
 export class StudyService {
   constructor(db) { this.db=db; }
   async lookupSharedCard(actor,body,lookup){
-    fields(body,['mutationId','word']);
-    if(typeof body.word!=='string'||!body.word.trim()||body.word.length>120)fail(400,'Enter a word or phrase.');
+    fields(body,['mutationId','word','context']);
+    const context=body.context;
+    if(context!==undefined){
+      fields(context,['meaning','translation','example']);
+      for(const [key,limit] of [['meaning',600],['translation',300],['example',600]])if(typeof context[key]!=='string'||context[key].length>limit||(key!=='example'&&!context[key].trim()))fail(400,'Invalid PDF vocabulary context.');
+    }
+    if(typeof body.word!=='string'||!body.word.trim()||body.word.length>(context?300:120))fail(400,'Enter a word or phrase.');
     return this.createdCardMutation(actor,body,['lookup-shared-card'],async()=>{
-      const data=await lookup(body.word.trim());
-      if(!data?.found||typeof data.word!=='string'||!data.word.trim()||data.word.length>200)fail(404,'No dictionary entry found.');
-      const en=data.word.trim(),ru=typeof data.ru==='string'?data.ru:'',pos=data.cambridge?.pos||'';
+      let data=await lookup(body.word.trim(),context);
+      // A contextual PDF phrase may have no dictionary entry. Keep its provenance
+      // explicit; a provider outage still propagates and must never masquerade as absence.
+      if(data?.found===false&&context)data={found:true,word:body.word.trim(),ru:context.translation,source:'PDF lesson draft',usages:[{en:context.example,ru:'',source:'PDF lesson draft'}]};
+      if(!data?.found||typeof data.word!=='string'||!data.word.trim()||data.word.length>(context?300:200))fail(404,'No dictionary entry found.');
+      const en=context?body.word.trim():data.word.trim(),ru=context?context.translation.trim():typeof data.ru==='string'?data.ru:'',pos=data.cambridge?.pos||'';
       if(ru.length>10000||typeof pos!=='string'||pos.length>100||stable(data).length>256000)fail(413,'Dictionary entry is too large.');
-      const existing=await this.db.read("SELECT id,revision FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?",[en,ru,pos]);
+      const meaning=context?context.meaning.normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase():'';
+      const match="scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=? AND COALESCE(json_extract(extra_json,'$.pdfSense.key'),'')=?";
+      const matchArgs=[en,ru,pos,meaning];
+      const existing=await this.db.read('SELECT id,revision FROM cards WHERE '+match,matchArgs);
       if(existing.length>1)fail(409,'Multiple shared cards match. Select the exact card instead.');
       const resultSql=`SELECT json_object('id',c.id,'en',c.en,'ru',c.ru,'partOfSpeech',c.part_of_speech,
         'scope',c.scope,'revision',c.revision) result_json FROM cards c WHERE c.id=`+(existing.length?'?':'(SELECT id FROM created_rows)');
       if(existing.length)return {statements:[],resultSql,resultArgs:[existing[0].id]};
-      const extra={data,uk:data.cambridge?.uk||data.wooordhunt?.uk||'',us:data.cambridge?.us||data.wooordhunt?.us||''};
+      const extra={data:{...data,...(context?{ruSource:'PDF lesson draft (AI; review required)'}:{})},uk:data.cambridge?.uk||data.wooordhunt?.uk||'',us:data.cambridge?.us||data.wooordhunt?.us||'',...(context?{pdfSense:{...context,key:meaning}}:{})};
       return {statements:[
         stmt(`INSERT INTO cards(scope,en,word_key,ru,part_of_speech,extra_json)
           SELECT 'shared',?,?,?,?,? WHERE NOT EXISTS(
-            SELECT 1 FROM cards WHERE scope='shared' AND deleted_at IS NULL AND lower(en)=lower(?) AND ru=? AND part_of_speech=?
-          )`,[en,en.toLowerCase(),ru,pos,stable(extra),en,ru,pos]),
+            SELECT 1 FROM cards WHERE ${match}
+          )`,[en,en.toLowerCase(),ru,pos,stable(extra),...matchArgs]),
         stmt(`INSERT INTO created_rows(id)
-          SELECT id FROM cards WHERE scope='shared' AND deleted_at IS NULL
-          AND lower(en)=lower(?) AND ru=? AND part_of_speech=? ORDER BY id LIMIT 1`,[en,ru,pos])],
+          SELECT id FROM cards WHERE ${match} ORDER BY id LIMIT 1`,matchArgs)],
         resultSql,resultArgs:[]};
     });
   }

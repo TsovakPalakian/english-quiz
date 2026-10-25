@@ -7788,6 +7788,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
       html += madeEditHtml(item);
       html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + dictionaryAddHtml(item) + "</div></div>";
+      const pdfSense=item.pdfSense||item.pdfVocabulary;
+      if(pdfSense?.meaning)html+='<p class="label">Lesson meaning · PDF draft</p><p data-pdf-meaning lang="en">'+esc(pdfSense.meaning)+'</p>'+(pdfSense.example?'<p lang="en">'+esc(pdfSense.example)+'</p>':'');
       if(item.stageEverydayReference)html+=stageEssentialSourceLinks(item);
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
@@ -8213,6 +8215,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (lmWord) {
         const block = lmBlock(lmWord.dataset.lmWord);
         if (!block || block.type !== "wordcard") return;
+        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word});return;}
         const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey };
         if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
         else openUsages(item.word, item.ru, item.quizKey);
@@ -17720,11 +17723,12 @@ const STUDIO_CONSTELLATIONS = [{
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
-      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
+      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
       return kit ? '<div class="learning-kit-entry">' + content + kit + '</div>' : content;
     }
     function lmRuleCardHtml(block, link) {
+      if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
       const topic = block.compare ? null : topicById(block.topic);
       const compare = block.compare ? ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === block.topic)[0] : null;
       const name = (topic && topic.name) || (compare && compare.title) || block.name || "Rule";
@@ -19743,6 +19747,45 @@ const STUDIO_CONSTELLATIONS = [{
 })();
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;
+function lmPdfGrammarMatch(title){
+  const clean=value=>String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
+  const app=typeof window==='undefined'?{}:window,key=clean(title),matches=[];
+  for(const name of Object.keys(app.GrammarDetails||{}))if(clean(name)===key)matches.push({grammarRule:name});
+  for(const [id,topic] of Object.entries(app.GRAMMAR?.topics||{}))if(topic&&clean(topic.name)===key)matches.push({topic:topic.id||id,name:topic.name,compare:false});
+  for(const topic of app.GRAMMAR?.comparisons||[])if(clean(topic.title)===key)matches.push({topic:topic.id,name:topic.title,compare:true});
+  return matches.length===1?matches[0]:null;
+}
+function lmPdfProgress(label,completed=[],done=null,total=null){
+  const drop=document.querySelector('[data-lesson-pdf-import]');if(!drop)return;
+  let node=document.getElementById('lmPdfProgress');
+  if(!node){node=document.createElement('div');node.id='lmPdfProgress';node.className='lm-pdf-progress';drop.before(node);}
+  const measurable=Number.isFinite(done)&&total>0,percent=measurable?Math.floor(done/total*100):null;
+  node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
+  if(label==='Draft ready'){
+    const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Import another PDF';button.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();node.append(button);
+  }
+  drop.hidden=true;
+}
+function lmPdfProgressEnd(){
+  document.getElementById('lmPdfProgress')?.remove();
+  const drop=document.querySelector('[data-lesson-pdf-import]');if(drop)drop.hidden=false;
+}
+async function lmPdfPrepareCards(draft,active,onProgress=()=>{},selected=new Set(['words','phrases'])){
+  const blocks=draft.blocks.filter(b=>b.pdfImport&&selected.has(b.tab)&&['vocab','phrase'].includes(b.type));
+  for(const [index,block] of blocks.entries()){
+    if(!active())throw new Error('The lesson or account changed.');
+    const row=block.items[0],context={meaning:row.meaning,translation:row.translation||'',example:row.sourceExample??row.example??''},word=row.word||row.phrase;
+    if(!context.translation)throw new Error('Missing Russian translation for '+word+'. Analyse the PDF again.');
+    const card=await window.LearningMain.lookupLessonCard(word,context);
+    if(!active())throw new Error('The lesson or account changed.');
+    const definition=await window.LearningMain.dictionary({stageId:card.id});
+    if(!active())throw new Error('The lesson or account changed.');
+    const content={pdfImport:block.pdfImport,pdfVocabulary:{word, ...context},collapsed:false};
+    Object.assign(block,definition,{id:block.id,type:'wordcard',word,ru:context.translation,stageId:card.id,stageScope:'shared',...content,
+      stageDefinition:{type:'wordcard',tab:block.tab,cardId:card.id,content:JSON.parse(JSON.stringify(content))}});
+    delete block.items;onProgress(index+1,blocks.length);
+  }
+}
 function lmPdfIdentity(block){
   const tab=block.pdfImport?.section||block.tab,item=block.items?.[0]||{};
   const clean=value=>String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
@@ -19792,8 +19835,8 @@ async function lmPdfDraftBlocks(data, hash) {
     groups[tab].push({...lmBlank(type),...content,tab,pdfImport:{source:hash,section:tab,pages:source.pages||[],generated:!!source.generated,...(source.stage?{stage:source.stage}:{})}});
   };
   add('overview','text',{html:'<p>'+esc(data.overview).replace(/\n/g,'<br>')+'</p>'},{},0);
-  data.words.forEach((r,i)=>add('words','vocab',{title:r.word,items:[{word:r.word,meaning:r.meaning,translation:r.translation||r.meaning,ipa:'',example:r.meaning+(r.example?' — '+r.example:'')}]},r,i));
-  data.phrases.forEach((r,i)=>add('phrases','phrase',{items:[{phrase:r.phrase,meaning:r.meaning,example:r.example}]},r,i));
+  data.words.forEach((r,i)=>add('words','vocab',{title:r.word,items:[{word:r.word,meaning:r.meaning,translation:r.translation||'',ipa:'',sourceExample:r.example,example:r.meaning+(r.example?' — '+r.example:'')}]},r,i));
+  data.phrases.forEach((r,i)=>add('phrases','phrase',{items:[{phrase:r.phrase,meaning:r.meaning,translation:r.translation||'',example:r.example}]},r,i));
   data.rules.forEach((r,i)=>add('rules','text',{html:'<h3>'+esc(r.title)+'</h3><p>'+esc(r.explanation).replace(/\n/g,'<br>')+'</p>'+r.examples.map(e=>'<p>'+esc(e)+'</p>').join('')},r,i));
   data.classwork.forEach((r,i)=>{
     if(r.kind==='explanation')add('classwork','text',{html:'<h3>'+esc(r.title)+'</h3><p>'+esc(r.text).replace(/\n/g,'<br>')+'</p>'},r,i);
@@ -19803,6 +19846,11 @@ async function lmPdfDraftBlocks(data, hash) {
   await Promise.all(Object.values(groups).flat().map(async block=>{
     block.pdfImport.key=await lmPdfContentKey(block);
   }));
+  groups.rules.forEach((block,index)=>{
+    const title=data.rules[index].title,match=lmPdfGrammarMatch(title);
+    if(match){block.pdfRuleSource=block.html;delete block.html;Object.assign(block,match,{type:'rule'});}
+    else block.pdfGrammarMissing=title;
+  });
   return groups;
 }
 async function lmImportPdfDraft(file) {
@@ -19816,18 +19864,20 @@ async function lmImportPdfDraft(file) {
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   const drop=document.querySelector('[data-lesson-pdf-import]');drop?.classList.add('is-busy');
-  lmPdfImportStatus('Analysing PDF and preparing lesson sections…',false);
+  lmPdfImportStatus('',false);lmPdfProgress('Analysing PDF');
   try{
     const bytes=await file.arrayBuffer();
     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
     if(!active())return;
     const data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
     if(!active())return;
+    if(typeof stageEnsureStatic==='function')await stageEnsureStatic('GRAMMAR');
+    if(!active())return;
     const groups=await lmPdfDraftBlocks(data,hash);
     if(!active())return;
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft';
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
-    const hint=document.createElement('p');hint.textContent='Selected content is added to the draft. Existing blocks and manual edits stay unchanged. Page references are AI-extracted: verify them against the PDF. Vocabulary stays editable; shared dictionary and Speech practice are unchanged.';dialog.append(hint);
+    const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
     const section=(key,title,body,checked)=>{
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
@@ -19842,9 +19892,9 @@ async function lmImportPdfDraft(file) {
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
-    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();dialog.close();dialog.remove();};
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.close();dialog.remove();};
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
-    dialog.addEventListener('cancel',event=>{if(apply.disabled){event.preventDefault();return;}controller.abort();dialog.remove();});
+    dialog.addEventListener('cancel',event=>{if(apply.disabled){event.preventDefault();return;}controller.abort();lmPdfProgressEnd();dialog.remove();});
     apply.onclick=async()=>{
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
@@ -19860,6 +19910,8 @@ async function lmImportPdfDraft(file) {
           if(choices.get('metadata').checked){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;}
           const selected=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
           const added=await lmPdfAppendSections(draft,groups,selected,hash,file.name);
+          status.textContent='Preparing dictionary cards…';
+          await lmPdfPrepareCards(draft,active,(done,total)=>lmPdfProgress('Preparing cards',[],done,total),selected);
           if(!active())throw new Error('The lesson changed.');
           let pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
           if(draft.blocks.length>200)throw new Error('The lesson would exceed 200 blocks. Select fewer sections.');
@@ -19868,6 +19920,7 @@ async function lmImportPdfDraft(file) {
           const upserts=snapshot.blocks.filter(b=>JSON.stringify({...b,expectedRevision:0})!==JSON.stringify({...previous.get(b.id),expectedRevision:0}));
           const payload=baseline?{changes:snapshot.changes,upserts,deletes:[],order:snapshot.blocks.map(b=>b.id||null)}:snapshot;
           if(new TextEncoder().encode(JSON.stringify(payload)).length>58000)throw new Error('Selected content is too large for one save. Apply fewer sections.');
+          lmPdfProgress('Saving draft');status.textContent='Saving draft…';
           await window.LearningMain.saveLesson(draft);
           // Keep confirmed server revisions even if upload fails; retry reuses the same PDF block.
           if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
@@ -19877,16 +19930,22 @@ async function lmImportPdfDraft(file) {
             if(!pdf?.hasFile)await window.LearningMain.uploadLessonFile(draft,pdf,file);
             if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
           }
-          if(active()){lmRenderEditor();lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.',false);}
+          let alertWarning='';
+          if(!active())throw new Error('Draft saved, but the lesson or account changed. Reopen the lesson to continue.');
+          if(selected.has('rules')&&draft.blocks.some(b=>b.pdfImport?.source===hash&&b.pdfGrammarMissing)){
+            try{await window.LearningMain.pdfGrammarAlerts(draft.id,hash);}catch{alertWarning=' Missing Grammar alert could not be delivered. Apply Rules again to retry.';}
+          }
+          if(active()){lmRenderEditor();lmPdfProgress('Draft ready',[...['words','phrases','rules','classwork'].filter(key=>selected.has(key)).map(key=>key[0].toUpperCase()+key.slice(1)+' saved'),...(selected.has('pdf')?['Lesson PDF attached']:[])],1,1);lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.'+alertWarning,false);}
           dialog.close();dialog.remove();
         },status);
       }catch(error){status.textContent=error.message;}
       finally{apply.disabled=false;cancel.disabled=false;}
     };
     document.body.append(dialog);dialog.showModal();
+    lmPdfProgress('Ready to review',Object.entries(groups).map(([key,rows])=>key[0].toUpperCase()+key.slice(1)+': '+rows.length),1,1);
     lmPdfImportStatus('Review the draft before applying it.',false);
-  }catch(error){if(active())lmPdfImportStatus(error.message||'Could not analyse this PDF.',true);}
-  finally{if(lmPdfDraftRequest===controller){drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
+  }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not analyse this PDF.',true);}}
+  finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }

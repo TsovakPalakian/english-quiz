@@ -717,9 +717,14 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
         const raw=await request.text();if(raw.length>4096)throw new StudyError(413,'Lookup request too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
-        const result=await new StudyService(studyDatabase(env)).lookupSharedCard(actor,body,async word=>{
+        const result=await new StudyService(studyDatabase(env)).lookupSharedCard(actor,body,async(word,context)=>{
+          // The interactive dictionary accepts short queries only. Longer PDF
+          // phrases retain their explicitly sourced contextual definition.
+          if(context&&word.length>80)return {found:false};
           const target=new URL(request.url);target.pathname='/lookup';target.search='';target.searchParams.set('word',word);
+          if(context)target.searchParams.set('context',context.meaning);
           const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);
+          if(context&&response.status===404){const data=await response.json();if(data.found===false)return data;}
           if(!response.ok)throw new StudyError(response.status,'Dictionary lookup failed. Try again.');
           return response.json();
         });
