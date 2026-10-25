@@ -2332,6 +2332,19 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
   await scope.stageSaveLesson(true);assert.equal(scope.lmState.published,true);
   assert.deepEqual(saved,[true,false,true]);
 });
+test('Deleting an unsaved draft never creates or archives it, while saved lessons still use Archive',async()=>{
+  const source=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),calls=[];
+  const local={id:'lm-unsaved',title:'',blocks:[]},saved={id:31,stageRevision:2,title:'Saved draft',blocks:[]};
+  const scope={lmState:local,lmLibrary:{materials:[local,saved],activeId:local.id},classGroups:[{lessonIds:[local.id,31]}],viewSwitching:false,lmSaveTimer:1,clearTimeout(){},
+    canEditLessons:()=>true,stageDomId:value=>/^\d+$/.test(String(value))?Number(value):value,confirm:()=>true,
+    window:{LearningMain:{perform(){throw Error('Unsaved local deletion must not wait for queued server operations');},saveLesson(){throw Error('Deletion must not create a lesson');},deleteLesson:async lesson=>calls.push(lesson.id)}},
+    lmPersist:()=>calls.push('persist'),show:page=>calls.push(page)};
+  runInNewContext(source.slice(source.indexOf('function stageDeleteLesson('),source.indexOf('globalThis.lmDeleteLesson=')),scope);
+  await scope.stageDeleteLesson(local.id);
+  assert.deepEqual(calls,['persist','days']);assert.equal(scope.lmState,null);assert.equal(scope.lmLibrary.materials.length,1);assert.deepEqual(scope.classGroups[0].lessonIds,[31]);
+  calls.length=0;scope.window.LearningMain.perform=fn=>fn();scope.lmState=saved;await scope.stageDeleteLesson(31);assert.deepEqual(calls,[31,'persist','days']);assert.equal(scope.lmLibrary.materials.length,0);
+  scope.lmLibrary.materials=[saved];scope.confirm=()=>false;calls.length=0;await scope.stageDeleteLesson(31);assert.deepEqual(calls,[]);assert.equal(scope.lmLibrary.materials.length,1);
+});
 test('Administration ignores older page and user responses',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8'),pending=[];
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};

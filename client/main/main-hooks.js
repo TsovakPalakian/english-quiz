@@ -1186,22 +1186,31 @@ function stageDeleteLesson(id){
   if(!canEditLessons()||viewSwitching)return;
   const current=lmLibrary?.materials.find(row=>row.id===id)||(lmState?.id===id?lmState:null);
   if(!current)return;
-  if(!confirm('Move this lesson to Archive?'))return;
-  return window.LearningMain.perform(async()=>{
-    if(!current.stageRevision){
-      if(Number.isSafeInteger(current.id)){
-        const data=await accountFetch('/api/lessons?id='+encodeURIComponent(current.id));
-        const saved=data.materials?.find(row=>row.id===current.id);
-        if(!saved)throw new Error('Lesson not found. Refresh Classes.');
-        Object.assign(current,saved);
-      }else await window.LearningMain.saveLesson(current);
-    }
-    await window.LearningMain.deleteLesson(current);
+  const localDraft=!current.stageRevision&&!Number.isSafeInteger(current.id);
+  if(!confirm(localDraft?'Discard this unsaved lesson draft?':'Move this lesson to Archive?'))return;
+  const removeLocal=()=>{
     window.ContentCache?.drop(':'+id+':');
     lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id&&row.id!==current.id);
     if(lmState===current||lmState?.id===id||lmState?.id===current.id)lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
     lmPersist();show('days');
+  };
+  if(localDraft){
+    if(lmState===current)clearTimeout(lmSaveTimer);
+    classGroups.forEach(group=>{group.lessonIds=group.lessonIds.filter(lessonId=>lessonId!==id);});
+    removeLocal();return Promise.resolve();
+  }
+  return window.LearningMain.perform(async()=>{
+    if(!localDraft&&!current.stageRevision){
+      if(Number.isSafeInteger(current.id)){
+        const data=await accountFetch('/api/lessons?id='+encodeURIComponent(current.id));
+        const saved=data.materials?.find(row=>row.id===current.id);
+        if(!saved)throw new Error('Lesson not found. Refresh Classes.');
+        Object.assign(current,saved);
+      }
+    }
+    await window.LearningMain.deleteLesson(current);
+    removeLocal();
   });
 }
 globalThis.lmDeleteLesson=stageDeleteLesson;

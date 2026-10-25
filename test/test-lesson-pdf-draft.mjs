@@ -27,14 +27,23 @@ test('normalization merges equivalent senses and their source pages without muta
   assert.equal(result.words.length,1);assert.deepEqual(result.words[0].pages,[1,3]);assert.equal(result.words[0].generated,false);
   assert.equal(result.phrases.length,2);assert.equal(JSON.stringify(draft),before);
 });
-test('every stage is required, in order, with an appropriate distinct activity',()=>{
+test('every stage is required with an appropriate distinct activity',()=>{
   const stages=['explanation','comprehension','guided','independent','final'];
   for(const stage of stages){const draft=fixture();draft.classwork=draft.classwork.filter(r=>r.stage!==stage);assert.throws(()=>normalizeLessonPdfDraft(draft),e=>e.status===502);}
-  for(const mutate of [d=>d.classwork.reverse(),d=>d.classwork[0].stage='unknown',d=>d.classwork[0].kind='open',d=>{d.classwork[3]={...d.classwork[4],stage:'independent'};},d=>{d.classwork[4]={...d.classwork[1],stage:'final'};}]){
+  for(const mutate of [d=>d.classwork[0].stage='unknown',d=>d.classwork[0].kind='open',d=>{d.classwork[3]={...d.classwork[4],stage:'independent'};},d=>{d.classwork[4]={...d.classwork[1],stage:'final'};}]){
     const draft=fixture();mutate(draft);assert.throws(()=>normalizeLessonPdfDraft(draft),e=>e.status===502);
   }
   const draft=fixture();draft.classwork.splice(2,0,{...draft.classwork[1],text:'Which greeting fits meeting a new classmate?',title:'Another greeting'});
   assert.equal(normalizeLessonPdfDraft(draft).classwork.length,6);
+});
+test('shuffled Classwork is grouped into learning stages without dropping or reordering items within a stage',()=>{
+  const draft=fixture({practice:true});draft.classwork.reverse();
+  const before=JSON.stringify(draft),order=['explanation','comprehension','guided','independent','final'];
+  const result=normalizeLessonPdfDraft(draft,{requirePractice:true});
+  assert.equal(JSON.stringify(draft),before);assert.equal(result.classwork.length,draft.classwork.length);
+  assert.deepEqual(result.classwork.map(row=>row.stage),[...draft.classwork].sort((a,b)=>order.indexOf(a.stage)-order.indexOf(b.stage)).map(row=>row.stage));
+  for(const stage of order)assert.deepEqual(result.classwork.filter(row=>row.stage===stage).map(row=>row.text),draft.classwork.filter(row=>row.stage===stage).map(row=>row.text));
+  assert.deepEqual(normalizeLessonPdfDraft(result,{requirePractice:true}),result);
 });
 test('malformed feedback, equivalent choice options, oversized criteria and open-task choices fail closed',()=>{
   for(const mutate of [d=>d.classwork[1].feedback=42,d=>d.classwork[1].options=['Hello',' hello '],d=>d.classwork[3].criteria='Content | 1001',d=>d.classwork[3].criteria='Content | extra | 2',d=>d.classwork[3].options=['Unused'],d=>d.classwork[3].answer=0]){

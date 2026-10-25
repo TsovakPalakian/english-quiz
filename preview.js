@@ -19764,6 +19764,21 @@ const STUDIO_CONSTELLATIONS = [{
 })();
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;
+function lmPdfApplyMetadata(draft,data,selected){
+  if(selected){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;}
+  // A new lesson still needs its required title when only content sections
+  // were selected. Preserve any title/description the teacher already entered.
+  if(!String(draft.title||'').trim())draft.title=String(data.title||'').trim();
+  if(!draft.title)throw new Error('Enter a lesson title before applying the PDF.');
+}
+async function lmPdfSavePreparedDraft(draft,current,active){
+  try{await window.LearningMain.saveLesson(draft);}
+  finally{
+    // Keep prepared content locally after a rejected or unconfirmed write.
+    // The dialog and immutable import keys allow a retry without duplicates.
+    if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
+  }
+}
 function lmPdfGrammarMatch(title){
   const clean=value=>String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
   const app=typeof window==='undefined'?{}:window,key=clean(title),matches=[];
@@ -19894,7 +19909,7 @@ async function lmImportPdfDraft(file) {
     if(!active())return;
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft';
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
-    const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
+    const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
     const section=(key,title,body,checked)=>{
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
@@ -19917,6 +19932,7 @@ async function lmImportPdfDraft(file) {
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
       if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
+      status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
@@ -19924,7 +19940,7 @@ async function lmImportPdfDraft(file) {
           if(typeof stageServerBaseline==='function')await stageServerBaseline(current);
           if(!active())throw new Error('The lesson changed.');
           const draft=JSON.parse(JSON.stringify(current));draft.published=false;
-          if(choices.get('metadata').checked){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;}
+          lmPdfApplyMetadata(draft,data,choices.get('metadata').checked);
           const selected=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
           const added=await lmPdfAppendSections(draft,groups,selected,hash,file.name);
           status.textContent='Preparing dictionary cards…';
@@ -19938,9 +19954,8 @@ async function lmImportPdfDraft(file) {
           const payload=baseline?{changes:snapshot.changes,upserts,deletes:[],order:snapshot.blocks.map(b=>b.id||null)}:snapshot;
           if(new TextEncoder().encode(JSON.stringify(payload)).length>58000)throw new Error('Selected content is too large for one save. Apply fewer sections.');
           lmPdfProgress('Saving draft');status.textContent='Saving draft…';
-          await window.LearningMain.saveLesson(draft);
+          await lmPdfSavePreparedDraft(draft,current,active);
           // Keep confirmed server revisions even if upload fails; retry reuses the same PDF block.
-          if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
           if(!active())throw new Error('Draft saved, but the lesson or account changed. Reopen the lesson to attach its PDF.');
           if(selected.has('pdf')){
             pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
