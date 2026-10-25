@@ -7,7 +7,7 @@ const {chromium}=createRequire(import.meta.url)(resolveTestDependency('playwrigh
 const source=readFileSync('client/40-account.js','utf8');
 const handler=source.slice(source.indexOf('    document.body.addEventListener("click", (e) => {'));
 assert.ok(handler.startsWith('    document.body.addEventListener'));
-const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<section id="adminuser" class="on"><button data-account="delete-user" data-id="student">Delete account</button></section><section id="admin"></section>');});
+const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<section id="adminuser" class="on"><button data-account="archive-user" data-id="student">Archive account</button></section><section id="admin"></section>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
 try{
   browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
@@ -19,6 +19,7 @@ try{
       let viewAccount=null,adminAccountId='student',adminSelectedUser='student',adminTab='history',adminPaintToken=1,adminUserPaintToken=1;
       let adminAccounts=[{id:'student',name:'Student <Example>',login:'student_login'},{id:'other'}];
       let adminMembers=[{accountId:'student',groupId:1},{accountId:'other',groupId:1}];
+      let groupDirectory={},classGroupsReady=true,examReady=true;function examResetWork(){}function isTeacher(){return true;}
       const navStack=[{id:'adminuser',adminAccountId:'student'},{id:'admingroup',adminAccountId:'student'},{id:'adminuser',adminAccountId:'other'}];
       const viewCache=new Map([['admin',{}],['adminuser:student',{}]]);
       window.calls=[];window.alerts=[];
@@ -29,10 +30,10 @@ try{
       function paintAdmin(){if(document.querySelector('section.on').id!=='admin'||adminAccountId!==null)throw Error('Reloaded deleted account');accountFetch('/api/admin/users');}
       ${handler}
     `});
-    await page.locator('[data-account="delete-user"]').click();
+    await page.locator('[data-account="archive-user"]').click();
     if(outcome==='success'){
       await page.locator('.account-deleted-dialog').waitFor({state:'visible'});
-      assert.match(await page.locator('.account-deleted-dialog p').textContent(),/Student <Example>.*has been deleted/);
+      assert.match(await page.locator('.account-deleted-dialog p').textContent(),/Student <Example>.*has been moved to Archive/);
       assert.equal(await page.locator('.account-deleted-dialog img').count(),0,'Student names are plain text');
       assert.equal(await page.locator('section.on').getAttribute('id'),'adminuser','Navigation waits for acknowledgement');
       assert.equal(await page.evaluate(()=>calls.length),1,'No reload of the deleted account after DELETE');
@@ -40,14 +41,14 @@ try{
       await page.keyboard.press('Escape');assert.equal(await page.locator('.account-deleted-dialog').isVisible(),true);
       await page.locator('.account-deleted-dialog button').click();
       await page.waitForFunction(()=>document.querySelector('section.on')?.id==='admin');
-      assert.deepEqual(await page.evaluate(()=>calls),[{path:'/api/admin/users/student',method:'DELETE'},{path:'/api/admin/users',method:'GET'}]);
+      assert.deepEqual(await page.evaluate(()=>calls),[{path:'/api/archive',method:'POST'},{path:'/api/admin/users',method:'GET'}]);
       assert.deepEqual(await page.evaluate(()=>({id:adminAccountId,selected:adminSelectedUser,tab:adminTab,accounts:adminAccounts.map(user=>user.id),members:adminMembers.map(row=>row.accountId),cache:viewCache.size,history:navStack})),{id:null,selected:null,tab:'accounts',accounts:['other'],members:['other'],cache:0,history:[{id:'admingroup',adminAccountId:null},{id:'adminuser',adminAccountId:'other'}]});
       assert.deepEqual(await page.evaluate(()=>alerts),[]);
     }else{
       if(outcome==='failure')await page.waitForFunction(()=>alerts.length===1);
       assert.equal(await page.evaluate(()=>calls.length),outcome==='cancel'?0:1);
       assert.equal(await page.locator('.account-deleted-dialog').count(),0);
-      assert.equal(await page.locator('[data-account="delete-user"]').isEnabled(),true);
+      assert.equal(await page.locator('[data-account="archive-user"]').isEnabled(),true);
       assert.equal(await page.evaluate(()=>adminAccountId),'student');
     }
     assert.deepEqual(errors,[]);await page.close();

@@ -387,8 +387,9 @@ test('Explicit TEST quota removal permits over 50 requests but retains live auth
     assert.equal(f.queries,0);
   }finally{f.close();}
 });
-test('Developer deactivation and deletion stay account-scoped; no old educational SQL reads/writes',async()=>{
+test('Developer deletion requires Archive and removes its record after complete cleanup',async()=>{
   const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
     const dev=f.client(),student=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
     await student.call('/api/register','POST',{login:'FixtureStudent',email:'student@example.invalid',password});
     const row=f.sqlite.prepare('SELECT id FROM registrations').get();await dev.call('/api/admin/registrations/'+row.id+'/approve','POST',{});
@@ -397,7 +398,13 @@ test('Developer deactivation and deletion stay account-scoped; no old educationa
     assert.ok((await dev.call('/api/admin/users')).value.users.some(row=>row.id===account.id),'Deactivated is not deleted');
     assert.equal((await student.call('/api/me')).value.user,null);
     assert.equal((await dev.call('/api/admin/users/'+account.id+'/active','POST',{active:true})).status,200);
+    assert.equal((await dev.call('/api/admin/users/'+account.id,'DELETE')).status,503,'Study writes must be enabled for full cleanup');
+    f.env.STAGE_WRITES='true';
+    assert.equal((await dev.call('/api/admin/users/'+account.id,'DELETE')).status,404,'Unarchived accounts cannot be deleted');
+    assert.equal((await dev.call('/api/archive','POST',{action:'archive',type:'account',id:account.id})).status,200);
+    assert.equal((await dev.call('/api/admin/users/'+account.id+'/active','POST',{active:true})).status,409,'Archive cannot be bypassed through Activate');
     assert.equal((await dev.call('/api/admin/users/'+account.id,'DELETE')).status,200);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM account_archives').get().n,0);
     assert.ok(!(await dev.call('/api/admin/users')).value.users.some(row=>row.id===account.id));
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users WHERE id=?').get(account.id).n,0);
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM users WHERE id=?').get(devId).n,1);assert.ok(f.queries<=50);

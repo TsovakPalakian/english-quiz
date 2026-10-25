@@ -34,6 +34,22 @@ async function managedChat(f,kind='direct'){
   await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});
   await f.drain();return {id,command:(actor,action,body={})=>chatCall(f.env,'CHAT_INBOX',actor,'/command',{action,body:{roomId:id,...body}})};
 }
+test('Account purge removes personal messages and inbox references while preserving other group messages',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f,'group');
+    await c.command('alice','send',{text:'Deleted student private content',clientKey:'purge-alice'});
+    await c.command('bob','send',{text:'Keep the other student',clientKey:'purge-bob'});await f.drain();
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/purge-account',{accountId:'alice'});
+    await chatCall(f.env,'CHAT_INBOX','alice','/purge-account',{accountId:'alice'});
+    await chatCall(f.env,'CHAT_INBOX','bob','/purge-account',{accountId:'alice'});
+    const room=f.env.CHAT_ROOM.get(c.id);
+    assert.equal(room.one('SELECT COUNT(*) n FROM messages').n,1);
+    assert.equal(room.one('SELECT sender FROM messages').sender,'bob');
+    assert.equal(room.one('SELECT COUNT(*) n FROM members WHERE id=?','alice').n,0);
+    assert.equal(f.env.CHAT_INBOX.get('alice').snapshot().profile.id,'alice');
+    assert.equal(f.env.CHAT_INBOX.get('alice').snapshot().rooms.length,0);
+  }finally{await f.drain();f.close();}
+});
 test('room summaries expose only public peer roles, never internal developer roles',async()=>{
   const f=fixture();try{const c=await managedChat(f);
     assert.equal((await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id).peerRole,'Student');

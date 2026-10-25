@@ -151,7 +151,9 @@ test('Each student gets frozen definitions, separate grades and published colore
     await assert.rejects(service.examLink(by('mate'),a.id),e=>e.status===404);
     await assert.rejects(assessment.write(by('teacher'),{kind:'exam-block',id:block.id,studentId:'student',action:'reopen',reason:'Retry'}),e=>e.status===409);
     await service.assignStudent(by('teacher'),'student',2);
-    assert.equal((await exams.list(by('student'))).find(e=>e.id===a.id).groupTitle,'A1 Group');
+    const transferred=(await exams.list(by('student'))).find(e=>e.id===a.id);
+    assert.equal(transferred.groupTitle,'B1 Group');
+    assert.equal(transferred.instanceStatus,'completed','Transfer preserves completed work');
     await service.assign(by('teacher'),{targetKind:'student',targetId:'student',examId:1,action:'assign',clientKey:'new-independent-attempt'});
     const attempts=(await exams.list(by('student'))).filter(e=>e.instanceStatus);
     assert.equal(attempts.length,2);assert.equal(attempts.filter(e=>e.instanceStatus==='completed').length,1);

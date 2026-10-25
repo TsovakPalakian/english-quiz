@@ -2,7 +2,7 @@ import {StudyError,statement as s,recordId,lessonAccess} from './learning-study.
 import {materialVisibility} from './learning-visibility.mjs';
 import {studentExamContent,ExamService} from './learning-exams.mjs';
 import {examGrading,examChildren,examAnswerQuestions,memoryScore} from './exam-scoring.mjs';
-import {instanceAccess} from './learning-exam-instances.mjs';
+import {instanceAccess,mayReviewInstance} from './learning-exam-instances.mjs';
 import {examLifecycleCommands} from './learning-exam-lifecycle.mjs';
 import {assignedExamIds,assignedExamSql} from './learning-exam-access.mjs';
 import {boundedMediaBytes} from './learning-r2-media.mjs';
@@ -60,7 +60,7 @@ export class AssessmentService{
       if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
       if(!reviewer(actor)&&found.instance_status==='ready')fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
       await instanceAccess(this.db,found.exam_id,account);
-      if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance?.reviewer_id&&instance.reviewer_id!==actor.id)fail(403,'Only the assigned teacher can review this exam.');}
+      if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id,group_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance?.reviewer_id&&!await mayReviewInstance(this.db,instance,actor))fail(403,'Only the assigned teacher can review this exam.');}
       rows=await this.db.read('SELECT id,type,content_json FROM exam_materials WHERE block_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
       return {examId:found.exam_id,parts:rows.map(row=>({...JSON.parse(row.content_json),id:row.id,type:row.type}))};
     }

@@ -399,9 +399,9 @@
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
             '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
             '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>' +
-            '<button class="btn stop" type="button" data-account="delete-user" data-id="' + esc(user.id) + '">Delete account</button></div>'
+            '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button></div>'
             : '<p>' + esc(user.email) + (user.name ? " · " + esc(user.name) : "") + '</p>' +
-              (openPages ? '<div class="row" style="margin-top:8px">' + openPages + '</div>' : '') +
+              '<div class="row" style="margin-top:8px">'+openPages+(user.role==='USER'?'<button class="btn stop" type="button" data-account="archive-user" data-id="'+esc(user.id)+'">Archive account</button>':'')+'</div>' +
               (isDeveloper() ? '<p class="label">Role</p><select data-role-pick>' +
                 '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
                 '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +

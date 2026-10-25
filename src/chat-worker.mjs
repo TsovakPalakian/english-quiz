@@ -117,6 +117,27 @@ export class ChatBridge{
     this.set('roomIndex',{at:Date.now(),rooms});
     return {registered:true};
   }
+  async purgeAccount(accountId){
+    if(!/^[a-f0-9]{16,64}$/.test(accountId||''))fail(400,'Invalid account.');
+    const policy=await this.policy(true,true),index=this.get('roomIndex')||{rooms:[]};
+    const db=this.database(this.env),hasInstances=(await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length;
+    const examIds=hasInstances?(await db.read('SELECT exam_id FROM exam_instances WHERE account_id=?',[accountId])).map(row=>row.exam_id):[];
+    for(const room of index.rooms)await chatCall(this.env,'CHAT_ROOM',room.id,'/purge-account',{accountId,examIds});
+    for(const id of new Set([accountId,...policy.users.map(user=>user.id)]))await chatCall(this.env,'CHAT_INBOX',id,'/purge-account',{accountId});
+    const avatar=this.get('avatar:'+accountId);
+    if(avatar?.storageKey){if(!this.env.CONTENT_MEDIA?.delete)fail(503,'Avatar deletion unavailable.');await this.env.CONTENT_MEDIA.delete(avatar.storageKey);}
+    const username=this.get('username:'+accountId);
+    this.ctx.storage.transactionSync(()=>{
+      this.sql.exec('DELETE FROM profiles WHERE user_id=?',accountId);
+      for(const row of this.sql.exec('SELECT key,value FROM meta').toArray()){
+        if(row.key==='roomIndex'){const value=JSON.parse(row.value);this.set('roomIndex',{...value,rooms:value.rooms.filter(room=>!room.id.split(':').includes(accountId))});}
+        else if(row.key.startsWith('watchers:'))this.set(row.key,JSON.parse(row.value).filter(id=>id!==accountId));
+        else if(row.key.includes(accountId)||row.key==='username-owner:'+username||row.value.includes(accountId))this.sql.exec('DELETE FROM meta WHERE key=?',row.key);
+      }
+      this.set('policy',null);
+    });
+    return {removed:true};
+  }
   async migrate(roomId,policy){
     if(this.importing.has(roomId))return this.importing.get(roomId);
     const job=this.importRoom(roomId,policy).finally(()=>this.importing.delete(roomId));this.importing.set(roomId,job);return job;
@@ -200,6 +221,7 @@ export class ChatBridge{
   async receiveRequest(request){
     try{await this.prepare(request);}catch(error){return json({error:error.status?error.message:'Chat database unavailable.'},error.status||503);}
     if(new URL(request.url).pathname==='/signup-username'){try{return json(signupUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Signup username unavailable.'},error.status||503);}}
+    if(new URL(request.url).pathname==='/purge-account'){try{return json(await this.purgeAccount((await request.json()).accountId));}catch(error){return json({error:error.status?error.message:'Account cleanup failed.'},error.status||503);}}
     if(new URL(request.url).pathname==='/profile'){try{const body=await request.json();return json(body.read?{details:profileDetails(this,body.actor.id)}:await setProfileDetails(this,body));}catch(error){return json({error:error.status?error.message:'Profile could not be saved.'},error.status||503);}}
     if(new URL(request.url).pathname==='/username'){try{return json(await setUsername(this,await request.json()));}catch(error){return json({error:error.status?error.message:'Username could not be saved.'},error.status||503);}}
     try{const path=new URL(request.url).pathname,body=await request.json();if(path==='/profiles')return json(readProfiles(this,body));if(path==='/presence')return json(await setPresence(this,body));if(path==='/avatar')return json(await setAvatar(this,body));if(path==='/discover')return json(await this.discover(body.actor,body.query));if(path==='/bootstrap')return json(await this.bootstrap(body.actor));if(path==='/catalog')return json(await this.catalog());if(path==='/register-room')return json(this.registerRoom(body.room||body));if(path==='/policy')return json(await this.policy(true,true));if(path==='/invalidate'){if(this.loading)await this.loading.catch(()=>{});this.set('policyDirtyAt',Date.now());await this.ctx.storage.setAlarm(Date.now()+120000);for(const user of this.get('policy')?.users||[])await chatCall(this.env,'CHAT_INBOX',user.id,'/suspend',{});this.set('policy',null);return json({invalidated:true});}if(path==='/flush')return json(await this.flush());return json({error:'Not found.'},404);}catch(error){return json({error:error.status?error.message:'Chat initialization failed.'},error.status||503);}
@@ -211,7 +233,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
     if(env.CHAT_V2_ENABLED!=='true')return application.fetch(request,env,ctx);
     const url=new URL(request.url),path=url.pathname,route=path==='/api/messages/socket',legacyChat=path==='/api/messages'||['/api/messages/history','/api/messages/send','/api/messages/open','/api/messages/read','/api/messages/mute'].includes(path);
     if(legacyChat)return json({error:'Reload the page to connect to the new chat.'},410);
-    const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||['/api/me/account','/api/me/revoke'].includes(path)),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
+      const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||['/api/me/account','/api/me/revoke'].includes(path)),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
     try{
       if(path==='/api/me/notification-sounds'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');

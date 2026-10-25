@@ -258,9 +258,10 @@ try{
   await page.locator('[data-detail-lessons]').click();
   await page.locator('#days.on').waitFor();
   assert.equal(await page.locator('section.on').getAttribute('id'),'days');
-  assert.equal(await page.locator('#lmGroupTitle').innerText(),'Fixture group');
+  assert.equal(await page.locator('#lmGroupTitle').innerText(),'Lessons');
+  assert.match(await page.locator('#lmGroupName').innerText(),/Fixture group/);
   assert.match(await page.locator('#lmGroupName').innerText(),/lessons · 1/);
-  assert.deepEqual(await page.locator('#days .page-path li').allTextContents(),['Groups','Unassigned','Fixture group']);
+  assert.deepEqual(await page.locator('#days .page-path li').allTextContents(),['Groups','Unassigned','Fixture group','Lessons']);
   await page.locator('#days [data-lm-open="31"]').click();
   await page.locator('#material.on').waitFor();
   await page.waitForFunction(()=>document.querySelector('#material .page-path')?.textContent.includes('Fixture lesson'));

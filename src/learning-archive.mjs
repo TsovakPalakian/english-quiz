@@ -59,16 +59,16 @@ export class ArchiveService{
     const rows=await this.db.read(`SELECT entity_type type,entity_id id,title,archived_by archivedBy,
       archived_by_name archivedByName,archived_by_role archivedByRole,archived_at archivedAt,teacher_hidden_at teacherHiddenAt,
       teacher_hidden_by teacherHiddenBy FROM content_archive
-      WHERE (?=1 OR (teacher_hidden_at IS NULL AND (?=1 OR (archived_by=? AND archived_by_role='USER'))))
-      ORDER BY entity_type,archived_at DESC`,[actor.role==='DEVELOPER'?1:0,actor.role==='ADMIN'?1:0,actor.id]);
+      WHERE (?=1 OR (teacher_hidden_at IS NULL AND archived_by=?))
+      ORDER BY entity_type,archived_at DESC`,[actor.role==='DEVELOPER'?1:0,actor.id]);
     return {revision:await this.revision(),items:rows.map(row=>({...row,archivedAt:Number(row.archivedAt)||0,teacherHiddenAt:Number(row.teacherHiddenAt)||0}))};
   }
   async preview(actor,value){
     if(!actor?.id)fail(401,'Sign in first.');
     const {item,key}=entity(value?.type,value?.id);await this.ensure();
     const [entry]=await this.db.read(`SELECT title FROM content_archive WHERE entity_type=? AND entity_id=?
-      AND (?=1 OR (teacher_hidden_at IS NULL AND (?=1 OR (archived_by=? AND archived_by_role='USER'))))`,
-      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.role==='ADMIN'?1:0,actor.id]);
+      AND (?=1 OR (teacher_hidden_at IS NULL AND archived_by=?))`,
+      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.id]);
     if(!entry)fail(404,'Archived material not found.');
     const [row]=await this.db.read(`SELECT * FROM ${item.table} WHERE CAST(id AS TEXT)=?${item.kind?' AND kind=?':''} AND deleted_at IS NOT NULL`,[key,...(item.kind?[item.kind]:[])]);
     if(!row)fail(404,'Archived material not found.');
@@ -151,8 +151,8 @@ export class ArchiveService{
     if(!actor?.id)fail(401,'Sign in first.');
     const {item,key}=entity(value?.type,value?.id);await this.ensure();
     const found=await this.db.read(`SELECT entity_id FROM content_archive WHERE entity_type=? AND entity_id=?
-      AND (?=1 OR (teacher_hidden_at IS NULL AND (?=1 OR (archived_by=? AND archived_by_role='USER'))))`,
-      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.role==='ADMIN'?1:0,actor.id]);
+      AND (?=1 OR (teacher_hidden_at IS NULL AND archived_by=?))`,
+      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.id]);
     if(found.length!==1)fail(404,'Archived material not found.');
     if(value.type==='exam-block'){
       const parent=await this.db.read('SELECT e.deleted_at FROM exams e JOIN exam_blocks b ON b.exam_id=e.id WHERE CAST(b.id AS TEXT)=?',[key]);
@@ -178,6 +178,7 @@ export class ArchiveService{
     }
     if(!reviewer(actor))fail(403,'You cannot remove this archived material.');
     if(actor.role!=='DEVELOPER'){
+      if(found[0].archived_by!==actor.id||found[0].teacher_hidden_at)fail(404,'Archived material not found.');
       if(!passwordVerified)fail(401,'Wrong password.');
       await this.db.atomic([stmt(`UPDATE content_archive SET teacher_hidden_at=unixepoch(),teacher_hidden_by=?
         WHERE entity_type=? AND entity_id=? AND teacher_hidden_at IS NULL`,[actor.id,value.type,key]),this.bump()]);

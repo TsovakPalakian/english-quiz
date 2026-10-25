@@ -204,6 +204,7 @@ export class MessageService {
         SELECT r.id,?,COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0),c.updated_at,COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0),0
         FROM chat_rooms r JOIN class_group_students c ON c.group_id=r.group_id WHERE c.account_id=? AND r.kind='group'
         ON CONFLICT(room_id,account_id) DO UPDATE SET joined_seq=excluded.joined_seq,group_epoch=excluded.group_epoch,read_personal=excluded.read_personal,read_learning=excluded.read_learning`,[accountId,accountId])];
+    commands.push(...await service.studentExamTransferCommands(accountId,groupId));
     await service.groupTransaction(commands); return {saved:true};
   }
   noticeCommands(actor,recipients,assignment,body,clientKey) {

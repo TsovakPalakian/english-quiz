@@ -1,6 +1,7 @@
 import {statement as stmt, StudyError, recordId} from './learning-study.mjs';
 import {materialVisibility} from './learning-visibility.mjs';
 import {ArchiveService} from './learning-archive.mjs';
+import {ensureAccountArchive} from './account-archive.mjs';
 import {normalizedGroupTitle,prefixedExamTitle,groupLevel} from './group-levels.mjs';
 
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
@@ -100,18 +101,22 @@ export class GroupService{
         AND (l.hidden_from_students=0 OR EXISTS(SELECT 1 FROM lesson_access a WHERE a.lesson_id=l.id AND a.account_id=? AND a.allow_hidden=1))))
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
     const hidden=await materialVisibility(this.db,actor.id);
-    const studentCounts=await this.db.read('SELECT group_id,COUNT(*) AS total FROM class_group_students GROUP BY group_id');
+    await ensureAccountArchive(this.db);
+    const studentCounts=await this.db.read('SELECT group_id,COUNT(*) AS total FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id) GROUP BY group_id');
     const exams=await this.db.read('SELECT group_id,exam_id FROM class_group_exams');
     if((!teacher||actor.managedStudent)&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length){
-      const copies=await this.db.read("SELECT exam_id,source_exam_id,status FROM exam_instances WHERE account_id=? AND active=1",[actor.id]);
-      for(let index=exams.length-1;index>=0;index--){const link=exams[index],own=copies.filter(copy=>copy.source_exam_id===link.exam_id);if(own.length)exams.splice(index,1,...own.filter(copy=>copy.status!=='completed').map(copy=>({...link,exam_id:copy.exam_id})));}
+      const columns=await this.db.read('PRAGMA table_info(exam_instances)');
+      const copies=await this.db.read('SELECT exam_id,source_exam_id,status,'+(columns.some(c=>c.name==='group_id')?'group_id':'NULL AS group_id')+' FROM exam_instances WHERE account_id=? AND active=1',[actor.id]);
+      for(let index=exams.length-1;index>=0;index--)if(copies.some(copy=>copy.source_exam_id===exams[index].exam_id))exams.splice(index,1);
+      for(const copy of copies)if(copy.status!=='completed'&&copy.group_id!=null)exams.push({group_id:copy.group_id,exam_id:copy.exam_id});
     }
     return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,studentCount:Number(studentCounts.find(row=>row.group_id===group.id)?.total||0),
       lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id)}));
   }
   async members(actor){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
-    return this.db.read('SELECT account_id AS accountId,group_id AS groupId FROM class_group_students');
+    await ensureAccountArchive(this.db);
+    return this.db.read('SELECT account_id AS accountId,group_id AS groupId FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id)');
   }
   async activeGroup(id){
     recordId(id);await this.seed();const [group]=await this.db.read('SELECT * FROM class_groups WHERE id=? AND deleted_at IS NULL',[id]);
@@ -121,10 +126,17 @@ export class GroupService{
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');
     if(typeof accountId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(accountId))fail(400,'Invalid student.');
     if(groupId!=null)await this.activeGroup(groupId);else await this.ensure();
-    await this.groupTransaction(groupId==null?[stmt('DELETE FROM class_group_students WHERE account_id=?',[accountId])]:[
+    const transfer=await this.studentExamTransferCommands(accountId,groupId);
+    await this.groupTransaction((groupId==null?[stmt('DELETE FROM class_group_students WHERE account_id=?',[accountId])]:[
       stmt("INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND deleted_at IS NULL)",[groupId]),
       stmt('INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES(?,?,?) ON CONFLICT(account_id) DO UPDATE SET group_id=excluded.group_id,assigned_by=excluded.assigned_by,updated_at=unixepoch()',[accountId,groupId,actor.id]),
-      stmt('UPDATE class_groups SET revision=revision+1 WHERE id=?',[groupId])]);return {saved:true};
+      stmt('UPDATE class_groups SET revision=revision+1 WHERE id=?',[groupId])]).concat(transfer));return {saved:true};
+  }
+  async studentExamTransferCommands(accountId,groupId){
+    if(!(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length)return [];
+    const columns=new Set((await this.db.read('PRAGMA table_info(exam_instances)')).map(row=>row.name));
+    if(!columns.has('group_id')||!columns.has('group_title'))return [];
+    return [stmt("UPDATE exam_instances SET group_id=?,group_title=COALESCE((SELECT title FROM class_groups WHERE id=?),'') WHERE account_id=?",[groupId,groupId,accountId])];
   }
   async groupTransaction(commands){
     return this.db.atomic([stmt('DROP TABLE IF EXISTS temp.group_guard'),stmt('CREATE TEMP TABLE group_guard(ok INTEGER NOT NULL CHECK(ok=1))'),...commands,stmt('DROP TABLE temp.group_guard')]);

@@ -175,6 +175,20 @@
       id = domEntityId(id);
       return examLoad().find((row) => row.id === id) || null;
     }
+    async function examOpenSelected(id){
+      id=domEntityId(id);
+      let exam=examFind(id);
+      if(exam?.studentId&&isTeacher()&&!viewAccount){
+        const actor=authUser?.id,generation=viewGen,page=document.querySelector('section.on')?.id;
+        examReady=false;await examPull(true);
+        if(!examReady||actor!==authUser?.id||generation!==viewGen||page!==document.querySelector('section.on')?.id)return;
+        exam=examFind(id);
+        if(!exam){window.LearningMain?.notice('This work is no longer available in this group.');return;}
+        materialReviewStudent={id:exam.studentId,name:exam.studentName,email:exam.studentEmail};examResetWork();
+      }
+      if(!exam)return;
+      examCurrentId=id;visit('examblocks');
+    }
     let examWork = {};
     let examWorkLoadedFor = "";
     let examWorkPulling = false;
@@ -185,7 +199,7 @@
       examWorkPulling = false;
     }
     function examWorkAccount() {
-      return (viewAccount && viewAccount.id) || (authUser && authUser.id) || "";
+      return (viewAccount && viewAccount.id) || (typeof materialReviewStudent!=='undefined'&&materialReviewStudent?.id) || (authUser && authUser.id) || "";
     }
     function examWorkBag() {
       const id = examWorkAccount();
@@ -873,6 +887,9 @@
     let examSection='active';
     function examPaintList() {
       const box = document.getElementById("examList");
+      const heading=document.querySelector('#exams .meta h1');
+      const owner=classGroups.find(group=>String(group.id)===String(examViewGroup));
+      if(heading)heading.textContent='Exams'+(owner?' · '+owner.title:'');
       const newer = document.getElementById("examNew");
       if (newer) newer.hidden = !canEditLessons() || !classGroups.some(group=>String(group.id)===String(examViewGroup));
       if (!box) return;
@@ -1188,6 +1205,7 @@
       const openScreen = show;
       show = function (id) {
         if ((examHold || (lmState && lmState.examOwned)) && !(id === "material" && lmState && lmState.examOwned)) examLeave();
+        if(materialReviewStudent&&!['material','examblocks'].includes(id)){materialReviewStudent=null;examResetWork();}
         const result = openScreen(id);
         if (id === "exams") examPaintList();
         if (id === "examblocks") examPaintBlocks();
@@ -1223,20 +1241,14 @@
       document.addEventListener('click',event => {
         const open = event.target.closest('#adminGroupDetail [data-exam-open]');
         if (!open || !isTeacher() || viewAccount) return;
-        examCurrentId = domEntityId(open.dataset.examOpen); visit('examblocks');
+        void examOpenSelected(open.dataset.examOpen);
       });
       document.getElementById('examSections')?.addEventListener('click',event=>{const button=event.target.closest('[data-exam-section]');if(button){examSection=button.dataset.examSection;examPaintList();rememberPlace();}});
       if (list) list.addEventListener("click", async (event) => {
         if (examTool(event)) return;
         const open = event.target.closest("[data-exam-open]");
         if (!open) return;
-        const instance=examFind(open.dataset.examOpen);
-        if(instance?.studentId&&canEditLessons()){
-          await openStudentPages({id:instance.studentId,name:instance.studentName,role:'USER'});
-          await examPull(true);
-        }
-        examCurrentId = domEntityId(open.dataset.examOpen);
-        visit("examblocks");
+        await examOpenSelected(open.dataset.examOpen);
       });
       if (blocks) blocks.addEventListener("click", (event) => {
         if (examTool(event)) return;
