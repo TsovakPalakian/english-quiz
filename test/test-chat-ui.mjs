@@ -19,9 +19,19 @@ const archive=archiveModule.exports;
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{const path=new URL(req.url,'http://localhost').pathname,file=resolve(root,path==='/'?'index.html':'.'+path);if(!file.startsWith(root+'/')||!existsSync(file)){res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':file.endsWith('.png')?'image/png':'application/octet-stream','Content-Security-Policy':stageContentPolicy+"; worker-src 'self' blob:"});res.end(readFileSync(file));});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+let browser;
 try{
+  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
   const page=await browser.newPage({viewport:{width:1664,height:1000}}),errors=[],http=[],commands=[];page.on('pageerror',e=>errors.push(e.message));
+  const renderedHeading=async(selector,expected)=>{
+    await page.locator(selector).scrollIntoViewIfNeeded();
+    const value=await page.waitForFunction(({selector,expected})=>{
+      const node=document.querySelector(selector);
+      const text=node?.getClientRects().length?node.innerText:null;
+      return text===expected?text:false;
+    },{selector,expected},{timeout:10000});
+    try{return await value.jsonValue();}finally{await value.dispose();}
+  };
   await page.addInitScript(()=>{const Native=window.AudioContext;if(Native)window.AudioContext=class extends Native{createOscillator(){window.fixtureAlertTones=(window.fixtureAlertTones||0)+1;return super.createOscillator();}createBufferSource(){const source=super.createBufferSource(),start=source.start.bind(source);source.start=(...args)=>{window.fixtureRecordingStarts=(window.fixtureRecordingStarts||0)+1;return start(...args);};return source;}};});
   await page.addInitScript(()=>{const Native=window.XMLHttpRequest;window.XMLHttpRequest=class extends Native{send(file){if(file?.name==='Progress.bin'){this.fixture=true;window.fixtureUpload=this;return;}return super.send(file);}abort(){if(this.fixture){this.fixtureCancelled=true;this.onabort?.();return;}return super.abort();}};});
   const student={id:'b'.repeat(32),login:'fixture_student',email:'alice@example.com',name:'Alice',role:'USER'},teacher='a'.repeat(32),roomId='direct:'+teacher+':'+student.id;
@@ -783,9 +793,9 @@ try{
   yield "201. [data-admin-level] / checks";
   assert.deepEqual(await page.locator('[data-admin-level]').evaluateAll(nodes=>nodes.map(n=>n.dataset.adminLevel)),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2']);
   assert.equal(await page.locator('[data-admin-tab="groups"]').count(),0);assert.match(await page.locator('[data-admin-tab="accounts"]').innerText(),/Approved accounts & Groups/);
-  assert.equal(await page.locator('[data-admin-bucket="staff"]>b').innerText(),'Teachers & Staff');
+  assert.equal(await renderedHeading('[data-admin-bucket="staff"]>b','Teachers & Staff'),'Teachers & Staff');
     yield "202. [data-admin-bucket=\"unassigned\"]>b / checks";
-    assert.equal(await page.locator('[data-admin-bucket="unassigned"]>b').innerText(),'Unassigned');
+    assert.equal(await renderedHeading('[data-admin-bucket="unassigned"]>b','Unassigned'),'Unassigned');
   assert.deepEqual(await page.locator('[data-admin-level="A1"] .accounts-metrics>span').allTextContents(),['groups · 1','teachers','students · 1','lessons · 1','exams']);
   assert.ok(await page.locator('#admin .file-card').evaluateAll(nodes=>nodes.every(n=>n.getBoundingClientRect().height<180)),'Accounts cards use compact heights');
   await Promise.resolve();
@@ -911,6 +921,6 @@ try{
     await signupEmail.fill('valid@example.com');assert.equal(await signupEmail.getAttribute('aria-invalid'),'false');assert.equal(await page.locator('#signup-email-error').isVisible(),false);
   assert.deepEqual(errors,[]);
   console.log('Chat UI, account group levels/create/back/mobile and idle expiry/reload passed.');
-}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
+}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 
 });
