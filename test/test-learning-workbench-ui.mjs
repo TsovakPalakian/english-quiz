@@ -40,7 +40,7 @@ yield "00. Fixture and browser setup";
     server=createServer(async(req,res)=>{
       try{
         const origin='http://127.0.0.1:'+server.address().port;
-        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
+        if(req.url==='/'){res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/style.css"><aside class="side"><nav></nav></aside><main class="wrap"><section class="on" id="material"><div id="lesson"></div><div id="personal"></div><button id="old-study">Study</button></section></main><nav class="tabbar"></nav><script src="/test.js"></script>');return;}
         if(req.url==='/style.css'){res.setHeader('Content-Type','text/css');res.end(readFileSync(new URL('../site/preview.css',import.meta.url),'utf8')+'\n'+readFileSync(new URL('../site/main-stage.css',import.meta.url),'utf8'));return;}
         if(req.url==='/test.js'){res.setHeader('Content-Type','text/javascript; charset=utf-8');res.end(speechUIFactory()+reviewEditorFactory()+script);return;}
         if(req.url==='/favicon.ico'){res.writeHead(204);res.end();return;}
@@ -128,6 +128,12 @@ yield "00. Fixture and browser setup";
     await page.locator('[name=lessonContext]').waitFor({state:'attached'});await page.locator('[data-speech-form=task]').evaluate(node=>node.closest('details').open=true);
     yield "21. selectOption";
     await page.selectOption('[name=lessonContext]','0');await page.locator('[data-speech-form=task] [name=prompt]').fill('Read the selected lesson word.');await page.locator('[data-speech-form=task] [name=reference]').fill('drizzle');
+    await page.waitForFunction(()=>{
+      const button=document.querySelector('[data-speech-form=task] button');if(!button||button.disabled)return false;
+      button.scrollIntoView({block:'center',behavior:'instant'});
+      const rect=button.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+      return rect.width>0&&rect.height>0&&document.elementFromPoint(x,y)?.closest('button')===button;
+    });
     await page.locator('[data-speech-form=task] button').click();
     yield "22. waitForFunction";
     await page.waitForFunction(()=>document.querySelector('#speech-task')?.options.length===2);
