@@ -143,14 +143,14 @@ try{
     assert.ok(await page.locator('#material').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Exam editor fits '+width);
   }
   await page.locator('#material [data-path-exam-group="41"]').click();
-  const metrics=page.locator('#examOverview .metric-pairs');
-  await metrics.waitFor({state:'visible'});
-  await metrics.scrollIntoViewIfNeeded();
   const layout=await page.waitForFunction(()=>{
     const node=document.querySelector('#examOverview .metric-pairs');
-    if(!node?.getClientRects().length)return false;
+    if(!node?.isConnected||!node.getClientRects().length)return false;
+    // Locate and scroll the current node in the same browser task: the overview
+    // may be replaced between Playwright's separate stability/action steps.
+    node.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
     const style=getComputedStyle(node),columns=style.gridTemplateColumns;
-    if(style.display!=='grid'||columns==='none')return false;
+    if(style.display!=='grid'||style.visibility!=='visible'||columns==='none')return false;
     const count=columns.trim().split(/\s+/).length;
     return count===2?{columns:count}:false;
   },null,{timeout:10000});
