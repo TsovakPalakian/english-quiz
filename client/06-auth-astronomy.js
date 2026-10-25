@@ -63,7 +63,7 @@ const StudioSkyAstronomy=(()=>{
   }
   function markerSpacing(stars){
     // Close catalogue pairs may blend, but must not erase each other's markers.
-    return stars.map((s,i)=>Math.min(...stars.filter((p,j)=>i!==j&&angularDistance(s,p)>=1/60).map(p=>Math.hypot(p.x-s.x,p.y-s.y))));
+    return stars.map((s,i)=>Math.min(...stars.filter((p,j)=>i!==j&&angularDistance(s,p)>=0.2).map(p=>Math.hypot(p.x-s.x,p.y-s.y))));
   }
   function preferredSize(c,width,height){
     const core=c.points.slice(0,c.stars.length),span=Math.max(c.bounds.width,c.bounds.height);
@@ -100,6 +100,8 @@ const StudioSkyAstronomy=(()=>{
     }
     candidates.sort((a,b)=>b.size-a.size||a.tie-b.tie);
     const primaryId=brightest(c.stars,c.abbr)?.id;
+    const alphaId=alphaStar(c.stars,c.abbr)?.id;
+    let fallbackLayout=null;
     for(const frame of candidates){
       const candidate=layout(c,frame.cx,frame.cy,frame.size),core=candidate.stars.slice(0,c.stars.length);
       if(core.some(p=>p.x<18||p.x>width-18||p.y<18||p.y>height-18))continue;
@@ -107,8 +109,9 @@ const StudioSkyAstronomy=(()=>{
       if(!clearFigure(c,visible,rects))continue;
       if(visible.some(p=>{const r=appearance(p.mag,p.bv).radius*4;return rects.some(b=>intersects(b,{left:p.x-r,right:p.x+r,top:p.y-r,bottom:p.y+r}));}))continue;
       const blocked=b=>rects.some(r=>intersects(b,r))||c.lines.some(([i,j])=>segmentHitsBox(candidate.stars[i],candidate.stars[j],b));
-      const boxes=labels(visible,width,height,blocked,text=>measure(text,12),primaryId);
+      const boxes=labels(visible,width,height,blocked,text=>measure(text,12),primaryId,alphaId);
       if(boxes.filter(b=>b.star.landmark).length!==visible.filter(p=>p.landmark).length||!boxes.some(b=>b.star.primary))continue;
+      const hasAlpha=!alphaId||!visible.some(p=>p.id===alphaId)||boxes.some(b=>b.star.alpha);
       const title=caption(core,c.name,width,height,blocked,text=>measure(text,18),boxes);
       if(!title)continue;
       const spacing=markerSpacing(candidate.stars);
@@ -116,18 +119,25 @@ const StudioSkyAstronomy=(()=>{
       const gaps=core.flatMap((s,i)=>core.slice(i+1).map(p=>({distance:Math.hypot(p.x-s.x,p.y-s.y),stars:[s.name,p.name]}))).sort((a,b)=>a.distance-b.distance);
       const unobstructed=Math.min(base,(width-56)*span/c.bounds.width,(height-56)*span/c.bounds.height);
       const interfaceLimited=rects.length>0&&frame.size<unobstructed*.5;
-      return {layout:{...candidate,frame,labels:[...boxes,title]},diagnostic:{abbr:c.abbr,viewport:{width,height},placed:true,size:frame.size,closestPair:gaps[0]||null,
+      const currentResult={layout:{...candidate,frame,labels:[...boxes,title]},diagnostic:{abbr:c.abbr,viewport:{width,height},placed:true,size:frame.size,closestPair:gaps[0]||null,
         interfaceLimited,blockers:interfaceLimited?rects.map(r=>({element:r.element||'interface',left:r.left,right:r.right,top:r.top,bottom:r.bottom})):[]}};
+      if(hasAlpha)return currentResult;
+      if(!fallbackLayout)fallbackLayout=currentResult;
     }
+    if(fallbackLayout)return fallbackLayout;
     return {layout:null,diagnostic:{abbr:c.abbr,viewport:{width,height},placed:false,
       reason:frames.length?'No complete figure with its title, main star and visible landmark labels fits the available space.':'Interface occupies all available space.',
       blockers:rects.map(r=>({element:r.element||'interface',left:r.left,right:r.right,top:r.top,bottom:r.bottom}))}};
   }
   const brightest=(stars,abbr=null)=>stars.filter(s=>Number.isFinite(s.mag)&&(!abbr||!s.constellation||s.constellation===abbr)).reduce((best,s)=>!best||s.mag<best.mag?s:best,null);
-  function labels(stars,width,height,blocked,measure,primaryId=null){
+  const alphaStar=(stars,abbr=null)=>stars.find(s=>s.bayer==='α'&&(!abbr||!s.constellation||s.constellation===abbr));
+  function labels(stars,width,height,blocked,measure,primaryId=null,alphaId=null){
     const boxes=[];
     const primary=stars.find(s=>!s.landmark&&s.id===primaryId);
-    const candidates=[...stars.filter(p=>p.landmark),...(primary?[{...primary,label:primary.name,primary:true}]:[])];
+    const alpha=alphaId&&alphaId!==primaryId?stars.find(s=>!s.landmark&&s.id===alphaId):null;
+    const namedStar=(s,isPrimary,isAlpha)=>({...s,label:(s.bayer?s.bayer+' ':'')+s.name,primary:isPrimary,alpha:isAlpha});
+    const candidates=[...stars.filter(p=>p.landmark),...(primary?[namedStar(primary,true,primary.id===alphaId)]:[])];
+    if(alpha)candidates.push(namedStar(alpha,false,true));
     for(const s of candidates){
       const labelWidth=measure(s.label)+12,r=appearance(s.mag,s.bv).radius+10;
       const choices=[0,12,24,40,60].flatMap(offset=>[
@@ -155,5 +165,5 @@ const StudioSkyAstronomy=(()=>{
   }
   const exposedAlpha=(alpha,gain)=>1-(1-Math.max(0,Math.min(1,alpha)))**gain;
   const controlFactor=(position,maximum=4)=>{const p=Math.max(0,Math.min(1000,position));return p<=500?p/500:maximum**((p-500)/500);};
-  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure};
+  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,alphaStar,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure};
 })();

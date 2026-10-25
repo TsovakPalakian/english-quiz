@@ -147,14 +147,42 @@
       }else{phase='hold';labels=layout?.labels||[];}
       phaseStart=now;
     }
-    function dot(x,y,r,alpha,color,glow=true,gain=brightness.constellation,maxGlow=Infinity){
-      if(alpha<=0||x<0||y<0||x>w||y>h||starBlocked({x,y},glow?r*4:r))return;
+    function dot(x,y,r,alpha,color,glow=true,gain=brightness.constellation,maxGlow=Infinity,spikes=0){
+      if(alpha<=0||x<0||y<0||x>w||y>h||starBlocked({x,y},glow?Math.min(r*4,maxGlow):r))return;
+      const exposed=astro.exposedAlpha(alpha,gain);
       if(glow){
-        const radius=Math.max(Number.EPSILON,Math.min(r*4,maxGlow)),g=ctx.createRadialGradient(x,y,0,x,y,radius);
-        g.addColorStop(0,'rgba('+color+','+astro.exposedAlpha(alpha*.24,gain)+')');g.addColorStop(1,'rgba('+color+',0)');
+        const haloFactor=gain===brightness.constellation?7.2:4;
+        const radius=Math.max(Number.EPSILON,Math.min(r*haloFactor,maxGlow)),g=ctx.createRadialGradient(x,y,0,x,y,radius);
+        if(gain===brightness.constellation){
+          g.addColorStop(0,'rgba('+color+','+(exposed*.38)+')');
+          g.addColorStop(.25,'rgba('+color+','+(exposed*.16)+')');
+          g.addColorStop(.65,'rgba('+color+','+(exposed*.04)+')');
+          g.addColorStop(1,'rgba('+color+',0)');
+        }else{
+          g.addColorStop(0,'rgba('+color+','+astro.exposedAlpha(alpha*.24,gain)+')');
+          g.addColorStop(1,'rgba('+color+',0)');
+        }
         ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
       }
-      ctx.fillStyle='rgba('+color+','+astro.exposedAlpha(alpha,gain)+')';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      if(spikes>0){
+        const spikeLen=Math.min(spikes,maxGlow*.85);
+        ctx.save();
+        ctx.strokeStyle='rgba(255,255,255,'+(exposed*.75)+')';ctx.lineWidth=Math.max(.6,Math.min(1,r*.35));
+        ctx.beginPath();
+        ctx.moveTo(x-spikeLen,y);ctx.lineTo(x+spikeLen,y);
+        ctx.moveTo(x,y-spikeLen);ctx.lineTo(x,y+spikeLen);
+        ctx.stroke();
+        ctx.strokeStyle='rgba('+color+','+(exposed*.28)+')';ctx.lineWidth=Math.max(1.2,Math.min(2,r*.7));
+        ctx.beginPath();
+        ctx.moveTo(x-spikeLen*.75,y);ctx.lineTo(x+spikeLen*.75,y);
+        ctx.moveTo(x,y-spikeLen*.75);ctx.lineTo(x,y+spikeLen*.75);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle='rgba('+color+','+exposed+')';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      if(gain===brightness.constellation&&r>=1){
+        ctx.fillStyle='rgba(255,255,255,'+exposed+')';ctx.beginPath();ctx.arc(x,y,Math.max(.7,r*.65),0,Math.PI*2);ctx.fill();
+      }
     }
     function drift(s,delta){
       if(motion.matches)return;
@@ -208,7 +236,10 @@
         Object.assign(slot,geometry.point(slot.path,t));slot.opacity=slot.fromOpacity+(slot.toOpacity-slot.fromOpacity)*t;
         const mag=slot.fromMag+(slot.mag-slot.fromMag)*t,style=astro.appearance(mag,slot.bv);
         const spacing=phase==='hold'?(layout?.stars[slots.indexOf(slot)]?.spacing??Infinity):Infinity;
-        dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity,style.color,true,brightness.constellation,spacing*.45);
+        const shimmer=motion.matches?1:(.94+.08*Math.sin(clock*.003+slot.x*.05+slot.y*.05));
+        const flux=Math.pow(10,-.4*mag);
+        const spikeLen=mag<=3.5?Math.max(5,Math.min(Math.min(28,style.radius*5.5*.75*Math.pow(flux,.15)),spacing*.38)):0;
+        dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
       if(phase==='morph')drawLines(previous,.18*(1-t));
       drawLines(current,.18*t);
@@ -220,14 +251,14 @@
       links.forEach((link,i)=>{
         const b=labels[i];link.hidden=!b;
         if(!b)return;
-        link.className=b.star.caption?'auth-sky-caption auth-sky-title':b.star.primary?'auth-sky-landmark auth-sky-primary':'auth-sky-landmark';
+        link.className=b.star.caption?'auth-sky-caption auth-sky-title':b.star.primary?'auth-sky-landmark auth-sky-primary':b.star.alpha?'auth-sky-landmark auth-sky-alpha':'auth-sky-landmark';
         if(b.star.caption){
           if(link.dataset.caption!==b.star.label){
             const name=document.createElement('span');name.className='auth-sky-name';name.textContent=b.star.label;link.replaceChildren(name);link.dataset.caption=b.star.label;
           }
           link.title=b.star.label;
         }else{link.textContent=b.star.label;delete link.dataset.caption;link.title=b.star.label;}
-        link.href=b.star.caption?'https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name):'https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(b.star.hip?'HIP '+b.star.hip:b.star.label);
+        link.href=b.star.caption?'https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name):'https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(b.star.hip?'HIP '+b.star.hip:(b.star.name||b.star.label));
         link.style.left=b.left+'px';link.style.top=b.top+'px';link.style.width=(b.right-b.left)+'px';link.style.height=(b.bottom-b.top)+'px';
         const elapsed=phaseNow-phaseStart;link.style.opacity=motion.matches||frozen?'1':String(ease(Math.min(1,elapsed/1500))*(1-ease(Math.max(0,(elapsed-(durations.hold-1800))/1800))));
       });

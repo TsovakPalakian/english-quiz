@@ -63,7 +63,7 @@ try{
       assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
       for(const label of await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').all())assert.match(await label.textContent(),/^(Polaris|Acrux|Gacrux|Mimosa|Delta Crucis|Rigil Kentaurus|Hadar)$/);
       yield "05. .auth-sky-primary:visible / checks" + " [" + JSON.stringify(viewport) + "]";
-      assert.equal(await page.locator('.auth-sky-primary:visible').textContent(),'Acrux');
+      assert.equal(await page.locator('.auth-sky-primary:visible').textContent(),'α Acrux');
       const link=page.locator('.auth-sky-caption:visible'),url=await link.getAttribute('href');
       await page.context().route('https://simbad.cds.unistra.fr/**',route=>route.fulfill({contentType:'text/html',body:'<title>Star reference fixture</title>'}));
       await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation reference fixture</title>'}));
