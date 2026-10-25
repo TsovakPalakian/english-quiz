@@ -34,7 +34,8 @@ export function skyCatalogueFactory(){
       const p=s.coordinates;
       if(!p||!Number.isFinite(p.rightAscensionDeg)||!Number.isFinite(p.declinationDeg))throw Error('Missing sky coordinates: '+s.id);
       return {id:s.id,name:s.catalogue?.properName||s.name,ra:p.rightAscensionDeg,dec:p.declinationDeg,hip:s.catalogue?.hip??null,constellation:s.catalogue?.constellation??null,
-        mag:s.photometry?.apparentMagnitude??s.photometry?.magnitudeV??null,bv:s.photometry?.colorIndexBV??null,bayer:getGreek(s)};
+        mag:s.photometry?.apparentMagnitude??s.photometry?.magnitudeV??null,bv:s.photometry?.colorIndexBV??null,bayer:getGreek(s),
+        spect:s.catalogueSpectralType||s.spectralType||null};
     };
     const packObject=(part,object)=>({...pack({...part,id:part.identifier?object.id+':'+part.identifier:object.id,name:object.name}),
       mag:part.displayPhotometry?.magnitudeV??part.photometry?.magnitudeV??null,
