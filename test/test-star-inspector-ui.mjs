@@ -38,6 +38,7 @@ try{
   const inspectorData=await page.evaluate(()=>{
     const el=document.querySelector('.auth-sky-inspector');
     return {
+      text:el.textContent,
       bayer:el.querySelector('.auth-sky-inspector-bayer')?.textContent?.trim(),
       name:el.querySelector('.auth-sky-inspector-name')?.textContent?.trim(),
       mag:el.querySelector('.auth-sky-inspector-mag')?.textContent?.trim(),
@@ -45,18 +46,23 @@ try{
       dist:el.querySelector('.auth-sky-dist-val')?.textContent?.trim(),
       hip:el.querySelector('.auth-sky-hip-val')?.textContent?.trim(),
       coords:el.querySelector('.auth-sky-coords-val')?.textContent?.trim(),
+      desc:el.querySelector('.auth-sky-inspector-desc')?.textContent?.trim(),
+      simbadLinkText:el.querySelector('.auth-sky-inspector-simbad')?.textContent?.trim(),
       simbad:el.querySelector('.auth-sky-inspector-simbad')?.getAttribute('href')
     };
   });
 
+  assert.equal(/[\u0400-\u04FF]/.test(inspectorData.text),false,'Inspector contains zero Russian characters');
   assert.equal(inspectorData.bayer,'δ','Bayer designation is delta');
   assert.equal(inspectorData.name,'Deneb Algedi','Star name is Deneb Algedi');
   assert.equal(inspectorData.mag,'2.85m','Magnitude is 2.85m');
   assert.ok(inspectorData.spect.includes('A5')||inspectorData.spect.includes('F2'),'Spectral class contains A5/F2');
-  assert.ok(inspectorData.dist.includes('39'),'Distance indicates ~39 ly');
+  assert.ok(inspectorData.dist.includes('39 ly'),'Distance indicates ~39 ly');
   assert.equal(inspectorData.hip,'HIP 107556','Hipparcos catalog ID');
   assert.ok(inspectorData.simbad.includes('107556'),'SIMBAD href points to HIP 107556');
   assert.ok(inspectorData.coords.includes('21ʰ 47ᵐ'),'Right ascension formatted properly');
+  assert.ok(inspectorData.desc.includes('Brightest star in Capricornus'),'Description is in English');
+  assert.equal(inspectorData.simbadLinkText,'Open in SIMBAD ↗','Link text is in English');
 
   // Move away -> inspector hides
   await page.mouse.move(10,10);
@@ -72,6 +78,8 @@ try{
   await page.mouse.move(10,10);
   await page.waitForTimeout(200);
   assert.equal(await inspector.isVisible(),true,'Inspector stays open when pinned even if mouse moves away');
+  const skyFrozen=await page.evaluate(()=>document.getElementById('authSky').dataset.skyFrozen);
+  assert.equal(skyFrozen,'true','Constellation is frozen while inspector is open');
 
   // Click outside -> unpins and dismisses
   await page.mouse.click(10,10);
