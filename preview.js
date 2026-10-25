@@ -17713,6 +17713,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmTab() {
       const id = lmState && lmState.tab;
+      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
       return "overview";
     }
@@ -18133,6 +18134,10 @@ const STUDIO_CONSTELLATIONS = [{
         status.textContent = lmState.published ? "Published" : "Draft";
         status.classList.toggle("is-live", !!lmState.published);
       }
+      if(lmTab()==='speech'){
+        if(!box.querySelector('#lmSpeechPanel'))box.innerHTML='<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>';
+        lmPaintChrome();lmPaintTabTools();window.LearningWorkbench?.mountLessonSpeech();return;
+      }
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
       box.innerHTML = blocks.length ? blocks.map((block) => {
@@ -18312,9 +18317,12 @@ const STUDIO_CONSTELLATIONS = [{
     function lmRenderPreview() {
       const box = document.getElementById("lmPreview");
       if (!box || !lmState) return;
-      const parts = lmPreviewParts(lmBlocksFor());
+      const speech=lmTab()==='speech';
+      if(speech&&box.querySelector('#lmSpeechPanel')){window.LearningWorkbench?.mountLessonSpeech();return;}
+      const parts = speech?'<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>':lmPreviewParts(lmBlocksFor());
       const when = lmLongDate(lmState.date);
       box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + "</p>" + lmChromeHtml() + parts + "</article>";
+      if(speech){window.LearningWorkbench?.mountLessonSpeech();return;}
       dressWords(box);
       box.querySelectorAll('.lm-read-card').forEach(card => {
         const title = card.querySelector('b'), details = document.createElement('details'); details.className = 'lm-study-card';
@@ -18433,7 +18441,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmPaintTabTools() {
       const tab = lmTab();
-      const names = { overview: "Overview", words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF" };
+      const names = { overview: "Overview", words: "Words", phrases: "Phrases", rules: "Rules", classwork: "Classwork", homework: "Homework", pdf: "Lesson PDF", speech:"Speech" };
       const title = document.getElementById("lmPageTitle");
       if (title) title.textContent = names[tab] || "Overview";
       const word = document.getElementById("lmWordAdd");
@@ -19345,7 +19353,8 @@ const STUDIO_CONSTELLATIONS = [{
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
-  const current=entry=>job===entry&&enabled()&&(!entry.queue||staff())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
+  const speechHost=()=>document.querySelector('#lmEditor:not([hidden]) #lmSpeechPanel,#lmPreview:not([hidden]) #lmSpeechPanel')||document.getElementById('material');
+  const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||staff())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
   function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();providerUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
@@ -19364,6 +19373,8 @@ const STUDIO_CONSTELLATIONS = [{
   function tabButtons(entry){if(entry.lessonSpeech)return entry.groups.length>1?'<label>Group<select data-workbench-group>'+options(entry.groups)+'</select></label>':'';return '<div class="seg" role="tablist" aria-label="Learning kit"><button type="button" data-workbench-back role="tab" aria-selected="'+(entry.view!=='speech')+'">Learning kit</button>'+(entry.lessonId&&entry.senseId&&entry.features?.includes('speech')?'<button type="button" data-workbench-speech role="tab" aria-selected="'+(entry.view==='speech')+'" '+(!entry.writable?'disabled':'')+'>Speech practice</button>':'')+'</div>';}
   function paintSpeech(entry){
     render(entry,tabButtons(entry)+speechUI.render());speechUI.afterRender();
+    dialog?.querySelectorAll('.speech-panel button').forEach(node=>node.classList.add('btn'));
+    dialog?.querySelectorAll('.speech-panel input:not([type=checkbox]):not([type=radio]),.speech-panel select,.speech-panel textarea,[data-workbench-group]').forEach(node=>node.classList.add('input'));
     const group=dialog?.querySelector('[data-workbench-group]');if(group)group.value=String(entry.groupId);
     if(!entry.writable)dialog?.querySelectorAll('.speech-panel form button,.speech-panel form input,.speech-panel form textarea,.speech-panel form select,#speech-file,[data-speech-action]:not([data-speech-action="more"]):not([data-speech-action="training"]):not([data-speech-action="compare"]):not([data-speech-action="end-training"])').forEach(node=>{node.disabled=true;});
   }
@@ -19621,9 +19632,10 @@ const STUDIO_CONSTELLATIONS = [{
   async function open(card,groups=[],lessonId=null){
     if(!enabled()||!card.providerSettings&&!card.examBridge&&!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId)||card.providerSettings&&authUser?.role!=='DEVELOPER')return;close();
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
-    dialog=document.createElement('dialog');dialog.className='learning-kit-dialog';dialog.setAttribute('aria-label','Learning kit');
-    dialog.innerHTML='<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header><p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
-    document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();
+    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
+    dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
+    if(card.lessonSpeech){const host=speechHost();if(!host){close();return;}host.append(dialog);}
+    else{document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();}
     observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
       const status=await request('/status');if(!current(entry))return;entry.writable=status.writable;entry.features=status.features;entry.pronunciationQuizzes=status.pronunciationQuizzes;entry.pronunciationRubrics=status.pronunciationRubrics||[];
@@ -19642,7 +19654,14 @@ const STUDIO_CONSTELLATIONS = [{
   }
   function lessonSpeechButton(){
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
-    return '<button type="button" data-workbench-lesson-speech><i data-lucide="mic" aria-hidden="true"></i>Speech practice</button>';
+    const selected=lmState?.tab==='speech';
+    return '<button type="button" data-lm-tab="speech" data-workbench-lesson-speech role="tab" class="'+(selected?'on':'')+'" aria-selected="'+selected+'">Speech</button>';
+  }
+  function mountLessonSpeech(){
+    if(!enabled()||lmState?.examOwned)return;
+    if(job?.lessonSpeech&&current(job))return;
+    const groups=classGroups.filter(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id));
+    if(groups.length)void open({lessonSpeech:true,title:'Speech'},groups,lmState.id);
   }
   function examButton(){if(!enabled()||window.LearningMain?.capabilities?.().learningStudyBridge!==true||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return '';return '<button class="btn" type="button" data-workbench-exam>Reviewed quiz tasks</button>';}
   function cardButton(card){if(!enabled()||!valid(card?.stageId))return '';displayedCards.set(card.stageId,card);return '<button class="btn" type="button" data-workbench-card="'+card.stageId+'">Learning kit</button>';}
@@ -19667,9 +19686,7 @@ const STUDIO_CONSTELLATIONS = [{
     if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
     if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
     if(button.hasAttribute('data-workbench-lesson-speech')){
-      if(!enabled()||lmState?.examOwned)return;
-      const groups=classGroups.filter(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id));
-      if(groups.length)void open({lessonSpeech:true,title:(lmState.title||'Lesson')+' · Speech practice'},groups,lmState.id);return;
+      mountLessonSpeech();return;
     }
     if(button.hasAttribute('data-workbench-lesson')){
       if(!enabled()||lmState?.examOwned)return;
@@ -19743,7 +19760,7 @@ const STUDIO_CONSTELLATIONS = [{
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,lessonSpeechButton,examButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={lessonButton,lessonSpeechButton,mountLessonSpeech,examButton,cardButton,close,reset,paintEntry};
 })();
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;

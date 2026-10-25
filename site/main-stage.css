@@ -1,5 +1,20 @@
 html{scroll-padding-top:var(--learning-banner-offset,120px)}body{padding-top:var(--learning-banner-offset,120px)!important}#learning-main-banner{position:fixed;inset:0 0 auto 0;z-index:99999;background:#fff5d9;color:#173b37;padding:8px 16px;font:13px/1.4 system-ui;box-shadow:0 1px 6px #3333}#learning-main-banner button{font:inherit;padding:3px 9px;margin:3px;cursor:pointer;border:1px solid #aac9c4;border-radius:8px;background:white;color:#173b37}#learning-main-status.bad{color:#a32038;font-weight:600}#learning-main-status{min-height:18px;margin-top:4px}#learning-main-banner p{margin:0}#learning-main-banner strong{font-weight:700}
 .learning-kit-entry{display:grid;gap:8px;min-width:0}.learning-kit-entry>.wcard{width:100%}
+.learning-speech-inline{min-width:0;width:100%;color:var(--ink)}
+.learning-speech-inline section{display:block;max-width:none;margin:0;padding:0}
+.learning-speech-inline label{display:block;margin:12px 0}
+.learning-speech-inline select,.learning-speech-inline textarea,.learning-speech-inline input:not([type=checkbox]):not([type=radio]){box-sizing:border-box;width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card);color:var(--ink);font:inherit}
+.learning-speech-inline textarea{min-height:80px;resize:vertical}
+.learning-speech-inline .check{display:flex;align-items:flex-start;gap:8px}
+.learning-speech-inline input[type=checkbox],.learning-speech-inline input[type=radio]{accent-color:var(--accent);width:20px;height:20px;flex:none}
+.learning-speech-inline .actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.learning-speech-inline details{padding:12px 0;border-bottom:1px solid var(--line)}
+.learning-speech-inline fieldset{min-width:0;margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:8px}
+.learning-speech-inline audio,.learning-speech-inline canvas{width:100%;max-width:100%;height:auto}
+.learning-speech-inline .speech-scores{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,1fr);gap:8px}
+.learning-speech-inline .speech-scores dd{margin:0}
+.learning-speech-inline [data-workbench-status]{color:var(--bad)}
+#lmEditor:has(#lmSpeechPanel) .lm-add-wrap,#lmEditor:has(#lmSpeechPanel) #lmPreviewBtn{display:none}
 .learning-kit-dialog section{display:block;max-width:none;margin:0;padding:0}
 .learning-workbench-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.learning-kit-dialog .option-row{display:grid;grid-template-columns:24px minmax(0,1fr) 36px;align-items:center;gap:8px;margin:8px 0}.learning-kit-dialog .option-row input[type=radio],.learning-kit-dialog .option-row input[type=checkbox]{width:20px;min-height:20px;margin:0}.learning-kit-dialog .option-row button,.learning-kit-dialog .item-tools button{width:36px;height:36px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px}.learning-kit-dialog .item-tools{display:flex;justify-content:flex-end}.learning-kit-dialog .editor-item>label input{font-size:16px}
 .learning-review-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,200px);align-items:end;gap:12px}.learning-review-group{padding-left:12px;border-left:1px solid var(--line)}.learning-kit-dialog textarea{box-sizing:border-box;width:100%;min-height:80px;resize:vertical}.learning-kit-dialog .speech-panel canvas{width:100%;height:auto}.learning-kit-dialog .speech-scores{display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,1fr);gap:8px}.learning-kit-dialog .speech-scores dd{margin:0}.learning-kit-dialog .speech-panel .actions{display:flex;flex-wrap:wrap;gap:8px}.learning-kit-dialog .seg{display:flex;flex-wrap:wrap;gap:6px}
