@@ -3,6 +3,7 @@
 import {validateContentGroups} from './exam-scoring.mjs';
 import {validateColorDocument} from './text-formatting.mjs';
 import {wordwallSource} from './learning-embed.mjs';
+import {lessonPdfExerciseFeedback} from './lesson-pdf-feedback.mjs';
 export class StudyError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -487,7 +488,7 @@ export class StudyService {
       return {statements:[stmt(`INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id
           WHERE b.lesson_id=? AND b.id=? AND b.revision=? AND b.deleted_at IS NULL AND ${lessonAccess})`,[lessonId,blockId,blockRevision,+reviewer(actor),actor.id,actor.id]),
         stmt(sql,expected===0?[profile,lessonId,blockId,stable({definitionRevision:blockRevision,value:response})]:[stable({definitionRevision:blockRevision,value:response}),profile,lessonId,blockId,expected]),this.guard()],
-        result:{lessonId,blockId,response,revision:expected+1}};
+        result:{lessonId,blockId,response,revision:expected+1,...(response?.checked===true&&lessonPdfExerciseFeedback(block.type,definition)?{feedback:lessonPdfExerciseFeedback(block.type,definition)}:{})}};
     });
   }
   async editCard(actor,id,body) {

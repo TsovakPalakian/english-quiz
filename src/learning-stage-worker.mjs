@@ -223,7 +223,7 @@ export default {async fetch(request,env){
       if(declared!==null&&(!/^\d+$/.test(declared)||Number(declared)>LESSON_PDF_META_MAX_BYTES))throw new StudyError(413,'PDF must be under 25 MB.');
       const bytes=await boundedMediaBytes(request);
       if(bytes.length>LESSON_PDF_META_MAX_BYTES)throw new StudyError(413,'PDF must be under 25 MB.');
-      return json(await parseLessonPdfMeta({bytes,apiKey:env.WORKBENCH_GEMINI_KEY||'',model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',fetchImpl:globalThis.fetch}));
+      return json(await parseLessonPdfMeta({bytes,apiKey:env.WORKBENCH_GEMINI_KEY||'',model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',fetchImpl:globalThis.fetch,full:new URL(request.url).searchParams.get('scope')==='full'}));
     }
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];

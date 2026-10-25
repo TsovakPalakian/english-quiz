@@ -2,6 +2,10 @@ import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
+import {scenarioSubtests,clockSubtests} from "./helpers/scenario-subtests.mjs";
+await scenarioSubtests("auth-studio-ui",async function*(){
+yield "00. Browser and fixture setup";
+
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();let browser;
 try{
@@ -31,20 +35,24 @@ try{
       await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null',"let current=frozen?.constellation||(()=>{const c=catalogue.find(c=>c.abbr==='Cru');recent=[...recent.filter(abbr=>abbr!==c.abbr),c.abbr];return c;})(),previous=null")});
     });
     page.on('pageerror',error=>errors.push(error.message));
+    yield "01. route" + " [" + JSON.stringify(viewport) + "]";
     await page.route('**/api/auth/password/**',route=>{requests.push({path:new URL(route.request().url()).pathname,body:route.request().postDataJSON()});return route.fulfill({json:{ok:true}});});
     let releaseAccount;const accountGate=new Promise(resolve=>{releaseAccount=resolve;});
     const initialAccount=async route=>{await accountGate;await route.fulfill({json:{user:null}});};
     await page.route('**/api/me',initialAccount);
     await page.goto(preview.url,{waitUntil:'domcontentloaded'});
     assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(14, 26, 38)','The previous theme never flashes while authentication is pending');
+    yield "02. body / evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('body').evaluate(node=>getComputedStyle(node).backgroundImage),'none');
     releaseAccount();await page.waitForSelector('body.guest-home');await page.unroute('**/api/me',initialAccount);
-    await page.clock.runFor(16500);
+    yield* clockSubtests(page.clock,16500,'Sky animation');
+    yield "03. #authSky / checks" + " [" + JSON.stringify(viewport) + "]";
     const delay=Number(await page.locator('#authSky').getAttribute('data-sky-flyby-delay'));assert.ok(delay>=14000&&delay<=60000,'Homepage flybys are 2–5 times less frequent');
     assert.equal(await page.locator('#authSkyTuning').count(),0,'Temporary controls were removed');
     assert.equal(await page.locator('.auth-sky-caption:visible').evaluate(n=>getComputedStyle(n).fontSize),'18px');
     const referenceNames=await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').allTextContents();
     assert.ok(referenceNames.every(name=>['Rigil Kentaurus','Hadar'].includes(name)),'Only external Crux pointers are labelled when in the viewport');
+    yield "04. .auth-sky-caption:visible .auth-sky-name / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('.auth-sky-caption:visible .auth-sky-name').textContent(),'Crux','Constellation captions are restored');
     assert.equal(await page.locator('.auth-sky-scale').count(),0,'Scale text was removed');
     assert.equal(await page.locator('.auth-sky-caption:visible').getAttribute('title'),'Crux','Tooltip contains only the constellation name');
@@ -54,16 +62,21 @@ try{
       assert.equal(await page.locator('.auth-sky-caption:visible').count(),1);
       assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
       for(const label of await page.locator('.auth-sky-landmark:not(.auth-sky-primary):visible').all())assert.match(await label.textContent(),/^(Polaris|Acrux|Gacrux|Mimosa|Delta Crucis|Rigil Kentaurus|Hadar)$/);
+      yield "05. .auth-sky-primary:visible / checks" + " [" + JSON.stringify(viewport) + "]";
       assert.equal(await page.locator('.auth-sky-primary:visible').textContent(),'Acrux');
       const link=page.locator('.auth-sky-caption:visible'),url=await link.getAttribute('href');
       await page.context().route('https://simbad.cds.unistra.fr/**',route=>route.fulfill({contentType:'text/html',body:'<title>Star reference fixture</title>'}));
       await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation reference fixture</title>'}));
+      yield "06. waitForEvent" + " [" + JSON.stringify(viewport) + "]";
       const [popup]=await Promise.all([page.waitForEvent('popup'),link.click()]);await popup.waitForLoadState();assert.equal(popup.url(),url);await popup.close();
-      await page.clock.runFor(8100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'morph');
+      yield* clockSubtests(page.clock,8100,'Sky animation');
+    yield "07. #authSky / checks" + " [" + JSON.stringify(viewport) + "]";
+    assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'morph');
       assert.notEqual(await page.locator('#authSky').getAttribute('data-sky-constellation'),firstConstellation);
-      await page.clock.runFor(18100);assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
+      yield* clockSubtests(page.clock,18100,'Sky animation');assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'hold');
     }
     assert.equal(await page.locator('#loginForm').isVisible(),false);
+    yield "08. emulateMedia" + " [" + JSON.stringify(viewport) + "]";
     await page.emulateMedia({reducedMotion:'reduce'});
     const alphaSum=()=>page.locator('#authSky').evaluate(canvas=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let sum=0;for(let i=3;i<pixels.length;i+=4)sum+=pixels[i];return sum;});
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-background-brightness'),'20');
@@ -86,6 +99,7 @@ try{
         }));
       });assert.equal(collisions,false,'Complete line geometry is outside the UI, not merely hidden by clipping');
     }
+    yield "09. #homeAuth .btn / evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#homeAuth .btn').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)');
     assert.ok(await page.locator('.phone,.wrap,#home,#home .studio-brand,#home .brand-copy').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).backgroundColor==='rgba(0, 0, 0, 0)'&&getComputedStyle(n).backgroundImage==='none')),'Every branding container is transparent');
     const brandWhitespaceHasStars=()=>page.evaluate(()=>{
@@ -102,23 +116,29 @@ try{
     assert.ok(starsByText,'Only the circular emblem is cleared; empty space around branding text still has background stars');
     const skyHash=()=>page.locator('#authSky').evaluate(canvas=>{const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let hash=0;for(let i=3;i<data.length;i+=4)hash+=data[i]*(i%65521);return hash;});
     const fixedBefore=await page.locator('#home .studio-brand').boundingBox(),skyBeforePan=await skyHash();
+    yield "10. evaluate" + " [" + JSON.stringify(viewport) + "]";
     await page.evaluate(()=>document.body.dispatchEvent(new WheelEvent('wheel',{deltaY:137,bubbles:true,cancelable:true})));
     assert.deepEqual(await page.locator('#home .studio-brand').boundingBox(),fixedBefore,'Infinite sky scrolling never moves the logo');
     assert.notEqual(await skyHash(),skyBeforePan,'Infinite scrolling moves background stars');
     await page.getByRole('button',{name:'Enter the Learning Studio',exact:true}).click();
+    yield "11. waitForSelector" + " [" + JSON.stringify(viewport) + "]";
     await page.waitForSelector('body.guest-auth');await page.locator('[data-microsoft-auth]').waitFor({state:'visible'});
     const loginWidth=await page.locator('#loginForm').evaluate(n=>n.getBoundingClientRect().width);
     assert.equal(await page.locator('.auth-brand').evaluate(n=>n.tagName),'DIV');
+    yield "12. #account / evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.ok(await page.locator('#account').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<1;}),'Login is horizontally centred');
     assert.match(await page.locator('[data-studio-back]').textContent(),/Back to home/);
-    await page.clock.runFor(16500);
+    yield* clockSubtests(page.clock,16500,'Sky animation');
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-projection'),'gnomonic-j2000');
+    yield "13. .auth-providers .auth-google:visible / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('.auth-providers .auth-google:visible').count(),5);
     assert.ok(await page.locator('#authLogin').evaluate(node=>parseFloat(getComputedStyle(node).paddingLeft)>=40),'Input text clears its icon');
     await page.locator('#authPassword').fill('example-password');await page.locator('[data-auth-password]').click();
+    yield "14. #authPassword / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#authPassword').getAttribute('type'),'text');
     await page.locator('[data-auth-password]').click();assert.equal(await page.locator('#authPassword').getAttribute('type'),'password');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    yield "15. checks" + " [" + JSON.stringify(viewport) + "]";
     assert.ok(await alphaSum()>0,'Sky is not blank');
     const widgetsClear=await page.evaluate(()=>{
       const canvas=document.getElementById('authSky'),ctx=canvas.getContext('2d'),ratio=canvas.width/innerWidth;
@@ -136,26 +156,35 @@ try{
       const labels=nodes.map(n=>n.getBoundingClientRect());
       return labels.every((a,i)=>!ui.some(b=>overlap(a,b))&&!labels.slice(i+1).some(b=>overlap(a,b)));
     });assert.ok(labelsClear,'Labels avoid each other and all actual interface elements');
-    await page.locator('[data-login-mode="otp"]').last().click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
+    await page.locator('[data-login-mode="otp"]').last().click();
+    yield "16. #otpLoginForm / checks" + " [" + JSON.stringify(viewport) + "]";
+    assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
     await page.locator('.auth-mode-switch [data-login-mode="password"]').click();assert.equal(await page.locator('#loginForm').isVisible(),true);
     await page.locator('[data-password-recovery]').click();
+    yield "17. #passwordRecoveryForm / evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#passwordRecoveryForm').evaluate(n=>n.getBoundingClientRect().width),loginWidth,'Recovery and login have identical widths');
     assert.ok(await page.locator('#passwordRecoveryForm').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs((r.left+r.right)/2-innerWidth/2)<1;}),'Recovery is horizontally centred');
     assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
     assert.match(await page.locator('[data-recovery-send]').getAttribute('class'),/auth-code-send/);
+    yield "18. #recoveryEmail / fill" + " [" + JSON.stringify(viewport) + "]";
     await page.locator('#recoveryEmail').fill('user@example.com');
     await page.locator('[data-recovery-send]').click();await page.locator('#recoveryCode').waitFor({state:'visible'});
-    await page.locator('#recoveryCode').fill('123456');await page.locator('#recoveryPassword').fill('new-password');
+    await page.locator('#recoveryCode').fill('123456');
+    yield "19. #recoveryPassword / fill" + " [" + JSON.stringify(viewport) + "]";
+    await page.locator('#recoveryPassword').fill('new-password');
     await page.getByRole('button',{name:'Save new password'}).click();await page.locator('#loginForm').waitFor({state:'visible'});
     assert.match(await page.locator('#loginForm [data-form-status]').textContent(),/Password updated/);
     assert.equal(requests.length,2);assert.equal(requests[1].body.password,'new-password');
+    yield "20. .auth-create button / click" + " [" + JSON.stringify(viewport) + "]";
     await page.locator('.auth-create button').click();await page.locator('#registerForm').waitFor({state:'visible'});
     assert.equal(await page.locator('#registerForm').evaluate(n=>n.getBoundingClientRect().width),loginWidth,'Registration and login have identical widths');
     await page.locator('[data-google-auth]').waitFor({state:'visible'});
+    yield "21. #registerForm [name=\"role\"] / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#registerForm [name="role"]').count(),0);
     assert.equal(await page.locator('#accountBody .auth-tabs').count(),0);
     assert.equal(await page.locator('#registerForm [name="name"]').getAttribute('required'),'');
     await page.locator('#registerForm [name="name"]').fill('   ');
+    yield "22. #registerForm [name=\"name\"] / evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#registerForm [name="name"]').evaluate(n=>n.checkValidity()),false);
     assert.match(await page.locator('[data-studio-back]').textContent(),/Back to log in/);
     await page.locator('[data-studio-back]').click();await page.locator('#loginForm').waitFor({state:'visible'});
@@ -163,15 +192,21 @@ try{
       await page.evaluate(({provider,global})=>{sessionStorage.setItem('enquiz-'+provider+'-verify','1');window[global].paint(document.getElementById('accountBody'));},{provider,global});
       await page.locator('[data-'+provider+'-cancel].studio-back').waitFor({state:'visible'});
       assert.equal(await page.locator('#accountBody .studio-back').count(),1,'Federated verification has one functional back control');
-      await page.locator('[data-'+provider+'-cancel]').click();await page.locator('#loginForm').waitFor({state:'visible'});
+      await page.locator('[data-'+provider+'-cancel]').click();
+    yield "23. #loginForm / checks" + " [" + JSON.stringify(viewport) + "]";
+    await page.locator('#loginForm').waitFor({state:'visible'});
       assert.equal(await page.evaluate(provider=>sessionStorage.getItem('enquiz-'+provider+'-verify'),provider),null);
     }
+    yield "24. evaluate" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.evaluate(()=>{localStorage.setItem('lumiscia-sky-scale-Cru','0');localStorage.setItem('lumiscia-sky-brightness-background-v4','0');});
     await page.reload();await page.waitForSelector('body.guest-home');
+    yield "25. #authSky / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-background-brightness'),'20','Old slider values cannot override fixed settings');
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-scale'),'2');
     assert.deepEqual(errors,[]);await page.close();
   }
   console.log('Auth studio: desktop/mobile, centred controls, complete connections, safe labels and authentication passed.');
 }finally{await browser?.close();await preview.close();}
+
+});

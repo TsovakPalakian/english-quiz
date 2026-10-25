@@ -4,15 +4,19 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {reviewSamples} from './quiz-review-samples.mjs';
+import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 const require=createRequire(import.meta.url);
 const {chromium}=require(resolveTestDependency('playwright'));
-test('all 17 quiz types save and reopen in the local browser editor, retaining every item',async()=>{
+test('all 17 quiz types save and reopen in the local browser editor, retaining every item',async()=>scenarioSubtests("all 17 quiz types save and reopen in the local browser editor, retaining every item phases",async function*(){
+yield "00. Fixture and browser setup";
+
   const {server,url}=await createQuizReviewPreview();let browser;
   try{
     browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     await page.goto(url);await page.locator('#context').waitFor();
+    yield "01. #account / checks";
     await page.locator('#account').selectOption('student');await page.waitForFunction(()=>document.querySelector('#account').value==='student'&&!document.querySelector('#account').disabled);
     const created=[];
     for(const [type,items] of Object.entries(reviewSamples)){
@@ -34,6 +38,7 @@ test('all 17 quiz types save and reopen in the local browser editor, retaining e
           }else await row.locator('[data-correct="'+item.answer+'"]').check();
         }
       }
+      yield "02. #edit-explanation / fill";
       await page.locator('#edit-explanation').fill('Editor round trip: '+type);
       if(type==='Select all'){
         await page.setViewportSize({width:390,height:844});
@@ -43,32 +48,42 @@ test('all 17 quiz types save and reopen in the local browser editor, retaining e
       await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#editor').waitFor({state:'hidden'});
       const data=await page.evaluate(async()=>await(await fetch('/local/mine')).json());
       const q=data.quizzes.find(q=>q.content.explanation==='Editor round trip: '+type);assert.ok(q,type);assert.deepEqual(q.content.items,items,type);created.push(q);
+      yield "03. [data-item=\"'+q.id+'\"] / evaluate";
       await page.locator('[data-item="'+q.id+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
       assert.ok(!(await page.locator('[data-item="'+q.id+'"]').innerText()).includes('undefined'),type);
       await page.locator('[data-item="'+q.id+'"] [data-action="edit"]').click();
       assert.equal(await page.locator('[data-editor-item]').count(),items.length,type);
+      yield "04. #edit-type / checks";
       assert.equal(await page.locator('#edit-type').isDisabled(),true);
       await page.locator('#edit-explanation').fill('Reopened: '+type);
       if(type==='Match')await Promise.resolve();
       await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#editor').waitFor({state:'hidden'});
+      yield "05. evaluate";
       const saved=await page.evaluate(async id=>(await(await fetch('/local/quizzes/'+id)).json()).quiz,q.id);
       assert.deepEqual(saved.content.items,items,'Reopen '+type);assert.equal(saved.revision,2);
     }
     assert.equal(created.length,17);
     await page.locator('[data-view="word"]').click();await page.locator('[data-action="create"]').click();
+    yield "06. #edit-prompt / fill";
     await page.locator('#edit-prompt').fill('An invalid sentence without a blank.');
     await page.locator('#edit-type').selectOption('Choice');await page.locator('#edit-type').selectOption('Gap');
     assert.equal(await page.locator('#edit-prompt').inputValue(),'An invalid sentence without a blank.','Switching type preserves the unsaved draft');
+    yield "07. getByRole";
     await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#edit-error').waitFor();
     assert.match(await page.locator('#edit-error').innerText(),/Invalid quiz content/);
     assert.equal(await page.locator('#editor').isVisible(),true,'Invalid content stays editable');
+    yield "08. #edit-prompt / fill";
     await page.locator('#edit-prompt').fill('A fine ____ started falling.');
     await page.getByRole('button',{name:'Save draft',exact:true}).click();await page.locator('#editor').waitFor({state:'hidden'});
-    await page.locator('#theme').selectOption('ocean');await page.locator('[data-view="word"]').click();await page.locator('[data-action="create"]').click();
+    await page.locator('#theme').selectOption('ocean');
+    yield "09. [data-view=\"word\"] / click";
+    await page.locator('[data-view="word"]').click();await page.locator('[data-action="create"]').click();
     await page.locator('#edit-type').selectOption('Memory');await page.setViewportSize({width:390,height:844});
+    yield "10. #editor / evaluate";
     assert.ok(await page.locator('#editor').evaluate(n=>n.scrollWidth<=n.clientWidth));
     await Promise.resolve();
     assert.deepEqual(errors,[]);assert.ok(requests.every(u=>u.startsWith(url)));
     console.log('Saved and reopened all 17 types, including multiple items, pairs and multiple correct answers.');
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
-});
+
+}));

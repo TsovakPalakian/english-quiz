@@ -103,6 +103,18 @@ const examStatusOriginal=assessmentStatus;
 assessmentStatus=function(message,doc=lmState){examStatusOriginal(message,doc);if(doc?.examOwned){if(authUser?.role==='USER'&&!viewAccount&&!doc.studentSaved){const submit=document.getElementById('examSave');if(submit&&(!examWorkflowRow||examWorkflowRow.examId!==doc.examId||!examWorkflowRow.history.some(event=>event.action==='started')))submit.disabled=true;}void examLoadWorkflow(doc);examPaintWorkflow();}};
 const examBlocksHeadingOriginal=examPaintBlocks;
 const examListHeadingOriginal=examPaintList;
+examSummary=function(rows,groups,compact=false){
+  const counts=groups?.map(groupLiveStudentCount),students=counts?.every(count=>count!==undefined)?counts.reduce((sum,count)=>sum+count,0):'…';
+  const selected=!compact&&examViewGroup!=null&&groups?.length===1&&String(groups[0].id)===String(examViewGroup);
+  const works=rows.filter(exam=>exam.instanceStatus==='active'),templates=rows.filter(exam=>!exam.instanceStatus);
+  return metricPairs([...(groups?[...(!selected?[['group',groups.length]]:[]),['students',students]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact).replace(/(students)? · <b>0<\/b>/g,(match,students)=>students?match:'').replace(/(assigned(?: works)?|ready(?: for review)?) · <b>/g,'$1 · <b class="exam-attention-count">');
+};
+const groupStudentCountsShowOriginal=show;
+show=function(id){
+  const result=groupStudentCountsShowOriginal(id);
+  if(['days','exams'].includes(id)&&document.querySelector('section.on')?.id===id)void refreshGroupStudentCounts();
+  return result;
+};
 examPaintList=function(){
   examListHeadingOriginal();
   const heading=document.querySelector('#exams .meta h1');

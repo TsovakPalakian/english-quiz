@@ -1,10 +1,10 @@
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }
     function groupDirectoryReady() { return isTeacher()&&!viewAccount&&groupDirectory?.key===groupDirectoryKey()&&groupDirectory.ready&&Date.now()-groupDirectory.at<30000; }
-    function loadGroupDirectory() {
+    function loadGroupDirectory(force=false) {
       if(!isTeacher()||viewAccount)return Promise.resolve(null);
       const key=groupDirectoryKey();
-      if(groupDirectoryReady())return Promise.resolve(groupDirectory);
+      if(!force&&groupDirectoryReady())return Promise.resolve(groupDirectory);
       if(groupDirectoryJob?.key===key)return groupDirectoryJob.promise;
       const state={key,at:Date.now(),ready:false,users:[],members:[],assignments:[],error:''};
       groupDirectory=state;
@@ -21,6 +21,26 @@
       const ids=new Set(groups.map(group=>String(group.id)));
       const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
       return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
+    }
+    function groupLiveStudentCount(group){
+      if(!authUser||viewAccount||!isTeacher())return undefined;
+      if(!groupDirectoryReady()||groupDirectory.error)return undefined;
+      const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>row.accountId));
+      return new Set(groupDirectory.users.filter(user=>members.has(user.id)&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>user.id)).size;
+    }
+    function refreshGroupStudentCounts(){
+      if(!isTeacher()||viewAccount)return;
+      const key=groupDirectoryKey();
+      const pending=loadGroupDirectory(true);
+      const current=document.querySelector('section.on')?.id;
+      if(current==='days')paintLmDays();
+      if(current==='exams')examPaintList();
+      return pending.then(()=>{
+        if(key!==groupDirectoryKey())return;
+        const page=document.querySelector('section.on')?.id;
+        if(page==='days')paintLmDays();
+        if(page==='exams')examPaintList();
+      });
     }
     function groupPeopleHTML(users) {
       return users.length?users.map((user,index)=>{
