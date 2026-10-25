@@ -1,4 +1,4 @@
-import {StudyError,statement as s,recordId} from './learning-study.mjs';
+import {StudyError,StudyService,statement as s,recordId} from './learning-study.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {instanceCommands} from './learning-exam-instances.mjs';
@@ -210,6 +210,24 @@ export class MessageService {
   noticeCommands(actor,recipients,assignment,body,clientKey) {
     return recipients.flatMap(recipient => [...this.directCommands(actor,recipient),
       s("INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms) VALUES(?,?,?,'learning',?,?,?,?)",[directId(actor.id,recipient),actor.id,name(actor),this.sealText(directId(actor.id,recipient),body),assignment,clientKey+':'+recipient,Date.now()])]);
+  }
+  async pdfGrammarAlerts(actor,body){
+    signed(actor);if(!staff(actor))fail(403,'Only a teacher can report missing Grammar.');
+    if(!body||Object.keys(body).some(key=>!['lessonId','source'].includes(key))||!/^[a-f0-9]{64}$/.test(body.source||''))fail(400,'Invalid PDF source.');
+    recordId(body.lessonId);await this.ensure();
+    const lesson=(await new StudyService(this.db).lessons(actor)).find(row=>row.id===body.lessonId);
+    if(!lesson)fail(404,'Lesson not found.');
+    const rows=await this.db.read("SELECT content_json FROM lesson_blocks WHERE lesson_id=? AND tab='rules' AND deleted_at IS NULL AND type='text' AND json_extract(content_json,'$.pdfImport.source')=? AND json_extract(content_json,'$.pdfImport.section')='rules'",[body.lessonId,body.source]);
+    const titles=[...new Set(rows.map(row=>JSON.parse(row.content_json).pdfGrammarMissing).filter(title=>typeof title==='string'&&title.trim()&&title.length<=160))];
+    if(!titles.length)return {sent:0};
+    const recipients=(await this.directory()).filter(user=>user.role==='DEVELOPER'&&user.active!==0&&!user.is_personal_data_revoked).map(user=>user.id);
+    if(!recipients.length)fail(503,'No active developer is available for the Grammar alert.');
+    for(const title of titles){
+      const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(body.lessonId+':'+body.source+':'+title.normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase()));
+      const hash=[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('');
+      await this.db.atomic(this.noticeCommands(actor,recipients,null,'PDF lesson: '+lesson.title+' (#'+lesson.id+'). Missing Grammar rule: '+title+'. The explanation was retained in the lesson.','pdf-grammar:'+hash));
+    }
+    return {sent:titles.length*recipients.length};
   }
   async assign(actor,body) {
     signed(actor); if (!staff(actor)) fail(403,'Only a teacher can assign exams.'); await this.ensure();

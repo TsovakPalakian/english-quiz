@@ -2687,6 +2687,16 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-drop small, .lm-file small { display: block; font-weight: 600; color: var(--lm-mute); }
 .lm-pdf-import { margin: 0 0 14px; min-height: 110px; }
 .lm-pdf-import.is-busy { opacity: 0.65; pointer-events: none; }
+.lm-pdf-import[hidden] { display:none; }
+.lm-pdf-progress { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:24px; padding:20px; margin-bottom:14px; }
+.lm-pdf-progress ul { margin:0; padding-left:20px; text-align:left; }
+.lm-pdf-ring { width:170px; height:170px; flex:none; border-radius:50%; padding:12px; background:conic-gradient(var(--accent,#0caf83) var(--pdf-progress),var(--line,#d8e4e2) 0); }
+.lm-pdf-ring>span { display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; width:100%; height:100%; border-radius:50%; background:var(--bg,#f5faf8); padding:10px; box-sizing:border-box; }
+.lm-pdf-ring b { font-size:28px; }
+.lm-pdf-ring.is-indeterminate { background:conic-gradient(var(--accent,#0caf83) 90deg,var(--line,#d8e4e2) 0); animation:lm-pdf-turn 3s linear infinite; }
+.lm-pdf-ring.is-indeterminate>span { animation:lm-pdf-turn 3s linear infinite reverse; }
+@keyframes lm-pdf-turn { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .lm-pdf-ring.is-indeterminate,.lm-pdf-ring.is-indeterminate>span { animation:none; } }
 #material[data-lm-kind="exam"] .lm-pdf-import,
 #material[data-lm-kind="exam"] #lmPdfImportStatus { display: none !important; }
 #lmPdfImportStatus { margin: 0 0 12px; }

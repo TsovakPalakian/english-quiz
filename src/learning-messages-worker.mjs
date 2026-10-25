@@ -49,7 +49,11 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
       if (request.method==='POST') value = await body(request.clone());
       if (path==='/api/groups/manage' && !['exam','unassign-exam'].includes(value.action)) return baseWorker.fetch(request,env,ctx);
       const actor = await authenticate(env,request); if (!actor) throw new StudyError(401,'Sign in to open messages.');
-      const users = directory || (async () => (await env.DB.prepare("SELECT id,login,name,role FROM users WHERE COALESCE(active,1)=1 AND is_personal_data_revoked=0 AND (COALESCE(hidden,0)=0 OR ?='DEVELOPER')").bind(actor.role).all()).results || []);
+      // A hidden support account still receives internal alerts. This dedicated
+      // directory is never returned as the teacher's contact list.
+      const users = directory || (path==='/api/messages/pdf-grammar'
+        ? async()=>(await env.DB.prepare("SELECT id,login,name,role FROM users WHERE COALESCE(active,1)=1 AND is_personal_data_revoked=0 AND role='DEVELOPER'").all()).results||[]
+        : async () => (await env.DB.prepare("SELECT id,login,name,role FROM users WHERE COALESCE(active,1)=1 AND is_personal_data_revoked=0 AND (COALESCE(hidden,0)=0 OR ?='DEVELOPER')").bind(actor.role).all()).results || []);
       const db = studyDatabase(env), service = new MessageService(db,users,()=>{
         const store=stageR2Media(env);
         store.readLegacy=async(key,name)=>{
@@ -73,6 +77,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
         if (path==='/api/exams/assign') return json(await service.assignInSubgroup(actor,value));
         if (path==='/api/messages/open') return json(await service.open(actor,value));
         if (path==='/api/messages/send') return json(await service.send(actor,value));
+        if (path==='/api/messages/pdf-grammar') return json(await service.pdfGrammarAlerts(actor,value));
         if (path==='/api/messages/read') return json(await service.read(actor,value));
         if (path==='/api/messages/mute') return json(await service.mute(actor,value));
         if (path==='/api/messages/assignment') return json(await service.assign(actor,value));

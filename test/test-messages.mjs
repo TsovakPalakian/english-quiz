@@ -26,6 +26,35 @@ function fixture() {
   const boot=async()=>{await service.ensure();sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'B1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',1,'teacher'),('mate',1,'teacher'),('other',2,'teacher');INSERT INTO exams(id,title,published) VALUES(1,'Published exam',1),(2,'Draft exam',0);");};
   return {sqlite,db,users,service,by,boot,close:()=>sqlite.close()};
 }
+test('PDF missing Grammar alerts use saved rules, notify developers only and deduplicate retries',async()=>{
+  const f=fixture();try{
+    await f.boot();f.sqlite.exec("INSERT INTO lessons(id,title,published) VALUES(5,'PDF lesson',0)");
+    const content={pdfImport:{source:'a'.repeat(64),section:'rules'},pdfGrammarMissing:'Unknown rule'};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,type,tab,content_json,position) VALUES(5,'text','rules',?,0)").run(JSON.stringify(content));
+    const request={lessonId:5,source:'a'.repeat(64)};
+    const result=await f.service.pdfGrammarAlerts(f.by('teacher'),request);assert.equal(result.sent,1);
+    await f.service.pdfGrammarAlerts(f.by('teacher'),request);
+    const rows=f.sqlite.prepare('SELECT * FROM chat_messages').all();assert.equal(rows.length,1);assert.equal(rows[0].category,'learning');assert.match(rows[0].body,/Unknown rule/);assert.match(rows[0].body,/PDF lesson/);
+    assert.equal((await f.service.summary(f.by('developer'))).unread.learning,1);
+    assert.equal((await f.service.summary(f.by('student'))).unread.learning,0);
+    assert.equal((await f.service.pdfGrammarAlerts(f.by('teacher'),{...request,source:'b'.repeat(64)})).sent,0);
+    await assert.rejects(f.service.pdfGrammarAlerts(f.by('student'),request),e=>e.status===403);
+    await assert.rejects(f.service.pdfGrammarAlerts(f.by('teacher'),{...request,lessonId:999}),e=>e.status===404);
+  }finally{f.close();}
+});
+test('PDF Grammar alerts reach hidden developers without exposing their accounts to contact lists',async()=>{
+  const f=fixture();try{
+    await f.boot();f.sqlite.exec("INSERT INTO lessons(id,title) VALUES(5,'PDF')");
+    f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,type,tab,content_json,position) VALUES(5,'text','rules',?,0)").run(JSON.stringify({pdfImport:{source:'a'.repeat(64),section:'rules'},pdfGrammarMissing:'Missing'}));
+    const queries=[],host='learn-english-learning-integrated-test.east-tarsal.workers.dev';
+    const env={MESSAGES_ENABLED:'true',STAGE_ENABLED:'true',STAGE_WRITES:'true',STAGE_ALLOWED_HOST:host,DB:{prepare(sql){queries.push(sql);return {bind(){return this;},async all(){return {results:sql.includes("role='DEVELOPER'")?[{...f.by('developer'),hidden:1}]:[f.by('teacher')]};}};}}};
+    const app=messagesWorker({authenticate:async()=>f.by('teacher'),studyDatabase:()=>f.db});
+    const result=await app.fetch(new Request('https://'+host+'/api/messages/pdf-grammar',{method:'POST',headers:{Origin:'https://'+host},body:JSON.stringify({lessonId:5,source:'a'.repeat(64)})}),env,{});
+    assert.equal(result.status,200);assert.equal((await result.json()).sent,1);assert.ok(queries[0].includes("role='DEVELOPER'"));
+    const summary=await app.fetch(new Request('https://'+host+'/api/messages'),env,{});
+    assert.equal((await summary.json()).contacts.length,0);assert.ok(queries.at(-1).includes('hidden'));
+  }finally{f.close();}
+});
 test('Private rooms, group membership and teacher-only announcements are enforced',async()=>{
   const f=fixture();try{await f.boot();const {service:s,by}=f;
     const contacts=await s.contacts(by('student'));assert.equal(contacts.some(row=>row.id==='other'),false);assert.equal(contacts.find(row=>row.id==='developer').role,'Support');

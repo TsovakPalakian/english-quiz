@@ -679,11 +679,12 @@
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
-      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + '<div class="label">' + esc(block.ru || "") + "</div></button>";
+      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
       return kit ? '<div class="learning-kit-entry">' + content + kit + '</div>' : content;
     }
     function lmRuleCardHtml(block, link) {
+      if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
       const topic = block.compare ? null : topicById(block.topic);
       const compare = block.compare ? ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === block.topic)[0] : null;
       const name = (topic && topic.name) || (compare && compare.title) || block.name || "Rule";

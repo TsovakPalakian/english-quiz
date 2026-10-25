@@ -195,6 +195,8 @@
       const ruLine = item.ru ? '<p class="word-ru">' + esc(item.ru) + "</p>" : (note ? '<p class="word-ru">' + esc(note) + "</p>" : "");
       html += madeEditHtml(item);
       html += '<div class="word-head">' + wordPic(item.word, true) + '<div><p class="entry">' + esc(item.word) + "</p>" + ruLine + dictionaryAddHtml(item) + "</div></div>";
+      const pdfSense=item.pdfSense||item.pdfVocabulary;
+      if(pdfSense?.meaning)html+='<p class="label">Lesson meaning · PDF draft</p><p data-pdf-meaning lang="en">'+esc(pdfSense.meaning)+'</p>'+(pdfSense.example?'<p lang="en">'+esc(pdfSense.example)+'</p>':'');
       if(item.stageEverydayReference)html+=stageEssentialSourceLinks(item);
       if (data.grammar && data.grammar.form) html += '<p class="pos">' + esc(data.grammar.form) + "</p>";
       else if (cam.pos) html += '<p class="pos">' + esc(cam.pos) + "</p>";
@@ -620,6 +622,7 @@
       if (lmWord) {
         const block = lmBlock(lmWord.dataset.lmWord);
         if (!block || block.type !== "wordcard") return;
+        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word});return;}
         const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey };
         if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
         else openUsages(item.word, item.ru, item.quizKey);

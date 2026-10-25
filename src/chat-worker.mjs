@@ -319,7 +319,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
           catch{console.error('Chat socket revocation deferred after logout.');ctx.waitUntil(chatCall(env,'CHAT_INBOX',actor.id,'/revoke',{}).catch(()=>console.error('Chat socket revocation retry failed.')));}
       }
       if(syncPolicy)try{await chatCall(env,'CHAT_BRIDGE','global','/policy',{});}catch{ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/policy',{}).catch(()=>{}));}
-      if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/exams/assign','/api/messages/assignment','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
+      if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/exams/assign','/api/messages/assignment','/api/messages/pdf-grammar','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
       if(response.ok&&mutation&&path.startsWith('/api/exams'))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/catalog',{}).catch(()=>{}));
       return response;
     }catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}
