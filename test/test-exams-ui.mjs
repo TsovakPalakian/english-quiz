@@ -193,7 +193,9 @@ try{
   assert.equal(await page.locator('[data-exam-section="active"]').isVisible(),false);
   assert.equal(await page.locator('[data-exam-section="assigned"]').innerText(),'Assigned works · 1');
   assert.equal(await page.locator('[data-exam-section="ready"]').innerText(),'Ready for review · 1');
-  assert.equal(await page.locator('#exams .meta h1').innerText(),'A1 Group');
+  assert.equal(await page.locator('#exams .meta h1').innerText(),'Exams');
+  assert.equal(await page.locator('#examGroupName').isVisible(),true);
+  assert.equal(await page.locator('#examGroupName').innerText(),'A1 Group');
   assert.equal(await page.locator('#exams .page-path').innerText(),'Exams\nA1 Group\nAssigned works');
   assert.equal(await page.locator('[data-exam-open="11"]').count(),0);
   assert.equal(await page.locator('[data-exam-open="51"]').isVisible(),true);

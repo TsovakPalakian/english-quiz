@@ -471,16 +471,19 @@
           '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+'</div></div></div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
       }
+      let teacherEmailInvite=false;
+      try{teacherEmailInvite=!!sessionStorage.getItem('enquiz-invite')&&inviteDetails?.kind==='teacher';}catch{}
       box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
         '<div class="auth-mode-switch"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
         '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
         passwordField(false)+
         '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
         '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+        (teacherEmailInvite?'<label for="otpName">Name</label><input id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +

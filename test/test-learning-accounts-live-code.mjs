@@ -13,7 +13,31 @@ import {D1StudyClient} from '../src/d1-study.mjs';
 import {applyLearningSchema} from './learning-test-schema.mjs';
 import {generateKeyPair,exportJWK,SignJWT,createLocalJWKSet} from 'jose';
 import {AccountInvites} from '../src/account-invites.mjs';
+import {EmailOtp} from '../src/email-otp.mjs';
 const devId='a'.repeat(32),password='FixturePassword1';
+test('Verified email teacher invitation creates a pending ADMIN registration, not a session or automatic approval',async()=>{
+  const f=fixture();try{
+    f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
+    f.sqlite.exec('DROP TABLE catalog_documents');applyLearningSchema(f.sqlite);
+    f.sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(1,'A1 Group','2026-10-25')");
+    const db=new D1StudyClient(f.env.STUDY_DB),invites=new AccountInvites(db),otp=new EmailOtp(db);
+    const email='email-teacher@example.invalid',inviter={id:devId,role:'DEVELOPER'};
+    const invite=await invites.create(inviter,{groupId:1,kind:'teacher',email},[inviter]);
+    const guest=f.client(),wrong=await otp.issue('wrong-email@example.invalid');
+    assert.equal((await guest.call('/api/auth/otp/verify','POST',{email:wrong.email,code:wrong.code,invite:invite.token,name:'Wrong person'})).status,403);
+    const proof=await otp.issue(email);
+    const result=await guest.call('/api/auth/otp/verify','POST',{email,code:proof.code,invite:invite.token,name:'Invited Teacher'});
+    assert.equal(result.status,200,JSON.stringify(result.value));assert.equal(result.value.status,'pending');
+    assert.equal(result.value.user,undefined);assert.equal(guest.cookie,'');
+    const row=f.sqlite.prepare('SELECT id,name,role,status,user_id FROM registrations WHERE email=?').get(email);
+    assert.equal(row.name,'Invited Teacher');assert.equal(row.role,'ADMIN');assert.equal(row.status,'pending');assert.ok(!row.user_id);
+    assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM users WHERE email=?').get(email).n,0);
+    const claimed=await invites.registrationInvite(inviter,row.id);
+    assert.equal(claimed.kind,'teacher');assert.equal(claimed.uses,1);
+    const ordinary=await otp.issue('ordinary-email@example.invalid');
+    assert.equal((await guest.call('/api/auth/otp/verify','POST',{email:ordinary.email,code:ordinary.code,name:'Not invited'})).status,404);
+  }finally{f.close();}
+});
 test('Account directory CAS uses raw ETag without removing the precondition or touching other keys',async()=>{
   const calls=[],bucket={put:async(...args)=>{calls.push(args);return true;},get(){return this===bucket;}};
   const wrapped=accountMedia(bucket);

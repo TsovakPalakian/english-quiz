@@ -13027,16 +13027,19 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
           (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+'</div></div></div></div>';
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
       }
+      let teacherEmailInvite=false;
+      try{teacherEmailInvite=!!sessionStorage.getItem('enquiz-invite')&&inviteDetails?.kind==='teacher';}catch{}
       box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
         '<div class="auth-mode-switch"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
         '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
         passwordField(false)+
         '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
         '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+        (teacherEmailInvite?'<label for="otpName">Name</label><input id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
         '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
@@ -14257,7 +14260,7 @@ const STUDIO_CONSTELLATIONS = [{
         if(!federatedProviders)federatedProviders=api('/api/auth/providers').catch(()=>{federatedProviders=null;return {};});
         const configured=await federatedProviders;
         for(const service of ['google','microsoft','telegram'])root.querySelectorAll('[data-'+service+'-auth]').forEach(button=>{button.hidden=configured[service]!==true;});
-        root.querySelectorAll('[data-registration-providers]').forEach(group=>{group.hidden=!['google','microsoft','telegram'].some(service=>configured[service]===true);});
+        root.querySelectorAll('[data-registration-providers]').forEach(group=>{group.hidden=!group.querySelector('[data-login-mode="otp"]')&&!['google','microsoft','telegram'].some(service=>configured[service]===true);});
       }
       function paint(box){
         box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Microsoft sign-in</h1><form class="auth-code-confirm" data-microsoft-confirm><label for="microsoftEmail">Email</label><input id="microsoftEmail" name="email" type="email" autocomplete="email" maxlength="120" required><button type="button" class="btn auth-code-send" data-microsoft-send>Send code</button><label for="microsoftCode" data-ms-code hidden>Email code</label><input id="microsoftCode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required disabled data-ms-code hidden><p class="hint" role="status"></p><button type="submit" class="btn primary" data-ms-code hidden disabled>Confirm and continue</button></form><button class="btn" type="button" data-microsoft-cancel>Back to Log in</button></div></div>'.replaceAll('microsoft',provider).replaceAll('Microsoft',label);
@@ -15946,6 +15949,14 @@ const STUDIO_CONSTELLATIONS = [{
         if (invite) data.invite = invite;
         accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
           if (result.inviteWarning) throw new Error(result.inviteWarning);
+          if(result.status==='pending'){
+            sessionStorage.removeItem('enquiz-invite');
+            paintAccountForm(false);
+            const pendingStatus=document.querySelector('#loginForm [data-form-status]');
+            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted. Waiting for approval by the inviting teacher or a developer.';
+            return;
+          }
+          if(!result.user)throw new Error('Sign-in could not be completed. Try again.');
           try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
           return enterAccount(result.user);
         }).catch((err) => {
@@ -16001,7 +16012,13 @@ const STUDIO_CONSTELLATIONS = [{
       const loginMode = e.target.closest("[data-login-mode]");
       if (loginMode && !loginMode.closest("form")) {
         const mode = loginMode.dataset.loginMode;
-        const gate = loginMode.closest(".account-gate");
+        let gate = loginMode.closest(".account-gate");
+        if(mode==='otp'&&gate?.querySelector('#registerForm')){
+          const form=gate.querySelector('#registerForm'),email=form.elements.email.value,name=form.elements.name.value;
+          paintAccountForm(false);gate=document.querySelector('#accountBody .account-gate');
+          const otp=gate?.querySelector('#otpLoginForm');
+          if(otp){otp.elements.email.value=email;if(otp.elements.name)otp.elements.name.value=name;}
+        }
         if (gate) {
           gate.querySelectorAll("[data-login-mode].chip").forEach((btn) => btn.classList.toggle("on", btn.dataset.loginMode === mode));
           const passwordForm = gate.querySelector("#loginForm");
@@ -19783,7 +19800,7 @@ const STUDIO_CONSTELLATIONS = [{
     function groupPeopleHTML(users) {
       return users.length?users.map((user,index)=>{
         const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
-        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b><span>'+esc(user.login)+'</span><span>'+esc(user.email||'')+'</span></'+tag+'>';
+        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b></'+tag+'>';
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {

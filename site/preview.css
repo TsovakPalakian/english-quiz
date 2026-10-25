@@ -3100,8 +3100,10 @@ button.group-person:hover { background: var(--acc-s); }
 .group-person[hidden] { display: none; }
 #groupstudents > label { display: block; margin-bottom: 16px; }
 #groupstudents input { display: block; width: 100%; margin-top: 8px; }
-#groupteachers .group-person, #groupstudents .group-person { width: 100%; padding: 16px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; text-align: left; }
+#groupteachers .group-person, #groupstudents .group-person { width: 100%; padding: 16px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; text-align: left; justify-content: flex-start; }
 #groupteachers .group-person b, #groupstudents .group-person b { font-size: inherit; }
+#days .metric-pairs { width: fit-content; max-width: 100%; grid-template-columns: repeat(2,minmax(0,max-content)); gap: 6px 24px; justify-content: start; text-align: left; }
+#days .metric-pairs > span { justify-self: start; }
 #groupList { margin-top: 16px; }
 .group-detail-destinations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 20px; }
 .group-exam-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; width: 100%; }
@@ -3229,7 +3231,25 @@ body:is(.guest-home,.guest-auth) .wrap { height: 100%; min-height: 0; display: g
 body.guest-auth #account.on { display: flex; flex-direction: column; align-items: center; justify-content: center; max-height: 100%; min-height: 0; margin: 0 auto; }
 body.guest-auth #account .auth-brand { flex: 0 0 auto; }
 body.guest-auth #account .account-stage, body.guest-auth #account .account-main { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; width: 100%; }
-body.guest-auth #accountBody { width: 100%; min-height: 0; flex: 0 1 auto; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable both-edges; padding: 4px 6px; box-sizing: border-box; }
+body.guest-auth #accountBody { width: 100%; min-height: 0; flex: 0 1 auto; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 4px 6px; box-sizing: border-box; }
+body.guest-auth #accountBody::-webkit-scrollbar { display: none; width: 0; height: 0; }
+/* Auth scroll containers may differ between the narrow and desktop layouts. */
+#account.on, #account.on *,
+body:is(.guest-home,.guest-auth),
+body:is(.guest-home,.guest-auth) :is(.shell,.phone,.wrap),
+html:has(body:is(.guest-home,.guest-auth)) {
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
+  -ms-overflow-style: none;
+}
+#account.on::-webkit-scrollbar, #account.on *::-webkit-scrollbar,
+body:is(.guest-home,.guest-auth)::-webkit-scrollbar,
+body:is(.guest-home,.guest-auth) :is(.shell,.phone,.wrap)::-webkit-scrollbar,
+html:has(body:is(.guest-home,.guest-auth))::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 body.guest-auth .account-gate, body.guest-auth .account-gate>.card { width: 100%; max-width: none; margin-inline: auto; box-sizing: border-box; }
 body.guest-auth .account-gate :is(.auth-tabs,.auth-title,.auth-divider,.auth-providers,.auth-create,.studio-back) { flex-shrink: 0; }
 body.guest-auth .account-gate :is(button,input,select) { background-color: transparent !important; }

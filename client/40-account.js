@@ -269,6 +269,14 @@
         if (invite) data.invite = invite;
         accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
           if (result.inviteWarning) throw new Error(result.inviteWarning);
+          if(result.status==='pending'){
+            sessionStorage.removeItem('enquiz-invite');
+            paintAccountForm(false);
+            const pendingStatus=document.querySelector('#loginForm [data-form-status]');
+            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted. Waiting for approval by the inviting teacher or a developer.';
+            return;
+          }
+          if(!result.user)throw new Error('Sign-in could not be completed. Try again.');
           try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
           return enterAccount(result.user);
         }).catch((err) => {
@@ -324,7 +332,13 @@
       const loginMode = e.target.closest("[data-login-mode]");
       if (loginMode && !loginMode.closest("form")) {
         const mode = loginMode.dataset.loginMode;
-        const gate = loginMode.closest(".account-gate");
+        let gate = loginMode.closest(".account-gate");
+        if(mode==='otp'&&gate?.querySelector('#registerForm')){
+          const form=gate.querySelector('#registerForm'),email=form.elements.email.value,name=form.elements.name.value;
+          paintAccountForm(false);gate=document.querySelector('#accountBody .account-gate');
+          const otp=gate?.querySelector('#otpLoginForm');
+          if(otp){otp.elements.email.value=email;if(otp.elements.name)otp.elements.name.value=name;}
+        }
         if (gate) {
           gate.querySelectorAll("[data-login-mode].chip").forEach((btn) => btn.classList.toggle("on", btn.dataset.loginMode === mode));
           const passwordForm = gate.querySelector("#loginForm");

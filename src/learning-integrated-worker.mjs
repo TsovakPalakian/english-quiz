@@ -522,10 +522,25 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const consumed=passkey?await new Passkeys(studyDatabase(env),url.origin).authenticate(passkeyCookie(request),value?.response,request.headers.get('CF-Connecting-IP')||'unknown'):await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
         if(!passkey&&consumed.purpose!=='login')throw new StudyError(403,'Request a sign-in code.');
         const secure=url.protocol==='https:';
+        const inviteToken=typeof value?.invite==='string'?value.invite.trim():'';
+        const emailInvite=!passkey&&inviteToken?await new AccountInvites(studyDatabase(env)).peek(inviteToken,consumed.email):null;
         let response=passkey?await sessionForPasskey(accountEnv,request,consumed.accountId,secure):await sessionForEmail(accountEnv,request,consumed.email,secure);
+        if(emailInvite?.kind==='teacher'&&[403,404].includes(response.status)){
+          if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+          if(response.status===404){
+            if(typeof value.name!=='string'||!value.name.trim()||value.name.trim().length>80)throw new StudyError(400,'Enter your name before requesting a new code.');
+            response=await completeFederatedSignIn(accountEnv,request,{email:consumed.email,name:value.name.trim()},{create:false,role:'ADMIN',authMethod:'email-code'},secure);
+            if(!response.ok)return response;
+          }
+          const pending=await accountEnv.DB.prepare("SELECT id,role FROM registrations WHERE status='pending' AND email=?").bind(consumed.email).first();
+          if(pending){
+            if(pending.role!=='ADMIN')throw new StudyError(403,'The registration role does not match this invite.');
+            await new AccountInvites(studyDatabase(env)).acceptPendingRegistration(inviteToken,consumed.email,pending.id,'teacher');
+            return json({status:'pending'});
+          }
+        }
         if(!response.ok)return response;
         let inviteWarning='';
-        const inviteToken=typeof value?.invite==='string'?value.invite.trim():'';
         const session=await response.clone().json();
         if(inviteToken&&session.user&&env.STAGE_WRITES==='true'){
           try{
