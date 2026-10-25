@@ -1,7 +1,6 @@
 import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {mkdirSync} from 'node:fs';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
 
 const require=createRequire(import.meta.url);
@@ -43,13 +42,6 @@ try{
     assert.ok(sample.spacing>=(viewport.width===1440?40:20),'Algedi spacing is restored to full separation');
     assert.ok(sample.links.some(l=>l.text==='δ Deneb Algedi'),'Deneb Algedi has Greek letter δ');
     assert.ok(sample.links.some(l=>l.text==='α Algedi'),'Algedi has Greek letter α');
-
-    // Save screenshot on desktop viewport
-    if(viewport.width===1440){
-      const outPath='/Users/tsovakpalakian/.gemini/antigravity/brain/eb97b91f-b10c-4f3e-a907-bfdb8eb3b794/capricornus-fixed.png';
-      await page.screenshot({path:outPath,fullPage:false});
-      console.log('Saved screenshot to:', outPath);
-    }
 
     console.log(JSON.stringify({viewport,alpha:sample.alpha,spacing:sample.spacing,links:sample.links}));
     await page.close();
