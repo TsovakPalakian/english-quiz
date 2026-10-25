@@ -147,14 +147,42 @@
       }else{phase='hold';labels=layout?.labels||[];}
       phaseStart=now;
     }
-    function dot(x,y,r,alpha,color,glow=true,gain=brightness.constellation,maxGlow=Infinity){
-      if(alpha<=0||x<0||y<0||x>w||y>h||starBlocked({x,y},glow?r*4:r))return;
+    function dot(x,y,r,alpha,color,glow=true,gain=brightness.constellation,maxGlow=Infinity,spikes=0){
+      if(alpha<=0||x<0||y<0||x>w||y>h||starBlocked({x,y},glow?Math.min(r*4,maxGlow):r))return;
+      const exposed=astro.exposedAlpha(alpha,gain);
       if(glow){
-        const radius=Math.max(Number.EPSILON,Math.min(r*4,maxGlow)),g=ctx.createRadialGradient(x,y,0,x,y,radius);
-        g.addColorStop(0,'rgba('+color+','+astro.exposedAlpha(alpha*.24,gain)+')');g.addColorStop(1,'rgba('+color+',0)');
+        const haloFactor=gain===brightness.constellation?7.2:4;
+        const radius=Math.max(Number.EPSILON,Math.min(r*haloFactor,maxGlow)),g=ctx.createRadialGradient(x,y,0,x,y,radius);
+        if(gain===brightness.constellation){
+          g.addColorStop(0,'rgba('+color+','+(exposed*.38)+')');
+          g.addColorStop(.25,'rgba('+color+','+(exposed*.16)+')');
+          g.addColorStop(.65,'rgba('+color+','+(exposed*.04)+')');
+          g.addColorStop(1,'rgba('+color+',0)');
+        }else{
+          g.addColorStop(0,'rgba('+color+','+astro.exposedAlpha(alpha*.24,gain)+')');
+          g.addColorStop(1,'rgba('+color+',0)');
+        }
         ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
       }
-      ctx.fillStyle='rgba('+color+','+astro.exposedAlpha(alpha,gain)+')';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      if(spikes>0){
+        const spikeLen=Math.min(spikes,maxGlow*.85);
+        ctx.save();
+        ctx.strokeStyle='rgba(255,255,255,'+(exposed*.75)+')';ctx.lineWidth=Math.max(.6,Math.min(1,r*.35));
+        ctx.beginPath();
+        ctx.moveTo(x-spikeLen,y);ctx.lineTo(x+spikeLen,y);
+        ctx.moveTo(x,y-spikeLen);ctx.lineTo(x,y+spikeLen);
+        ctx.stroke();
+        ctx.strokeStyle='rgba('+color+','+(exposed*.28)+')';ctx.lineWidth=Math.max(1.2,Math.min(2,r*.7));
+        ctx.beginPath();
+        ctx.moveTo(x-spikeLen*.75,y);ctx.lineTo(x+spikeLen*.75,y);
+        ctx.moveTo(x,y-spikeLen*.75);ctx.lineTo(x,y+spikeLen*.75);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle='rgba('+color+','+exposed+')';ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      if(gain===brightness.constellation&&r>=1){
+        ctx.fillStyle='rgba(255,255,255,'+exposed+')';ctx.beginPath();ctx.arc(x,y,Math.max(.7,r*.65),0,Math.PI*2);ctx.fill();
+      }
     }
     function drift(s,delta){
       if(motion.matches)return;
@@ -208,7 +236,10 @@
         Object.assign(slot,geometry.point(slot.path,t));slot.opacity=slot.fromOpacity+(slot.toOpacity-slot.fromOpacity)*t;
         const mag=slot.fromMag+(slot.mag-slot.fromMag)*t,style=astro.appearance(mag,slot.bv);
         const spacing=phase==='hold'?(layout?.stars[slots.indexOf(slot)]?.spacing??Infinity):Infinity;
-        dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity,style.color,true,brightness.constellation,spacing*.45);
+        const shimmer=motion.matches?1:(.94+.08*Math.sin(clock*.003+slot.x*.05+slot.y*.05));
+        const flux=Math.pow(10,-.4*mag);
+        const spikeLen=mag<=3.5?Math.max(5,Math.min(Math.min(28,style.radius*5.5*.75*Math.pow(flux,.15)),spacing*.38)):0;
+        dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
       if(phase==='morph')drawLines(previous,.18*(1-t));
       drawLines(current,.18*t);
