@@ -7,6 +7,20 @@ import {wordwallSource} from '../src/learning-embed.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 const require=createRequire(import.meta.url);
+const GREEK_MAP = {
+  Alp: 'α', Bet: 'β', Gam: 'γ', Del: 'δ', Eps: 'ε', Zet: 'ζ',
+  Eta: 'η', The: 'θ', Iot: 'ι', Kap: 'κ', Lam: 'λ', Mu: 'μ',
+  Nu: 'ν', Xi: 'ξ', Omi: 'ο', Pi: 'π', Rho: 'ρ', Sig: 'σ',
+  Tau: 'τ', Ups: 'υ', Phi: 'φ', Chi: 'χ', Psi: 'ψ', Ome: 'ω'
+};
+export function getGreek(s){
+  if(!s)return null;
+  const b=s.bayer||'';
+  const m=b.match(/^([αβγδεζηθικλμνξοπρστυφχψω])/u);
+  if(m)return m[1];
+  const catBayer=(s.catalogue?.bayer||b.split(' ')[0]||'').replace(/-.*$/,'');
+  return GREEK_MAP[catBayer]||null;
+}
 export function inviteQrDependency(){
   const library=readFileSync(require.resolve('qrcode-generator'),'utf8');
   return 'const createInviteQr = (() => { const module = {exports:{}}; const exports = module.exports;\n'+library+'\nreturn module.exports; })();\n';
@@ -20,7 +34,7 @@ export function skyCatalogueFactory(){
       const p=s.coordinates;
       if(!p||!Number.isFinite(p.rightAscensionDeg)||!Number.isFinite(p.declinationDeg))throw Error('Missing sky coordinates: '+s.id);
       return {id:s.id,name:s.catalogue?.properName||s.name,ra:p.rightAscensionDeg,dec:p.declinationDeg,hip:s.catalogue?.hip??null,constellation:s.catalogue?.constellation??null,
-        mag:s.photometry?.apparentMagnitude??s.photometry?.magnitudeV??null,bv:s.photometry?.colorIndexBV??null};
+        mag:s.photometry?.apparentMagnitude??s.photometry?.magnitudeV??null,bv:s.photometry?.colorIndexBV??null,bayer:getGreek(s)};
     };
     const packObject=(part,object)=>({...pack({...part,id:part.identifier?object.id+':'+part.identifier:object.id,name:object.name}),
       mag:part.displayPhotometry?.magnitudeV??part.photometry?.magnitudeV??null,
