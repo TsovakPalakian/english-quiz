@@ -31597,7 +31597,7 @@
         "bayer": "Ups Oph",
         "spectralType": "A3m",
         "magnitude": 4.62,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -31848,7 +31848,7 @@
         "bayer": "45 Oph",
         "spectralType": "F3III",
         "magnitude": 4.28,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -31918,7 +31918,7 @@
         "bayer": "Chi Oph",
         "spectralType": "B2Vne",
         "magnitude": 4.22,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -31991,7 +31991,7 @@
         "bayer": "Rho Oph",
         "spectralType": "B2V",
         "magnitude": 4.57,
-        "isSkeleton": true,
+        "isSkeleton": false,
         "coordinates": {
           "frame": "equatorial",
           "equinox": "J2000.0",
@@ -32019,6 +32019,76 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_86263",
+        "name": "Xi Ser",
+        "bayer": "Xi Ser",
+        "spectralType": "F0IIIp",
+        "magnitude": 3.54,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "17h 37m 35.202s",
+          "declination": "-15° 23′ 54.81″",
+          "rightAscensionDeg": 264.396675,
+          "declinationDeg": -15.398557
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 85998,
+          "hip": 86263,
+          "hd": 159876,
+          "hr": 6561,
+          "bayer": "Xi",
+          "constellation": "Ser",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.54,
+          "colorIndexBV": 0.262,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_84405",
+        "name": "Guniibuu",
+        "bayer": "36 Oph",
+        "spectralType": "K2:III:",
+        "magnitude": 4.33,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "17h 15m 21.010s",
+          "declination": "-26° 36′ 10.18″",
+          "rightAscensionDeg": 258.83754,
+          "declinationDeg": -26.602829
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 84147,
+          "hip": 84405,
+          "hd": 155885,
+          "hr": 6401,
+          "bayer": "",
+          "constellation": "Oph",
+          "properName": "Guniibuu",
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 4.33,
+          "colorIndexBV": 0.855,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
       }
     ],
     "connections": [
@@ -32040,10 +32110,6 @@
       ],
       [
         "hip_79882",
-        "hip_80628"
-      ],
-      [
-        "hip_80628",
         "hip_81377"
       ],
       [
@@ -32052,6 +32118,14 @@
       ],
       [
         "hip_84012",
+        "hip_86263"
+      ],
+      [
+        "hip_86263",
+        "hip_88048"
+      ],
+      [
+        "hip_88048",
         "hip_86742"
       ],
       [
@@ -32064,7 +32138,7 @@
       ],
       [
         "hip_87108",
-        "hip_88048"
+        "hip_84012"
       ],
       [
         "hip_83000",
@@ -32076,15 +32150,7 @@
       ],
       [
         "hip_80894",
-        "hip_80569"
-      ],
-      [
-        "hip_80569",
         "hip_80343"
-      ],
-      [
-        "hip_80343",
-        "hip_80473"
       ],
       [
         "hip_84012",
@@ -32092,7 +32158,7 @@
       ],
       [
         "hip_84970",
-        "hip_85423"
+        "hip_84405"
       ]
     ],
     "deepSkyObjects": [],

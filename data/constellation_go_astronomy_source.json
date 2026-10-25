@@ -828,39 +828,46 @@
           80883,
           79593,
           79882,
-          80628,
           81377,
           84012,
+          86263,
+          88048,
           86742,
           86032
         ],
         [
           86742,
           87108,
-          88048
+          84012
         ],
         [
           83000,
           81377,
           80894,
-          80569,
-          80343,
-          80473
+          80343
         ],
         [
           84012,
           84970,
-          85423
+          84405
         ]
       ],
       "page": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
       "image": "https://www.go-astronomy.com/images/constellations/Ophiuchus.jpg",
       "imageSha256": "e0504cabd0d769de06603e39e4c9489a303edac142a4454e5d30fa2222dbebff",
       "designationPaths": [
-        "Alp Kap Lam Del Eps Ups Zet Eta Bet Alp",
-        "Bet Gam Nu",
-        "Kap Zet Phi Chi Psi Rho",
-        "Eta The 45"
+        "Alp Kap Lam Del Eps Zet Eta Xi.Ser Nu Bet Alp",
+        "Bet Gam Eta",
+        "Kap Zet Phi Psi",
+        "Eta The 36"
+      ],
+      "reviewedOn": "2026-10-25",
+      "reviewNotes": [
+        "Corrected the former Stellarium connections that were incorrectly recorded as Go Astronomy.",
+        "The lower outline follows eta Oph – xi Ser – nu Oph – beta Oph; xi Ser is an explicitly connected neighbouring vertex also present in the reviewed Serpens paths.",
+        "The interior line is beta Oph – gamma Oph – eta Oph. The labelled right branch ends at psi Oph; the labelled southern branch ends at 36 Oph (HIP84405), not 45 Oph.",
+        "Only chart-labelled vertices define the polylines; existing upsilon, chi, rho and 45 Oph remain as unconnected real stars.",
+        "Coordinates and V magnitudes remain pinned HYG 4.1 values. The raster is a schematic, not an astrometric coordinate source."
       ]
     },
     "Ori": {
