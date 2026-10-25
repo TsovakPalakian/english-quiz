@@ -13940,7 +13940,7 @@ const STUDIO_CONSTELLATIONS = [{
   inspector.className='auth-sky-inspector';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Спектральный класс:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Расстояние:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Индекс цвета B−V:</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Каталог Hipparcos:</span><span class="v auth-sky-hip-val"></span></div><div class="auth-sky-inspector-coords"><span>Координаты (J2000):</span><span class="auth-sky-coords-val"></span></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>База данных SIMBAD</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Открыть в SIMBAD ↗</a></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Hipparcos Catalog:</span><span class="v auth-sky-hip-val"></span></div><div class="auth-sky-inspector-coords"><span>Coordinates (J2000):</span><span class="auth-sky-coords-val"></span></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
@@ -13956,42 +13956,42 @@ const STUDIO_CONSTELLATIONS = [{
   const inspSimbad=inspector.querySelector('.auth-sky-inspector-simbad');
 
   const starKnowledge={
-    107556:{name:'Deneb Algedi',dist:'~39 св. лет',desc:'Ярчайшая звезда Козерога. Четырёхкратная звёздная система, главный компонент — затменно-переменная типа Алголя с периодом 24.5 часа.'},
-    100064:{name:'Algedi',dist:'~106 св. лет (α²)',desc:'Знаменитая оптическая двойная звезда: пара несвязанных гравитационно жёлтых звёзд (α¹ на 690 св. л. и α² на 106 св. л.), различимых невооружённым глазом.'},
-    100345:{name:'Dabih',dist:'~330 св. лет',desc:'Вторая по блеску звезда Козерога. Сложная кратная система из пяти компонентов: оранжевый яркий гигант с горячим голубым спутником.'},
-    106985:{name:'Nashira',dist:'~139 св. лет',desc:'Химически пекулярная белая звезда типа Am с аномальным содержанием металлов в фотосфере.'},
-    27989:{name:'Betelgeuse',dist:'~640 св. лет',desc:'Колоссальный красный сверхгигант. Если поместить его в центр Солнечной системы, его внешняя атмосфера поглотила бы орбиту Юпитера.'},
-    24436:{name:'Rigel',dist:'~860 св. лет',desc:'Ярчайшая звезда Ориона и мощнейший голубой сверхгигант: светимость превосходит солнечную более чем в 120 000 раз.'},
-    25336:{name:'Bellatrix',dist:'~250 св. лет',desc:'Голубой гигант-сверхгигант, третья по яркости звезда Ориона, отмечающая его левое плечо.'},
-    27366:{name:'Saiph',dist:'~650 св. лет',desc:'Горячий сверхгигант спектрального класса B0.5Ia, завершающий нижний четырёхугольник Ориона.'},
-    26727:{name:'Alnitak',dist:'~1260 св. лет',desc:'Восточная звезда Пояса Ориона, горячий голубой сверхгигант с близкой туманностью Конская Голова.'},
-    26311:{name:'Alnilam',dist:'~2000 св. лет',desc:'Центральная звезда Пояса Ориона, мощный голубой сверхгигант с колоссальной светимостью.'},
-    25930:{name:'Mintaka',dist:'~1200 св. лет',desc:'Западная звезда Пояса Ориона, кратная затменная система, расположенная практически точно на небесном экваторе.'},
-    54061:{name:'Dubhe',dist:'~123 св. года',desc:'Вторая по блеску звезда Ковша. Вместе с Мераком указывает точное направление на Полярную звезду.'},
-    53910:{name:'Merak',dist:'~79 св. лет',desc:'Белая звезда главной последовательности, указывающая путь к Полярной звезде.'},
-    58001:{name:'Phecda',dist:'~83 св. года',desc:'Звезда нижнего левого угла Ковша, входит в движущуюся группу Большой Медведицы.'},
-    59774:{name:'Megrez',dist:'~80 св. лет',desc:'Соединяет чашу Ковша с его рукоятью, наименее яркая из семи звёзд основного астеризма.'},
-    62956:{name:'Alioth',dist:'~81 св. год',desc:'Ярчайшая звезда Большой Медведицы с аномально сильным магнитным полем и переменным блеском.'},
-    65378:{name:'Mizar',dist:'~83 св. года',desc:'Знаменитая визуальная двойная звезда (Мицар и Алькор) — древнейший тест на остроту зрения.'},
-    67301:{name:'Alkaid',dist:'~104 св. года',desc:'Крайняя звезда рукояти Ковша, горячая голубая звезда, не входящая в ассоциацию UMa.'},
-    11767:{name:'Polaris',dist:'~433 св. года',desc:'Северная Полярная звезда, жёлтый сверхгигант и классическая цефеида, указывающая на Северный полюс мира.'},
-    32349:{name:'Sirius',dist:'~8.6 св. лет',desc:'Ярчайшая звезда ночного неба Земли. Белая звезда главной последовательности с белым карликом-спутником.'},
-    91262:{name:'Vega',dist:'~25 св. лет',desc:'Главная звезда Лиры и Летнего треугольника; фотометрический эталон нулевой звёздной величины.'},
-    97649:{name:'Altair',dist:'~16.7 св. лет',desc:'Быстровращающаяся сплюснутая белая звезда, вершина Летне-осеннего треугольника.'},
-    102098:{name:'Deneb',dist:'~2600 св. лет',desc:'Белый сверхгигант в созвездии Лебедя, одна из самых далёких звёзд первой величины.'},
-    69673:{name:'Arcturus',dist:'~36.7 св. лет',desc:'Ярчайшая звезда северного полушария, оранжевый гигант с быстрым собственным движением.'},
-    21421:{name:'Aldebaran',dist:'~65 св. лет',desc:'Оранжевый гигант, «глаз» Тельца, проецирующийся на звёздное скопление Гиады.'},
-    80763:{name:'Antares',dist:'~550 св. лет',desc:'Красный сверхгигант, «сердце» Скорпиона, соперничающий цветом и яркостью с Марсом.'},
-    65474:{name:'Spica',dist:'~250 св. лет',desc:'Ярчайшая звезда Девы, тесная спектрально-двойная система из двух горячих гигантов.'},
-    37826:{name:'Pollux',dist:'~34 св. года',desc:'Оранжевый гигант в Близнецах, обладающий подтверждённой экзопланетой.'},
-    36850:{name:'Castor',dist:'~51 св. год',desc:'Уникальная шестикратная звёздная система из трёх пар спектрально-двойных звёзд.'},
-    24608:{name:'Capella',dist:'~43 св. года',desc:'Ярчайшая звезда Возничего, четверная система с парой жёлтых гигантов-сверхгигантов.'},
-    49669:{name:'Regulus',dist:'~79 св. лет',desc:'«Сердце Льва», быстровращающийся сплюснутый голубовато-белый субгигант.'},
-    113368:{name:'Fomalhaut',dist:'~25 св. лет',desc:'Молодая звезда с гигантским околозвёздным пылевым диском и планетной системой.'},
-    60718:{name:'Acrux',dist:'~320 св. лет',desc:'Ярчайшая звезда созвездия Южный Крест, кратная система из горячих звёзд класса B.'},
-    7588:{name:'Achernar',dist:'~139 св. лет',desc:'Самая сплюснутая звезда Млечного Пути из-за рекордной скорости экваториального вращения.'},
-    30438:{name:'Canopus',dist:'~310 св. лет',desc:'Вторая по яркости звезда ночного неба Земли, желтовато-белый яркий гигант.'},
-    37279:{name:'Procyon',dist:'~11.5 св. лет',desc:'Желтовато-белый субгигант в Малом Псе с тусклым спутником — белым карликом.'}
+    107556:{name:'Deneb Algedi',dist:'~39 ly (12 pc)',desc:'Brightest star in Capricornus. A quadruple star system whose primary pair is an Algol-type eclipsing binary with a 24.5-hour orbital period.'},
+    100064:{name:'Algedi',dist:'~106 ly (α²)',desc:'Renowned optical double star: an unbonded yellow star pair (α¹ at 690 ly and α² at 106 ly) separated by 6.3 arcminutes, easily split with the naked eye.'},
+    100345:{name:'Dabih',dist:'~330 ly',desc:'Second-brightest star in Capricornus. A complex quintuple star system dominated by an orange bright giant with a hot blue companion.'},
+    106985:{name:'Nashira',dist:'~139 ly',desc:'Chemically peculiar metallic-line Am-type star with anomalous photospheric metal concentrations.'},
+    27989:{name:'Betelgeuse',dist:'~640 ly',desc:'Colossal red supergiant and semiregular variable. If placed at the center of the Solar System, its outer atmosphere would engulf the orbit of Jupiter.'},
+    24436:{name:'Rigel',dist:'~860 ly',desc:'Brightest star in Orion and an extraordinarily luminous blue supergiant, radiating over 120,000 times more energy than the Sun.'},
+    25336:{name:'Bellatrix',dist:'~250 ly',desc:'Hot blue-white giant marking the left shoulder of Orion, the constellation\'s third-brightest star.'},
+    27366:{name:'Saiph',dist:'~650 ly',desc:'Luminous B0.5Ia supergiant star defining the south-eastern corner of the Orion constellation figure.'},
+    26727:{name:'Alnitak',dist:'~1260 ly',desc:'Easternmost star of Orion\'s Belt, a multiple blue supergiant system illuminating the nearby Horsehead Nebula.'},
+    26311:{name:'Alnilam',dist:'~2000 ly',desc:'Central star of Orion\'s Belt, an intensely luminous blue supergiant of immense radiance.'},
+    25930:{name:'Mintaka',dist:'~1200 ly',desc:'Westernmost star of Orion\'s Belt, a multiple eclipsing binary system lying almost precisely on the celestial equator.'},
+    54061:{name:'Dubhe',dist:'~123 ly',desc:'Alpha star of Ursa Major and second-brightest in the Big Dipper. Together with Merak, it points directly toward the North Star.'},
+    53910:{name:'Merak',dist:'~79 ly',desc:'Brilliant white main-sequence star serving as the primary pointer toward Polaris.'},
+    58001:{name:'Phecda',dist:'~83 ly',desc:'Lower-left star of the Big Dipper bowl, belonging to the Ursa Major Moving Group.'},
+    59774:{name:'Megrez',dist:'~80 ly',desc:'Connecting the bowl of the Big Dipper to its handle, the faintest of the seven primary asterism stars.'},
+    62956:{name:'Alioth',dist:'~81 ly',desc:'Brightest star in Ursa Major. An Ap chemically peculiar star exhibiting an unusually strong, fluctuating magnetic field.'},
+    65378:{name:'Mizar',dist:'~83 ly',desc:'Celebrated visual double star (Mizar and Alcor) that served as an ancient naked-eye eyesight test.'},
+    67301:{name:'Alkaid',dist:'~104 ly',desc:'Easternmost star of the Big Dipper handle, a young hot blue star independent of the UMa stellar association.'},
+    11767:{name:'Polaris',dist:'~433 ly',desc:'Northern Pole Star, a yellow supergiant classical Cepheid variable closely aligned with Earth\'s rotational axis.'},
+    32349:{name:'Sirius',dist:'~8.6 ly',desc:'Brightest star in the night sky. A luminous white main-sequence star orbited by a dense white dwarf companion.'},
+    91262:{name:'Vega',dist:'~25 ly',desc:'Lead star of Lyra and vertex of the Summer Triangle; historic photometric calibration baseline for apparent magnitude.'},
+    97649:{name:'Altair',dist:'~16.7 ly',desc:'Rapidly spinning, oblate white star located just 16.7 light-years from Earth, anchoring the Summer Triangle.'},
+    102098:{name:'Deneb',dist:'~2600 ly',desc:'First-magnitude white supergiant in Cygnus, among the most luminous and distant naked-eye stars.'},
+    69673:{name:'Arcturus',dist:'~36.7 ly',desc:'Brightest star in the northern celestial hemisphere, an orange giant exhibiting exceptionally high proper motion.'},
+    21421:{name:'Aldebaran',dist:'~65 ly',desc:'Distinctive orange giant marking the glowing "Eye of the Bull" in Taurus, projected against the Hyades cluster.'},
+    80763:{name:'Antares',dist:'~550 ly',desc:'Vast red supergiant marking the heart of Scorpius, rivaling the crimson hue and brightness of Mars.'},
+    65474:{name:'Spica',dist:'~250 ly',desc:'Brightest star in Virgo, a close spectroscopic binary system composed of two massive, hot blue giants.'},
+    37826:{name:'Pollux',dist:'~34 ly',desc:'Evolved orange giant star in Gemini and the closest giant star to the Solar System, hosting an extrasolar planet.'},
+    36850:{name:'Castor',dist:'~51 ly',desc:'Fascinating sextuple star system composed of three pairs of spectroscopic binary stars.'},
+    24608:{name:'Capella',dist:'~43 ly',desc:'Brightest star in Auriga, a quadruple star system dominated by a pair of luminous yellow giants.'},
+    49669:{name:'Regulus',dist:'~79 ly',desc:'The "Heart of the Lion" in Leo, an oblate, extremely rapid rotator with a subgiant companion.'},
+    113368:{name:'Fomalhaut',dist:'~25 ly',desc:'Young star surrounded by an expansive circumstellar dust disc and candidate exoplanetary system.'},
+    60718:{name:'Acrux',dist:'~320 ly',desc:'Brightest star in the Southern Cross (Crux), a multiple system composed of massive, hot B-type stars.'},
+    7588:{name:'Achernar',dist:'~139 ly',desc:'The least spherical star known in the Milky Way due to its exceptionally high equatorial rotational velocity.'},
+    30438:{name:'Canopus',dist:'~310 ly',desc:'Second-brightest star in Earth\'s night sky, a luminous yellow-white bright giant.'},
+    37279:{name:'Procyon',dist:'~11.5 ly',desc:'Yellow-white subgiant in Canis Minor, forming the Winter Triangle together with Sirius and Betelgeuse.'}
   };
 
   function formatCoords(raDeg,decDeg){
@@ -14030,16 +14030,16 @@ const STUDIO_CONSTELLATIONS = [{
 
   function starFallbackDesc(star,conName){
     const s=(star.spect||'').toUpperCase();
-    let type='Звезда';
-    if(s.startsWith('O'))type='Горячий голубой сверхгигант';
-    else if(s.startsWith('B'))type='Голубая звезда спектрального класса B';
-    else if(s.startsWith('A'))type='Белая звезда главной последовательности';
-    else if(s.startsWith('F'))type='Жёлто-белая субгигантная звезда';
-    else if(s.startsWith('G'))type='Жёлтая звезда солнечного типа';
-    else if(s.startsWith('K'))type='Оранжевый гигант спектрального класса K';
-    else if(s.startsWith('M'))type='Красный гигант спектрального класса M';
-    const hipText=star.hip?` Зарегистрирована в каталоге Hipparcos как HIP ${star.hip}.`:'';
-    return `${type} в созвездии ${conName||'неба'} с видимым блеском ${star.mag!==null?star.mag.toFixed(2)+'m':'—'}.${hipText} Доступна подробная астрометрия в базе SIMBAD.`;
+    let type='Star';
+    if(s.startsWith('O'))type='Hot luminous blue supergiant';
+    else if(s.startsWith('B'))type='Luminous B-type blue star';
+    else if(s.startsWith('A'))type='White main-sequence A-type star';
+    else if(s.startsWith('F'))type='Yellow-white F-type subgiant star';
+    else if(s.startsWith('G'))type='Yellow solar-type G star';
+    else if(s.startsWith('K'))type='Orange K-type giant star';
+    else if(s.startsWith('M'))type='Red M-type giant star';
+    const hipText=star.hip?` Catalogued in the Hipparcos archive as HIP ${star.hip}.`:'';
+    return `${type} in the constellation ${conName||'sky'} with an apparent magnitude of ${star.mag!==null?star.mag.toFixed(2)+'m':'—'}.${hipText} Complete astrometry catalogued in the SIMBAD database.`;
   }
   const brightness=Object.freeze({background:20,constellation:100});
   const constellationScale=2;
@@ -14139,17 +14139,23 @@ const STUDIO_CONSTELLATIONS = [{
     let current=frozen?.constellation||next(),previous=null,layout=chooseLayout(current),slots=[],phase=frozen?'hold':'gather',phaseStart=performance.now();
     let inspected=null,pinned=false;
     function hideInspector(){
+      const wasInspected=!!inspected;
       inspected=null;pinned=false;
       inspector.classList.remove('active');
       inspector.hidden=true;
+      if(wasInspected&&phase==='hold'){
+        phaseStart=performance.now();
+        if(frozen)resumeReturn();
+      }
     }
     function showInspector(star,slot,isPinned=false){
+      pauseReturn();
       inspected={star,slot};
       if(isPinned)pinned=true;
       const bayer=star.bayer||'';
       inspBayer.textContent=bayer;
       inspBayer.hidden=!bayer;
-      inspName.textContent=star.name||(star.hip?'HIP '+star.hip:'Звезда');
+      inspName.textContent=star.name||(star.hip?'HIP '+star.hip:'Star');
       inspCon.textContent=(current.name||'')+(current.genitive?` (${current.genitive})`:'');
       inspMag.textContent=(star.mag!==null&&Number.isFinite(star.mag))?star.mag.toFixed(2)+'m':'—';
       const spect=star.spect||'';
@@ -14199,11 +14205,11 @@ const STUDIO_CONSTELLATIONS = [{
       if(frozen)frozen.resumeAt=null;
     }
     function resumeReturn(){
-      if(!frozen||document.hidden||!document.hasFocus())return;
+      if(!frozen||inspected||document.hidden||!document.hasFocus())return;
       if(frozen.resumeAt===null)frozen.resumeAt=performance.now()+5000;
       clearTimeout(freezeTimer);
       freezeTimer=setTimeout(()=>{
-        if(stopped||!frozen)return;
+        if(stopped||!frozen||inspected)return;
         if(document.hidden||!document.hasFocus()){pauseReturn();return;}
         frozen=null;advance(performance.now());
         if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
@@ -14211,7 +14217,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function freezeFigure(){
       frozen={constellation:current,at:performance.now(),resumeAt:null};
-      resumeReturn();
+      if(!inspected)resumeReturn();
       if(motion.matches)render(performance.now());
     }
     const onVisibility=()=>{if(document.hidden)pauseReturn();else resumeReturn();};
@@ -14280,10 +14286,10 @@ const STUDIO_CONSTELLATIONS = [{
       if(stopped)return;
       const delta=lastTime===null?1:Math.min(3,(now-lastTime)/16.6667);lastTime=now;clock+=delta;
       const phaseNow=frozen?frozen.at:now;
-      if(!frozen&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
+      if(!frozen&&!inspected&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
       const t=phase==='hold'?1:ease(Math.min(1,(phaseNow-phaseStart)/durations[phase]));
       canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=current.abbr;
-      canvas.dataset.skyFrozen=String(!!frozen);
+      canvas.dataset.skyFrozen=String(!!frozen||!!inspected);
       canvas.dataset.skyScale=String(constellationScale);
       canvas.dataset.skyBackgroundBrightness=String(brightness.background);
       canvas.dataset.skyConstellationBrightness=String(brightness.constellation);
