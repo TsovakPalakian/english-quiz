@@ -4,8 +4,11 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {closeQuizMediaInspector} from '../ops/quiz-media-native.mjs';
+import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-test('local speech UI records privately, analyzes only with consent, displays provisional progress and deletes results',async()=>{
+test('local speech UI records privately, analyzes only with consent, displays provisional progress and deletes results',async()=>scenarioSubtests("local speech UI records privately, analyzes only with consent, displays provisional progress and deletes results phases",async function*(){
+yield "00. Fixture and browser setup";
+
   const {server,url}=await createQuizReviewPreview();let browser;
   const api=async(path,data,role='student')=>{
     const response=await fetch(url+path,{method:data?'POST':'GET',headers:{Cookie:'qr-preview='+role,...(data?{Origin:url,'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify({mutationId:crypto.randomUUID(),...data})}:{})});return {status:response.status,data:await response.json()};
@@ -15,31 +18,53 @@ test('local speech UI records privately, analyzes only with consent, displays pr
     browser=await chromium.launch({headless:true,executablePath:chromiumExecutable(),args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
     const context=await browser.newContext({permissions:['microphone'],viewport:{width:1280,height:960}}),page=await context.newPage(),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
+    yield "01. addInitScript";
     await page.addInitScript(()=>{const original=window.fetch;window.fetch=async function(input,options){if(String(input).endsWith('/upload')&&options?.body instanceof Blob){const view=new DataView(await options.body.arrayBuffer());window.recordedUploadFormat={rate:view.getUint32(24,true),channels:view.getUint16(22,true),bits:view.getUint16(34,true)};}return original.call(this,input,options);};});
-    await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.selectOption('#account','student');await page.locator('#account:not([disabled])').waitFor();
+    await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.selectOption('#account','student');
+    yield "02. #account:not([disabled]) / checks";
+    await page.locator('#account:not([disabled])').waitFor();
     await page.locator('[data-view="speech"]').click();await page.locator('#speech-task').waitFor();await page.locator('#account:not([disabled])').waitFor();
+    yield "03. checks";
     const tasks=(await api('/local/speech?'+new URLSearchParams({groupId:1,lessonId:1,cardId:1,senseId:(await api('/local/boot')).data.contexts[0].senseId}))).data.tasks,task=tasks.find(task=>task.mode==='pronunciation');assert.ok(task);
     await page.selectOption('#speech-task',task.id);await page.locator('#account:not([disabled])').waitFor();
+    yield "04. getByRole";
     await page.getByRole('button',{name:'Record speech',exact:true}).click();await page.getByText('Recording locally...', {exact:true}).waitFor();await new Promise(resolve=>setTimeout(resolve,750));
     assert.equal((await api('/local/speech/tasks/'+task.id+'/history')).data.attempts.length,0);assert.ok(!requests.some(request=>/\/upload$|\/analyze$/.test(request)));
-    await page.getByRole('button',{name:'Stop recording',exact:true}).click();await page.locator('[data-speech-local]').waitFor();await page.locator('[data-speech-local]').evaluate(audio=>audio.play());await page.waitForFunction(()=>document.querySelector('[data-speech-local]')?.currentTime>0.01);await page.locator('[data-speech-local]').evaluate(audio=>audio.pause());
+    yield "05. getByRole";
+    await page.getByRole('button',{name:'Stop recording',exact:true}).click();await page.locator('[data-speech-local]').waitFor();await page.locator('[data-speech-local]').evaluate(audio=>audio.play());await page.waitForFunction(()=>document.querySelector('[data-speech-local]')?.currentTime>0.01);
+    yield "06. [data-speech-local] / evaluate";
+    await page.locator('[data-speech-local]').evaluate(audio=>audio.pause());
     await page.locator('[data-speech-form="analyze"] [name="consent"]').check();await page.getByRole('button',{name:'Analyze recording',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();
+    yield "07. evaluate";
     assert.deepEqual(await page.evaluate(()=>window.recordedUploadFormat),{rate:16000,channels:1,bits:16});
     await page.waitForFunction(()=>document.querySelector('[data-speech-stats]')?.textContent.includes('Count: 1'));
     let history=(await api('/local/speech/tasks/'+task.id+'/history')).data.attempts;assert.equal(history.length,1);assert.equal(history[0].result.synthetic,true);assert.equal(history[0].result.overall,71);
-    const attempt=page.locator('[data-speech-id="'+history[0].id+'"]');await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});await attempt.locator('[name="text"]').fill('My corrected transcript.');await attempt.getByRole('button',{name:'Save transcript correction',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();
-    assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.correction.text,'My corrected transcript.');assert.equal((await api('/local/speech/attempts/'+history[0].id,null,'teacher')).status,404);
+    const attempt=page.locator('[data-speech-id="'+history[0].id+'"]');await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
+    yield "08. [name=\"text\"] / fill";
+    await attempt.locator('[name="text"]').fill('My corrected transcript.');await attempt.getByRole('button',{name:'Save transcript correction',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();
+    assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.correction.text,'My corrected transcript.');
+    yield "09. checks";
+    assert.equal((await api('/local/speech/attempts/'+history[0].id,null,'teacher')).status,404);
     assert.equal((await api('/local/speech/attempts/'+history[0].id+'/text-reviews')).data.reviews.length,0);
     await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;node.querySelector('[data-text-reviews]').open=true;});
-    await attempt.locator('[data-speech-form="confirm-text"] [name="consent"]').check();await attempt.getByRole('button',{name:'Review confirmed text',exact:true}).click();
+    await attempt.locator('[data-speech-form="confirm-text"] [name="consent"]').check();
+    yield "10. click";
+    await attempt.getByRole('button',{name:'Review confirmed text',exact:true}).click();
     await page.locator('#account:not([disabled])').waitFor();await page.waitForFunction(()=>document.querySelector('[data-text-reviews]')?.textContent.includes('Language score: 74.8'));
     const reviewed=(await api('/local/speech/attempts/'+history[0].id+'/text-reviews')).data.reviews;
     assert.equal(reviewed.length,1);assert.equal(reviewed[0].transcript,'My corrected transcript.');assert.equal(reviewed[0].transcriptRevision,1);
+    yield "11. checks";
     assert.equal((await api('/local/speech/attempts/'+history[0].id)).data.result.overall,71);
     await Promise.resolve();assert.equal(await page.locator('[data-speech-chart]').evaluate(canvas=>Array.from(canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data).some(value=>value!==0)),true);
-    await page.selectOption('[data-speech-metric]','fluency');await page.selectOption('#theme','ocean');assert.equal(await page.locator('[data-speech-metric]').inputValue(),'fluency');assert.match(await page.locator('[data-speech-stats]').innerText(),/Latest: 80/);await page.selectOption('#theme','light');
+    await page.selectOption('[data-speech-metric]','fluency');
+    yield "12. selectOption";
+    await page.selectOption('#theme','ocean');assert.equal(await page.locator('[data-speech-metric]').inputValue(),'fluency');assert.match(await page.locator('[data-speech-stats]').innerText(),/Latest: 80/);await page.selectOption('#theme','light');
+    yield "13. setViewportSize";
     await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await Promise.resolve();
-    await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});page.once('dialog',dialog=>dialog.accept());await attempt.getByRole('button',{name:'Delete attempt and recording',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();assert.equal((await api('/local/speech/tasks/'+task.id+'/history')).data.attempts.length,0);
+    await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});page.once('dialog',dialog=>dialog.accept());
+    yield "14. click";
+    await attempt.getByRole('button',{name:'Delete attempt and recording',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();assert.equal((await api('/local/speech/tasks/'+task.id+'/history')).data.attempts.length,0);
     assert.deepEqual(errors,[]);assert.ok(requests.every(request=>request.startsWith(url)||request.startsWith('blob:')));
   }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));await closeQuizMediaInspector();}
-});
+
+}));

@@ -26,7 +26,7 @@
       if(cardId && block.stageDefinition)content={...clone(block.stageDefinition.content),...(block.collapsed!==undefined?{collapsed:block.collapsed}:{})};
       else if(cardId && ['word','wordcard'].includes(block.type))content={}; // Link the definition; never copy its dictionary into the lesson.
       else content=Object.fromEntries(Object.entries(clone(block)).filter(([key])=>!key.startsWith('stage')&&!['id','type','tab','response','score'].includes(key)));
-      delete content.response;delete content.responseFormatting;delete content.score;
+      delete content.response;delete content.responseFormatting;delete content.score;delete content.pdfFeedback;
       if(block.documentFormatting)content.documentFormatting=clone(block.documentFormatting);
       // Expanding a block is local UI state, not an edit to its definition.
       if(block.stageDefinition){

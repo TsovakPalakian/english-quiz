@@ -57,13 +57,13 @@ try{
   });
   await page.evaluate(()=>window.enquizVisit('exams'));
   await page.locator('[data-exam-level="A1"]').waitFor();
-  await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 5'));
+  await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 2'));
   assert.equal(await page.locator('#examSections').isVisible(),false);
   assert.equal(await page.locator('#examListSearch').isVisible(),false);
-  assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 5','exam · 1','assigned works · 1','ready for review · 1','completed · 1']);
+  assert.deepEqual(await page.locator('#examOverview .metric-pairs>span').allTextContents(),['group · 3','students · 2','exam · 1','assigned works · 1','ready for review · 1','completed · 1']);
   assert.match(await page.locator('.side [data-jump="exams"],aside [data-jump="exams"]').first().innerText(),/Exam.*1/);
   await page.locator('[data-exam-level="A1"]').click();
-  assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 4','exam · 1','assigned · 1','ready · 1','completed · 1']);
+  assert.deepEqual(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').allTextContents(),['group · 1','students · 1','exam · 1','assigned · 1','ready · 1','completed · 1']);
   for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('[data-exam-group-view="41"] .metric-pairs>span').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).whiteSpace==='nowrap'&&node.scrollWidth<=node.clientWidth+1)),'Compact labels fit '+width);}await Promise.resolve();await page.setViewportSize({width:1280,height:900});
   assert.equal(await page.locator('[data-exam-group-view]').count(),2,'Empty lesson subgroups remain visible');
   assert.equal(await page.locator('#examList button').filter({hasText:/^Back$/}).count(),0);

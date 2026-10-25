@@ -4,6 +4,7 @@ import {statement as s,lessonAccess,cardAccess,accessArgs,StudyError} from './le
 import {libraryDto,libraryVisibility} from './learning-personal.mjs';
 import {themeAccount} from './learning-paired-themes.mjs';
 import {studentExamContent} from './learning-exams.mjs';
+import {lessonPdfExerciseFeedback} from './lesson-pdf-feedback.mjs';
 const banks=['LESSON_DATA','IRREGULAR','GRAMMAR','TENSE_BANK','SPEAKOUT'];
 // Detail fields are deferred, never deleted from SQL. Quiz data remains synchronous.
 export const dictionaryDetailPaths=['links','longman','merriam','oxford','wikdict','wiktionary','collins','englishAtHome','englishClub','openRussian',
@@ -143,9 +144,9 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
     const [rows,counts]=await db.readMany([
       s(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args),
       s(`SELECT b.lesson_id,
-        SUM(CASE WHEN b.type IN ('wordcard','word') AND b.tab='words' AND (b.card_id IS NULL OR c.deleted_at IS NULL) THEN 1 ELSE 0 END) word_count,
+        SUM(CASE WHEN b.type IN ('wordcard','word') AND b.tab='words' AND (b.card_id IS NULL OR c.deleted_at IS NULL) THEN 1 WHEN b.type='vocab' AND b.tab='words' AND json_extract(b.content_json,'$.pdfImport.section')='words' THEN json_array_length(b.content_json,'$.items') ELSE 0 END) word_count,
         SUM(CASE WHEN (b.type='phrase' OR (b.type IN ('wordcard','word') AND b.tab='phrases')) AND (b.card_id IS NULL OR c.deleted_at IS NULL) THEN 1 ELSE 0 END) phrase_count,
-        SUM(CASE WHEN b.type='rule' THEN 1 ELSE 0 END) rule_count
+        SUM(CASE WHEN b.type='rule' OR (b.tab='rules' AND json_extract(b.content_json,'$.pdfImport.section')='rules') THEN 1 ELSE 0 END) rule_count
         FROM lesson_blocks b JOIN lessons l ON l.id=b.lesson_id LEFT JOIN cards c ON c.id=b.card_id
         WHERE b.deleted_at IS NULL AND ${lessonAccess}${filter} GROUP BY b.lesson_id`,args)
     ]);
@@ -169,6 +170,9 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
   for(const b of blocks){
     if(b.card_id && b.card_deleted!==null)continue;
     const definition={type:b.type,tab:b.tab,cardId:b.card_id,content:JSON.parse(b.content_json)};
+    const pdfFeedback=lessonPdfExerciseFeedback(b.type,definition.content);
+    delete definition.content.pdfFeedback;
+    if(actor.role==='USER')delete definition.content.pdfTeacherNotes;
     delete definition.content.response;delete definition.content.score;
     if(['quiz','exercise'].includes(b.type))for(const item of definition.content.items||[]){delete item.picked;delete item.typed;delete item.marked;delete item.correct;}
     const block={...JSON.parse(JSON.stringify(definition.content)),id:b.id,type:b.type,tab:b.tab,stageDefinition:definition,stageBlockRevision:b.revision,stageResponseRevision:b.response_revision||0};
@@ -187,15 +191,16 @@ export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
           if(answer.marked===true){block.items[i].marked=true;block.items[i].correct=answer.correct===true;}
         }
         if(typeof response.score==='string')block.score=response.score;
+        if(response.checked===true&&pdfFeedback)block.pdfFeedback=pdfFeedback;
       }else if(typeof response==='string')block.response=response;
       else if(response&&typeof response.text==='string'){block.response=response.text;block.responseFormatting=response.format;}
     }
     byId.get(b.lesson_id)?.blocks.push(block);
   }
   for(const material of materials){
-    material.wordCount=(material.blocks||[]).filter(b=>['wordcard','word'].includes(b.type)&&(b.tab||'')==='words').length;
+    material.wordCount=(material.blocks||[]).reduce((n,b)=>n+(['wordcard','word'].includes(b.type)&&(b.tab||'')==='words'?1:b.type==='vocab'&&b.tab==='words'&&b.pdfImport?.section==='words'?(b.items||[]).filter(i=>i.word).length:0),0);
     material.phraseCount=(material.blocks||[]).filter(b=>b.type==='phrase'||(['wordcard','word'].includes(b.type)&&(b.tab||'')==='phrases')).length;
-    material.ruleCount=(material.blocks||[]).filter(b=>b.type==='rule').length;
+    material.ruleCount=(material.blocks||[]).filter(b=>b.type==='rule'||b.tab==='rules'&&b.pdfImport?.section==='rules').length;
   }
   return {materials};
 }

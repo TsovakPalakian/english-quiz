@@ -20,16 +20,24 @@ console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; screen
 function run(command,args){
   return new Promise(resolve=>{
     const started=Date.now(),child=spawn(command,args,{env,stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
-    let output='',finished=false,timedOut=false;
+    let output='',finished=false,timedOut=false,phaseBuffer='';const subtests=[];
     const append=chunk=>{output=(output+chunk).slice(-65536);};
-    child.stdout?.on('data',append);child.stderr?.on('data',append);
+    child.stdout?.on('data',chunk=>{
+      append(chunk);phaseBuffer+=chunk.toString();
+      const lines=phaseBuffer.split('\n');phaseBuffer=lines.pop().slice(-65536);
+      for(const line of lines){const at=line.indexOf('@@CHECK_PHASE@@');if(at<0)continue;
+        try{const phase=JSON.parse(line.slice(at+15));
+          if(typeof phase.name==='string'&&Number.isSafeInteger(phase.milliseconds)&&phase.milliseconds>=0&&typeof phase.failed==='boolean')subtests.push(phase);
+        }catch{}
+      }
+    });child.stderr?.on('data',append);
     const timer=setTimeout(()=>{
       timedOut=true;append('\nTimed out after '+timeout+' ms.');
       try{if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}catch{}
     },timeout);
     const finish=code=>{
       if(finished)return;finished=true;clearTimeout(timer);
-      resolve({code:timedOut?124:code??1,output,seconds:Math.round((Date.now()-started)/1000)});
+      resolve({code:timedOut?124:code??1,output,subtests,seconds:Math.round((Date.now()-started)/1000)});
     };
     child.on('error',error=>{append(error.message);finish(1);});child.on('close',finish);
   });
@@ -46,7 +54,8 @@ async function pool(jobs,width){
     while(next<jobs.length){const [name,start]=jobs[next++];const result=await start();
       const skipped=[...result.output.matchAll(/(?:^|\n)\s*(?:#\s*|\u2139\s*)?skipped\s+(\d+)/g)].reduce((sum,match)=>sum+Number(match[1]),0);
       results.push({name,...result,skipped});
-      console.log((result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));}
+      console.log((result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(result.subtests.length?'; '+result.subtests.length+' subtests; longest '+(Math.max(...result.subtests.map(t=>t.milliseconds))/1000).toFixed(2)+'s':'')+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));
+      for(const step of result.subtests.filter(step=>step.milliseconds>5000))console.log('  SLOW '+step.name+' ('+(step.milliseconds/1000).toFixed(2)+'s)');}
   }));
 }
 await pool(fast,parallel);

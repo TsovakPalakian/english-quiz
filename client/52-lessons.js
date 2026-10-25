@@ -363,7 +363,7 @@
           } else if (block.type === "phrase") phrases += 1;
           else if (block.type === 'vocab' && block.tab === 'words') words += (block.items || []).filter(item => item.word).length;
           else if (block.type === 'cards' && block.tab === 'words') words += (block.items || []).filter(item => item.front || item.back || item.example).length;
-          else if (block.type === "rule") rules += 1;
+          else if (block.type === "rule" || (block.tab === 'rules' && block.pdfImport?.section === 'rules')) rules += 1;
         }
         return { words, phrases, rules };
       }
@@ -1097,7 +1097,9 @@
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
         const head = lmHead(block,label).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
-        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + assessed + assessmentGroupEditor(block) + lmBody(block) + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
+        const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
+        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + assessed + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
       box.querySelectorAll('textarea[data-field],input[type=text][data-field],textarea[data-item-field],input[type=text][data-item-field],input[type=text][data-card-field]').forEach(field=>{
         const name=field.dataset.field||field.dataset.itemField||field.dataset.cardField;if(['criteria','url','remoteUrl','ipa','maxPoints','memorySize','answer','write'].includes(name))return;
@@ -1194,7 +1196,9 @@
         const questions = (block.items || []).map((question, index) => {
           const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer" />' : lmPreviewChoices(block, index, question);
           const mark = question.marked ? '<p class="lm-result ' + (question.correct ? "is-ok" : "is-no") + '">' + (question.correct ? "Correct" : "Not quite") + "</p>" : "";
-          return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + "</div>";
+          const explanation=question.marked&&(block.pdfFeedback||(block.pdfImport?.section==='classwork'&&block.pdfTeacherNotes));
+          const feedback=explanation?'<p class="lm-pdf-feedback" data-pdf-feedback="'+block.id+'">'+esc(explanation)+'</p>':'';
+          return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + feedback + "</div>";
         }).join("");
         return questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>';
       }
@@ -1576,43 +1580,7 @@
       }
     }
     function lmImportPdfMeta(file) {
-      if (!canEditLessons() || !lmState || !file) return;
-      if ((file.type && file.type !== "application/pdf") || (!file.type && !/\.pdf$/i.test(file.name || ""))) {
-        lmPdfImportStatus("Choose a PDF file.", true);
-        return;
-      }
-      if (file.size > 25 * 1024 * 1024) {
-        lmPdfImportStatus("PDF must be under 25 MB.", true);
-        return;
-      }
-      const drop = document.querySelector("[data-lesson-pdf-import]");
-      const input = document.querySelector("[data-lesson-pdf-import-file]");
-      if (drop) drop.classList.add("is-busy");
-      lmPdfImportStatus("Analysing PDF…", false);
-      accountFetch("/api/lessons/parse-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/pdf" },
-        body: file,
-      }).then((data) => {
-        if (!lmState || !canEditLessons()) return;
-        const title = String(data.title || "").trim().slice(0, 80);
-        const description = String(data.description || "").trim().slice(0, 240);
-        if (!title || !description) throw new Error("Could not analyse this PDF.");
-        lmState.title = title;
-        lmState.description = description;
-        const titleField = document.getElementById("lmTitle");
-        const descriptionField = document.getElementById("lmDescription");
-        if (titleField) titleField.value = title;
-        if (descriptionField) descriptionField.value = description;
-        window.TextColors?.sync(descriptionField, lmState.descriptionFormatting);
-        lmSchedule();
-        lmPdfImportStatus("Title and Description filled. Review before publish.", false);
-      }).catch((error) => {
-        lmPdfImportStatus(error.message || "Could not analyse this PDF.", true);
-      }).finally(() => {
-        if (drop) drop.classList.remove("is-busy");
-        if (input) input.value = "";
-      });
+      return lmImportPdfDraft(file);
     }
     function lmClearFile(id) {
       const block = lmBlock(id);
@@ -1728,7 +1696,7 @@
       const title = document.getElementById("lmGroupTitle");
       if (title) title.textContent = 'Lessons';
       const name = document.getElementById("lmGroupName");
-      if (name) name.innerHTML = esc(group?.title||'')+' · '+metricPairs([['students',group?.studentCount||0],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
+      if (name) name.innerHTML = esc(group?.title||'')+' · '+metricPairs([['students',group?groupLiveStudentCount(group)??'…':'—'],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {

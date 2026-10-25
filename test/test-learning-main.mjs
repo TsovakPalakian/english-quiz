@@ -1603,6 +1603,74 @@ test('Personal exercise marks restored only from own response; stale shared answ
   assert.equal(f.sqlite.prepare('SELECT content_json FROM lesson_blocks WHERE id=?').get(blockId).content_json,JSON.stringify(content));
   f.sqlite.close();
 });
+test('PDF teacher sample answers stay out of student lesson projections and baselines',async()=>{
+  const f=fixture();
+  try{
+    const content={title:'Introduce yourself',text:'Say your name.',pdfTeacherNotes:'Hello. I am Sam.',pdfImport:{source:'fixture',section:'classwork',key:'classwork:0',pages:[1],generated:true}};
+    f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,position,type,tab,content_json) VALUES(1,99,'task','classwork',?)").run(JSON.stringify(content));
+    const student=await legacyLessons(f.db,f.users.get('student'));
+    assert.ok(!JSON.stringify(student).includes('Hello. I am Sam.'));
+    const teacher=await legacyLessons(f.db,f.users.get('teacher'));
+    assert.ok(JSON.stringify(teacher).includes('Hello. I am Sam.'));
+    assert.equal(JSON.parse(f.sqlite.prepare("SELECT content_json FROM lesson_blocks WHERE position=99").get().content_json).pdfTeacherNotes,'Hello. I am Sam.');
+  }finally{f.sqlite.close();}
+});
+test('PDF exercise feedback is released only after own checked response and invalidated by edits',async()=>{
+  const f=fixture();
+  try{
+    const content={items:[{kind:'choice',options:['yes','no'],answer:0}],pdfTeacherNotes:'Use yes for this greeting.',pdfImport:{source:'fixture',section:'classwork',key:'classwork:v2:fixture'}};
+    const inserted=f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,position,type,tab,content_json) VALUES(1,99,'exercise','classwork',?)").run(JSON.stringify(content));
+    const id=Number(inserted.lastInsertRowid),service=new StudyService(f.db),student=f.users.get('student'),other=f.users.get('student2');
+    const body=(revision,checked)=>({mutationId:crypto.randomUUID(),expectedRevision:revision,expectedBlockRevision:1,response:{items:[{picked:1}],checked}});
+    let mine=(await legacyLessons(f.db,student)).materials[0].blocks.find(b=>b.id===id);
+    assert.ok(!JSON.stringify(mine).includes(content.pdfTeacherNotes));
+    const unchecked=await service.saveLessonResponse(student,1,id,body(0,false));assert.equal(unchecked.feedback,undefined);
+    const forged=body(1,true);forged.response.feedback='Spoofed explanation';
+    await assert.rejects(service.saveLessonResponse(student,1,id,forged),error=>error.status===400);
+    const checked=await service.saveLessonResponse(student,1,id,body(1,true));assert.equal(checked.feedback,content.pdfTeacherNotes);assert.equal(checked.response.items[0].correct,false);
+    mine=(await legacyLessons(f.db,student)).materials[0].blocks.find(b=>b.id===id);
+    assert.equal(mine.pdfFeedback,content.pdfTeacherNotes);assert.equal(mine.pdfTeacherNotes,undefined);
+    assert.equal(mine.stageDefinition.content.pdfFeedback,undefined);assert.equal(mine.stageDefinition.content.pdfTeacherNotes,undefined);
+    const theirs=(await legacyLessons(f.db,other)).materials[0].blocks.find(b=>b.id===id);assert.ok(!JSON.stringify(theirs).includes(content.pdfTeacherNotes));
+    await service.saveLessonResponse(student,1,id,body(2,false));
+    assert.equal((await legacyLessons(f.db,student)).materials[0].blocks.find(b=>b.id===id).pdfFeedback,undefined);
+    await service.saveLessonResponse(student,1,id,body(3,true));
+    f.sqlite.prepare('UPDATE lesson_blocks SET revision=revision+1 WHERE id=?').run(id);
+    mine=(await legacyLessons(f.db,student)).materials[0].blocks.find(b=>b.id===id);assert.equal(mine.pdfFeedback,undefined);assert.equal(mine.items[0].marked,undefined);
+    await assert.rejects(service.saveLessonResponse(student,1,id,body(4,true)),error=>error.status===409);
+    assert.deepEqual(JSON.parse(f.sqlite.prepare('SELECT content_json FROM lesson_blocks WHERE id=?').get(id).content_json),content);
+  }finally{f.sqlite.close();}
+});
+test('submitted open PDF tasks never expose teacher sample answers as feedback',async()=>{
+  const f=fixture();try{
+    const content={title:'Introduce yourself',text:'Write an introduction.',pdfTeacherNotes:'Secret teacher sample answer',pdfImport:{section:'classwork',stage:'final'}};
+    const inserted=f.sqlite.prepare("INSERT INTO lesson_blocks(lesson_id,position,type,tab,content_json) VALUES(1,99,'task','classwork',?)").run(JSON.stringify(content));
+    const id=Number(inserted.lastInsertRowid),student=f.users.get('student');
+    const result=await new StudyService(f.db).saveLessonResponse(student,1,id,{mutationId:crypto.randomUUID(),expectedRevision:0,expectedBlockRevision:1,response:'My own introduction.'});
+    assert.equal(result.feedback,undefined);assert.ok(!JSON.stringify(await legacyLessons(f.db,student)).includes(content.pdfTeacherNotes));
+    assert.ok(JSON.stringify(await legacyLessons(f.db,f.users.get('teacher'))).includes(content.pdfTeacherNotes));
+  }finally{f.sqlite.close();}
+});
+test('PDF feedback acknowledgements apply only to the current actor, answer and block revision',()=>{
+  const listeners=new Map(),block={id:10,type:'exercise',stageBlockRevision:1,pdfImport:{section:'classwork'},items:[{picked:0}]};let renders=0;
+  const scope={authUser:{id:'student'},viewAccount:null,viewSwitching:false,lmState:{id:1,blocks:[block]},trackEvent(){},lmRenderPreview(){renders++;},
+    document:{addEventListener:(name,fn)=>listeners.set(name,fn)}};
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
+  const ack=(overrides={})=>listeners.get('learning-personal-saved')({detail:{job:{kind:'response',actorId:'student',blockRevision:1,response:{items:[{picked:0}],checked:true},...overrides},result:{lessonId:1,blockId:10,revision:1,response:{items:[{picked:0,marked:true,correct:true}],checked:true},feedback:'Correct explanation'}}});
+  ack({actorId:'other'});assert.equal(block.pdfFeedback,undefined);assert.equal(renders,0);
+  ack({blockRevision:0});assert.equal(block.pdfFeedback,undefined);
+  block.items[0].picked=1;ack();assert.equal(block.pdfFeedback,undefined);
+  block.items[0].picked=0;ack();assert.equal(block.pdfFeedback,'Correct explanation');assert.ok(renders>0);
+});
+test('editing an imported exercise clears stale feedback without changing other lesson tasks',()=>{
+  const block={id:10,type:'exercise',stageBlockRevision:1,pdfImport:{section:'classwork'},pdfFeedback:'Old explanation',items:[{picked:0,marked:true,correct:true}]};let removed=0,saved;
+  const input={dataset:{pick:'10:0:1'},checked:true,hasAttribute:()=>false};
+  const scope={authUser:{id:'student'},accountReady:true,viewAccount:null,viewSwitching:false,lmState:{id:1,blocks:[block]},
+    window:{LearningMain:{response(...args){saved=args;}}},document:{addEventListener(){},querySelectorAll:()=>[{dataset:{pdfFeedback:'10'},remove(){removed++;}}]}};
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stageResponseEvent({type:'change',target:{closest:()=>input},stopPropagation(){}});
+  assert.equal(block.pdfFeedback,undefined);assert.equal(block.items[0].marked,undefined);assert.equal(removed,1);assert.equal(saved[2].items[0].picked,1);
+});
 test('Essential English references shared cards and respects hidden, deleted and private content',async()=>{
   const f=fixture();
   try{
@@ -1709,7 +1777,7 @@ test('Lesson bridge sends only changed metadata/blocks; excludes answers, preser
   runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
   const bridge=window.LearningMain;await bridge.fetch('/api/me');
   const lesson=(await bridge.fetch('/api/lessons')).materials[0];
-  lesson.title='My edit';remote.stageRevision=9;await bridge.fetch('/api/lessons');
+  lesson.title='My edit';lesson.blocks[1].pdfFeedback='Learner-only feedback';remote.stageRevision=9;await bridge.fetch('/api/lessons');
   await bridge.saveLesson(lesson);
   assert.equal(sent[0].body.expectedRevision,3);assert.deepEqual(sent[0].body.changes,{title:'My edit'});assert.deepEqual(sent[0].body.upserts,[]);assert.equal(sent[0].body.order,undefined);
   lesson.blocks[1].items[0].prompt='New prompt';dropped=true;

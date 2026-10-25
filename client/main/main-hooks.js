@@ -1036,7 +1036,8 @@ function stageLessonCounts(blocks){
   for(const block of blocks||[]){
     if(block.type==='wordcard'||block.type==='word'){if((block.tab||'')==='phrases')phrases+=1;else if((block.tab||'')==='words')words+=1;}
     else if(block.type==='phrase')phrases+=1;
-    else if(block.type==='rule')rules+=1;
+    else if(block.type==='vocab'&&block.tab==='words'&&block.pdfImport?.section==='words')words+=(block.items||[]).filter(item=>item.word).length;
+    else if(block.type==='rule'||block.tab==='rules'&&block.pdfImport?.section==='rules')rules+=1;
   }
   return {wordCount:words,phraseCount:phrases,ruleCount:rules};
 }
@@ -1256,6 +1257,11 @@ function stageResponseEvent(event){
     if(!input.checked)return;
     if(block.items?.[Number(bits[1])])block.items[Number(bits[1])].picked=Number(bits[2]);
   }
+  if(!checking&&block.type==='exercise'&&block.pdfImport?.section==='classwork'){
+    delete block.pdfFeedback;
+    for(const item of block.items||[]){delete item.marked;delete item.correct;}
+    for(const note of document.querySelectorAll('[data-pdf-feedback]'))if(note.dataset.pdfFeedback===String(block.id))note.remove();
+  }
   try{window.LearningMain.response(lmState.id,block,stageResponseValue(block,checking),checking||event.type==='focusout');}
   catch(error){window.LearningMain.notice(error.message,true);}
 }
@@ -1326,6 +1332,9 @@ document.addEventListener('learning-personal-saved',event=>{
       }
       if(current && block.type==='exercise' && result.response?.checked){
         for(const [i,answer] of result.response.items.entries())if(block.items[i]){block.items[i].marked=answer.marked;block.items[i].correct=answer.correct;}
+        if(block.pdfImport?.section==='classwork'&&job.blockRevision===block.stageBlockRevision){
+          if(typeof result.feedback==='string')block.pdfFeedback=result.feedback;else delete block.pdfFeedback;
+        }
         lmRenderPreview();
       }
     }

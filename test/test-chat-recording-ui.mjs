@@ -4,6 +4,10 @@ import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
+await scenarioSubtests("chat-recording-ui",async function*(){
+yield "00. Browser and fixture setup";
+
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 const root=resolve('rollback/production-assets');
 const server=createServer((req,res)=>{
@@ -45,8 +49,11 @@ try{
     if(path==='/api/messages/file')return route.fulfill({status:204,body:''});
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
+  yield "01. goto";
   await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>accountReady);
-  await page.locator('.side nav [data-msg-open]').click();await page.locator('[data-msg-room]').first().click();await page.locator('#msgCompose').waitFor();
+  await page.locator('.side nav [data-msg-open]').click();await page.locator('[data-msg-room]').first().click();
+    yield "02. #msgCompose / checks";
+    await page.locator('#msgCompose').waitFor();
   assert.equal(await page.locator('#msgVideo').isVisible(),false);
   const button=page.locator('#msgMic');
   const down=()=>button.dispatchEvent('pointerdown',{button:0,pointerId:1,clientX:900,clientY:800});
@@ -54,28 +61,52 @@ try{
   const move=()=>button.dispatchEvent('pointermove',{pointerId:1,clientX:800,clientY:800});
   const start=async()=>{await down();await page.waitForFunction(()=>/Recording/.test(document.getElementById('msgSendState').textContent));await page.waitForTimeout(400);};
   const waitSent=async count=>{await page.waitForFunction(count=>document.querySelectorAll('.msg-message[data-msg-id]').length>=count,count);assert.equal(sent.length,count);};
-  await start();await up();await waitSent(1);assert.match(sent[0].files[0].name,/^voice-/);
+  await start();await up();
+    yield "03. checks";
+    await waitSent(1);assert.match(sent[0].files[0].name,/^voice-/);
   await down();await up();assert.equal(await button.getAttribute('data-record-mode'),'video');assert.equal(sent.length,1);
+  yield "04. checks";
   await start();await up();await waitSent(2);assert.match(sent[1].files[0].name,/^video-/);
-  await down();await up();assert.equal(await button.getAttribute('data-record-mode'),'audio');
-  await start();await move();await up();await page.waitForTimeout(300);assert.equal(sent.length,2);assert.equal(await button.getAttribute('aria-label'),'Send recording');
-  await page.locator('#msgSend').click();await waitSent(3);
+  await down();
+    yield "05. checks";
+    await up();assert.equal(await button.getAttribute('data-record-mode'),'audio');
+  await start();await move();
+    yield "06. checks";
+    await up();await page.waitForTimeout(300);assert.equal(sent.length,2);assert.equal(await button.getAttribute('aria-label'),'Send recording');
+  await page.locator('#msgSend').click();
+    yield "07. checks";
+    await waitSent(3);
   await page.evaluate(()=>{
     window.originalMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia=constraints=>new Promise(resolve=>{window.finishMedia=()=>window.originalMedia(constraints).then(resolve);});
   });
-  await down();await page.waitForFunction(()=>!!window.finishMedia);await up();await page.evaluate(()=>{window.finishMedia();navigator.mediaDevices.getUserMedia=window.originalMedia;});
+  await down();await page.waitForFunction(()=>!!window.finishMedia);
+    yield "08. checks";
+    await up();await page.evaluate(()=>{window.finishMedia();navigator.mediaDevices.getUserMedia=window.originalMedia;});
   await page.getByText('Permission granted. Hold again to record.',{exact:true}).waitFor();assert.equal(sent.length,3);
-  await start();await up();await waitSent(4);
-  await start();await page.keyboard.press('Escape');await up();await page.waitForTimeout(200);assert.equal(sent.length,4);
+  await start();
+    yield "09. checks";
+    await up();await waitSent(4);
+  await start();await page.keyboard.press('Escape');
+    yield "10. checks";
+    await up();await page.waitForTimeout(200);assert.equal(sent.length,4);
   await page.evaluate(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied','NotAllowedError');};});
-  await down();await page.getByText('Allow microphone access in your browser settings.',{exact:true}).waitFor();await up();assert.equal(sent.length,4);
+  await down();
+    yield "11. getByText";
+    await page.getByText('Allow microphone access in your browser settings.',{exact:true}).waitFor();await up();assert.equal(sent.length,4);
   await page.evaluate(()=>{navigator.mediaDevices.getUserMedia=window.originalMedia;});
-  failUpload=true;await start();await up();await page.getByText('Synthetic recording upload failure.',{exact:true}).first().waitFor();assert.equal(sent.length,4);
+  failUpload=true;await start();
+    yield "12. checks";
+    await up();await page.getByText('Synthetic recording upload failure.',{exact:true}).first().waitFor();assert.equal(sent.length,4);
   await page.locator('[data-cancel-upload]').click();
   await page.clock.install();
-  await down();await up();await start();await move();await up();assert.equal(sent.length,4);
+  yield "13. checks";
+  await down();await up();await start();await move();
+    yield "14. checks";
+    await up();assert.equal(sent.length,4);
   await page.clock.fastForward(60000);await waitSent(5);assert.match(sent[4].files[0].name,/^video-/);
   assert.deepEqual(errors,[]);await Promise.resolve();
   console.log('Real browser MediaRecorder: voice/video release-send, single toggle, locked send, permission race/denial, cancel and 60-second video auto-send passed');
 }finally{await browser?.close();await new Promise(done=>server.close(done));}
+
+});
