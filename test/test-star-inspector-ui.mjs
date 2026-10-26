@@ -27,16 +27,16 @@ try{
   });
   assert.equal(starPos.hip,107556,'HIP 107556 is Deneb Algedi');
 
-  const inspector=page.locator('.auth-sky-inspector');
+  const inspector=page.locator('.auth-sky-star-inspector');
   assert.equal(await inspector.isVisible(),false,'Inspector is initially hidden');
 
   // Hover over Deneb Algedi
   await page.mouse.move(starPos.x,starPos.y);
-  await page.waitForFunction(()=>document.querySelector('.auth-sky-inspector.active'));
+  await page.waitForFunction(()=>document.querySelector('.auth-sky-star-inspector.active'));
   assert.equal(await inspector.isVisible(),true,'Inspector appears on hover');
 
   const inspectorData=await page.evaluate(()=>{
-    const el=document.querySelector('.auth-sky-inspector');
+    const el=document.querySelector('.auth-sky-star-inspector');
     return {
       text:el.textContent,
       bayer:el.querySelector('.auth-sky-inspector-bayer')?.textContent?.trim(),
@@ -82,12 +82,12 @@ try{
 
   // Move away -> inspector hides
   await page.mouse.move(10,10);
-  await page.waitForFunction(()=>!document.querySelector('.auth-sky-inspector.active'));
+  await page.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active'));
   assert.equal(await inspector.isVisible(),false,'Inspector hides when moving away');
 
   // Click on Deneb Algedi -> pins inspector
   await page.mouse.click(starPos.x,starPos.y);
-  await page.waitForFunction(()=>document.querySelector('.auth-sky-inspector.active'));
+  await page.waitForFunction(()=>document.querySelector('.auth-sky-star-inspector.active'));
   assert.equal(await inspector.isVisible(),true,'Inspector appears and pins on click');
 
   // Move away while pinned -> stays open
@@ -99,7 +99,7 @@ try{
 
   // Click outside -> unpins and dismisses
   await page.mouse.click(10,10);
-  await page.waitForFunction(()=>!document.querySelector('.auth-sky-inspector.active'));
+  await page.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active'));
   assert.equal(await inspector.isVisible(),false,'Inspector dismisses on click outside');
 
   // Test hovering another star in Capricornus without a curated entry (e.g. hip_102485 - Psi Cap)
@@ -109,13 +109,50 @@ try{
   });
   if(otherStar){
     await page.mouse.move(otherStar.x,otherStar.y);
-    await page.waitForFunction(()=>document.querySelector('.auth-sky-inspector.active'));
+    await page.waitForFunction(()=>document.querySelector('.auth-sky-star-inspector.active'));
     assert.equal(await inspector.isVisible(),true,'Inspector appears for non-curated star');
-    const desc=await page.evaluate(()=>document.querySelector('.auth-sky-inspector-desc')?.textContent);
+    const desc=await page.evaluate(()=>document.querySelector('.auth-sky-star-inspector .auth-sky-inspector-desc')?.textContent);
     assert.ok(desc.includes('Capricornus'),'Fallback description contains constellation name');
     await page.mouse.move(10,10);
-    await page.waitForFunction(()=>!document.querySelector('.auth-sky-inspector.active'));
+    await page.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active'));
   }
+
+  // Test hovering constellation title
+  const titleLink=page.locator('.auth-sky-title');
+  assert.equal(await titleLink.isVisible(),true,'Constellation title link is visible');
+  const titleBox=await titleLink.boundingBox();
+  assert.ok(titleBox,'Constellation title has bounding box');
+  const titleHref=await titleLink.getAttribute('href');
+  assert.equal(titleHref,'https://www.go-astronomy.com/constellations.php?Name=Capricornus','Title link points to Go-Astronomy');
+  assert.equal(await titleLink.getAttribute('target'),'_blank','Title link opens in new tab');
+
+  await page.mouse.move(titleBox.x+titleBox.width/2,titleBox.y+titleBox.height/2);
+  const conInspector=page.locator('.auth-sky-con-inspector');
+  await page.waitForFunction(()=>document.querySelector('.auth-sky-con-inspector.active'));
+  assert.equal(await conInspector.isVisible(),true,'Constellation inspector appears on title hover');
+
+  const conData=await page.evaluate(()=>{
+    const el=document.querySelector('.auth-sky-con-inspector');
+    return {
+      nameEn:el.querySelector('.auth-sky-con-name-en')?.textContent?.trim(),
+      nameRu:el.querySelector('.auth-sky-con-name-ru')?.textContent?.trim(),
+      area:el.querySelector('.auth-sky-con-area')?.textContent?.trim(),
+      brightest:el.querySelector('.auth-sky-con-brightest')?.textContent?.trim(),
+      planets:el.querySelector('.auth-sky-con-planets')?.textContent?.trim(),
+      skyFrozen:document.getElementById('authSky').dataset.skyFrozen
+    };
+  });
+  assert.equal(conData.nameEn,'Capricornus','Constellation English name is Capricornus');
+  assert.equal(conData.nameRu,'Козерог','Constellation Russian name is Козерог');
+  assert.ok(conData.area.includes('414 sq deg'),'Area indicates 414 sq deg');
+  assert.ok(conData.brightest.includes('Deneb Algedi'),'Brightest star indicates Deneb Algedi');
+  assert.ok(conData.planets.includes('6'),'Planetary systems count is 6');
+  assert.equal(conData.skyFrozen,'true','Constellation is frozen while constellation inspector is open');
+
+  // Move away -> constellation inspector hides
+  await page.mouse.move(10,10);
+  await page.waitForFunction(()=>!document.querySelector('.auth-sky-con-inspector.active'));
+  assert.equal(await conInspector.isVisible(),false,'Constellation inspector hides when moving away');
 
   // Test mobile viewport tap
   const mobilePage=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'reduce'});
@@ -134,12 +171,12 @@ try{
     return {x:s.x,y:s.y};
   });
   await mobilePage.touchscreen.tap(mobileStar.x,mobileStar.y);
-  await mobilePage.waitForFunction(()=>document.querySelector('.auth-sky-inspector.active'));
-  assert.equal(await mobilePage.locator('.auth-sky-inspector').isVisible(),true,'Mobile tap opens inspector card');
+  await mobilePage.waitForFunction(()=>document.querySelector('.auth-sky-star-inspector.active'));
+  assert.equal(await mobilePage.locator('.auth-sky-star-inspector').isVisible(),true,'Mobile tap opens inspector card');
 
   await mobilePage.touchscreen.tap(10,10);
-  await mobilePage.waitForFunction(()=>!document.querySelector('.auth-sky-inspector.active'));
-  assert.equal(await mobilePage.locator('.auth-sky-inspector').isVisible(),false,'Mobile tap outside dismisses inspector card');
+  await mobilePage.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active'));
+  assert.equal(await mobilePage.locator('.auth-sky-star-inspector').isVisible(),false,'Mobile tap outside dismisses inspector card');
   await mobilePage.close();
 
   console.log('Star inspector interactive test passed: desktop hover/pinning, fallback passport, and mobile tap verified.');

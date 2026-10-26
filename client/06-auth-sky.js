@@ -10,7 +10,7 @@
     const link=document.createElement('a');link.className='auth-sky-landmark';link.target='_blank';link.rel='noopener noreferrer';link.hidden=true;document.body.append(link);return link;
   });
   const inspector=document.createElement('div');
-  inspector.className='auth-sky-inspector';
+  inspector.className='auth-sky-inspector auth-sky-star-inspector';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
   inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
@@ -36,6 +36,32 @@
   const inspDesc=inspector.querySelector('.auth-sky-inspector-desc');
   const inspSimbad=inspector.querySelector('.auth-sky-inspector-simbad');
 
+  const conInspector=document.createElement('div');
+  conInspector.className='auth-sky-inspector auth-sky-con-inspector';
+  conInspector.setAttribute('role','tooltip');
+  conInspector.hidden=true;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
+  document.body.append(conInspector);
+
+  const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
+  const conNameRu=conInspector.querySelector('.auth-sky-con-name-ru');
+  const conSub=conInspector.querySelector('.auth-sky-con-sub');
+  const conFamily=conInspector.querySelector('.auth-sky-con-family');
+  const conAbbr=conInspector.querySelector('.auth-sky-con-abbr');
+  const conQuad=conInspector.querySelector('.auth-sky-con-quad');
+  const conHemi=conInspector.querySelector('.auth-sky-con-hemi');
+  const conVis=conInspector.querySelector('.auth-sky-con-vis');
+  const conMonth=conInspector.querySelector('.auth-sky-con-month');
+  const conArea=conInspector.querySelector('.auth-sky-con-area');
+  const conBrightest=conInspector.querySelector('.auth-sky-con-brightest');
+  const conPlanets=conInspector.querySelector('.auth-sky-con-planets');
+  const conFamVal=conInspector.querySelector('.auth-sky-con-fam-val');
+  const conDsoVal=conInspector.querySelector('.auth-sky-con-dso-val');
+  const conSizeBarVal=conInspector.querySelector('.auth-sky-size-bar-val');
+  const conSizeNeedle=conInspector.querySelector('.auth-sky-size-needle');
+  const conDesc=conInspector.querySelector('.auth-sky-con-desc');
+  const conLink=conInspector.querySelector('.auth-sky-con-link');
+
   const greekNames={
     'α':'Alpha','β':'Beta','γ':'Gamma','δ':'Delta','ε':'Epsilon','ζ':'Zeta','η':'Eta',
     'θ':'Theta','ι':'Iota','κ':'Kappa','λ':'Lambda','μ':'Mu','ν':'Nu','ξ':'Xi',
@@ -49,6 +75,27 @@
     Gem:'Geminorum',Aur:'Aurigae',Cru:'Crucis',Cas:'Cassiopeiae',Per:'Persei',
     And:'Andromedae',Peg:'Pegasi',Cen:'Centauri',Boo:'Boötis',CMa:'Canis Majoris',
     CMi:'Canis Minoris',Eri:'Eridani',Car:'Carinae',Psc:'Piscium'
+  };
+
+  const conRuNames={
+    And:'Андромеда',Ant:'Насос',Aps:'Райская Птица',Aqr:'Водолей',Aql:'Орёл',
+    Ara:'Жертвенник',Ari:'Овен',Aur:'Возничий',Boo:'Волопас',Cae:'Резец',
+    Cam:'Жираф',Cnc:'Рак',CVn:'Гончие Псы',CMa:'Большой Пёс',CMi:'Малый Пёс',
+    Cap:'Козерог',Car:'Киль',Cas:'Кассиопея',Cen:'Центавр',Cep:'Цефей',
+    Cet:'Кит',Cha:'Хамелеон',Cir:'Циркуль',Col:'Голубь',Com:'Волосы Вероники',
+    CrA:'Южная Корона',CrB:'Северная Корона',Crv:'Ворон',Crt:'Чаша',Cru:'Южный Крест',
+    Cyg:'Лебедь',Del:'Дельфин',Dor:'Золотая Рыба',Dra:'Дракон',Equ:'Малый Конь',
+    Eri:'Эридан',For:'Печь',Gem:'Близнецы',Gru:'Журавль',Her:'Геркулес',
+    Hor:'Часы',Hya:'Гидра',Hyi:'Южная Гидра',Ind:'Индеец',Lac:'Ящерица',
+    Leo:'Лев',LMi:'Малый Лев',Lep:'Заяц',Lib:'Весы',Lup:'Волк',
+    Lyn:'Рысь',Lyr:'Лира',Men:'Столовая Гора',Mic:'Микроскоп',Mon:'Единорог',
+    Mus:'Муха',Nor:'Наугольник',Oct:'Октант',Oph:'Змееносец',Ori:'Орион',
+    Pav:'Павлин',Peg:'Пегас',Per:'Персей',Phe:'Феникс',Pic:'Живописец',
+    Psc:'Рыбы',PsA:'Южная Рыба',Pup:'Корма',Pyx:'Компас',Ret:'Сетка',
+    Sge:'Стрела',Sgr:'Стрелец',Sco:'Скорпион',Scl:'Скульптор',Sct:'Щит',
+    Ser:'Змея',Sex:'Секстант',Tau:'Телец',Tel:'Телескоп',Tri:'Треугольник',
+    TrA:'Южный Треугольник',Tuc:'Тукан',UMa:'Большая Медведица',UMi:'Малая Медведица',
+    Vel:'Паруса',Vir:'Дева',Vol:'Летучая Рыба',Vul:'Лисичка'
   };
 
   const starClusters={
@@ -169,6 +216,13 @@
     else if(s.startsWith('M'))type='Red M-type giant star';
     const hipText=star.hip?` Catalogued in the Hipparcos archive as HIP ${star.hip}.`:'';
     return `${type} in the constellation ${conName||'sky'} with an apparent magnitude of ${star.mag!==null?star.mag.toFixed(2)+'m':'—'}.${hipText} Complete astrometry catalogued in the SIMBAD database.`;
+  }
+
+  function conFallbackDesc(c){
+    const meaning=c.meaning?` depicting ${c.meaning}`:'';
+    const starsCount=c.stars?.length||0;
+    const best=c.bestViewingMonth?(c.bestViewingMonth+(c.bestSeason?` (${c.bestSeason})`:'')):'optimal viewing seasons';
+    return `Prominent constellation in the ${c.hemisphere||'celestial'} sky${meaning}. Spans ${c.areaSqDeg||'several hundred'} square degrees across the celestial sphere with ${starsCount} catalogued stars. Best observed during ${best}. Complete astronomical atlas catalogued in IAU and Go-Astronomy archives.`;
   }
   const brightness=Object.freeze({background:20,constellation:100});
   const constellationScale=2;
@@ -331,6 +385,57 @@
       inspector.style.top=Math.round(top)+'px';
       inspector.classList.add('active');
     }
+    let inspectedCon=null;
+    function hideConInspector(){
+      const wasInspected=!!inspectedCon;
+      inspectedCon=null;
+      conInspector.classList.remove('active');
+      conInspector.hidden=true;
+      if(wasInspected&&phase==='hold'){
+        phaseStart=performance.now();
+        if(frozen)resumeReturn();
+      }
+    }
+    function showConInspector(c,targetNode){
+      pauseReturn();
+      inspectedCon=c;
+      hideInspector();
+      conNameEn.textContent=c.name||'';
+      conNameRu.textContent=conRuNames[c.abbr]||c.name||'';
+      const gen=c.genitive||conGenitives[c.abbr]||'';
+      const meaning=c.meaning?`"${c.meaning}"`:'';
+      conSub.textContent=[gen,meaning].filter(Boolean).join(' · ');
+      conFamily.textContent='Family: '+(c.family||'IAU Constellation');
+      conAbbr.textContent=c.abbr||'';
+      conQuad.textContent=c.quadrant?c.quadrant+' Quad':'';
+      conHemi.textContent=c.hemisphere?('🌐 '+(c.hemisphere.includes('Sky')?c.hemisphere:c.hemisphere+' Sky')):'🌐 Celestial Sphere';
+      conVis.textContent=c.visibility||'Global';
+      conMonth.textContent=c.bestViewingMonth?(c.bestViewingMonth+(c.bestSeason?` (${c.bestSeason})`:'')):'Year-round';
+      conArea.textContent=c.areaSqDeg?(c.areaSqDeg+' sq deg'+(c.sizeRank?` (${c.sizeRank})`:'')):'—';
+      conBrightest.textContent=c.brightestStar||'—';
+      conPlanets.textContent=c.starsWithPlanets!==null&&c.starsWithPlanets!==undefined?(c.starsWithPlanets+' planetary system'+(c.starsWithPlanets===1?'':'s')):'—';
+      conFamVal.textContent=c.family||'Classical';
+      const dsoNames=(c.objects||[]).filter(o=>o.name&&!o.estimated).slice(0,4).map(o=>o.name).join(' · ');
+      conDsoVal.textContent=dsoNames||'None catalogued';
+      const areaNum=c.areaSqDeg||400;
+      const pct=Math.round(Math.max(0,Math.min(100,((areaNum-68)/(1303-68))*100)));
+      conSizeNeedle.style.left=pct+'%';
+      conSizeBarVal.textContent=c.sizeRank?`Rank: ${c.sizeRank} (${areaNum} sq deg)`:`Area: ${areaNum} sq deg`;
+      conDesc.textContent=conFallbackDesc(c);
+      const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
+      conLink.href=url;
+      conInspector.hidden=false;
+      const cardW=320,cardH=conInspector.offsetHeight||340,margin=14;
+      const r=targetNode.getBoundingClientRect();
+      let left=r.left,top=r.bottom+10;
+      if(top+cardH>h-margin)top=r.top-cardH-10;
+      if(left+cardW>w-margin)left=w-cardW-margin;
+      if(left<margin)left=margin;
+      if(top<margin)top=margin;
+      conInspector.style.left=Math.round(left)+'px';
+      conInspector.style.top=Math.round(top)+'px';
+      conInspector.classList.add('active');
+    }
     const durations={gather:15000,hold:8000,morph:18000};
     function target(nextLayout){
       labels=[];links.forEach(n=>n.hidden=true);
@@ -350,11 +455,11 @@
       if(frozen)frozen.resumeAt=null;
     }
     function resumeReturn(){
-      if(!frozen||inspected||document.hidden||!document.hasFocus())return;
+      if(!frozen||inspected||inspectedCon||document.hidden||!document.hasFocus())return;
       if(frozen.resumeAt===null)frozen.resumeAt=performance.now()+5000;
       clearTimeout(freezeTimer);
       freezeTimer=setTimeout(()=>{
-        if(stopped||!frozen||inspected)return;
+        if(stopped||!frozen||inspected||inspectedCon)return;
         if(document.hidden||!document.hasFocus()){pauseReturn();return;}
         frozen=null;advance(performance.now());
         if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
@@ -362,13 +467,14 @@
     }
     function freezeFigure(){
       frozen={constellation:current,at:performance.now(),resumeAt:null};
-      if(!inspected)resumeReturn();
+      if(!inspected&&!inspectedCon)resumeReturn();
       if(motion.matches)render(performance.now());
     }
     const onVisibility=()=>{if(document.hidden)pauseReturn();else resumeReturn();};
     const ease=t=>t<.5?2*t*t:1-(-2*t+2)**2/2;
     function advance(now){
       hideInspector();
+      hideConInspector();
       if(phase==='hold'){
         previous=current;current=next();layout=chooseLayout(current);phase='morph';target(layout);
       }else{phase='hold';labels=layout?.labels||[];}
@@ -431,10 +537,10 @@
       if(stopped)return;
       const delta=lastTime===null?1:Math.min(3,(now-lastTime)/16.6667);lastTime=now;clock+=delta;
       const phaseNow=frozen?frozen.at:now;
-      if(!frozen&&!inspected&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
+      if(!frozen&&!inspected&&!inspectedCon&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
       const t=phase==='hold'?1:ease(Math.min(1,(phaseNow-phaseStart)/durations[phase]));
       canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=current.abbr;
-      canvas.dataset.skyFrozen=String(!!frozen||!!inspected);
+      canvas.dataset.skyFrozen=String(!!frozen||!!inspected||!!inspectedCon);
       canvas.dataset.skyScale=String(constellationScale);
       canvas.dataset.skyBackgroundBrightness=String(brightness.background);
       canvas.dataset.skyConstellationBrightness=String(brightness.constellation);
@@ -531,6 +637,20 @@
       return !!findStar(event.clientX,event.clientY);
     }
     const onMove=event=>{
+      const caption=event.target.closest('.auth-sky-title');
+      if(caption){
+        canvas.classList.add('sky-hover');
+        if(!inspectedCon||inspectedCon.abbr!==current.abbr){
+          showConInspector(current,caption);
+          if(motion.matches)redraw?.();
+        }
+        return;
+      }
+      if(conInspector.contains(event.target))return;
+      if(inspectedCon){
+        hideConInspector();
+        if(motion.matches)redraw?.();
+      }
       if(inspector.contains(event.target))return;
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       canvas.classList.toggle('sky-hover',!!target);
@@ -545,9 +665,13 @@
       }
     };
     const onClick=event=>{
-      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target))return;
+      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target)||conInspector.contains(event.target))return;
       const caption=event.target.closest('.auth-sky-title');
-      if(caption){freezeFigure();return;}
+      if(caption){
+        freezeFigure();
+        return;
+      }
+      hideConInspector();
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       if(target){
         freezeFigure();
@@ -559,8 +683,19 @@
       }
     };
     const onTouchEnd=event=>{
-      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target))return;
+      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target)||conInspector.contains(event.target))return;
       const t=event.changedTouches[0];
+      const caption=event.target.closest('.auth-sky-title');
+      if(caption){
+        freezeFigure();
+        if(!inspectedCon){
+          showConInspector(current,caption);
+          if(motion.matches)redraw?.();
+          return;
+        }
+        return;
+      }
+      hideConInspector();
       const target=findStar(t.clientX,t.clientY)||starFromLandmark(event.target);
       if(target){
         freezeFigure();
