@@ -207,19 +207,22 @@ function signupRole(env) {
 }
 
 function cookieHeader(token, secure) {
+  const name = secure ? "__Host-enquiz_sid" : "enquiz_sid";
   const base = token
-    ? "enquiz_sid=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + SESSION_SECONDS
-    : "enquiz_sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+    ? name + "=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + SESSION_SECONDS
+    : name + "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
   return secure ? base + "; Secure" : base;
 }
 
 function readCookie(header) {
   const parts = String(header || "").split(";");
+  let legacy = "";
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i].trim();
-    if (part.indexOf("enquiz_sid=") === 0) return part.slice("enquiz_sid=".length);
+    if (part.indexOf("__Host-enquiz_sid=") === 0) return part.slice("__Host-enquiz_sid=".length);
+    if (part.indexOf("enquiz_sid=") === 0) legacy = part.slice("enquiz_sid=".length);
   }
-  return "";
+  return legacy;
 }
 
 function emptyState() {

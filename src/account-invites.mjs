@@ -12,6 +12,16 @@ async function sha256Hex(value){
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+export function timingSafeHexEqual(a, b){
+  if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;
+  const aBuf=encoder.encode(a),bBuf=encoder.encode(b);
+  if(typeof crypto?.subtle?.timingSafeEqual==='function'){
+    return crypto.subtle.timingSafeEqual(aBuf,bBuf);
+  }
+  let diff=0;for(let i=0;i<aBuf.length;i++)diff|=aBuf[i]^bBuf[i];
+  return diff===0;
+}
+
 function randomSecret(){
   const bytes=new Uint8Array(24);
   crypto.getRandomValues(bytes);
@@ -151,7 +161,7 @@ export class AccountInvites{
     if(!value||value.revoked)fail(404,'Invite not found.');
     if(inviteExpiry(value)<=Date.now())fail(410,'Invite expired.');
     if(value.uses>=1)fail(410,'Invite already used up.');
-    if(value.secretHash!==await sha256Hex(secret))fail(404,'Invite not found.');
+    if(!timingSafeHexEqual(value.secretHash,await sha256Hex(secret)))fail(404,'Invite not found.');
     if(value.kind==='teacher'&&verifiedEmail!==undefined&&String(verifiedEmail).trim().toLowerCase()!==value.email)fail(403,'Use the invited teacher email.');
     if(value.kind!=='teacher')await this.#checkAssignedTeacher(value);
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[value.groupId]);
@@ -167,7 +177,7 @@ export class AccountInvites{
     if(inviteExpiry(previous)<=Date.now())fail(410,'Invite expired.');
     const retry=previous.redemptionPending&&previous.lastRedeemedBy===actor.id;
     if(previous.uses>=1&&!retry)fail(410,'Invite already used up.');
-    if(previous.secretHash!==await sha256Hex(secret))fail(404,'Invite not found.');
+    if(!timingSafeHexEqual(previous.secretHash,await sha256Hex(secret)))fail(404,'Invite not found.');
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[previous.groupId]);
     if(!group)fail(404,'Group not found.');
     if(previous.kind==='teacher'){

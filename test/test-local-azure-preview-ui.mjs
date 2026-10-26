@@ -21,6 +21,7 @@ test('Azure selection stays Off until saved and speech consent names the real pr
     await page.getByRole('button',{name:'Save settings',exact:true}).click();await page.getByText('Provider settings saved.',{exact:true}).waitFor();assert.equal(calls,0);
     await page.goto(preview.url);await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
     const icon=page.locator('.side [data-jump="speakout"] svg');await icon.waitFor();assert.ok((await icon.getAttribute('class')).includes('lucide-speech'));assert.equal(await icon.getAttribute('stroke'),'currentColor');
+    if(await page.locator('#learning-main-dismiss').isVisible())await page.locator('#learning-main-dismiss').click();
     await page.locator('.side nav button[data-jump="groups"]').click();await page.locator('[data-group-level="A1"]').click();await page.locator('[data-group-open="1"]').click();await page.locator('[data-detail-lessons]').click();await page.locator('[data-lm-open="1"]').click();
     await page.locator('[data-workbench-lesson-speech]:visible').first().click();
     await page.getByText('A fine drizzle is falling outside.',{exact:true}).waitFor();

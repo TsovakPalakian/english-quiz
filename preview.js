@@ -3291,9 +3291,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return String(text || "").replace(/\s+/g, " ").replace(/\s+([.,?!;:])/g, "$1").replace(/\[[^\]]+\]\s*/g, "").trim();
     }
     function foldedLinkHtml(pairs) {
-      const rows = (pairs || []).filter((pair) => pair && pair[1]);
+      const rows = (pairs || []).filter((pair) => pair && pair[1] && /^https?:\/\//i.test(String(pair[1]).trim()));
       if (!rows.length) return "";
-      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noreferrer">' + esc(pair[0]) + "</a>";
+      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(pair[0]) + "</a>";
       if (rows.length <= 2) return rows.map(link).join(" · ");
       const id = "srcRest" + (++srcSeq);
       return rows.slice(0, 2).map(link).join(" · ") +
@@ -3406,9 +3406,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     });
     function markerLinks(card) {
       const bits = [];
-      if (card.cambridge) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noreferrer">Cambridge</a>');
-      if (card.oxford) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noreferrer">Oxford</a>');
-      if (card.wooordhunt) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noreferrer">Wooordhunt</a>');
+      if (card.cambridge && /^https?:\/\//i.test(card.cambridge)) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noopener noreferrer">Cambridge</a>');
+      if (card.oxford && /^https?:\/\//i.test(card.oxford)) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noopener noreferrer">Oxford</a>');
+      if (card.wooordhunt && /^https?:\/\//i.test(card.wooordhunt)) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noopener noreferrer">Wooordhunt</a>');
       return bits.join(" · ");
     }
     function openMarker(en, quiet) {
@@ -9192,7 +9192,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (data.method === "pause" || data.method === "finish") setSongPlayer(box, false);
       } else if (kind === "spotify") {
         const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
-        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "*");
+        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "https://open.spotify.com");
         if (data.type === "playback_started") setSongPlayer(box, true);
         else if (data.type === "playback_update") {
           if (payload.isPaused == null && payload.isBuffering == null) return;
@@ -16071,7 +16071,11 @@ const STUDIO_CONSTELLATIONS = [{
                 ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
               </div>
               <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
-              ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+              ${(() => {
+                if (!fb.url) return '';
+                const isSafe = /^https?:\/\//i.test(fb.url);
+                return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
+              })()}
               ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
                 <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
                   <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
@@ -16080,7 +16084,10 @@ const STUDIO_CONSTELLATIONS = [{
                   </ul>
                 </details>
               ` : ''}
-              ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
+              ${(() => {
+                if (!fb.screenshot || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(fb.screenshot)) return '';
+                return `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" class="feedback-screenshot-thumb" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;"></div>`;
+              })()}
             </div>
             <div>
               ${fb.resolved ? `
@@ -16101,6 +16108,20 @@ const STUDIO_CONSTELLATIONS = [{
       ` : '';
 
       container.innerHTML = cardsHtml + loadMoreHtml;
+
+      container.querySelectorAll('.feedback-screenshot-thumb').forEach(img => {
+        img.addEventListener('click', () => {
+          const src = img.getAttribute('src');
+          if (src && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+            const win = window.open('', '_blank');
+            if (win) {
+              try { win.opener = null; } catch (_) {}
+              win.document.write('<!DOCTYPE html><title>Screenshot</title><body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img style="max-width:100%;max-height:100vh;object-fit:contain;" src="' + src + '"></body>');
+              win.document.close();
+            }
+          }
+        });
+      });
 
       const loadMoreBtn = container.querySelector('#feedbackLoadMoreBtn');
       if (loadMoreBtn) {

@@ -313,3 +313,24 @@ test('checkFeedbackRateLimit allows 1 per hour and blocks 2nd with retry time', 
   const afterWindow = checkFeedbackRateLimit(key, start + 3600001);
   assert.equal(afterWindow.ok, true);
 });
+
+test('saveFeedback sanitizes malicious URL scheme and malformed screenshot', async () => {
+  resetFeedbackStoreForTests();
+  const db = memoryDb();
+
+  const entry = await saveFeedback(db, {
+    category: 'bug',
+    message: 'Testing security sanitization',
+    screenshot: "data:image/png;base64,invalid';alert(1)//",
+    context: {
+      url: 'javascript:alert(document.domain)'
+    }
+  });
+
+  assert.equal(entry.url, '', 'Unsafe javascript: scheme should be normalized to empty string');
+  assert.equal(entry.hasScreenshot, false, 'Unsafe malformed screenshot should be rejected');
+
+  const rows = await db.read('SELECT url, screenshot_data FROM user_feedback WHERE id = ?', [entry.id]);
+  assert.equal(rows[0].url, '');
+  assert.equal(rows[0].screenshot_data, '');
+});

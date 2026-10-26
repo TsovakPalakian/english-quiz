@@ -198,7 +198,11 @@
                 ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
               </div>
               <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
-              ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+              ${(() => {
+                if (!fb.url) return '';
+                const isSafe = /^https?:\/\//i.test(fb.url);
+                return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
+              })()}
               ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
                 <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
                   <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
@@ -207,7 +211,10 @@
                   </ul>
                 </details>
               ` : ''}
-              ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
+              ${(() => {
+                if (!fb.screenshot || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(fb.screenshot)) return '';
+                return `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" class="feedback-screenshot-thumb" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;"></div>`;
+              })()}
             </div>
             <div>
               ${fb.resolved ? `
@@ -228,6 +235,20 @@
       ` : '';
 
       container.innerHTML = cardsHtml + loadMoreHtml;
+
+      container.querySelectorAll('.feedback-screenshot-thumb').forEach(img => {
+        img.addEventListener('click', () => {
+          const src = img.getAttribute('src');
+          if (src && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+            const win = window.open('', '_blank');
+            if (win) {
+              try { win.opener = null; } catch (_) {}
+              win.document.write('<!DOCTYPE html><title>Screenshot</title><body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img style="max-width:100%;max-height:100vh;object-fit:contain;" src="' + src + '"></body>');
+              win.document.close();
+            }
+          }
+        });
+      });
 
       const loadMoreBtn = container.querySelector('#feedbackLoadMoreBtn');
       if (loadMoreBtn) {

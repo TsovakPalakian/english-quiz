@@ -21,7 +21,7 @@ const oauthProviders={
   microsoft:{Service:MicrosoftOAuth,configured:microsoftConfigured,cookie:microsoftCookie,cookieHeader:microsoftCookieHeader,authorize:microsoftAuthorizeUrl,exchange:exchangeMicrosoftCode,label:'Microsoft'},
   telegram:{Service:TelegramOAuth,configured:telegramConfigured,cookie:telegramCookie,cookieHeader:telegramCookieHeader,authorize:telegramAuthorizeUrl,exchange:exchangeTelegramCode,label:'Telegram'},
 };
-import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured} from './google-oauth.mjs';
+import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured,googleCookie,googleCookieHeader} from './google-oauth.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './learning-media.mjs';
@@ -287,7 +287,10 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const result=await endSession(studyDatabase(env),accountEnv.MEDIA,session,body.id);
         if(env.CHAT_INBOX)try{await chatCall(env,'CHAT_INBOX',actor.id,'/revoke-session',{sid:result.sid});}catch{console.error('Session socket closure deferred to revocation checks.');}
         const response=json({ended:result.ended,current:result.current});
-        if(result.current)response.headers.set('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+        if(result.current){
+          response.headers.set('Set-Cookie','__Host-enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+          response.headers.append('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+        }
         return response;
       }
       if(path==='/api/everyday'&&method==='GET'){
@@ -361,20 +364,27 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
         const invite=String(url.searchParams.get('invite')||'').trim();
         if(invite)await new AccountInvites(studyDatabase(env)).peek(invite);
-        const {state}=await createGoogleState(env,invite?{invite}:{});
-        return Response.redirect(googleAuthorizeUrl(env,url,state),302);
+        const {state,nonce}=await createGoogleState(env,invite?{invite}:{});
+        const secure=url.protocol==='https:';
+        const headers=new Headers({
+          'Location':googleAuthorizeUrl(env,url,state),
+          'Set-Cookie':googleCookieHeader(nonce,secure)
+        });
+        return new Response(null,{status:302,headers});
       }
       if(path==='/api/auth/google/callback'&&method==='GET'){
         if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
         if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
         const err=url.searchParams.get('error');
         if(err)return Response.redirect(url.origin+'/?auth=google_denied',302);
+        const secure=url.protocol==='https:';
+        const cookieNonce=googleCookie(request);
         const state=await readGoogleState(env,url.searchParams.get('state'));
+        if(cookieNonce&&cookieNonce!==state.n)throw new StudyError(401,'Google sign-in does not match this session.');
         const profile=await exchangeGoogleCode(env,url,url.searchParams.get('code'));
         const inviteToken=typeof state.invite==='string'?state.invite.trim():'';
         if(inviteToken&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         const inviteInfo=inviteToken?await new AccountInvites(studyDatabase(env)).peek(inviteToken,profile.email):null;
-        const secure=url.protocol==='https:';
         let response=await completeGoogleSignIn(accountEnv,request,profile,{create:false,role:inviteInfo?.kind==='teacher'?'ADMIN':'USER'},secure);
         if(response.status===200){
           let value=await response.clone().json(),inviteAccepted=false;
@@ -423,14 +433,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             else dest.searchParams.set('auth','google');
             headers.set('Location',dest.toString());
             headers.delete('Content-Length');
+            headers.append('Set-Cookie',googleCookieHeader('',secure));
             return new Response(null,{status:302,headers});
           }
         }
         if(response.status===403){
           const value=await response.clone().json().catch(()=>({}));
-          if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
+          if(value.status==='pending')return new Response(null,{status:302,headers:{'Location':url.origin+'/?auth=pending','Set-Cookie':googleCookieHeader('',secure)}});
         }
-        return Response.redirect(url.origin+'/?auth=google_error',302);
+        return new Response(null,{status:302,headers:{'Location':url.origin+'/?auth=google_error','Set-Cookie':googleCookieHeader('',secure)}});
       }
       if(path==='/api/auth/password/reset'&&method==='POST'){
         if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Password recovery is unavailable.');

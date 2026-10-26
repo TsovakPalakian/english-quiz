@@ -73,11 +73,26 @@ export async function saveFeedback(db, {
 
   const cleanCategory = ['bug', 'idea', 'question'].includes(category) ? category : 'bug';
   const cleanMessage = String(message || '').trim().slice(0, 4000);
-  const cleanScreenshot = typeof screenshot === 'string' && screenshot.startsWith('data:image/') ? screenshot : '';
+  const cleanScreenshot = typeof screenshot === 'string' &&
+    screenshot.length <= 1_500_000 &&
+    /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(screenshot)
+      ? screenshot
+      : '';
   const userId = String(user?.id || '');
   const userLogin = String(user?.login || '');
   const userEmail = String(user?.email || contact || '').slice(0, 255);
-  const url = String(context?.url || '').slice(0, 1000);
+
+  const rawUrl = String(context?.url || '').trim().slice(0, 1000);
+  let cleanUrl = '';
+  if (/^https?:\/\//i.test(rawUrl)) {
+    try {
+      const parsed = new URL(rawUrl);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        cleanUrl = parsed.toString();
+      }
+    } catch {}
+  }
+  const url = cleanUrl;
   const rawBreadcrumbs = Array.isArray(context?.breadcrumbs) ? context.breadcrumbs.slice(-10) : [];
   const cleanBreadcrumbs = rawBreadcrumbs.map(b => ({
     ago: String(b?.ago || '').slice(0, 30),
