@@ -38,6 +38,12 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 | **SEC-10** | Exposure of Backend Host IPv4 Address in `wrangler.toml` Wildcard DNS | **Low** | `wrangler.toml:118` | ℹ️ *Architectural Recommendation* |
 | **SEC-11** | PostMessage Target Origin Wildcard (`*`) in Spotify Embed Handshake | **Info** | `client/03f-songs.js:346` | 🟩 |
 | **SEC-12** | Missing Minimum Length & Entropy Validation for `SESSION_SECRET` | **Low** | `src/learning-production-worker.mjs:23-25` | 🟩 |
+| **SEC-13** | Privacy Violation & Email Disclosure to Students in Chat Search (`searchPerson`) | **Medium** | `src/chat-worker.mjs:215` | 🟩 |
+| **SEC-14** | Protocol Inconsistency in Chat Link Previews (Allowing `http:` Scheme) | **Low** | `src/chat-previews.mjs:8` | 🟩 |
+| **SEC-15** | Reverse Tabnabbing Missing `noopener` on External Links in Songs, Core, Lessons | **Low** | `client/03f-songs.js:72`, `client/03g-core.js:382,403`, `client/52-lessons.js:811` | 🟩 |
+| **SEC-16** | Legacy Session Cookie Incomplete Clearing on Logout in Base Worker | **Medium** | `src/worker.js:1913, 2020` | 🟩 |
+| **SEC-17** | Recursive Prototype Pollution Key Sanitization in Lesson Blocks | **Low** | `src/learning-study.mjs:109` | 🟩 |
+| **SEC-18** | Sub-optimal Constant-Time Comparison Primitive in Email OTP Verification | **Low** | `src/email-otp.mjs:21` | 🟩 |
 
 ---
 
@@ -192,6 +198,60 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 
 ---
 
+### [SEC-13] Privacy Violation & Email Disclosure to Students in Chat Search (`searchPerson`)
+- **Severity**: Medium (CVSS 5.3)
+- **Location**: [src/chat-worker.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-worker.mjs#L215)
+- **Description**: In `chat-worker.mjs:215`, `searchPerson()` queries the policy cache and returns `{ person: matches[0] }`. The matched object is a raw user record containing `{ id, login, name, email, role, active, hidden, is_personal_data_revoked, groupId }`. When a student searches for another user via `@username`, the private email address of that user is returned in the JSON response, allowing any student to harvest emails of other students and teachers.
+- **Remediation**:
+  Strip `email` from `person` when the caller `self` is not staff (`ADMIN` or `DEVELOPER`). Only expose public identifiers (`id`, `name`, `login`, `role`, `groupId`).
+
+---
+
+### [SEC-14] Protocol Inconsistency in Chat Link Previews (Allowing `http:` Scheme)
+- **Severity**: Low (CVSS 3.7)
+- **Location**: [src/chat-previews.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-previews.mjs#L8)
+- **Description**: `chatPreviewUrl` accepts both `http:` and `https:`, but downstream `publicFetch` rejects anything non-HTTPS. Accepting `http:` creates an inconsistency and allows plaintext URLs to enter preview pipelines.
+- **Remediation**:
+  Strictly require `url.protocol === 'https:'` in `chatPreviewUrl`.
+
+---
+
+### [SEC-15] Reverse Tabnabbing Missing `noopener` on External Links in Songs, Core, Lessons
+- **Severity**: Low (CVSS 3.5)
+- **Location**: [client/03f-songs.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L72), [client/03g-core.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L382), [client/52-lessons.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L811)
+- **Description**: Dynamic `target="_blank"` links use `rel="noreferrer"` without `noopener`. Older browsers and certain WebKit engines allow `window.opener` access if `noopener` is omitted.
+- **Remediation**:
+  Standardize on `rel="noopener noreferrer"`.
+
+---
+
+### [SEC-16] Legacy Session Cookie Incomplete Clearing on Logout in Base Worker
+- **Severity**: Medium (CVSS 4.5)
+- **Location**: [src/worker.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L1913-L2020)
+- **Description**: In `src/worker.js`, `logout` and `delete-account` set `cookieHeader("", secure)`. When `secure` is true, it issues a deletion header solely for `__Host-enquiz_sid`. If the browser retained a legacy `enquiz_sid` cookie, `readCookie()` falls back to `enquiz_sid`, reviving the session after logout.
+- **Remediation**:
+  Ensure logout clears both `__Host-enquiz_sid` and `enquiz_sid`.
+
+---
+
+### [SEC-17] Recursive Prototype Pollution Key Sanitization in Lesson Blocks
+- **Severity**: Low (CVSS 3.3)
+- **Location**: [src/learning-study.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-study.mjs#L109)
+- **Description**: `lessonBlock` filters `__proto__`, `constructor`, `prototype` on top-level keys of `value.content`, but does not recursively inspect nested objects inside block content.
+- **Remediation**:
+  Implement recursive key validation rejecting prototype pollution keys at any depth.
+
+---
+
+### [SEC-18] Sub-optimal Constant-Time Comparison Primitive in Email OTP Verification
+- **Severity**: Low (CVSS 3.1)
+- **Location**: [src/email-otp.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/email-otp.mjs#L21)
+- **Description**: `email-otp.mjs` uses custom loop XOR for timing-safe string comparison. While decent, `crypto.subtle.timingSafeEqual` provides guaranteed hardware constant-time semantics in V8/Cloudflare runtime.
+- **Remediation**:
+  Switch to `crypto.subtle.timingSafeEqual` over Uint8Array encodings.
+
+---
+
 ## 4. Remediation Checklist & Execution Stages
 
 ### Stage 1: Critical & High Priority Fixes (DOM XSS & Stored Injection)
@@ -218,6 +278,15 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 - [ ] 🟩 **Item 4.1**: Implement `__Host-enquiz_sid` session cookie prefix support on HTTPS with backward compatibility in `src/worker.js` and `src/learning-integrated-worker.mjs` (SEC-08).
 - [ ] 🟩 **Item 4.2**: Validate `SESSION_SECRET` non-empty string integrity in `src/learning-production-worker.mjs` (SEC-12).
 - [ ] 🟩 **Item 4.3**: Rebuild production assets and run full test suite (165/165 passed).
+
+### Stage 5: Deep Audit Remediation (Privacy, Protocol, Tabnabbing, Cookie Cleanup, Prototype Defense)
+- [ ] 🟩 **Item 5.1**: Sanitize chat search person response to hide private emails from students (`src/chat-worker.mjs:215`) (SEC-13).
+- [ ] 🟩 **Item 5.2**: Enforce strict `https:` protocol in `chatPreviewUrl` (`src/chat-previews.mjs:8`) (SEC-14).
+- [ ] 🟩 **Item 5.3**: Add `noopener` to all remaining dynamic `target="_blank"` links in `client/03f-songs.js`, `client/03g-core.js`, `client/52-lessons.js` (SEC-15).
+- [ ] 🟩 **Item 5.4**: Ensure `src/worker.js` logout clears both `__Host-enquiz_sid` and `enquiz_sid` (SEC-16).
+- [ ] 🟩 **Item 5.5**: Add recursive prototype pollution key check in `src/learning-study.mjs` (SEC-17).
+- [ ] 🟩 **Item 5.6**: Upgrade Email OTP constant-time comparison to `crypto.subtle.timingSafeEqual` in `src/email-otp.mjs` (SEC-18).
+- [ ] 🟩 **Item 5.7**: Rebuild preview/production assets and verify 100% test pass.
 
 ---
 

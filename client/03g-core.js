@@ -379,7 +379,7 @@
       const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
       if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';
@@ -400,7 +400,7 @@
       document.querySelectorAll("[data-day-links]").forEach((box) => {
         const day = box.dataset.dayLinks;
         const pack = DAY_LINKS[day] || { pdf: "" };
-        const pdf = pack.pdf ? '<a class="btn primary" href="' + esc(pack.pdf) + '" target="_blank" rel="noreferrer">Lesson PDF</a>' : "";
+        const pdf = pack.pdf ? '<a class="btn primary" href="' + esc(pack.pdf) + '" target="_blank" rel="noopener noreferrer">Lesson PDF</a>' : "";
         const classwork = '<a class="btn chip" href="' + esc(workHref(day, "classwork")) + '" data-work-open="classwork" data-work-day="' + esc(day) + '">Classwork</a>';
         const homework = '<a class="btn primary" href="' + esc(workHref(day, "homework")) + '" data-work-open="homework" data-work-day="' + esc(day) + '">Homework</a>';
         box.innerHTML = pdf + classwork + homework;

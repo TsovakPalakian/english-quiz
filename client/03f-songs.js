@@ -69,7 +69,7 @@
     function openLink(label, url) {
       const parsed = linkParts(url);
       if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return "";
-      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noreferrer">' + esc(label) + "</a></p>";
+      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noopener noreferrer">' + esc(label) + "</a></p>";
     }
     function videoHtml(url) {
       const link = String(url || "").trim();

@@ -18,8 +18,24 @@ function json(data, status, headers) {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
   };
+  if (headers instanceof Headers) {
+    const resHeaders = new Headers(out);
+    for (const [key, value] of headers.entries()) resHeaders.append(key, value);
+    return new Response(JSON.stringify(data), { status: status || 200, headers: resHeaders });
+  }
   if (headers) Object.keys(headers).forEach((key) => { out[key] = headers[key]; });
   return new Response(JSON.stringify(data), { status: status || 200, headers: out });
+}
+
+function logoutHeaders(secure) {
+  const h = new Headers();
+  if (secure) {
+    h.append("Set-Cookie", "__Host-enquiz_sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure");
+    h.append("Set-Cookie", "enquiz_sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure");
+  } else {
+    h.set("Set-Cookie", "enquiz_sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  }
+  return h;
 }
 
 function hexToBytes(hex) {
@@ -1910,7 +1926,7 @@ async function logout(env, request, secure) {
       return json({ error: "Could not sign out safely. Try again." }, 503);
     }
   }
-  return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
+  return json({ ok: true }, 200, logoutHeaders(secure));
 }
 
 async function me(env, request) {
@@ -2017,7 +2033,7 @@ async function revoke(env, request, secure) {
   }
   try { await scrubStatUid(env, user.id); } catch (e) {}
   try { await revokeSessionToken(env, readCookie(request.headers.get("Cookie")));const session=await sessionIdentity(env,request);if(session)await finishSessionRecord(studyClient(env),session,'data_deleted'); } catch (e) {}
-  return json({ ok: true }, 200, { "Set-Cookie": cookieHeader("", secure) });
+  return json({ ok: true }, 200, logoutHeaders(secure));
 }
 
 export function studyTwinLogin(login) {

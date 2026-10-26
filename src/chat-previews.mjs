@@ -5,7 +5,7 @@ const images=[...providers,'ytimg.com','googleusercontent.com','gstatic.com','gi
 const allowed=(host,list)=>list.some(name=>host===name||host.endsWith('.'+name));
 export function chatPreviewUrl(value){
   let url;try{url=new URL(String(value));}catch{return null;}
-  if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.port||url.href.length>2048)return null;
+  if(url.protocol!=='https:'||url.username||url.password||url.port||url.href.length>2048)return null;
   if(!/^[a-z0-9.-]+$/i.test(url.hostname)||!url.hostname.includes('.')||/^\d+(?:\.\d+){3}$/.test(url.hostname)||/\.(?:localhost|local|internal|test|invalid)$/i.test(url.hostname))return null;
   return url;
 }

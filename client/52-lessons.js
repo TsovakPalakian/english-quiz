@@ -808,7 +808,7 @@
       const title = block.title || href || "Link";
       const host = lmHostLabel(href);
       const note = block.description || "";
-      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noreferrer" data-link-preview="' + esc(href) + '"' + (note ? ' data-keep-desc="1"' : "") + '>' +
+      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noopener noreferrer" data-link-preview="' + esc(href) + '"' + (note ? ' data-keep-desc="1"' : "") + '>' +
         '<span class="lm-link-card-media" aria-hidden="true"></span>' +
         '<span class="lm-link-card-copy"><b>' + esc(title) + '</b><span class="lm-link-card-desc">' + esc(note) + '</span><small class="lm-link-card-host">' + esc(host) + "</small></span></a>";
     }

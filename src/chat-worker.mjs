@@ -212,7 +212,11 @@ export class ChatBridge{
       return assigned.has(u.id);
     };
     const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&visible(u)&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
-    if(matches.length>1)fail(409,'Use the full email to identify this account.');return {person:matches[0]||null};
+    if(matches.length>1)fail(409,'Use the full email to identify this account.');
+    const match=matches[0];
+    if(!match)return {person:null};
+    const person=staff(self)||match.id===self.id?match:{id:match.id,login:match.login,name:match.name,role:match.role,groupId:match.groupId};
+    return {person};
   }
   fetch(request){
     if(new URL(request.url).pathname.startsWith('/__account-transfer/'))return transferObject(this,request,'bridge');
