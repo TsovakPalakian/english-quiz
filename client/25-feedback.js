@@ -56,6 +56,16 @@
   let currentCategory = 'bug';
   let modalEl = null;
 
+  function adjustFeedbackTextarea(el) {
+    if (!el) return;
+    el.style.height = 'auto';
+    const minH = 80;
+    const maxH = minH * 3; // 240px (3x base height)
+    const nextH = Math.min(Math.max(el.scrollHeight, minH), maxH);
+    el.style.height = nextH + 'px';
+    el.style.overflowY = el.scrollHeight > maxH ? 'auto' : 'hidden';
+  }
+
   function ensureModal() {
     if (modalEl && document.body.contains(modalEl)) return modalEl;
     modalEl = document.createElement('dialog');
@@ -63,31 +73,31 @@
     modalEl.className = 'feedback-dialog';
     modalEl.innerHTML = `
       <div class="feedback-header">
-        <h2>Обратная связь и ошибки</h2>
-        <button type="button" class="feedback-close" data-feedback-close aria-label="Закрыть">✕</button>
+        <h2>Feedback & Bug Report</h2>
+        <button type="button" class="feedback-close" data-feedback-close aria-label="Close">✕</button>
       </div>
       <div class="feedback-types">
-        <button type="button" class="feedback-type-btn active" data-type="bug">🐞 Ошибка</button>
-        <button type="button" class="feedback-type-btn" data-type="idea">💡 Идея / вопрос</button>
+        <button type="button" class="feedback-type-btn active" data-type="bug">🐞 Bug</button>
+        <button type="button" class="feedback-type-btn" data-type="idea">💡 Idea / Question</button>
       </div>
-      <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Опишите, что пошло не так или чего не хватает..." required></textarea>
+      <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Describe what went wrong or what is missing..." required></textarea>
       
       <div class="feedback-preview-box" id="feedbackPreviewBox" hidden>
-        <img id="feedbackPreviewImg" src="" alt="Скриншот">
-        <button type="button" class="feedback-preview-remove" id="feedbackRemoveScreenshot" title="Удалить скриншот">✕</button>
+        <img id="feedbackPreviewImg" src="" alt="Screenshot">
+        <button type="button" class="feedback-preview-remove" id="feedbackRemoveScreenshot" title="Remove screenshot">✕</button>
       </div>
 
       <div class="feedback-dropzone" id="feedbackDropzone">
-        <p>📸 Прикрепить скриншот</p>
-        <small>Нажмите <b>Ctrl+V</b> (Cmd+V) для быстрой вставки, перетащите файл или нажмите сюда</small>
+        <p>📸 Attach screenshot</p>
+        <small>Press <b>Ctrl+V</b> (Cmd+V) to paste, drag & drop a file, or click here</small>
         <input type="file" id="feedbackFileInput" accept="image/*" style="display:none">
       </div>
 
-      <input type="text" class="feedback-input" id="feedbackContact" placeholder="Ваш Email или @telegram для связи (необязательно)">
+      <input type="text" class="feedback-input" id="feedbackContact" placeholder="Your Email or @telegram for follow-up (optional)">
 
       <div class="feedback-footer">
-        <button type="button" class="feedback-btn" data-feedback-close>Отмена</button>
-        <button type="button" class="feedback-btn feedback-btn-primary" id="feedbackSubmitBtn">Отправить</button>
+        <button type="button" class="feedback-btn feedback-btn-cancel" data-feedback-close>Cancel</button>
+        <button type="button" class="feedback-btn feedback-btn-primary" id="feedbackSubmitBtn">Send</button>
       </div>
       <div class="feedback-status" id="feedbackStatus" role="status" aria-live="polite"></div>
     `;
@@ -98,6 +108,11 @@
     modalEl.querySelectorAll('[data-feedback-close]').forEach(btn => {
       btn.addEventListener('click', closeFeedbackModal);
     });
+
+    const textarea = modalEl.querySelector('#feedbackMessage');
+    if (textarea) {
+      textarea.addEventListener('input', () => adjustFeedbackTextarea(textarea));
+    }
 
     modalEl.querySelectorAll('.feedback-type-btn').forEach(btn => {
       btn.addEventListener('click', function() {
@@ -228,7 +243,10 @@
     const submitBtn = modal.querySelector('#feedbackSubmitBtn');
 
     if (status) { status.textContent = ''; status.className = 'feedback-status'; }
-    if (textarea) textarea.value = '';
+    if (textarea) {
+      textarea.value = '';
+      adjustFeedbackTextarea(textarea);
+    }
     clearScreenshot();
 
     // Prefill contact if user is authenticated
@@ -318,7 +336,7 @@
     const message = (textarea ? textarea.value : '').trim();
     if (!message) {
       if (status) {
-        status.textContent = 'Пожалуйста, опишите проблему или предложение.';
+        status.textContent = 'Please describe the issue or suggestion.';
         status.className = 'feedback-status error';
       }
       if (textarea) textarea.focus();
@@ -327,7 +345,7 @@
 
     if (submitBtn) submitBtn.disabled = true;
     if (status) {
-      status.textContent = 'Отправка...';
+      status.textContent = 'Sending...';
       status.className = 'feedback-status';
     }
 
@@ -364,10 +382,10 @@
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Ошибка при отправке (' + res.status + ')');
+        throw new Error(errJson.error || 'Failed to send (' + res.status + ')');
       }
       if (status) {
-        status.textContent = '✓ Спасибо! Ваше сообщение успешно отправлено.';
+        status.textContent = '✓ Thank you! Your feedback has been sent.';
         status.className = 'feedback-status success';
       }
       playSuccessChime();
@@ -377,7 +395,7 @@
       }, 1400);
     } catch (err) {
       if (status) {
-        status.textContent = err.message || 'Не удалось отправить сообщение. Попробуйте позже.';
+        status.textContent = err.message || 'Failed to send. Please try again later.';
         status.className = 'feedback-status error';
       }
       if (submitBtn) submitBtn.disabled = false;
@@ -403,8 +421,8 @@
     btn.type = 'button';
     btn.className = 'feedback-floating-btn';
     btn.setAttribute('data-feedback-open', '');
-    btn.setAttribute('aria-label', 'Сообщить о проблеме или идея');
-    btn.innerHTML = '<span aria-hidden="true">💬</span><span>Отзыв</span>';
+    btn.setAttribute('aria-label', 'Report an issue or share feedback');
+    btn.innerHTML = '<span aria-hidden="true">💬</span><span>Feedback</span>';
     document.body.appendChild(btn);
   }
 
