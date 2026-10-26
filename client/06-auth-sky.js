@@ -286,6 +286,8 @@
     canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
     canvas.dataset.skyProjection='gnomonic-j2000';
     canvas.dataset.skyFlybyCount='0';
+    canvas.dataset.skyBlackHole='idle';
+    canvas.dataset.skyBlackHoleCount='0';
     const pad=r=>({left:r.left-4,right:r.right+4,top:r.top-4,bottom:r.bottom+4,element:r.element});
     const uiRects=boxes.map(pad);
     const obstacles=[];
@@ -314,6 +316,35 @@
       return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2,cooldown:0,encounter:null};
     });
     let encounters=[],flashes=[];
+    let blackHoleEvent=null,nextBlackHoleAt=performance.now()+45000+Math.random()*35000,blackHoleCount=0;
+    function triggerBlackHole(){
+      if(blackHoleEvent||motion.matches)return;
+      let center=safePoint(false);
+      if(center.x<0)center=safePoint(true);
+      if(center.x<0)return;
+      const targetStar=wanderers.find(s=>!s.encounter&&(!s.cooldown||performance.now()>s.cooldown))||wanderers.find(s=>!s.encounter)||wanderers[0];
+      if(targetStar.encounter&&typeof targetStar.encounter==='object'){
+        const other=targetStar.encounter.a===targetStar?targetStar.encounter.b:targetStar.encounter.a;
+        if(other){other.encounter=null;other.cooldown=performance.now()+4000;}
+        encounters=encounters.filter(e=>e!==targetStar.encounter);
+      }
+      targetStar.encounter='blackhole';
+      const initialDist=Math.hypot(targetStar.x-center.x,targetStar.y-center.y)||140;
+      blackHoleEvent={
+        star:targetStar,
+        center,
+        r0:Math.max(90,Math.min(220,initialDist)),
+        theta0:Math.atan2(targetStar.y-center.y,targetStar.x-center.x),
+        started:performance.now(),
+        duration:6500,
+        streamer:[]
+      };
+      blackHoleCount++;
+      canvas.dataset.skyBlackHoleCount=String(blackHoleCount);
+      canvas.dataset.skyBlackHole='active';
+    }
+    canvas.__triggerBlackHole=triggerBlackHole;
+    canvas.addEventListener('sky:blackhole',triggerBlackHole);
     const layoutIssues=new Map();
     function chooseLayout(c){
       const measure=(text,size=12)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;};
@@ -726,6 +757,7 @@
         }
       }
       for(const s of wanderers){
+        if(s.encounter==='blackhole')continue;
         if(!s.encounter)drift(s,delta);
         const p=background(s);
         const pulse=(Math.sin(clock*.004+s.phase)*.25+.75)*.3;
@@ -745,6 +777,154 @@
         dot(f.x,f.y,3.5*(1-progress),(1-progress)*0.85,'255,245,210',true,brightness.background,Infinity,6*(1-progress));
         return true;
       });
+      if(!motion.matches){
+        if(!blackHoleEvent&&now>=nextBlackHoleAt){
+          triggerBlackHole();
+          nextBlackHoleAt=now+50000+Math.random()*40000;
+        }
+      }else if(blackHoleEvent){
+        if(blackHoleEvent.star){
+          blackHoleEvent.star.encounter=null;
+          blackHoleEvent.star.cooldown=now+4000;
+          Object.assign(blackHoleEvent.star,safePoint(true));
+        }
+        blackHoleEvent=null;
+      }
+      canvas.dataset.skyBlackHole=blackHoleEvent?'active':'idle';
+      if(blackHoleEvent){
+        const ev=blackHoleEvent,elapsed=now-ev.started,u=Math.min(1,elapsed/ev.duration);
+        const bhRadius=Math.max(10,Math.min(22,Math.round(Math.min(w,h)*0.025)));
+        let flare=1,jetLength=0,bhAlpha=1;
+        if(u<0.22){
+          bhAlpha=Math.min(1,u/0.18);
+          const t=u/0.22,r=ev.r0*(1.25-t*0.25),theta=ev.theta0+t*Math.PI*0.6;
+          ev.star.x=ev.center.x+Math.cos(theta)*r;
+          ev.star.y=ev.center.y+Math.sin(theta)*r;
+          flare=0.6+0.4*t;
+        }else if(u<0.65){
+          const t=(u-0.22)/0.43,theta=ev.theta0+Math.PI*0.6+Math.pow(t,1.3)*Math.PI*4,r=ev.r0*(1.0-t*0.85);
+          ev.star.x=ev.center.x+Math.cos(theta)*r;
+          ev.star.y=ev.center.y+Math.sin(theta)*r;
+          flare=1+t*0.8;
+          ev.streamer.push({x:ev.star.x,y:ev.star.y,time:now});
+        }else if(u<0.82){
+          const t=(u-0.65)/0.17;
+          flare=1.8+Math.sin(t*Math.PI)*1.5;
+          jetLength=Math.sin(t*Math.PI)*Math.min(w,h)*0.22;
+        }else{
+          const t=(u-0.82)/0.18;
+          bhAlpha=Math.max(0,1-t);
+          flare=Math.max(0.2,1.8*(1-t*0.8));
+          jetLength=0;
+        }
+        const bgGain=Math.max(0.1,Math.min(1.5,brightness.background/20));
+        const effectiveAlpha=bhAlpha*bgGain;
+        if(effectiveAlpha>0.01){
+          const sc=background(ev.center),cx=sc.x,cy=sc.y;
+          ctx.save();
+          ctx.translate(cx,cy);
+          ctx.rotate(-0.25);
+          const diskRx=bhRadius*3.6,diskRy=bhRadius*1.35;
+          const gradBack=ctx.createRadialGradient(0,0,bhRadius*1.1,0,0,diskRx);
+          gradBack.addColorStop(0,'rgba(165,215,255,'+Math.min(1,0.9*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(0.3,'rgba(255,215,120,'+Math.min(1,0.75*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(0.7,'rgba(249,115,22,'+Math.min(1,0.4*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(1,'rgba(225,29,72,0)');
+          ctx.save();
+          ctx.scale(1,diskRy/diskRx);
+          ctx.fillStyle=gradBack;
+          ctx.beginPath();
+          ctx.arc(0,0,diskRx,Math.PI,Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+          const lensGrad=ctx.createRadialGradient(0,0,bhRadius*0.9,0,0,bhRadius*2.4);
+          lensGrad.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.95*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(0.25,'rgba(147,197,253,'+Math.min(1,0.7*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(0.65,'rgba(168,85,247,'+Math.min(1,0.25*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(1,'rgba(15,23,42,0)');
+          ctx.fillStyle=lensGrad;
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius*2.4,0,Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle='#02050c';
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius,0,Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle='rgba(255,255,255,'+Math.min(1,0.95*flare*effectiveAlpha)+')';
+          ctx.lineWidth=Math.max(0.75,bhRadius*0.08);
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius+0.5,0,Math.PI*2);
+          ctx.stroke();
+          const gradFront=ctx.createRadialGradient(0,0,bhRadius*1.1,0,0,diskRx);
+          gradFront.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.98*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.2,'rgba(165,215,255,'+Math.min(1,0.85*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.5,'rgba(255,215,120,'+Math.min(1,0.8*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.85,'rgba(234,88,12,'+Math.min(1,0.45*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(1,'rgba(225,29,72,0)');
+          ctx.save();
+          ctx.scale(1,diskRy/diskRx);
+          ctx.fillStyle=gradFront;
+          ctx.beginPath();
+          ctx.arc(0,0,diskRx,0,Math.PI);
+          ctx.fill();
+          ctx.restore();
+          if(jetLength>0){
+            ctx.save();
+            ctx.rotate(Math.PI/2);
+            const jetGrad=ctx.createLinearGradient(0,0,jetLength,0);
+            jetGrad.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.95*effectiveAlpha)+')');
+            jetGrad.addColorStop(0.2,'rgba(147,197,253,'+Math.min(1,0.85*effectiveAlpha)+')');
+            jetGrad.addColorStop(0.7,'rgba(168,85,247,'+Math.min(1,0.4*effectiveAlpha)+')');
+            jetGrad.addColorStop(1,'rgba(236,72,153,0)');
+            ctx.strokeStyle=jetGrad;
+            ctx.lineWidth=Math.max(1.5,bhRadius*0.15);
+            ctx.beginPath();
+            ctx.moveTo(bhRadius*0.8,0);ctx.lineTo(jetLength,0);
+            ctx.moveTo(-bhRadius*0.8,0);ctx.lineTo(-jetLength,0);
+            ctx.stroke();
+            ctx.strokeStyle='rgba(255,255,255,'+Math.min(1,0.9*effectiveAlpha)+')';
+            ctx.lineWidth=Math.max(0.75,bhRadius*0.05);
+            ctx.beginPath();
+            ctx.moveTo(bhRadius*0.8,0);ctx.lineTo(jetLength*0.8,0);
+            ctx.moveTo(-bhRadius*0.8,0);ctx.lineTo(-jetLength*0.8,0);
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.restore();
+          ev.streamer=ev.streamer.filter(p=>now-p.time<500);
+          if(ev.streamer.length>1&&u<0.82){
+            ctx.save();
+            for(let i=1;i<ev.streamer.length;i++){
+              const p1=background(ev.streamer[i-1]),p2=background(ev.streamer[i]);
+              const age=(now-ev.streamer[i].time)/500;
+              const grad=ctx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
+              grad.addColorStop(0,'rgba(255,235,180,'+Math.min(1,0.85*(1-age)*effectiveAlpha)+')');
+              grad.addColorStop(1,'rgba(249,115,22,'+Math.min(1,0.5*(1-age)*effectiveAlpha)+')');
+              ctx.strokeStyle=grad;
+              ctx.lineWidth=Math.max(0.8,3.5*(1-age));
+              ctx.beginPath();
+              ctx.moveTo(p1.x,p1.y);
+              ctx.lineTo(p2.x,p2.y);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+          if(u<0.65){
+            const sp=background(ev.star);
+            dot(sp.x,sp.y,ev.star.radius*1.2,0.95*bhAlpha,'255,245,210',true,brightness.background,Infinity,8);
+          }
+        }
+        if(u>=1){
+          Object.assign(ev.star,safePoint(true));
+          const newA=Math.random()*Math.PI*2;
+          ev.star.vx=Math.cos(newA)*ev.star.speed;
+          ev.star.vy=Math.sin(newA)*ev.star.speed;
+          ev.star.encounter=null;
+          ev.star.cooldown=now+8000;
+          blackHoleEvent=null;
+          nextBlackHoleAt=now+50000+Math.random()*40000;
+        }
+      }
       if(!motion.matches&&now>=nextFlybyAt){
         const count=Math.random()<.5?1:2,interval=delay();
         const route=geometry.router(obstacles);
@@ -966,7 +1146,7 @@
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
