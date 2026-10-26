@@ -316,7 +316,7 @@
       return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2,cooldown:0,encounter:null};
     });
     let encounters=[],flashes=[];
-    let blackHoleEvent=null,nextBlackHoleAt=performance.now()+45000+Math.random()*35000,blackHoleCount=0;
+    let blackHoleEvent=null,nextBlackHoleAt=performance.now()+300000+Math.random()*180000,blackHoleCount=0;
     function triggerBlackHole(){
       if(blackHoleEvent||motion.matches)return;
       let center=safePoint(false);
@@ -780,7 +780,7 @@
       if(!motion.matches){
         if(!blackHoleEvent&&now>=nextBlackHoleAt){
           triggerBlackHole();
-          nextBlackHoleAt=now+50000+Math.random()*40000;
+          nextBlackHoleAt=now+600000+Math.random()*480000;
         }
       }else if(blackHoleEvent){
         if(blackHoleEvent.star){
@@ -793,7 +793,7 @@
       canvas.dataset.skyBlackHole=blackHoleEvent?'active':'idle';
       if(blackHoleEvent){
         const ev=blackHoleEvent,elapsed=now-ev.started,u=Math.min(1,elapsed/ev.duration);
-        const bhRadius=Math.max(10,Math.min(22,Math.round(Math.min(w,h)*0.025)));
+        const bhRadius=Math.max(4,Math.min(7,Math.round(Math.min(w,h)*0.008)));
         let flare=1,jetLength=0,bhAlpha=1;
         if(u<0.22){
           bhAlpha=Math.min(1,u/0.18);
@@ -810,7 +810,7 @@
         }else if(u<0.82){
           const t=(u-0.65)/0.17;
           flare=1.8+Math.sin(t*Math.PI)*1.5;
-          jetLength=Math.sin(t*Math.PI)*Math.min(w,h)*0.22;
+          jetLength=Math.sin(t*Math.PI)*bhRadius*10;
         }else{
           const t=(u-0.82)/0.18;
           bhAlpha=Math.max(0,1-t);
@@ -877,7 +877,7 @@
             jetGrad.addColorStop(0.7,'rgba(168,85,247,'+Math.min(1,0.4*effectiveAlpha)+')');
             jetGrad.addColorStop(1,'rgba(236,72,153,0)');
             ctx.strokeStyle=jetGrad;
-            ctx.lineWidth=Math.max(1.5,bhRadius*0.15);
+            ctx.lineWidth=Math.max(1.2,bhRadius*0.15);
             ctx.beginPath();
             ctx.moveTo(bhRadius*0.8,0);ctx.lineTo(jetLength,0);
             ctx.moveTo(-bhRadius*0.8,0);ctx.lineTo(-jetLength,0);
@@ -901,7 +901,7 @@
               grad.addColorStop(0,'rgba(255,235,180,'+Math.min(1,0.85*(1-age)*effectiveAlpha)+')');
               grad.addColorStop(1,'rgba(249,115,22,'+Math.min(1,0.5*(1-age)*effectiveAlpha)+')');
               ctx.strokeStyle=grad;
-              ctx.lineWidth=Math.max(0.8,3.5*(1-age));
+              ctx.lineWidth=Math.max(0.6,2.0*(1-age));
               ctx.beginPath();
               ctx.moveTo(p1.x,p1.y);
               ctx.lineTo(p2.x,p2.y);
@@ -911,7 +911,7 @@
           }
           if(u<0.65){
             const sp=background(ev.star);
-            dot(sp.x,sp.y,ev.star.radius*1.2,0.95*bhAlpha,'255,245,210',true,brightness.background,Infinity,8);
+            dot(sp.x,sp.y,ev.star.radius*0.9,0.95*bhAlpha,'255,245,210',true,brightness.background,Infinity,5);
           }
         }
         if(u>=1){
@@ -922,7 +922,7 @@
           ev.star.encounter=null;
           ev.star.cooldown=now+8000;
           blackHoleEvent=null;
-          nextBlackHoleAt=now+50000+Math.random()*40000;
+          nextBlackHoleAt=now+600000+Math.random()*480000;
         }
       }
       if(!motion.matches&&now>=nextFlybyAt){
