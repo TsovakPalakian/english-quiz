@@ -154,6 +154,14 @@
                   </div>
                   <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
                   ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+                  ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                    <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                      <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                      <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                        ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                      </ul>
+                    </details>
+                  ` : ''}
                   ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
                 </div>
                 <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>

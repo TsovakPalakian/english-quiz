@@ -35,7 +35,7 @@ import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
-import {saveFeedback,listFeedback,resolveFeedback,notifyFeedbackTelegram} from './feedback.mjs';
+import {saveFeedback,listFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -714,6 +714,13 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(path==='/api/feedback'&&method==='POST'){
         let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
+        const clientIp=(request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'anonymous').trim();
+        const rateKey=actor?.id?`user:${actor.id}`:`ip:${clientIp}`;
+        const rate=checkFeedbackRateLimit(rateKey);
+        if(!rate.ok){
+          const minutes=Math.max(1,Math.ceil(rate.retryAfterSec/60));
+          throw new StudyError(429,`Отправка отзыва возможна не чаще одного раза в час. Пожалуйста, подождите ${minutes} мин. перед отправкой следующего сообщения.`);
+        }
         const raw=await request.text();if(raw.length>500000)throw new StudyError(413,'Feedback report too large.');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!body.message||!String(body.message).trim())throw new StudyError(400,'Message is required.');

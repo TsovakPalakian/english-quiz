@@ -30,6 +30,11 @@ try {
   await modal.waitFor({state: 'visible'});
   assert.equal(await modal.isVisible(), true, 'Feedback modal must open');
 
+  // Verify breadcrumbs recording
+  const breadcrumbs = await page.evaluate(() => window.__userBreadcrumbs || []);
+  assert.ok(breadcrumbs.length > 0, 'User click should be recorded in breadcrumbs');
+  assert.ok(breadcrumbs.some(b => b.details.includes('feedbackFloatingTrigger') || b.details.includes('Отзыв')), 'Breadcrumbs must capture feedback button click');
+
   // 3. Switch categories
   const ideaBtn = modal.locator('[data-type="idea"]');
   await ideaBtn.click();

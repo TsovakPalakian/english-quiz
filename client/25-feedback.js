@@ -10,6 +10,48 @@
     } catch (_) {}
   });
 
+  window.__userBreadcrumbs = window.__userBreadcrumbs || [];
+  function recordBreadcrumb(action, details) {
+    try {
+      window.__userBreadcrumbs.push({
+        time: Date.now(),
+        action: String(action || '').slice(0, 40),
+        details: String(details || '').slice(0, 100)
+      });
+      if (window.__userBreadcrumbs.length > 10) window.__userBreadcrumbs.shift();
+    } catch (_) {}
+  }
+
+  // Record user clicks on interactive elements
+  document.addEventListener('click', function(e) {
+    try {
+      const target = e.target;
+      if (!target) return;
+      const el = target.closest('button, a, [role="button"], input[type="submit"], select, summary, .step, .tab');
+      if (!el) return;
+      if (modalEl && modalEl.contains(el)) return; // Skip clicks inside feedback modal
+      const tag = el.tagName.toLowerCase();
+      let label = (el.getAttribute('aria-label') || el.innerText || el.value || el.title || el.id || el.className || '').trim();
+      if (el.type === 'password') label = '***';
+      label = label.replace(/\s+/g, ' ').slice(0, 50);
+      recordBreadcrumb('click', `${tag}${el.id ? '#' + el.id : ''}${label ? ': ' + label : ''}`);
+    } catch (_) {}
+  }, true);
+
+  window.addEventListener('hashchange', function() {
+    recordBreadcrumb('nav', window.location.hash || '#');
+  });
+
+  try {
+    const origPush = history.pushState;
+    if (origPush) {
+      history.pushState = function() {
+        if (arguments[2]) recordBreadcrumb('route', String(arguments[2]).slice(0, 50));
+        return origPush.apply(this, arguments);
+      };
+    }
+  } catch (_) {}
+
   let currentScreenshot = '';
   let currentCategory = 'bug';
   let modalEl = null;
@@ -243,6 +285,13 @@
       status.className = 'feedback-status';
     }
 
+    const now = Date.now();
+    const breadcrumbs = (window.__userBreadcrumbs || []).map(b => ({
+      ago: Math.max(0, Math.round((now - b.time) / 1000)) + 's ago',
+      action: b.action,
+      details: b.details
+    }));
+
     const payload = {
       category: currentCategory,
       message: message,
@@ -256,7 +305,8 @@
           dpr: window.devicePixelRatio || 1
         },
         userAgent: navigator.userAgent,
-        recentErrors: window.__recentErrors || []
+        recentErrors: window.__recentErrors || [],
+        breadcrumbs: breadcrumbs
       }
     };
 

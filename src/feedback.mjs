@@ -25,8 +25,38 @@ export async function ensureFeedbackStore(db) {
   ready = true;
 }
 
+const feedbackRateLimits = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 1; // 1 request per hour
+
+export function checkFeedbackRateLimit(clientKey, nowMs = Date.now()) {
+  const key = String(clientKey || 'unknown').trim();
+  const times = (feedbackRateLimits.get(key) || []).filter(t => nowMs - t < RATE_LIMIT_WINDOW_MS);
+  if (times.length >= RATE_LIMIT_MAX_REQUESTS) {
+    const oldest = times[0];
+    const retryAfterSec = Math.max(1, Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - nowMs) / 1000));
+    return { ok: false, retryAfterSec };
+  }
+  times.push(nowMs);
+  feedbackRateLimits.set(key, times);
+
+  if (feedbackRateLimits.size > 5000) {
+    for (const [k, arr] of feedbackRateLimits) {
+      const active = arr.filter(t => nowMs - t < RATE_LIMIT_WINDOW_MS);
+      if (active.length === 0) feedbackRateLimits.delete(k);
+      else feedbackRateLimits.set(k, active);
+    }
+  }
+  return { ok: true, remaining: RATE_LIMIT_MAX_REQUESTS - times.length };
+}
+
+export function resetFeedbackRateLimitsForTests() {
+  feedbackRateLimits.clear();
+}
+
 export function resetFeedbackStoreForTests() {
   ready = false;
+  resetFeedbackRateLimitsForTests();
 }
 
 export async function saveFeedback(db, {
@@ -48,10 +78,17 @@ export async function saveFeedback(db, {
   const userLogin = String(user?.login || '');
   const userEmail = String(user?.email || contact || '').slice(0, 255);
   const url = String(context?.url || '').slice(0, 1000);
+  const rawBreadcrumbs = Array.isArray(context?.breadcrumbs) ? context.breadcrumbs.slice(-10) : [];
+  const cleanBreadcrumbs = rawBreadcrumbs.map(b => ({
+    ago: String(b?.ago || '').slice(0, 30),
+    action: String(b?.action || '').slice(0, 50),
+    details: String(b?.details || '').slice(0, 120)
+  }));
   const deviceInfo = JSON.stringify({
     viewport: context?.viewport || null,
     userAgent: String(context?.userAgent || '').slice(0, 300),
-    recentErrors: Array.isArray(context?.recentErrors) ? context.recentErrors.slice(-3) : []
+    recentErrors: Array.isArray(context?.recentErrors) ? context.recentErrors.slice(-3) : [],
+    breadcrumbs: cleanBreadcrumbs
   });
 
   await db.atomic([
@@ -70,6 +107,7 @@ export async function saveFeedback(db, {
     userLogin,
     userEmail,
     url,
+    breadcrumbs: cleanBreadcrumbs,
     createdAt: now
   };
 }
@@ -127,11 +165,17 @@ export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis
     ``,
     entry.message,
     ``,
-    entry.url ? `🔗 Страница: ${entry.url}` : '',
-    `ID: ${entry.id}`
-  ].filter(Boolean);
+    entry.url ? `🔗 Страница: ${entry.url}` : ''
+  ];
 
-  const caption = captionLines.join('\n');
+  const crumbs = Array.isArray(entry.breadcrumbs) ? entry.breadcrumbs : (entry.deviceInfo?.breadcrumbs || []);
+  if (Array.isArray(crumbs) && crumbs.length > 0) {
+    const list = crumbs.slice(-5).map(c => `  • [${c.ago || 'now'}] ${c.details || c.action}`);
+    captionLines.push(``, `👣 Действия пользователя:\n${list.join('\n')}`);
+  }
+
+  captionLines.push(`ID: ${entry.id}`);
+  const caption = captionLines.filter(Boolean).join('\n');
 
   try {
     if (entry.screenshot && entry.screenshot.startsWith('data:image/')) {

@@ -16015,6 +16015,14 @@ const STUDIO_CONSTELLATIONS = [{
                   </div>
                   <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
                   ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+                  ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                    <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                      <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                      <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                        ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                      </ul>
+                    </details>
+                  ` : ''}
                   ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
                 </div>
                 <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
@@ -16073,6 +16081,48 @@ const STUDIO_CONSTELLATIONS = [{
       if (window.__recentErrors.length > 5) window.__recentErrors.shift();
     } catch (_) {}
   });
+
+  window.__userBreadcrumbs = window.__userBreadcrumbs || [];
+  function recordBreadcrumb(action, details) {
+    try {
+      window.__userBreadcrumbs.push({
+        time: Date.now(),
+        action: String(action || '').slice(0, 40),
+        details: String(details || '').slice(0, 100)
+      });
+      if (window.__userBreadcrumbs.length > 10) window.__userBreadcrumbs.shift();
+    } catch (_) {}
+  }
+
+  // Record user clicks on interactive elements
+  document.addEventListener('click', function(e) {
+    try {
+      const target = e.target;
+      if (!target) return;
+      const el = target.closest('button, a, [role="button"], input[type="submit"], select, summary, .step, .tab');
+      if (!el) return;
+      if (modalEl && modalEl.contains(el)) return; // Skip clicks inside feedback modal
+      const tag = el.tagName.toLowerCase();
+      let label = (el.getAttribute('aria-label') || el.innerText || el.value || el.title || el.id || el.className || '').trim();
+      if (el.type === 'password') label = '***';
+      label = label.replace(/\s+/g, ' ').slice(0, 50);
+      recordBreadcrumb('click', `${tag}${el.id ? '#' + el.id : ''}${label ? ': ' + label : ''}`);
+    } catch (_) {}
+  }, true);
+
+  window.addEventListener('hashchange', function() {
+    recordBreadcrumb('nav', window.location.hash || '#');
+  });
+
+  try {
+    const origPush = history.pushState;
+    if (origPush) {
+      history.pushState = function() {
+        if (arguments[2]) recordBreadcrumb('route', String(arguments[2]).slice(0, 50));
+        return origPush.apply(this, arguments);
+      };
+    }
+  } catch (_) {}
 
   let currentScreenshot = '';
   let currentCategory = 'bug';
@@ -16307,6 +16357,13 @@ const STUDIO_CONSTELLATIONS = [{
       status.className = 'feedback-status';
     }
 
+    const now = Date.now();
+    const breadcrumbs = (window.__userBreadcrumbs || []).map(b => ({
+      ago: Math.max(0, Math.round((now - b.time) / 1000)) + 's ago',
+      action: b.action,
+      details: b.details
+    }));
+
     const payload = {
       category: currentCategory,
       message: message,
@@ -16320,7 +16377,8 @@ const STUDIO_CONSTELLATIONS = [{
           dpr: window.devicePixelRatio || 1
         },
         userAgent: navigator.userAgent,
-        recentErrors: window.__recentErrors || []
+        recentErrors: window.__recentErrors || [],
+        breadcrumbs: breadcrumbs
       }
     };
 
