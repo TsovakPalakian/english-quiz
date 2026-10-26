@@ -609,9 +609,9 @@
       return String(text || "").replace(/\s+/g, " ").replace(/\s+([.,?!;:])/g, "$1").replace(/\[[^\]]+\]\s*/g, "").trim();
     }
     function foldedLinkHtml(pairs) {
-      const rows = (pairs || []).filter((pair) => pair && pair[1]);
+      const rows = (pairs || []).filter((pair) => pair && pair[1] && /^https?:\/\//i.test(String(pair[1]).trim()));
       if (!rows.length) return "";
-      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noreferrer">' + esc(pair[0]) + "</a>";
+      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(pair[0]) + "</a>";
       if (rows.length <= 2) return rows.map(link).join(" · ");
       const id = "srcRest" + (++srcSeq);
       return rows.slice(0, 2).map(link).join(" · ") +
@@ -724,9 +724,9 @@
     });
     function markerLinks(card) {
       const bits = [];
-      if (card.cambridge) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noreferrer">Cambridge</a>');
-      if (card.oxford) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noreferrer">Oxford</a>');
-      if (card.wooordhunt) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noreferrer">Wooordhunt</a>');
+      if (card.cambridge && /^https?:\/\//i.test(card.cambridge)) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noopener noreferrer">Cambridge</a>');
+      if (card.oxford && /^https?:\/\//i.test(card.oxford)) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noopener noreferrer">Oxford</a>');
+      if (card.wooordhunt && /^https?:\/\//i.test(card.wooordhunt)) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noopener noreferrer">Wooordhunt</a>');
       return bits.join(" · ");
     }
     function openMarker(en, quiet) {

@@ -100,12 +100,20 @@ export function validateAssessmentContent(content,type){
     }
   }
 }
+function rejectProtoKeys(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of Object.keys(obj)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') fail(400, 'Invalid key.');
+    rejectProtoKeys(obj[k]);
+  }
+}
 function lessonBlock(value){
   fields(value,['id','expectedRevision','type','tab','cardId','content']);personalRevision(value.expectedRevision);
   if(value.expectedRevision===0){if(value.id!=null)fail(400,'New blocks receive an ID from the database.');}
   else recordId(value.id);
   if(!blockTypes.includes(value.type))fail(400,'This block type is not yet editable on the test server.');
   if(typeof value.tab!=='string'||value.tab.length>50||!value.content||typeof value.content!=='object'||Array.isArray(value.content)||stable(value.content).length>32_000)fail(400,'Invalid block content.');
+  rejectProtoKeys(value.content);
   fields(value.content,Object.keys(value.content).filter(k=>!['id','type','tab','response','score','stageId','stageRevision','stageDefinition','stageBlockRevision','stageResponseRevision','__proto__','constructor','prototype'].includes(k)));
   if(value.content.items!==undefined && (!Array.isArray(value.content.items)||value.content.items.length>100||value.content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item)||['picked','typed','marked','correct'].some(key=>key in item))))fail(400,'Personal answers are not lesson definitions.');
   validateAssessmentContent(value.content,value.type);

@@ -69,7 +69,7 @@
     function openLink(label, url) {
       const parsed = linkParts(url);
       if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return "";
-      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noreferrer">' + esc(label) + "</a></p>";
+      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noopener noreferrer">' + esc(label) + "</a></p>";
     }
     function videoHtml(url) {
       const link = String(url || "").trim();
@@ -343,7 +343,7 @@
         if (data.method === "pause" || data.method === "finish") setSongPlayer(box, false);
       } else if (kind === "spotify") {
         const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
-        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "*");
+        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "https://open.spotify.com");
         if (data.type === "playback_started") setSongPlayer(box, true);
         else if (data.type === "playback_update") {
           if (payload.isPaused == null && payload.isBuffering == null) return;

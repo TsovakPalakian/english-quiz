@@ -3291,9 +3291,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return String(text || "").replace(/\s+/g, " ").replace(/\s+([.,?!;:])/g, "$1").replace(/\[[^\]]+\]\s*/g, "").trim();
     }
     function foldedLinkHtml(pairs) {
-      const rows = (pairs || []).filter((pair) => pair && pair[1]);
+      const rows = (pairs || []).filter((pair) => pair && pair[1] && /^https?:\/\//i.test(String(pair[1]).trim()));
       if (!rows.length) return "";
-      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noreferrer">' + esc(pair[0]) + "</a>";
+      const link = (pair) => '<a href="' + esc(pair[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(pair[0]) + "</a>";
       if (rows.length <= 2) return rows.map(link).join(" · ");
       const id = "srcRest" + (++srcSeq);
       return rows.slice(0, 2).map(link).join(" · ") +
@@ -3406,9 +3406,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     });
     function markerLinks(card) {
       const bits = [];
-      if (card.cambridge) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noreferrer">Cambridge</a>');
-      if (card.oxford) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noreferrer">Oxford</a>');
-      if (card.wooordhunt) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noreferrer">Wooordhunt</a>');
+      if (card.cambridge && /^https?:\/\//i.test(card.cambridge)) bits.push('<a href="' + esc(card.cambridge) + '" target="_blank" rel="noopener noreferrer">Cambridge</a>');
+      if (card.oxford && /^https?:\/\//i.test(card.oxford)) bits.push('<a href="' + esc(card.oxford) + '" target="_blank" rel="noopener noreferrer">Oxford</a>');
+      if (card.wooordhunt && /^https?:\/\//i.test(card.wooordhunt)) bits.push('<a href="' + esc(card.wooordhunt) + '" target="_blank" rel="noopener noreferrer">Wooordhunt</a>');
       return bits.join(" · ");
     }
     function openMarker(en, quiet) {
@@ -4744,10 +4744,34 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
       const bugTabBtn = e.target.closest("button[data-bug-tab]");
       if (bugTabBtn) {
-        bugTab = bugTabBtn.dataset.bugTab === "done" ? "done" : "open";
+        bugTab = ['done', 'feedback'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
-        if (bugCache) paintBugs(bugCache);
+        if (bugCache && bugTab !== 'feedback') paintBugs(bugCache);
         else paintBugs();
+        return;
+      }
+      const fbResolve = e.target.closest("[data-feedback-resolve]");
+      if (fbResolve) {
+        if(fbResolve.disabled)return;
+        fbResolve.disabled=true;
+        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbResolve.dataset.feedbackResolve, resolved: true }) }).then(() => {
+          paintBugs();
+        }).catch((err) => {
+          const box = document.getElementById("bugList");
+          if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
+        }).finally(()=>{fbResolve.disabled=false;});
+        return;
+      }
+      const fbUnresolve = e.target.closest("[data-feedback-unresolve]");
+      if (fbUnresolve) {
+        if(fbUnresolve.disabled)return;
+        fbUnresolve.disabled=true;
+        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbUnresolve.dataset.feedbackUnresolve, resolved: false }) }).then(() => {
+          paintBugs();
+        }).catch((err) => {
+          const box = document.getElementById("bugList");
+          if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
+        }).finally(()=>{fbUnresolve.disabled=false;});
         return;
       }
       const bugCopy = e.target.closest("[data-bug-copy]");
@@ -5168,7 +5192,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const frame = document.getElementById("clipFrame");
       const view = document.getElementById("clipFrameView");
       const name = document.getElementById("clipFrameTitle");
-      if (!url) return;
+      if (!url || !/^https?:\/\//i.test(url)) return;
       if (/playphrase\.me|youglish\.com/i.test(url)) {
         const width = 520;
         const height = 720;
@@ -5176,6 +5200,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
         const popup = window.open(url, "enquiz-clip", "width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
         if (popup) {
+          try { popup.opener = null; } catch (e) {}
           try { popup.moveTo(left, top); popup.focus(); } catch (e) {}
           return;
         }
@@ -8894,7 +8919,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function openLink(label, url) {
       const parsed = linkParts(url);
       if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) return "";
-      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noreferrer">' + esc(label) + "</a></p>";
+      return '<p><a href="' + esc(parsed.toString()) + '" target="_blank" rel="noopener noreferrer">' + esc(label) + "</a></p>";
     }
     function videoHtml(url) {
       const link = String(url || "").trim();
@@ -9168,7 +9193,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (data.method === "pause" || data.method === "finish") setSongPlayer(box, false);
       } else if (kind === "spotify") {
         const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
-        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "*");
+        if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "https://open.spotify.com");
         if (data.type === "playback_started") setSongPlayer(box, true);
         else if (data.type === "playback_update") {
           if (payload.isPaused == null && payload.isBuffering == null) return;
@@ -10669,7 +10694,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
       if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';
@@ -10690,7 +10715,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       document.querySelectorAll("[data-day-links]").forEach((box) => {
         const day = box.dataset.dayLinks;
         const pack = DAY_LINKS[day] || { pdf: "" };
-        const pdf = pack.pdf ? '<a class="btn primary" href="' + esc(pack.pdf) + '" target="_blank" rel="noreferrer">Lesson PDF</a>' : "";
+        const pdf = pack.pdf ? '<a class="btn primary" href="' + esc(pack.pdf) + '" target="_blank" rel="noopener noreferrer">Lesson PDF</a>' : "";
         const classwork = '<a class="btn chip" href="' + esc(workHref(day, "classwork")) + '" data-work-open="classwork" data-work-day="' + esc(day) + '">Classwork</a>';
         const homework = '<a class="btn primary" href="' + esc(workHref(day, "homework")) + '" data-work-open="homework" data-work-day="' + esc(day) + '">Homework</a>';
         box.innerHTML = pdf + classwork + homework;
@@ -15963,6 +15988,161 @@ const STUDIO_CONSTELLATIONS = [{
     let bugTab = "open";
     let bugCache = null;
     const bugExpansion=new Map();
+    let feedbackStatusTab = "active"; // "active" or "resolved"
+    let feedbackFilterCategory = "all";
+    let feedbackSearchQuery = "";
+    let feedbackLoadedItems = [];
+    let feedbackTotal = 0;
+    const FEEDBACK_PAGE_LIMIT = 20;
+
+    function updateFeedbackTabBadge(openCount) {
+      const tabBtn = document.querySelector('button[data-bug-tab="feedback"]');
+      if (!tabBtn) return;
+      const count = Number(openCount) || 0;
+      let badge = tabBtn.querySelector('.feedback-tab-badge');
+      if (count > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'feedback-tab-badge';
+          badge.style.cssText = 'margin-left:6px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:600;background:var(--acc, #0284c7);color:var(--on-acc, #fff);display:inline-block;line-height:1.2;';
+          tabBtn.appendChild(badge);
+        }
+        badge.textContent = count > 99 ? '99+' : String(count);
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+
+    function filterFeedbackItems(items) {
+      const q = feedbackSearchQuery.toLowerCase().trim();
+      return items.filter(fb => {
+        if (feedbackFilterCategory !== "all" && fb.category !== feedbackFilterCategory) return false;
+        if (q) {
+          const matchMsg = String(fb.message || "").toLowerCase().includes(q);
+          const matchUser = String(fb.userLogin || fb.userEmail || "").toLowerCase().includes(q);
+          const matchUrl = String(fb.url || "").toLowerCase().includes(q);
+          if (!matchMsg && !matchUser && !matchUrl) return false;
+        }
+        return true;
+      });
+    }
+
+    function exportFeedbackCsv(items) {
+      const header = ['ID', 'Category', 'User', 'Email/Contact', 'Message', 'URL', 'Created (UTC)', 'Resolved', 'ResolvedAt (UTC)'];
+      const rows = items.map(fb => [
+        fb.id,
+        fb.category,
+        fb.userLogin ? '@' + fb.userLogin : '',
+        fb.userEmail || '',
+        `"${String(fb.message || '').replace(/"/g, '""')}"`,
+        `"${String(fb.url || '').replace(/"/g, '""')}"`,
+        fb.createdAt ? new Date(fb.createdAt * 1000).toISOString() : '',
+        fb.resolved ? 'Yes' : 'No',
+        fb.resolvedAt ? new Date(fb.resolvedAt * 1000).toISOString() : ''
+      ]);
+      const csv = '\uFEFF' + [header.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+      const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `feedback-${feedbackStatusTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function renderFeedbackCards(items, container) {
+      if (!container) return;
+      const filtered = filterFeedbackItems(items);
+
+      if (!filtered.length) {
+        container.innerHTML = `<p class="sub" style="padding:16px 0;">No ${feedbackStatusTab} feedback reports match current filter.</p>`;
+        return;
+      }
+
+      const cardsHtml = filtered.map(fb => `
+        <article class="bug-item card">
+          <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
+                <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
+                <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
+                ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
+              </div>
+              <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
+              ${(() => {
+                if (!fb.url) return '';
+                const isSafe = /^https?:\/\//i.test(fb.url);
+                return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
+              })()}
+              ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                  <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                  <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                    ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                  </ul>
+                </details>
+              ` : ''}
+              ${(() => {
+                if (!fb.screenshot || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(fb.screenshot)) return '';
+                return `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" class="feedback-screenshot-thumb" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;"></div>`;
+              })()}
+            </div>
+            <div>
+              ${fb.resolved ? `
+                <button class="btn tiny ghost" type="button" data-feedback-unresolve="${esc(fb.id)}" title="Reopen this report">Reopen</button>
+              ` : `
+                <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+              `}
+            </div>
+          </div>
+        </article>
+      `).join('');
+
+      const canLoadMore = items.length < feedbackTotal && feedbackFilterCategory === 'all' && !feedbackSearchQuery;
+      const loadMoreHtml = canLoadMore ? `
+        <div style="text-align:center;padding:16px 0;" id="feedbackLoadMoreBox">
+          <button type="button" class="btn small" id="feedbackLoadMoreBtn">Load more (${items.length} of ${feedbackTotal})</button>
+        </div>
+      ` : '';
+
+      container.innerHTML = cardsHtml + loadMoreHtml;
+
+      container.querySelectorAll('.feedback-screenshot-thumb').forEach(img => {
+        img.addEventListener('click', () => {
+          const src = img.getAttribute('src');
+          if (src && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+            const win = window.open('', '_blank');
+            if (win) {
+              try { win.opener = null; } catch (_) {}
+              win.document.write('<!DOCTYPE html><title>Screenshot</title><body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img style="max-width:100%;max-height:100vh;object-fit:contain;" src="' + src + '"></body>');
+              win.document.close();
+            }
+          }
+        });
+      });
+
+      const loadMoreBtn = container.querySelector('#feedbackLoadMoreBtn');
+      if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+          loadMoreBtn.disabled = true;
+          loadMoreBtn.textContent = 'Loading...';
+          const isResolvedQuery = feedbackStatusTab === "resolved" ? "1" : "0";
+          accountFetch(`/api/feedback?resolved=${isResolvedQuery}&limit=${FEEDBACK_PAGE_LIMIT}&offset=${items.length}`).then(res => {
+            const more = (res && res.feedback) || [];
+            items.push(...more);
+            feedbackTotal = Number(res?.total) || items.length;
+            renderFeedbackCards(items, container);
+          }).catch(() => {
+            loadMoreBtn.disabled = false;
+            loadMoreBtn.textContent = 'Failed to load. Retry?';
+          });
+        });
+      }
+    }
+
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
@@ -15983,6 +16163,87 @@ const STUDIO_CONSTELLATIONS = [{
       const onBugs = () => (document.querySelector("section.on") || {}).id === "bugs";
       if (Array.isArray(preset)) { draw(preset); return; }
       if (!isDeveloper()) return;
+      if (bugTab === "feedback") {
+        box.innerHTML = '<p class="sub">Loading user feedback...</p>';
+        const isResolvedQuery = feedbackStatusTab === "resolved" ? "1" : "0";
+        accountFetch(`/api/feedback?resolved=${isResolvedQuery}&limit=${FEEDBACK_PAGE_LIMIT}&offset=0`).then(data => {
+          if (!onBugs() || bugTab !== "feedback") return;
+          updateFeedbackTabBadge(data.counts?.open);
+          feedbackLoadedItems = (data && data.feedback) || [];
+          feedbackTotal = Number(data && data.total) || feedbackLoadedItems.length;
+
+          const bugCount = feedbackLoadedItems.filter(i => i.category === 'bug').length;
+          const ideaCount = feedbackLoadedItems.filter(i => i.category === 'idea').length;
+          const qCount = feedbackLoadedItems.filter(i => i.category === 'question').length;
+
+          box.innerHTML = `
+            <div class="feedback-filter-toolbar card" style="padding:12px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div class="steps" style="margin:0;">
+                  <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active (${data.counts?.open ?? bugCount})</button>
+                  <button type="button" class="step ${feedbackStatusTab === 'resolved' ? 'on' : ''}" data-fb-status="resolved">Resolved archive (${data.counts?.resolved ?? 0})</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV">📥 CSV</button>
+                  <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:200px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+                </div>
+              </div>
+              <div class="feedback-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'all' ? 'on' : ''}" data-fb-filter="all">All (${feedbackLoadedItems.length})</button>
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'bug' ? 'on' : ''}" data-fb-filter="bug">🐞 Bugs (${bugCount})</button>
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'idea' ? 'on' : ''}" data-fb-filter="idea">💡 Ideas (${ideaCount})</button>
+                ${qCount ? `<button type="button" class="btn chip ${feedbackFilterCategory === 'question' ? 'on' : ''}" data-fb-filter="question">❓ Questions (${qCount})</button>` : ''}
+              </div>
+            </div>
+            <div id="feedbackCardsList"></div>
+          `;
+
+          const listContainer = box.querySelector('#feedbackCardsList');
+          renderFeedbackCards(feedbackLoadedItems, listContainer);
+
+          // Handle Active / Resolved toggle
+          box.querySelectorAll('[data-fb-status]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              if (feedbackStatusTab === btn.dataset.fbStatus) return;
+              feedbackStatusTab = btn.dataset.fbStatus || 'active';
+              paintBugs();
+            });
+          });
+
+          // Handle Category filters
+          box.querySelectorAll('[data-fb-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              feedbackFilterCategory = btn.dataset.fbFilter || 'all';
+              box.querySelectorAll('[data-fb-filter]').forEach(b => b.classList.toggle('on', b === btn));
+              renderFeedbackCards(feedbackLoadedItems, listContainer);
+            });
+          });
+
+          // Handle Search input
+          const searchInput = box.querySelector('#feedbackSearchInput');
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              feedbackSearchQuery = e.target.value;
+              renderFeedbackCards(feedbackLoadedItems, listContainer);
+            });
+          }
+
+          // Handle Export CSV
+          const exportBtn = box.querySelector('#feedbackExportCsv');
+          if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+              const currentFiltered = filterFeedbackItems(feedbackLoadedItems);
+              exportFeedbackCsv(currentFiltered);
+            });
+          }
+        }).catch(() => {
+          if (onBugs()) box.innerHTML = '<p class="sub">Failed to load feedback reports.</p>';
+        });
+        return;
+      }
+      accountFetch("/api/feedback?limit=1").then(data => {
+        updateFeedbackTabBadge(data.counts?.open);
+      }).catch(()=>{});
       if (bugCache) {
         draw(bugCache);
         accountFetch("/api/bugs?heads=1").then((data) => {
@@ -16019,6 +16280,422 @@ const STUDIO_CONSTELLATIONS = [{
       });
     }
     window.paintBugs = paintBugs;
+// Client-side user feedback & bug reporting with screenshot paste and compression
+(function() {
+  window.__recentErrors = window.__recentErrors || [];
+  window.addEventListener('error', function(e) {
+    try {
+      const msg = String(e.message || e.error || 'Unknown script error');
+      const src = e.filename ? e.filename.split('/').pop() + ':' + e.lineno : '';
+      window.__recentErrors.push({message: msg, source: src, time: Date.now()});
+      if (window.__recentErrors.length > 5) window.__recentErrors.shift();
+    } catch (_) {}
+  });
+
+  window.__userBreadcrumbs = window.__userBreadcrumbs || [];
+  function recordBreadcrumb(action, details) {
+    try {
+      window.__userBreadcrumbs.push({
+        time: Date.now(),
+        action: String(action || '').slice(0, 40),
+        details: String(details || '').slice(0, 100)
+      });
+      if (window.__userBreadcrumbs.length > 10) window.__userBreadcrumbs.shift();
+    } catch (_) {}
+  }
+
+  // Record user clicks on interactive elements
+  document.addEventListener('click', function(e) {
+    try {
+      const target = e.target;
+      if (!target) return;
+      const el = target.closest('button, a, [role="button"], input[type="submit"], select, summary, .step, .tab');
+      if (!el) return;
+      if (modalEl && modalEl.contains(el)) return; // Skip clicks inside feedback modal
+      const tag = el.tagName.toLowerCase();
+      let label = (el.getAttribute('aria-label') || el.innerText || el.value || el.title || el.id || el.className || '').trim();
+      if (el.type === 'password') label = '***';
+      label = label.replace(/\s+/g, ' ').slice(0, 50);
+      recordBreadcrumb('click', `${tag}${el.id ? '#' + el.id : ''}${label ? ': ' + label : ''}`);
+    } catch (_) {}
+  }, true);
+
+  window.addEventListener('hashchange', function() {
+    recordBreadcrumb('nav', window.location.hash || '#');
+  });
+
+  try {
+    const origPush = history.pushState;
+    if (origPush) {
+      history.pushState = function() {
+        if (arguments[2]) recordBreadcrumb('route', String(arguments[2]).slice(0, 50));
+        return origPush.apply(this, arguments);
+      };
+    }
+  } catch (_) {}
+
+  let currentScreenshot = '';
+  let currentCategory = 'bug';
+  let modalEl = null;
+
+  function ensureModal() {
+    if (modalEl && document.body.contains(modalEl)) return modalEl;
+    modalEl = document.createElement('dialog');
+    modalEl.id = 'feedbackModal';
+    modalEl.className = 'feedback-dialog';
+    modalEl.innerHTML = `
+      <div class="feedback-header">
+        <h2>Обратная связь и ошибки</h2>
+        <button type="button" class="feedback-close" data-feedback-close aria-label="Закрыть">✕</button>
+      </div>
+      <div class="feedback-types">
+        <button type="button" class="feedback-type-btn active" data-type="bug">🐞 Ошибка</button>
+        <button type="button" class="feedback-type-btn" data-type="idea">💡 Идея / вопрос</button>
+      </div>
+      <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Опишите, что пошло не так или чего не хватает..." required></textarea>
+      
+      <div class="feedback-preview-box" id="feedbackPreviewBox" hidden>
+        <img id="feedbackPreviewImg" src="" alt="Скриншот">
+        <button type="button" class="feedback-preview-remove" id="feedbackRemoveScreenshot" title="Удалить скриншот">✕</button>
+      </div>
+
+      <div class="feedback-dropzone" id="feedbackDropzone">
+        <p>📸 Прикрепить скриншот</p>
+        <small>Нажмите <b>Ctrl+V</b> (Cmd+V) для быстрой вставки, перетащите файл или нажмите сюда</small>
+        <input type="file" id="feedbackFileInput" accept="image/*" style="display:none">
+      </div>
+
+      <input type="text" class="feedback-input" id="feedbackContact" placeholder="Ваш Email или @telegram для связи (необязательно)">
+
+      <div class="feedback-footer">
+        <button type="button" class="feedback-btn" data-feedback-close>Отмена</button>
+        <button type="button" class="feedback-btn feedback-btn-primary" id="feedbackSubmitBtn">Отправить</button>
+      </div>
+      <div class="feedback-status" id="feedbackStatus" role="status" aria-live="polite"></div>
+    `;
+
+    document.body.appendChild(modalEl);
+
+    // Event listeners inside modal
+    modalEl.querySelectorAll('[data-feedback-close]').forEach(btn => {
+      btn.addEventListener('click', closeFeedbackModal);
+    });
+
+    modalEl.querySelectorAll('.feedback-type-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        modalEl.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        currentCategory = this.dataset.type || 'bug';
+      });
+    });
+
+    const dropzone = modalEl.querySelector('#feedbackDropzone');
+    const fileInput = modalEl.querySelector('#feedbackFileInput');
+    const removeBtn = modalEl.querySelector('#feedbackRemoveScreenshot');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) processImageFile(this.files[0]);
+    });
+
+    dropzone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', function() {
+      dropzone.classList.remove('dragover');
+    });
+    dropzone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        processImageFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    removeBtn.addEventListener('click', clearScreenshot);
+
+    const submitBtn = modalEl.querySelector('#feedbackSubmitBtn');
+    submitBtn.addEventListener('click', submitFeedback);
+
+    return modalEl;
+  }
+
+  function processImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      compressImage(e.target.result, 1400, 0.82, function(compressedDataUrl) {
+        currentScreenshot = compressedDataUrl;
+        renderScreenshotPreview(compressedDataUrl);
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function compressImage(src, maxDim, quality, callback) {
+    const img = new Image();
+    img.onload = function() {
+      let w = img.width, h = img.height;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      
+      let out = '';
+      try {
+        out = canvas.toDataURL('image/webp', quality);
+        if (!out.startsWith('data:image/webp')) throw 0;
+      } catch (_) {
+        out = canvas.toDataURL('image/jpeg', quality);
+      }
+      callback(out);
+    };
+    img.src = src;
+  }
+
+  function renderScreenshotPreview(dataUrl) {
+    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
+    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
+    const dropzone = modalEl.querySelector('#feedbackDropzone');
+    if (!previewBox || !previewImg || !dropzone) return;
+
+    previewImg.src = dataUrl;
+    previewBox.hidden = false;
+    dropzone.hidden = true;
+  }
+
+  function clearScreenshot() {
+    currentScreenshot = '';
+    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
+    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
+    const dropzone = modalEl.querySelector('#feedbackDropzone');
+    const fileInput = modalEl.querySelector('#feedbackFileInput');
+    if (previewImg) previewImg.src = '';
+    if (previewBox) previewBox.hidden = true;
+    if (dropzone) dropzone.hidden = false;
+    if (fileInput) fileInput.value = '';
+  }
+
+  // Handle global paste
+  window.addEventListener('paste', function(e) {
+    if (!modalEl || !modalEl.open) return;
+    const items = (e.clipboardData || window.clipboardData)?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) processImageFile(file);
+        break;
+      }
+    }
+  });
+
+  function openFeedbackModal() {
+    const modal = ensureModal();
+    const status = modal.querySelector('#feedbackStatus');
+    const textarea = modal.querySelector('#feedbackMessage');
+    const contact = modal.querySelector('#feedbackContact');
+    const submitBtn = modal.querySelector('#feedbackSubmitBtn');
+
+    if (status) { status.textContent = ''; status.className = 'feedback-status'; }
+    if (textarea) textarea.value = '';
+    clearScreenshot();
+
+    // Prefill contact if user is authenticated
+    if (contact) {
+      const user = window.authUser;
+      if (user && user.email) {
+        contact.value = user.email;
+      } else if (user && user.login) {
+        contact.value = '@' + user.login;
+      } else {
+        contact.value = '';
+      }
+    }
+
+    if (submitBtn) submitBtn.disabled = false;
+
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    } else {
+      modal.setAttribute('open', '');
+    }
+    textarea.focus();
+  }
+
+  function closeFeedbackModal() {
+    if (!modalEl) return;
+    if (typeof modalEl.close === 'function') {
+      modalEl.close();
+    } else {
+      modalEl.removeAttribute('open');
+    }
+  }
+
+  function playSuccessChime() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+
+      // Note 1: D5 (587.33 Hz) soft sine
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.04, now);
+      gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+
+      // Note 2: A5 (880.00 Hz) celestial harmonic
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880, now + 0.08);
+      gain2.gain.setValueAtTime(0.05, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.08);
+      osc2.stop(now + 0.45);
+
+      setTimeout(() => {
+        try { ctx.close(); } catch (_) {}
+      }, 600);
+    } catch (_) {}
+  }
+
+  function triggerHaptic() {
+    try {
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate([25, 35, 25]);
+      }
+    } catch (_) {}
+  }
+
+  async function submitFeedback() {
+    if (!modalEl) return;
+    const textarea = modalEl.querySelector('#feedbackMessage');
+    const contact = modalEl.querySelector('#feedbackContact');
+    const status = modalEl.querySelector('#feedbackStatus');
+    const submitBtn = modalEl.querySelector('#feedbackSubmitBtn');
+
+    const message = (textarea ? textarea.value : '').trim();
+    if (!message) {
+      if (status) {
+        status.textContent = 'Пожалуйста, опишите проблему или предложение.';
+        status.className = 'feedback-status error';
+      }
+      if (textarea) textarea.focus();
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = true;
+    if (status) {
+      status.textContent = 'Отправка...';
+      status.className = 'feedback-status';
+    }
+
+    const now = Date.now();
+    const breadcrumbs = (window.__userBreadcrumbs || []).map(b => ({
+      ago: Math.max(0, Math.round((now - b.time) / 1000)) + 's ago',
+      action: b.action,
+      details: b.details
+    }));
+
+    const payload = {
+      category: currentCategory,
+      message: message,
+      screenshot: currentScreenshot || '',
+      contact: (contact ? contact.value : '').trim(),
+      context: {
+        url: window.location.href,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+          dpr: window.devicePixelRatio || 1
+        },
+        userAgent: navigator.userAgent,
+        recentErrors: window.__recentErrors || [],
+        breadcrumbs: breadcrumbs
+      }
+    };
+
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Ошибка при отправке (' + res.status + ')');
+      }
+      if (status) {
+        status.textContent = '✓ Спасибо! Ваше сообщение успешно отправлено.';
+        status.className = 'feedback-status success';
+      }
+      playSuccessChime();
+      triggerHaptic();
+      setTimeout(() => {
+        closeFeedbackModal();
+      }, 1400);
+    } catch (err) {
+      if (status) {
+        status.textContent = err.message || 'Не удалось отправить сообщение. Попробуйте позже.';
+        status.className = 'feedback-status error';
+      }
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  window.openFeedbackModal = openFeedbackModal;
+  window.closeFeedbackModal = closeFeedbackModal;
+
+  // Delegate clicks on any [data-feedback-open]
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.closest('[data-feedback-open]')) {
+      e.preventDefault();
+      openFeedbackModal();
+    }
+  });
+
+  // Inject floating feedback trigger button if not present
+  function initFloatingBtn() {
+    if (document.getElementById('feedbackFloatingTrigger')) return;
+    const btn = document.createElement('button');
+    btn.id = 'feedbackFloatingTrigger';
+    btn.type = 'button';
+    btn.className = 'feedback-floating-btn';
+    btn.setAttribute('data-feedback-open', '');
+    btn.setAttribute('aria-label', 'Сообщить о проблеме или идея');
+    btn.innerHTML = '<span aria-hidden="true">💬</span><span>Отзыв</span>';
+    document.body.appendChild(btn);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFloatingBtn);
+  } else {
+    initFloatingBtn();
+  }
+})();
     function applyViewState(state) {
       authSyncLock = true;
       const added = Array.isArray(state.added) ? state.added : [];
@@ -18757,7 +19434,7 @@ const STUDIO_CONSTELLATIONS = [{
       const title = block.title || href || "Link";
       const host = lmHostLabel(href);
       const note = block.description || "";
-      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noreferrer" data-link-preview="' + esc(href) + '"' + (note ? ' data-keep-desc="1"' : "") + '>' +
+      return '<a class="lm-link-card" href="' + esc(href || "#") + '" target="_blank" rel="noopener noreferrer" data-link-preview="' + esc(href) + '"' + (note ? ' data-keep-desc="1"' : "") + '>' +
         '<span class="lm-link-card-media" aria-hidden="true"></span>' +
         '<span class="lm-link-card-copy"><b>' + esc(title) + '</b><span class="lm-link-card-desc">' + esc(note) + '</span><small class="lm-link-card-host">' + esc(host) + "</small></span></a>";
     }

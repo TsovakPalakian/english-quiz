@@ -27,6 +27,10 @@ export function googleRedirectUri(url){
   return `${url.origin}/api/auth/google/callback`;
 }
 
+export const googleCookie = request => request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-lumiscia-google=([A-Za-z0-9_-]+)/)?.[1] || '';
+export const googleCookieHeader = (token = '', secure = true) =>
+  '__Host-lumiscia-google=' + token + '; Path=/; HttpOnly; ' + (secure ? 'Secure; ' : '') + 'SameSite=Lax; Max-Age=' + (token ? '600' : '0');
+
 export async function createGoogleState(env,extra={}){
   const secret=env.SESSION_SECRET||env.CONTENT_SESSION_SECRET;
   if(!secret)fail(503,'Sign-in is not configured.');

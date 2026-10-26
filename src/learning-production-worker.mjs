@@ -22,7 +22,7 @@ export function databaseBackedRequest(request){
 export function productionEnvironment(env){
   env={...env,SESSION_SECRET:env.CONTENT_SESSION_SECRET||env.SESSION_SECRET};
   if(env.CONTENT_MEDIA_BUCKET!==PRODUCTION_MEDIA_BUCKET||!env.CONTENT_ALLOWED_HOST
-    ||!env.SESSION_SECRET||!env.DB||!env.MEDIA||!env.ASSETS||!env.CONTENT_MEDIA)return null;
+    ||typeof env.SESSION_SECRET!=='string'||!env.SESSION_SECRET.trim()||!env.DB||!env.MEDIA||!env.ASSETS||!env.CONTENT_MEDIA)return null;
   const configured={...env,STORAGE_MODE:'production',STAGE_ENABLED:'true',
     STAGE_WRITES:env.CONTENT_WRITES==='true'?'true':'false',STAGE_ALLOWED_HOST:env.CONTENT_ALLOWED_HOST,
     STAGE_MEDIA:env.CONTENT_MEDIA,STAGE_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,[STUDY_DATABASE]:STATIC_STUDY_DATABASE};
@@ -55,7 +55,12 @@ export function productionWorker(application=integrated){
   if(response.status===101)return response;
   const headers=new Headers(response.headers);
   if(data&&!headers.has('X-Database-Context'))headers.set('X-Database-Context',active);
-  if(headers.get('Content-Type')?.includes('text/html')&&headers.has('Content-Security-Policy'))headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
+  if(headers.get('Content-Type')?.includes('text/html')){
+    if(!headers.has('X-Frame-Options'))headers.set('X-Frame-Options','DENY');
+    if(!headers.has('X-Content-Type-Options'))headers.set('X-Content-Type-Options','nosniff');
+    if(!headers.has('Referrer-Policy'))headers.set('Referrer-Policy','strict-origin-when-cross-origin');
+    if(headers.has('Content-Security-Policy'))headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
+  }
   return new Response(response.body,{status:response.status,headers});
 }};}
 const workbenchRuntime=createWorkbenchRuntime();

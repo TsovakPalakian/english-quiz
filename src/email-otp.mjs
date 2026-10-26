@@ -18,11 +18,14 @@ async function sha256Hex(value){
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-function timingSafeEqual(a,b){
-  const left=String(a||''),right=String(b||'');
-  if(left.length!==right.length)return false;
+export function timingSafeHexEqual(a, b){
+  if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;
+  const aBuf=encoder.encode(a),bBuf=encoder.encode(b);
+  if(typeof crypto?.subtle?.timingSafeEqual==='function'){
+    return crypto.subtle.timingSafeEqual(aBuf,bBuf);
+  }
   let diff=0;
-  for(let i=0;i<left.length;i++)diff|=left.charCodeAt(i)^right.charCodeAt(i);
+  for(let i=0;i<aBuf.length;i++)diff|=aBuf[i]^bBuf[i];
   return diff===0;
 }
 
@@ -109,7 +112,7 @@ export class EmailOtp{
       await this.#remove(key,current);
       fail(429,'Too many attempts. Request a new code.');
     }
-    const ok=timingSafeEqual(current.codeHash,await sha256Hex(code+':'+email));
+    const ok=timingSafeHexEqual(current.codeHash,await sha256Hex(code+':'+email));
     if(!ok){
       const bumped={...current,attempts:(current.attempts||0)+1};
       delete bumped.raw;

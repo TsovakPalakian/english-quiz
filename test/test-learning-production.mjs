@@ -47,3 +47,13 @@ test('Account D1 adapter rejects educational reads/writes and arbitrary SQL befo
   assert.equal(rawCalls,0);assert.deepEqual(await db.prepare('SELECT id FROM users LIMIT 1').first(),{id:'fixture'});
   assert.equal(rawCalls,1);await assert.rejects(db.exec('DROP TABLE users'));
 });
+test('Production wrapper injects baseline security headers on HTML responses',async()=>{
+  const app={async fetch(){return new Response('<!DOCTYPE html><html><body>Test</body></html>',{headers:{'Content-Type':'text/html; charset=utf-8'}});}};
+  const env={CONTENT_ENABLED:'true',CONTENT_WRITES:'false',CONTENT_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,CONTENT_ALLOWED_HOST:'production.example',SESSION_SECRET:'fixture',DB:{prepare(){}},MEDIA:{},ASSETS:{},CONTENT_MEDIA:{get(){},head(){},put(){}},DB_PROVIDER:'d1',STUDY_DB:{prepare(){},batch(){}}};
+  const candidate=productionWorker(app);
+  const response=await candidate.fetch(new Request('https://production.example/'),env,{});
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('X-Frame-Options'),'DENY');
+  assert.equal(response.headers.get('X-Content-Type-Options'),'nosniff');
+  assert.equal(response.headers.get('Referrer-Policy'),'strict-origin-when-cross-origin');
+});

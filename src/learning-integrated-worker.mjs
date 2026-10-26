@@ -21,7 +21,7 @@ const oauthProviders={
   microsoft:{Service:MicrosoftOAuth,configured:microsoftConfigured,cookie:microsoftCookie,cookieHeader:microsoftCookieHeader,authorize:microsoftAuthorizeUrl,exchange:exchangeMicrosoftCode,label:'Microsoft'},
   telegram:{Service:TelegramOAuth,configured:telegramConfigured,cookie:telegramCookie,cookieHeader:telegramCookieHeader,authorize:telegramAuthorizeUrl,exchange:exchangeTelegramCode,label:'Telegram'},
 };
-import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured} from './google-oauth.mjs';
+import {createGoogleState,readGoogleState,googleAuthorizeUrl,exchangeGoogleCode,googleConfigured,googleCookie,googleCookieHeader} from './google-oauth.mjs';
 import {ExamService} from './learning-exams.mjs';
 import {legacyTexts,legacyLessons,legacyCard,accountBootstrap,accountCards,accountQuizzes,accountProgress,accountSongs,pageLimit} from './learning-legacy-read.mjs';
 import {mediaPlaceholders,mediaKey,storedMediaResponse} from './learning-media.mjs';
@@ -35,6 +35,7 @@ import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
+import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -286,7 +287,10 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const result=await endSession(studyDatabase(env),accountEnv.MEDIA,session,body.id);
         if(env.CHAT_INBOX)try{await chatCall(env,'CHAT_INBOX',actor.id,'/revoke-session',{sid:result.sid});}catch{console.error('Session socket closure deferred to revocation checks.');}
         const response=json({ended:result.ended,current:result.current});
-        if(result.current)response.headers.set('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+        if(result.current){
+          response.headers.set('Set-Cookie','__Host-enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+          response.headers.append('Set-Cookie','enquiz_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+        }
         return response;
       }
       if(path==='/api/everyday'&&method==='GET'){
@@ -360,20 +364,27 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
         const invite=String(url.searchParams.get('invite')||'').trim();
         if(invite)await new AccountInvites(studyDatabase(env)).peek(invite);
-        const {state}=await createGoogleState(env,invite?{invite}:{});
-        return Response.redirect(googleAuthorizeUrl(env,url,state),302);
+        const {state,nonce}=await createGoogleState(env,invite?{invite}:{});
+        const secure=url.protocol==='https:';
+        const headers=new Headers({
+          'Location':googleAuthorizeUrl(env,url,state),
+          'Set-Cookie':googleCookieHeader(nonce,secure)
+        });
+        return new Response(null,{status:302,headers});
       }
       if(path==='/api/auth/google/callback'&&method==='GET'){
         if(!googleConfigured(env))throw new StudyError(503,'Google sign-in is not configured.');
         if(env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Original account mutations disabled on this candidate.');
         const err=url.searchParams.get('error');
         if(err)return Response.redirect(url.origin+'/?auth=google_denied',302);
+        const secure=url.protocol==='https:';
+        const cookieNonce=googleCookie(request);
         const state=await readGoogleState(env,url.searchParams.get('state'));
+        if(cookieNonce&&cookieNonce!==state.n)throw new StudyError(401,'Google sign-in does not match this session.');
         const profile=await exchangeGoogleCode(env,url,url.searchParams.get('code'));
         const inviteToken=typeof state.invite==='string'?state.invite.trim():'';
         if(inviteToken&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         const inviteInfo=inviteToken?await new AccountInvites(studyDatabase(env)).peek(inviteToken,profile.email):null;
-        const secure=url.protocol==='https:';
         let response=await completeGoogleSignIn(accountEnv,request,profile,{create:false,role:inviteInfo?.kind==='teacher'?'ADMIN':'USER'},secure);
         if(response.status===200){
           let value=await response.clone().json(),inviteAccepted=false;
@@ -422,14 +433,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
             else dest.searchParams.set('auth','google');
             headers.set('Location',dest.toString());
             headers.delete('Content-Length');
+            headers.append('Set-Cookie',googleCookieHeader('',secure));
             return new Response(null,{status:302,headers});
           }
         }
         if(response.status===403){
           const value=await response.clone().json().catch(()=>({}));
-          if(value.status==='pending')return Response.redirect(url.origin+'/?auth=pending',302);
+          if(value.status==='pending')return new Response(null,{status:302,headers:{'Location':url.origin+'/?auth=pending','Set-Cookie':googleCookieHeader('',secure)}});
         }
-        return Response.redirect(url.origin+'/?auth=google_error',302);
+        return new Response(null,{status:302,headers:{'Location':url.origin+'/?auth=google_error','Set-Cookie':googleCookieHeader('',secure)}});
       }
       if(path==='/api/auth/password/reset'&&method==='POST'){
         if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Password recovery is unavailable.');
@@ -710,6 +722,58 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           return json({bugs:await listBugsByIds(db,ids)});
         }
         return json({bugs:await listBugs(db)});
+      }
+      if(path==='/api/feedback'&&method==='POST'){
+        let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
+        const clientIp=(request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'anonymous').trim();
+        const rateKey=actor?.id?`user:${actor.id}`:`ip:${clientIp}`;
+        const rate=checkFeedbackRateLimit(rateKey);
+        if(!rate.ok){
+          const minutes=Math.max(1,Math.ceil(rate.retryAfterSec/60));
+          throw new StudyError(429,`Отправка отзыва возможна не чаще одного раза в час. Пожалуйста, подождите ${minutes} мин. перед отправкой следующего сообщения.`);
+        }
+        const raw=await request.text();if(raw.length>500000)throw new StudyError(413,'Feedback report too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!body.message||!String(body.message).trim())throw new StudyError(400,'Message is required.');
+        const db=studyDatabase(env);
+        const saved=await saveFeedback(db,{
+          category:body.category,
+          message:body.message,
+          screenshot:body.screenshot,
+          user:actor,
+          contact:body.contact,
+          context:body.context
+        });
+        ctx?.waitUntil?.(notifyFeedbackTelegram(env,saved).catch(()=>{}));
+        return json({ok:true,id:saved.id});
+      }
+      if(path==='/api/feedback'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const db=studyDatabase(env);
+        const resolved=url.searchParams.get('resolved')==='1'?1:0;
+        const limit=Math.min(100,Math.max(1,Number(url.searchParams.get('limit'))||50));
+        const offset=Math.max(0,Number(url.searchParams.get('offset'))||0);
+        const counts=await countFeedback(db);
+        const feedback=await listFeedback(db,{resolved,limit,offset});
+        return json({
+          feedback,
+          total:resolved?counts.resolved:counts.open,
+          counts,
+          limit,
+          offset
+        });
+      }
+      if(path==='/api/feedback/resolve'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const raw=await request.text();if(raw.length>200)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!body.id)throw new StudyError(400,'Feedback id is required.');
+        const db=studyDatabase(env);
+        const resolved=body.resolved!==false;
+        if(!await resolveFeedback(db,body.id,resolved))throw new StudyError(404,'Feedback not found.');
+        return json({ok:true,id:body.id,resolved});
       }
       if(path==='/api/cards/lookup'&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
@@ -1076,7 +1140,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
 }
 function bugWatch(request){
   // Authentication payloads contain one-time codes, OAuth state and credentials.
-  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');}
+  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/feedback')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');}
   catch{return false;}
 }
 export default integratedWorker();
