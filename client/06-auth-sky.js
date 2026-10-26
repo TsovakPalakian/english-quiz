@@ -666,12 +666,12 @@
     };
     const onClick=event=>{
       if(event.defaultPrevented||event.button!==0||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      hideConInspector();
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
         freezeFigure();
         return;
       }
-      hideConInspector();
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       if(target){
         freezeFigure();
