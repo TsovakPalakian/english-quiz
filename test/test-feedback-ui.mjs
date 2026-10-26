@@ -33,7 +33,12 @@ try {
   // Verify breadcrumbs recording
   const breadcrumbs = await page.evaluate(() => window.__userBreadcrumbs || []);
   assert.ok(breadcrumbs.length > 0, 'User click should be recorded in breadcrumbs');
-  assert.ok(breadcrumbs.some(b => b.details.includes('feedbackFloatingTrigger') || b.details.includes('Отзыв')), 'Breadcrumbs must capture feedback button click');
+  assert.ok(breadcrumbs.some(b => b.details.includes('feedbackFloatingTrigger') || b.details.includes('Feedback')), 'Breadcrumbs must capture feedback button click');
+
+  // Verify English modal title and tabs
+  assert.equal(await modal.locator('.feedback-header h2').textContent(), 'Feedback & Bug Report');
+  assert.equal(await modal.locator('[data-type="bug"]').textContent(), '🐞 Bug');
+  assert.equal(await modal.locator('[data-type="idea"]').textContent(), '💡 Idea / Question');
 
   // 3. Switch categories
   const ideaBtn = modal.locator('[data-type="idea"]');
@@ -75,7 +80,25 @@ try {
   await submitBtn.click();
   const statusEl = modal.locator('#feedbackStatus');
   const errorText = await statusEl.textContent();
-  assert.ok(errorText.includes('Пожалуйста, опишите проблему'), 'Validation error shown on empty message');
+  assert.ok(errorText.includes('Please describe the issue'), 'Validation error shown on empty message');
+
+  // 5b. Test dynamic textarea resizing (up to ~3x base height and shrinking back)
+  const textarea = modal.locator('#feedbackMessage');
+  const initialH = await textarea.evaluate(el => el.getBoundingClientRect().height);
+  assert.ok(initialH >= 70 && initialH <= 90, `Initial textarea height ${initialH}px is around 80px`);
+
+  // Fill multi-line text to expand
+  await textarea.fill('Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10');
+  await textarea.dispatchEvent('input');
+  const expandedH = await textarea.evaluate(el => el.getBoundingClientRect().height);
+  assert.ok(expandedH >= initialH * 2.5 && expandedH <= 245, `Textarea expanded height (${expandedH}px) is up to ~3x initial height`);
+
+  // Shrink back when text is short
+  await textarea.fill('Short feedback note');
+  await textarea.dispatchEvent('input');
+  const shrunkH = await textarea.evaluate(el => el.getBoundingClientRect().height);
+  assert.ok(shrunkH < expandedH, `Textarea shrunk (${shrunkH}px < ${expandedH}px) when text decreased`);
+  assert.ok(shrunkH <= initialH + 10, `Textarea returned close to base height (${shrunkH}px)`);
 
   // 6. Fill message and submit successfully (spy on haptics)
   await page.evaluate(() => {
@@ -83,8 +106,8 @@ try {
     navigator.vibrate = () => { window.__vibrateCalled = true; return true; };
   });
 
-  const textarea = modal.locator('#feedbackMessage');
   await textarea.fill('Interactive test: layout is slightly shifted on tablet viewport');
+  await textarea.dispatchEvent('input');
 
   const contact = modal.locator('#feedbackContact');
   await contact.fill('tester@lumiscia.org');
@@ -92,7 +115,7 @@ try {
   await submitBtn.click();
   await page.waitForFunction(() => {
     const el = document.getElementById('feedbackStatus');
-    return el && el.textContent.includes('Спасибо');
+    return el && el.textContent.includes('Thank you');
   }, {timeout: 5000});
 
   const hapticTriggered = await page.evaluate(() => window.__vibrateCalled);
