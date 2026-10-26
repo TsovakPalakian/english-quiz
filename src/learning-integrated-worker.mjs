@@ -35,6 +35,7 @@ import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
+import {saveFeedback,listFeedback,resolveFeedback,notifyFeedbackTelegram} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -711,6 +712,42 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         return json({bugs:await listBugs(db)});
       }
+      if(path==='/api/feedback'&&method==='POST'){
+        let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
+        const raw=await request.text();if(raw.length>500000)throw new StudyError(413,'Feedback report too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!body.message||!String(body.message).trim())throw new StudyError(400,'Message is required.');
+        const db=studyDatabase(env);
+        const saved=await saveFeedback(db,{
+          category:body.category,
+          message:body.message,
+          screenshot:body.screenshot,
+          user:actor,
+          contact:body.contact,
+          context:body.context
+        });
+        ctx?.waitUntil?.(notifyFeedbackTelegram(env,saved).catch(()=>{}));
+        return json({ok:true,id:saved.id});
+      }
+      if(path==='/api/feedback'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const db=studyDatabase(env);
+        const resolved=url.searchParams.get('resolved')==='1'?1:0;
+        const limit=Math.min(100,Math.max(1,Number(url.searchParams.get('limit'))||50));
+        const offset=Math.max(0,Number(url.searchParams.get('offset'))||0);
+        return json({feedback:await listFeedback(db,{resolved,limit,offset})});
+      }
+      if(path==='/api/feedback/resolve'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const raw=await request.text();if(raw.length>200)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!body.id)throw new StudyError(400,'Feedback id is required.');
+        const db=studyDatabase(env);
+        if(!await resolveFeedback(db,body.id))throw new StudyError(404,'Feedback not found.');
+        return json({ok:true,id:body.id});
+      }
       if(path==='/api/cards/lookup'&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -1076,7 +1113,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
 }
 function bugWatch(request){
   // Authentication payloads contain one-time codes, OAuth state and credentials.
-  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');}
+  try{const path=new URL(request.url).pathname;return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/feedback')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');}
   catch{return false;}
 }
 export default integratedWorker();

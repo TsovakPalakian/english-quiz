@@ -15,6 +15,7 @@ export async function previewAuthStudio(port=0){
       if(path.startsWith('/api/')){
         if(path==='/api/me')return json({user:null});
         if(path==='/api/auth/providers')return json({google:true,microsoft:true,telegram:true});
+        if(path==='/api/feedback'&&req.method==='POST')return json({ok:true,id:'fb_preview_mock'});
         if(req.method!=='GET')return json({error:'Local appearance preview. Authentication and email are not connected here.'},503);
         return json({users:[],registrations:[],changes:[],groups:[],count:0,total:0});
       }

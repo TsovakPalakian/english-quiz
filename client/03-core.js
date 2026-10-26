@@ -131,10 +131,22 @@
       if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
       const bugTabBtn = e.target.closest("button[data-bug-tab]");
       if (bugTabBtn) {
-        bugTab = bugTabBtn.dataset.bugTab === "done" ? "done" : "open";
+        bugTab = ['done', 'feedback'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
-        if (bugCache) paintBugs(bugCache);
+        if (bugCache && bugTab !== 'feedback') paintBugs(bugCache);
         else paintBugs();
+        return;
+      }
+      const fbResolve = e.target.closest("[data-feedback-resolve]");
+      if (fbResolve) {
+        if(fbResolve.disabled)return;
+        fbResolve.disabled=true;
+        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbResolve.dataset.feedbackResolve }) }).then(() => {
+          paintBugs();
+        }).catch((err) => {
+          const box = document.getElementById("bugList");
+          if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
+        }).finally(()=>{fbResolve.disabled=false;});
         return;
       }
       const bugCopy = e.target.closest("[data-bug-copy]");

@@ -11,6 +11,7 @@ const students=[{id:'c'.repeat(32),login:'student1',name:'Preview student 1',rol
 const user=role==='GUEST'?null:role==='ADMIN'?teachers[0]:role==='USER'?students[0]:{id:'a'.repeat(32),login:'preview',name:'Preview',role};
 const api={
   '/api/bugs':{bugs:previewBugs()},
+  '/api/feedback':{feedback:[{id:'fb_sample_1',category:'bug',message:'Button overlaps on small screen',userLogin:'student1',url:'https://lumiscia.org/days',createdAt:Math.floor(Date.now()/1000)-3600,resolved:false}]},
   '/api/database-context':{provider:'d1',revision:3,scope:'site'},
   '/api/me':{user},'/api/me/account':{user},
   '/api/me/state':{bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:1},stageActivity:{}},

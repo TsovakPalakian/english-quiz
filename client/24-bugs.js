@@ -134,6 +134,37 @@
       const onBugs = () => (document.querySelector("section.on") || {}).id === "bugs";
       if (Array.isArray(preset)) { draw(preset); return; }
       if (!isDeveloper()) return;
+      if (bugTab === "feedback") {
+        box.innerHTML = '<p class="sub">Loading user feedback...</p>';
+        accountFetch("/api/feedback").then(data => {
+          if (!onBugs() || bugTab !== "feedback") return;
+          const items = (data && data.feedback) || [];
+          if (!items.length) {
+            box.innerHTML = '<p class="sub">No open feedback reports.</p>';
+            return;
+          }
+          box.innerHTML = items.map(fb => `
+            <article class="bug-item card">
+              <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
+                <div style="flex:1;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
+                    <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
+                    <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
+                  </div>
+                  <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
+                  ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+                  ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
+                </div>
+                <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+              </div>
+            </article>
+          `).join('');
+        }).catch(() => {
+          if (onBugs()) box.innerHTML = '<p class="sub">Failed to load feedback reports.</p>';
+        });
+        return;
+      }
       if (bugCache) {
         draw(bugCache);
         accountFetch("/api/bugs?heads=1").then((data) => {
