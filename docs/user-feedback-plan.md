@@ -88,3 +88,8 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_status ON user_feedback(resolved, c
   - 🟩 Тактильная вибрация мобильного устройства (`navigator.vibrate([25, 35, 25])`) при успешной отправке.
   - 🟩 Панель фильтрации по категориям в кабинете разработчика (`All`, `🐞 Bugs`, `💡 Ideas`, `❓ Questions`) со счётчиками тикетов.
   - 🟩 Мгновенный поиск по тексту сообщений, автору (логин/email) и URL страницы с сохранением фокуса ввода.
+
+- 🟩 **Этап 8: Архив решённых отзывов («Active / Resolved archive») и экспорт в CSV**
+  - 🟩 Переключатель «Active» / «Resolved archive» в панели разработчика с раздельным запросом к API (`/api/feedback?resolved=0` и `resolved=1`).
+  - 🟩 Отображение даты закрытия тикета (`✓ Resolved <time>`) и кнопка «Reopen» для возврата тикета в активные (`POST /api/feedback/resolve` с `resolved: false`).
+  - 🟩 Клиентский экспорт отфильтрованных тикетов в формат CSV с поддержкой UTF-8 BOM, экранированием кавычек и метаданными.

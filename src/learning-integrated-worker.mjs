@@ -752,8 +752,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!body.id)throw new StudyError(400,'Feedback id is required.');
         const db=studyDatabase(env);
-        if(!await resolveFeedback(db,body.id))throw new StudyError(404,'Feedback not found.');
-        return json({ok:true,id:body.id});
+        const resolved=body.resolved!==false;
+        if(!await resolveFeedback(db,body.id,resolved))throw new StudyError(404,'Feedback not found.');
+        return json({ok:true,id:body.id,resolved});
       }
       if(path==='/api/cards/lookup'&&method==='POST'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');

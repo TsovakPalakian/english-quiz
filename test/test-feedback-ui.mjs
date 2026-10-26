@@ -112,12 +112,19 @@ try {
     // Simulate developer environment with mock items
     window.isDeveloper = () => true;
     window.accountFetch = async (url) => {
-      if (url === '/api/feedback') {
+      if (url.startsWith('/api/feedback')) {
+        if (url.includes('resolved=1')) {
+          return {
+            feedback: [
+              {id: 'fb_res_1', category: 'bug', message: 'Resolved mobile glitch', userLogin: 'dan', url: '/days', createdAt: 1699990000, resolved: true, resolvedAt: 1700004000}
+            ]
+          };
+        }
         return {
           feedback: [
-            {id: 'fb_1', category: 'bug', message: 'Button overlap error', userLogin: 'tester1', url: '/days', createdAt: 1700000000},
-            {id: 'fb_2', category: 'idea', message: 'Add dark sky theme', userLogin: 'alice', url: '/home', createdAt: 1700001000},
-            {id: 'fb_3', category: 'question', message: 'How to practice speaking?', userEmail: 'bob@test.org', url: '/practice', createdAt: 1700002000}
+            {id: 'fb_1', category: 'bug', message: 'Button overlap error', userLogin: 'tester1', url: '/days', createdAt: 1700000000, resolved: false},
+            {id: 'fb_2', category: 'idea', message: 'Add dark sky theme', userLogin: 'alice', url: '/home', createdAt: 1700001000, resolved: false},
+            {id: 'fb_3', category: 'question', message: 'How to practice speaking?', userEmail: 'bob@test.org', url: '/practice', createdAt: 1700002000, resolved: false}
           ]
         };
       }
@@ -160,7 +167,34 @@ try {
   cards = await page.locator('#feedbackCardsList article').count();
   assert.equal(cards, 0, 'Zero cards for nonexistent query');
   const noMatchText = await page.locator('#feedbackCardsList').textContent();
-  assert.ok(noMatchText.includes('No feedback reports match'), 'Empty state shown for unmatched search');
+  assert.ok(noMatchText.includes('match current filter'), 'Empty state shown for unmatched search');
+
+  // Clear search
+  await searchInput.fill('');
+
+  // 8. Test Export CSV
+  const exportBtn = page.locator('#feedbackExportCsv');
+  assert.ok(await exportBtn.isVisible(), 'Export CSV button must be visible');
+  await exportBtn.click(); // Should execute smoothly without throwing
+
+  // 9. Test Resolved archive toggle
+  const resolvedTab = page.locator('[data-fb-status="resolved"]');
+  await resolvedTab.click();
+  await page.waitForTimeout(100);
+
+  const resolvedCards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(resolvedCards, 1, 'Resolved archive should show 1 resolved card');
+  const reopenBtn = page.locator('[data-feedback-unresolve]');
+  assert.ok(await reopenBtn.isVisible(), 'Reopen button should be present on resolved card');
+  const resolvedBadge = await page.locator('#feedbackCardsList article').textContent();
+  assert.ok(resolvedBadge.includes('Resolved'), 'Resolved badge displayed');
+
+  // Switch back to active
+  const activeTab = page.locator('[data-fb-status="active"]');
+  await activeTab.click();
+  await page.waitForTimeout(100);
+  cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 3, 'Active tab should show 3 active cards');
 
   assert.equal(consoleErrors.length, 0, 'Zero console errors during feedback interaction: ' + consoleErrors.join(', '));
   console.log('Feedback modal UI and clipboard paste interaction passed successfully.');

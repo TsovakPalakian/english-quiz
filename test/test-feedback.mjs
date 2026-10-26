@@ -99,6 +99,13 @@ test('resolveFeedback updates resolved status and timestamp', async () => {
   assert.equal(resolvedList[0].id, saved.id);
   assert.equal(resolvedList[0].resolved, true);
   assert.ok(resolvedList[0].resolvedAt > 0);
+
+  // Test reopening ticket
+  const reopened = await resolveFeedback(db, saved.id, false);
+  assert.equal(reopened, true);
+  const activeAgain = await listFeedback(db, {resolved: 0});
+  assert.equal(activeAgain.length, 1);
+  assert.equal(activeAgain[0].resolved, false);
 });
 
 test('notifyFeedbackTelegram sends photo when screenshot is attached', async () => {
@@ -233,6 +240,25 @@ test('integrated worker /api/feedback endpoints', async () => {
   const emptyAfter = await worker.fetch(new Request('https://test.invalid/api/feedback'), env);
   const emptyJson = await emptyAfter.json();
   assert.equal(emptyJson.feedback.length, 0);
+
+  // 5b. GET /api/feedback?resolved=1 retrieves resolved ticket
+  const resolvedGet = await worker.fetch(new Request('https://test.invalid/api/feedback?resolved=1'), env);
+  const resolvedJson = await resolvedGet.json();
+  assert.equal(resolvedJson.feedback.length, 1);
+  assert.equal(resolvedJson.feedback[0].resolved, true);
+
+  // 5c. POST /api/feedback/resolve with resolved: false reopens ticket
+  const reopenRes = await worker.fetch(new Request('https://test.invalid/api/feedback/resolve', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({id: postJson.id, resolved: false})
+  }), env);
+  assert.equal(reopenRes.status, 200);
+
+  const activeAfterReopen = await worker.fetch(new Request('https://test.invalid/api/feedback?resolved=0'), env);
+  const activeJson = await activeAfterReopen.json();
+  assert.equal(activeJson.feedback.length, 1);
+  assert.equal(activeJson.feedback[0].resolved, false);
 
   // 6. Rate-limit enforcement (max 1 request per hour per IP/user)
   resetFeedbackRateLimitsForTests();

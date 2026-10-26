@@ -140,14 +140,16 @@ export async function listFeedback(db, {resolved = 0, limit = 50, offset = 0} = 
   }));
 }
 
-export async function resolveFeedback(db, id) {
+export async function resolveFeedback(db, id, resolved = true) {
   await ensureFeedbackStore(db);
   const now = Math.floor(Date.now() / 1000);
-  const res = await db.atomic([
-    statement('UPDATE user_feedback SET resolved = 1, resolved_at = ? WHERE id = ?', [now, String(id)])
+  const isResolved = resolved ? 1 : 0;
+  const resolvedAt = resolved ? now : 0;
+  await db.atomic([
+    statement('UPDATE user_feedback SET resolved = ?, resolved_at = ? WHERE id = ?', [isResolved, resolvedAt, String(id)])
   ]);
   const rows = await db.read('SELECT id, resolved FROM user_feedback WHERE id = ?', [String(id)]);
-  return rows.length > 0 && rows[0].resolved === 1;
+  return rows.length > 0 && rows[0].resolved === isResolved;
 }
 
 export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis.fetch} = {}) {

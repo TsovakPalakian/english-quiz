@@ -141,12 +141,24 @@
       if (fbResolve) {
         if(fbResolve.disabled)return;
         fbResolve.disabled=true;
-        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbResolve.dataset.feedbackResolve }) }).then(() => {
+        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbResolve.dataset.feedbackResolve, resolved: true }) }).then(() => {
           paintBugs();
         }).catch((err) => {
           const box = document.getElementById("bugList");
           if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
         }).finally(()=>{fbResolve.disabled=false;});
+        return;
+      }
+      const fbUnresolve = e.target.closest("[data-feedback-unresolve]");
+      if (fbUnresolve) {
+        if(fbUnresolve.disabled)return;
+        fbUnresolve.disabled=true;
+        accountFetch("/api/feedback/resolve", { method: "POST", body: JSON.stringify({ id: fbUnresolve.dataset.feedbackUnresolve, resolved: false }) }).then(() => {
+          paintBugs();
+        }).catch((err) => {
+          const box = document.getElementById("bugList");
+          if (box) box.insertAdjacentHTML("afterbegin", '<p class="sub">' + esc(err.message) + "</p>");
+        }).finally(()=>{fbUnresolve.disabled=false;});
         return;
       }
       const bugCopy = e.target.closest("[data-bug-copy]");
