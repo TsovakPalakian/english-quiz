@@ -41,11 +41,19 @@ try{
       text:el.textContent,
       bayer:el.querySelector('.auth-sky-inspector-bayer')?.textContent?.trim(),
       name:el.querySelector('.auth-sky-inspector-name')?.textContent?.trim(),
+      bayerLatin:el.querySelector('.auth-sky-inspector-bayer-latin')?.textContent?.trim(),
+      con:el.querySelector('.auth-sky-inspector-con')?.textContent?.trim(),
       mag:el.querySelector('.auth-sky-inspector-mag')?.textContent?.trim(),
+      hemi:el.querySelector('.auth-sky-hemi-val')?.textContent?.trim(),
+      cluster:el.querySelector('.auth-sky-cluster-val')?.textContent?.trim(),
       spect:el.querySelector('.auth-sky-spect-val')?.textContent?.trim(),
       dist:el.querySelector('.auth-sky-dist-val')?.textContent?.trim(),
+      lum:el.querySelector('.auth-sky-lum-val')?.textContent?.trim(),
+      temp:el.querySelector('.auth-sky-temp-val')?.textContent?.trim(),
+      sys:el.querySelector('.auth-sky-sys-val')?.textContent?.trim(),
       hip:el.querySelector('.auth-sky-hip-val')?.textContent?.trim(),
       coords:el.querySelector('.auth-sky-coords-val')?.textContent?.trim(),
+      needlePos:el.querySelector('.auth-sky-temp-needle')?.style?.left,
       desc:el.querySelector('.auth-sky-inspector-desc')?.textContent?.trim(),
       simbadLinkText:el.querySelector('.auth-sky-inspector-simbad')?.textContent?.trim(),
       simbad:el.querySelector('.auth-sky-inspector-simbad')?.getAttribute('href')
@@ -55,9 +63,17 @@ try{
   assert.equal(/[\u0400-\u04FF]/.test(inspectorData.text),false,'Inspector contains zero Russian characters');
   assert.equal(inspectorData.bayer,'δ','Bayer designation is delta');
   assert.equal(inspectorData.name,'Deneb Algedi','Star name is Deneb Algedi');
+  assert.equal(inspectorData.bayerLatin,'Delta Capricorni','Bayer Latin designation is Delta Capricorni');
+  assert.ok(inspectorData.con.includes('Capricornus'),'Constellation line includes Capricornus');
   assert.equal(inspectorData.mag,'2.85m','Magnitude is 2.85m');
-  assert.ok(inspectorData.spect.includes('A5')||inspectorData.spect.includes('F2'),'Spectral class contains A5/F2');
-  assert.ok(inspectorData.dist.includes('39 ly'),'Distance indicates ~39 ly');
+  assert.ok(inspectorData.hemi.includes('Southern Sky'),'Hemisphere indicates Southern Sky');
+  assert.equal(inspectorData.cluster,'None (Field Star)','Cluster indicates None (Field Star)');
+  assert.ok(inspectorData.spect.includes('A5')||inspectorData.spect.includes('F2')||inspectorData.spect.includes('A7'),'Spectral class contains A5/F2/A7');
+  assert.ok(inspectorData.dist.includes('39 ly')||inspectorData.dist.includes('38.7 ly'),'Distance indicates ~38.7 or 39 ly');
+  assert.ok(inspectorData.lum.includes('Sun'),'Luminosity is measured in Solar units');
+  assert.ok(inspectorData.temp.includes('K'),'Temperature is in Kelvin');
+  assert.equal(inspectorData.sys,'Eclipsing Binary','System type is Eclipsing Binary');
+  assert.ok(inspectorData.needlePos.includes('%'),'Temperature needle has percentage position');
   assert.equal(inspectorData.hip,'HIP 107556','Hipparcos catalog ID');
   assert.ok(inspectorData.simbad.includes('107556'),'SIMBAD href points to HIP 107556');
   assert.ok(inspectorData.coords.includes('21ʰ 47ᵐ'),'Right ascension formatted properly');

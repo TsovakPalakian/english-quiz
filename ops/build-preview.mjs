@@ -48,7 +48,7 @@ export function skyCatalogueFactory(){
     const connected=new Set(c.connections.flat());
     // Retain own unconnected stars, but not unused neighbouring vertices from an older atlas.
     const stars=c.stars.filter(s=>!s.catalogue?.constellation||s.catalogue.constellation===c.abbr||connected.has(s.id));
-    return {name:c.name,abbr:c.abbr,stars:stars.map(pack),connections:c.connections,objects};
+    return {name:c.name,abbr:c.abbr,genitive:c.genitive||null,stars:stars.map(pack),connections:c.connections,objects};
   });
   return 'const STUDIO_SKY_CATALOGUE='+JSON.stringify(packed)+';\n';
 }

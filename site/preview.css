@@ -3162,22 +3162,36 @@ button.group-person:hover { background: var(--acc-s); }
 :root[data-high-visibility="1"] .auth-sky-landmark { display: none; }
 :root[data-high-visibility="1"] .auth-sky-inspector { display: none; }
 .auth-sky-caption:focus-visible { outline: 1px solid #c5a868; outline-offset: 4px; }
-.auth-sky-inspector { position: fixed; z-index: 10; width: 280px; max-width: calc(100vw - 24px); pointer-events: auto; background: rgba(9, 15, 24, 0.95); border: 1px solid rgba(197, 168, 104, 0.45); border-radius: 10px; box-shadow: 0 10px 32px rgba(0, 0, 0, 0.75), 0 0 16px rgba(197, 168, 104, 0.15); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif; font-size: 11px; line-height: 1.4; padding: 12px 14px; box-sizing: border-box; opacity: 0; transform: translateY(4px) scale(0.98); transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+.auth-sky-inspector { position: fixed; z-index: 10; width: 290px; max-width: calc(100vw - 20px); pointer-events: auto; background: rgba(9, 15, 24, 0.96); border: 1px solid rgba(197, 168, 104, 0.45); border-radius: 12px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(197, 168, 104, 0.15); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif; font-size: 11px; line-height: 1.4; padding: 12px 14px; box-sizing: border-box; opacity: 0; transform: translateY(4px) scale(0.98); transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
 .auth-sky-inspector.active { opacity: 1; transform: translateY(0) scale(1); }
 .auth-sky-inspector[hidden] { display: none; }
 .auth-sky-inspector-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; border-bottom: 1px solid rgba(197, 168, 104, 0.25); padding-bottom: 8px; margin-bottom: 8px; }
 .auth-sky-inspector-title { display: flex; align-items: baseline; gap: 6px; font-family: Georgia, serif; font-size: 15px; font-weight: bold; color: #ffffff; }
 .auth-sky-inspector-bayer { color: #ffd885; font-size: 16px; }
-.auth-sky-inspector-mag { background: #14202e; border: 1px solid rgba(197, 168, 104, 0.35); color: #ffd885; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
-.auth-sky-inspector-con { font-size: 10px; color: #8ea0b5; margin-top: 1px; }
-.auth-sky-inspector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; background: rgba(6, 11, 18, 0.7); border: 1px solid rgba(25, 38, 54, 0.8); border-radius: 6px; padding: 7px 9px; margin-bottom: 8px; font-size: 10px; }
-.auth-sky-inspector-item .k { color: #6d8199; display: block; font-size: 9px; }
-.auth-sky-inspector-item .v { color: #e2e8f0; font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.auth-sky-inspector-bayer-latin { font-size: 11px; font-style: italic; color: #cad6e4; margin-top: 2px; }
+.auth-sky-inspector-con { font-size: 10px; color: #8ea0b5; margin-top: 2px; }
+.auth-sky-inspector-mag { background: #111a26; border: 1px solid rgba(197, 168, 104, 0.35); color: #ffd885; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.auth-sky-inspector-hemi-cluster { background: rgba(6, 11, 19, 0.85); border: 1px solid rgba(26, 40, 58, 0.9); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 10.5px; }
+.auth-sky-inspector-row { display: flex; justify-content: space-between; align-items: center; }
+.auth-sky-inspector-row .k { color: #6d8199; }
+.auth-sky-inspector-row .v { color: #cad6e4; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+.auth-sky-cluster-row { border-top: 1px solid rgba(19, 31, 46, 0.9); padding-top: 6px; margin-top: 6px; }
+.auth-sky-cluster-row .v { color: #ffd885; font-weight: 500; }
+.auth-sky-inspector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; background: rgba(7, 13, 23, 0.85); border: 1px solid rgba(22, 35, 52, 0.9); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 10px; }
+.auth-sky-inspector-item .k { color: #6d8199; display: block; font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+.auth-sky-inspector-item .v { color: #e2e8f0; font-weight: 500; display: flex; align-items: center; gap: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+.auth-sky-inspector-item .v.auth-sky-lum-val { color: #ffd885; }
+.auth-sky-inspector-item .v.auth-sky-sys-val { color: #6cb2eb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Georgia, serif; }
 .auth-sky-spect-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-.auth-sky-inspector-coords { grid-column: span 2; border-top: 1px solid rgba(25, 38, 54, 0.8); padding-top: 4px; display: flex; justify-content: space-between; color: #8ea0b5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; }
-.auth-sky-inspector-desc { font-size: 10.5px; color: #a5b6cb; line-height: 1.38; margin-bottom: 8px; }
-.auth-sky-inspector-foot { border-top: 1px solid rgba(197, 168, 104, 0.2); padding-top: 6px; display: flex; justify-content: space-between; align-items: center; }
-.auth-sky-inspector-foot span { font-size: 9px; color: #6d8199; }
+.auth-sky-inspector-coords { grid-column: span 2; border-top: 1px solid rgba(22, 35, 52, 0.9); padding-top: 5px; display: flex; justify-content: space-between; color: #8ea0b5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9.5px; }
+.auth-sky-temp-bar-container { margin-bottom: 8px; }
+.auth-sky-temp-labels { display: flex; justify-content: space-between; font-size: 8.5px; color: #6d8199; margin-bottom: 3px; }
+.auth-sky-temp-bar-val { color: #ffd885; font-weight: 600; }
+.auth-sky-temp-bar { height: 4px; border-radius: 2px; background: linear-gradient(90deg, #ff6b3d 0%, #ffd2a1 25%, #ffffff 50%, #cad6ff 75%, #9db4ff 100%); position: relative; }
+.auth-sky-temp-needle { position: absolute; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: #ffd885; border: 2px solid #090f18; box-shadow: 0 0 8px #ffd885; transform: translateX(-50%); transition: left 0.2s ease-out; }
+.auth-sky-inspector-desc { font-size: 10px; color: #a5b6cb; line-height: 1.4; margin-bottom: 8px; }
+.auth-sky-inspector-foot { border-top: 1px solid rgba(197, 168, 104, 0.2); padding-top: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 9.5px; }
+.auth-sky-inspector-foot span { color: #6d8199; }
 .auth-sky-inspector-simbad { color: #cfb57a; text-decoration: none; font-weight: 600; font-size: 10px; display: inline-flex; align-items: center; gap: 3px; transition: color 0.15s; }
 .auth-sky-inspector-simbad:hover { color: #ffd885; }
 body:is(.guest-home,.guest-auth):has(#authSky.sky-hover) { cursor: pointer; }
