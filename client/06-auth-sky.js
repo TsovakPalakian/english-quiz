@@ -10,62 +10,165 @@
     const link=document.createElement('a');link.className='auth-sky-landmark';link.target='_blank';link.rel='noopener noreferrer';link.hidden=true;document.body.append(link);return link;
   });
   const inspector=document.createElement('div');
-  inspector.className='auth-sky-inspector';
+  inspector.className='auth-sky-inspector auth-sky-star-inspector';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Hipparcos Catalog:</span><span class="v auth-sky-hip-val"></span></div><div class="auth-sky-inspector-coords"><span>Coordinates (J2000):</span><span class="auth-sky-coords-val"></span></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
+  const inspBayerLatin=inspector.querySelector('.auth-sky-inspector-bayer-latin');
   const inspCon=inspector.querySelector('.auth-sky-inspector-con');
   const inspMag=inspector.querySelector('.auth-sky-inspector-mag');
+  const inspHemiVal=inspector.querySelector('.auth-sky-hemi-val');
+  const inspClusterVal=inspector.querySelector('.auth-sky-cluster-val');
+  const inspDistVal=inspector.querySelector('.auth-sky-dist-val');
+  const inspLumVal=inspector.querySelector('.auth-sky-lum-val');
   const inspSpectDot=inspector.querySelector('.auth-sky-spect-dot');
   const inspSpectVal=inspector.querySelector('.auth-sky-spect-val');
-  const inspDistVal=inspector.querySelector('.auth-sky-dist-val');
+  const inspTempVal=inspector.querySelector('.auth-sky-temp-val');
   const inspBvVal=inspector.querySelector('.auth-sky-bv-val');
-  const inspHipVal=inspector.querySelector('.auth-sky-hip-val');
+  const inspSysVal=inspector.querySelector('.auth-sky-sys-val');
   const inspCoordsVal=inspector.querySelector('.auth-sky-coords-val');
+  const inspHipVal=inspector.querySelector('.auth-sky-hip-val');
+  const inspTempBarVal=inspector.querySelector('.auth-sky-temp-bar-val');
+  const inspTempNeedle=inspector.querySelector('.auth-sky-temp-needle');
   const inspDesc=inspector.querySelector('.auth-sky-inspector-desc');
   const inspSimbad=inspector.querySelector('.auth-sky-inspector-simbad');
 
-  const starKnowledge={
-    107556:{name:'Deneb Algedi',dist:'~39 ly (12 pc)',desc:'Brightest star in Capricornus. A quadruple star system whose primary pair is an Algol-type eclipsing binary with a 24.5-hour orbital period.'},
-    100064:{name:'Algedi',dist:'~106 ly (α²)',desc:'Renowned optical double star: an unbonded yellow star pair (α¹ at 690 ly and α² at 106 ly) separated by 6.3 arcminutes, easily split with the naked eye.'},
-    100345:{name:'Dabih',dist:'~330 ly',desc:'Second-brightest star in Capricornus. A complex quintuple star system dominated by an orange bright giant with a hot blue companion.'},
-    106985:{name:'Nashira',dist:'~139 ly',desc:'Chemically peculiar metallic-line Am-type star with anomalous photospheric metal concentrations.'},
-    27989:{name:'Betelgeuse',dist:'~640 ly',desc:'Colossal red supergiant and semiregular variable. If placed at the center of the Solar System, its outer atmosphere would engulf the orbit of Jupiter.'},
-    24436:{name:'Rigel',dist:'~860 ly',desc:'Brightest star in Orion and an extraordinarily luminous blue supergiant, radiating over 120,000 times more energy than the Sun.'},
-    25336:{name:'Bellatrix',dist:'~250 ly',desc:'Hot blue-white giant marking the left shoulder of Orion, the constellation\'s third-brightest star.'},
-    27366:{name:'Saiph',dist:'~650 ly',desc:'Luminous B0.5Ia supergiant star defining the south-eastern corner of the Orion constellation figure.'},
-    26727:{name:'Alnitak',dist:'~1260 ly',desc:'Easternmost star of Orion\'s Belt, a multiple blue supergiant system illuminating the nearby Horsehead Nebula.'},
-    26311:{name:'Alnilam',dist:'~2000 ly',desc:'Central star of Orion\'s Belt, an intensely luminous blue supergiant of immense radiance.'},
-    25930:{name:'Mintaka',dist:'~1200 ly',desc:'Westernmost star of Orion\'s Belt, a multiple eclipsing binary system lying almost precisely on the celestial equator.'},
-    54061:{name:'Dubhe',dist:'~123 ly',desc:'Alpha star of Ursa Major and second-brightest in the Big Dipper. Together with Merak, it points directly toward the North Star.'},
-    53910:{name:'Merak',dist:'~79 ly',desc:'Brilliant white main-sequence star serving as the primary pointer toward Polaris.'},
-    58001:{name:'Phecda',dist:'~83 ly',desc:'Lower-left star of the Big Dipper bowl, belonging to the Ursa Major Moving Group.'},
-    59774:{name:'Megrez',dist:'~80 ly',desc:'Connecting the bowl of the Big Dipper to its handle, the faintest of the seven primary asterism stars.'},
-    62956:{name:'Alioth',dist:'~81 ly',desc:'Brightest star in Ursa Major. An Ap chemically peculiar star exhibiting an unusually strong, fluctuating magnetic field.'},
-    65378:{name:'Mizar',dist:'~83 ly',desc:'Celebrated visual double star (Mizar and Alcor) that served as an ancient naked-eye eyesight test.'},
-    67301:{name:'Alkaid',dist:'~104 ly',desc:'Easternmost star of the Big Dipper handle, a young hot blue star independent of the UMa stellar association.'},
-    11767:{name:'Polaris',dist:'~433 ly',desc:'Northern Pole Star, a yellow supergiant classical Cepheid variable closely aligned with Earth\'s rotational axis.'},
-    32349:{name:'Sirius',dist:'~8.6 ly',desc:'Brightest star in the night sky. A luminous white main-sequence star orbited by a dense white dwarf companion.'},
-    91262:{name:'Vega',dist:'~25 ly',desc:'Lead star of Lyra and vertex of the Summer Triangle; historic photometric calibration baseline for apparent magnitude.'},
-    97649:{name:'Altair',dist:'~16.7 ly',desc:'Rapidly spinning, oblate white star located just 16.7 light-years from Earth, anchoring the Summer Triangle.'},
-    102098:{name:'Deneb',dist:'~2600 ly',desc:'First-magnitude white supergiant in Cygnus, among the most luminous and distant naked-eye stars.'},
-    69673:{name:'Arcturus',dist:'~36.7 ly',desc:'Brightest star in the northern celestial hemisphere, an orange giant exhibiting exceptionally high proper motion.'},
-    21421:{name:'Aldebaran',dist:'~65 ly',desc:'Distinctive orange giant marking the glowing "Eye of the Bull" in Taurus, projected against the Hyades cluster.'},
-    80763:{name:'Antares',dist:'~550 ly',desc:'Vast red supergiant marking the heart of Scorpius, rivaling the crimson hue and brightness of Mars.'},
-    65474:{name:'Spica',dist:'~250 ly',desc:'Brightest star in Virgo, a close spectroscopic binary system composed of two massive, hot blue giants.'},
-    37826:{name:'Pollux',dist:'~34 ly',desc:'Evolved orange giant star in Gemini and the closest giant star to the Solar System, hosting an extrasolar planet.'},
-    36850:{name:'Castor',dist:'~51 ly',desc:'Fascinating sextuple star system composed of three pairs of spectroscopic binary stars.'},
-    24608:{name:'Capella',dist:'~43 ly',desc:'Brightest star in Auriga, a quadruple star system dominated by a pair of luminous yellow giants.'},
-    49669:{name:'Regulus',dist:'~79 ly',desc:'The "Heart of the Lion" in Leo, an oblate, extremely rapid rotator with a subgiant companion.'},
-    113368:{name:'Fomalhaut',dist:'~25 ly',desc:'Young star surrounded by an expansive circumstellar dust disc and candidate exoplanetary system.'},
-    60718:{name:'Acrux',dist:'~320 ly',desc:'Brightest star in the Southern Cross (Crux), a multiple system composed of massive, hot B-type stars.'},
-    7588:{name:'Achernar',dist:'~139 ly',desc:'The least spherical star known in the Milky Way due to its exceptionally high equatorial rotational velocity.'},
-    30438:{name:'Canopus',dist:'~310 ly',desc:'Second-brightest star in Earth\'s night sky, a luminous yellow-white bright giant.'},
-    37279:{name:'Procyon',dist:'~11.5 ly',desc:'Yellow-white subgiant in Canis Minor, forming the Winter Triangle together with Sirius and Betelgeuse.'}
+  const conInspector=document.createElement('div');
+  conInspector.className='auth-sky-inspector auth-sky-con-inspector';
+  conInspector.setAttribute('role','tooltip');
+  conInspector.hidden=true;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
+  document.body.append(conInspector);
+
+  const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
+  const conNameRu=conInspector.querySelector('.auth-sky-con-name-ru');
+  const conSub=conInspector.querySelector('.auth-sky-con-sub');
+  const conFamily=conInspector.querySelector('.auth-sky-con-family');
+  const conAbbr=conInspector.querySelector('.auth-sky-con-abbr');
+  const conQuad=conInspector.querySelector('.auth-sky-con-quad');
+  const conHemi=conInspector.querySelector('.auth-sky-con-hemi');
+  const conVis=conInspector.querySelector('.auth-sky-con-vis');
+  const conMonth=conInspector.querySelector('.auth-sky-con-month');
+  const conArea=conInspector.querySelector('.auth-sky-con-area');
+  const conBrightest=conInspector.querySelector('.auth-sky-con-brightest');
+  const conPlanets=conInspector.querySelector('.auth-sky-con-planets');
+  const conFamVal=conInspector.querySelector('.auth-sky-con-fam-val');
+  const conDsoVal=conInspector.querySelector('.auth-sky-con-dso-val');
+  const conSizeBarVal=conInspector.querySelector('.auth-sky-size-bar-val');
+  const conSizeNeedle=conInspector.querySelector('.auth-sky-size-needle');
+  const conDesc=conInspector.querySelector('.auth-sky-con-desc');
+  const conLink=conInspector.querySelector('.auth-sky-con-link');
+
+  const greekNames={
+    'α':'Alpha','β':'Beta','γ':'Gamma','δ':'Delta','ε':'Epsilon','ζ':'Zeta','η':'Eta',
+    'θ':'Theta','ι':'Iota','κ':'Kappa','λ':'Lambda','μ':'Mu','ν':'Nu','ξ':'Xi',
+    'ο':'Omicron','π':'Pi','ρ':'Rho','σ':'Sigma','τ':'Tau','υ':'Upsilon','φ':'Phi',
+    'χ':'Chi','ψ':'Psi','ω':'Omega'
   };
+
+  const conGenitives={
+    Cap:'Capricorni',Tau:'Tauri',Ori:'Orionis',UMa:'Ursae Majoris',UMi:'Ursae Minoris',
+    Cyg:'Cygni',Lyr:'Lyrae',Aql:'Aquilae',Leo:'Leonis',Sco:'Scorpii',Vir:'Virginis',
+    Gem:'Geminorum',Aur:'Aurigae',Cru:'Crucis',Cas:'Cassiopeiae',Per:'Persei',
+    And:'Andromedae',Peg:'Pegasi',Cen:'Centauri',Boo:'Boötis',CMa:'Canis Majoris',
+    CMi:'Canis Minoris',Eri:'Eridani',Car:'Carinae',Psc:'Piscium'
+  };
+
+  const conRuNames={
+    And:'Андромеда',Ant:'Насос',Aps:'Райская Птица',Aqr:'Водолей',Aql:'Орёл',
+    Ara:'Жертвенник',Ari:'Овен',Aur:'Возничий',Boo:'Волопас',Cae:'Резец',
+    Cam:'Жираф',Cnc:'Рак',CVn:'Гончие Псы',CMa:'Большой Пёс',CMi:'Малый Пёс',
+    Cap:'Козерог',Car:'Киль',Cas:'Кассиопея',Cen:'Центавр',Cep:'Цефей',
+    Cet:'Кит',Cha:'Хамелеон',Cir:'Циркуль',Col:'Голубь',Com:'Волосы Вероники',
+    CrA:'Южная Корона',CrB:'Северная Корона',Crv:'Ворон',Crt:'Чаша',Cru:'Южный Крест',
+    Cyg:'Лебедь',Del:'Дельфин',Dor:'Золотая Рыба',Dra:'Дракон',Equ:'Малый Конь',
+    Eri:'Эридан',For:'Печь',Gem:'Близнецы',Gru:'Журавль',Her:'Геркулес',
+    Hor:'Часы',Hya:'Гидра',Hyi:'Южная Гидра',Ind:'Индеец',Lac:'Ящерица',
+    Leo:'Лев',LMi:'Малый Лев',Lep:'Заяц',Lib:'Весы',Lup:'Волк',
+    Lyn:'Рысь',Lyr:'Лира',Men:'Столовая Гора',Mic:'Микроскоп',Mon:'Единорог',
+    Mus:'Муха',Nor:'Наугольник',Oct:'Октант',Oph:'Змееносец',Ori:'Орион',
+    Pav:'Павлин',Peg:'Пегас',Per:'Персей',Phe:'Феникс',Pic:'Живописец',
+    Psc:'Рыбы',PsA:'Южная Рыба',Pup:'Корма',Pyx:'Компас',Ret:'Сетка',
+    Sge:'Стрела',Sgr:'Стрелец',Sco:'Скорпион',Scl:'Скульптор',Sct:'Щит',
+    Ser:'Змея',Sex:'Секстант',Tau:'Телец',Tel:'Телескоп',Tri:'Треугольник',
+    TrA:'Южный Треугольник',Tuc:'Тукан',UMa:'Большая Медведица',UMi:'Малая Медведица',
+    Vel:'Паруса',Vir:'Дева',Vol:'Летучая Рыба',Vul:'Лисичка'
+  };
+
+  const starClusters={
+    17702:'Pleiades (M45)',17499:'Pleiades (M45)',17573:'Pleiades (M45)',
+    17847:'Pleiades (M45)',17743:'Pleiades (M45)',17900:'Pleiades (M45)',
+    17776:'Pleiades (M45)',17489:'Pleiades (M45)',
+    20889:'Hyades (Mel 25)',20894:'Hyades (Mel 25)',20205:'Hyades (Mel 25)',
+    20455:'Hyades (Mel 25)',21421:'Hyades (Foreground)',
+    24436:'Orion OB1',25336:'Orion OB1',27366:'Orion OB1',
+    26727:'Orion OB1',26311:'Orion OB1',25930:'Orion OB1',
+    53910:'Ursa Major Moving Group',58001:'Ursa Major Moving Group',
+    59774:'Ursa Major Moving Group',62956:'Ursa Major Moving Group',
+    65378:'Ursa Major Moving Group',
+    15863:'Alpha Persei Cluster (Mel 20)',102098:'Cygnus OB7'
+  };
+
+  const starKnowledge={
+    107556:{name:'Deneb Algedi',dist:'~38.7 ly (11.9 pc)',lum:'8.5 × Sun (L☉)',temp:'7,300 K',sys:'Eclipsing Binary',cluster:'None (Field Star)',desc:'Brightest star in Capricornus. An Algol-type eclipsing spectroscopic binary showing strong metallic absorption lines.'},
+    100064:{name:'Algedi',dist:'~106 ly (32.5 pc)',lum:'43 × Sun (L☉)',temp:'5,050 K',sys:'Optical Double',cluster:'None (Field Star)',desc:'Renowned optical double star: an unbonded yellow star pair (α¹ at 690 ly and α² at 106 ly) separated by 6.3 arcminutes, easily split with the naked eye.'},
+    100345:{name:'Dabih',dist:'~330 ly (101 pc)',lum:'1,050 × Sun (L☉)',temp:'4,900 K',sys:'Multiple (5★)',cluster:'None (Field Star)',desc:'Second-brightest star in Capricornus. A complex quintuple star system dominated by an orange bright giant with a hot blue companion.'},
+    106985:{name:'Nashira',dist:'~139 ly (42.6 pc)',lum:'47 × Sun (L☉)',temp:'7,400 K',sys:'Single (Am Met)',cluster:'None (Field Star)',desc:'Chemically peculiar metallic-line Am-type star with anomalous photospheric metal concentrations.'},
+    27989:{name:'Betelgeuse',dist:'~640 ly (196 pc)',lum:'100,000 × Sun (L☉)',temp:'3,600 K',sys:'Red Supergiant',cluster:'None (Field Star)',desc:'Colossal red supergiant and semiregular variable. If placed at the center of the Solar System, its outer atmosphere would engulf the orbit of Jupiter.'},
+    24436:{name:'Rigel',dist:'~860 ly (264 pc)',lum:'120,000 × Sun (L☉)',temp:'12,100 K',sys:'Supergiant (4★)',cluster:'Orion OB1',desc:'Brightest star in Orion and an extraordinarily luminous blue supergiant, radiating over 120,000 times more energy than the Sun.'},
+    25336:{name:'Bellatrix',dist:'~250 ly (77 pc)',lum:'9,200 × Sun (L☉)',temp:'22,000 K',sys:'Hot Blue Giant',cluster:'Orion OB1',desc:'Hot blue-white giant marking the left shoulder of Orion, the constellation\'s third-brightest star.'},
+    27366:{name:'Saiph',dist:'~650 ly (200 pc)',lum:'56,000 × Sun (L☉)',temp:'26,500 K',sys:'Blue Supergiant',cluster:'Orion OB1',desc:'Luminous B0.5Ia supergiant star defining the south-eastern corner of the Orion constellation figure.'},
+    26727:{name:'Alnitak',dist:'~1,260 ly (386 pc)',lum:'250,000 × Sun (L☉)',temp:'29,500 K',sys:'Multiple (3★)',cluster:'Orion OB1',desc:'Easternmost star of Orion\'s Belt, a multiple blue supergiant system illuminating the nearby Horsehead Nebula.'},
+    26311:{name:'Alnilam',dist:'~2,000 ly (613 pc)',lum:'537,000 × Sun (L☉)',temp:'27,500 K',sys:'Blue Supergiant',cluster:'Orion OB1',desc:'Central star of Orion\'s Belt, an intensely luminous blue supergiant of immense radiance.'},
+    25930:{name:'Mintaka',dist:'~1,200 ly (368 pc)',lum:'190,000 × Sun (L☉)',temp:'29,500 K',sys:'Multiple (5★)',cluster:'Orion OB1',desc:'Westernmost star of Orion\'s Belt, a multiple eclipsing binary system lying almost precisely on the celestial equator.'},
+    54061:{name:'Dubhe',dist:'~123 ly (38 pc)',lum:'316 × Sun (L☉)',temp:'4,500 K',sys:'Binary (4★)',cluster:'None (Field Star)',desc:'Alpha star of Ursa Major and second-brightest in the Big Dipper. Together with Merak, it points directly toward the North Star.'},
+    53910:{name:'Merak',dist:'~79 ly (24 pc)',lum:'63 × Sun (L☉)',temp:'9,350 K',sys:'Single Star',cluster:'Ursa Major Moving Group',desc:'Brilliant white main-sequence star serving as the primary pointer toward Polaris.'},
+    58001:{name:'Phecda',dist:'~83 ly (25 pc)',lum:'72 × Sun (L☉)',temp:'9,350 K',sys:'Astrometric Binary',cluster:'Ursa Major Moving Group',desc:'Lower-left star of the Big Dipper bowl, belonging to the Ursa Major Moving Group.'},
+    59774:{name:'Megrez',dist:'~80 ly (25 pc)',lum:'23 × Sun (L☉)',temp:'8,630 K',sys:'Single Star',cluster:'Ursa Major Moving Group',desc:'Connecting the bowl of the Big Dipper to its handle, the faintest of the seven primary asterism stars.'},
+    62956:{name:'Alioth',dist:'~81 ly (25 pc)',lum:'102 × Sun (L☉)',temp:'9,020 K',sys:'Magnetic Ap Star',cluster:'Ursa Major Moving Group',desc:'Brightest star in Ursa Major. An Ap chemically peculiar star exhibiting an unusually strong, fluctuating magnetic field.'},
+    65378:{name:'Mizar',dist:'~83 ly (25 pc)',lum:'33 × Sun (L☉)',temp:'9,000 K',sys:'Quadruple (4★)',cluster:'Ursa Major Moving Group',desc:'Celebrated visual double star (Mizar and Alcor) that served as an ancient naked-eye eyesight test.'},
+    67301:{name:'Alkaid',dist:'~104 ly (32 pc)',lum:'594 × Sun (L☉)',temp:'15,540 K',sys:'Single Star',cluster:'None (Field Star)',desc:'Easternmost star of the Big Dipper handle, a young hot blue star independent of the UMa stellar association.'},
+    11767:{name:'Polaris',dist:'~433 ly (133 pc)',lum:'2,500 × Sun (L☉)',temp:'6,015 K',sys:'Triple System (3★)',cluster:'None (Field Star)',desc:'Northern Pole Star, a yellow supergiant classical Cepheid variable closely aligned with Earth\'s rotational axis.'},
+    32349:{name:'Sirius',dist:'~8.6 ly (2.6 pc)',lum:'25.4 × Sun (L☉)',temp:'9,940 K',sys:'Binary (White Dwarf)',cluster:'None (Field Star)',desc:'Brightest star in the night sky. A luminous white main-sequence star orbited by a dense white dwarf companion.'},
+    91262:{name:'Vega',dist:'~25 ly (7.7 pc)',lum:'40.1 × Sun (L☉)',temp:'9,600 K',sys:'Single (Dust Disc)',cluster:'None (Field Star)',desc:'Lead star of Lyra and vertex of the Summer Triangle; historic photometric calibration baseline for apparent magnitude.'},
+    97649:{name:'Altair',dist:'~16.7 ly (5.1 pc)',lum:'10.6 × Sun (L☉)',temp:'7,700 K',sys:'Rapid Rotator',cluster:'None (Field Star)',desc:'Rapidly spinning, oblate white star located just 16.7 light-years from Earth, anchoring the Summer Triangle.'},
+    102098:{name:'Deneb',dist:'~2,600 ly (800 pc)',lum:'196,000 × Sun (L☉)',temp:'8,525 K',sys:'White Supergiant',cluster:'Cygnus OB7',desc:'First-magnitude white supergiant in Cygnus, among the most luminous and distant naked-eye stars.'},
+    69673:{name:'Arcturus',dist:'~36.7 ly (11.3 pc)',lum:'170 × Sun (L☉)',temp:'4,286 K',sys:'Orange Giant',cluster:'None (Field Star)',desc:'Brightest star in the northern celestial hemisphere, an orange giant exhibiting exceptionally high proper motion.'},
+    21421:{name:'Aldebaran',dist:'~65 ly (20 pc)',lum:'518 × Sun (L☉)',temp:'3,900 K',sys:'Orange Giant',cluster:'Hyades (Foreground)',desc:'Distinctive orange giant marking the glowing "Eye of the Bull" in Taurus, projected against the Hyades cluster.'},
+    17702:{name:'Alcyone',dist:'~444 ly (136 pc)',lum:'2,400 × Sun (L☉)',temp:'12,300 K',sys:'Multiple (4★)',cluster:'Pleiades (M45)',desc:'Brightest member of the Pleiades star cluster. Rapidly spinning blue-white giant with a circumstellar gas disc.'},
+    80763:{name:'Antares',dist:'~550 ly (169 pc)',lum:'75,000 × Sun (L☉)',temp:'3,660 K',sys:'Binary (Supergiant)',cluster:'None (Field Star)',desc:'Vast red supergiant marking the heart of Scorpius, rivaling the crimson hue and brightness of Mars.'},
+    65474:{name:'Spica',dist:'~250 ly (77 pc)',lum:'20,500 × Sun (L☉)',temp:'25,300 K',sys:'Spectroscopic Binary',cluster:'None (Field Star)',desc:'Brightest star in Virgo, a close spectroscopic binary system composed of two massive, hot blue giants.'},
+    37826:{name:'Pollux',dist:'~34 ly (10.4 pc)',lum:'43 × Sun (L☉)',temp:'4,666 K',sys:'Giant (Exoplanet)',cluster:'None (Field Star)',desc:'Evolved orange giant star in Gemini and the closest giant star to the Solar System, hosting an extrasolar planet.'},
+    36850:{name:'Castor',dist:'~51 ly (15.6 pc)',lum:'52 × Sun (L☉)',temp:'10,286 K',sys:'Sextuple System (6★)',cluster:'None (Field Star)',desc:'Fascinating sextuple star system composed of three pairs of spectroscopic binary stars.'},
+    24608:{name:'Capella',dist:'~43 ly (13.1 pc)',lum:'150 × Sun (L☉)',temp:'4,970 K',sys:'Quadruple (4★)',cluster:'None (Field Star)',desc:'Brightest star in Auriga, a quadruple star system dominated by a pair of luminous yellow giants.'},
+    49669:{name:'Regulus',dist:'~79 ly (24.3 pc)',lum:'312 × Sun (L☉)',temp:'12,460 K',sys:'Multiple (4★)',cluster:'None (Field Star)',desc:'The "Heart of the Lion" in Leo, an oblate, extremely rapid rotator with a subgiant companion.'},
+    113368:{name:'Fomalhaut',dist:'~25 ly (7.7 pc)',lum:'16.6 × Sun (L☉)',temp:'8,590 K',sys:'Triple (Dust Ring)',cluster:'None (Field Star)',desc:'Young star surrounded by an expansive circumstellar dust disc and candidate exoplanetary system.'},
+    60718:{name:'Acrux',dist:'~320 ly (98 pc)',lum:'25,000 × Sun (L☉)',temp:'28,000 K',sys:'Multiple (3★)',cluster:'None (Field Star)',desc:'Brightest star in the Southern Cross (Crux), a multiple system composed of massive, hot B-type stars.'},
+    7588:{name:'Achernar',dist:'~139 ly (42.8 pc)',lum:'3,150 × Sun (L☉)',temp:'15,000 K',sys:'Binary (Oblate)',cluster:'None (Field Star)',desc:'The least spherical star known in the Milky Way due to its exceptionally high equatorial rotational velocity.'},
+    30438:{name:'Canopus',dist:'~310 ly (95 pc)',lum:'10,700 × Sun (L☉)',temp:'7,400 K',sys:'Bright Giant',cluster:'None (Field Star)',desc:'Second-brightest star in Earth\'s night sky, a luminous yellow-white bright giant.'},
+    37279:{name:'Procyon',dist:'~11.5 ly (3.5 pc)',lum:'6.9 × Sun (L☉)',temp:'6,530 K',sys:'Binary (White Dwarf)',cluster:'None (Field Star)',desc:'Yellow-white subgiant in Canis Minor, forming the Winter Triangle together with Sirius and Betelgeuse.'}
+  };
+
+  function estimateTemp(spect,bv){
+    if(bv!==null&&Number.isFinite(bv)){
+      const t=4600*(1/(0.92*bv+1.7)+1/(0.92*bv+0.62));
+      if(Number.isFinite(t)&&t>1500&&t<50000)return Math.round(t);
+    }
+    const s=(spect||'').toUpperCase();
+    if(s.startsWith('O'))return 35000;
+    if(s.startsWith('B0')||s.startsWith('B1')||s.startsWith('B2'))return 22000;
+    if(s.startsWith('B'))return 14000;
+    if(s.startsWith('A0')||s.startsWith('A1')||s.startsWith('A2'))return 9600;
+    if(s.startsWith('A'))return 8200;
+    if(s.startsWith('F'))return 6800;
+    if(s.startsWith('G'))return 5800;
+    if(s.startsWith('K'))return 4500;
+    if(s.startsWith('M'))return 3200;
+    return 6000;
+  }
 
   function formatCoords(raDeg,decDeg){
     if(!Number.isFinite(raDeg)||!Number.isFinite(decDeg))return '—';
@@ -113,6 +216,13 @@
     else if(s.startsWith('M'))type='Red M-type giant star';
     const hipText=star.hip?` Catalogued in the Hipparcos archive as HIP ${star.hip}.`:'';
     return `${type} in the constellation ${conName||'sky'} with an apparent magnitude of ${star.mag!==null?star.mag.toFixed(2)+'m':'—'}.${hipText} Complete astrometry catalogued in the SIMBAD database.`;
+  }
+
+  function conFallbackDesc(c){
+    const meaning=c.meaning?` depicting ${c.meaning}`:'';
+    const starsCount=c.stars?.length||0;
+    const best=c.bestViewingMonth?(c.bestViewingMonth+(c.bestSeason?` (${c.bestSeason})`:'')):'optimal viewing seasons';
+    return `Prominent constellation in the ${c.hemisphere||'celestial'} sky${meaning}. Spans ${c.areaSqDeg||'several hundred'} square degrees across the celestial sphere with ${starsCount} catalogued stars. Best observed during ${best}. Complete astronomical atlas catalogued in IAU and Go-Astronomy archives.`;
   }
   const brightness=Object.freeze({background:20,constellation:100});
   const constellationScale=2;
@@ -229,21 +339,37 @@
       inspBayer.textContent=bayer;
       inspBayer.hidden=!bayer;
       inspName.textContent=star.name||(star.hip?'HIP '+star.hip:'Star');
-      inspCon.textContent=(current.name||'')+(current.genitive?` (${current.genitive})`:'');
+      const bayerLatinName=bayer?(greekNames[bayer]||bayer):'';
+      const conGenitive=current.genitive||conGenitives[current.abbr]||current.name||'';
+      inspBayerLatin.textContent=bayerLatinName?`${bayerLatinName} ${conGenitive}`:'';
+      inspBayerLatin.hidden=!inspBayerLatin.textContent;
+      inspCon.textContent=`Constellation: ${current.name||''}${conGenitive?` (${conGenitive})`:''}`;
       inspMag.textContent=(star.mag!==null&&Number.isFinite(star.mag))?star.mag.toFixed(2)+'m':'—';
+      const hemi=(star.dec!==undefined&&Number.isFinite(star.dec))?(star.dec>=0?'🌐 Northern Sky':'🌐 Southern Sky'):'🌐 Celestial Sphere';
+      inspHemiVal.textContent=hemi;
+      const curated=starKnowledge[star.hip]||(star.id&&starKnowledge[star.id])||null;
+      const cluster=starClusters[star.hip]||curated?.cluster||'None (Field Star)';
+      inspClusterVal.textContent=cluster;
+      inspDistVal.textContent=(curated&&curated.dist)?curated.dist:(star.hip?'SIMBAD / Gaia DR3':'—');
       const spect=star.spect||'';
       inspSpectVal.textContent=spect||'—';
       inspSpectDot.style.backgroundColor=spectralColor(spect,star.bv);
-      const curated=starKnowledge[star.hip]||(star.id&&starKnowledge[star.id])||null;
-      inspDistVal.textContent=(curated&&curated.dist)?curated.dist:(star.hip?'SIMBAD / Gaia DR3':'—');
+      const tempNum=curated?.temp?parseInt(curated.temp.replace(/[^0-9]/g,''),10):estimateTemp(spect,star.bv);
+      inspTempVal.textContent=tempNum?tempNum.toLocaleString('en-US')+' K':'—';
+      inspLumVal.textContent=curated?.lum||'—';
       inspBvVal.textContent=(star.bv!==null&&Number.isFinite(star.bv))?(star.bv>=0?'+':'')+star.bv.toFixed(2):'—';
+      inspSysVal.textContent=curated?.sys||(star.hip?'Single Star':'Stellar Object');
       inspHipVal.textContent=star.hip?'HIP '+star.hip:'—';
       inspCoordsVal.textContent=formatCoords(star.ra,star.dec);
+      const tempClamp=Math.max(3000,Math.min(15000,tempNum||6000));
+      const needlePct=Math.round(((tempClamp-3000)/12000)*100);
+      inspTempNeedle.style.left=needlePct+'%';
+      inspTempBarVal.textContent='T: '+(tempNum?tempNum.toLocaleString('en-US')+' K':'—');
       inspDesc.textContent=(curated&&curated.desc)?curated.desc:starFallbackDesc(star,current.name);
       const ident=star.hip?'HIP '+star.hip:(star.name||star.id);
       inspSimbad.href='https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(ident);
       inspector.hidden=false;
-      const cardW=280,cardH=inspector.offsetHeight||220,margin=14;
+      const cardW=290,cardH=inspector.offsetHeight||280,margin=14;
       let left=slot.x+22,top=slot.y-30;
       if(left+cardW>w-margin)left=slot.x-cardW-22;
       const overlaps=r=>uiRects.some(u=>!(r.right<u.left||r.left>u.right||r.bottom<u.top||r.top>u.bottom));
@@ -258,6 +384,57 @@
       inspector.style.left=Math.round(left)+'px';
       inspector.style.top=Math.round(top)+'px';
       inspector.classList.add('active');
+    }
+    let inspectedCon=null;
+    function hideConInspector(){
+      const wasInspected=!!inspectedCon;
+      inspectedCon=null;
+      conInspector.classList.remove('active');
+      conInspector.hidden=true;
+      if(wasInspected&&phase==='hold'){
+        phaseStart=performance.now();
+        if(frozen)resumeReturn();
+      }
+    }
+    function showConInspector(c,targetNode){
+      pauseReturn();
+      inspectedCon=c;
+      hideInspector();
+      conNameEn.textContent=c.name||'';
+      conNameRu.textContent=conRuNames[c.abbr]||c.name||'';
+      const gen=c.genitive||conGenitives[c.abbr]||'';
+      const meaning=c.meaning?`"${c.meaning}"`:'';
+      conSub.textContent=[gen,meaning].filter(Boolean).join(' · ');
+      conFamily.textContent='Family: '+(c.family||'IAU Constellation');
+      conAbbr.textContent=c.abbr||'';
+      conQuad.textContent=c.quadrant?c.quadrant+' Quad':'';
+      conHemi.textContent=c.hemisphere?('🌐 '+(c.hemisphere.includes('Sky')?c.hemisphere:c.hemisphere+' Sky')):'🌐 Celestial Sphere';
+      conVis.textContent=c.visibility||'Global';
+      conMonth.textContent=c.bestViewingMonth?(c.bestViewingMonth+(c.bestSeason?` (${c.bestSeason})`:'')):'Year-round';
+      conArea.textContent=c.areaSqDeg?(c.areaSqDeg+' sq deg'+(c.sizeRank?` (${c.sizeRank})`:'')):'—';
+      conBrightest.textContent=c.brightestStar||'—';
+      conPlanets.textContent=c.starsWithPlanets!==null&&c.starsWithPlanets!==undefined?(c.starsWithPlanets+' planetary system'+(c.starsWithPlanets===1?'':'s')):'—';
+      conFamVal.textContent=c.family||'Classical';
+      const dsoNames=(c.objects||[]).filter(o=>o.name&&!o.estimated).slice(0,4).map(o=>o.name).join(' · ');
+      conDsoVal.textContent=dsoNames||'None catalogued';
+      const areaNum=c.areaSqDeg||400;
+      const pct=Math.round(Math.max(0,Math.min(100,((areaNum-68)/(1303-68))*100)));
+      conSizeNeedle.style.left=pct+'%';
+      conSizeBarVal.textContent=c.sizeRank?`Rank: ${c.sizeRank} (${areaNum} sq deg)`:`Area: ${areaNum} sq deg`;
+      conDesc.textContent=conFallbackDesc(c);
+      const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
+      conLink.href=url;
+      conInspector.hidden=false;
+      const cardW=320,cardH=conInspector.offsetHeight||340,margin=14;
+      const r=targetNode.getBoundingClientRect();
+      let left=r.left,top=r.bottom+10;
+      if(top+cardH>h-margin)top=r.top-cardH-10;
+      if(left+cardW>w-margin)left=w-cardW-margin;
+      if(left<margin)left=margin;
+      if(top<margin)top=margin;
+      conInspector.style.left=Math.round(left)+'px';
+      conInspector.style.top=Math.round(top)+'px';
+      conInspector.classList.add('active');
     }
     const durations={gather:15000,hold:8000,morph:18000};
     function target(nextLayout){
@@ -278,11 +455,11 @@
       if(frozen)frozen.resumeAt=null;
     }
     function resumeReturn(){
-      if(!frozen||inspected||document.hidden||!document.hasFocus())return;
+      if(!frozen||inspected||inspectedCon||document.hidden||!document.hasFocus())return;
       if(frozen.resumeAt===null)frozen.resumeAt=performance.now()+5000;
       clearTimeout(freezeTimer);
       freezeTimer=setTimeout(()=>{
-        if(stopped||!frozen||inspected)return;
+        if(stopped||!frozen||inspected||inspectedCon)return;
         if(document.hidden||!document.hasFocus()){pauseReturn();return;}
         frozen=null;advance(performance.now());
         if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
@@ -290,13 +467,14 @@
     }
     function freezeFigure(){
       frozen={constellation:current,at:performance.now(),resumeAt:null};
-      if(!inspected)resumeReturn();
+      if(!inspected&&!inspectedCon)resumeReturn();
       if(motion.matches)render(performance.now());
     }
     const onVisibility=()=>{if(document.hidden)pauseReturn();else resumeReturn();};
     const ease=t=>t<.5?2*t*t:1-(-2*t+2)**2/2;
     function advance(now){
       hideInspector();
+      hideConInspector();
       if(phase==='hold'){
         previous=current;current=next();layout=chooseLayout(current);phase='morph';target(layout);
       }else{phase='hold';labels=layout?.labels||[];}
@@ -359,10 +537,10 @@
       if(stopped)return;
       const delta=lastTime===null?1:Math.min(3,(now-lastTime)/16.6667);lastTime=now;clock+=delta;
       const phaseNow=frozen?frozen.at:now;
-      if(!frozen&&!inspected&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
+      if(!frozen&&!inspected&&!inspectedCon&&!motion.matches&&now-phaseStart>durations[phase])advance(now);
       const t=phase==='hold'?1:ease(Math.min(1,(phaseNow-phaseStart)/durations[phase]));
       canvas.dataset.skyPhase=phase;canvas.dataset.skyConstellation=current.abbr;
-      canvas.dataset.skyFrozen=String(!!frozen||!!inspected);
+      canvas.dataset.skyFrozen=String(!!frozen||!!inspected||!!inspectedCon);
       canvas.dataset.skyScale=String(constellationScale);
       canvas.dataset.skyBackgroundBrightness=String(brightness.background);
       canvas.dataset.skyConstellationBrightness=String(brightness.constellation);
@@ -459,6 +637,20 @@
       return !!findStar(event.clientX,event.clientY);
     }
     const onMove=event=>{
+      const caption=event.target.closest('.auth-sky-title');
+      if(caption){
+        canvas.classList.add('sky-hover');
+        if(!inspectedCon||inspectedCon.abbr!==current.abbr){
+          showConInspector(current,caption);
+          if(motion.matches)redraw?.();
+        }
+        return;
+      }
+      if(conInspector.contains(event.target))return;
+      if(inspectedCon){
+        hideConInspector();
+        if(motion.matches)redraw?.();
+      }
       if(inspector.contains(event.target))return;
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       canvas.classList.toggle('sky-hover',!!target);
@@ -473,9 +665,13 @@
       }
     };
     const onClick=event=>{
-      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target))return;
+      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      hideConInspector();
       const caption=event.target.closest('.auth-sky-title');
-      if(caption){freezeFigure();return;}
+      if(caption){
+        freezeFigure();
+        return;
+      }
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       if(target){
         freezeFigure();
@@ -487,8 +683,19 @@
       }
     };
     const onTouchEnd=event=>{
-      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target))return;
+      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target)||conInspector.contains(event.target))return;
       const t=event.changedTouches[0];
+      const caption=event.target.closest('.auth-sky-title');
+      if(caption){
+        freezeFigure();
+        if(!inspectedCon){
+          showConInspector(current,caption);
+          if(motion.matches)redraw?.();
+          return;
+        }
+        return;
+      }
+      hideConInspector();
       const target=findStar(t.clientX,t.clientY)||starFromLandmark(event.target);
       if(target){
         freezeFigure();

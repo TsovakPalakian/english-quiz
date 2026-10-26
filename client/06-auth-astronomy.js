@@ -112,7 +112,7 @@ const StudioSkyAstronomy=(()=>{
       const boxes=labels(visible,width,height,blocked,text=>measure(text,12),primaryId,alphaId);
       if(boxes.filter(b=>b.star.landmark).length!==visible.filter(p=>p.landmark).length||!boxes.some(b=>b.star.primary))continue;
       const hasAlpha=!alphaId||!visible.some(p=>p.id===alphaId)||boxes.some(b=>b.star.alpha);
-      const title=caption(core,c.name,width,height,blocked,text=>measure(text,18),boxes);
+      const title=caption(core,c.name,width,height,blocked,text=>measure(text,18),boxes,'',alphaId||primaryId);
       if(!title)continue;
       const spacing=markerSpacing(candidate.stars);
       candidate.stars.forEach((s,i)=>{s.spacing=spacing[i];});
@@ -151,9 +151,10 @@ const StudioSkyAstronomy=(()=>{
     }
     return boxes;
   }
-  function caption(stars,title,width,height,blocked,measure,reserved=[],subtitle=''){
+  function caption(stars,title,width,height,blocked,measure,reserved=[],subtitle='',anchorId=null){
     const left=Math.min(...stars.map(s=>s.x)),right=Math.max(...stars.map(s=>s.x)),top=Math.min(...stars.map(s=>s.y)),bottom=Math.max(...stars.map(s=>s.y));
-    const size=Math.max(measure(title),subtitle.length*6.5)+20,boxHeight=subtitle?54:32,cx=(left+right)/2,cy=(top+bottom)/2;
+    const anchorStar=anchorId?stars.find(s=>s.id===anchorId):null;
+    const size=Math.max(measure(title),subtitle.length*6.5)+20,boxHeight=subtitle?54:32,cx=anchorStar?anchorStar.x:(left+right)/2,cy=(top+bottom)/2;
     const choices=[{left:cx-size/2,top:bottom+18},{left:cx-size/2,top:top-boxHeight-18},{left:right+18,top:cy-boxHeight/2},{left:left-size-18,top:cy-boxHeight/2}];
     // A zoomed chart may extend beyond all four sides; its title can still use free screen space.
     const fallback=[];

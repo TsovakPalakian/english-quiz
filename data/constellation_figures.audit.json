@@ -2,8 +2,8 @@
   "source": "https://raw.githubusercontent.com/Stellarium/stellarium/master/skycultures/modern_st/index.json",
   "sourceBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
   "constellations": 88,
-  "stars": 854,
-  "connections": 776,
+  "stars": 856,
+  "connections": 779,
   "ignoredZeroLengthSourceEdges": [],
   "crossBoundaryFigureVertices": [
     {
@@ -84,6 +84,16 @@
     {
       "figure": "Ser",
       "star": "hip_88404",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_79882",
+      "catalogueConstellation": "Oph"
+    },
+    {
+      "figure": "Ser",
+      "star": "hip_81377",
       "catalogueConstellation": "Oph"
     }
   ],
@@ -540,9 +550,9 @@
     },
     {
       "abbr": "Ser",
-      "addedStars": 10,
-      "stars": 15,
-      "connections": 13
+      "addedStars": 12,
+      "stars": 17,
+      "connections": 16
     },
     {
       "abbr": "Sex",
