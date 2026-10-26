@@ -43607,6 +43607,79 @@
           "variableDesignation": null,
           "variableMagnitudeRange": null
         }
+      },
+      {
+        "id": "hip_79882",
+        "name": "Yed Posterior",
+        "bayer": "Eps Oph",
+        "spectralType": "G8III",
+        "magnitude": 3.23,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "16h 18m 19.289s",
+          "declination": "-04° 41′ 33.04″",
+          "rightAscensionDeg": 244.58037,
+          "declinationDeg": -4.692511
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 79640,
+          "hip": 79882,
+          "hd": 146791,
+          "hr": 6075,
+          "bayer": "Eps",
+          "constellation": "Oph",
+          "properName": "Yed Posterior",
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 3.23,
+          "colorIndexBV": 0.966,
+          "variableDesignation": null,
+          "variableMagnitudeRange": null
+        }
+      },
+      {
+        "id": "hip_81377",
+        "name": "Zet Oph",
+        "bayer": "Zet Oph",
+        "spectralType": "O9.5V",
+        "magnitude": 2.54,
+        "isSkeleton": true,
+        "coordinates": {
+          "frame": "equatorial",
+          "equinox": "J2000.0",
+          "epoch": "J2000.0",
+          "rightAscension": "16h 37m 09.538s",
+          "declination": "-10° 34′ 01.52″",
+          "rightAscensionDeg": 249.28974,
+          "declinationDeg": -10.56709
+        },
+        "catalogue": {
+          "provider": "HYG 4.1",
+          "hygId": 81130,
+          "hip": 81377,
+          "hd": 149757,
+          "hr": 6175,
+          "bayer": "Zet",
+          "constellation": "Oph",
+          "properName": null,
+          "source": "constellations_hyg_source.json"
+        },
+        "photometry": {
+          "band": "V",
+          "apparentMagnitude": 2.54,
+          "colorIndexBV": 0.038,
+          "variableDesignation": "Zet",
+          "variableMagnitudeRange": [
+            2.55,
+            2.52
+          ]
+        }
       }
     ],
     "connections": [
@@ -43645,6 +43718,18 @@
       [
         "mu_ser",
         "hip_79593"
+      ],
+      [
+        "hip_79593",
+        "hip_79882"
+      ],
+      [
+        "hip_79882",
+        "hip_81377"
+      ],
+      [
+        "hip_81377",
+        "hip_84012"
       ],
       [
         "hip_84012",

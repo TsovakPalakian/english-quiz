@@ -1246,9 +1246,9 @@
           77070,
           77622,
           77516,
-          79593
-        ],
-        [
+          79593,
+          79882,
+          81377,
           84012,
           86263,
           88048,
@@ -1260,8 +1260,7 @@
       "image": "https://www.go-astronomy.com/images/constellations/Serpens.jpg",
       "imageSha256": "1965ea01d9b9aa0ed5aa5f9a93e3c71f18c300fbf333b977da8bfd43af6b45a6",
       "designationPaths": [
-        "Bet Gam Kap Iot Bet Del Alp Eps Mu Del.Oph",
-        "Eta.Oph Xi Nu.Oph Eta The-1"
+        "Bet Gam Kap Iot Bet Del Alp Eps Mu Del.Oph Eps.Oph Zet.Oph Eta.Oph Xi Nu.Oph Eta The-1"
       ]
     },
     "Sex": {
