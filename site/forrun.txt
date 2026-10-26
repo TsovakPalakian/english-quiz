@@ -1,2 +1,0 @@
-
-gh run view 40119878855 --repo TsovakPalakian/english-quiz --log-failed

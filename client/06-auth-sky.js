@@ -13,7 +13,7 @@
   inspector.className='auth-sky-inspector auth-sky-star-inspector';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
@@ -40,12 +40,15 @@
   conInspector.className='auth-sky-inspector auth-sky-con-inspector';
   conInspector.setAttribute('role','tooltip');
   conInspector.hidden=true;
-  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
   document.body.append(conInspector);
 
   const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
+  const conSep=conInspector.querySelector('.auth-sky-con-sep');
+  const conMeaning=conInspector.querySelector('.auth-sky-con-meaning');
+  const conGen=conInspector.querySelector('.auth-sky-con-gen');
+  const conSubSep=conInspector.querySelector('.auth-sky-con-sub-sep');
   const conNameRu=conInspector.querySelector('.auth-sky-con-name-ru');
-  const conSub=conInspector.querySelector('.auth-sky-con-sub');
   const conFamily=conInspector.querySelector('.auth-sky-con-family');
   const conAbbr=conInspector.querySelector('.auth-sky-con-abbr');
   const conQuad=conInspector.querySelector('.auth-sky-con-quad');
@@ -283,6 +286,8 @@
     canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);
     canvas.dataset.skyProjection='gnomonic-j2000';
     canvas.dataset.skyFlybyCount='0';
+    canvas.dataset.skyBlackHole='idle';
+    canvas.dataset.skyBlackHoleCount='0';
     const pad=r=>({left:r.left-4,right:r.right+4,top:r.top-4,bottom:r.bottom+4,element:r.element});
     const uiRects=boxes.map(pad);
     const obstacles=[];
@@ -308,8 +313,38 @@
     });
     const wanderers=Array.from({length:16},()=>{
       const a=Math.random()*Math.PI*2,speed=.025+Math.random()*.06;
-      return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2};
+      return {...safePoint(true),vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,speed,radius:1.15+Math.random()*.65,phase:Math.random()*Math.PI*2,cooldown:0,encounter:null};
     });
+    let encounters=[],flashes=[];
+    let blackHoleEvent=null,nextBlackHoleAt=performance.now()+45000+Math.random()*35000,blackHoleCount=0;
+    function triggerBlackHole(){
+      if(blackHoleEvent||motion.matches)return;
+      let center=safePoint(false);
+      if(center.x<0)center=safePoint(true);
+      if(center.x<0)return;
+      const targetStar=wanderers.find(s=>!s.encounter&&(!s.cooldown||performance.now()>s.cooldown))||wanderers.find(s=>!s.encounter)||wanderers[0];
+      if(targetStar.encounter&&typeof targetStar.encounter==='object'){
+        const other=targetStar.encounter.a===targetStar?targetStar.encounter.b:targetStar.encounter.a;
+        if(other){other.encounter=null;other.cooldown=performance.now()+4000;}
+        encounters=encounters.filter(e=>e!==targetStar.encounter);
+      }
+      targetStar.encounter='blackhole';
+      const initialDist=Math.hypot(targetStar.x-center.x,targetStar.y-center.y)||140;
+      blackHoleEvent={
+        star:targetStar,
+        center,
+        r0:Math.max(90,Math.min(220,initialDist)),
+        theta0:Math.atan2(targetStar.y-center.y,targetStar.x-center.x),
+        started:performance.now(),
+        duration:6500,
+        streamer:[]
+      };
+      blackHoleCount++;
+      canvas.dataset.skyBlackHoleCount=String(blackHoleCount);
+      canvas.dataset.skyBlackHole='active';
+    }
+    canvas.__triggerBlackHole=triggerBlackHole;
+    canvas.addEventListener('sky:blackhole',triggerBlackHole);
     const layoutIssues=new Map();
     function chooseLayout(c){
       const measure=(text,size=12)=>{ctx.font=size+'px Georgia,serif';return ctx.measureText(text).width;};
@@ -385,8 +420,22 @@
       inspector.style.top=Math.round(top)+'px';
       inspector.classList.add('active');
     }
-    let inspectedCon=null;
+    let inspectedCon=null,conHideTimer=0;
+    function cancelConHide(){
+      if(conHideTimer){clearTimeout(conHideTimer);conHideTimer=0;}
+    }
+    function scheduleConHide(delay=350){
+      cancelConHide();
+      conHideTimer=setTimeout(()=>{
+        conHideTimer=0;
+        if(!conInspector.matches(':hover')&&!document.querySelector('.auth-sky-title:hover')){
+          hideConInspector();
+          if(motion.matches)redraw?.();
+        }
+      },delay);
+    }
     function hideConInspector(){
+      cancelConHide();
       const wasInspected=!!inspectedCon;
       inspectedCon=null;
       conInspector.classList.remove('active');
@@ -397,14 +446,19 @@
       }
     }
     function showConInspector(c,targetNode){
+      cancelConHide();
       pauseReturn();
       inspectedCon=c;
       hideInspector();
       conNameEn.textContent=c.name||'';
-      conNameRu.textContent=conRuNames[c.abbr]||c.name||'';
-      const gen=c.genitive||conGenitives[c.abbr]||'';
       const meaning=c.meaning?`"${c.meaning}"`:'';
-      conSub.textContent=[gen,meaning].filter(Boolean).join(' · ');
+      conMeaning.textContent=meaning;
+      conSep.hidden=!meaning;
+      const gen=c.genitive||conGenitives[c.abbr]||'';
+      const ru=conRuNames[c.abbr]||c.name||'';
+      conGen.textContent=gen;
+      conNameRu.textContent=ru;
+      conSubSep.hidden=!(gen&&ru);
       conFamily.textContent='Family: '+(c.family||'IAU Constellation');
       conAbbr.textContent=c.abbr||'';
       conQuad.textContent=c.quadrant?c.quadrant+' Quad':'';
@@ -415,7 +469,7 @@
       conBrightest.textContent=c.brightestStar||'—';
       conPlanets.textContent=c.starsWithPlanets!==null&&c.starsWithPlanets!==undefined?(c.starsWithPlanets+' planetary system'+(c.starsWithPlanets===1?'':'s')):'—';
       conFamVal.textContent=c.family||'Classical';
-      const dsoNames=(c.objects||[]).filter(o=>o.name&&!o.estimated).slice(0,4).map(o=>o.name).join(' · ');
+      const dsoNames=[...new Set((c.objects||[]).map(o=>o.name).filter(Boolean))].slice(0,4).join(' · ');
       conDsoVal.textContent=dsoNames||'None catalogued';
       const areaNum=c.areaSqDeg||400;
       const pct=Math.round(Math.max(0,Math.min(100,((areaNum-68)/(1303-68))*100)));
@@ -425,15 +479,73 @@
       const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
       conLink.href=url;
       conInspector.hidden=false;
-      const cardW=320,cardH=conInspector.offsetHeight||340,margin=14;
+      const cardW=320,cardH=conInspector.offsetHeight||360,margin=14;
       const r=targetNode.getBoundingClientRect();
-      let left=r.left,top=r.bottom+10;
-      if(top+cardH>h-margin)top=r.top-cardH-10;
-      if(left+cardW>w-margin)left=w-cardW-margin;
-      if(left<margin)left=margin;
-      if(top<margin)top=margin;
-      conInspector.style.left=Math.round(left)+'px';
-      conInspector.style.top=Math.round(top)+'px';
+      const coreStars=(slots||[]).slice(0,c?.stars?.length||0).filter(s=>s&&Number.isFinite(s.x)&&Number.isFinite(s.y));
+      const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
+      const figRight=coreStars.length?Math.max(...coreStars.map(s=>s.x))+16:r.right;
+      const figTop=coreStars.length?Math.min(...coreStars.map(s=>s.y))-16:r.top;
+      const figBottom=coreStars.length?Math.max(...coreStars.map(s=>s.y))+16:r.bottom;
+      const figureBox={left:figLeft,right:figRight,top:figTop,bottom:figBottom};
+      const overlaps=(a,b)=>!(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);
+      const clamp=(val,min,max)=>Math.max(min,Math.min(max,val));
+      const makeBox=(l,t)=>{
+        const left=clamp(l,margin,Math.max(margin,w-cardW-margin));
+        const top=clamp(t,margin,Math.max(margin,h-cardH-margin));
+        return {left,right:left+cardW,top,bottom:top+cardH};
+      };
+      const score=box=>{
+        let s=0;
+        if(overlaps(box,figureBox)){
+          const xOv=Math.max(0,Math.min(box.right,figureBox.right)-Math.max(box.left,figureBox.left));
+          const yOv=Math.max(0,Math.min(box.bottom,figureBox.bottom)-Math.max(box.top,figureBox.top));
+          s+=xOv*yOv*1000;
+        }
+        if(overlaps(box,r))s+=50000;
+        for(const u of uiRects){
+          if(overlaps(box,u)){
+            const xOv=Math.max(0,Math.min(box.right,u.right)-Math.max(box.left,u.left));
+            const yOv=Math.max(0,Math.min(box.bottom,u.bottom)-Math.max(box.top,u.top));
+            s+=xOv*yOv*2;
+          }
+        }
+        const dist=Math.hypot((box.left+box.right)/2-(r.left+r.right)/2,(box.top+box.bottom)/2-(r.top+r.bottom)/2);
+        s+=dist*.05;
+        return s;
+      };
+      const candidates=[];
+      if(w>640){
+        candidates.push(makeBox(r.right+16,r.top));
+        candidates.push(makeBox(r.left-cardW-16,r.top));
+        candidates.push(makeBox(figureBox.right+20,r.top));
+        candidates.push(makeBox(figureBox.left-cardW-20,r.top));
+        candidates.push(makeBox(r.left,r.bottom+14));
+        candidates.push(makeBox(r.left,r.top-cardH-14));
+        candidates.push(makeBox(figureBox.right+20,(figTop+figBottom)/2-cardH/2));
+        candidates.push(makeBox(figureBox.left-cardW-20,(figTop+figBottom)/2-cardH/2));
+        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figBottom+20));
+        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figTop-cardH-20));
+        candidates.push(makeBox(margin+20,margin+20));
+        candidates.push(makeBox(w-cardW-margin-20,margin+20));
+        candidates.push(makeBox(margin+20,h-cardH-margin-20));
+        candidates.push(makeBox(w-cardW-margin-20,h-cardH-margin-20));
+      }else{
+        const horizCenter=Math.max(margin,(w-cardW)/2);
+        const figCenterY=(figTop+figBottom)/2;
+        if(figCenterY>h/2){
+          candidates.push(makeBox(horizCenter,margin));
+          candidates.push(makeBox(horizCenter,Math.max(margin,figTop-cardH-14)));
+          candidates.push(makeBox(horizCenter,h-cardH-margin));
+        }else{
+          candidates.push(makeBox(horizCenter,h-cardH-margin));
+          candidates.push(makeBox(horizCenter,Math.min(h-cardH-margin,figBottom+14)));
+          candidates.push(makeBox(horizCenter,margin));
+        }
+      }
+      candidates.sort((a,b)=>score(a)-score(b));
+      const best=candidates[0]||makeBox(r.left,r.bottom+10);
+      conInspector.style.left=Math.round(best.left)+'px';
+      conInspector.style.top=Math.round(best.top)+'px';
       conInspector.classList.add('active');
     }
     const durations={gather:15000,hold:8000,morph:18000};
@@ -548,7 +660,271 @@
       ctx.save();
       const background=s=>({x:((s.x-skyPan.x)%(w+12)+w+12)%(w+12),y:((s.y-skyPan.y)%(h+12)+h+12)%(h+12)});
       for(const s of ambient){drift(s,delta);const p=background(s);if(s.phase%1<.12&&uiRects.some(r=>p.x>r.left&&p.x<r.right&&p.y>r.top&&p.y<r.bottom))continue;dot(p.x,p.y,s.radius,(Math.sin(clock*.004+s.phase)*.3+.7)*.25,'200,220,240',false,brightness.background);}
-      for(const s of wanderers){drift(s,delta);const p=background(s);dot(p.x,p.y,s.radius,(Math.sin(clock*.004+s.phase)*.25+.75)*.3,'255,245,210',true,brightness.background);}
+      if(!motion.matches){
+        encounters=encounters.filter(enc=>{
+          const elapsed=now-enc.started;
+          const u=Math.min(1,elapsed/enc.duration);
+          enc.cx=(enc.cx+enc.cvx*delta+w+12)%(w+12);
+          enc.cy=(enc.cy+enc.cvy*delta+h+12)%(h+12);
+          if(enc.mode==='slingshot'){
+            const theta=enc.theta0+enc.dir*(Math.PI*Math.pow(u,0.75));
+            const r=enc.r0*(0.4+0.6*Math.pow(2*u-1,2));
+            enc.a.x=enc.cx+Math.cos(theta)*r;
+            enc.a.y=enc.cy+Math.sin(theta)*r;
+            enc.b.x=enc.cx-Math.cos(theta)*r;
+            enc.b.y=enc.cy-Math.sin(theta)*r;
+            if(u>=1){
+              const v=Math.max(enc.a.speed,enc.b.speed)*1.25;
+              enc.a.vx=-Math.sin(theta)*enc.dir*v;
+              enc.a.vy=Math.cos(theta)*enc.dir*v;
+              enc.b.vx=-enc.a.vx;enc.b.vy=-enc.a.vy;
+              enc.a.encounter=null;enc.b.encounter=null;
+              enc.a.cooldown=now+4000;enc.b.cooldown=now+4000;
+              return false;
+            }
+          }else if(enc.mode==='dance'){
+            const theta=enc.theta0+enc.dir*(5*Math.PI*ease(u));
+            const r=enc.r0*(0.65+0.35*Math.cos(4*Math.PI*u));
+            enc.a.x=enc.cx+Math.cos(theta)*r;
+            enc.a.y=enc.cy+Math.sin(theta)*r;
+            enc.b.x=enc.cx-Math.cos(theta)*r;
+            enc.b.y=enc.cy-Math.sin(theta)*r;
+            const pA=background(enc.a),pB=background(enc.b);
+            ctx.save();
+            ctx.strokeStyle='rgba(255,235,180,'+(0.14*(1-u*0.5)*brightness.background)+')';
+            ctx.lineWidth=0.8;
+            ctx.beginPath();ctx.moveTo(pA.x,pA.y);ctx.lineTo(pB.x,pB.y);ctx.stroke();
+            ctx.restore();
+            if(u>=1){
+              enc.a.vx=-Math.sin(theta)*enc.dir*enc.a.speed;
+              enc.a.vy=Math.cos(theta)*enc.dir*enc.a.speed;
+              enc.b.vx=-enc.a.vx;enc.b.vy=-enc.a.vy;
+              enc.a.encounter=null;enc.b.encounter=null;
+              enc.a.cooldown=now+4000;enc.b.cooldown=now+4000;
+              return false;
+            }
+          }else if(enc.mode==='merge'){
+            const theta=enc.theta0+enc.dir*(6*Math.PI*Math.pow(u,1.4));
+            const r=enc.r0*Math.pow(Math.max(0,1-u),1.2);
+            enc.a.x=enc.cx+Math.cos(theta)*r;
+            enc.a.y=enc.cy+Math.sin(theta)*r;
+            enc.b.x=enc.cx-Math.cos(theta)*r;
+            enc.b.y=enc.cy-Math.sin(theta)*r;
+            if(u>=1){
+              const flashP=background({x:enc.cx,y:enc.cy});
+              flashes.push({x:flashP.x,y:flashP.y,started:now,duration:1600,maxRadius:38});
+              enc.a.x=enc.cx;enc.a.y=enc.cy;
+              enc.a.radius=Math.min(2.4,Math.hypot(enc.a.radius,enc.b.radius));
+              enc.a.encounter=null;enc.a.cooldown=now+5000;
+              Object.assign(enc.b,safePoint(true));
+              const newA=Math.random()*Math.PI*2;
+              enc.b.vx=Math.cos(newA)*enc.b.speed;enc.b.vy=Math.sin(newA)*enc.b.speed;
+              enc.b.radius=1.15+Math.random()*0.5;
+              enc.b.encounter=null;enc.b.cooldown=now+5000;
+              return false;
+            }
+          }
+          return true;
+        });
+
+        for(let i=0;i<wanderers.length;i++){
+          const a=wanderers[i];
+          if(a.encounter||(a.cooldown&&now<a.cooldown))continue;
+          for(let j=i+1;j<wanderers.length;j++){
+            const b=wanderers[j];
+            if(b.encounter||(b.cooldown&&now<b.cooldown))continue;
+            const dx=a.x-b.x,dy=a.y-b.y,dist=Math.hypot(dx,dy);
+            if(dist<38){
+              const dvx=a.vx-b.vx,dvy=a.vy-b.vy,relSpeed=Math.hypot(dvx,dvy)||0.001;
+              const cross=Math.abs(dx*dvy-dy*dvx)/relSpeed;
+              const mode=cross<10?'merge':cross<22?'dance':'slingshot';
+              const dir=(dx*dvy-dy*dvx)>=0?1:-1;
+              const enc={
+                a,b,mode,
+                cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,
+                cvx:(a.vx+b.vx)/2,cvy:(a.vy+b.vy)/2,
+                r0:dist/2,
+                theta0:Math.atan2(a.y-(a.y+b.y)/2,a.x-(a.x+b.x)/2),
+                dir:dir||1,
+                started:now,
+                duration:mode==='slingshot'?1200:mode==='dance'?2200:1700
+              };
+              a.encounter=enc;b.encounter=enc;
+              encounters.push(enc);
+              break;
+            }
+          }
+        }
+      }
+      for(const s of wanderers){
+        if(s.encounter==='blackhole')continue;
+        if(!s.encounter)drift(s,delta);
+        const p=background(s);
+        const pulse=(Math.sin(clock*.004+s.phase)*.25+.75)*.3;
+        const boost=s.encounter?1.3:1;
+        dot(p.x,p.y,s.radius*boost,pulse*boost,'255,245,210',true,brightness.background);
+      }
+      flashes=flashes.filter(f=>{
+        const progress=(now-f.started)/f.duration;
+        if(progress>=1)return false;
+        const ringR=Math.sin(progress*Math.PI*0.5)*f.maxRadius;
+        const alpha=(1-progress)*brightness.background;
+        ctx.save();
+        ctx.strokeStyle='rgba(255,235,180,'+(alpha*0.6)+')';
+        ctx.lineWidth=Math.max(0.5,2.5*(1-progress));
+        ctx.beginPath();ctx.arc(f.x,f.y,ringR,0,Math.PI*2);ctx.stroke();
+        ctx.restore();
+        dot(f.x,f.y,3.5*(1-progress),(1-progress)*0.85,'255,245,210',true,brightness.background,Infinity,6*(1-progress));
+        return true;
+      });
+      if(!motion.matches){
+        if(!blackHoleEvent&&now>=nextBlackHoleAt){
+          triggerBlackHole();
+          nextBlackHoleAt=now+50000+Math.random()*40000;
+        }
+      }else if(blackHoleEvent){
+        if(blackHoleEvent.star){
+          blackHoleEvent.star.encounter=null;
+          blackHoleEvent.star.cooldown=now+4000;
+          Object.assign(blackHoleEvent.star,safePoint(true));
+        }
+        blackHoleEvent=null;
+      }
+      canvas.dataset.skyBlackHole=blackHoleEvent?'active':'idle';
+      if(blackHoleEvent){
+        const ev=blackHoleEvent,elapsed=now-ev.started,u=Math.min(1,elapsed/ev.duration);
+        const bhRadius=Math.max(10,Math.min(22,Math.round(Math.min(w,h)*0.025)));
+        let flare=1,jetLength=0,bhAlpha=1;
+        if(u<0.22){
+          bhAlpha=Math.min(1,u/0.18);
+          const t=u/0.22,r=ev.r0*(1.25-t*0.25),theta=ev.theta0+t*Math.PI*0.6;
+          ev.star.x=ev.center.x+Math.cos(theta)*r;
+          ev.star.y=ev.center.y+Math.sin(theta)*r;
+          flare=0.6+0.4*t;
+        }else if(u<0.65){
+          const t=(u-0.22)/0.43,theta=ev.theta0+Math.PI*0.6+Math.pow(t,1.3)*Math.PI*4,r=ev.r0*(1.0-t*0.85);
+          ev.star.x=ev.center.x+Math.cos(theta)*r;
+          ev.star.y=ev.center.y+Math.sin(theta)*r;
+          flare=1+t*0.8;
+          ev.streamer.push({x:ev.star.x,y:ev.star.y,time:now});
+        }else if(u<0.82){
+          const t=(u-0.65)/0.17;
+          flare=1.8+Math.sin(t*Math.PI)*1.5;
+          jetLength=Math.sin(t*Math.PI)*Math.min(w,h)*0.22;
+        }else{
+          const t=(u-0.82)/0.18;
+          bhAlpha=Math.max(0,1-t);
+          flare=Math.max(0.2,1.8*(1-t*0.8));
+          jetLength=0;
+        }
+        const bgGain=Math.max(0.1,Math.min(1.5,brightness.background/20));
+        const effectiveAlpha=bhAlpha*bgGain;
+        if(effectiveAlpha>0.01){
+          const sc=background(ev.center),cx=sc.x,cy=sc.y;
+          ctx.save();
+          ctx.translate(cx,cy);
+          ctx.rotate(-0.25);
+          const diskRx=bhRadius*3.6,diskRy=bhRadius*1.35;
+          const gradBack=ctx.createRadialGradient(0,0,bhRadius*1.1,0,0,diskRx);
+          gradBack.addColorStop(0,'rgba(165,215,255,'+Math.min(1,0.9*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(0.3,'rgba(255,215,120,'+Math.min(1,0.75*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(0.7,'rgba(249,115,22,'+Math.min(1,0.4*flare*effectiveAlpha)+')');
+          gradBack.addColorStop(1,'rgba(225,29,72,0)');
+          ctx.save();
+          ctx.scale(1,diskRy/diskRx);
+          ctx.fillStyle=gradBack;
+          ctx.beginPath();
+          ctx.arc(0,0,diskRx,Math.PI,Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+          const lensGrad=ctx.createRadialGradient(0,0,bhRadius*0.9,0,0,bhRadius*2.4);
+          lensGrad.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.95*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(0.25,'rgba(147,197,253,'+Math.min(1,0.7*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(0.65,'rgba(168,85,247,'+Math.min(1,0.25*flare*effectiveAlpha)+')');
+          lensGrad.addColorStop(1,'rgba(15,23,42,0)');
+          ctx.fillStyle=lensGrad;
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius*2.4,0,Math.PI*2);
+          ctx.fill();
+          ctx.fillStyle='#02050c';
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius,0,Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle='rgba(255,255,255,'+Math.min(1,0.95*flare*effectiveAlpha)+')';
+          ctx.lineWidth=Math.max(0.75,bhRadius*0.08);
+          ctx.beginPath();
+          ctx.arc(0,0,bhRadius+0.5,0,Math.PI*2);
+          ctx.stroke();
+          const gradFront=ctx.createRadialGradient(0,0,bhRadius*1.1,0,0,diskRx);
+          gradFront.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.98*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.2,'rgba(165,215,255,'+Math.min(1,0.85*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.5,'rgba(255,215,120,'+Math.min(1,0.8*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(0.85,'rgba(234,88,12,'+Math.min(1,0.45*flare*effectiveAlpha)+')');
+          gradFront.addColorStop(1,'rgba(225,29,72,0)');
+          ctx.save();
+          ctx.scale(1,diskRy/diskRx);
+          ctx.fillStyle=gradFront;
+          ctx.beginPath();
+          ctx.arc(0,0,diskRx,0,Math.PI);
+          ctx.fill();
+          ctx.restore();
+          if(jetLength>0){
+            ctx.save();
+            ctx.rotate(Math.PI/2);
+            const jetGrad=ctx.createLinearGradient(0,0,jetLength,0);
+            jetGrad.addColorStop(0,'rgba(255,255,255,'+Math.min(1,0.95*effectiveAlpha)+')');
+            jetGrad.addColorStop(0.2,'rgba(147,197,253,'+Math.min(1,0.85*effectiveAlpha)+')');
+            jetGrad.addColorStop(0.7,'rgba(168,85,247,'+Math.min(1,0.4*effectiveAlpha)+')');
+            jetGrad.addColorStop(1,'rgba(236,72,153,0)');
+            ctx.strokeStyle=jetGrad;
+            ctx.lineWidth=Math.max(1.5,bhRadius*0.15);
+            ctx.beginPath();
+            ctx.moveTo(bhRadius*0.8,0);ctx.lineTo(jetLength,0);
+            ctx.moveTo(-bhRadius*0.8,0);ctx.lineTo(-jetLength,0);
+            ctx.stroke();
+            ctx.strokeStyle='rgba(255,255,255,'+Math.min(1,0.9*effectiveAlpha)+')';
+            ctx.lineWidth=Math.max(0.75,bhRadius*0.05);
+            ctx.beginPath();
+            ctx.moveTo(bhRadius*0.8,0);ctx.lineTo(jetLength*0.8,0);
+            ctx.moveTo(-bhRadius*0.8,0);ctx.lineTo(-jetLength*0.8,0);
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.restore();
+          ev.streamer=ev.streamer.filter(p=>now-p.time<500);
+          if(ev.streamer.length>1&&u<0.82){
+            ctx.save();
+            for(let i=1;i<ev.streamer.length;i++){
+              const p1=background(ev.streamer[i-1]),p2=background(ev.streamer[i]);
+              const age=(now-ev.streamer[i].time)/500;
+              const grad=ctx.createLinearGradient(p1.x,p1.y,p2.x,p2.y);
+              grad.addColorStop(0,'rgba(255,235,180,'+Math.min(1,0.85*(1-age)*effectiveAlpha)+')');
+              grad.addColorStop(1,'rgba(249,115,22,'+Math.min(1,0.5*(1-age)*effectiveAlpha)+')');
+              ctx.strokeStyle=grad;
+              ctx.lineWidth=Math.max(0.8,3.5*(1-age));
+              ctx.beginPath();
+              ctx.moveTo(p1.x,p1.y);
+              ctx.lineTo(p2.x,p2.y);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+          if(u<0.65){
+            const sp=background(ev.star);
+            dot(sp.x,sp.y,ev.star.radius*1.2,0.95*bhAlpha,'255,245,210',true,brightness.background,Infinity,8);
+          }
+        }
+        if(u>=1){
+          Object.assign(ev.star,safePoint(true));
+          const newA=Math.random()*Math.PI*2;
+          ev.star.vx=Math.cos(newA)*ev.star.speed;
+          ev.star.vy=Math.sin(newA)*ev.star.speed;
+          ev.star.encounter=null;
+          ev.star.cooldown=now+8000;
+          blackHoleEvent=null;
+          nextBlackHoleAt=now+50000+Math.random()*40000;
+        }
+      }
       if(!motion.matches&&now>=nextFlybyAt){
         const count=Math.random()<.5?1:2,interval=delay();
         const route=geometry.router(obstacles);
@@ -639,6 +1015,7 @@
     const onMove=event=>{
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
+        cancelConHide();
         canvas.classList.add('sky-hover');
         if(!inspectedCon||inspectedCon.abbr!==current.abbr){
           showConInspector(current,caption);
@@ -646,16 +1023,19 @@
         }
         return;
       }
-      if(conInspector.contains(event.target))return;
-      if(inspectedCon){
-        hideConInspector();
-        if(motion.matches)redraw?.();
+      if(conInspector.contains(event.target)){
+        cancelConHide();
+        return;
+      }
+      if(inspectedCon&&!conHideTimer){
+        scheduleConHide(350);
       }
       if(inspector.contains(event.target))return;
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       canvas.classList.toggle('sky-hover',!!target);
       if(!pinned){
         if(target){
+          if(inspectedCon){cancelConHide();hideConInspector();}
           showInspector(target.star,target.slot,false);
           if(motion.matches)redraw?.();
         }else if(!event.target.closest('.auth-sky-inspector')){
@@ -664,8 +1044,26 @@
         }
       }
     };
+    let lastConTouch=-1000;
     const onClick=event=>{
-      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      if(event.defaultPrevented||event.button!==0)return;
+      if(event.target.closest('.auth-sky-inspector-close')){
+        if(inspector.contains(event.target)){
+          hideInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+        if(conInspector.contains(event.target)){
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+      }
+      if(inspector.contains(event.target))return;
+      if(performance.now()-lastConTouch<400)return;
+      if(conInspector.contains(event.target))return;
+      cancelConHide();
       hideConInspector();
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
@@ -683,18 +1081,40 @@
       }
     };
     const onTouchEnd=event=>{
-      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      if(!event.changedTouches||event.changedTouches.length!==1)return;
+      if(event.target.closest('.auth-sky-inspector-close')){
+        if(inspector.contains(event.target)){
+          lastConTouch=performance.now();
+          hideInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+        if(conInspector.contains(event.target)){
+          lastConTouch=performance.now();
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+      }
+      if(inspector.contains(event.target)||conInspector.contains(event.target))return;
       const t=event.changedTouches[0];
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
+        lastConTouch=performance.now();
         freezeFigure();
         if(!inspectedCon){
           showConInspector(current,caption);
           if(motion.matches)redraw?.();
           return;
+        }else{
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
         }
-        return;
       }
+      cancelConHide();
       hideConInspector();
       const target=findStar(t.clientX,t.clientY)||starFromLandmark(event.target);
       if(target){
@@ -706,14 +1126,27 @@
         if(motion.matches)redraw?.();
       }
     };
+    const onKeyDown=event=>{
+      if(event.key==='Escape'){
+        let changed=false;
+        if(inspected){hideInspector();changed=true;}
+        if(inspectedCon){cancelConHide();hideConInspector();changed=true;}
+        if(changed&&motion.matches)redraw?.();
+      }
+    };
+    const onConEnter=()=>cancelConHide();
+    const onConLeave=()=>{if(inspectedCon&&!document.querySelector('.auth-sky-title:hover'))scheduleConHide(250);};
+    conInspector.addEventListener('mouseenter',onConEnter);
+    conInspector.addEventListener('mouseleave',onConLeave);
     window.addEventListener('click',onClick);window.addEventListener('mousemove',onMove);
+    window.addEventListener('keydown',onKeyDown);
     window.addEventListener('touchend',onTouchEnd,{passive:true});
     window.addEventListener('blur',pauseReturn);window.addEventListener('focus',resumeReturn);document.addEventListener('visibilitychange',onVisibility);
     resumeReturn();
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
