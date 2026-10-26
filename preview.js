@@ -13941,7 +13941,7 @@ const STUDIO_CONSTELLATIONS = [{
   inspector.className='auth-sky-inspector auth-sky-star-inspector';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><span class="auth-sky-inspector-mag"></span></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
@@ -13968,12 +13968,15 @@ const STUDIO_CONSTELLATIONS = [{
   conInspector.className='auth-sky-inspector auth-sky-con-inspector';
   conInspector.setAttribute('role','tooltip');
   conInspector.hidden=true;
-  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
   document.body.append(conInspector);
 
   const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
+  const conSep=conInspector.querySelector('.auth-sky-con-sep');
+  const conMeaning=conInspector.querySelector('.auth-sky-con-meaning');
+  const conGen=conInspector.querySelector('.auth-sky-con-gen');
+  const conSubSep=conInspector.querySelector('.auth-sky-con-sub-sep');
   const conNameRu=conInspector.querySelector('.auth-sky-con-name-ru');
-  const conSub=conInspector.querySelector('.auth-sky-con-sub');
   const conFamily=conInspector.querySelector('.auth-sky-con-family');
   const conAbbr=conInspector.querySelector('.auth-sky-con-abbr');
   const conQuad=conInspector.querySelector('.auth-sky-con-quad');
@@ -14313,8 +14316,22 @@ const STUDIO_CONSTELLATIONS = [{
       inspector.style.top=Math.round(top)+'px';
       inspector.classList.add('active');
     }
-    let inspectedCon=null;
+    let inspectedCon=null,conHideTimer=0;
+    function cancelConHide(){
+      if(conHideTimer){clearTimeout(conHideTimer);conHideTimer=0;}
+    }
+    function scheduleConHide(delay=350){
+      cancelConHide();
+      conHideTimer=setTimeout(()=>{
+        conHideTimer=0;
+        if(!conInspector.matches(':hover')&&!document.querySelector('.auth-sky-title:hover')){
+          hideConInspector();
+          if(motion.matches)redraw?.();
+        }
+      },delay);
+    }
     function hideConInspector(){
+      cancelConHide();
       const wasInspected=!!inspectedCon;
       inspectedCon=null;
       conInspector.classList.remove('active');
@@ -14325,14 +14342,19 @@ const STUDIO_CONSTELLATIONS = [{
       }
     }
     function showConInspector(c,targetNode){
+      cancelConHide();
       pauseReturn();
       inspectedCon=c;
       hideInspector();
       conNameEn.textContent=c.name||'';
-      conNameRu.textContent=conRuNames[c.abbr]||c.name||'';
-      const gen=c.genitive||conGenitives[c.abbr]||'';
       const meaning=c.meaning?`"${c.meaning}"`:'';
-      conSub.textContent=[gen,meaning].filter(Boolean).join(' · ');
+      conMeaning.textContent=meaning;
+      conSep.hidden=!meaning;
+      const gen=c.genitive||conGenitives[c.abbr]||'';
+      const ru=conRuNames[c.abbr]||c.name||'';
+      conGen.textContent=gen;
+      conNameRu.textContent=ru;
+      conSubSep.hidden=!(gen&&ru);
       conFamily.textContent='Family: '+(c.family||'IAU Constellation');
       conAbbr.textContent=c.abbr||'';
       conQuad.textContent=c.quadrant?c.quadrant+' Quad':'';
@@ -14343,7 +14365,7 @@ const STUDIO_CONSTELLATIONS = [{
       conBrightest.textContent=c.brightestStar||'—';
       conPlanets.textContent=c.starsWithPlanets!==null&&c.starsWithPlanets!==undefined?(c.starsWithPlanets+' planetary system'+(c.starsWithPlanets===1?'':'s')):'—';
       conFamVal.textContent=c.family||'Classical';
-      const dsoNames=(c.objects||[]).filter(o=>o.name&&!o.estimated).slice(0,4).map(o=>o.name).join(' · ');
+      const dsoNames=[...new Set((c.objects||[]).map(o=>o.name).filter(Boolean))].slice(0,4).join(' · ');
       conDsoVal.textContent=dsoNames||'None catalogued';
       const areaNum=c.areaSqDeg||400;
       const pct=Math.round(Math.max(0,Math.min(100,((areaNum-68)/(1303-68))*100)));
@@ -14353,15 +14375,73 @@ const STUDIO_CONSTELLATIONS = [{
       const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
       conLink.href=url;
       conInspector.hidden=false;
-      const cardW=320,cardH=conInspector.offsetHeight||340,margin=14;
+      const cardW=320,cardH=conInspector.offsetHeight||360,margin=14;
       const r=targetNode.getBoundingClientRect();
-      let left=r.left,top=r.bottom+10;
-      if(top+cardH>h-margin)top=r.top-cardH-10;
-      if(left+cardW>w-margin)left=w-cardW-margin;
-      if(left<margin)left=margin;
-      if(top<margin)top=margin;
-      conInspector.style.left=Math.round(left)+'px';
-      conInspector.style.top=Math.round(top)+'px';
+      const coreStars=(slots||[]).slice(0,c?.stars?.length||0).filter(s=>s&&Number.isFinite(s.x)&&Number.isFinite(s.y));
+      const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
+      const figRight=coreStars.length?Math.max(...coreStars.map(s=>s.x))+16:r.right;
+      const figTop=coreStars.length?Math.min(...coreStars.map(s=>s.y))-16:r.top;
+      const figBottom=coreStars.length?Math.max(...coreStars.map(s=>s.y))+16:r.bottom;
+      const figureBox={left:figLeft,right:figRight,top:figTop,bottom:figBottom};
+      const overlaps=(a,b)=>!(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);
+      const clamp=(val,min,max)=>Math.max(min,Math.min(max,val));
+      const makeBox=(l,t)=>{
+        const left=clamp(l,margin,Math.max(margin,w-cardW-margin));
+        const top=clamp(t,margin,Math.max(margin,h-cardH-margin));
+        return {left,right:left+cardW,top,bottom:top+cardH};
+      };
+      const score=box=>{
+        let s=0;
+        if(overlaps(box,figureBox)){
+          const xOv=Math.max(0,Math.min(box.right,figureBox.right)-Math.max(box.left,figureBox.left));
+          const yOv=Math.max(0,Math.min(box.bottom,figureBox.bottom)-Math.max(box.top,figureBox.top));
+          s+=xOv*yOv*1000;
+        }
+        if(overlaps(box,r))s+=50000;
+        for(const u of uiRects){
+          if(overlaps(box,u)){
+            const xOv=Math.max(0,Math.min(box.right,u.right)-Math.max(box.left,u.left));
+            const yOv=Math.max(0,Math.min(box.bottom,u.bottom)-Math.max(box.top,u.top));
+            s+=xOv*yOv*2;
+          }
+        }
+        const dist=Math.hypot((box.left+box.right)/2-(r.left+r.right)/2,(box.top+box.bottom)/2-(r.top+r.bottom)/2);
+        s+=dist*.05;
+        return s;
+      };
+      const candidates=[];
+      if(w>640){
+        candidates.push(makeBox(r.right+16,r.top));
+        candidates.push(makeBox(r.left-cardW-16,r.top));
+        candidates.push(makeBox(figureBox.right+20,r.top));
+        candidates.push(makeBox(figureBox.left-cardW-20,r.top));
+        candidates.push(makeBox(r.left,r.bottom+14));
+        candidates.push(makeBox(r.left,r.top-cardH-14));
+        candidates.push(makeBox(figureBox.right+20,(figTop+figBottom)/2-cardH/2));
+        candidates.push(makeBox(figureBox.left-cardW-20,(figTop+figBottom)/2-cardH/2));
+        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figBottom+20));
+        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figTop-cardH-20));
+        candidates.push(makeBox(margin+20,margin+20));
+        candidates.push(makeBox(w-cardW-margin-20,margin+20));
+        candidates.push(makeBox(margin+20,h-cardH-margin-20));
+        candidates.push(makeBox(w-cardW-margin-20,h-cardH-margin-20));
+      }else{
+        const horizCenter=Math.max(margin,(w-cardW)/2);
+        const figCenterY=(figTop+figBottom)/2;
+        if(figCenterY>h/2){
+          candidates.push(makeBox(horizCenter,margin));
+          candidates.push(makeBox(horizCenter,Math.max(margin,figTop-cardH-14)));
+          candidates.push(makeBox(horizCenter,h-cardH-margin));
+        }else{
+          candidates.push(makeBox(horizCenter,h-cardH-margin));
+          candidates.push(makeBox(horizCenter,Math.min(h-cardH-margin,figBottom+14)));
+          candidates.push(makeBox(horizCenter,margin));
+        }
+      }
+      candidates.sort((a,b)=>score(a)-score(b));
+      const best=candidates[0]||makeBox(r.left,r.bottom+10);
+      conInspector.style.left=Math.round(best.left)+'px';
+      conInspector.style.top=Math.round(best.top)+'px';
       conInspector.classList.add('active');
     }
     const durations={gather:15000,hold:8000,morph:18000};
@@ -14567,6 +14647,7 @@ const STUDIO_CONSTELLATIONS = [{
     const onMove=event=>{
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
+        cancelConHide();
         canvas.classList.add('sky-hover');
         if(!inspectedCon||inspectedCon.abbr!==current.abbr){
           showConInspector(current,caption);
@@ -14574,16 +14655,19 @@ const STUDIO_CONSTELLATIONS = [{
         }
         return;
       }
-      if(conInspector.contains(event.target))return;
-      if(inspectedCon){
-        hideConInspector();
-        if(motion.matches)redraw?.();
+      if(conInspector.contains(event.target)){
+        cancelConHide();
+        return;
+      }
+      if(inspectedCon&&!conHideTimer){
+        scheduleConHide(350);
       }
       if(inspector.contains(event.target))return;
       const target=findStar(event.clientX,event.clientY)||starFromLandmark(event.target);
       canvas.classList.toggle('sky-hover',!!target);
       if(!pinned){
         if(target){
+          if(inspectedCon){cancelConHide();hideConInspector();}
           showInspector(target.star,target.slot,false);
           if(motion.matches)redraw?.();
         }else if(!event.target.closest('.auth-sky-inspector')){
@@ -14592,8 +14676,26 @@ const STUDIO_CONSTELLATIONS = [{
         }
       }
     };
+    let lastConTouch=-1000;
     const onClick=event=>{
-      if(event.defaultPrevented||event.button!==0||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      if(event.defaultPrevented||event.button!==0)return;
+      if(event.target.closest('.auth-sky-inspector-close')){
+        if(inspector.contains(event.target)){
+          hideInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+        if(conInspector.contains(event.target)){
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+      }
+      if(inspector.contains(event.target))return;
+      if(performance.now()-lastConTouch<400)return;
+      if(conInspector.contains(event.target))return;
+      cancelConHide();
       hideConInspector();
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
@@ -14611,18 +14713,40 @@ const STUDIO_CONSTELLATIONS = [{
       }
     };
     const onTouchEnd=event=>{
-      if(!event.changedTouches||event.changedTouches.length!==1||inspector.contains(event.target)||conInspector.contains(event.target))return;
+      if(!event.changedTouches||event.changedTouches.length!==1)return;
+      if(event.target.closest('.auth-sky-inspector-close')){
+        if(inspector.contains(event.target)){
+          lastConTouch=performance.now();
+          hideInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+        if(conInspector.contains(event.target)){
+          lastConTouch=performance.now();
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
+        }
+      }
+      if(inspector.contains(event.target)||conInspector.contains(event.target))return;
       const t=event.changedTouches[0];
       const caption=event.target.closest('.auth-sky-title');
       if(caption){
+        lastConTouch=performance.now();
         freezeFigure();
         if(!inspectedCon){
           showConInspector(current,caption);
           if(motion.matches)redraw?.();
           return;
+        }else{
+          cancelConHide();
+          hideConInspector();
+          if(motion.matches)redraw?.();
+          return;
         }
-        return;
       }
+      cancelConHide();
       hideConInspector();
       const target=findStar(t.clientX,t.clientY)||starFromLandmark(event.target);
       if(target){
@@ -14634,14 +14758,27 @@ const STUDIO_CONSTELLATIONS = [{
         if(motion.matches)redraw?.();
       }
     };
+    const onKeyDown=event=>{
+      if(event.key==='Escape'){
+        let changed=false;
+        if(inspected){hideInspector();changed=true;}
+        if(inspectedCon){cancelConHide();hideConInspector();changed=true;}
+        if(changed&&motion.matches)redraw?.();
+      }
+    };
+    const onConEnter=()=>cancelConHide();
+    const onConLeave=()=>{if(inspectedCon&&!document.querySelector('.auth-sky-title:hover'))scheduleConHide(250);};
+    conInspector.addEventListener('mouseenter',onConEnter);
+    conInspector.addEventListener('mouseleave',onConLeave);
     window.addEventListener('click',onClick);window.addEventListener('mousemove',onMove);
+    window.addEventListener('keydown',onKeyDown);
     window.addEventListener('touchend',onTouchEnd,{passive:true});
     window.addEventListener('blur',pauseReturn);window.addEventListener('focus',resumeReturn);document.addEventListener('visibilitychange',onVisibility);
     resumeReturn();
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
