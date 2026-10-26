@@ -5192,7 +5192,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const frame = document.getElementById("clipFrame");
       const view = document.getElementById("clipFrameView");
       const name = document.getElementById("clipFrameTitle");
-      if (!url) return;
+      if (!url || !/^https?:\/\//i.test(url)) return;
       if (/playphrase\.me|youglish\.com/i.test(url)) {
         const width = 520;
         const height = 720;
@@ -5200,6 +5200,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
         const popup = window.open(url, "enquiz-clip", "width=" + width + ",height=" + height + ",left=" + left + ",top=" + top);
         if (popup) {
+          try { popup.opener = null; } catch (e) {}
           try { popup.moveTo(left, top); popup.focus(); } catch (e) {}
           return;
         }

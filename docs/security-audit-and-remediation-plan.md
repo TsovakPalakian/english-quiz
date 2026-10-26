@@ -44,6 +44,11 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 | **SEC-16** | Legacy Session Cookie Incomplete Clearing on Logout in Base Worker | **Medium** | `src/worker.js:1913, 2020` | 🟩 |
 | **SEC-17** | Recursive Prototype Pollution Key Sanitization in Lesson Blocks | **Low** | `src/learning-study.mjs:109` | 🟩 |
 | **SEC-18** | Sub-optimal Constant-Time Comparison Primitive in Email OTP Verification | **Low** | `src/email-otp.mjs:21` | 🟩 |
+| **SEC-19** | CSRF Origin Validation Fail-Open on Missing Headers in Base Worker | **Medium** | `src/worker.js:4806` (`sameSiteMutation`) | 🟩 |
+| **SEC-20** | Prototype Key Confusion in Shared Card Edits and Quizzes Sanitization | **Low** | `src/worker.js:2124, 2187` | 🟩 |
+| **SEC-21** | Prototype Property Lookup in Custom Theme ID Deduplication | **Low** | `src/worker.js:2070` (`themesForLogin`) | 🟩 |
+| **SEC-22** | Reverse Tabnabbing & Missing Scheme Guard in Card Clip Frame / Popup | **Low** | `client/03a-cards.js:205-225` (`openClipFrame`) | 🟩 |
+| **SEC-23** | Defense-in-Depth: Unconstrained Column Interpolation in `readJsonColumn` | **Low** | `src/worker.js:2645` | 🟩 |
 
 ---
 
@@ -252,6 +257,51 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 
 ---
 
+### [SEC-19] CSRF Origin Validation Fail-Open on Missing Headers in Base Worker
+- **Severity**: Medium (CVSS 5.4)
+- **Location**: [src/worker.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L4806) (`sameSiteMutation`)
+- **Description**: `sameSiteMutation` checks `request.headers.get("Origin")`. If omitted, it evaluates `site !== 'cross-site'`. When `Sec-Fetch-Site` is also absent, `null !== 'cross-site'` evaluates to `true`, failing open and permitting cross-site mutating requests that omit these headers.
+- **Remediation**:
+  Fail closed: verify `Origin` first; if absent, verify `Sec-Fetch-Site === 'same-origin' || 'same-site'`; if absent, verify `Referer` origin; otherwise reject with 403.
+
+---
+
+### [SEC-20] Prototype Key Confusion in Shared Card Edits and Quizzes Sanitization
+- **Severity**: Low (CVSS 3.3)
+- **Location**: [src/worker.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L2124-L2187)
+- **Description**: `plainCardQuizzes` and `plainCardEdits` accept arbitrary string keys when cleaning maps before merging with `Object.assign({}, prev, incoming)`. Keys named `__proto__`, `constructor`, or `prototype` could lead to unexpected behavior upon deserialization or prototype property collision.
+- **Remediation**:
+  Explicitly filter out prototype pollution keys (`['__proto__', 'constructor', 'prototype'].includes(key)`).
+
+---
+
+### [SEC-21] Prototype Property Lookup in Custom Theme ID Deduplication
+- **Severity**: Low (CVSS 2.8)
+- **Location**: [src/worker.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L2070) (`themesForLogin`)
+- **Description**: `const seen = {};` is used as a membership set via `seen[row.id]`. If a theme ID matches built-in Object prototype names (`toString`, `valueOf`), it evaluates to truthy, erroneously discarding valid custom themes.
+- **Remediation**:
+  Use `new Set()` instead of a bare object.
+
+---
+
+### [SEC-22] Reverse Tabnabbing & Missing Scheme Guard in Card Clip Frame / Popup
+- **Severity**: Low (CVSS 3.5)
+- **Location**: [client/03a-cards.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L205-L225) (`openClipFrame`)
+- **Description**: `openClipFrame(url, title)` opens popups for external services (`youglish.com`, `playphrase.me`) without setting `popup.opener = null`, allowing the opened window to manipulate `window.opener.location`. Furthermore, assigning `view.src = url` on the fallback iframe does not validate the protocol scheme.
+- **Remediation**:
+  Validate `^https?:\/\/` on `url` and set `popup.opener = null`.
+
+---
+
+### [SEC-23] Defense-in-Depth: Unconstrained Column Interpolation in `readJsonColumn`
+- **Severity**: Low (CVSS 2.5)
+- **Location**: [src/worker.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L2645)
+- **Description**: `readJsonColumn` interpolates `column` directly into SQL: `SELECT " + column + " AS value FROM user_state ...`. While not currently exposed to user input, an unvalidated column parameter creates a latent injection risk.
+- **Remediation**:
+  Add an explicit allowlist constraint for valid column names.
+
+---
+
 ## 4. Remediation Checklist & Execution Stages
 
 ### Stage 1: Critical & High Priority Fixes (DOM XSS & Stored Injection)
@@ -287,6 +337,14 @@ However, the audit identified **12 actionable vulnerabilities and hardening gaps
 - [ ] 🟩 **Item 5.5**: Add recursive prototype pollution key check in `src/learning-study.mjs` (SEC-17).
 - [ ] 🟩 **Item 5.6**: Upgrade Email OTP constant-time comparison to `crypto.subtle.timingSafeEqual` in `src/email-otp.mjs` (SEC-18).
 - [ ] 🟩 **Item 5.7**: Rebuild preview/production assets and verify 100% test pass.
+
+### Stage 6: Exhaustive Security Hardening (CSRF Fail-Closed, Prototype Keys, Clip Frame Safety)
+- [ ] 🟩 **Item 6.1**: Fail closed on mutating requests without Origin/Sec-Fetch-Site/Referer in `src/worker.js:4806` (SEC-19).
+- [ ] 🟩 **Item 6.2**: Filter prototype pollution keys in `plainCardQuizzes` and `plainCardEdits` in `src/worker.js:2124, 2187` (SEC-20).
+- [ ] 🟩 **Item 6.3**: Isolate custom theme deduplication using `Set` in `src/worker.js:2070` (SEC-21).
+- [ ] 🟩 **Item 6.4**: Enforce HTTPS and nullify opener in `openClipFrame` in `client/03a-cards.js:205` (SEC-22).
+- [ ] 🟩 **Item 6.5**: Add column allowlist in `readJsonColumn` in `src/worker.js:2645` (SEC-23).
+- [ ] 🟩 **Item 6.6**: Rebuild preview/production assets and verify 100% test pass across 165 test suites.
 
 ---
 

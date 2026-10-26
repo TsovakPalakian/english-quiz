@@ -2067,13 +2067,13 @@ function reservedPairLogin(login, currentLogin) {
 
 function themesForLogin(login, ownState) {
   const rows = cleanCustomThemes(ownState && ownState.stats && ownState.stats.customThemes);
-  const seen = {};
+  const seen = new Set();
   const out = [];
   rows.forEach((row) => {
-    if (!row || seen[row.id]) return;
+    if (!row || seen.has(row.id)) return;
     const owner = row.owner || "";
     if (owner && owner !== login) return;
-    seen[row.id] = 1;
+    seen.add(row.id);
     out.push(row);
   });
   return out.slice(0, 8);
@@ -2122,6 +2122,7 @@ function plainCardQuizzes(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
   Object.keys(value).forEach((key) => {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") return;
     const word = String(key || "").toLowerCase().trim();
     if (!word || !Array.isArray(value[key])) return;
     out[word] = value[key].map((quiz, index) => {
@@ -2185,6 +2186,7 @@ function plainCardEdits(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
   Object.keys(value).slice(0, 2000).forEach((key) => {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") return;
     const id = String(key || "").trim().slice(0, 120);
     const edit = value[key];
     if (!id || !edit || typeof edit !== "object" || Array.isArray(edit)) return;
@@ -2642,6 +2644,8 @@ function requestCardKey(place, word) {
 }
 
 async function readJsonColumn(db, userId, column, fallback) {
+  const allowed = ["added", "songs", "learned", "variants", "stats"];
+  if (!allowed.includes(column)) throw new Error("Invalid column: " + column);
   const row = await db.prepare("SELECT " + column + " AS value FROM user_state WHERE user_id = ?").bind(userId).first();
   try {
     const value = JSON.parse(row && row.value != null ? row.value : "");
@@ -4813,7 +4817,16 @@ function sameSiteMutation(request, url) {
     }
   }
   const site = request.headers.get("Sec-Fetch-Site");
-  return site !== "cross-site";
+  if (site) return site === "same-origin" || site === "same-site";
+  const referer = request.headers.get("Referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin === url.origin;
+    } catch (e) {
+      return false;
+    }
+  }
+  return false;
 }
 
 export default {
