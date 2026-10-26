@@ -114,6 +114,55 @@
     let bugTab = "open";
     let bugCache = null;
     const bugExpansion=new Map();
+    let feedbackFilterCategory = "all";
+    let feedbackSearchQuery = "";
+
+    function renderFeedbackCards(items, container) {
+      if (!container) return;
+      const q = feedbackSearchQuery.toLowerCase().trim();
+      const filtered = items.filter(fb => {
+        if (feedbackFilterCategory !== "all" && fb.category !== feedbackFilterCategory) return false;
+        if (q) {
+          const matchMsg = String(fb.message || "").toLowerCase().includes(q);
+          const matchUser = String(fb.userLogin || fb.userEmail || "").toLowerCase().includes(q);
+          const matchUrl = String(fb.url || "").toLowerCase().includes(q);
+          if (!matchMsg && !matchUser && !matchUrl) return false;
+        }
+        return true;
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = '<p class="sub" style="padding:16px 0;">No feedback reports match current filter.</p>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(fb => `
+        <article class="bug-item card">
+          <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
+                <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
+                <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
+              </div>
+              <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
+              ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
+              ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                  <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                  <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                    ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                  </ul>
+                </details>
+              ` : ''}
+              ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
+            </div>
+            <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
@@ -143,31 +192,44 @@
             box.innerHTML = '<p class="sub">No open feedback reports.</p>';
             return;
           }
-          box.innerHTML = items.map(fb => `
-            <article class="bug-item card">
-              <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
-                <div style="flex:1;">
-                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                    <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
-                    <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
-                    <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
-                  </div>
-                  <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
-                  ${fb.url ? `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: <a href="${esc(fb.url)}" target="_blank" style="color:var(--accent);">${esc(fb.url)}</a></small>` : ''}
-                  ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
-                    <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
-                      <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
-                      <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
-                        ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
-                      </ul>
-                    </details>
-                  ` : ''}
-                  ${fb.screenshot ? `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" onclick="window.open('${fb.screenshot}')"></div>` : ''}
-                </div>
-                <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+
+          const bugCount = items.filter(i => i.category === 'bug').length;
+          const ideaCount = items.filter(i => i.category === 'idea').length;
+          const qCount = items.filter(i => i.category === 'question').length;
+
+          box.innerHTML = `
+            <div class="feedback-filter-toolbar" style="margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+              <div class="feedback-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'all' ? 'on' : ''}" data-fb-filter="all">All (${items.length})</button>
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'bug' ? 'on' : ''}" data-fb-filter="bug">🐞 Bugs (${bugCount})</button>
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'idea' ? 'on' : ''}" data-fb-filter="idea">💡 Ideas (${ideaCount})</button>
+                ${qCount ? `<button type="button" class="btn chip ${feedbackFilterCategory === 'question' ? 'on' : ''}" data-fb-filter="question">❓ Questions (${qCount})</button>` : ''}
               </div>
-            </article>
-          `).join('');
+              <div style="flex:1;min-width:180px;max-width:280px;">
+                <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:100%;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+              </div>
+            </div>
+            <div id="feedbackCardsList"></div>
+          `;
+
+          const listContainer = box.querySelector('#feedbackCardsList');
+          renderFeedbackCards(items, listContainer);
+
+          box.querySelectorAll('[data-fb-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              feedbackFilterCategory = btn.dataset.fbFilter || 'all';
+              box.querySelectorAll('[data-fb-filter]').forEach(b => b.classList.toggle('on', b === btn));
+              renderFeedbackCards(items, listContainer);
+            });
+          });
+
+          const searchInput = box.querySelector('#feedbackSearchInput');
+          if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+              feedbackSearchQuery = e.target.value;
+              renderFeedbackCards(items, listContainer);
+            });
+          }
         }).catch(() => {
           if (onBugs()) box.innerHTML = '<p class="sub">Failed to load feedback reports.</p>';
         });

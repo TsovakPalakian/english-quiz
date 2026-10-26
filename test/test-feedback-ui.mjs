@@ -77,7 +77,12 @@ try {
   const errorText = await statusEl.textContent();
   assert.ok(errorText.includes('Пожалуйста, опишите проблему'), 'Validation error shown on empty message');
 
-  // 6. Fill message and submit successfully
+  // 6. Fill message and submit successfully (spy on haptics)
+  await page.evaluate(() => {
+    window.__vibrateCalled = false;
+    navigator.vibrate = () => { window.__vibrateCalled = true; return true; };
+  });
+
   const textarea = modal.locator('#feedbackMessage');
   await textarea.fill('Interactive test: layout is slightly shifted on tablet viewport');
 
@@ -90,9 +95,72 @@ try {
     return el && el.textContent.includes('Спасибо');
   }, {timeout: 5000});
 
+  const hapticTriggered = await page.evaluate(() => window.__vibrateCalled);
+  assert.equal(hapticTriggered, true, 'Haptic feedback must be triggered on success');
+
   // Wait for auto-close
   await modal.waitFor({state: 'hidden', timeout: 3000});
   assert.equal(await modal.isVisible(), false, 'Modal closes automatically after success');
+
+  // 7. Test developer feedback filter toolbar and instant search
+  await page.evaluate(() => {
+    // Activate bugs section
+    document.querySelectorAll('section').forEach(s => s.classList.remove('on'));
+    const bugsSec = document.getElementById('bugs');
+    if (bugsSec) bugsSec.classList.add('on');
+
+    // Simulate developer environment with mock items
+    window.isDeveloper = () => true;
+    window.accountFetch = async (url) => {
+      if (url === '/api/feedback') {
+        return {
+          feedback: [
+            {id: 'fb_1', category: 'bug', message: 'Button overlap error', userLogin: 'tester1', url: '/days', createdAt: 1700000000},
+            {id: 'fb_2', category: 'idea', message: 'Add dark sky theme', userLogin: 'alice', url: '/home', createdAt: 1700001000},
+            {id: 'fb_3', category: 'question', message: 'How to practice speaking?', userEmail: 'bob@test.org', url: '/practice', createdAt: 1700002000}
+          ]
+        };
+      }
+      return {};
+    };
+
+    const tabBtn = document.querySelector('button[data-bug-tab="feedback"]');
+    if (tabBtn) tabBtn.click();
+  });
+
+  // Wait for filter toolbar to render
+  const filterToolbar = page.locator('.feedback-filter-toolbar');
+  await filterToolbar.waitFor({state: 'visible', timeout: 3000});
+
+  // Verify filter chips exist
+  const allChip = page.locator('[data-fb-filter="all"]');
+  const bugChip = page.locator('[data-fb-filter="bug"]');
+  const ideaChip = page.locator('[data-fb-filter="idea"]');
+  assert.ok(await allChip.isVisible(), 'All filter chip visible');
+  assert.ok(await bugChip.isVisible(), 'Bug filter chip visible');
+  assert.ok(await ideaChip.isVisible(), 'Idea filter chip visible');
+
+  // Filter by bug: only 1 card shown
+  await bugChip.click();
+  let cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 1, 'Only 1 bug card should be displayed after filtering by bug');
+
+  // Switch back to all: 3 cards shown
+  await allChip.click();
+  cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 3, 'All 3 cards should be displayed');
+
+  // Test instant search
+  const searchInput = page.locator('#feedbackSearchInput');
+  await searchInput.fill('dark sky');
+  cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 1, 'Only 1 card should match "dark sky"');
+
+  await searchInput.fill('nonexistent query');
+  cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 0, 'Zero cards for nonexistent query');
+  const noMatchText = await page.locator('#feedbackCardsList').textContent();
+  assert.ok(noMatchText.includes('No feedback reports match'), 'Empty state shown for unmatched search');
 
   assert.equal(consoleErrors.length, 0, 'Zero console errors during feedback interaction: ' + consoleErrors.join(', '));
   console.log('Feedback modal UI and clipboard paste interaction passed successfully.');
