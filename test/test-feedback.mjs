@@ -4,6 +4,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {
   saveFeedback,
   listFeedback,
+  countFeedback,
   resolveFeedback,
   notifyFeedbackTelegram,
   checkFeedbackRateLimit,
@@ -106,6 +107,11 @@ test('resolveFeedback updates resolved status and timestamp', async () => {
   const activeAgain = await listFeedback(db, {resolved: 0});
   assert.equal(activeAgain.length, 1);
   assert.equal(activeAgain[0].resolved, false);
+
+  const counts = await countFeedback(db);
+  assert.equal(counts.open, 1);
+  assert.equal(counts.resolved, 0);
+  assert.equal(counts.total, 1);
 });
 
 test('notifyFeedbackTelegram sends photo when screenshot is attached', async () => {
@@ -228,6 +234,9 @@ test('integrated worker /api/feedback endpoints', async () => {
   assert.equal(devJson.feedback.length, 1);
   assert.equal(devJson.feedback[0].id, postJson.id);
   assert.equal(devJson.feedback[0].userLogin, 'student_tester');
+  assert.equal(devJson.total, 1);
+  assert.equal(devJson.counts.open, 1);
+  assert.equal(devJson.counts.resolved, 0);
 
   // 5. POST /api/feedback/resolve marks ticket resolved
   const resolveRes = await worker.fetch(new Request('https://test.invalid/api/feedback/resolve', {
@@ -240,12 +249,17 @@ test('integrated worker /api/feedback endpoints', async () => {
   const emptyAfter = await worker.fetch(new Request('https://test.invalid/api/feedback'), env);
   const emptyJson = await emptyAfter.json();
   assert.equal(emptyJson.feedback.length, 0);
+  assert.equal(emptyJson.total, 0);
+  assert.equal(emptyJson.counts.open, 0);
+  assert.equal(emptyJson.counts.resolved, 1);
 
   // 5b. GET /api/feedback?resolved=1 retrieves resolved ticket
   const resolvedGet = await worker.fetch(new Request('https://test.invalid/api/feedback?resolved=1'), env);
   const resolvedJson = await resolvedGet.json();
   assert.equal(resolvedJson.feedback.length, 1);
   assert.equal(resolvedJson.feedback[0].resolved, true);
+  assert.equal(resolvedJson.total, 1);
+  assert.equal(resolvedJson.counts.resolved, 1);
 
   // 5c. POST /api/feedback/resolve with resolved: false reopens ticket
   const reopenRes = await worker.fetch(new Request('https://test.invalid/api/feedback/resolve', {

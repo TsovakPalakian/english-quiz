@@ -117,6 +117,27 @@
     let feedbackStatusTab = "active"; // "active" or "resolved"
     let feedbackFilterCategory = "all";
     let feedbackSearchQuery = "";
+    let feedbackLoadedItems = [];
+    let feedbackTotal = 0;
+    const FEEDBACK_PAGE_LIMIT = 20;
+
+    function updateFeedbackTabBadge(openCount) {
+      const tabBtn = document.querySelector('button[data-bug-tab="feedback"]');
+      if (!tabBtn) return;
+      const count = Number(openCount) || 0;
+      let badge = tabBtn.querySelector('.feedback-tab-badge');
+      if (count > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'feedback-tab-badge';
+          badge.style.cssText = 'margin-left:6px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:600;background:var(--acc, #0284c7);color:var(--on-acc, #fff);display:inline-block;line-height:1.2;';
+          tabBtn.appendChild(badge);
+        }
+        badge.textContent = count > 99 ? '99+' : String(count);
+      } else if (badge) {
+        badge.remove();
+      }
+    }
 
     function filterFeedbackItems(items) {
       const q = feedbackSearchQuery.toLowerCase().trim();
@@ -166,7 +187,7 @@
         return;
       }
 
-      container.innerHTML = filtered.map(fb => `
+      const cardsHtml = filtered.map(fb => `
         <article class="bug-item card">
           <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
             <div style="flex:1;">
@@ -198,6 +219,33 @@
           </div>
         </article>
       `).join('');
+
+      const canLoadMore = items.length < feedbackTotal && feedbackFilterCategory === 'all' && !feedbackSearchQuery;
+      const loadMoreHtml = canLoadMore ? `
+        <div style="text-align:center;padding:16px 0;" id="feedbackLoadMoreBox">
+          <button type="button" class="btn small" id="feedbackLoadMoreBtn">Load more (${items.length} of ${feedbackTotal})</button>
+        </div>
+      ` : '';
+
+      container.innerHTML = cardsHtml + loadMoreHtml;
+
+      const loadMoreBtn = container.querySelector('#feedbackLoadMoreBtn');
+      if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', () => {
+          loadMoreBtn.disabled = true;
+          loadMoreBtn.textContent = 'Loading...';
+          const isResolvedQuery = feedbackStatusTab === "resolved" ? "1" : "0";
+          accountFetch(`/api/feedback?resolved=${isResolvedQuery}&limit=${FEEDBACK_PAGE_LIMIT}&offset=${items.length}`).then(res => {
+            const more = (res && res.feedback) || [];
+            items.push(...more);
+            feedbackTotal = Number(res?.total) || items.length;
+            renderFeedbackCards(items, container);
+          }).catch(() => {
+            loadMoreBtn.disabled = false;
+            loadMoreBtn.textContent = 'Failed to load. Retry?';
+          });
+        });
+      }
     }
 
     function paintBugs(preset) {
@@ -223,20 +271,22 @@
       if (bugTab === "feedback") {
         box.innerHTML = '<p class="sub">Loading user feedback...</p>';
         const isResolvedQuery = feedbackStatusTab === "resolved" ? "1" : "0";
-        accountFetch("/api/feedback?resolved=" + isResolvedQuery).then(data => {
+        accountFetch(`/api/feedback?resolved=${isResolvedQuery}&limit=${FEEDBACK_PAGE_LIMIT}&offset=0`).then(data => {
           if (!onBugs() || bugTab !== "feedback") return;
-          const items = (data && data.feedback) || [];
+          updateFeedbackTabBadge(data.counts?.open);
+          feedbackLoadedItems = (data && data.feedback) || [];
+          feedbackTotal = Number(data && data.total) || feedbackLoadedItems.length;
 
-          const bugCount = items.filter(i => i.category === 'bug').length;
-          const ideaCount = items.filter(i => i.category === 'idea').length;
-          const qCount = items.filter(i => i.category === 'question').length;
+          const bugCount = feedbackLoadedItems.filter(i => i.category === 'bug').length;
+          const ideaCount = feedbackLoadedItems.filter(i => i.category === 'idea').length;
+          const qCount = feedbackLoadedItems.filter(i => i.category === 'question').length;
 
           box.innerHTML = `
             <div class="feedback-filter-toolbar card" style="padding:12px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                 <div class="steps" style="margin:0;">
-                  <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active</button>
-                  <button type="button" class="step ${feedbackStatusTab === 'resolved' ? 'on' : ''}" data-fb-status="resolved">Resolved archive</button>
+                  <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active (${data.counts?.open ?? bugCount})</button>
+                  <button type="button" class="step ${feedbackStatusTab === 'resolved' ? 'on' : ''}" data-fb-status="resolved">Resolved archive (${data.counts?.resolved ?? 0})</button>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
                   <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV">📥 CSV</button>
@@ -244,7 +294,7 @@
                 </div>
               </div>
               <div class="feedback-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button type="button" class="btn chip ${feedbackFilterCategory === 'all' ? 'on' : ''}" data-fb-filter="all">All (${items.length})</button>
+                <button type="button" class="btn chip ${feedbackFilterCategory === 'all' ? 'on' : ''}" data-fb-filter="all">All (${feedbackLoadedItems.length})</button>
                 <button type="button" class="btn chip ${feedbackFilterCategory === 'bug' ? 'on' : ''}" data-fb-filter="bug">🐞 Bugs (${bugCount})</button>
                 <button type="button" class="btn chip ${feedbackFilterCategory === 'idea' ? 'on' : ''}" data-fb-filter="idea">💡 Ideas (${ideaCount})</button>
                 ${qCount ? `<button type="button" class="btn chip ${feedbackFilterCategory === 'question' ? 'on' : ''}" data-fb-filter="question">❓ Questions (${qCount})</button>` : ''}
@@ -254,7 +304,7 @@
           `;
 
           const listContainer = box.querySelector('#feedbackCardsList');
-          renderFeedbackCards(items, listContainer);
+          renderFeedbackCards(feedbackLoadedItems, listContainer);
 
           // Handle Active / Resolved toggle
           box.querySelectorAll('[data-fb-status]').forEach(btn => {
@@ -270,7 +320,7 @@
             btn.addEventListener('click', () => {
               feedbackFilterCategory = btn.dataset.fbFilter || 'all';
               box.querySelectorAll('[data-fb-filter]').forEach(b => b.classList.toggle('on', b === btn));
-              renderFeedbackCards(items, listContainer);
+              renderFeedbackCards(feedbackLoadedItems, listContainer);
             });
           });
 
@@ -279,7 +329,7 @@
           if (searchInput) {
             searchInput.addEventListener('input', (e) => {
               feedbackSearchQuery = e.target.value;
-              renderFeedbackCards(items, listContainer);
+              renderFeedbackCards(feedbackLoadedItems, listContainer);
             });
           }
 
@@ -287,7 +337,7 @@
           const exportBtn = box.querySelector('#feedbackExportCsv');
           if (exportBtn) {
             exportBtn.addEventListener('click', () => {
-              const currentFiltered = filterFeedbackItems(items);
+              const currentFiltered = filterFeedbackItems(feedbackLoadedItems);
               exportFeedbackCsv(currentFiltered);
             });
           }
@@ -296,6 +346,9 @@
         });
         return;
       }
+      accountFetch("/api/feedback?limit=1").then(data => {
+        updateFeedbackTabBadge(data.counts?.open);
+      }).catch(()=>{});
       if (bugCache) {
         draw(bugCache);
         accountFetch("/api/bugs?heads=1").then((data) => {

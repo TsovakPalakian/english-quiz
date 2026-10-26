@@ -35,7 +35,7 @@ import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
-import {saveFeedback,listFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
+import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -743,7 +743,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const resolved=url.searchParams.get('resolved')==='1'?1:0;
         const limit=Math.min(100,Math.max(1,Number(url.searchParams.get('limit'))||50));
         const offset=Math.max(0,Number(url.searchParams.get('offset'))||0);
-        return json({feedback:await listFeedback(db,{resolved,limit,offset})});
+        const counts=await countFeedback(db);
+        const feedback=await listFeedback(db,{resolved,limit,offset});
+        return json({
+          feedback,
+          total:resolved?counts.resolved:counts.open,
+          counts,
+          limit,
+          offset
+        });
       }
       if(path==='/api/feedback/resolve'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

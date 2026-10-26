@@ -93,3 +93,8 @@ CREATE INDEX IF NOT EXISTS idx_user_feedback_status ON user_feedback(resolved, c
   - 🟩 Переключатель «Active» / «Resolved archive» в панели разработчика с раздельным запросом к API (`/api/feedback?resolved=0` и `resolved=1`).
   - 🟩 Отображение даты закрытия тикета (`✓ Resolved <time>`) и кнопка «Reopen» для возврата тикета в активные (`POST /api/feedback/resolve` с `resolved: false`).
   - 🟩 Клиентский экспорт отфильтрованных тикетов в формат CSV с поддержкой UTF-8 BOM, экранированием кавычек и метаданными.
+
+- 🟩 **Этап 9: Индикатор новых отзывов (бейдж) и пагинация («Load more»)**
+  - 🟩 Бейдж количества открытых обращений на кнопке вкладки `User feedback` (`.feedback-tab-badge`).
+  - 🟩 Функция `countFeedback(db)` в `src/feedback.mjs` и метаданные `counts` (`open`, `resolved`, `total`) в ответе `GET /api/feedback`.
+  - 🟩 Кнопка «Load more» в клиентском списке отзывов при превышении лимита первой страницы (порции по 20 записей без перезагрузки интерфейса).

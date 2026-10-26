@@ -117,7 +117,18 @@ try {
           return {
             feedback: [
               {id: 'fb_res_1', category: 'bug', message: 'Resolved mobile glitch', userLogin: 'dan', url: '/days', createdAt: 1699990000, resolved: true, resolvedAt: 1700004000}
-            ]
+            ],
+            total: 1,
+            counts: {open: 3, resolved: 1, total: 4}
+          };
+        }
+        if (url.includes('offset=3')) {
+          return {
+            feedback: [
+              {id: 'fb_4', category: 'idea', message: 'Extra pagination item', userLogin: 'carol', url: '/extra', createdAt: 1700003000, resolved: false}
+            ],
+            total: 4,
+            counts: {open: 4, resolved: 1, total: 5}
           };
         }
         return {
@@ -125,7 +136,9 @@ try {
             {id: 'fb_1', category: 'bug', message: 'Button overlap error', userLogin: 'tester1', url: '/days', createdAt: 1700000000, resolved: false},
             {id: 'fb_2', category: 'idea', message: 'Add dark sky theme', userLogin: 'alice', url: '/home', createdAt: 1700001000, resolved: false},
             {id: 'fb_3', category: 'question', message: 'How to practice speaking?', userEmail: 'bob@test.org', url: '/practice', createdAt: 1700002000, resolved: false}
-          ]
+          ],
+          total: 4,
+          counts: {open: 3, resolved: 1, total: 4}
         };
       }
       return {};
@@ -156,6 +169,20 @@ try {
   await allChip.click();
   cards = await page.locator('#feedbackCardsList article').count();
   assert.equal(cards, 3, 'All 3 cards should be displayed');
+
+  // Verify tab badge
+  const tabBadge = page.locator('.feedback-tab-badge');
+  assert.ok(await tabBadge.isVisible(), 'Feedback tab badge must be visible');
+  assert.equal(await tabBadge.textContent(), '3', 'Tab badge displays open tickets count');
+
+  // Verify Load more button
+  const loadMoreBtn = page.locator('#feedbackLoadMoreBtn');
+  assert.ok(await loadMoreBtn.isVisible(), 'Load more button should appear when total > loaded');
+  await loadMoreBtn.click();
+  await page.waitForTimeout(100);
+  cards = await page.locator('#feedbackCardsList article').count();
+  assert.equal(cards, 4, '4 cards displayed after clicking Load more');
+  assert.equal(await loadMoreBtn.isVisible(), false, 'Load more button disappears once all items are loaded');
 
   // Test instant search
   const searchInput = page.locator('#feedbackSearchInput');

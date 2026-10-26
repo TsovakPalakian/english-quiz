@@ -140,6 +140,17 @@ export async function listFeedback(db, {resolved = 0, limit = 50, offset = 0} = 
   }));
 }
 
+export async function countFeedback(db) {
+  await ensureFeedbackStore(db);
+  const rows = await db.read('SELECT resolved, COUNT(*) AS count FROM user_feedback GROUP BY resolved');
+  let open = 0, resolved = 0;
+  for (const r of rows) {
+    if (r.resolved === 1) resolved = Number(r.count || 0);
+    else open = Number(r.count || 0);
+  }
+  return { open, resolved, total: open + resolved };
+}
+
 export async function resolveFeedback(db, id, resolved = true) {
   await ensureFeedbackStore(db);
   const now = Math.floor(Date.now() / 1000);

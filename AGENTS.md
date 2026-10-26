@@ -1,7 +1,7 @@
 # Working Preferences
 
 - Before editing code, briefly state your understanding in Russian.
-- Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
+- Always state your understanding as a numbered list, followed by an explicit question asking whether to begin, providing interactive choice buttons (yes/no) via the `ask_question` tool so the user can confirm with a single click without typing into chat.
 - Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; "do"/"делай" approves only the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
 - After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for the user's `do` before starting that next implementation; proposing it is not authorization to proceed. Always include an English past-tense commit message for completed changes.
