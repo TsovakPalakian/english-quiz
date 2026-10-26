@@ -5429,10 +5429,10 @@
       ],
       [
         "hip_69732",
-        "hip_69481"
+        "hip_69483"
       ],
       [
-        "hip_69481",
+        "hip_69483",
         "hip_70497"
       ],
       [
@@ -6494,7 +6494,7 @@
       ],
       [
         "gamma_cnc",
-        "hip_43100"
+        "iota_cnc"
       ],
       [
         "delta_cnc",
@@ -6785,7 +6785,7 @@
     ],
     "connections": [
       [
-        "hip_63121",
+        "cor_caroli",
         "beta_cvn"
       ]
     ],
@@ -10905,6 +10905,10 @@
       ],
       [
         "hadar",
+        "alpha_cen"
+      ],
+      [
+        "alpha_cen",
         "hip_71681"
       ],
       [
@@ -12861,10 +12865,10 @@
       ],
       [
         "gamma_cha",
-        "hip_52595"
+        "hip_52633"
       ],
       [
-        "hip_52595",
+        "hip_52633",
         "beta_cha"
       ],
       [
@@ -16967,10 +16971,10 @@
       ],
       [
         "alpha_del",
-        "hip_102531"
+        "gamma_del"
       ],
       [
-        "hip_102531",
+        "gamma_del",
         "delta_del"
       ],
       [
@@ -21621,6 +21625,10 @@
       [
         "hip_109111",
         "gamma_gru"
+      ],
+      [
+        "delta_gru",
+        "hip_111043"
       ]
     ],
     "deepSkyObjects": [
@@ -25251,31 +25259,11 @@
     ],
     "connections": [
       [
-        "beta_lac",
+        "hip_109937",
         "alpha_lac"
       ],
       [
         "alpha_lac",
-        "five_lac"
-      ],
-      [
-        "five_lac",
-        "hip_110351"
-      ],
-      [
-        "hip_110351",
-        "hip_111104"
-      ],
-      [
-        "hip_111104",
-        "hip_111944"
-      ],
-      [
-        "hip_111944",
-        "five_lac"
-      ],
-      [
-        "five_lac",
         "hip_110609"
       ],
       [
@@ -25283,12 +25271,12 @@
         "beta_lac"
       ],
       [
-        "hip_111104",
-        "hip_109754"
+        "beta_lac",
+        "hip_110351"
       ],
       [
-        "hip_109754",
-        "hip_109937"
+        "hip_110351",
+        "five_lac"
       ]
     ],
     "deepSkyObjects": [
@@ -32172,7 +32160,9 @@
       "override": "constellation_go_astronomy_source.json",
       "url": "https://www.go-astronomy.com/constellations.php?Name=Ophiuchus",
       "imageSha256": "e0504cabd0d769de06603e39e4c9489a303edac142a4454e5d30fa2222dbebff"
-    }
+    },
+    "areaSqDeg": 948,
+    "hemisphere": "Equatorial"
   },
   {
     "name": "Orion",
