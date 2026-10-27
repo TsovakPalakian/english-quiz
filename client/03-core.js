@@ -204,12 +204,7 @@
           show(jump.dataset.jump);return;
         }
         if(e.target.closest('[data-shell-settings-open]')){
-          if(e.target.closest('[data-jump="settings"]') || !document.getElementById('shellSettings')){
-            show('settings');
-            return;
-          }
-          const panel=document.getElementById('shellSettings');
-          if(panel)panel.hidden=!panel.hidden;
+          show('settings');
           return;
         }
         if (jump.dataset.jump === "tenses") openHub();

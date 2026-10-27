@@ -2882,8 +2882,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
       });
-      const settings = document.getElementById("shellSettings");
-      if (settings) settings.hidden = true;
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
       hideSelpop();
@@ -3626,7 +3624,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         });
       }
     }
-    function openTense(id) { openTopic(id); }
     function openCompare(id, quiet) {
       const item = ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((row) => row.id === id)[0];
       if (!item) return;
@@ -4852,12 +4849,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           show(jump.dataset.jump);return;
         }
         if(e.target.closest('[data-shell-settings-open]')){
-          if(e.target.closest('[data-jump="settings"]') || !document.getElementById('shellSettings')){
-            show('settings');
-            return;
-          }
-          const panel=document.getElementById('shellSettings');
-          if(panel)panel.hidden=!panel.hidden;
+          show('settings');
           return;
         }
         if (jump.dataset.jump === "tenses") openHub();
@@ -5043,15 +5035,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function loadVariantMap() {
       try { return JSON.parse(localStorage.getItem(VARIANT_KEY) || "{}"); }
       catch (e) { return {}; }
-    }
-    function variantsOf(word) {
-      const list = loadVariantMap()[variantKey(word)];
-      return Array.isArray(list) ? list : [];
-    }
-    function variantLines(word) {
-      return variantsOf(word).map((text) =>
-        '<p><b>' + esc(text) + '</b></p><p class="hint">You added this variant to the card.</p>'
-      ).join("");
     }
     function wordPic(word, large) {
       const key = String(word || "").trim().toLowerCase();
@@ -6991,9 +6974,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function rowInKeys(row, keys) {
       return keys.has(String(row.en || "").toLowerCase()) || keys.has(String(row.key || "").toLowerCase());
-    }
-    function addedInKeys(item, keys) {
-      return keys.has(String(item.word || "").toLowerCase());
     }
     function songSlices(pool, inSong) {
       const slices = songCatalog().map((song) => ({ song: song, rows: pool.filter((row) => inSong(row, song.keys)) })).filter((item) => item.rows.length);
@@ -11258,15 +11238,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         inp.value = String(v);
       });
     }
-    function studyMix() {
-      const here = (document.querySelector("section.on") || {}).id;
-      if (here === "daysetup") {
-        const btn = document.querySelector("#dayMix .chip.on");
-        return !!(btn && btn.dataset.dayMix === "mix");
-      }
-      const btn = document.querySelector("[data-mix].on");
-      return !!(btn && btn.dataset.mix === "mix");
-    }
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= sessionMs;
     }
@@ -11847,15 +11818,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function cardQuizId(card) {
       return card ? (card.qid || card.en || "") : "";
-    }
-    function nextWordAt() {
-      const current = dayQueue[dayAt];
-      const word = current && current.card ? cardQuizId(current.card) : "";
-      for (let i = dayAt + 1; i < dayQueue.length; i++) {
-        const card = dayQueue[i].card;
-        if (!card || cardQuizId(card) !== word) return i;
-      }
-      return -1;
     }
     function markDay(ok, right) {
       const fb = document.getElementById("dayFb");
@@ -12812,29 +12774,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       try { value = JSON.parse(localStorage.getItem("enquiz-demonstratives") || "null"); } catch (e) { value = null; }
       if (!viewAccount && !viewSwitching) syncChange({ op: "put-setting", key: "demonstratives", value: value });
     };
-    function stashAnon() {
-      if (localStorage.getItem("enquiz-auth-on") === "1") return;
-      const snap = {};
-      [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY].forEach((key) => {
-        snap[key] = localStorage.getItem(key);
-      });
-      localStorage.setItem("enquiz-anon-backup", JSON.stringify(snap));
-      localStorage.setItem("enquiz-auth-on", "1");
-    }
-    function restoreAnon() {
-      if (localStorage.getItem("enquiz-auth-on") !== "1") return;
-      let snap = null;
-      try { snap = JSON.parse(localStorage.getItem("enquiz-anon-backup") || "null"); }
-      catch (e) { snap = null; }
-      [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY].forEach((key) => {
-        const value = snap ? snap[key] : null;
-        if (value == null) localStorage.removeItem(key);
-        else localStorage.setItem(key, value);
-      });
-      addedCache = null;
-      localStorage.removeItem("enquiz-anon-backup");
-      localStorage.removeItem("enquiz-auth-on");
-    }
     function mergeAdded(localList, serverList) {
       const out = [];
       const seen = {};
@@ -18069,23 +18008,6 @@ const STUDIO_CONSTELLATIONS = [{
       if (changed) rememberAdded(next);
       return changed;
     }
-    function pullAccountState() {
-      if (!authUser || viewAccount || !accountReady || syncSending || syncQueue.length || accountPulling) return;
-      accountPulling = true;
-      accountFetch("/api/me/state?summary=1").then((state) => {
-        if (viewAccount) return;
-        const shared = applySharedStudy(state);
-        if (!shared && !takeNewCards(state)) return;
-        paintAdded();
-        if (shared) {
-          paintLyrics();
-          refreshCatalog();
-        }
-        paintAllWords();
-        paintHomeStats();
-        paintHomeAccount();
-      }).catch(() => {}).then(() => { accountPulling = false; });
-    }
     function stopAccountPull() {
       clearInterval(accountPullTimer);
       accountPullTimer = 0;
@@ -18894,125 +18816,6 @@ const STUDIO_CONSTELLATIONS = [{
       trebuchet: "'Trebuchet MS', sans-serif",
       courier: "'Courier New', Courier, monospace"
     };
-    function lmSeed() {
-      return {
-        id: "lm-demo",
-        title: "Present Perfect",
-        description: "Grammar explanation and examples",
-        className: "English B1",
-        unit: "Unit 4",
-        lesson: "Grammar",
-        date: "",
-        published: true,
-        mode: "preview",
-        demoVersion: 4,
-        blocks: [
-          { id: "lm-h1", type: "heading", level: "h2", text: "Present Perfect", collapsed: false },
-          { id: "lm-t1", type: "text", collapsed: false, html: "<p>The <b>Present Perfect</b> connects past actions with the present.</p><p>We use it when the exact time is not important.</p><ul><li>experience</li><li>a result you can see now</li><li>unfinished time</li></ul>" },
-          { id: "lm-l1", type: "link", collapsed: false, title: "British Council Grammar", url: "https://learnenglish.britishcouncil.org/grammar/b1-b2-grammar/present-perfect", description: "A short explanation with examples." },
-          { id: "lm-p1", type: "pdf", collapsed: false, name: "present-perfect.pdf", size: "2.4 MB", sample: true },
-          { id: "lm-c1", type: "cards", collapsed: false, title: "Vocabulary", items: [
-            { front: "already", back: "уже", example: "I've already finished." },
-            { front: "yet", back: "еще", example: "Have you finished yet?" },
-            { front: "just", back: "только что", example: "I've just arrived." }
-          ] },
-          { id: "lm-t2", type: "text", collapsed: false, html: "<p>Look for words like <i>already</i>, <i>yet</i> and <i>just</i>. They often sit with the Present Perfect.</p>" }
-        ].concat(lmExtraBlocks())
-      };
-    }
-    function lmExtraBlocks() {
-      return [
-        { id: "lm-img1", type: "image", collapsed: true, name: "coffee.jpg", size: "180 KB", caption: "A finished cup of coffee — the result is now.", sample: true },
-        { id: "lm-au1", type: "audio", collapsed: true, name: "already.mp3", size: "240 KB", sample: true },
-        { id: "lm-vid1", type: "video", collapsed: true, source: "link", url: "", title: "Present Perfect clip" },
-        { id: "lm-voc1", type: "vocab", collapsed: true, title: "Time words", items: [
-          { word: "already", translation: "уже", ipa: "/ɔːlˈredi/", example: "I've already finished." },
-          { word: "yet", translation: "еще", ipa: "/jet/", example: "Have you finished yet?" }
-        ] },
-        { id: "lm-ex1", type: "exercise", collapsed: true, items: [
-          { prompt: "Choose the correct sentence.", kind: "choice", options: ["I have seen that film.", "I have saw that film.", "I seen that film."], answer: 0, write: "" },
-          { prompt: "Complete: I've ___ finished.", kind: "write", options: ["", "", ""], answer: 0, write: "already" }
-        ] },
-        { id: "lm-qz1", type: "quiz", collapsed: true, title: "Quick check", items: [
-          { prompt: "Which word fits a question?", options: ["already", "yet", "ago"], answer: 1 },
-          { prompt: "I've just arrived. Just means…", options: ["a long time ago", "только что", "never"], answer: 1 }
-        ] },
-        { id: "lm-note1", type: "note", collapsed: true, tone: "tip", text: "Use yet in questions and negatives. Use already when the action is done." },
-        { id: "lm-dg1", type: "dialogue", collapsed: true, title: "At the office", lines: [
-          { speaker: "Anna", text: "Have you finished the report yet?" },
-          { speaker: "Ben", text: "Yes, I've already sent it." }
-        ] },
-        { id: "lm-rd1", type: "reading", collapsed: true, title: "A short note", text: "I have lived here since 2019. I have already met most of the neighbours, but I have not joined the book club yet.", marks: [] },
-        { id: "lm-pr1", type: "pronunciation", collapsed: true, word: "already", ipa: "/ɔːlˈredi/", name: "", size: "", sample: false },
-        { id: "lm-tb1", type: "table", collapsed: true, columns: ["Word", "Use"], rows: [["already", "I've already eaten."], ["yet", "I haven't eaten yet."]] },
-        { id: "lm-task1", type: "task", collapsed: true, title: "Write two sentences", text: "Write one sentence with already and one with yet.", response: "" },
-        { id: "lm-file1", type: "file", collapsed: true, name: "worksheet.docx", size: "48 KB", sample: true },
-        { id: "lm-div1", type: "divider", collapsed: true, label: "Practice" },
-        { id: "lm-ph1", type: "phrase", collapsed: true, items: [
-          { phrase: "look forward to", meaning: "ждать с нетерпением", example: "I'm looking forward to the trip." },
-          { phrase: "give up", meaning: "бросить", example: "I've given up sugar." }
-        ] }
-      ];
-    }
-    function lmSep7() {
-      return {
-        id: "lm-sep7",
-        title: "Get to know each other",
-        description: "Monday. Level A2. An example of the 7 Sep lesson, built only from content blocks.",
-        className: "English A2",
-        unit: "Speaking",
-        lesson: "Questions",
-        date: "2026-09-07",
-        published: true,
-        mode: "preview",
-        blocks: [
-          { id: "s7-h1", type: "heading", level: "h2", text: "What you will learn", collapsed: false },
-          { id: "s7-t1", type: "text", collapsed: false, html: "<p>How to open a question about another person, answer, then hand the question back.</p><p>How to agree and disagree with <b>Most people…</b></p><ul><li>a reading about habits we share</li><li>speaking problems and solutions</li></ul>" },
-          { id: "s7-h2", type: "heading", level: "h2", text: "Key phrases", collapsed: false },
-          { id: "s7-ph", type: "phrase", collapsed: false, items: [
-            { phrase: "So, tell me about …", meaning: "Расскажи мне о …", example: "So, tell me about your city." },
-            { phrase: "I'd like to know about …", meaning: "Я хотел бы узнать о …", example: "I'd like to know about your hobbies." },
-            { phrase: "Can you tell me a little about …?", meaning: "Можешь немного рассказать о …?", example: "Can you tell me a little about your job?" },
-            { phrase: "What about you?", meaning: "А ты?", example: "I live in Yerevan. What about you?" }
-          ] },
-          { id: "s7-note", type: "note", collapsed: false, tone: "tip", text: "You start, then the other person answers and asks you back. What about you? and And you? also live on the real 16 Sep page." },
-          { id: "s7-dg", type: "dialogue", collapsed: false, title: "Agree or disagree", lines: [
-            { speaker: "A", text: "Most people never read books." },
-            { speaker: "B", text: "I agree. That's true." },
-            { speaker: "A", text: "Most people love Monday mornings." },
-            { speaker: "B", text: "I disagree." }
-          ] },
-          { id: "s7-h3", type: "heading", level: "h2", text: "Grammar from this lesson", collapsed: false },
-          { id: "s7-t2", type: "text", collapsed: false, html: "<p>The questions are mostly <b>Present Simple</b>, with a few <b>be going to</b> lines.</p><ul><li>Do you…? / What do you…? for habits</li><li>I'm going to… for a plan after the lesson</li></ul>" },
-          { id: "s7-div", type: "divider", collapsed: false, label: "Practice" },
-          { id: "s7-task", type: "task", collapsed: false, title: "Questions", text: "Answer, then ask back and add a follow-up. Cover two things you did before this lesson, the city where you live, one country you want to visit, two hobbies, three things that make you happy, and one thing you are going to do after the lesson.", response: "" },
-          { id: "s7-r1", type: "reading", collapsed: false, title: "Student 1 · at home", text: "Do you look at people around you and say to yourself, 'Wow, we're all so different!'? Well, recently I had the opposite idea. I think that in many ways we're all the same. We all dance in the kitchen to our favourite music and we look in the fridge for no reason. We put a key behind a book and then forget where it is. We make a cup of tea or coffee, and then we forget to drink it until it gets completely cold.", marks: [] },
-          { id: "s7-r2", type: "reading", collapsed: false, title: "Student 2 · outside", text: "What about outside the home? Nobody likes waiting, so it's not surprising that we all hate traffic. In the cinema we all cry at the sad part of the film. We join gyms and pay a lot of money to be a member, and then we never go. We go to the supermarket with a good plan, but we always buy crisps, chocolate and other snacks that are not on the list.", marks: [] },
-          { id: "s7-tb", type: "table", collapsed: false, columns: ["Problem", "A way forward"], rows: [
-            ["Grammar", "Write short sentences every day"],
-            ["When I speak, I forget everything", "Mistakes are normal"],
-            ["I don't understand native speakers", "Slow down, ask them to repeat"],
-            ["I can't catch the words", "Slow the speed, use subtitles"],
-            ["I am shy to speak", "Talk to yourself"],
-            ["Pronunciation feels terrible", "People need the main idea"],
-            ["I forget words", "Use the words, connect them to your life"],
-            ["I'm not making progress", "Answer one question now, and again in 3 months"]
-          ] },
-          { id: "s7-ex", type: "exercise", collapsed: false, items: [
-            { prompt: "Which line opens a question about the other person?", kind: "choice", options: ["So, tell me about your weekend.", "I agree. That's true.", "Homework is progress."], answer: 0, write: "" },
-            { prompt: "Complete: I'm ____ to cook after the lesson.", kind: "write", options: ["", "", ""], answer: 0, write: "going" }
-          ] },
-          { id: "s7-qz", type: "quiz", collapsed: false, title: "Quick check", items: [
-            { prompt: "What about you? is used to…", options: ["hand the question back", "disagree", "start the homework"], answer: 0 },
-            { prompt: "Most people never read books. A possible answer is…", options: ["I agree. That's true.", "So, tell me about …", "Once a week"], answer: 0 }
-          ] },
-          { id: "s7-note2", type: "note", collapsed: false, tone: "note", text: "Formal points from the class: communication in Telegram, payment at the end of the month, a new agreement. If you are late, let me know. Homework is progress." },
-          { id: "s7-hw", type: "task", collapsed: false, title: "Homework", text: "Listen to the podcast (5 min). Make a list of activities they find relaxing. If you have time, listen again with the script. If you have only 10 minutes, catch the main idea and do the task.", response: "" },
-          { id: "s7-pdf", type: "pdf", collapsed: false, name: "get-to-know.pdf", size: "Lesson PDF", sample: true },
-          { id: "s7-pr", type: "pronunciation", collapsed: false, word: "about", ipa: "/əˈbaʊt/", name: "", size: "", sample: false }
-        ]
-      };
-    }
     function lmDateChip(iso) {
       if (!iso) return { day: "—", month: "date" };
       const date = new Date(iso + "T12:00:00");
@@ -19056,16 +18859,6 @@ const STUDIO_CONSTELLATIONS = [{
         phrases: Number(material && material.phraseCount) || 0,
         rules: Number(material && material.ruleCount) || 0
       };
-    }
-    function lmIsNewestLesson(material, n) {
-      if (!material) return false;
-      lmEnsure();
-      return lmLibrary.materials.filter((row) => lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
-        if (!a.date && !b.date) return 0;
-        if (!a.date) return -1;
-        if (!b.date) return 1;
-        return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
-      }).slice(0, n).some((row) => row.id === material.id);
     }
     function lmLongDate(iso) {
       if (!iso) return "";
@@ -21839,9 +21632,6 @@ async function lmImportPdfDraft(file) {
         }))
       };
     }
-    function examMergeLocal(remote, local) {
-      return remote || local;
-    }
     function examRemoteSave(exam) {
       if (!exam || typeof accountFetch !== "function") return Promise.resolve();
       const session = examSession, actor = authUser?.id;
@@ -21972,11 +21762,6 @@ async function lmImportPdfDraft(file) {
     }
     function assessmentAnswerQuestions(doc) {
       return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)&&(!doc.examOwned||!doc.blocks.some(p=>p.scoringVersion===2)||!examScoringChildren(doc.blocks,part).length)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
-    }
-    function assessmentEditor(block,index) {
-      const item = index == null ? block : block.items[index], attr = index == null ? 'data-field=' : 'data-item-list="items" data-item="' + index + '" data-item-field=';
-      const field = name => attr + '"' + name + '" data-block="' + block.id + '"';
-      return '<label>Maximum points<input type="number" min="0" max="10000" step="any" ' + field('maxPoints') + ' value="' + esc(String(item.maxPoints ?? 1)) + '"></label><label>Criteria<textarea ' + field('criteria') + ' placeholder="Content | 3&#10;Grammar | 2">' + esc(item.criteria || '') + '</textarea></label>';
     }
     function assessmentUnitMax(part) {
       if(lmState?.examOwned&&lmState.blocks?.some(p=>p.scoringVersion===2))return examScoringMax(lmState.blocks,part);

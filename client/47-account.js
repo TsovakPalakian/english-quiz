@@ -1,20 +1,3 @@
-    function pullAccountState() {
-      if (!authUser || viewAccount || !accountReady || syncSending || syncQueue.length || accountPulling) return;
-      accountPulling = true;
-      accountFetch("/api/me/state?summary=1").then((state) => {
-        if (viewAccount) return;
-        const shared = applySharedStudy(state);
-        if (!shared && !takeNewCards(state)) return;
-        paintAdded();
-        if (shared) {
-          paintLyrics();
-          refreshCatalog();
-        }
-        paintAllWords();
-        paintHomeStats();
-        paintHomeAccount();
-      }).catch(() => {}).then(() => { accountPulling = false; });
-    }
     function stopAccountPull() {
       clearInterval(accountPullTimer);
       accountPullTimer = 0;

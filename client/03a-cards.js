@@ -19,15 +19,6 @@
       try { return JSON.parse(localStorage.getItem(VARIANT_KEY) || "{}"); }
       catch (e) { return {}; }
     }
-    function variantsOf(word) {
-      const list = loadVariantMap()[variantKey(word)];
-      return Array.isArray(list) ? list : [];
-    }
-    function variantLines(word) {
-      return variantsOf(word).map((text) =>
-        '<p><b>' + esc(text) + '</b></p><p class="hint">You added this variant to the card.</p>'
-      ).join("");
-    }
     function wordPic(word, large) {
       const key = String(word || "").trim().toLowerCase();
       const bg = '<rect width="40" height="40" rx="12" fill="#e7f1fa"/>';
@@ -1966,9 +1957,6 @@
     }
     function rowInKeys(row, keys) {
       return keys.has(String(row.en || "").toLowerCase()) || keys.has(String(row.key || "").toLowerCase());
-    }
-    function addedInKeys(item, keys) {
-      return keys.has(String(item.word || "").toLowerCase());
     }
     function songSlices(pool, inSong) {
       const slices = songCatalog().map((song) => ({ song: song, rows: pool.filter((row) => inSong(row, song.keys)) })).filter((item) => item.rows.length);

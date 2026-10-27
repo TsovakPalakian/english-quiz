@@ -904,15 +904,6 @@
         inp.value = String(v);
       });
     }
-    function studyMix() {
-      const here = (document.querySelector("section.on") || {}).id;
-      if (here === "daysetup") {
-        const btn = document.querySelector("#dayMix .chip.on");
-        return !!(btn && btn.dataset.dayMix === "mix");
-      }
-      const btn = document.querySelector("[data-mix].on");
-      return !!(btn && btn.dataset.mix === "mix");
-    }
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= sessionMs;
     }
@@ -1493,15 +1484,6 @@
     }
     function cardQuizId(card) {
       return card ? (card.qid || card.en || "") : "";
-    }
-    function nextWordAt() {
-      const current = dayQueue[dayAt];
-      const word = current && current.card ? cardQuizId(current.card) : "";
-      for (let i = dayAt + 1; i < dayQueue.length; i++) {
-        const card = dayQueue[i].card;
-        if (!card || cardQuizId(card) !== word) return i;
-      }
-      return -1;
     }
     function markDay(ok, right) {
       const fb = document.getElementById("dayFb");
