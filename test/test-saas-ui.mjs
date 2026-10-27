@@ -209,9 +209,10 @@ try{
   user=null;
   await page.evaluate(()=>{localStorage.clear();sessionStorage.clear();});
   await page.goto('http://127.0.0.1:'+server.address().port+'/?invite=teacher-fixture');
-  await page.waitForFunction(()=>accountChecked);
+  await page.waitForFunction(()=>accountChecked && typeof placeBoot !== 'undefined' && placeBoot);
   await page.evaluate(()=>window.enquizVisit('account'));
-  if(!await page.locator('[data-invite-email-send]').count())await page.locator('#account [data-account="show-register"]').first().click();
+  await page.locator('#account.on').waitFor();
+  if(await page.locator('#account [data-account="show-register"]:visible').count())await page.locator('#account [data-account="show-register"]').first().click();
   await page.locator('[data-invite-email-send]').waitFor();
   await page.locator('#registerForm [name="login"]').fill('InvitedTeacher');
   await page.locator('#registerForm [name="email"]').fill('preview@example.invalid');

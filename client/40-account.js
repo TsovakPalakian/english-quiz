@@ -216,7 +216,11 @@
         settleThemeAudience();
         paintHomeAccount();
         if(!options?.authEntry)paintAccount();
-        show('home');
+        let invitedRegistration=false;
+        try{invitedRegistration=!authUser&&!!sessionStorage.getItem('enquiz-invite')&&sessionStorage.getItem('enquiz-auth-form')==='register';}catch{}
+        if(!options?.authEntry && !invitedRegistration){
+          show('home');
+        }
         document.body.removeAttribute('data-shell-pending');
       });
     }
