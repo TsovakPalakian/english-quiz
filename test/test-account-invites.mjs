@@ -207,3 +207,20 @@ test('register with valid student invite approves automatically, joins and logs 
     assert.equal(f.sql.prepare('SELECT group_id FROM class_group_students WHERE account_id=?').get(student.id).group_id,1);
   }finally{f.close();}
 });
+
+test('teacher can create open invite for co-ownership without email and existing teacher redeems it once',async()=>{
+  const f=fixture();try{
+    const outsider={id:'outsider',role:'ADMIN',email:'outsider@example.invalid',active:1};
+    // Group 1 has teacherIds: ['teacher', 'dev']
+    await assert.rejects(f.service.create(outsider,{groupId:1,kind:'teacher'},users),e=>e.status===403);
+    const invite=await f.service.create(actor,{groupId:1,kind:'teacher'},users);
+    assert.equal(invite.groupId,1);
+    const targetTeacher={id:'second',role:'ADMIN',email:'second@example.invalid',active:1};
+    const redeemed=await f.service.redeem(targetTeacher,invite.token,async()=>{},{users:[...users,targetTeacher]});
+    assert.equal(redeemed.groupId,1);
+    const teachers=JSON.parse(f.sql.prepare("SELECT value_json FROM catalog_documents WHERE namespace='accounts-group-teachers' AND key='1'").get().value_json).teacherIds;
+    assert.ok(teachers.includes('second'));
+    // Single-use: cannot be redeemed again
+    await assert.rejects(f.service.redeem(targetTeacher,invite.token,async()=>{}),e=>e.status===410);
+  }finally{f.close();}
+});

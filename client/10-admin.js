@@ -106,7 +106,7 @@
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -131,7 +131,7 @@
       const note=box.querySelector('[data-invite-unassigned]');
       note.hidden=!!group&&(teacher||candidates.length>0&&permitted);
       note.textContent=!group?'Choose a group first.':!candidates.length?'Assign an active teacher to this group first.':'You must be assigned to this group to invite a student.';
-      box.querySelector('[data-invite-email]').required=teacher;
+      box.querySelector('[data-invite-email]').required=false;
       box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>user.id===select.value));
     }
     function filterInviteGroups(picker){
@@ -247,7 +247,8 @@
       const teacherId=box.querySelector('[data-invite-teacher]')?.value||authUser?.id;
       const inviteKind=box.querySelector('[data-invite-kind]').value;
       const email=box.querySelector('[data-invite-email]');
-      if(inviteKind==='teacher'){email.required=true;if(!email.reportValidity())return;}
+      const emailVal=email?.value?.trim()||'';
+      if(inviteKind==='teacher'&&emailVal){if(!email.reportValidity())return;}
       syncAccountInvite(box);if(create.disabled)return;
       const groupId=Number(box.dataset.groupId),actor=authUser?.id,generation=viewGen;
       const controls=[...box.querySelectorAll('select,input,[data-invite-group-option]')].map(node=>({node,disabled:node.disabled}));
@@ -256,7 +257,7 @@
       controls.forEach(({node})=>node.disabled=true);
       create.disabled=true;status.textContent='Creating…';
       try{
-        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?email.value:undefined})});
+        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?(emailVal||undefined):undefined})});
         if(!box.isConnected||actor!==authUser?.id||generation!==viewGen||viewAccount)return;
         const link=location.origin+'/?invite='+encodeURIComponent(result.token);
         urlInput.value=link;urlInput.hidden=false;

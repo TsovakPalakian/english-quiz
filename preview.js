@@ -15317,7 +15317,7 @@ const STUDIO_CONSTELLATIONS = [{
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email</span><input type="email" maxlength="120" data-invite-email autocomplete="off"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -15342,7 +15342,7 @@ const STUDIO_CONSTELLATIONS = [{
       const note=box.querySelector('[data-invite-unassigned]');
       note.hidden=!!group&&(teacher||candidates.length>0&&permitted);
       note.textContent=!group?'Choose a group first.':!candidates.length?'Assign an active teacher to this group first.':'You must be assigned to this group to invite a student.';
-      box.querySelector('[data-invite-email]').required=teacher;
+      box.querySelector('[data-invite-email]').required=false;
       box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>user.id===select.value));
     }
     function filterInviteGroups(picker){
@@ -15458,7 +15458,8 @@ const STUDIO_CONSTELLATIONS = [{
       const teacherId=box.querySelector('[data-invite-teacher]')?.value||authUser?.id;
       const inviteKind=box.querySelector('[data-invite-kind]').value;
       const email=box.querySelector('[data-invite-email]');
-      if(inviteKind==='teacher'){email.required=true;if(!email.reportValidity())return;}
+      const emailVal=email?.value?.trim()||'';
+      if(inviteKind==='teacher'&&emailVal){if(!email.reportValidity())return;}
       syncAccountInvite(box);if(create.disabled)return;
       const groupId=Number(box.dataset.groupId),actor=authUser?.id,generation=viewGen;
       const controls=[...box.querySelectorAll('select,input,[data-invite-group-option]')].map(node=>({node,disabled:node.disabled}));
@@ -15467,7 +15468,7 @@ const STUDIO_CONSTELLATIONS = [{
       controls.forEach(({node})=>node.disabled=true);
       create.disabled=true;status.textContent='Creating…';
       try{
-        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?email.value:undefined})});
+        const result=await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({groupId,teacherId,kind:inviteKind,email:inviteKind==='teacher'?(emailVal||undefined):undefined})});
         if(!box.isConnected||actor!==authUser?.id||generation!==viewGen||viewAccount)return;
         const link=location.origin+'/?invite='+encodeURIComponent(result.token);
         urlInput.value=link;urlInput.hidden=false;
@@ -17273,6 +17274,27 @@ const STUDIO_CONSTELLATIONS = [{
       teacherInviteOffered=true;
       let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
       if(!token)return;
+      if(['ADMIN','DEVELOPER'].includes(authUser.role)){
+        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+        const groupTitle=inviteDetails?.groupTitle||'the group';
+        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary" data-accept>Accept invitation</button><button type="button" class="btn" data-close>Cancel</button></div></form>';
+        document.body.append(dialog);dialog.showModal();
+        const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');
+        form.querySelector('[data-close]').onclick=()=>{sessionStorage.removeItem('enquiz-invite');dialog.close();};
+        dialog.addEventListener('close',()=>dialog.remove());
+        form.onsubmit=async event=>{
+          event.preventDefault();const button=form.querySelector('[data-accept]');button.disabled=true;status.textContent='Joining…';
+          try{
+            await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({action:'redeem',token})});
+            sessionStorage.removeItem('enquiz-invite');dialog.close();
+            classGroupsReady=false;groupDirectory=null;
+            if(typeof groupPull==='function')await groupPull(true);
+            if(typeof window.LearningMain?.notice==='function')window.LearningMain.notice('You are now a co-teacher of '+groupTitle+'.');
+            if(typeof visit==='function')visit('groups');
+          }catch(error){status.textContent=error.message;button.disabled=false;}
+        };
+        return;
+      }
       const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
       dialog.innerHTML='<form class="invite-form"><h2>Accept teacher invitation</h2><label>Email<input name="email" type="email" required autocomplete="email"></label><button type="button" class="btn" data-send>Send code</button><label hidden data-code>Email code<input name="code" inputmode="numeric" autocomplete="one-time-code"></label><p role="status" class="hint"></p><button type="submit" class="btn primary" hidden data-accept>Accept invite</button><button type="button" class="btn" data-google>Continue with Google</button><button type="button" class="btn" data-close>Cancel</button></form>';
       document.body.append(dialog);dialog.showModal();
@@ -17828,6 +17850,7 @@ const STUDIO_CONSTELLATIONS = [{
       return null;
     }
     let placeBoot = false;
+    try { Object.defineProperty(window, 'placeBoot', { get() { return placeBoot; }, set(v) { placeBoot = v; }, configurable: true }); } catch {}
     function resumePlace() {
       if (!accountChecked) return;
       let invitedRegistration=false;
@@ -17915,8 +17938,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function finishPlace(target) {
       placeBoot = true;
-      if(target)show(target);else resumePlace();
-      if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
+      if(target)show(target);else if(!navStack.length)resumePlace();
+      if(!navStack.length&&document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
       document.body.removeAttribute('data-shell-pending');
     }
     function cardIdentity(item) {
@@ -18716,7 +18739,7 @@ const STUDIO_CONSTELLATIONS = [{
     function levelButtons(rows,attribute) {
       const hasUnassigned = (classGroupsReady || !authUser) && rows.some(row=>accountGroupLevel(row)==='unassigned');
       const levels = hasUnassigned ? [...adminLevels,'unassigned'] : adminLevels;
-      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];const empty=pairs.every(([,value])=>!value);return '<button class="file-card'+(empty?' is-empty':'')+'" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
       const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
@@ -18724,6 +18747,20 @@ const STUDIO_CONSTELLATIONS = [{
       if(level){pushHistory();examViewLevel=level.dataset.examLevel;examViewGroup=null;examPaintList();rememberPlace();}
       if(subgroup){pushHistory();examViewGroup=subgroup.dataset.examGroupView;examPaintList();rememberPlace();}
     });
+    function teacherOwnsGroup(group) {
+      if (viewAccount || sessionIsDeveloper()) return true;
+      if (!authUser || authUser.role !== 'ADMIN') return true;
+      if (Array.isArray(group?.teacherIds)) return group.teacherIds.includes(authUser.id);
+      if (typeof groupDirectoryReady === 'function' && groupDirectoryReady() && groupDirectory?.assignments) {
+        const assignment = groupDirectory.assignments.find(row => String(row.groupId) === String(group.id));
+        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+      }
+      if (typeof adminTeacherAssignments !== 'undefined' && adminTeacherAssignments?.length) {
+        const assignment = adminTeacherAssignments.find(row => String(row.groupId) === String(group.id));
+        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+      }
+      return false;
+    }
     function paintGroups() {
       const box = document.getElementById("groupList");
       const newer = document.getElementById("groupNew");
@@ -18731,11 +18768,14 @@ const STUDIO_CONSTELLATIONS = [{
       if (!box) return;
       if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
       groupNormalize();
+      if (isTeacher() && !sessionIsDeveloper() && !viewAccount && typeof loadGroupDirectory === 'function' && !groupDirectoryReady()) {
+        loadGroupDirectory().then(() => { if (document.querySelector('section.on')?.id === 'groups') paintGroups(); });
+      }
       const visible = new Set((lmLibrary && lmLibrary.materials || []).filter(lmLessonVisibleToViewer).map((row) => row.id));
       document.querySelector('#groups .meta h1').textContent=groupViewLevel?(groupViewLevel==='unassigned'?'Unassigned':groupViewLevel):'Groups';
       paintPagePath('groups');
       syncRoleHomeControls();
-      const allRows = classGroups.filter((group) => canEditLessons() || canTuneStudentLessons() || !group.hidden).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+      const allRows = classGroups.filter((group) => (canEditLessons() || canTuneStudentLessons() || !group.hidden) && teacherOwnsGroup(group)).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
       const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
@@ -18746,6 +18786,7 @@ const STUDIO_CONSTELLATIONS = [{
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
         const hidden = viewAccount ? group.personalHidden : group.hidden;
+        const empty = (group.studentCount || 0) === 0 && count === 0;
         const about = hidden ? (viewAccount ? "Hidden for this student" : "Hidden") : (viewAccount && hiddenCount ? "Hidden " + hiddenCount + " / " + group.lessonIds.length + " lessons" : count + " lessons");
         const eye = hidden
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -18753,12 +18794,12 @@ const STUDIO_CONSTELLATIONS = [{
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
         const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]],true)+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + (empty ? " is-empty" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]],true)+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {
       id = domEntityId(id);
-      if (!classGroups.some((group) => group.id === id)) return;
+      if (!classGroups.some((group) => group.id === id && (typeof teacherOwnsGroup !== 'function' || teacherOwnsGroup(group)))) return;
       classGroupId = id;
       visit(isTeacher()&&!viewAccount?'groupdetail':'days');
     }
@@ -18767,7 +18808,7 @@ const STUDIO_CONSTELLATIONS = [{
       openItemEditor(document.getElementById("groupNew"), { title: (adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' Group', date: lmToday(), label: "Group name" }, (value) => {
         if(accountGroupLevel({title:value.title})==='unassigned')value.title=(adminLevels.includes(groupViewLevel)?groupViewLevel:'A1')+' '+value.title;
         const actor=authUser?.id,generation=viewGen;
-        accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify({action:'create',title:value.title,date:value.date})}).then(()=>{if(actor===authUser?.id&&generation===viewGen){const search=document.getElementById('groupSearch');if(search)search.value='';return groupPull(true);}}).catch(error=>{if(actor===authUser?.id&&generation===viewGen)window.LearningMain?.notice(error.message,true);});
+        accountFetch('/api/groups/manage',{method:'POST',body:JSON.stringify({action:'create',title:value.title,date:value.date})}).then(()=>{if(actor===authUser?.id&&generation===viewGen){groupDirectory=null;const search=document.getElementById('groupSearch');if(search)search.value='';return groupPull(true);}}).catch(error=>{if(actor===authUser?.id&&generation===viewGen)window.LearningMain?.notice(error.message,true);});
       });
     }
     function groupEdit(id, button) {

@@ -1376,6 +1376,14 @@ button.ring { border: 0; background: transparent; color: inherit; padding: 0; bo
   color: inherit;
 }
 .file-card.active { border-color: var(--acc); background: var(--acc-s); }
+.file-card.is-empty {
+  opacity: 0.55;
+  transition: opacity .15s ease, border-color .15s ease;
+}
+.file-card.is-empty:hover,
+.file-card.is-empty:focus-visible {
+  opacity: 1;
+}
 .file-card b { font-size: 16px; font-weight: 800; }
 .num { font-size: 28px; font-weight: 800; color: var(--acc); letter-spacing: -0.03em; line-height: 1; }
 .mini { display: none; }
@@ -1597,6 +1605,14 @@ a.btn { text-decoration: none; }
 .day-row.is-hidden .day .lm-course b,
 .day-row.is-hidden .day .about,
 .day-row.is-hidden .day .label { color: var(--mute); }
+.day-row.is-empty .day {
+  opacity: 0.55;
+  transition: opacity .15s ease, border-color .15s ease;
+}
+.day-row.is-empty:hover .day,
+.day-row.is-empty:focus-within .day {
+  opacity: 1;
+}
 .day-tools {
   display: flex;
   flex-direction: column;

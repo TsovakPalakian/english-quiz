@@ -110,8 +110,17 @@ export class GroupService{
       for(let index=exams.length-1;index>=0;index--)if(copies.some(copy=>copy.source_exam_id===exams[index].exam_id))exams.splice(index,1);
       for(const copy of copies)if(copy.status!=='completed'&&copy.group_id!=null)exams.push({group_id:copy.group_id,exam_id:copy.exam_id});
     }
+    let assignmentMap = new Map();
+    if ((await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='catalog_documents'")).length) {
+      const assignments = await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace='accounts-group-teachers'");
+      assignmentMap = new Map(assignments.map(row => {
+        try { return [Number(row.key), JSON.parse(row.value_json).teacherIds || []]; }
+        catch { return [Number(row.key), []]; }
+      }));
+    }
     return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,studentCount:Number(studentCounts.find(row=>row.group_id===group.id)?.total||0),
-      lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id)}));
+      lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id),
+      teacherIds:assignmentMap.get(group.id)||[]}));
   }
   async members(actor){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
@@ -157,6 +166,12 @@ export class GroupService{
       const date=body.date??new Date().toISOString().slice(0,10);
       if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))fail(400,'Enter a valid group date.');
       await this.db.atomic([stmt("INSERT INTO class_groups(title,lesson_date,position) VALUES(?,?,(SELECT COALESCE(MAX(position)+1,0) FROM class_groups))",[normalizedGroupTitle(body.title),date])]);
+      const created = await this.db.read("SELECT id FROM class_groups WHERE rowid = last_insert_rowid()");
+      const newGroupId = created[0]?.id;
+      if (newGroupId && actor?.id && (await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='catalog_documents'")).length) {
+        const val = JSON.stringify({ revision: 1, teacherIds: [actor.id], updatedBy: actor.id, updatedAt: Date.now() });
+        await this.db.atomic([stmt("INSERT OR REPLACE INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers',?,?)", [String(newGroupId), val])]);
+      }
     }else{
       const group=await this.activeGroup(body.id);
       if(body.expectedRevision!==group.revision)fail(409,'The group changed. Reload Accounts.');

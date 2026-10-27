@@ -45,7 +45,7 @@ try{
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
   });
   await page.goto('http://127.0.0.1:'+server.address().port);
-  await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
+  await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady&&typeof placeBoot!=='undefined'&&placeBoot);
   await page.evaluate(()=>{
     const previous=stageEverydayData,before=JSON.stringify(studyCards());
     stageEverydayData={groups:[{title:'Optional vocabulary',topics:[{title:'Test',entries:[{card:{stageId:99999991,en:'optionalessentialfixture',ru:'optional'}}]}]}]};
@@ -56,6 +56,7 @@ try{
     }finally{stageEverydayData=previous;}
   });
   await page.evaluate(()=>window.enquizVisit('exams'));
+  await page.locator('#exams.on').waitFor();
   await page.locator('[data-exam-level="A1"]').waitFor();
   await page.waitForFunction(()=>document.getElementById('examOverview')?.textContent.includes('students · 2'));
   assert.equal(await page.locator('#examSections').isVisible(),false);
