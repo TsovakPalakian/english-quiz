@@ -148,3 +148,32 @@ test('complete demo supports all 16 quiz types, frozen copies, private reference
     await assert.rejects(workflow.status({...student,id:'other'},{examId:instance.exam_id}),error=>error.status===404);
   }finally{f.sqlite.close();}
 });
+test('instant auto-publish automatically grades, publishes and completes 100% objective exams upon submit',async()=>{
+  const f=fixture();try{
+    const {db,sqlite}=f,exams=new ExamService(db),assessment=new AssessmentService(db),workflow=new ExamWorkflowService(db);
+    const messages=new MessageService(db,async()=>[teacher,student]);
+    await exams.ensure();await messages.ensure();
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Auto Group','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher')");
+    const source=await exams.save(teacher,{exam:{title:'A1 Auto-Publish Quiz',groupId:99,published:true,blocks:[{title:'Objective Block',published:true,materials:[{type:'quiz',quizType:'Choice',scoringVersion:3,autoPublish:true,items:[{prompt:'Pick A',options:['A','B'],answer:0,maxPoints:2}]},{type:'text',answerEnabled:true,scoringVersion:3,autoPublish:true,maxPoints:3,html:'correct',checkMode:'exact',allowedAnswers:'correct'}]}]}});
+    await messages.assign(teacher,{action:'assign',targetKind:'student',targetId:student.id,examId:source.id,clientKey:'auto-publish-assignment'});
+    const [instance]=await db.read('SELECT exam_id FROM exam_instances WHERE source_exam_id=?',[source.id]);
+    await workflow.write(student,{examId:instance.exam_id,action:'started'});
+    const [block]=await db.read('SELECT id FROM exam_blocks WHERE exam_id=?',[instance.exam_id]);
+    const parts=await db.read('SELECT id,type FROM exam_materials WHERE block_id=? ORDER BY position',[block.id]);
+    const answers={[parts[0].id]:{0:0},[parts[1].id]:{0:'correct'}};
+    const result=await assessment.write(student,{kind:'exam-block',id:block.id,action:'submit',expectedRevision:0,answers});
+    assert.equal(result.state,'published','State must immediately transition to published');
+    assert.deepEqual(result.points,{[parts[0].id]:{0:2},[parts[1].id]:{0:3}},'Points must be auto-populated from suggestions');
+    const dbWork=sqlite.prepare('SELECT state FROM assessment_work WHERE material_id=?').get(block.id);
+    assert.equal(dbWork.state,'published');
+    const [inst]=await db.read('SELECT status,earned_points,max_points FROM exam_instances WHERE exam_id=?',[instance.exam_id]);
+    assert.equal(inst.status,'completed');
+    assert.equal(inst.earned_points,5);
+    assert.equal(inst.max_points,5);
+    assert.equal(sqlite.prepare("SELECT count(*) n FROM chat_messages WHERE client_key=?").get('exam:'+instance.exam_id+':completed').n,1);
+    const studentView=await assessment.get(student,{kind:'exam-block',id:block.id});
+    assert.equal(studentView.state,'published');
+    assert.equal(studentView.points[parts[0].id][0],2);
+    assert.equal(studentView.points[parts[1].id][0],3);
+  }finally{f.sqlite.close();}
+});

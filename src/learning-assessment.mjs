@@ -147,7 +147,16 @@ export class AssessmentService{
         let result;try{result=memoryScore(part,value,previousAnswers[part.id]?.[0]);}catch(error){fail(400,error.message);}
         suggestedPoints[part.id]={0:result.points};
       }
-      state=action==='submit'?'submitted':'draft';grading={suggestedPoints};snapshot=parts;
+      const canAutoPublish=kind==='exam-block'&&action==='submit'&&(document.autoPublish||body.autoPublish||parts.some(p=>p.autoPublish))&&questions.length>0&&questions.every(q=>suggestedPoints[q.part.id]?.[q.index]!=null&&q.part.type!=='task'&&q.item.checkMode!=='teacher'&&q.item.checkMode!=='meaning');
+      if(canAutoPublish){
+        state='published';
+        const points=JSON.parse(JSON.stringify(suggestedPoints));
+        grading={suggestedPoints,points,comments:{},errors:{},criteriaPoints:{},reviewText:{}};
+      }else{
+        state=action==='submit'?'submitted':'draft';
+        grading={suggestedPoints};
+      }
+      snapshot=parts;
       answerText=body.answerText||answerText;
       if(!answerText||typeof answerText!=='object'||Array.isArray(answerText)||JSON.stringify(answerText).length>50000)fail(400,'Invalid answer formatting.');
       for(const [part,items] of Object.entries(answerText)){if(!items||typeof items!=='object'||Array.isArray(items))fail(400,'Invalid answer formatting.');for(const [index,format] of Object.entries(items)){

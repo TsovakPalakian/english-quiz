@@ -21897,7 +21897,7 @@ async function lmImportPdfDraft(file) {
     let assessmentQueue = Promise.resolve(), assessmentTimer, assessmentPendingDoc;
     function assessmentWrite(doc,action,extra={}) {
       const account = examWorkAccount(), actor = authUser?.id, target = doc.reviewStudentId||viewAccount?.id;
-      const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
+      const payload = {kind:doc.examOwned ? 'exam-block' : 'lesson',id:doc.examOwned ? doc.blockId : doc.id,action,autoPublish:!!(doc.autoPublish||doc.blocks?.some(p=>p.autoPublish)),answers:examCollectAnswers(doc),points:JSON.parse(JSON.stringify(doc.examPoints || {})),corrections:JSON.parse(JSON.stringify(doc.examCorrections || {})),errors:JSON.parse(JSON.stringify(doc.examErrors || {})),criteriaPoints:JSON.parse(JSON.stringify(doc.examCriteriaPoints || {})),...extra};
       if (target) payload.studentId = target;
       payload.reviewText = JSON.parse(JSON.stringify(doc.examReviewText || {}));
       payload.answerText=JSON.parse(JSON.stringify(doc.examAnswerText||{}));payload.commentFormatting=JSON.parse(JSON.stringify(doc.examCommentFormatting||{}));
@@ -21908,7 +21908,7 @@ async function lmImportPdfDraft(file) {
         assessmentStatus('Saving…',doc);
         const row = await accountFetch('/api/assessment',{method:'POST',body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)});
         doc.assessmentRevision = row.revision; doc.assessmentState = row.state; doc.studentSaved = !!row.saved; doc.assessmentError = false;
-        doc.assessmentMessage = action === 'draft' ? 'Draft saved' : action === 'submit' ? 'Submitted' : action === 'publish' ? 'Results published' : 'Saved';
+        doc.assessmentMessage = row.state === 'published' ? 'Results published' : action === 'draft' ? 'Draft saved' : action === 'submit' ? 'Submitted' : action === 'publish' ? 'Results published' : 'Saved';
         const pending = examWorkBag()[assessmentKey(doc)]?.pendingAnswers;
         examWorkBag()[assessmentKey(doc)] = {...row,...(action === 'draft' && pending && JSON.stringify(pending) !== JSON.stringify(row.answers) ? {pendingAnswers:pending} : {})}; examWorkWrite();
         if (action !== 'draft') {
