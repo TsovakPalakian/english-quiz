@@ -715,7 +715,7 @@ try{
     assert.equal(await page.locator('#profileBody [data-presence-subject]').innerText(),'Online');assert.equal(await page.locator('#profileBody [data-avatar-upload]').count(),1);await Promise.resolve();assert.deepEqual(errors,[]);
   await page.locator('#profileBody [data-user-settings]').click();
     yield "183. .chat-edit-profile / checks";
-    await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await page.locator('dialog[open] [data-msg-close]').click();
+    await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await (page.locator('dialog[open] [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
   yield "184. setViewportSize";
   await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#profileBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});
     yield "185. .chat-photo-editor / checks";
@@ -745,7 +745,7 @@ try{
     await page.waitForFunction(()=>!document.querySelector('mark.chat-quote-highlight'));
   await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
     yield "193. .notification-sound-settings [name=enabled] / check";
-    await page.locator('.notification-sound-settings [name=enabled]').check();await page.locator('.user-settings [data-msg-close]').click();await page.evaluate(()=>window.enquizVisit('messages'));
+    await page.locator('.notification-sound-settings [name=enabled]').check();await (page.locator('.user-settings [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();await page.evaluate(()=>window.enquizVisit('messages'));
   await page.waitForTimeout(450);
     yield "194. evaluate";
     const toneBefore=await page.evaluate(()=>window.fixtureAlertTones||0),soundMessage={id:rows.at(-1).id+1,text:'Sound notification',senderId:teacher,sender:'Teacher',category:'personal',createdMs:Date.now()};rows.push(soundMessage);event('message',{message:soundMessage});
@@ -757,7 +757,7 @@ try{
     await page.waitForFunction(before=>(window.fixtureRecordingStarts||0)>before,recordingBefore);
   await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
     yield "197. .notification-sound-settings [name=enabled] / checks";
-    await page.locator('.notification-sound-settings [name=enabled]').uncheck();await page.locator('.notification-sound-settings [type=submit]').click();await page.locator('.notification-sound-settings [role=status]').filter({hasText:'Saved'}).waitFor();await page.locator('.user-settings [data-msg-close]').click();
+    await page.locator('.notification-sound-settings [name=enabled]').uncheck();await page.locator('.notification-sound-settings [type=submit]').click();await page.locator('.notification-sound-settings [role=status]').filter({hasText:'Saved'}).waitFor();await (page.locator('.user-settings [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
     yield "198. messages";
     await page.evaluate(()=>window.enquizVisit('messages'));
   const mutedSound={...soundMessage,id:soundMessage.id+1,text:'Silent notification'};rows.push(mutedSound);event('message',{message:mutedSound});await page.waitForTimeout(450);assert.equal(await page.evaluate(()=>window.fixtureAlertTones),toneAfter);

@@ -26,11 +26,18 @@ test('full local shell exposes one isolated workbench across roles without produ
     assert.equal(await page.locator('[data-workbench-new]').count(),1);
     await page.locator('[data-workbench-speech]').click();await page.locator('#speech-file').waitFor();
     assert.match(await page.locator('.learning-kit-dialog').innerText(),/Synthetic|synthetic/);
-    await page.locator('[data-workbench-close]').click();
+    const closeWorkbench=async()=>{
+      if(await page.locator('dialog.learning-kit-dialog[open] [data-workbench-close]:visible').count()){
+        await page.locator('dialog.learning-kit-dialog[open] [data-workbench-close]').click();
+      } else {
+        await page.locator('.meta:visible [data-nav-back]').first().click();
+      }
+    };
+    await closeWorkbench();
     await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();
     await page.locator('.learning-kit-dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
     assert.match(await page.locator('.learning-kit-dialog').innerText(),/Weather/);
-    await page.locator('[data-workbench-close]').click();
+    await closeWorkbench();
     await page.locator('#local-workbench-role').selectOption('u1');await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id==='u1');
     assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0);
     const denied=await page.evaluate(async()=>{const response=await fetch('/api/learning-workbench/queue');return response.status;});assert.equal(denied,403);
@@ -43,9 +50,9 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
     const queue=await(await fetch(preview.url+'/api/learning-workbench/queue')).json();assert.equal(queue.quizzes.length,2,'Student proposal enters the same teacher queue');
     const proposal=queue.quizzes.find(row=>row.content.items[0].shown==='There is ____ outside.');assert.ok(proposal);
-    await page.locator('[data-workbench-close]').click();await page.setViewportSize({width:1280,height:900});
+    await closeWorkbench();await page.setViewportSize({width:1280,height:900});
     const switchRole=async id=>{
-      if(await page.locator('[data-workbench-close]').count())await page.locator('[data-workbench-close]').click();
+      const b=page.locator('[data-workbench-close]:visible, .meta:visible [data-nav-back]');if(await b.count())await b.first().click();
       await page.locator('#local-workbench-role').selectOption(id);await page.waitForFunction(id=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id===id,id);
     };
     const expandReview=()=>page.locator('.learning-kit-dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
@@ -64,7 +71,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.locator('[data-review-key="version-'+proposal.id+'"]').waitFor({state:'visible'});
     assert.equal(await page.locator('[data-review-key="version-'+proposal.id+'"] [data-workbench-edit]').count(),0,'Approved version has no edit action');
     const immutable=await fetch(preview.url+'/api/learning-workbench/proposals/'+proposal.id+'/edit',{method:'POST',headers:{Origin:preview.url,'Content-Type':'application/json',Cookie:'local-workbench-role=u1'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:approved.quiz.revision,content:approved.quiz.content})});assert.equal(immutable.status,403,'Approved version is locked on the server too');
-    await page.locator('[data-workbench-close]').click();
+    await closeWorkbench();
     await page.locator('#local-workbench-role').selectOption('dev');await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady&&authUser?.role==='DEVELOPER');
     await page.goto(preview.url+'/__local/providers');await page.locator('#provider-generation').waitFor();
     await page.selectOption('#provider-generation','off');await page.locator('#provider-reason').fill('Check explicit local provider switching.');await page.getByRole('button',{name:'Save settings',exact:true}).click();
