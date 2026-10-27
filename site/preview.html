@@ -90,6 +90,10 @@
         <button class="stat-tile" type="button" data-stat="learning"><span>Still learning</span><b id="homeLearningCount">0</b><small>in progress</small></button>
       </div>
       </div>
+      <div id="homeWarmupPanel" class="home-warmup" hidden>
+        <div class="home-panel-head"><h2>Daily 5-Min Warmup</h2><span id="homeWarmupBadge" class="home-warmup-badge">0 due</span></div>
+        <div id="homeWarmupContent" class="home-warmup-content"></div>
+      </div>
       <div id="homeDashboard" class="home-dashboard" hidden>
         <div class="home-activity"><div class="home-panel-head"><h2>Recent activity</h2><button class="home-text-link" type="button" data-jump="stats">View all</button></div><div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div></div>
         <div class="home-group"><div class="home-panel-head"><h2>Your group</h2><button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button></div><div class="home-group-body"><p id="homeGroupTitle">No group assigned</p><div id="homeGroupMetrics" class="home-group-meta"></div><button class="btn primary" type="button" data-jump="groups" data-home-group-open>Open group</button></div></div>
@@ -537,6 +541,15 @@
       <div class="group-detail-destinations">
         <button class="file-card" type="button" data-detail-lessons><b id="groupDetailLessonCount">Lessons</b></button>
         <button class="file-card" type="button" data-detail-exams><b id="groupDetailExamCount">Exams</b><span class="label group-exam-summary" id="groupDetailExamSummary"></span></button>
+      </div>
+      <div id="groupDetailDiagnostic" class="group-diagnostic-panel" hidden>
+        <div class="group-diagnostic-head">
+          <h2>Subgroup Diagnostic Heatmap</h2>
+          <span id="groupDiagTotalErrors" class="group-diag-badge">0 errors</span>
+        </div>
+        <div class="group-diag-bars" id="groupDiagBars"></div>
+        <div class="group-diag-legend" id="groupDiagLegend"></div>
+        <div class="group-diag-advice" id="groupDiagAdvice"></div>
       </div>
     </section>
     <section id="groupteachers">

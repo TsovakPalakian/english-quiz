@@ -70,7 +70,78 @@
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;
       document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
+      paintGroupDiagnostic(group.id);
       paintPagePath('groupdetail');
+    }
+    let currentDiagGroupId = null;
+    async function paintGroupDiagnostic(groupId) {
+      const panel = document.getElementById('groupDetailDiagnostic');
+      if (!panel) return;
+      if (!isTeacher() || viewAccount || !groupId) {
+        panel.hidden = true;
+        return;
+      }
+      currentDiagGroupId = groupId;
+      panel.hidden = false;
+      const badge = document.getElementById('groupDiagTotalErrors');
+      const bars = document.getElementById('groupDiagBars');
+      const legend = document.getElementById('groupDiagLegend');
+      const advice = document.getElementById('groupDiagAdvice');
+      if (!bars || !legend || !advice) return;
+
+      try {
+        const res = await fetch(accountApi() + '/api/error-bank?action=subgroup-diagnostic&groupId=' + encodeURIComponent(groupId), {
+          credentials: 'include'
+        }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+        if (currentDiagGroupId !== groupId) return;
+        if (!res || !res.totalErrors) {
+          if (badge) badge.textContent = '0 errors';
+          bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
+          legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
+          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this subgroup.</p>';
+          return;
+        }
+
+        if (badge) badge.textContent = res.totalErrors + (res.totalErrors === 1 ? ' error' : ' errors');
+
+        const colors = {
+          l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)' },
+          overgeneralization: { color: '#8b5cf6', label: 'Overgeneralization (irregular forms)' },
+          collocation_clash: { color: '#3b82f6', label: 'Collocations (do vs make)' },
+          grammar: { color: '#06b6d4', label: 'General Grammar' },
+          vocabulary: { color: '#10b981', label: 'Vocabulary Gaps' },
+          typo: { color: '#64748b', label: 'Spelling & Typos' }
+        };
+
+        const pct = res.percentages || {};
+        let barHtml = '';
+        let legendHtml = '';
+
+        for (const [key, cfg] of Object.entries(colors)) {
+          const val = pct[key] || 0;
+          if (val > 0) {
+            barHtml += '<div class="group-diag-bar-segment" style="width:' + val + '%;background:' + cfg.color + '" title="' + esc(cfg.label) + ': ' + val + '%"></div>';
+            legendHtml += '<span class="group-diag-pill" style="border-left-color:' + cfg.color + '"><b>' + val + '%</b> ' + esc(cfg.label) + '</span>';
+          }
+        }
+        bars.innerHTML = barHtml;
+        legend.innerHTML = legendHtml;
+
+        let patternsHtml = '';
+        if (res.topPatterns && res.topPatterns.length) {
+          patternsHtml = '<div class="group-diag-top-patterns"><b>Frequent error patterns:</b><ul>' +
+            res.topPatterns.map(p => '<li><code>' + esc(p.pattern) + '</code> (' + p.count + ' ' + (p.count === 1 ? 'student' : 'students') + ')</li>').join('') +
+            '</ul></div>';
+        }
+
+        advice.innerHTML = '<div class="group-diag-advice-box"><div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
+          '<p class="group-diag-advice-text">' + esc(res.recommendation || '') + '</p>' +
+          patternsHtml +
+          '</div>';
+      } catch (err) {
+        panel.hidden = true;
+      }
     }
     function paintGroupPeople() {
       paintGroupDetail();

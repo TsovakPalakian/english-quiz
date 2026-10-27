@@ -481,6 +481,81 @@ await scenarioSubtests("multi-teacher-topology-ui", async function*(){
             }
           }
         }
+        else if(path==='/api/exams/essay-copilot'&&method==='POST'){
+          if(user.role==='USER'){
+            status=403;data={error:'Forbidden: Teachers only'};
+          }else{
+            const body=req.postDataJSON()||{};
+            data={
+              status:'draft_ready',
+              revision:body.expectedRevision||0,
+              partId:body.partId,
+              index:0,
+              rubricPoints:[22,20,21,20],
+              totalPoints:83,
+              maxPoints:100,
+              analysis:{
+                wordCount:120,
+                taskAchievement:{score:22,percent:88,minWords:80},
+                coherence:{score:20,percent:80},
+                lexical:{score:21,percent:84},
+                grammatical:{score:20,percent:80}
+              },
+              feedback:{
+                summary:'Good structure and vocabulary.',
+                strengths:['Clear thesis statement','Good use of transitions'],
+                areasForGrowth:['Increase variety of complex structures'],
+                formattedFeedback:'AI Review Assist (Draft Suggestion):\nScore: 83 / 100 (83%)\nStrengths:\n• Clear thesis statement\n• Good use of transitions\nKey areas for revision:\n• Increase variety of complex structures'
+              }
+            };
+          }
+        }
+        else if(path==='/api/error-bank'){
+          if(method==='GET'){
+            const action=url.searchParams.get('action')||'queue';
+            if(action==='stats'){
+              data={totalErrors:2,dueToday:1,activeItems:1,masteredItems:1,maxStreak:3};
+            }else if(action==='subgroup-diagnostic'){
+              const gid=Number(url.searchParams.get('groupId'));
+              const userGroups=new Set(groupsForActor(user).map(g=>g.id));
+              if(!userGroups.has(gid)&&user.role!=='DEVELOPER'){
+                status=403;data={error:'Forbidden: Not assigned to this group'};
+              }else{
+                data={
+                  groupId:gid,
+                  totalErrors:3,
+                  breakdown:{l1_transfer:2,overgeneralization:1,collocation_clash:0,grammar:0,vocabulary:0,typo:0},
+                  percentages:{l1_transfer:67,overgeneralization:33,collocation_clash:0,grammar:0,vocabulary:0,typo:0},
+                  dominantCategory:'l1_transfer',
+                  topPatterns:[{pattern:'depend from -> depend on',count:2,pct:67}],
+                  recommendation:'67% of recent errors in Group '+gid+' stem from L1 Transfer (Preposition calques). Recommended: 10-minute focused contrastive analysis on dependency prepositions in the next lesson.'
+                };
+              }
+            }else{
+              data={queue:[{
+                id:1,
+                prompt:'Choose the correct plural form of child',
+                expectedAnswer:'children',
+                stage:1,
+                stageName:'recognition',
+                exerciseType:'choice',
+                instruction:'Identify the correct form'
+              }]};
+            }
+          }else if(method==='POST'){
+            const body=req.postDataJSON()||{};
+            const correct=String(body.answer).trim().toLowerCase()==='children';
+            data={
+              itemId:body.itemId,
+              correct,
+              stage:correct?2:1,
+              intervalDays:correct?3:1,
+              nextReviewAt:Math.floor(Date.now()/1000)+86400*3,
+              status:'active',
+              expected:'children'
+            };
+          }
+        }
         else if(path==='/api/messages'){
           if(method==='GET'){
             const userGroups=groupsForActor(user);
@@ -999,6 +1074,125 @@ await scenarioSubtests("multi-teacher-topology-ui", async function*(){
       assert.equal(workView.points[`m_${block2.id}_2`][0], 3);
 
       await pageS.close();
+    }
+
+    yield "14. Daily 5-Min Warmup widget: student sees due errors, answers Stage 1 prompt and progresses via SRS";
+    {
+      const student=allStudents.find(s=>s.login==='student_101_1');
+      const pageS=await setupPageForUser(student);
+      pageS.on('console',msg=>console.log('PAGE LOG:',msg.text()));
+      await pageS.evaluate(()=>window.enquizVisit('home'));
+      await pageS.locator('#home.on').waitFor();
+      await pageS.locator('#homeWarmupPanel').waitFor({state:'visible'});
+      assert.equal(await pageS.locator('#homeWarmupBadge').textContent(), '1 due');
+      assert.ok(await pageS.locator('.home-warmup-prompt').isVisible(), 'Prompt must be visible');
+      assert.equal(await pageS.locator('.home-warmup-stage').textContent(), 'Level 1: Recognition');
+
+      // Student inputs answer
+      await pageS.locator('#warmupAnswer').waitFor({state:'visible'});
+      await pageS.locator('#warmupAnswer').fill('children');
+      await pageS.locator('#warmupCheckBtn').click();
+      await pageS.locator('.home-warmup-feedback.is-correct').waitFor({timeout:5000});
+      assert.match(await pageS.locator('.home-warmup-feedback').textContent(), /Correct!/);
+
+      // Teacher does not see student warmup widget (roleHome for teacher is groups, and warmup panel is strictly hidden)
+      const teacher=allTeachers.find(t=>t.login==='teacher_101_1');
+      const pageT=await setupPageForUser(teacher);
+      await pageT.locator('#groups.on').waitFor();
+      assert.ok(await pageT.locator('#homeWarmupPanel').isHidden(), 'Warmup widget must remain hidden for staff');
+
+      await pageS.close();
+      await pageT.close();
+    }
+
+    yield "15. Subgroup Diagnostic Heatmap: Teacher 101_1 views Group 101 diagnostic breakdown and advice; IDOR prevents unauthorized access";
+    {
+      const teacher101=allTeachers.find(t=>t.login==='teacher_101_1');
+      const pageT1=await setupPageForUser(teacher101);
+      await pageT1.locator('.side nav [data-jump="groups"]').click();
+      await pageT1.locator('#groups.on').waitFor();
+      await pageT1.locator('[data-group-level="A1"]').click();
+      await pageT1.locator('[data-group-open="101"]').click();
+      await pageT1.locator('#groupdetail.on').waitFor();
+
+      // Diagnostic panel is visible for assigned teacher
+      await pageT1.locator('#groupDetailDiagnostic').waitFor({state:'visible'});
+      await pageT1.waitForFunction(()=>document.getElementById('groupDiagTotalErrors')?.textContent==='3 errors');
+      assert.equal(await pageT1.locator('#groupDiagTotalErrors').textContent(), '3 errors');
+      assert.ok(await pageT1.locator('#groupDiagBars .group-diag-bar-segment').count() >= 2);
+      assert.match(await pageT1.locator('#groupDiagAdvice').textContent(), /Recommended: 10-minute focused contrastive analysis/);
+
+      // Student cannot see teacher heatmap
+      const student=allStudents.find(s=>s.login==='student_101_1');
+      const pageS=await setupPageForUser(student);
+      await pageS.locator('#days.on, #home.on').first().waitFor();
+      assert.ok(await pageS.locator('#groupDetailDiagnostic').isHidden(), 'Diagnostic heatmap must remain hidden for students');
+
+      await pageT1.close();
+      await pageS.close();
+    }
+
+    yield "16. Module 4 CEFR Essay Rubric Copilot: Teacher reviews essay with AI Review Assist, pre-fills rubric points and applies structured feedback";
+    {
+      const teacher101=allTeachers.find(t=>t.login==='teacher_101_1');
+      const pageT1=await setupPageForUser(teacher101);
+
+      await pageT1.evaluate(async()=>{
+        if(typeof window.ensureMaterialQuiz==='function')await window.ensureMaterialQuiz();
+        viewAccount={id:'b'.repeat(32),role:'USER'};
+        lmState={
+          ...lmBlankMaterial(),
+          id:901,
+          examId:11,
+          blockId:901,
+          title:'Essay block',
+          examOwned:true,
+          published:true,
+          studentSaved:true,
+          assessmentReady:true,
+          assessmentState:'reviewing',
+          assessmentRevision:1,
+          mode:'preview',
+          tab:'overview',
+          blocks:[
+            {
+              id:1,
+              type:'task',
+              title:'Opinion Essay',
+              text:'Write an essay about AI in education.',
+              response:'In my opinion, artificial intelligence is transforming modern education significantly.',
+              criteria:'Task Achievement | 25\nCoherence & Cohesion | 25\nLexical Resource | 25\nGrammatical Range & Accuracy | 25',
+              maxPoints:100
+            }
+          ]
+        };
+        window.enquizVisit('material');
+        lmShow('preview');
+        examDress();
+      });
+
+      const copilotBtn=pageT1.locator('[data-exam-essay-copilot="1"]');
+      await copilotBtn.waitFor({state:'visible'});
+      assert.equal(await copilotBtn.innerText(),'AI Review Assist');
+
+      await copilotBtn.click();
+      await pageT1.locator('.exam-copilot-card').waitFor({state:'visible'});
+
+      assert.equal(await pageT1.locator('[data-exam-criterion="1:0:0"]').inputValue(),'22');
+      assert.equal(await pageT1.locator('[data-exam-criterion="1:0:1"]').inputValue(),'20');
+      assert.equal(await pageT1.locator('[data-exam-points="1:0"]').inputValue(),'83');
+      assert.match(await pageT1.locator('.exam-copilot-score').innerText(),/83 \/ 100 pts/);
+      assert.match(await pageT1.locator('.exam-copilot-card').innerText(),/Clear thesis statement/);
+
+      const useFeedbackBtn=pageT1.locator('[data-exam-use-copilot-feedback="1"]');
+      await useFeedbackBtn.waitFor({state:'visible'});
+      await useFeedbackBtn.click();
+      assert.equal(await useFeedbackBtn.innerText(),'Feedback applied ✓');
+      const overallComment=pageT1.locator('[data-exam-review-note="examOverallComment"]');
+      assert.match(await overallComment.inputValue(),/AI Review Assist \(Draft Suggestion\)/);
+      assert.match(await overallComment.inputValue(),/Strengths:\n• Clear thesis statement/);
+
+      await pageT1.close();
     }
 
   }finally{

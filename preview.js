@@ -2320,6 +2320,36 @@ const createIntegratedSpeechPracticeUI = (() => {
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names={pronunciation:'Pronunciation',free:'Free speech',shadowing:'Shadowing',retelling:'Retelling',dialogue:'Situational dialogue'};
 const metricNames={accuracy:'Pronunciation accuracy',fluency:'Fluency',prosody:'Prosody',grammar:'Grammar',vocabulary:'Vocabulary',task:'Task completion'};
+const phonemeGuides={
+  'θ':{name:'Voiceless dental fricative',tip:'Keep tongue tip between upper and lower teeth; blow gently without vocal vibration.'},
+  'ð':{name:'Voiced dental fricative',tip:'Keep tongue tip between teeth; vibrate vocal cords to produce a voiced hum.'},
+  'iː':{name:'Long front vowel',tip:'Spread lips wide in a smile, tongue high and front. Hold longer than /ɪ/.'},
+  'ɪ':{name:'Short front lax vowel',tip:'Relax lips and jaw slightly. Pronounce shorter and softer than /iː/.'},
+  'uː':{name:'Long back vowel',tip:'Round lips into a tight small circle, pull tongue back. Hold longer than /ʊ/.'},
+  'ʊ':{name:'Short back lax vowel',tip:'Relax lips into a loose curve, shorter sound.'},
+  'ɑː':{name:'Long open vowel',tip:'Open jaw wide, keep tongue flat and low.'},
+  'ʌ':{name:'Short central vowel',tip:'Relax jaw in mid-open position, tongue neutral.'},
+  'ɔː':{name:'Long back rounded vowel',tip:'Round lips moderately, tongue raised towards back.'},
+  'w':{name:'Labio-velar approximant',tip:'Round lips tightly without teeth contact; glide into following vowel.'},
+  'v':{name:'Voiced labiodental fricative',tip:'Place upper teeth on lower lip, keep vocal cords vibrating.'},
+  'r':{name:'Post-alveolar approximant',tip:'Curl tongue tip slightly back without touching roof of mouth.'},
+  'l':{name:'Alveolar lateral approximant',tip:'Press tongue tip firmly against alveolar ridge; air flows around sides.'},
+  'd':{name:'Voiced alveolar plosive',tip:'Maintain vocal cord vibration through the final consonant; avoid devoicing.'},
+  'z':{name:'Voiced alveolar fricative',tip:'Vibrate vocal cords; lengthen the preceding vowel.'}
+};
+function phonemeTip(phoneme){
+  if(!phoneme)return null;
+  const clean=String(phoneme).replace(/[/\[\]]/g,'').trim();
+  return phonemeGuides[clean]||null;
+}
+function articulatoryPanel(findings){
+  const phonemeItems=(findings||[]).filter(f=>f.phoneme);
+  if(!phonemeItems.length)return '';
+  return '<div class="speech-articulatory-panel"><h4>Articulatory coaching</h4>'+phonemeItems.map(f=>{
+    const guide=phonemeTip(f.phoneme);
+    return '<div class="speech-coaching-card"><div class="speech-coaching-head"><span class="speech-phoneme-badge">/'+esc(f.phoneme)+'/</span><span class="speech-phoneme-title">'+esc(guide?.name||'Phoneme focus')+'</span></div><p>'+esc(f.message)+(guide?' · <span class="speech-articulatory-hint">'+esc(guide.tip)+'</span>':'')+'</p></div>';
+  }).join('')+'</div>';
+}
 function wav(chunks,rate){
   const length=chunks.reduce((sum,chunk)=>sum+chunk.length,0),buffer=new ArrayBuffer(44+length*2),view=new DataView(buffer),ascii=(at,text)=>[...text].forEach((c,i)=>view.setUint8(at+i,c.charCodeAt(0)));
   ascii(0,'RIFF');view.setUint32(4,36+length*2,true);ascii(8,'WAVE');ascii(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);ascii(36,'data');view.setUint32(40,length*2,true);
@@ -2358,7 +2388,7 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
   }
   function resultPanel(attempt){
     const result=attempt.result;
-    return '<details class="speech-attempt" data-speech-id="'+esc(attempt.id)+'"><summary>'+esc(new Date(attempt.createdAt).toLocaleString('en-GB'))+' · '+esc(attempt.state)+(result?.overall!==null&&result?.overall!==undefined?' · '+result.overall+' / 100':'')+'</summary><div class="detail">'+(result?'<p class="reason">'+(result.synthetic?'Synthetic demonstration, not an assessment of your recording. ': '')+(result.provisional?'Provisional rubric. ':'')+'Automatic practice feedback, not an exam grade.</p><dl class="speech-scores">'+Object.entries(result.scores).map(([key,score])=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+(score===null?'Unavailable':score+' / 100 <meter min="0" max="100" value="'+score+'">'+score+'</meter>')+'</dd>').join('')+'</dl><p>Overall: '+(result.overall===null?'Unavailable · Missing: '+result.missing.map(key=>esc(metricNames[key])).join(', '):result.overall+' / 100')+'</p><h4>Transcript</h4><p class="quiz-content">'+esc(result.transcript||'Unavailable')+'</p>'+(attempt.correction?'<p>Corrected transcript: '+esc(attempt.correction.text)+'</p><p class="small muted">Correction does not change the original scores.</p>':'')+result.findings.map(finding=>'<p>'+esc(metricNames[finding.metric])+': '+esc(finding.message)+(finding.wordIndex!==null?' · word '+(finding.wordIndex+1):'')+(finding.phoneme?' · /'+esc(finding.phoneme)+'/':'')+'</p>').join('')+(result.training.length?'<h4>Next practice</h4><ul>'+result.training.map(item=>'<li>'+esc(item.message)+'</li>').join('')+'</ul>':'')+'<details><summary>Source and rubric</summary><p>'+esc(result.rubric.id+' · '+result.rubric.version)+'</p>'+result.sources.map(source=>'<p>'+esc(source.task+' · '+source.provider+' · '+source.model+' · '+source.version)+'</p>').join('')+'</details>':'<p>'+esc(attempt.error||'Analysis pending')+'</p>')+'<audio controls preload="none" src="/local/speech/attempts/'+esc(attempt.id)+'/audio"></audio>'+(attempt.canManage?(attempt.state==='complete'?'<form data-speech-form="correct" data-id="'+esc(attempt.id)+'"><label>Correct the transcript<textarea name="text" maxlength="6000" required>'+esc(attempt.correction?.text||result?.transcript)+'</textarea></label><button type="submit">Save transcript correction</button></form>':'')+'<form data-speech-form="share" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label class="check"><input type="checkbox" name="includeAudio">Include my recording</label><label class="check"><input type="checkbox" name="consent" required>Allow this teacher to view this result</label><button type="submit">Share with teacher</button></form>'+attempt.shares.map(share=>'<p>'+esc(state.recipients.find(row=>row.id===share.teacherId)?.name||'Teacher')+' · '+(share.includeAudio?'Result and recording':'Result only')+' <button data-speech-action="revoke" data-id="'+esc(attempt.id)+'" data-teacher="'+esc(share.teacherId)+'">Revoke access</button></p>').join('')+'<div class="actions">'+(['queued','analyzing'].includes(attempt.state)?'<button data-speech-action="cancel" data-id="'+esc(attempt.id)+'">Cancel analysis</button>':'')+'<button data-speech-action="remove" data-id="'+esc(attempt.id)+'">Delete attempt and recording</button></div>':'')+'</div></details>';
+    return '<details class="speech-attempt" data-speech-id="'+esc(attempt.id)+'"><summary>'+esc(new Date(attempt.createdAt).toLocaleString('en-GB'))+' · '+esc(attempt.state)+(result?.overall!==null&&result?.overall!==undefined?' · '+result.overall+' / 100':'')+'</summary><div class="detail">'+(result?'<p class="reason">'+(result.synthetic?'Synthetic demonstration, not an assessment of your recording. ': '')+(result.provisional?'Provisional rubric. ':'')+'Automatic practice feedback, not an exam grade.</p><dl class="speech-scores">'+Object.entries(result.scores).map(([key,score])=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+(score===null?'Unavailable':score+' / 100 <meter min="0" max="100" value="'+score+'">'+score+'</meter>')+'</dd>').join('')+'</dl><p>Overall: '+(result.overall===null?'Unavailable · Missing: '+result.missing.map(key=>esc(metricNames[key])).join(', '):result.overall+' / 100')+'</p><h4>Transcript</h4><p class="quiz-content">'+esc(result.transcript||'Unavailable')+'</p>'+(attempt.correction?'<p>Corrected transcript: '+esc(attempt.correction.text)+'</p><p class="small muted">Correction does not change the original scores.</p>':'')+result.findings.map(finding=>'<p>'+esc(metricNames[finding.metric])+': '+esc(finding.message)+(finding.wordIndex!==null?' · word '+(finding.wordIndex+1):'')+(finding.phoneme?' · /'+esc(finding.phoneme)+'/':'')+'</p>').join('')+articulatoryPanel(result.findings)+(result.training.length?'<h4>Next practice</h4><ul>'+result.training.map(item=>'<li>'+esc(item.message)+'</li>').join('')+'</ul>':'')+'<details><summary>Source and rubric</summary><p>'+esc(result.rubric.id+' · '+result.rubric.version)+'</p>'+result.sources.map(source=>'<p>'+esc(source.task+' · '+source.provider+' · '+source.model+' · '+source.version)+'</p>').join('')+'</details>':'<p>'+esc(attempt.error||'Analysis pending')+'</p>')+'<audio controls preload="none" src="/local/speech/attempts/'+esc(attempt.id)+'/audio"></audio>'+(attempt.canManage?(attempt.state==='complete'?'<form data-speech-form="correct" data-id="'+esc(attempt.id)+'"><label>Correct the transcript<textarea name="text" maxlength="6000" required>'+esc(attempt.correction?.text||result?.transcript)+'</textarea></label><button type="submit">Save transcript correction</button></form>':'')+'<form data-speech-form="share" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label class="check"><input type="checkbox" name="includeAudio">Include my recording</label><label class="check"><input type="checkbox" name="consent" required>Allow this teacher to view this result</label><button type="submit">Share with teacher</button></form>'+attempt.shares.map(share=>'<p>'+esc(state.recipients.find(row=>row.id===share.teacherId)?.name||'Teacher')+' · '+(share.includeAudio?'Result and recording':'Result only')+' <button data-speech-action="revoke" data-id="'+esc(attempt.id)+'" data-teacher="'+esc(share.teacherId)+'">Revoke access</button></p>').join('')+'<div class="actions">'+(['queued','analyzing'].includes(attempt.state)?'<button data-speech-action="cancel" data-id="'+esc(attempt.id)+'">Cancel analysis</button>':'')+'<button data-speech-action="remove" data-id="'+esc(attempt.id)+'">Delete attempt and recording</button></div>':'')+'</div></details>';
   }
   function renderContent(){
     if(context()?.personal)return '<section><p>Speech practice belongs to lesson words.</p></section>';
@@ -2418,7 +2448,22 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       if(transcript&&result?.transcript){
         let index=0;transcript.replaceChildren();for(const part of result.transcript.split(/(\s+)/)){
           const wordIndex=/\S/.test(part)?index++:null,findings=wordIndex===null?[]:result.findings.filter(finding=>finding.wordIndex===wordIndex);
-          if(findings.length){const mark=document.createElement('mark');mark.textContent=part;mark.title=findings.map(finding=>finding.message).join('; ');transcript.append(mark);}else transcript.append(document.createTextNode(part));
+          if(findings.length){
+            const phonemeFinding=findings.find(f=>f.phoneme);
+            const guide=phonemeFinding?phonemeTip(phonemeFinding.phoneme):null;
+            const mark=document.createElement('mark');
+            mark.className='speech-highlighted-word'+(phonemeFinding?' has-phoneme':'');
+            mark.textContent=part;
+            mark.title=findings.map(finding=>finding.message+(finding.phoneme&&guide?' ['+guide.tip+']':'')).join('; ');
+            transcript.append(mark);
+            if(phonemeFinding){
+              const badge=document.createElement('span');
+              badge.className='speech-inline-phoneme';
+              badge.textContent='/'+phonemeFinding.phoneme+'/';
+              badge.title=guide?guide.name+': '+guide.tip:findings.map(f=>f.message).join('; ');
+              transcript.append(badge);
+            }
+          }else transcript.append(document.createTextNode(part));
         }
       }
       node.querySelector('[data-speech-language-warning]')?.remove();
@@ -21552,7 +21597,78 @@ async function lmImportPdfDraft(file) {
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;
       document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
+      paintGroupDiagnostic(group.id);
       paintPagePath('groupdetail');
+    }
+    let currentDiagGroupId = null;
+    async function paintGroupDiagnostic(groupId) {
+      const panel = document.getElementById('groupDetailDiagnostic');
+      if (!panel) return;
+      if (!isTeacher() || viewAccount || !groupId) {
+        panel.hidden = true;
+        return;
+      }
+      currentDiagGroupId = groupId;
+      panel.hidden = false;
+      const badge = document.getElementById('groupDiagTotalErrors');
+      const bars = document.getElementById('groupDiagBars');
+      const legend = document.getElementById('groupDiagLegend');
+      const advice = document.getElementById('groupDiagAdvice');
+      if (!bars || !legend || !advice) return;
+
+      try {
+        const res = await fetch(accountApi() + '/api/error-bank?action=subgroup-diagnostic&groupId=' + encodeURIComponent(groupId), {
+          credentials: 'include'
+        }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+        if (currentDiagGroupId !== groupId) return;
+        if (!res || !res.totalErrors) {
+          if (badge) badge.textContent = '0 errors';
+          bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
+          legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
+          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this subgroup.</p>';
+          return;
+        }
+
+        if (badge) badge.textContent = res.totalErrors + (res.totalErrors === 1 ? ' error' : ' errors');
+
+        const colors = {
+          l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)' },
+          overgeneralization: { color: '#8b5cf6', label: 'Overgeneralization (irregular forms)' },
+          collocation_clash: { color: '#3b82f6', label: 'Collocations (do vs make)' },
+          grammar: { color: '#06b6d4', label: 'General Grammar' },
+          vocabulary: { color: '#10b981', label: 'Vocabulary Gaps' },
+          typo: { color: '#64748b', label: 'Spelling & Typos' }
+        };
+
+        const pct = res.percentages || {};
+        let barHtml = '';
+        let legendHtml = '';
+
+        for (const [key, cfg] of Object.entries(colors)) {
+          const val = pct[key] || 0;
+          if (val > 0) {
+            barHtml += '<div class="group-diag-bar-segment" style="width:' + val + '%;background:' + cfg.color + '" title="' + esc(cfg.label) + ': ' + val + '%"></div>';
+            legendHtml += '<span class="group-diag-pill" style="border-left-color:' + cfg.color + '"><b>' + val + '%</b> ' + esc(cfg.label) + '</span>';
+          }
+        }
+        bars.innerHTML = barHtml;
+        legend.innerHTML = legendHtml;
+
+        let patternsHtml = '';
+        if (res.topPatterns && res.topPatterns.length) {
+          patternsHtml = '<div class="group-diag-top-patterns"><b>Frequent error patterns:</b><ul>' +
+            res.topPatterns.map(p => '<li><code>' + esc(p.pattern) + '</code> (' + p.count + ' ' + (p.count === 1 ? 'student' : 'students') + ')</li>').join('') +
+            '</ul></div>';
+        }
+
+        advice.innerHTML = '<div class="group-diag-advice-box"><div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
+          '<p class="group-diag-advice-text">' + esc(res.recommendation || '') + '</p>' +
+          patternsHtml +
+          '</div>';
+      } catch (err) {
+        panel.hidden = true;
+      }
     }
     function paintGroupPeople() {
       paintGroupDetail();
@@ -23078,6 +23194,104 @@ async function lmImportPdfDraft(file) {
         sessionStorage.setItem('enquiz-home-recent:'+authUser.id,JSON.stringify(rows));
       } catch {}
     }
+    let warmupQueue = [], warmupCurrentIndex = 0, warmupStats = null, warmupFetching = false, warmupLoaded = false;
+    async function fetchWarmupData(force=false) {
+      if (!authUser || authUser.role !== 'USER' || viewAccount) return null;
+      if (warmupLoaded && !force) return { stats: warmupStats, queue: warmupQueue };
+      if (warmupFetching) return null;
+      warmupFetching = true;
+      try {
+        const [statsRes, queueRes] = await Promise.all([
+          fetch(accountApi() + '/api/error-bank?action=stats', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(accountApi() + '/api/error-bank?action=queue&limit=10', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null)
+        ]);
+        if (!statsRes && !queueRes) return null;
+        warmupStats = statsRes || { dueToday: 0 };
+        warmupQueue = queueRes?.queue || [];
+        warmupCurrentIndex = 0;
+        warmupLoaded = true;
+        return { stats: warmupStats, queue: warmupQueue };
+      } catch { return null; }
+      finally { warmupFetching = false; }
+    }
+    function renderWarmupCard() {
+      const panel = document.getElementById('homeWarmupPanel');
+      if (!panel) return;
+      const student = authUser?.role === 'USER' && !viewAccount;
+      if (!student) { panel.hidden = true; return; }
+      panel.hidden = false;
+      const badge = document.getElementById('homeWarmupBadge'), content = document.getElementById('homeWarmupContent');
+      if (!content) return;
+      const due = warmupStats?.dueToday || 0;
+      if (badge) {
+        badge.textContent = due ? due + ' due' : 'All clear';
+        badge.classList.toggle('is-due', due > 0);
+      }
+      const item = warmupQueue[warmupCurrentIndex];
+      if (!item) {
+        if (!content.querySelector('.home-warmup-empty')) {
+          content.innerHTML = '<div class="home-warmup-empty"><p><strong>All caught up! 🎉</strong></p><small>' +
+            (warmupStats?.masteredItems ? warmupStats.masteredItems + ' items mastered · ' : '') +
+            'No mistakes due for review today.</small></div>';
+        }
+        return;
+      }
+      const existingCard = content.querySelector('.home-warmup-card');
+      if (existingCard && existingCard.dataset.warmupId === String(item.id)) {
+        return;
+      }
+      const stageLabels = { 1: 'Level 1: Recognition', 2: 'Level 2: Cued Recall', 3: 'Level 3: Context Writing', 4: 'Level 4: Speech Recall' };
+      let inputHtml = '';
+      if (item.stage === 1) {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+      } else if (item.stage === 2) {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+      } else if (item.stage === 3) {
+        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
+      } else {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Pronounce or confirm text" /><button class="btn primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
+      }
+      content.innerHTML = '<div class="home-warmup-card" data-warmup-id="' + item.id + '">' +
+        '<div class="home-warmup-meta"><span class="home-warmup-stage">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
+        '<p class="home-warmup-prompt">' + esc(item.prompt) + '</p>' +
+        (item.hint ? '<small class="home-warmup-hint">' + esc(item.hint) + '</small>' : '') +
+        inputHtml +
+        '<p id="warmupFeedback" class="home-warmup-feedback" hidden></p>' +
+        '</div>';
+      const checkBtn = document.getElementById('warmupCheckBtn');
+      if (checkBtn) {
+        checkBtn.onclick = async () => {
+          const input = document.getElementById('warmupAnswer');
+          const val = input ? input.value.trim() : '';
+          if (!val) return;
+          checkBtn.disabled = true;
+          try {
+            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val }) });
+            const fb = document.getElementById('warmupFeedback');
+            if (fb) {
+              fb.hidden = false;
+              if (result.correct) {
+                fb.className = 'home-warmup-feedback is-correct';
+                fb.textContent = result.status === 'mastered' ? 'Mastered! 🎉 Great job!' : 'Correct! Advanced to ' + (stageLabels[result.stage] || 'next stage');
+              } else {
+                fb.className = 'home-warmup-feedback is-incorrect';
+                fb.textContent = 'Keep practicing. Correct: ' + result.expected;
+              }
+            }
+            setTimeout(() => {
+              warmupCurrentIndex++;
+              if (warmupStats && warmupStats.dueToday > 0) warmupStats.dueToday--;
+              renderWarmupCard();
+            }, 1200);
+          } catch (err) {
+            console.error('WARMUP ERROR:', err);
+            checkBtn.disabled = false;
+          }
+        };
+        const input = document.getElementById('warmupAnswer');
+        if (input) input.onkeydown = e => { if (e.key === 'Enter' && item.stage !== 3) checkBtn.click(); };
+      }
+    }
     function paintHomeDashboard({learned,total,pct}) {
       const text = (id,value) => { const node=document.getElementById(id);if(node)node.textContent=value; };
       text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
@@ -23101,6 +23315,8 @@ async function lmImportPdfDraft(file) {
       const student=authUser?.role==='USER'&&!viewAccount;
       document.querySelectorAll('[data-home-continue],[data-home-groups],[data-home-group-open]').forEach(node=>{node.dataset.jump=student?'days':'groups';node.hidden=!authUser;});
       const open=document.querySelector('[data-home-group-open]');if(open)open.disabled=!group;
+      if(student)fetchWarmupData().then(()=>renderWarmupCard()).catch(()=>{});
+      else{const panel=document.getElementById('homeWarmupPanel');if(panel)panel.hidden=true;}
     }
     function installShellBranding() {
       document.querySelectorAll('[data-copyright-year]').forEach(node=>{node.textContent=String(new Date().getFullYear());});

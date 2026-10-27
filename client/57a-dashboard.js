@@ -13,6 +13,104 @@
         sessionStorage.setItem('enquiz-home-recent:'+authUser.id,JSON.stringify(rows));
       } catch {}
     }
+    let warmupQueue = [], warmupCurrentIndex = 0, warmupStats = null, warmupFetching = false, warmupLoaded = false;
+    async function fetchWarmupData(force=false) {
+      if (!authUser || authUser.role !== 'USER' || viewAccount) return null;
+      if (warmupLoaded && !force) return { stats: warmupStats, queue: warmupQueue };
+      if (warmupFetching) return null;
+      warmupFetching = true;
+      try {
+        const [statsRes, queueRes] = await Promise.all([
+          fetch(accountApi() + '/api/error-bank?action=stats', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null),
+          fetch(accountApi() + '/api/error-bank?action=queue&limit=10', { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null)
+        ]);
+        if (!statsRes && !queueRes) return null;
+        warmupStats = statsRes || { dueToday: 0 };
+        warmupQueue = queueRes?.queue || [];
+        warmupCurrentIndex = 0;
+        warmupLoaded = true;
+        return { stats: warmupStats, queue: warmupQueue };
+      } catch { return null; }
+      finally { warmupFetching = false; }
+    }
+    function renderWarmupCard() {
+      const panel = document.getElementById('homeWarmupPanel');
+      if (!panel) return;
+      const student = authUser?.role === 'USER' && !viewAccount;
+      if (!student) { panel.hidden = true; return; }
+      panel.hidden = false;
+      const badge = document.getElementById('homeWarmupBadge'), content = document.getElementById('homeWarmupContent');
+      if (!content) return;
+      const due = warmupStats?.dueToday || 0;
+      if (badge) {
+        badge.textContent = due ? due + ' due' : 'All clear';
+        badge.classList.toggle('is-due', due > 0);
+      }
+      const item = warmupQueue[warmupCurrentIndex];
+      if (!item) {
+        if (!content.querySelector('.home-warmup-empty')) {
+          content.innerHTML = '<div class="home-warmup-empty"><p><strong>All caught up! 🎉</strong></p><small>' +
+            (warmupStats?.masteredItems ? warmupStats.masteredItems + ' items mastered · ' : '') +
+            'No mistakes due for review today.</small></div>';
+        }
+        return;
+      }
+      const existingCard = content.querySelector('.home-warmup-card');
+      if (existingCard && existingCard.dataset.warmupId === String(item.id)) {
+        return;
+      }
+      const stageLabels = { 1: 'Level 1: Recognition', 2: 'Level 2: Cued Recall', 3: 'Level 3: Context Writing', 4: 'Level 4: Speech Recall' };
+      let inputHtml = '';
+      if (item.stage === 1) {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+      } else if (item.stage === 2) {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+      } else if (item.stage === 3) {
+        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
+      } else {
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Pronounce or confirm text" /><button class="btn primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
+      }
+      content.innerHTML = '<div class="home-warmup-card" data-warmup-id="' + item.id + '">' +
+        '<div class="home-warmup-meta"><span class="home-warmup-stage">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
+        '<p class="home-warmup-prompt">' + esc(item.prompt) + '</p>' +
+        (item.hint ? '<small class="home-warmup-hint">' + esc(item.hint) + '</small>' : '') +
+        inputHtml +
+        '<p id="warmupFeedback" class="home-warmup-feedback" hidden></p>' +
+        '</div>';
+      const checkBtn = document.getElementById('warmupCheckBtn');
+      if (checkBtn) {
+        checkBtn.onclick = async () => {
+          const input = document.getElementById('warmupAnswer');
+          const val = input ? input.value.trim() : '';
+          if (!val) return;
+          checkBtn.disabled = true;
+          try {
+            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val }) });
+            const fb = document.getElementById('warmupFeedback');
+            if (fb) {
+              fb.hidden = false;
+              if (result.correct) {
+                fb.className = 'home-warmup-feedback is-correct';
+                fb.textContent = result.status === 'mastered' ? 'Mastered! 🎉 Great job!' : 'Correct! Advanced to ' + (stageLabels[result.stage] || 'next stage');
+              } else {
+                fb.className = 'home-warmup-feedback is-incorrect';
+                fb.textContent = 'Keep practicing. Correct: ' + result.expected;
+              }
+            }
+            setTimeout(() => {
+              warmupCurrentIndex++;
+              if (warmupStats && warmupStats.dueToday > 0) warmupStats.dueToday--;
+              renderWarmupCard();
+            }, 1200);
+          } catch (err) {
+            console.error('WARMUP ERROR:', err);
+            checkBtn.disabled = false;
+          }
+        };
+        const input = document.getElementById('warmupAnswer');
+        if (input) input.onkeydown = e => { if (e.key === 'Enter' && item.stage !== 3) checkBtn.click(); };
+      }
+    }
     function paintHomeDashboard({learned,total,pct}) {
       const text = (id,value) => { const node=document.getElementById(id);if(node)node.textContent=value; };
       text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
@@ -36,6 +134,8 @@
       const student=authUser?.role==='USER'&&!viewAccount;
       document.querySelectorAll('[data-home-continue],[data-home-groups],[data-home-group-open]').forEach(node=>{node.dataset.jump=student?'days':'groups';node.hidden=!authUser;});
       const open=document.querySelector('[data-home-group-open]');if(open)open.disabled=!group;
+      if(student)fetchWarmupData().then(()=>renderWarmupCard()).catch(()=>{});
+      else{const panel=document.getElementById('homeWarmupPanel');if(panel)panel.hidden=true;}
     }
     function installShellBranding() {
       document.querySelectorAll('[data-copyright-year]').forEach(node=>{node.textContent=String(new Date().getFullYear());});
