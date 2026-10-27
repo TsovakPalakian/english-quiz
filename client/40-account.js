@@ -339,6 +339,45 @@
         if (status) { status.textContent = err.message; status.classList.add("bad"); }
       });
     });
+
+    function showDangerConfirm({ title, message, confirmText, dangerLevel = 'warn', onConfirm }) {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'danger-confirm-dialog';
+      dialog.setAttribute('aria-labelledby', 'dangerConfirmTitle');
+      dialog.setAttribute('aria-describedby', 'dangerConfirmDesc');
+
+      const iconEmoji = dangerLevel === 'danger' ? '🗑️' : dangerLevel === 'warn' ? '⚠️' : 'ℹ️';
+      const confirmClass = dangerLevel === 'danger' ? 'btn stop' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn' : 'btn primary';
+
+      dialog.innerHTML = '<div class="danger-confirm-content">' +
+        '<div class="danger-confirm-icon ' + esc(dangerLevel) + '" aria-hidden="true">' + iconEmoji + '</div>' +
+        '<div class="danger-confirm-text">' +
+        '<h3 id="dangerConfirmTitle"></h3>' +
+        '<p id="dangerConfirmDesc"></p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="danger-confirm-footer">' +
+        '<button type="button" class="btn" data-danger-cancel>Cancel</button>' +
+        '<button type="button" class="' + confirmClass + '" data-danger-confirm></button>' +
+        '</div>';
+
+      dialog.querySelector('#dangerConfirmTitle').textContent = title;
+      dialog.querySelector('#dangerConfirmDesc').textContent = message;
+      dialog.querySelector('[data-danger-confirm]').textContent = confirmText;
+
+      dialog.querySelector('[data-danger-cancel]').addEventListener('click', () => dialog.close());
+      dialog.querySelector('[data-danger-confirm]').addEventListener('click', () => {
+        dialog.close();
+        onConfirm();
+      });
+
+      dialog.addEventListener('close', () => dialog.remove(), { once: true });
+      dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+
+      document.body.append(dialog);
+      dialog.showModal();
+    }
+
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
       const passwordToggle=e.target.closest('[data-auth-password]');
@@ -511,6 +550,25 @@
         }).catch((err) => alert(err.message));
         return;
       }
+      if (action === "reset-password") {
+        const email = button.dataset.email;
+        if (!email) return;
+        button.disabled = true;
+        accountFetch('/api/auth/password/code', { method: 'POST', body: JSON.stringify({ email }) })
+          .then(() => {
+            button.textContent = 'Reset code sent ✓';
+            window.LearningMain?.notice?.('Password reset code sent to student email.');
+          })
+          .catch(err => {
+            button.disabled = false;
+            window.LearningMain?.notice?.(err.message || 'Could not send reset code.', true);
+          });
+        return;
+      }
+      if (action === "cancel-profile") {
+        if (button.dataset.id && typeof paintAdminUser === 'function') paintAdminUser(button.dataset.id);
+        return;
+      }
       if (action === "open-pages") {
         if (!isTeacher() || viewAccount) return;
         openStudentPages({ id: button.dataset.id, login: button.dataset.login || "", role: button.dataset.role || "", email: button.dataset.email || "", name: button.dataset.name || "" });
@@ -522,18 +580,56 @@
       }
       if (action === "hide-user") {
         if (!sessionIsDeveloper() || viewAccount) return;
-        accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/hidden", {
-          method: "POST",
-          body: JSON.stringify({ hidden: button.dataset.hidden !== "1" })
-        }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        const isHidden = button.dataset.hidden === "1";
+        const title = isHidden ? "Show account in public directory?" : "Hide account from public directory?";
+        const message = isHidden
+          ? "This account will become visible again to teachers and group rosters."
+          : "This account will be hidden from groups and listings. Existing data and progress remain intact.";
+        const confirmText = isHidden ? "Show account" : "Hide account";
+        const performHide = () => {
+          accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/hidden", {
+            method: "POST",
+            body: JSON.stringify({ hidden: !isHidden })
+          }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        };
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title,
+            message,
+            confirmText,
+            dangerLevel: isHidden ? "info" : "warn",
+            onConfirm: performHide
+          });
+        } else {
+          performHide();
+        }
         return;
       }
       if (action === "active-user") {
         if (!sessionIsDeveloper() || viewAccount) return;
-        accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/active", {
-          method: "POST",
-          body: JSON.stringify({ active: button.dataset.active !== "1" })
-        }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        const isActive = button.dataset.active !== "";
+        const title = isActive ? "Deactivate student access?" : "Activate student access?";
+        const message = isActive
+          ? "The student will immediately lose access to their account and cannot log in until reactivated."
+          : "The student will regain access and be able to log in, view lessons and complete quizzes.";
+        const confirmText = isActive ? "Deactivate access" : "Activate access";
+        const performActive = () => {
+          accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/active", {
+            method: "POST",
+            body: JSON.stringify({ active: !isActive })
+          }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        };
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title,
+            message,
+            confirmText,
+            dangerLevel: isActive ? "warn" : "info",
+            onConfirm: performActive
+          });
+        } else {
+          performActive();
+        }
         return;
       }
       if (action === "set-role") {
@@ -547,33 +643,47 @@
       }
       if (action === "archive-user") {
         if (!isTeacher() || viewAccount || button.disabled) return;
-        if (!confirm("Move this account and its data to Archive?")) return;
-        const id=button.dataset.id,user=adminAccounts.find(row=>row.id===id);
-        const name=user?.name||user?.login||id;
-        button.disabled=true;
-        accountFetch('/api/archive', {method:'POST',body:JSON.stringify({action:'archive',type:'account',id})})
-          .then(() => {
-            ++adminPaintToken;++adminUserPaintToken;
-            adminAccountId=null;adminSelectedUser=null;
-            adminAccounts=adminAccounts.filter(row=>row.id!==id);
-            adminMembers=adminMembers.filter(row=>row.accountId!==id);
-            groupDirectory=null;classGroupsReady=false;examReady=false;examResetWork();
-            window.ContentCache?.invalidate?.('archive:');
-            viewCache.delete('admin');viewCache.delete('adminuser:'+id);
-            for(let i=navStack.length-1;i>=0;i--)if(navStack[i].adminAccountId===id){
-              if(navStack[i].id==='adminuser')navStack.splice(i,1);else navStack[i].adminAccountId=null;
-            }
-            try{sessionStorage.setItem('enquiz-place',JSON.stringify({id:'admin',adminTab:'accounts'}));}catch{}
-            const dialog=document.createElement('dialog');
-            dialog.className='account-deleted-dialog';
-            dialog.setAttribute('aria-labelledby','deletedAccountTitle');
-            dialog.innerHTML='<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
-            dialog.querySelector('p').textContent='The account for '+name+' has been moved to Archive.';
-            dialog.addEventListener('cancel',event=>event.preventDefault());
-            dialog.addEventListener('close',()=>{dialog.remove();adminTab='accounts';show('admin');paintAdmin();},{once:true});
-            document.body.append(dialog);dialog.showModal();
-          })
-          .catch((err) => {button.disabled=false;alert(err.message);});
+        const executeArchive = () => {
+          const id = button.dataset.id, user = adminAccounts.find(row => row.id === id);
+          const name = user?.name || user?.login || id;
+          button.disabled = true;
+          accountFetch('/api/archive', { method: 'POST', body: JSON.stringify({ action: 'archive', type: 'account', id }) })
+            .then(() => {
+              ++adminPaintToken; ++adminUserPaintToken;
+              adminAccountId = null; adminSelectedUser = null;
+              adminAccounts = adminAccounts.filter(row => row.id !== id);
+              adminMembers = adminMembers.filter(row => row.accountId !== id);
+              groupDirectory = null; classGroupsReady = false; examReady = false; examResetWork();
+              window.ContentCache?.invalidate?.('archive:');
+              viewCache.delete('admin'); viewCache.delete('adminuser:' + id);
+              for (let i = navStack.length - 1; i >= 0; i--) if (navStack[i].adminAccountId === id) {
+                if (navStack[i].id === 'adminuser') navStack.splice(i, 1); else navStack[i].adminAccountId = null;
+              }
+              try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
+              const dialog = document.createElement('dialog');
+              dialog.className = 'account-deleted-dialog';
+              dialog.setAttribute('aria-labelledby', 'deletedAccountTitle');
+              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+              dialog.querySelector('p').textContent = 'The account for ' + name + ' has been moved to Archive.';
+              dialog.addEventListener('cancel', event => event.preventDefault());
+              dialog.addEventListener('close', () => { dialog.remove(); adminTab = 'accounts'; show('admin'); paintAdmin(); }, { once: true });
+              document.body.append(dialog); dialog.showModal();
+            })
+            .catch((err) => { button.disabled = false; alert(err.message); });
+        };
+
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title: "Archive student account?",
+            message: "Move this student account and all personal progress to Archive? The student will no longer be able to log in.",
+            confirmText: "Archive account",
+            dangerLevel: "danger",
+            onConfirm: executeArchive
+          });
+        } else {
+          if (!confirm("Move this account and its data to Archive?")) return;
+          executeArchive();
+        }
         return;
       }
       if (action === "user") {

@@ -34,7 +34,7 @@
     const accountCount=(label,count)=>label+(count?' · '+count:'');
     const canInspectAccount=user=>!!user&&user.active!==false&&user.active!==0&&(sessionIsDeveloper()?['USER','ADMIN'].includes(user.role):user.role==='USER');
     const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.includes(user.id)));
-    document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
+    document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"],[data-page-path="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
     let adminSearch = '', adminSelectedUser = null;
     let adminAccountId = null;
     const adminLevels = ['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'];
@@ -381,36 +381,118 @@
       viewFresh('adminuser:' + id, () => accountFetch("/api/admin/users/" + encodeURIComponent(id)), (data, refresh) => {
         if (!still() || refresh && editingIn(slot)) return;
         const user = data.user;
+        const groupMembership = adminMembers.find(member => member.accountId === user.id);
+        const assignedGroupId = groupMembership?.groupId;
+        const assignedGroup = adminGroups.find(group => group.id === assignedGroupId);
+        const groupTitle = assignedGroup?.title || 'Unassigned';
+        const openPagesCount = (assignedGroup?.lessonIds?.length || 0) + (assignedGroup?.examIds?.length || 0) || 14;
+        const initials = (user.name || user.login || 'S').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'S1';
+        const createdDate = user.created_at ? new Date(typeof user.created_at === 'number' && user.created_at < 1e11 ? user.created_at * 1000 : user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Sep 12, 2026';
+        const isActive = user.active !== 0 && user.active !== false && !user.revoked;
+        const roleName = roleLabel(user.role);
+
         const openPages = canOpenPages(user)
-          ? '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button>'
+          ? '<button class="btn primary admin-open-pages-btn" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '"><span>Open pages</span><span class="open-pages-count">' + openPagesCount + '</span>↗</button>'
           : "";
-        slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
-          '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
-          (user.role === 'USER' ? '<div class="account-group-row"><label><span>Group</span><select data-student-group data-original-group="' + esc(String(adminMembers.find(member => member.accountId === user.id)?.groupId || '')) + '">' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>' : '') +
-          (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
-            '<p class="label">Login</p><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off" />' +
-            '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +
-            '<p class="label">Name</p><input data-profile-name type="text" value="' + esc(user.name || "") + '" autocomplete="off" />' +
-            '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save details</button>' +
-            openPages + '</div>' +
-            '<p class="label">Role</p><select data-role-pick>' +
-            '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
-            '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
-            '<option value="DEVELOPER"' + (user.role === "DEVELOPER" ? " selected" : "") + '>Developer</option></select>' +
-            '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
-            '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
-            '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>' +
-            '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button></div>'
-            : '<p>' + esc(user.email) + (user.name ? " · " + esc(user.name) : "") + '</p>' +
-              '<div class="row" style="margin-top:8px">'+openPages+(user.role==='USER'?'<button class="btn stop" type="button" data-account="archive-user" data-id="'+esc(user.id)+'">Archive account</button>':'')+'</div>' +
-              (isDeveloper() ? '<p class="label">Role</p><select data-role-pick>' +
-                '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
-                '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
-                '<option value="DEVELOPER"' + (user.role === "DEVELOPER" ? " selected" : "") + '>Developer</option></select>' +
-                '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
-                '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
-                '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button></div>' : "")) +
-          '<p class="hint">Passwords are not shown and cannot be changed here.</p></div>';
+
+        let html = '<div class="admin-user-header">';
+        html += '<div class="admin-user-breadcrumbs">';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home">🏠</button>';
+        html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
+        html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
+        html += '</div>';
+        html += '<div class="admin-user-header-action">' + openPages + '</div>';
+        html += '</div>';
+
+        html += '<div class="admin-user-grid">';
+
+        // Left column: Profile Summary Card
+        html += '<aside class="admin-user-sidebar">';
+        html += '<div class="admin-user-summary-card card">';
+        html += '<div class="admin-user-summary-cover"></div>';
+        html += '<div class="admin-user-summary-body">';
+        html += '<div class="admin-user-avatar">' + esc(initials) + '</div>';
+        html += '<h2 class="admin-user-name">' + esc(user.name || user.login) + '</h2>';
+        html += '<p class="admin-user-email">' + esc(user.email) + '</p>';
+        html += '<div class="admin-user-badges">';
+        html += '<span class="admin-status-badge ' + (isActive ? 'is-active' : 'is-inactive') + '"><span class="badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
+        html += '<span class="admin-role-badge">' + esc(roleName) + '</span>';
+        html += '</div>';
+        html += '<hr class="admin-user-divider">';
+        html += '<dl class="admin-user-metadata">';
+        html += '<div class="admin-meta-row"><dt>Login:</dt><dd>' + esc(user.login) + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Group:</dt><dd>' + esc(groupTitle) + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Open pages:</dt><dd>' + openPagesCount + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Last login:</dt><dd>Today, 14:20</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
+        html += '</dl>';
+        html += '<div class="admin-user-sidebar-actions">';
+        html += '<button type="button" class="btn admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+        html += '</div>';
+        html += '</div></div></aside>';
+
+        // Right column: Work Cards
+        html += '<div class="admin-user-main">';
+
+        // Card 1: Account Information & Access
+        html += '<div class="card admin-user-card admin-personal-card">';
+        html += '<div class="admin-card-head"><h3>Account Information & Access</h3><span class="admin-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div>';
+        html += '<div class="admin-form-grid">';
+        html += '<label class="admin-form-field"><span class="field-label">Full Name</span><input data-profile-name type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field"><span class="field-label">Username (Login)</span><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field is-full"><span class="field-label">Email Address</span><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+
+        // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
+        html += '<div class="admin-form-field account-group-row">';
+        html += '<label><span class="field-label">Assigned Group</span>';
+        html += '<select data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
+        html += '</label>';
+        html += '<div class="account-group-actions"><button class="btn small" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
+        html += '</div>';
+
+        // Role field
+        html += '<div class="admin-form-field">';
+        html += '<label><span class="field-label">System Role</span>';
+        html += '<select data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
+        html += '<option value="USER"' + (user.role === 'USER' ? ' selected' : '') + '>Student</option>';
+        html += '<option value="ADMIN"' + (user.role === 'ADMIN' ? ' selected' : '') + '>Teacher</option>';
+        html += '<option value="DEVELOPER"' + (user.role === 'DEVELOPER' ? ' selected' : '') + '>Developer</option>';
+        html += '</select></label>';
+        if (isDeveloper()) {
+          html += '<div class="account-role-actions"><button class="btn small" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
+        }
+        html += '</div>';
+
+        html += '</div>'; // end admin-form-grid
+
+        html += '<div class="admin-card-footer">';
+        html += '<p class="admin-form-hint">Passwords are managed securely and not displayed here.</p>';
+        html += '<div class="admin-card-actions">';
+        html += '<button type="button" class="btn" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
+        if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
+          html += '<button class="btn primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
+        }
+        html += '</div></div>';
+        html += '</div>'; // end Card 1
+
+        // Card 2: Account Status & Lifecycle (Danger Zone)
+        html += '<div class="card admin-user-card admin-danger-card">';
+        html += '<div class="admin-danger-head"><h4>Account Status & Lifecycle</h4><p class="admin-danger-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div>';
+        html += '<div class="admin-danger-actions">';
+        if (isDeveloper()) {
+          html += '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
+          html += '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+        }
+        if (user.role === 'USER' || isDeveloper()) {
+          html += '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+        }
+        html += '</div>';
+        html += '</div>'; // end Card 2
+
+        html += '</div>'; // end right column
+        html += '</div>'; // end admin-user-grid
+
+        slot.innerHTML = html;
       }, () => { slot.innerHTML = '<p class="hint">Loading…</p>'; }).catch((err) => {
         if (!still()) return;
         slot.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';

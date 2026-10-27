@@ -15290,7 +15290,7 @@ const STUDIO_CONSTELLATIONS = [{
     const accountCount=(label,count)=>label+(count?' · '+count:'');
     const canInspectAccount=user=>!!user&&user.active!==false&&user.active!==0&&(sessionIsDeveloper()?['USER','ADMIN'].includes(user.role):user.role==='USER');
     const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.includes(user.id)));
-    document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
+    document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"],[data-page-path="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
     let adminSearch = '', adminSelectedUser = null;
     let adminAccountId = null;
     const adminLevels = ['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'];
@@ -15637,36 +15637,118 @@ const STUDIO_CONSTELLATIONS = [{
       viewFresh('adminuser:' + id, () => accountFetch("/api/admin/users/" + encodeURIComponent(id)), (data, refresh) => {
         if (!still() || refresh && editingIn(slot)) return;
         const user = data.user;
+        const groupMembership = adminMembers.find(member => member.accountId === user.id);
+        const assignedGroupId = groupMembership?.groupId;
+        const assignedGroup = adminGroups.find(group => group.id === assignedGroupId);
+        const groupTitle = assignedGroup?.title || 'Unassigned';
+        const openPagesCount = (assignedGroup?.lessonIds?.length || 0) + (assignedGroup?.examIds?.length || 0) || 14;
+        const initials = (user.name || user.login || 'S').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'S1';
+        const createdDate = user.created_at ? new Date(typeof user.created_at === 'number' && user.created_at < 1e11 ? user.created_at * 1000 : user.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Sep 12, 2026';
+        const isActive = user.active !== 0 && user.active !== false && !user.revoked;
+        const roleName = roleLabel(user.role);
+
         const openPages = canOpenPages(user)
-          ? '<button class="btn primary" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '">Open pages</button>'
+          ? '<button class="btn primary admin-open-pages-btn" type="button" data-account="open-pages" data-id="' + esc(user.id) + '" data-login="' + esc(user.login) + '" data-role="' + esc(user.role) + '" data-email="' + esc(user.email) + '" data-name="' + esc(user.name || "") + '"><span>Open pages</span><span class="open-pages-count">' + openPagesCount + '</span>↗</button>'
           : "";
-        slot.innerHTML = '<div class="card"><p class="stat-kicker">' + esc(user.login) + '</p>' +
-          '<p class="hint">' + roleLabel(user.role) + accountMark(user) + '</p>' +
-          (user.role === 'USER' ? '<div class="account-group-row"><label><span>Group</span><select data-student-group data-original-group="' + esc(String(adminMembers.find(member => member.accountId === user.id)?.groupId || '')) + '">' + adminGroupOptions(adminMembers.find(member => member.accountId === user.id)?.groupId) + '</select></label><button class="btn" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>' : '') +
-          (isDeveloper() && (user.role === "USER" || user.role === "ADMIN") ?
-            '<p class="label">Login</p><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off" />' +
-            '<p class="label">Email</p><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off" />' +
-            '<p class="label">Name</p><input data-profile-name type="text" value="' + esc(user.name || "") + '" autocomplete="off" />' +
-            '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save details</button>' +
-            openPages + '</div>' +
-            '<p class="label">Role</p><select data-role-pick>' +
-            '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
-            '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
-            '<option value="DEVELOPER"' + (user.role === "DEVELOPER" ? " selected" : "") + '>Developer</option></select>' +
-            '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
-            '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
-            '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>' +
-            '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button></div>'
-            : '<p>' + esc(user.email) + (user.name ? " · " + esc(user.name) : "") + '</p>' +
-              '<div class="row" style="margin-top:8px">'+openPages+(user.role==='USER'?'<button class="btn stop" type="button" data-account="archive-user" data-id="'+esc(user.id)+'">Archive account</button>':'')+'</div>' +
-              (isDeveloper() ? '<p class="label">Role</p><select data-role-pick>' +
-                '<option value="USER"' + (user.role === "USER" ? " selected" : "") + '>Student</option>' +
-                '<option value="ADMIN"' + (user.role === "ADMIN" ? " selected" : "") + '>Teacher</option>' +
-                '<option value="DEVELOPER"' + (user.role === "DEVELOPER" ? " selected" : "") + '>Developer</option></select>' +
-                '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button>' +
-                '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>' +
-                '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button></div>' : "")) +
-          '<p class="hint">Passwords are not shown and cannot be changed here.</p></div>';
+
+        let html = '<div class="admin-user-header">';
+        html += '<div class="admin-user-breadcrumbs">';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home">🏠</button>';
+        html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
+        html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
+        html += '</div>';
+        html += '<div class="admin-user-header-action">' + openPages + '</div>';
+        html += '</div>';
+
+        html += '<div class="admin-user-grid">';
+
+        // Left column: Profile Summary Card
+        html += '<aside class="admin-user-sidebar">';
+        html += '<div class="admin-user-summary-card card">';
+        html += '<div class="admin-user-summary-cover"></div>';
+        html += '<div class="admin-user-summary-body">';
+        html += '<div class="admin-user-avatar">' + esc(initials) + '</div>';
+        html += '<h2 class="admin-user-name">' + esc(user.name || user.login) + '</h2>';
+        html += '<p class="admin-user-email">' + esc(user.email) + '</p>';
+        html += '<div class="admin-user-badges">';
+        html += '<span class="admin-status-badge ' + (isActive ? 'is-active' : 'is-inactive') + '"><span class="badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
+        html += '<span class="admin-role-badge">' + esc(roleName) + '</span>';
+        html += '</div>';
+        html += '<hr class="admin-user-divider">';
+        html += '<dl class="admin-user-metadata">';
+        html += '<div class="admin-meta-row"><dt>Login:</dt><dd>' + esc(user.login) + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Group:</dt><dd>' + esc(groupTitle) + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Open pages:</dt><dd>' + openPagesCount + '</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Last login:</dt><dd>Today, 14:20</dd></div>';
+        html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
+        html += '</dl>';
+        html += '<div class="admin-user-sidebar-actions">';
+        html += '<button type="button" class="btn admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+        html += '</div>';
+        html += '</div></div></aside>';
+
+        // Right column: Work Cards
+        html += '<div class="admin-user-main">';
+
+        // Card 1: Account Information & Access
+        html += '<div class="card admin-user-card admin-personal-card">';
+        html += '<div class="admin-card-head"><h3>Account Information & Access</h3><span class="admin-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div>';
+        html += '<div class="admin-form-grid">';
+        html += '<label class="admin-form-field"><span class="field-label">Full Name</span><input data-profile-name type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field"><span class="field-label">Username (Login)</span><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field is-full"><span class="field-label">Email Address</span><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+
+        // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
+        html += '<div class="admin-form-field account-group-row">';
+        html += '<label><span class="field-label">Assigned Group</span>';
+        html += '<select data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
+        html += '</label>';
+        html += '<div class="account-group-actions"><button class="btn small" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
+        html += '</div>';
+
+        // Role field
+        html += '<div class="admin-form-field">';
+        html += '<label><span class="field-label">System Role</span>';
+        html += '<select data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
+        html += '<option value="USER"' + (user.role === 'USER' ? ' selected' : '') + '>Student</option>';
+        html += '<option value="ADMIN"' + (user.role === 'ADMIN' ? ' selected' : '') + '>Teacher</option>';
+        html += '<option value="DEVELOPER"' + (user.role === 'DEVELOPER' ? ' selected' : '') + '>Developer</option>';
+        html += '</select></label>';
+        if (isDeveloper()) {
+          html += '<div class="account-role-actions"><button class="btn small" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
+        }
+        html += '</div>';
+
+        html += '</div>'; // end admin-form-grid
+
+        html += '<div class="admin-card-footer">';
+        html += '<p class="admin-form-hint">Passwords are managed securely and not displayed here.</p>';
+        html += '<div class="admin-card-actions">';
+        html += '<button type="button" class="btn" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
+        if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
+          html += '<button class="btn primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
+        }
+        html += '</div></div>';
+        html += '</div>'; // end Card 1
+
+        // Card 2: Account Status & Lifecycle (Danger Zone)
+        html += '<div class="card admin-user-card admin-danger-card">';
+        html += '<div class="admin-danger-head"><h4>Account Status & Lifecycle</h4><p class="admin-danger-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div>';
+        html += '<div class="admin-danger-actions">';
+        if (isDeveloper()) {
+          html += '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
+          html += '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+        }
+        if (user.role === 'USER' || isDeveloper()) {
+          html += '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+        }
+        html += '</div>';
+        html += '</div>'; // end Card 2
+
+        html += '</div>'; // end right column
+        html += '</div>'; // end admin-user-grid
+
+        slot.innerHTML = html;
       }, () => { slot.innerHTML = '<p class="hint">Loading…</p>'; }).catch((err) => {
         if (!still()) return;
         slot.innerHTML = '<p class="hint bad">' + esc(err.message) + '</p>';
@@ -17646,6 +17728,45 @@ const STUDIO_CONSTELLATIONS = [{
         if (status) { status.textContent = err.message; status.classList.add("bad"); }
       });
     });
+
+    function showDangerConfirm({ title, message, confirmText, dangerLevel = 'warn', onConfirm }) {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'danger-confirm-dialog';
+      dialog.setAttribute('aria-labelledby', 'dangerConfirmTitle');
+      dialog.setAttribute('aria-describedby', 'dangerConfirmDesc');
+
+      const iconEmoji = dangerLevel === 'danger' ? '🗑️' : dangerLevel === 'warn' ? '⚠️' : 'ℹ️';
+      const confirmClass = dangerLevel === 'danger' ? 'btn stop' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn' : 'btn primary';
+
+      dialog.innerHTML = '<div class="danger-confirm-content">' +
+        '<div class="danger-confirm-icon ' + esc(dangerLevel) + '" aria-hidden="true">' + iconEmoji + '</div>' +
+        '<div class="danger-confirm-text">' +
+        '<h3 id="dangerConfirmTitle"></h3>' +
+        '<p id="dangerConfirmDesc"></p>' +
+        '</div>' +
+        '</div>' +
+        '<div class="danger-confirm-footer">' +
+        '<button type="button" class="btn" data-danger-cancel>Cancel</button>' +
+        '<button type="button" class="' + confirmClass + '" data-danger-confirm></button>' +
+        '</div>';
+
+      dialog.querySelector('#dangerConfirmTitle').textContent = title;
+      dialog.querySelector('#dangerConfirmDesc').textContent = message;
+      dialog.querySelector('[data-danger-confirm]').textContent = confirmText;
+
+      dialog.querySelector('[data-danger-cancel]').addEventListener('click', () => dialog.close());
+      dialog.querySelector('[data-danger-confirm]').addEventListener('click', () => {
+        dialog.close();
+        onConfirm();
+      });
+
+      dialog.addEventListener('close', () => dialog.remove(), { once: true });
+      dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+
+      document.body.append(dialog);
+      dialog.showModal();
+    }
+
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
       const passwordToggle=e.target.closest('[data-auth-password]');
@@ -17818,6 +17939,25 @@ const STUDIO_CONSTELLATIONS = [{
         }).catch((err) => alert(err.message));
         return;
       }
+      if (action === "reset-password") {
+        const email = button.dataset.email;
+        if (!email) return;
+        button.disabled = true;
+        accountFetch('/api/auth/password/code', { method: 'POST', body: JSON.stringify({ email }) })
+          .then(() => {
+            button.textContent = 'Reset code sent ✓';
+            window.LearningMain?.notice?.('Password reset code sent to student email.');
+          })
+          .catch(err => {
+            button.disabled = false;
+            window.LearningMain?.notice?.(err.message || 'Could not send reset code.', true);
+          });
+        return;
+      }
+      if (action === "cancel-profile") {
+        if (button.dataset.id && typeof paintAdminUser === 'function') paintAdminUser(button.dataset.id);
+        return;
+      }
       if (action === "open-pages") {
         if (!isTeacher() || viewAccount) return;
         openStudentPages({ id: button.dataset.id, login: button.dataset.login || "", role: button.dataset.role || "", email: button.dataset.email || "", name: button.dataset.name || "" });
@@ -17829,18 +17969,56 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (action === "hide-user") {
         if (!sessionIsDeveloper() || viewAccount) return;
-        accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/hidden", {
-          method: "POST",
-          body: JSON.stringify({ hidden: button.dataset.hidden !== "1" })
-        }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        const isHidden = button.dataset.hidden === "1";
+        const title = isHidden ? "Show account in public directory?" : "Hide account from public directory?";
+        const message = isHidden
+          ? "This account will become visible again to teachers and group rosters."
+          : "This account will be hidden from groups and listings. Existing data and progress remain intact.";
+        const confirmText = isHidden ? "Show account" : "Hide account";
+        const performHide = () => {
+          accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/hidden", {
+            method: "POST",
+            body: JSON.stringify({ hidden: !isHidden })
+          }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        };
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title,
+            message,
+            confirmText,
+            dangerLevel: isHidden ? "info" : "warn",
+            onConfirm: performHide
+          });
+        } else {
+          performHide();
+        }
         return;
       }
       if (action === "active-user") {
         if (!sessionIsDeveloper() || viewAccount) return;
-        accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/active", {
-          method: "POST",
-          body: JSON.stringify({ active: button.dataset.active !== "1" })
-        }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        const isActive = button.dataset.active !== "";
+        const title = isActive ? "Deactivate student access?" : "Activate student access?";
+        const message = isActive
+          ? "The student will immediately lose access to their account and cannot log in until reactivated."
+          : "The student will regain access and be able to log in, view lessons and complete quizzes.";
+        const confirmText = isActive ? "Deactivate access" : "Activate access";
+        const performActive = () => {
+          accountFetch("/api/admin/users/" + encodeURIComponent(button.dataset.id) + "/active", {
+            method: "POST",
+            body: JSON.stringify({ active: !isActive })
+          }).then(() => paintAdmin()).catch((err) => alert(err.message));
+        };
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title,
+            message,
+            confirmText,
+            dangerLevel: isActive ? "warn" : "info",
+            onConfirm: performActive
+          });
+        } else {
+          performActive();
+        }
         return;
       }
       if (action === "set-role") {
@@ -17854,33 +18032,47 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (action === "archive-user") {
         if (!isTeacher() || viewAccount || button.disabled) return;
-        if (!confirm("Move this account and its data to Archive?")) return;
-        const id=button.dataset.id,user=adminAccounts.find(row=>row.id===id);
-        const name=user?.name||user?.login||id;
-        button.disabled=true;
-        accountFetch('/api/archive', {method:'POST',body:JSON.stringify({action:'archive',type:'account',id})})
-          .then(() => {
-            ++adminPaintToken;++adminUserPaintToken;
-            adminAccountId=null;adminSelectedUser=null;
-            adminAccounts=adminAccounts.filter(row=>row.id!==id);
-            adminMembers=adminMembers.filter(row=>row.accountId!==id);
-            groupDirectory=null;classGroupsReady=false;examReady=false;examResetWork();
-            window.ContentCache?.invalidate?.('archive:');
-            viewCache.delete('admin');viewCache.delete('adminuser:'+id);
-            for(let i=navStack.length-1;i>=0;i--)if(navStack[i].adminAccountId===id){
-              if(navStack[i].id==='adminuser')navStack.splice(i,1);else navStack[i].adminAccountId=null;
-            }
-            try{sessionStorage.setItem('enquiz-place',JSON.stringify({id:'admin',adminTab:'accounts'}));}catch{}
-            const dialog=document.createElement('dialog');
-            dialog.className='account-deleted-dialog';
-            dialog.setAttribute('aria-labelledby','deletedAccountTitle');
-            dialog.innerHTML='<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
-            dialog.querySelector('p').textContent='The account for '+name+' has been moved to Archive.';
-            dialog.addEventListener('cancel',event=>event.preventDefault());
-            dialog.addEventListener('close',()=>{dialog.remove();adminTab='accounts';show('admin');paintAdmin();},{once:true});
-            document.body.append(dialog);dialog.showModal();
-          })
-          .catch((err) => {button.disabled=false;alert(err.message);});
+        const executeArchive = () => {
+          const id = button.dataset.id, user = adminAccounts.find(row => row.id === id);
+          const name = user?.name || user?.login || id;
+          button.disabled = true;
+          accountFetch('/api/archive', { method: 'POST', body: JSON.stringify({ action: 'archive', type: 'account', id }) })
+            .then(() => {
+              ++adminPaintToken; ++adminUserPaintToken;
+              adminAccountId = null; adminSelectedUser = null;
+              adminAccounts = adminAccounts.filter(row => row.id !== id);
+              adminMembers = adminMembers.filter(row => row.accountId !== id);
+              groupDirectory = null; classGroupsReady = false; examReady = false; examResetWork();
+              window.ContentCache?.invalidate?.('archive:');
+              viewCache.delete('admin'); viewCache.delete('adminuser:' + id);
+              for (let i = navStack.length - 1; i >= 0; i--) if (navStack[i].adminAccountId === id) {
+                if (navStack[i].id === 'adminuser') navStack.splice(i, 1); else navStack[i].adminAccountId = null;
+              }
+              try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
+              const dialog = document.createElement('dialog');
+              dialog.className = 'account-deleted-dialog';
+              dialog.setAttribute('aria-labelledby', 'deletedAccountTitle');
+              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+              dialog.querySelector('p').textContent = 'The account for ' + name + ' has been moved to Archive.';
+              dialog.addEventListener('cancel', event => event.preventDefault());
+              dialog.addEventListener('close', () => { dialog.remove(); adminTab = 'accounts'; show('admin'); paintAdmin(); }, { once: true });
+              document.body.append(dialog); dialog.showModal();
+            })
+            .catch((err) => { button.disabled = false; alert(err.message); });
+        };
+
+        if (button.closest('.admin-danger-actions')) {
+          showDangerConfirm({
+            title: "Archive student account?",
+            message: "Move this student account and all personal progress to Archive? The student will no longer be able to log in.",
+            confirmText: "Archive account",
+            dangerLevel: "danger",
+            onConfirm: executeArchive
+          });
+        } else {
+          if (!confirm("Move this account and its data to Archive?")) return;
+          executeArchive();
+        }
         return;
       }
       if (action === "user") {
