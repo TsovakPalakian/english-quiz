@@ -189,29 +189,6 @@
       try { value = JSON.parse(localStorage.getItem("enquiz-demonstratives") || "null"); } catch (e) { value = null; }
       if (!viewAccount && !viewSwitching) syncChange({ op: "put-setting", key: "demonstratives", value: value });
     };
-    function stashAnon() {
-      if (localStorage.getItem("enquiz-auth-on") === "1") return;
-      const snap = {};
-      [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY].forEach((key) => {
-        snap[key] = localStorage.getItem(key);
-      });
-      localStorage.setItem("enquiz-anon-backup", JSON.stringify(snap));
-      localStorage.setItem("enquiz-auth-on", "1");
-    }
-    function restoreAnon() {
-      if (localStorage.getItem("enquiz-auth-on") !== "1") return;
-      let snap = null;
-      try { snap = JSON.parse(localStorage.getItem("enquiz-anon-backup") || "null"); }
-      catch (e) { snap = null; }
-      [ADDED_KEY, SONG_KEY, LEARNED_KEY, VARIANT_KEY, MISTAKE_KEY, "enquiz-lyric-size", "enquiz-demonstratives", EDIT_KEY].forEach((key) => {
-        const value = snap ? snap[key] : null;
-        if (value == null) localStorage.removeItem(key);
-        else localStorage.setItem(key, value);
-      });
-      addedCache = null;
-      localStorage.removeItem("enquiz-anon-backup");
-      localStorage.removeItem("enquiz-auth-on");
-    }
     function mergeAdded(localList, serverList) {
       const out = [];
       const seen = {};

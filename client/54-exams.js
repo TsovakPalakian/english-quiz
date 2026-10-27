@@ -92,9 +92,6 @@
         }))
       };
     }
-    function examMergeLocal(remote, local) {
-      return remote || local;
-    }
     function examRemoteSave(exam) {
       if (!exam || typeof accountFetch !== "function") return Promise.resolve();
       const session = examSession, actor = authUser?.id;
@@ -225,11 +222,6 @@
     }
     function assessmentAnswerQuestions(doc) {
       return (doc.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type) && (doc.examOwned || part.assessed)&&(!doc.examOwned||!doc.blocks.some(p=>p.scoringVersion===2)||!examScoringChildren(doc.blocks,part).length)).flatMap(part => (part.type === 'task' ? [part] : part.items || []).map((item,index) => ({part,index,max:assessmentMax(part,index)})));
-    }
-    function assessmentEditor(block,index) {
-      const item = index == null ? block : block.items[index], attr = index == null ? 'data-field=' : 'data-item-list="items" data-item="' + index + '" data-item-field=';
-      const field = name => attr + '"' + name + '" data-block="' + block.id + '"';
-      return '<label>Maximum points<input type="number" min="0" max="10000" step="any" ' + field('maxPoints') + ' value="' + esc(String(item.maxPoints ?? 1)) + '"></label><label>Criteria<textarea ' + field('criteria') + ' placeholder="Content | 3&#10;Grammar | 2">' + esc(item.criteria || '') + '</textarea></label>';
     }
     function assessmentUnitMax(part) {
       if(lmState?.examOwned&&lmState.blocks?.some(p=>p.scoringVersion===2))return examScoringMax(lmState.blocks,part);

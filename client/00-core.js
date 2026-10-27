@@ -200,8 +200,6 @@
         if (on) b.setAttribute("aria-current", "page");
         else b.removeAttribute("aria-current");
       });
-      const settings = document.getElementById("shellSettings");
-      if (settings) settings.hidden = true;
       window.scrollTo(0, 0);
       if (id === "song") revealLyricReturn();
       hideSelpop();
@@ -944,7 +942,6 @@
         });
       }
     }
-    function openTense(id) { openTopic(id); }
     function openCompare(id, quiet) {
       const item = ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((row) => row.id === id)[0];
       if (!item) return;

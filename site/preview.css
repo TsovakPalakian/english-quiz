@@ -1140,8 +1140,6 @@ img, video, iframe, table { max-width: 100%; }
 .side nav button.on { background: var(--acc-s); color: var(--acc); }
 .side-foot { margin-top: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding-top: 12px; position: relative; }
 .side-foot .btn { justify-content: flex-start; max-width: 100%; white-space: normal; text-align: left; }
-.shell-settings { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; padding: 8px; border: 1px solid color-mix(in srgb, var(--line, #ccc) 80%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--card, #fff) 92%, transparent); box-sizing: border-box; }
-.shell-settings[hidden] { display: none !important; }
 .home-top-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 #home .meta { display: flex; align-items: center; gap: 8px; }
 .guide-visits { margin-left: auto; color: var(--mute); font-size: 13px; font-weight: 600; }
@@ -2862,7 +2860,6 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
 .wrap > section:not(#messages) .list-search input { min-height: 40px; padding: 10px 12px; }
 .wrap > section:not(#messages) .list-search { margin-bottom: 16px; }
 .side nav button:hover { background: var(--acc-s); color: var(--acc); }
-.shell-settings { border-radius: 6px; background: var(--card); }
 #home .meta { margin-bottom: 20px; }
 #home .hello { font-size: 28px; }
 #homeDemo .hero { box-shadow: 0 2px 8px rgb(0 0 0 / 3%); }
@@ -2967,7 +2964,6 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .shell-settings-open { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; }
 .shell-settings-open :is(i, svg) { display: block; flex: 0 0 18px; width: 18px; height: 18px; }
 .shell-account .shell-settings-open { flex: 1; font-weight: 500; color: var(--mute); }
-.shell-settings { position: absolute; left: 0; right: 0; bottom: 48px; z-index: 30; }
 #settingsHost, #workbenchQueueHost, #workbenchMineHost, #workbenchProvidersHost { width: 100%; margin-top: 12px; }
 .home-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .home-heading > div:first-child { min-width: 0; }

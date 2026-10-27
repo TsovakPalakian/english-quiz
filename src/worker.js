@@ -532,21 +532,6 @@ async function readAdded(db, userId, fallback) {
   return cards.length ? cards : fallback;
 }
 
-async function writeAdded(db, userId, cards) {
-  const staging = userId + ":next";
-  await db.prepare("DELETE FROM user_added WHERE user_id = ?").bind(staging).run();
-  for (let start = 0; start < cards.length; start += 10) {
-    const slice = cards.slice(start, start + 10);
-    await db.batch(slice.map((card, index) => db.prepare(
-      "INSERT INTO user_added (user_id, idx, card) VALUES (?, ?, ?)"
-    ).bind(staging, start + index, JSON.stringify(card))));
-  }
-  await db.batch([
-    db.prepare("DELETE FROM user_added WHERE user_id = ?").bind(userId),
-    db.prepare("UPDATE user_added SET user_id = ? WHERE user_id = ?").bind(userId, staging),
-  ]);
-}
-
 function accountStateKey(userId) {
   return userId + "/account-state.json";
 }
@@ -953,23 +938,6 @@ function cleanDemonstratives(value) {
   }
 }
 
-function statEventOwner(user, body, directoryUsers) {
-  let uid = user.id;
-  let role = user.role || "USER";
-  const viewed = String(body && body.for || "");
-  const target = /^[a-f0-9]{32}$/.test(viewed) ? (directoryUsers || []).find((item) => item && item.id === viewed) : null;
-  if (target && !target.revoked) {
-    if (user.role === "DEVELOPER" && (target.role === "USER" || target.role === "ADMIN")) {
-      uid = target.id;
-      role = target.role;
-    } else if (user.role === "ADMIN" && target.role === "USER" && String(body && body.kind || "") !== "song") {
-      uid = target.id;
-      role = target.role;
-    }
-  }
-  return { uid: uid, role: role };
-}
-
 async function saveStatEvent(env, request, body) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
@@ -1359,10 +1327,6 @@ async function handleApi(request, env, ctx) {
 const PAIR_TEXTS_KEY = "pair/tsovak-texts.json";
 const PAIR_SONGS_KEY = "pair/tsovak-songs.json";
 const SHARED_LESSONS_KEY = "shared/lessons.json";
-
-function seedSharedLessons() {
-  return [];
-}
 
 function cleanLessonMaterial(row) {
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
@@ -2585,17 +2549,6 @@ async function copyMissingSong(env, fromId, toId, songId) {
   await env.MEDIA.put(destKey, source.body, { httpMetadata: source.httpMetadata });
 }
 
-function copyPairSongs(env, pair, material) {
-  const songs = material && Array.isArray(material.songs) ? material.songs : [];
-  return Promise.all(songs.map((song) => {
-    const songId = song && song.id ? String(song.id) : "";
-    return Promise.all([
-      copyMissingSong(env, pair.self.id, pair.twin.id, songId),
-      copyMissingSong(env, pair.twin.id, pair.self.id, songId)
-    ]);
-  }));
-}
-
 async function myState(env, request, ctx) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
@@ -2627,32 +2580,12 @@ async function myState(env, request, ctx) {
   return json(await withVisibleThemes(env, user.login, shown));
 }
 
-function asArray(value) {
-  return Array.isArray(value) ? value : null;
-}
-
-function asObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-
 function cardKey(card) {
   return (card && (card.place || "mine")) + "|" + String(card && card.word || "").trim().toLowerCase();
 }
 
 function requestCardKey(place, word) {
   return (place || "mine") + "|" + String(word || "").trim().toLowerCase();
-}
-
-async function readJsonColumn(db, userId, column, fallback) {
-  const allowed = ["added", "songs", "learned", "variants", "stats"];
-  if (!allowed.includes(column)) throw new Error("Invalid column: " + column);
-  const row = await db.prepare("SELECT " + column + " AS value FROM user_state WHERE user_id = ?").bind(userId).first();
-  try {
-    const value = JSON.parse(row && row.value != null ? row.value : "");
-    if (Array.isArray(fallback)) return Array.isArray(value) ? value : fallback;
-    if (value && typeof value === "object" && !Array.isArray(value)) return value;
-  } catch (e) {}
-  return fallback;
 }
 
 function studyMaterialOp(op) {
