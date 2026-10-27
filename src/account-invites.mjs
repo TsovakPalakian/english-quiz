@@ -85,9 +85,10 @@ export class AccountInvites{
     if(!group)fail(404,'Group not found.');
     const assignments=await new AccountGroupTeachers(this.db).list(actor,users);
     const assigned=assignments.assignments.find(row=>row.groupId===Number(group.id))?.teacherIds||[];
+    if(assigned.length>0&&actor.role!=='DEVELOPER'&&!assigned.includes(actor.id))fail(403,'You must be assigned to this group to create an invite.');
     if(kind==='student'&&(!assigned.includes(teacherId)||(actor.role!=='DEVELOPER'&&!assigned.includes(actor.id))))fail(403,'Assign the teacher to this group before creating a student invite.');
     const email=String(body.email||'').trim().toLowerCase();
-    if(kind==='teacher'&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>120))fail(400,'Enter the invited teacher email.');
+    if(kind==='teacher'&&email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>120))fail(400,'Enter a valid email.');
     const maxUses=1,days=3;
     const id=crypto.randomUUID().replace(/-/g,'').slice(0,16);
     const secret=randomSecret();
@@ -162,7 +163,7 @@ export class AccountInvites{
     if(inviteExpiry(value)<=Date.now())fail(410,'Invite expired.');
     if(value.uses>=1)fail(410,'Invite already used up.');
     if(!timingSafeHexEqual(value.secretHash,await sha256Hex(secret)))fail(404,'Invite not found.');
-    if(value.kind==='teacher'&&verifiedEmail!==undefined&&String(verifiedEmail).trim().toLowerCase()!==value.email)fail(403,'Use the invited teacher email.');
+    if(value.kind==='teacher'&&value.email&&verifiedEmail!==undefined&&String(verifiedEmail).trim().toLowerCase()!==value.email)fail(403,'Use the invited teacher email.');
     if(value.kind!=='teacher')await this.#checkAssignedTeacher(value);
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[value.groupId]);
     if(!group)fail(404,'Group not found.');
@@ -181,7 +182,8 @@ export class AccountInvites{
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[previous.groupId]);
     if(!group)fail(404,'Group not found.');
     if(previous.kind==='teacher'){
-      if(!staff(actor)||String(verifiedEmail).toLowerCase()!==previous.email||String(actor.email||'').toLowerCase()!==previous.email)fail(403,'Use email code or Google with the invited teacher email.');
+      if(!staff(actor))fail(403,'Teachers only.');
+      if(previous.email&&(String(verifiedEmail).toLowerCase()!==previous.email||String(actor.email||'').toLowerCase()!==previous.email))fail(403,'Use email code or Google with the invited teacher email.');
     }else{
       if(actor.role!=='USER')fail(403,'Only students can redeem this invite.');
       await this.#checkAssignedTeacher(previous);
@@ -202,7 +204,7 @@ export class AccountInvites{
   }
 
   async #assignTeacher(groupId,teacher,users,createdBy){
-    const service=new AccountGroupTeachers(this.db),actor={id:createdBy,role:'ADMIN'};
+    const service=new AccountGroupTeachers(this.db),actor={id:createdBy,role:'DEVELOPER'};
     const directory=[...users.filter(user=>user.id!==teacher.id),teacher];
     const current=(await service.list(actor,directory)).assignments.find(row=>row.groupId===groupId);
     const ids=new Set(current?.teacherIds||[]);ids.add(teacher.id);
@@ -217,7 +219,7 @@ export class AccountInvites{
     await this.peek(token);
     const {id}=parseInviteToken(token),previous=await this.#row(id);
     if(previous.revoked||previous.uses>=1||inviteExpiry(previous)<=Date.now())fail(410,'Invite is no longer available.');
-    if((previous.kind||'student')!==kind||(kind==='teacher'&&previous.email!==String(email).trim().toLowerCase()))fail(403,'Use the invited teacher email.');
+    if((previous.kind||'student')!==kind||(kind==='teacher'&&previous.email&&previous.email!==String(email).trim().toLowerCase()))fail(403,'Use the invited teacher email.');
     await this.#save(id,{...previous,uses:1,registrationEmail:String(email).trim().toLowerCase(),pendingRegistrationId:registrationId,acceptedAt:Date.now()},previous);
     return {pending:true};
   }

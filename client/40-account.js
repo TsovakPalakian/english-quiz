@@ -12,6 +12,27 @@
       teacherInviteOffered=true;
       let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
       if(!token)return;
+      if(['ADMIN','DEVELOPER'].includes(authUser.role)){
+        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+        const groupTitle=inviteDetails?.groupTitle||'the group';
+        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary" data-accept>Accept invitation</button><button type="button" class="btn" data-close>Cancel</button></div></form>';
+        document.body.append(dialog);dialog.showModal();
+        const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');
+        form.querySelector('[data-close]').onclick=()=>{sessionStorage.removeItem('enquiz-invite');dialog.close();};
+        dialog.addEventListener('close',()=>dialog.remove());
+        form.onsubmit=async event=>{
+          event.preventDefault();const button=form.querySelector('[data-accept]');button.disabled=true;status.textContent='Joining…';
+          try{
+            await accountFetch('/api/accounts/invites',{method:'POST',body:JSON.stringify({action:'redeem',token})});
+            sessionStorage.removeItem('enquiz-invite');dialog.close();
+            classGroupsReady=false;groupDirectory=null;
+            if(typeof groupPull==='function')await groupPull(true);
+            if(typeof window.LearningMain?.notice==='function')window.LearningMain.notice('You are now a co-teacher of '+groupTitle+'.');
+            if(typeof visit==='function')visit('groups');
+          }catch(error){status.textContent=error.message;button.disabled=false;}
+        };
+        return;
+      }
       const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
       dialog.innerHTML='<form class="invite-form"><h2>Accept teacher invitation</h2><label>Email<input name="email" type="email" required autocomplete="email"></label><button type="button" class="btn" data-send>Send code</button><label hidden data-code>Email code<input name="code" inputmode="numeric" autocomplete="one-time-code"></label><p role="status" class="hint"></p><button type="submit" class="btn primary" hidden data-accept>Accept invite</button><button type="button" class="btn" data-google>Continue with Google</button><button type="button" class="btn" data-close>Cancel</button></form>';
       document.body.append(dialog);dialog.showModal();

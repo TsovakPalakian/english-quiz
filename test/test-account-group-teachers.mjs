@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {AccountGroupTeachers} from '../src/account-group-teachers.mjs';
+import {GroupService} from '../src/learning-groups.mjs';
+import {applyLearningSchema} from './learning-test-schema.mjs';
 import {statement as s} from '../src/learning-study.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 const actor={id:'teacher',role:'ADMIN'},users=[actor,{id:'second',role:'ADMIN'},{id:'dev',role:'DEVELOPER'},{id:'student',role:'USER'},{id:'inactive',role:'ADMIN',active:false}];
@@ -44,3 +46,22 @@ test('Accounts teacher endpoint enforces authentication, roles, CSRF, write flag
  env.STAGE_WRITES='false';assert.equal((await post({groupId:1,teacherIds:['teacher'],expectedRevision:0})).status,503);env.STAGE_WRITES='true';
  assert.equal((await post({groupId:1,teacherIds:['teacher','second'],expectedRevision:0})).status,200);assert.equal((await (await get()).json()).assignments[0].teacherIds.length,2);
  }finally{f.close();}});
+test('GroupService returns teacherIds and auto-assigns teacher on group creation',async()=>{
+ const sql=new DatabaseSync(':memory:');
+ try{
+  applyLearningSchema(sql);
+  const args=c=>c.args.map(a=>a.type==='null'?null:['integer','float'].includes(a.type)?Number(a.value):a.value),db={read:async(q,a=[])=>sql.prepare(q).all(...a),atomic:async commands=>{sql.exec('BEGIN');try{for(const c of commands)sql.prepare(c.sql).run(...args(c));sql.exec('COMMIT');}catch(e){sql.exec('ROLLBACK');throw e;}}};
+  const teachers=new AccountGroupTeachers(db),groups=new GroupService(db);
+  await groups.ensure();
+  sql.exec("INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_groups(id,title) VALUES(1,'A1 One'),(2,'A1 Two');");
+  await teachers.save(actor,{groupId:1,teacherIds:['teacher'],expectedRevision:0},users);
+  const list=await groups.list(actor);
+  assert.equal(list.find(g=>g.id===1).teacherIds.includes('teacher'),true);
+  assert.equal(list.find(g=>g.id===2).teacherIds.length,0);
+  await groups.manage(actor,{action:'create',title:'A1 New Group',date:'2026-10-27'});
+  const updated=await groups.list(actor);
+  const created=updated.find(g=>g.title==='A1 New Group');
+  assert.ok(created);
+  assert.deepEqual(created.teacherIds,['teacher']);
+ }finally{sql.close();}
+});

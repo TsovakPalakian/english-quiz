@@ -855,7 +855,7 @@ try{
     yield "219. #admingrouplevel.on / checks";
     await page.locator('#admingrouplevel.on').waitFor();
   await Promise.resolve();
-  await page.evaluate(async()=>{await groupPull(true);window.enquizVisit('groups');});
+  await page.evaluate(async()=>{authUser.role='DEVELOPER';await groupPull(true);window.enquizVisit('groups');});
   assert.equal(await page.locator('#groups .page-path').isVisible(),false);
     yield "220. #groups input[type=search]:visible,#groups #groupNew:visible / checks";
     assert.equal(await page.locator('#groups input[type=search]:visible,#groups #groupNew:visible').count(),0);

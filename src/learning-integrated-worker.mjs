@@ -1024,7 +1024,34 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(response.ok&&method==='GET'&&path==='/api/admin/users'){
           const db=studyDatabase(env);await ensureAccountArchive(db);
           const archived=new Set((await db.read('SELECT account_id FROM account_archives')).map(row=>row.account_id));
-          const data=await response.json();response=json({...data,users:(data.users||[]).filter(row=>!archived.has(row.id))});
+          const data=await response.json();
+          let users=(data.users||[]).filter(row=>!archived.has(row.id));
+          let reviewerPayload=null;
+          try{
+            const match=(request.headers.get('Cookie')||'').match(/(?:^|;\s*)session=([^;]+)/);
+            if(match){
+              const dot=match[1].indexOf('.');
+              if(dot>0){
+                const raw=match[1].slice(0,dot).replace(/-/g,'+').replace(/_/g,'/');
+                reviewerPayload=JSON.parse(atob(raw.padEnd(raw.length+(4-raw.length%4)%4,'=')));
+              }
+            }
+          }catch{}
+          if(reviewerPayload&&reviewerPayload.role==='ADMIN'){
+            const teacherDocs=await db.read("SELECT key,value_json FROM catalog_documents WHERE namespace='accounts-group-teachers'");
+            const coTeacherIds=new Set([reviewerPayload.id]);
+            for(const doc of teacherDocs){
+              try{
+                const val=JSON.parse(doc.value_json);
+                const ids=val.teacherIds||[];
+                if(ids.includes(reviewerPayload.id)){
+                  for(const id of ids)coTeacherIds.add(id);
+                }
+              }catch{}
+            }
+            users=users.filter(user=>user.role!=='ADMIN'||coTeacherIds.has(user.id));
+          }
+          response=json({...data,users});
         }
         if(response.ok&&passkeysAccount){
           try{await new Passkeys(studyDatabase(env),url.origin).removeAccount(passkeysAccount);}catch{console.error('Passkey cleanup unavailable; revoked account remains blocked.');}
