@@ -2968,6 +2968,7 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .shell-settings-open :is(i, svg) { display: block; flex: 0 0 18px; width: 18px; height: 18px; }
 .shell-account .shell-settings-open { flex: 1; font-weight: 500; color: var(--mute); }
 .shell-settings { position: absolute; left: 0; right: 0; bottom: 48px; z-index: 30; }
+#settingsHost, #workbenchQueueHost, #workbenchMineHost, #workbenchProvidersHost { width: 100%; margin-top: 12px; }
 .home-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
 .home-heading > div:first-child { min-width: 0; }
 .home-heading .hello { margin: 0 0 4px; line-height: 1.2; overflow-wrap: anywhere; }

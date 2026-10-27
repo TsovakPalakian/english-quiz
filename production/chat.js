@@ -5850,17 +5850,21 @@
     }
     await load();
   }
-  let settingsProfileCache = null;
-  function settings(initial = 'profile') {
+  let settingsProfileCache = null, settingsOpening = false;
+  function settings(initial = 'profile', targetPage = null) {
     if (typeof initial !== 'string') initial = 'profile';
-    if (!current()) return;
-    document.querySelector('dialog.user-settings')?.close();
-    let tabVersion = 0,
-      releasePortal = () => {},
-      blockedCache = null;
+    if (!current() || settingsOpening) return;
+    settingsOpening = true;
+    try {
+      document.querySelector('dialog.user-settings')?.close();
+      let tabVersion = 0,
+        releasePortal = () => {},
+        blockedCache = null;
     const profile = data.profile || current(),
       node = document.createElement('dialog');
-    node.className = 'chat-dialog user-settings';
+    const host = document.getElementById('settingsHost');
+    const inPage = !!host && (document.querySelector('section.on')?.id === 'settings' || targetPage === 'settings');
+    node.className = 'chat-dialog user-settings' + (inPage ? ' in-page' : '');
     node.innerHTML =
       '<div class="chat-dialog-body"><aside class="chat-settings-menu"><h2>Settings</h2><div class="chat-settings-profile">' +
       avatar(profile.name, false, profile.id) +
@@ -5891,13 +5895,35 @@
         )
         .join('') +
       '</aside><div class="chat-settings-content"></div></div>';
-    document.body.append(node);
+    let previousScreen = document.querySelector('section.on')?.id || 'home';
+    let cleanupKeydown = () => {};
+    if (inPage) {
+      if (document.querySelector('section.on')?.id !== 'settings' && typeof window.enquizVisit === 'function') {
+        window.enquizVisit('settings');
+      }
+      host.replaceChildren(node);
+      node.setAttribute('open', '');
+      node.open = true;
+      const onEsc = (event) => {
+        if (event.key === 'Escape') {
+          node.close();
+        }
+      };
+      window.addEventListener('keydown', onEsc);
+      cleanupKeydown = () => window.removeEventListener('keydown', onEsc);
+    } else {
+      document.body.append(node);
+      node.showModal();
+    }
     node.onclose = () => {
+      cleanupKeydown();
       releasePortal();
       window.NotificationSounds?.stop();
       node.remove();
+      if (inPage && document.querySelector('section.on')?.id === 'settings' && previousScreen && previousScreen !== 'settings') {
+        window.enquizVisit?.(previousScreen);
+      }
     };
-    node.showModal();
     icons();
     node.addEventListener('close', () => {
       node.querySelector('[data-settings-sounds]')?._settingsSoundCleanup?.();
@@ -5911,10 +5937,10 @@
     };
     let outsideDown = false;
     node.addEventListener('pointerdown', (event) => {
-      outsideDown = event.target === node && outside(event);
+      outsideDown = (event.target === node || inPage) && outside(event);
     });
     node.addEventListener('click', (event) => {
-      if (outsideDown && event.target === node && outside(event)) node.close();
+      if (outsideDown && outside(event)) node.close();
       outsideDown = false;
     });
     const logout = document.createElement('button');
@@ -5959,6 +5985,7 @@
         .querySelectorAll('[data-settings-tab]')
         .forEach((b) => b.classList.toggle('on', b.dataset.settingsTab === id));
       const pane = node.querySelector('.chat-settings-content');
+      node._selectTab = tab;
       let html = '';
       const version = ++tabVersion,
         gen = generation;
@@ -6350,18 +6377,22 @@
       node.querySelector('[data-close-settings]').onclick = () => node.close();
     });
     scheduleProfiles();
+  } finally {
+    settingsOpening = false;
   }
+}
   document.addEventListener(
     'click',
     (event) => {
       if (!current()) return;
       const target = event.target.closest(
-        '.brand-account,[data-user-settings],[data-chat-blocked],[data-notification-sounds],[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"]',
+        '.brand-account,[data-user-settings],[data-chat-blocked],[data-notification-sounds],[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"],[data-jump="settings"]',
       );
       if (!target || target.closest('.user-settings')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       const page = target.dataset.jump;
+      const targetSettings = page === 'settings' || target.matches('.shell-settings-open,[data-user-settings],[data-shell-settings-open]');
       settings(
         target.hasAttribute('data-chat-blocked')
           ? 'blocked'
@@ -6374,10 +6405,12 @@
                 : page === 'guide'
                   ? 'help'
                   : 'profile',
+        targetSettings ? 'settings' : page,
       );
     },
     true,
   );
+  window.openChatSettings = settings;
   el('msgProfile').onclick = settings;
   el('msgSettings').onclick = settings;
   el('msgNew').onclick = newChat;

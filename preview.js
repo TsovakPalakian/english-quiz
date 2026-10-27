@@ -2737,10 +2737,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library", grammarrule: "library",
-      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
+      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections','settings','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
@@ -2786,6 +2786,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const id = place && place.id;
       if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      if (id === "settings") paintSettings();
+      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
+      if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);
@@ -2810,13 +2814,25 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
-      if (previous && previous.id !== id) stopPageMedia(previous);
+      if (previous && previous.id !== id) {
+        stopPageMedia(previous);
+        if (previous.id === 'settings') {
+          document.querySelector('#settingsHost dialog.user-settings')?.close();
+        }
+        if (['workbenchqueue','workbenchmine','workbenchproviders'].includes(previous.id)) {
+          window.LearningWorkbench?.close();
+        }
+      }
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
       if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
+      if (id === "settings" && !authUser) id = "account";
+      if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
+      if (id === "workbenchmine" && !authUser) id = "account";
+      if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
       if (id === "account" && authUser) id = "profile";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
@@ -2850,6 +2866,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "library") paintTextCount();
       if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      if (id === "settings") paintSettings();
+      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
+      if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
       document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
       if (accountChecked) document.body?.removeAttribute('data-shell-pending');
@@ -2929,7 +2949,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
+      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -2993,6 +3013,21 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     mountCrumbs();
     window.enquizMountCrumbs = mountCrumbs;
+    function paintSettings(tab = 'profile') {
+      const host = document.getElementById('settingsHost');
+      if (!host) return;
+      const existing = host.querySelector('dialog.user-settings');
+      if (existing) {
+        if (tab && typeof existing._selectTab === 'function') existing._selectTab(tab);
+        return;
+      }
+      if (typeof window.openChatSettings === 'function') {
+        window.openChatSettings(tab);
+        return;
+      }
+      host.innerHTML = '<div class="card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost" type="button" data-jump="themes">Theme</button><button class="btn ghost" type="button" data-jump="stats">Statistics</button><button class="btn ghost" type="button" data-jump="guide">Navigate</button></div></div>';
+    }
+    window.paintSettings = paintSettings;
     let statKind = "learned";
     let statGroup = "";
     let allGroup = "";
@@ -4817,6 +4852,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           show(jump.dataset.jump);return;
         }
         if(e.target.closest('[data-shell-settings-open]')){
+          if(e.target.closest('[data-jump="settings"]') || !document.getElementById('shellSettings')){
+            show('settings');
+            return;
+          }
           const panel=document.getElementById('shellSettings');
           if(panel)panel.hidden=!panel.hidden;
           return;
@@ -18688,8 +18727,8 @@ const STUDIO_CONSTELLATIONS = [{
       classGroupsSaveVersion = 0;
     }
     function groupNormalize() {
-      if (!classGroups.length) classGroups = [{ id: "group-default", title: "Group 1", date: lmToday(), hidden: false, lessonIds: [] }];
-      if (!classGroups.some((group) => group.id === classGroupId)) classGroupId = classGroups[0].id;
+      if (!classGroups.length && !authUser) classGroups = [{ id: "group-default", title: "Group 1", date: lmToday(), hidden: false, lessonIds: [] }];
+      if (classGroups.length && !classGroups.some((group) => group.id === classGroupId)) classGroupId = classGroups[0].id;
       const assigned = new Set();
       classGroups.forEach((group) => {
         group.lessonIds = (Array.isArray(group.lessonIds) ? group.lessonIds : []).filter((id) => {
@@ -18698,7 +18737,7 @@ const STUDIO_CONSTELLATIONS = [{
           return true;
         });
       });
-      if (lmLibrary) lmLibrary.materials.forEach((material) => {
+      if (lmLibrary && classGroups.length) lmLibrary.materials.forEach((material) => {
         if (material && material.id && !assigned.has(material.id)) {
           classGroups[0].lessonIds.push(material.id);
           assigned.add(material.id);
@@ -18753,7 +18792,8 @@ const STUDIO_CONSTELLATIONS = [{
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
     function metricPairs(rows,compact=false){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs'+(compact?' metric-pairs--compact':'')+'">'+rows.map(([label,value])=>'<span>'+esc(compact?({'groups':'group','assigned works':'assigned','ready for review':'ready'}[label]||label):label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
-      const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
+      const hasUnassigned = (classGroupsReady || !authUser) && rows.some(row=>accountGroupLevel(row)==='unassigned');
+      const levels = hasUnassigned ? [...adminLevels,'unassigned'] : adminLevels;
       return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
@@ -21066,15 +21106,15 @@ const STUDIO_CONSTELLATIONS = [{
     for(const nav of document.querySelectorAll('.side nav,.tabbar')){
       let button=nav.querySelector('[data-workbench-queue]');
       if(!button&&enabled()&&staff()){
-        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
+        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
       }
-      if(button)button.hidden=!enabled()||!staff();
+      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff())button.dataset.jump='workbenchqueue';}
       let mineButton=nav.querySelector('[data-workbench-mine]');
-      if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton)mineButton.hidden=!enabled();
+      if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
+      if(mineButton){mineButton.hidden=!enabled();if(enabled())mineButton.dataset.jump='workbenchmine';}
       let providerButton=nav.querySelector('[data-workbench-providers]');
-      if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.innerHTML='<i data-lucide="settings" aria-hidden="true"></i>AI providers';nav.append(providerButton);window.lucide?.createIcons({root:providerButton});}
-      if(providerButton)providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';
+      if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.innerHTML='<i data-lucide="settings" aria-hidden="true"></i>AI providers';nav.append(providerButton);window.lucide?.createIcons({root:providerButton});}
+      if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}
     }
   }
   async function loadQueue(entry,more=false){
@@ -21231,10 +21271,23 @@ const STUDIO_CONSTELLATIONS = [{
   }
   async function open(card,groups=[],lessonId=null){
     if(!enabled()||!card.providerSettings&&!card.examBridge&&!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId)||card.providerSettings&&authUser?.role!=='DEVELOPER')return;close();
+    const pageId = card.queue ? 'workbenchqueue' : card.mine ? 'workbenchmine' : card.providerSettings ? 'workbenchproviders' : null;
+    const host = pageId ? document.getElementById(pageId === 'workbenchqueue' ? 'workbenchQueueHost' : pageId === 'workbenchmine' ? 'workbenchMineHost' : 'workbenchProvidersHost') : null;
+    if (pageId && host && document.querySelector('section.on')?.id !== pageId && typeof show === 'function') {
+      show(pageId);
+    }
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
-    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
+    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
     dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     if(card.lessonSpeech){const host=speechHost();if(!host){close();return;}host.append(dialog);}
+    else if(host){
+      host.replaceChildren(dialog);
+      window.lucide?.createIcons({root:dialog});
+      dialog.setAttribute('open','');
+      dialog.open=true;
+      dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});
+      dialog.addEventListener('close',()=>{if(job===entry)close();});
+    }
     else{document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();}
     observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
@@ -21282,7 +21335,14 @@ const STUDIO_CONSTELLATIONS = [{
       void run(entry,async()=>{const task=await write(entry,'/sessions/'+entry.session.id+'/pronunciation',{itemIndex:Number(pronunciation.dataset.workbenchPronunciation)});if(!current(entry))return;entry.pronunciationTaskId=task.id;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);});return;
     }
     const button=event.target.closest('[data-workbench-lesson],[data-workbench-lesson-speech],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more],[data-workbench-mine],[data-workbench-own],[data-workbench-new],[data-workbench-edit],[data-workbench-editor-back],[data-workbench-upload],#add-quiz-item,[data-add-option],[data-remove-option],[data-remove-item]');if(!button)return;
-    if(button.hasAttribute('data-workbench-close')){if(job&&discard(job))close();return;}
+    if(button.hasAttribute('data-workbench-close')){
+      const pageView = ['workbenchqueue', 'workbenchmine', 'workbenchproviders'].includes(document.querySelector('section.on')?.id);
+      if(job&&discard(job)){
+        close();
+        if(pageView && typeof goBack === 'function') goBack('home');
+      }
+      return;
+    }
     if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
     if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
     if(button.hasAttribute('data-workbench-lesson-speech')){
@@ -21360,7 +21420,7 @@ const STUDIO_CONSTELLATIONS = [{
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,lessonSpeechButton,mountLessonSpeech,examButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={open,lessonButton,lessonSpeechButton,mountLessonSpeech,examButton,cardButton,close,reset,paintEntry};
 })();
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;

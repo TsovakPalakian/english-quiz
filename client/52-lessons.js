@@ -44,8 +44,8 @@
       classGroupsSaveVersion = 0;
     }
     function groupNormalize() {
-      if (!classGroups.length) classGroups = [{ id: "group-default", title: "Group 1", date: lmToday(), hidden: false, lessonIds: [] }];
-      if (!classGroups.some((group) => group.id === classGroupId)) classGroupId = classGroups[0].id;
+      if (!classGroups.length && !authUser) classGroups = [{ id: "group-default", title: "Group 1", date: lmToday(), hidden: false, lessonIds: [] }];
+      if (classGroups.length && !classGroups.some((group) => group.id === classGroupId)) classGroupId = classGroups[0].id;
       const assigned = new Set();
       classGroups.forEach((group) => {
         group.lessonIds = (Array.isArray(group.lessonIds) ? group.lessonIds : []).filter((id) => {
@@ -54,7 +54,7 @@
           return true;
         });
       });
-      if (lmLibrary) lmLibrary.materials.forEach((material) => {
+      if (lmLibrary && classGroups.length) lmLibrary.materials.forEach((material) => {
         if (material && material.id && !assigned.has(material.id)) {
           classGroups[0].lessonIds.push(material.id);
           assigned.add(material.id);
@@ -109,7 +109,8 @@
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
     function metricPairs(rows,compact=false){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs'+(compact?' metric-pairs--compact':'')+'">'+rows.map(([label,value])=>'<span>'+esc(compact?({'groups':'group','assigned works':'assigned','ready for review':'ready'}[label]||label):label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
-      const levels = rows.some(row=>accountGroupLevel(row)==='unassigned') ? [...adminLevels,'unassigned'] : adminLevels;
+      const hasUnassigned = (classGroupsReady || !authUser) && rows.some(row=>accountGroupLevel(row)==='unassigned');
+      const levels = hasUnassigned ? [...adminLevels,'unassigned'] : adminLevels;
       return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];return '<button class="file-card" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
