@@ -380,6 +380,9 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .notification-sound-settings svg{width:20px;height:20px}
 .notification-sound-settings [role=status]{margin:0;overflow-wrap:anywhere;font-size:14px}
 .user-settings{width:min(1120px,calc(100vw - 32px));max-width:none;padding:0}
+.chat-dialog.user-settings.in-page{position:static;width:100%;max-width:none;min-height:0;max-height:none;border:1px solid var(--line);border-radius:8px;background:var(--card);box-shadow:none;overflow:visible;padding:0;margin:0}
+.chat-dialog.user-settings.in-page::backdrop{display:none}
+.chat-dialog.user-settings.in-page .chat-dialog-body{min-height:600px}
 .user-settings .chat-dialog-body{min-height:min(740px,calc(100dvh - 32px))}
 .user-settings .chat-settings-menu{width:280px;flex-basis:280px;padding:24px 16px}
 .user-settings .chat-settings-menu>button{display:flex!important;width:100%!important;gap:12px!important;padding:12px!important;font-size:15px!important;line-height:1.5;min-height:46px}

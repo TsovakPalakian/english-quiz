@@ -121,15 +121,15 @@
     for(const nav of document.querySelectorAll('.side nav,.tabbar')){
       let button=nav.querySelector('[data-workbench-queue]');
       if(!button&&enabled()&&staff()){
-        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
+        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
       }
-      if(button)button.hidden=!enabled()||!staff();
+      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff())button.dataset.jump='workbenchqueue';}
       let mineButton=nav.querySelector('[data-workbench-mine]');
-      if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton)mineButton.hidden=!enabled();
+      if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
+      if(mineButton){mineButton.hidden=!enabled();if(enabled())mineButton.dataset.jump='workbenchmine';}
       let providerButton=nav.querySelector('[data-workbench-providers]');
-      if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.innerHTML='<i data-lucide="settings" aria-hidden="true"></i>AI providers';nav.append(providerButton);window.lucide?.createIcons({root:providerButton});}
-      if(providerButton)providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';
+      if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.innerHTML='<i data-lucide="settings" aria-hidden="true"></i>AI providers';nav.append(providerButton);window.lucide?.createIcons({root:providerButton});}
+      if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}
     }
   }
   async function loadQueue(entry,more=false){
@@ -286,10 +286,23 @@
   }
   async function open(card,groups=[],lessonId=null){
     if(!enabled()||!card.providerSettings&&!card.examBridge&&!card.lessonSpeech&&!card.mine&&!(card.queue&&staff())&&!valid(card.cardId)||card.providerSettings&&authUser?.role!=='DEVELOPER')return;close();
+    const pageId = card.queue ? 'workbenchqueue' : card.mine ? 'workbenchmine' : card.providerSettings ? 'workbenchproviders' : null;
+    const host = pageId ? document.getElementById(pageId === 'workbenchqueue' ? 'workbenchQueueHost' : pageId === 'workbenchmine' ? 'workbenchMineHost' : 'workbenchProvidersHost') : null;
+    if (pageId && host && document.querySelector('section.on')?.id !== pageId && typeof show === 'function') {
+      show(pageId);
+    }
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
-    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
+    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
     dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     if(card.lessonSpeech){const host=speechHost();if(!host){close();return;}host.append(dialog);}
+    else if(host){
+      host.replaceChildren(dialog);
+      window.lucide?.createIcons({root:dialog});
+      dialog.setAttribute('open','');
+      dialog.open=true;
+      dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});
+      dialog.addEventListener('close',()=>{if(job===entry)close();});
+    }
     else{document.body.append(dialog);window.lucide?.createIcons({root:dialog});dialog.addEventListener('cancel',event=>{if(!discard(entry))event.preventDefault();});dialog.addEventListener('close',()=>{if(job===entry)close();});dialog.showModal();}
     observer=new MutationObserver(()=>{if(job===entry&&!current(entry))close();});observer.observe(document.body,{subtree:true,attributes:true,attributeFilter:['class','hidden','data-role']});
     await run(entry,async()=>{
@@ -337,7 +350,14 @@
       void run(entry,async()=>{const task=await write(entry,'/sessions/'+entry.session.id+'/pronunciation',{itemIndex:Number(pronunciation.dataset.workbenchPronunciation)});if(!current(entry))return;entry.pronunciationTaskId=task.id;entry.view='speech';await speech().load();if(current(entry))paintSpeech(entry);});return;
     }
     const button=event.target.closest('[data-workbench-lesson],[data-workbench-lesson-speech],[data-workbench-card],[data-workbench-close],[data-workbench-back],[data-workbench-practice],[data-workbench-speech],[data-workbench-queue],[data-workbench-history],[data-workbench-more],[data-workbench-mine],[data-workbench-own],[data-workbench-new],[data-workbench-edit],[data-workbench-editor-back],[data-workbench-upload],#add-quiz-item,[data-add-option],[data-remove-option],[data-remove-item]');if(!button)return;
-    if(button.hasAttribute('data-workbench-close')){if(job&&discard(job))close();return;}
+    if(button.hasAttribute('data-workbench-close')){
+      const pageView = ['workbenchqueue', 'workbenchmine', 'workbenchproviders'].includes(document.querySelector('section.on')?.id);
+      if(job&&discard(job)){
+        close();
+        if(pageView && typeof goBack === 'function') goBack('home');
+      }
+      return;
+    }
     if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
     if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
     if(button.hasAttribute('data-workbench-lesson-speech')){
@@ -415,5 +435,5 @@
     void run(entry,async()=>{await write(entry,'/sessions/'+session.id+'/submit',{expectedRevision:session.revision,responses});if(!current(entry))return;const value=await request('/sessions/'+session.id);if(current(entry)){entry.session=value;answers(entry);}});
   });
   document.addEventListener('input',event=>{if(job?.view==='editor'&&dialog?.contains(event.target))job.dirty=true;if(event.target.matches('[data-workbench-search]')&&['queue','mine'].includes(job?.view)){const value=event.target.value,start=event.target.selectionStart;job.search=value;paintQueue(job);const field=dialog?.querySelector('[data-workbench-search]');field?.focus();field?.setSelectionRange(start,start);}});
-  window.LearningWorkbench={lessonButton,lessonSpeechButton,mountLessonSpeech,examButton,cardButton,close,reset,paintEntry};
+  window.LearningWorkbench={open,lessonButton,lessonSpeechButton,mountLessonSpeech,examButton,cardButton,close,reset,paintEntry};
 })();

@@ -55,10 +55,10 @@
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
       choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library", grammarrule: "library",
-      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
+      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections','settings','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
@@ -104,6 +104,10 @@
       const id = place && place.id;
       if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      if (id === "settings") paintSettings();
+      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
+      if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       const mark = chromeMark(id);
       chromeButtons.forEach((b) => {
         const on = chromeMatches(b, mark);
@@ -128,13 +132,25 @@
       if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
-      if (previous && previous.id !== id) stopPageMedia(previous);
+      if (previous && previous.id !== id) {
+        stopPageMedia(previous);
+        if (previous.id === 'settings') {
+          document.querySelector('#settingsHost dialog.user-settings')?.close();
+        }
+        if (['workbenchqueue','workbenchmine','workbenchproviders'].includes(previous.id)) {
+          window.LearningWorkbench?.close();
+        }
+      }
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
       if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "stats" && !authUser) id = "account";
+      if (id === "settings" && !authUser) id = "account";
+      if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
+      if (id === "workbenchmine" && !authUser) id = "account";
+      if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
       if (id === "account" && authUser) id = "profile";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
@@ -168,6 +184,10 @@
       if (id === "library") paintTextCount();
       if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      if (id === "settings") paintSettings();
+      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
+      if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
       document.body?.classList.toggle('guest-auth',!authUser&&id==='account');
       if (accountChecked) document.body?.removeAttribute('data-shell-pending');
@@ -247,7 +267,7 @@
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account" };
+      const parents = { music: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', tenses: "library", archive: "home", themes: authUser ? "profile" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -311,6 +331,21 @@
     }
     mountCrumbs();
     window.enquizMountCrumbs = mountCrumbs;
+    function paintSettings(tab = 'profile') {
+      const host = document.getElementById('settingsHost');
+      if (!host) return;
+      const existing = host.querySelector('dialog.user-settings');
+      if (existing) {
+        if (tab && typeof existing._selectTab === 'function') existing._selectTab(tab);
+        return;
+      }
+      if (typeof window.openChatSettings === 'function') {
+        window.openChatSettings(tab);
+        return;
+      }
+      host.innerHTML = '<div class="card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost" type="button" data-jump="themes">Theme</button><button class="btn ghost" type="button" data-jump="stats">Statistics</button><button class="btn ghost" type="button" data-jump="guide">Navigate</button></div></div>';
+    }
+    window.paintSettings = paintSettings;
     let statKind = "learned";
     let statGroup = "";
     let allGroup = "";
