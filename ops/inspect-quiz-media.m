@@ -51,11 +51,11 @@ int main(int argc, const char *argv[]) {
       if (!reader) { fputs("Decoder could not start.\n", stderr); return 1; }
       NSMutableArray *outputs = [NSMutableArray array];
       for (AVAssetTrack *track in asset.tracks) {
-        NSDictionary *settings;
+        NSDictionary *settings = nil;
         if ([track.mediaType isEqualToString:AVMediaTypeVideo]) {
           videos++; width = (NSInteger)fabs(track.naturalSize.width); height = (NSInteger)fabs(track.naturalSize.height);
           if (duration > 60 || width < 1 || height < 1 || width > 1920 || height > 1920) return 1;
-          settings = @{ (id)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
+          settings = nil; // Native video samples to avoid paravirtual hardware scaler failures in CI VMs.
         } else if ([track.mediaType isEqualToString:AVMediaTypeAudio]) {
           audios++; settings = @{ AVFormatIDKey: @(kAudioFormatLinearPCM) };
         } else return 1; // Reject subtitle, data and alternate text tracks.
