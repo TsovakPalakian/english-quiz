@@ -5863,7 +5863,9 @@
     const profile = data.profile || current(),
       node = document.createElement('dialog');
     const host = document.getElementById('settingsHost');
-    const inPage = !!host && (document.querySelector('section.on')?.id === 'settings' || targetPage === 'settings');
+    const activeSection = document.querySelector('section.on')?.id;
+    const isMessages = activeSection === 'messages' || !!document.querySelector('#messages.on') || document.body.classList.contains('chat-active');
+    const inPage = !isMessages && !!host && (activeSection === 'settings' || targetPage === 'settings');
     node.className = 'chat-dialog user-settings' + (inPage ? ' in-page' : '');
     node.innerHTML =
       '<div class="chat-dialog-body"><aside class="chat-settings-menu"><h2>Settings</h2><div class="chat-settings-profile">' +
@@ -6392,7 +6394,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const page = target.dataset.jump;
-      const targetSettings = page === 'settings' || target.matches('.shell-settings-open,[data-user-settings],[data-shell-settings-open]');
+      const targetSettings = page === 'settings' || target.matches('.shell-settings-open,[data-shell-settings-open]');
       settings(
         target.hasAttribute('data-chat-blocked')
           ? 'blocked'
