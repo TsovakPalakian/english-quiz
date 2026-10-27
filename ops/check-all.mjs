@@ -1,6 +1,7 @@
 // Both modes run the same suite; remote execution is a separate command.
 import {spawn} from 'node:child_process';
 import {readFileSync,readdirSync} from 'node:fs';
+import {availableParallelism,cpus} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {checkMode} from './check-environment.mjs';
 
@@ -13,9 +14,15 @@ const all=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)).sort();
 const scripts=all.filter(name=>!exclusions.has(name)&&(!filters.length||filters.some(part=>name.includes(part))));
 if(filters.length&&!scripts.length){console.error('No automatic tests matched the supplied filters.');process.exit(2);}
 for(const [name,reason] of exclusions)if(!filters.length||filters.some(part=>name.includes(part)))console.log('EXCLUDED '+name+': '+reason);
-const timeout=Number(env.CHECK_TIMEOUT_MS||300000),parallel=Number(env.CHECK_PARALLEL||(mode==='ci'?2:4));
-if(!Number.isSafeInteger(timeout)||timeout<1||!Number.isSafeInteger(parallel)||parallel<1){console.error('CHECK_TIMEOUT_MS and CHECK_PARALLEL must be positive integers.');process.exit(2);}
-console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; screenshots: disabled.');
+const cpuCount=(typeof availableParallelism==='function'?availableParallelism():cpus().length)||4;
+const timeout=Number(env.CHECK_TIMEOUT_MS||300000);
+const parallel=Number(env.CHECK_PARALLEL||(mode==='ci'?2:Math.min(8,Math.max(4,cpuCount-1))));
+const browserParallel=Number(env.CHECK_BROWSER_PARALLEL||(mode==='ci'?2:Math.min(4,Math.max(1,Math.floor(cpuCount/3)))));
+if(!Number.isSafeInteger(timeout)||timeout<1||!Number.isSafeInteger(parallel)||parallel<1||!Number.isSafeInteger(browserParallel)||browserParallel<1){
+  console.error('CHECK_TIMEOUT_MS, CHECK_PARALLEL, and CHECK_BROWSER_PARALLEL must be positive integers.');
+  process.exit(2);
+}
+console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; fast workers: '+parallel+'; browser workers: '+browserParallel+'; screenshots: disabled.');
 
 function run(command,args){
   return new Promise(resolve=>{
@@ -44,9 +51,27 @@ function run(command,args){
 }
 
 const job=name=>[name,()=>run(process.execPath,['test/'+name])];
-// Browser tests assert on rendering timing; they run one at a time after the rest.
-const browser=name=>/-ui\.mjs$|ui-boot/.test(name)||/chromium|playwright|newCDPSession/.test(readFileSync('test/'+name,'utf8'));
-const fast=[...(filters.length?[]:[['vitest',()=>run(process.execPath,[fileURLToPath(new URL('../node_modules/vitest/vitest.mjs',import.meta.url)),'run'])]]),...scripts.filter(name=>!browser(name)).map(job)];
+const browserCache=new Map();
+const browser=name=>{
+  if(!browserCache.has(name)){
+    browserCache.set(name,/-ui\.mjs$|ui-boot/.test(name)||/chromium|playwright|newCDPSession/.test(readFileSync('test/'+name,'utf8')));
+  }
+  return browserCache.get(name);
+};
+const WEIGHTS=new Map([
+  ['test-chat-ui.mjs',48],['test-auth-studio-ui.mjs',25],['test-constellation-return-pause-ui.mjs',20],
+  ['test-ui-boot.mjs',14],['test-quiz-media-preview.mjs',11],['test-chat-recording-ui.mjs',10],
+  ['test-invite-registration-ui.mjs',9],['test-quiz-generation-ui.mjs',9],['test-quiz-review-editor-ui.mjs',9],
+  ['test-material-quiz-ui.mjs',8],['test-quiz-attempt-history-ui.mjs',8],['test-independent-review-ui.mjs',8],
+  ['test-role-navigation-ui.mjs',7],['test-local-video-preview-ui.mjs',7],['test-learning-workbench-ui.mjs',6],
+  ['test-learning-kits-preview.mjs',6],['test-feedback-ui.mjs',5],['test-local-workbench-launch-ui.mjs',5],
+  ['test-provider-settings-ui.mjs',5],['test-lesson-pdf-ui.mjs',5],['test-speech-practice-ui.mjs',5],
+  ['test-preparation-pipeline-ui.mjs',5],['test-learning-main.mjs',4],['test-d1-study.mjs',3]
+]);
+const sortByWeight=list=>list.slice().sort((a,b)=>(WEIGHTS.get(b)||1)-(WEIGHTS.get(a)||1)||a.localeCompare(b));
+const fastScripts=sortByWeight(scripts.filter(name=>!browser(name)));
+const browserScripts=sortByWeight(scripts.filter(browser));
+const fast=[...(filters.length?[]:[['vitest',()=>run(process.execPath,[fileURLToPath(new URL('../node_modules/vitest/vitest.mjs',import.meta.url)),'run'])]]),...fastScripts.map(job)];
 const results=[];
 async function pool(jobs,width){
   let next=0;
@@ -59,7 +84,7 @@ async function pool(jobs,width){
   }));
 }
 await pool(fast,parallel);
-await pool(scripts.filter(browser).map(job),1);
+await pool(browserScripts.map(job),browserParallel);
 const failed=results.filter(result=>result.code!==0);
 for(const result of failed)console.log('\n===== '+result.name+' =====\n'+result.output.trim().split('\n').slice(-25).join('\n'));
 console.log('\n'+(results.length-failed.length)+' scripts passed, '+failed.length+' scripts failed; '+results.reduce((sum,result)=>sum+result.skipped,0)+' inner tests skipped; '+exclusions.size+' manual test excluded (skips are not counted as passed).');
