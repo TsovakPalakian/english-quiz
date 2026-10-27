@@ -16,8 +16,8 @@ if(filters.length&&!scripts.length){console.error('No automatic tests matched th
 for(const [name,reason] of exclusions)if(!filters.length||filters.some(part=>name.includes(part)))console.log('EXCLUDED '+name+': '+reason);
 const cpuCount=(typeof availableParallelism==='function'?availableParallelism():cpus().length)||4;
 const timeout=Number(env.CHECK_TIMEOUT_MS||300000);
-const parallel=Number(env.CHECK_PARALLEL||(mode==='ci'?2:Math.min(8,Math.max(4,cpuCount-1))));
-const browserParallel=Number(env.CHECK_BROWSER_PARALLEL||(mode==='ci'?2:Math.min(4,Math.max(1,Math.floor(cpuCount/3)))));
+const parallel=Number(env.CHECK_PARALLEL||(mode==='ci'?Math.min(3,cpuCount):Math.min(8,Math.max(4,cpuCount-1))));
+const browserParallel=Number(env.CHECK_BROWSER_PARALLEL||(mode==='ci'?Math.min(3,cpuCount):Math.min(4,Math.max(1,Math.floor(cpuCount/3)))));
 if(!Number.isSafeInteger(timeout)||timeout<1||!Number.isSafeInteger(parallel)||parallel<1||!Number.isSafeInteger(browserParallel)||browserParallel<1){
   console.error('CHECK_TIMEOUT_MS, CHECK_PARALLEL, and CHECK_BROWSER_PARALLEL must be positive integers.');
   process.exit(2);
