@@ -2,6 +2,36 @@
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names={pronunciation:'Pronunciation',free:'Free speech',shadowing:'Shadowing',retelling:'Retelling',dialogue:'Situational dialogue'};
 const metricNames={accuracy:'Pronunciation accuracy',fluency:'Fluency',prosody:'Prosody',grammar:'Grammar',vocabulary:'Vocabulary',task:'Task completion'};
+const phonemeGuides={
+  'θ':{name:'Voiceless dental fricative',tip:'Keep tongue tip between upper and lower teeth; blow gently without vocal vibration.'},
+  'ð':{name:'Voiced dental fricative',tip:'Keep tongue tip between teeth; vibrate vocal cords to produce a voiced hum.'},
+  'iː':{name:'Long front vowel',tip:'Spread lips wide in a smile, tongue high and front. Hold longer than /ɪ/.'},
+  'ɪ':{name:'Short front lax vowel',tip:'Relax lips and jaw slightly. Pronounce shorter and softer than /iː/.'},
+  'uː':{name:'Long back vowel',tip:'Round lips into a tight small circle, pull tongue back. Hold longer than /ʊ/.'},
+  'ʊ':{name:'Short back lax vowel',tip:'Relax lips into a loose curve, shorter sound.'},
+  'ɑː':{name:'Long open vowel',tip:'Open jaw wide, keep tongue flat and low.'},
+  'ʌ':{name:'Short central vowel',tip:'Relax jaw in mid-open position, tongue neutral.'},
+  'ɔː':{name:'Long back rounded vowel',tip:'Round lips moderately, tongue raised towards back.'},
+  'w':{name:'Labio-velar approximant',tip:'Round lips tightly without teeth contact; glide into following vowel.'},
+  'v':{name:'Voiced labiodental fricative',tip:'Place upper teeth on lower lip, keep vocal cords vibrating.'},
+  'r':{name:'Post-alveolar approximant',tip:'Curl tongue tip slightly back without touching roof of mouth.'},
+  'l':{name:'Alveolar lateral approximant',tip:'Press tongue tip firmly against alveolar ridge; air flows around sides.'},
+  'd':{name:'Voiced alveolar plosive',tip:'Maintain vocal cord vibration through the final consonant; avoid devoicing.'},
+  'z':{name:'Voiced alveolar fricative',tip:'Vibrate vocal cords; lengthen the preceding vowel.'}
+};
+function phonemeTip(phoneme){
+  if(!phoneme)return null;
+  const clean=String(phoneme).replace(/[/\[\]]/g,'').trim();
+  return phonemeGuides[clean]||null;
+}
+function articulatoryPanel(findings){
+  const phonemeItems=(findings||[]).filter(f=>f.phoneme);
+  if(!phonemeItems.length)return '';
+  return '<div class="speech-articulatory-panel"><h4>Articulatory coaching</h4>'+phonemeItems.map(f=>{
+    const guide=phonemeTip(f.phoneme);
+    return '<div class="speech-coaching-card"><div class="speech-coaching-head"><span class="speech-phoneme-badge">/'+esc(f.phoneme)+'/</span><span class="speech-phoneme-title">'+esc(guide?.name||'Phoneme focus')+'</span></div><p>'+esc(f.message)+(guide?' · <span class="speech-articulatory-hint">'+esc(guide.tip)+'</span>':'')+'</p></div>';
+  }).join('')+'</div>';
+}
 function wav(chunks,rate){
   const length=chunks.reduce((sum,chunk)=>sum+chunk.length,0),buffer=new ArrayBuffer(44+length*2),view=new DataView(buffer),ascii=(at,text)=>[...text].forEach((c,i)=>view.setUint8(at+i,c.charCodeAt(0)));
   ascii(0,'RIFF');view.setUint32(4,36+length*2,true);ascii(8,'WAVE');ascii(12,'fmt ');view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);view.setUint16(32,2,true);view.setUint16(34,16,true);ascii(36,'data');view.setUint32(40,length*2,true);
@@ -40,7 +70,7 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
   }
   function resultPanel(attempt){
     const result=attempt.result;
-    return '<details class="speech-attempt" data-speech-id="'+esc(attempt.id)+'"><summary>'+esc(new Date(attempt.createdAt).toLocaleString('en-GB'))+' · '+esc(attempt.state)+(result?.overall!==null&&result?.overall!==undefined?' · '+result.overall+' / 100':'')+'</summary><div class="detail">'+(result?'<p class="reason">'+(result.synthetic?'Synthetic demonstration, not an assessment of your recording. ': '')+(result.provisional?'Provisional rubric. ':'')+'Automatic practice feedback, not an exam grade.</p><dl class="speech-scores">'+Object.entries(result.scores).map(([key,score])=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+(score===null?'Unavailable':score+' / 100 <meter min="0" max="100" value="'+score+'">'+score+'</meter>')+'</dd>').join('')+'</dl><p>Overall: '+(result.overall===null?'Unavailable · Missing: '+result.missing.map(key=>esc(metricNames[key])).join(', '):result.overall+' / 100')+'</p><h4>Transcript</h4><p class="quiz-content">'+esc(result.transcript||'Unavailable')+'</p>'+(attempt.correction?'<p>Corrected transcript: '+esc(attempt.correction.text)+'</p><p class="small muted">Correction does not change the original scores.</p>':'')+result.findings.map(finding=>'<p>'+esc(metricNames[finding.metric])+': '+esc(finding.message)+(finding.wordIndex!==null?' · word '+(finding.wordIndex+1):'')+(finding.phoneme?' · /'+esc(finding.phoneme)+'/':'')+'</p>').join('')+(result.training.length?'<h4>Next practice</h4><ul>'+result.training.map(item=>'<li>'+esc(item.message)+'</li>').join('')+'</ul>':'')+'<details><summary>Source and rubric</summary><p>'+esc(result.rubric.id+' · '+result.rubric.version)+'</p>'+result.sources.map(source=>'<p>'+esc(source.task+' · '+source.provider+' · '+source.model+' · '+source.version)+'</p>').join('')+'</details>':'<p>'+esc(attempt.error||'Analysis pending')+'</p>')+'<audio controls preload="none" src="/local/speech/attempts/'+esc(attempt.id)+'/audio"></audio>'+(attempt.canManage?(attempt.state==='complete'?'<form data-speech-form="correct" data-id="'+esc(attempt.id)+'"><label>Correct the transcript<textarea name="text" maxlength="6000" required>'+esc(attempt.correction?.text||result?.transcript)+'</textarea></label><button type="submit">Save transcript correction</button></form>':'')+'<form data-speech-form="share" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label class="check"><input type="checkbox" name="includeAudio">Include my recording</label><label class="check"><input type="checkbox" name="consent" required>Allow this teacher to view this result</label><button type="submit">Share with teacher</button></form>'+attempt.shares.map(share=>'<p>'+esc(state.recipients.find(row=>row.id===share.teacherId)?.name||'Teacher')+' · '+(share.includeAudio?'Result and recording':'Result only')+' <button data-speech-action="revoke" data-id="'+esc(attempt.id)+'" data-teacher="'+esc(share.teacherId)+'">Revoke access</button></p>').join('')+'<div class="actions">'+(['queued','analyzing'].includes(attempt.state)?'<button data-speech-action="cancel" data-id="'+esc(attempt.id)+'">Cancel analysis</button>':'')+'<button data-speech-action="remove" data-id="'+esc(attempt.id)+'">Delete attempt and recording</button></div>':'')+'</div></details>';
+    return '<details class="speech-attempt" data-speech-id="'+esc(attempt.id)+'"><summary>'+esc(new Date(attempt.createdAt).toLocaleString('en-GB'))+' · '+esc(attempt.state)+(result?.overall!==null&&result?.overall!==undefined?' · '+result.overall+' / 100':'')+'</summary><div class="detail">'+(result?'<p class="reason">'+(result.synthetic?'Synthetic demonstration, not an assessment of your recording. ': '')+(result.provisional?'Provisional rubric. ':'')+'Automatic practice feedback, not an exam grade.</p><dl class="speech-scores">'+Object.entries(result.scores).map(([key,score])=>'<dt>'+esc(metricNames[key])+'</dt><dd>'+(score===null?'Unavailable':score+' / 100 <meter min="0" max="100" value="'+score+'">'+score+'</meter>')+'</dd>').join('')+'</dl><p>Overall: '+(result.overall===null?'Unavailable · Missing: '+result.missing.map(key=>esc(metricNames[key])).join(', '):result.overall+' / 100')+'</p><h4>Transcript</h4><p class="quiz-content">'+esc(result.transcript||'Unavailable')+'</p>'+(attempt.correction?'<p>Corrected transcript: '+esc(attempt.correction.text)+'</p><p class="small muted">Correction does not change the original scores.</p>':'')+result.findings.map(finding=>'<p>'+esc(metricNames[finding.metric])+': '+esc(finding.message)+(finding.wordIndex!==null?' · word '+(finding.wordIndex+1):'')+(finding.phoneme?' · /'+esc(finding.phoneme)+'/':'')+'</p>').join('')+articulatoryPanel(result.findings)+(result.training.length?'<h4>Next practice</h4><ul>'+result.training.map(item=>'<li>'+esc(item.message)+'</li>').join('')+'</ul>':'')+'<details><summary>Source and rubric</summary><p>'+esc(result.rubric.id+' · '+result.rubric.version)+'</p>'+result.sources.map(source=>'<p>'+esc(source.task+' · '+source.provider+' · '+source.model+' · '+source.version)+'</p>').join('')+'</details>':'<p>'+esc(attempt.error||'Analysis pending')+'</p>')+'<audio controls preload="none" src="/local/speech/attempts/'+esc(attempt.id)+'/audio"></audio>'+(attempt.canManage?(attempt.state==='complete'?'<form data-speech-form="correct" data-id="'+esc(attempt.id)+'"><label>Correct the transcript<textarea name="text" maxlength="6000" required>'+esc(attempt.correction?.text||result?.transcript)+'</textarea></label><button type="submit">Save transcript correction</button></form>':'')+'<form data-speech-form="share" data-id="'+esc(attempt.id)+'"><label>Teacher<select name="teacherId">'+state.recipients.map(teacher=>'<option value="'+esc(teacher.id)+'">'+esc(teacher.name)+'</option>').join('')+'</select></label><label class="check"><input type="checkbox" name="includeAudio">Include my recording</label><label class="check"><input type="checkbox" name="consent" required>Allow this teacher to view this result</label><button type="submit">Share with teacher</button></form>'+attempt.shares.map(share=>'<p>'+esc(state.recipients.find(row=>row.id===share.teacherId)?.name||'Teacher')+' · '+(share.includeAudio?'Result and recording':'Result only')+' <button data-speech-action="revoke" data-id="'+esc(attempt.id)+'" data-teacher="'+esc(share.teacherId)+'">Revoke access</button></p>').join('')+'<div class="actions">'+(['queued','analyzing'].includes(attempt.state)?'<button data-speech-action="cancel" data-id="'+esc(attempt.id)+'">Cancel analysis</button>':'')+'<button data-speech-action="remove" data-id="'+esc(attempt.id)+'">Delete attempt and recording</button></div>':'')+'</div></details>';
   }
   function renderContent(){
     if(context()?.personal)return '<section><p>Speech practice belongs to lesson words.</p></section>';
@@ -100,7 +130,22 @@ export function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,ren
       if(transcript&&result?.transcript){
         let index=0;transcript.replaceChildren();for(const part of result.transcript.split(/(\s+)/)){
           const wordIndex=/\S/.test(part)?index++:null,findings=wordIndex===null?[]:result.findings.filter(finding=>finding.wordIndex===wordIndex);
-          if(findings.length){const mark=document.createElement('mark');mark.textContent=part;mark.title=findings.map(finding=>finding.message).join('; ');transcript.append(mark);}else transcript.append(document.createTextNode(part));
+          if(findings.length){
+            const phonemeFinding=findings.find(f=>f.phoneme);
+            const guide=phonemeFinding?phonemeTip(phonemeFinding.phoneme):null;
+            const mark=document.createElement('mark');
+            mark.className='speech-highlighted-word'+(phonemeFinding?' has-phoneme':'');
+            mark.textContent=part;
+            mark.title=findings.map(finding=>finding.message+(finding.phoneme&&guide?' ['+guide.tip+']':'')).join('; ');
+            transcript.append(mark);
+            if(phonemeFinding){
+              const badge=document.createElement('span');
+              badge.className='speech-inline-phoneme';
+              badge.textContent='/'+phonemeFinding.phoneme+'/';
+              badge.title=guide?guide.name+': '+guide.tip:findings.map(f=>f.message).join('; ');
+              transcript.append(badge);
+            }
+          }else transcript.append(document.createTextNode(part));
         }
       }
       node.querySelector('[data-speech-language-warning]')?.remove();

@@ -34,6 +34,9 @@ import {purgeStudyAccount} from './account-study-purge.mjs';
 import {AssessmentService} from './learning-assessment.mjs';
 import {ExamWorkflowService} from './exam-workflow.mjs';
 import {examRecommendation} from './exam-recommendations.mjs';
+import {essayCopilot} from './learning-essay-copilot.mjs';
+import {ErrorBankService} from './learning-error-bank.mjs';
+import {LearningSpeechScenariosService} from './learning-speech-scenarios.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
 import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
@@ -633,6 +636,38 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!value||Object.keys(value).some(key=>!['id','studentId','partId','index','expectedRevision'].includes(key)))throw new StudyError(400,'Invalid review request.');
         const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;
         return json(await examRecommendation(studyDatabase(env),env,actor,value));
+      }
+      if(path==='/api/exams/essay-copilot'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let value;try{value=JSON.parse(await boundedText(request,1000,'Review request too large.'));}catch{throw new StudyError(400,'Invalid review request.');}
+        if(!value||Object.keys(value).some(key=>!['id','studentId','partId','index','expectedRevision','targetMinWords'].includes(key)))throw new StudyError(400,'Invalid review request.');
+        const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;
+        return json(await essayCopilot(studyDatabase(env),env,actor,value));
+      }
+      if(path==='/api/error-bank'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const service=new ErrorBankService(studyDatabase(env));
+        if(method==='GET'){
+          const action=url.searchParams.get('action')||'queue';
+          if(action==='stats')return json(await service.stats(actor));
+          if(action==='subgroup-diagnostic')return json(await service.subgroupDiagnostic(actor,{groupId:url.searchParams.get('groupId')}));
+          return json({queue:await service.queue(actor,{limit:Number(url.searchParams.get('limit'))||20})});
+        }
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let body;try{body=JSON.parse(await boundedText(request,10000,'Request too large.'));}catch{throw new StudyError(400,'Invalid request.');}
+        return json(await service.submitReview(actor,body));
+      }
+      if(path==='/api/speech-scenarios'&&['GET','POST'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        const service=new LearningSpeechScenariosService(studyDatabase(env));
+        if(method==='GET'){
+          const action=url.searchParams.get('action')||'lesson';
+          if(action==='audio')return json(await service.getLessonScenarioAudio(actor,{groupId:Number(url.searchParams.get('groupId')),lessonId:Number(url.searchParams.get('lessonId')),blockId:Number(url.searchParams.get('blockId'))}));
+          return json(await service.listLessonScenarios(actor,{groupId:Number(url.searchParams.get('groupId')),lessonId:Number(url.searchParams.get('lessonId'))}));
+        }
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let body;try{body=JSON.parse(await boundedText(request,10000,'Request too large.'));}catch{throw new StudyError(400,'Invalid request.');}
+        return json(await service.startLessonSpeechTask(actor,body));
       }
       if(path==='/api/archive'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

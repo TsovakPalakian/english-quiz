@@ -61,14 +61,19 @@ examFillAnswers=function(){
   const reviewer=canTuneStudentLessons();
   if(authUser?.role==='USER'&&!viewAccount)document.querySelectorAll('#lmPreview .text-color-tools').forEach(node=>node.remove());
   for(const part of lmState.blocks||[]){
-    if(!part.answerEnabled)continue;
     const panel=document.querySelector('#lmPreview [data-lm-panel="'+part.id+'"]');if(!panel)continue;
-    // The editor's HTML is the reference, never the question shown before Submit.
-    panel.querySelector('.lm-copy')?.remove();
-    if(reviewer||lmState.studentSaved){const html=reviewer?(part.teacherAnswer||part.html||''):part.modelAnswer||'';
-      if(html)panel.insertAdjacentHTML('beforeend','<div class="exam-model-answer" data-exam-fill-decoration><strong>Answer:</strong><div>'+lmClean(html)+'</div>'+(part.answerPurpose==='example'?'<span>Example answer</span>':'')+'</div>');}
-    if(reviewer&&lmState.examSuggested?.[part.id]?.[0]!=null)panel.insertAdjacentHTML('beforeend','<p class="exam-suggestion" data-exam-fill-decoration>Suggested points: '+esc(String(lmState.examSuggested[part.id][0]))+' / '+assessmentMax(part,0)+'</p>');
-    if(reviewer&&part.checkMode==='meaning')panel.insertAdjacentHTML('beforeend','<div class="exam-suggestion" data-exam-fill-decoration><button class="btn" type="button" data-exam-recommendation="'+part.id+'"'+(!lmState.studentSaved||lmState.assessmentState==='published'?' disabled':'')+'>Request AI review</button><p data-exam-recommendation-result="'+part.id+'" role="status"></p></div>');
+    if(part.answerEnabled){
+      // The editor's HTML is the reference, never the question shown before Submit.
+      panel.querySelector('.lm-copy')?.remove();
+      if(reviewer||lmState.studentSaved){const html=reviewer?(part.teacherAnswer||part.html||''):part.modelAnswer||'';
+        if(html)panel.insertAdjacentHTML('beforeend','<div class="exam-model-answer" data-exam-fill-decoration><strong>Answer:</strong><div>'+lmClean(html)+'</div>'+(part.answerPurpose==='example'?'<span>Example answer</span>':'')+'</div>');}
+      if(reviewer&&lmState.examSuggested?.[part.id]?.[0]!=null)panel.insertAdjacentHTML('beforeend','<p class="exam-suggestion" data-exam-fill-decoration>Suggested points: '+esc(String(lmState.examSuggested[part.id][0]))+' / '+assessmentMax(part,0)+'</p>');
+      if(reviewer&&part.checkMode==='meaning')panel.insertAdjacentHTML('beforeend','<div class="exam-suggestion" data-exam-fill-decoration><button class="btn" type="button" data-exam-recommendation="'+part.id+'"'+(!lmState.studentSaved||lmState.assessmentState==='published'?' disabled':'')+'>Request AI review</button><p data-exam-recommendation-result="'+part.id+'" role="status"></p></div>');
+    }
+    const isEssay=part.type==='task'||(part.criteria&&part.criteria.length>0&&part.checkMode!=='meaning');
+    if(reviewer&&isEssay){
+      panel.insertAdjacentHTML('beforeend','<div class="exam-suggestion exam-essay-copilot-container" data-exam-fill-decoration><button class="btn" type="button" data-exam-essay-copilot="'+part.id+'"'+(!lmState.studentSaved||lmState.assessmentState==='published'?' disabled':'')+'>AI Review Assist</button><div class="exam-essay-copilot-result" data-exam-essay-copilot-result="'+part.id+'" role="status"></div></div>');
+    }
   }
   const root=document.getElementById('lmPreview');
   if(reviewer){const locked=lmState.assessmentState==='published'||!lmState.studentSaved;root.insertAdjacentHTML('beforeend','<div class="exam-review-notes"><label>Overall feedback<textarea data-exam-review-note="examOverallComment" maxlength="6000"'+(locked?' disabled':'')+'>'+esc(lmState.examOverallComment||'')+'</textarea></label><label>Private note<textarea data-exam-review-note="examPrivateNote" maxlength="6000"'+(locked?' disabled':'')+'>'+esc(lmState.examPrivateNote||'')+'</textarea></label></div>');}
@@ -138,6 +143,57 @@ document.addEventListener('click',async event=>{
   try{const result=await accountFetch('/api/exams/recommendation',{method:'POST',body:JSON.stringify({id:doc.blockId,studentId:examWorkAccount(),partId,index:0,expectedRevision:doc.assessmentRevision})});if(lmState!==doc||doc.assessmentRevision!==result.revision)return;output.textContent=result.status==='recommended'?'Suggested: '+result.points+' · '+result.explanation+' · Teacher confirmation required':result.message;}
   catch(error){if(output?.isConnected)output.textContent=error.message;}
   finally{if(button.isConnected)button.disabled=false;}
+});
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-exam-essay-copilot]');if(!button||!lmState?.examOwned||!canTuneStudentLessons())return;
+  const doc=lmState,partId=Number(button.dataset.examEssayCopilot)||button.dataset.examEssayCopilot,output=document.querySelector('[data-exam-essay-copilot-result="'+partId+'"]');button.disabled=true;
+  if(output)output.innerHTML='<p class="exam-copilot-loading">Analyzing essay against CEFR rubrics…</p>';
+  try{
+    const result=await accountFetch('/api/exams/essay-copilot',{method:'POST',body:JSON.stringify({id:doc.blockId,studentId:examWorkAccount(),partId,index:0,expectedRevision:doc.assessmentRevision})});
+    if(lmState!==doc||doc.assessmentRevision!==result.revision)return;
+    if(result.status==='draft_ready'||result.status==='recommended'){
+      if(result.rubricPoints){
+        doc.examCriteriaPoints||={};const scores=((doc.examCriteriaPoints[partId]||={})[0]||={});
+        const entries=Array.isArray(result.rubricPoints)?result.rubricPoints.map((pts,i)=>[i,pts]):Object.entries(result.rubricPoints);
+        entries.forEach(([i,pts])=>{scores[i]=pts;const input=document.querySelector('[data-exam-criterion="'+partId+':0:'+i+'"]');if(input)input.value=pts;});
+      }
+      if(result.totalPoints!=null){
+        doc.examPoints||={};(doc.examPoints[partId]||={})[0]=result.totalPoints;
+        const pointsInput=document.querySelector('[data-exam-points="'+partId+':0"]');if(pointsInput)pointsInput.value=result.totalPoints;
+      }
+      assessmentStatus('Unsaved review');
+      if(typeof examRefreshTaskScores==='function')examRefreshTaskScores();
+      const feedback=result.feedback||{},analysis=result.analysis||{},formatted=feedback.formattedFeedback||feedback.summary||result.feedback||'';
+      const strengths=Array.isArray(feedback.strengths)?feedback.strengths:[];
+      const areas=Array.isArray(feedback.areasForGrowth)?feedback.areasForGrowth:[];
+      const metrics=[
+        {label:'Task Achievement',metric:analysis.taskAchievement},
+        {label:'Coherence & Cohesion',metric:analysis.coherence},
+        {label:'Lexical Resource',metric:analysis.lexical},
+        {label:'Grammar & Accuracy',metric:analysis.grammatical}
+      ].filter(m=>m.metric);
+      let card='<div class="exam-copilot-card" data-copilot-part="'+esc(String(partId))+'"><div class="exam-copilot-head"><h4>CEFR Rubric Co-pilot Draft</h4>'+(result.totalPoints!=null?'<span class="exam-copilot-score">'+esc(String(result.totalPoints))+' / '+esc(String(result.maxPoints||100))+' pts</span>':'')+'</div>';
+      if(analysis.wordCount)card+='<p class="exam-copilot-sub">Word count: <strong>'+esc(String(analysis.wordCount))+'</strong>'+(analysis.taskAchievement?.minWords?' (target min: '+analysis.taskAchievement.minWords+')':'')+'</p>';
+      if(metrics.length){
+        card+='<div class="exam-copilot-metrics">'+metrics.map(m=>'<div class="exam-copilot-metric-pill"><span class="pill-name">'+esc(m.label)+'</span><strong class="pill-val">'+(m.metric.score!=null?esc(String(m.metric.score))+' pts':'')+(m.metric.percent!=null?' ('+m.metric.percent+'%)':'')+'</strong></div>').join('')+'</div>';
+      }
+      if(strengths.length)card+='<div class="exam-copilot-section strengths"><h5>Strengths</h5><ul>'+strengths.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul></div>';
+      if(areas.length)card+='<div class="exam-copilot-section areas"><h5>Key Areas for Revision</h5><ul>'+areas.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul></div>';
+      card+='<div class="exam-copilot-actions">'+(formatted?'<button class="btn small primary exam-copilot-use-btn" type="button" data-exam-use-copilot-feedback="'+esc(String(partId))+'">Use Copilot Feedback</button>':'')+'<span class="exam-copilot-draft-note">Draft suggestion · Teacher confirmation required</span></div></div>';
+      if(output){output.innerHTML=card;const node=output.querySelector('.exam-copilot-card');if(node)node._formattedFeedback=formatted;}
+    }else if(output){output.textContent=result.message||'Could not generate review draft.';}
+  }catch(error){if(output?.isConnected)output.innerHTML='<span class="exam-copilot-error">'+esc(error.message)+'</span>';}
+  finally{if(button.isConnected)button.disabled=false;}
+});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-exam-use-copilot-feedback]');if(!button||!lmState?.examOwned||!canTuneStudentLessons())return;
+  const card=button.closest('.exam-copilot-card'),formatted=card?._formattedFeedback;if(!formatted)return;
+  const overallField=document.querySelector('[data-exam-review-note="examOverallComment"]');
+  if(overallField){
+    const existing=overallField.value.trim();overallField.value=existing?existing+'\n\n'+formatted:formatted;
+    lmState.examOverallComment=overallField.value;examResizeReviewNote(overallField);assessmentStatus('Unsaved review');
+    button.textContent='Feedback applied ✓';button.disabled=true;
+  }
 });
 document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-exam-assign]');if(!button||!canEditLessons())return;
