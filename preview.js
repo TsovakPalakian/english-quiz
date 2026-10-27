@@ -17850,6 +17850,7 @@ const STUDIO_CONSTELLATIONS = [{
       return null;
     }
     let placeBoot = false;
+    try { Object.defineProperty(window, 'placeBoot', { get() { return placeBoot; }, set(v) { placeBoot = v; }, configurable: true }); } catch {}
     function resumePlace() {
       if (!accountChecked) return;
       let invitedRegistration=false;
@@ -17937,8 +17938,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function finishPlace(target) {
       placeBoot = true;
-      if(target)show(target);else resumePlace();
-      if(document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
+      if(target)show(target);else if(!navStack.length)resumePlace();
+      if(!navStack.length&&document.querySelector('section.on')?.id==='home'&&roleHome()!=='home')show('home');
       document.body.removeAttribute('data-shell-pending');
     }
     function cardIdentity(item) {
