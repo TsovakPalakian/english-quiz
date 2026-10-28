@@ -101,9 +101,9 @@
     </section>
 
     <section id="cardstat">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1 id="cardStatTitle">Learned</h1></div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-page-study>Study</button></div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1 id="cardStatTitle">Learned</h1></div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary saas-btn" type="button" data-page-study>Study</button></div>
+      <input type="search" class="saas-input" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
       <div id="cardStatList"></div>
     </section>
 
@@ -353,10 +353,10 @@
     </section>
 
     <section id="choice">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button></div>
       <div class="tags"><span>Choice</span></div>
       <div class="drill-bar"><h1>3 / 8</h1><div class="progress"><i style="width:37%"></i></div><span class="timer">04:12</span></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">English → Russian</p>
         <p class="q">give up</p>
         <div class="opts">
@@ -366,15 +366,15 @@
           <button class="opt" type="button" data-choice="bad"><span class="bullet">4</span><span>присматривать</span></button>
         </div>
         <div id="choiceFb"></div>
-        <div class="bar"><button class="btn stop" type="button" data-jump="exam">Stop</button><button class="btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary" type="button" data-jump="flip">Next</button></div>
+        <div class="bar"><button class="btn stop saas-btn" type="button" data-jump="exam">Stop</button><button class="btn saas-btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary saas-btn" type="button" data-jump="flip">Next</button></div>
       </div>
     </section>
 
     <section id="flip">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button></div>
       <div class="tags"><span>Flip</span></div>
       <div class="drill-bar"><h1>4 / 8</h1><div class="progress"><i style="width:50%"></i></div><span class="timer">04:40</span></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Recall the translation, then flip</p>
         <div class="flip-scene" id="flipScene" tabindex="0" role="button" aria-label="Flip card">
           <div class="flip-inner">
@@ -382,26 +382,26 @@
             <div class="flip-face flip-back" id="flipBack"></div>
           </div>
         </div>
-        <div class="bar"><button class="btn" type="button" id="flipBtn" aria-pressed="false">Flip</button><button class="btn primary" type="button" data-jump="type">Next</button></div>
+        <div class="bar"><button class="btn saas-btn" type="button" id="flipBtn" aria-pressed="false">Flip</button><button class="btn primary saas-btn" type="button" data-jump="type">Next</button></div>
       </div>
     </section>
 
     <section id="type">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
       <div class="progress"><i style="width:62%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Type it in English</p>
         <p class="q">сдаваться, бросать</p>
-        <input id="typeInput" type="text" placeholder="Answer" autocomplete="off" />
+        <input id="typeInput" class="saas-input" type="text" placeholder="Answer" autocomplete="off" />
         <div id="typeFb"></div>
-        <div class="bar"><button class="btn stop" type="button" data-jump="home">Stop</button><button class="btn primary" type="button" id="typeCheck">Check</button></div>
+        <div class="bar"><button class="btn stop saas-btn" type="button" data-jump="home">Stop</button><button class="btn primary saas-btn" type="button" id="typeCheck">Check</button></div>
       </div>
     </section>
 
     <section id="gap">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
       <div class="progress"><i style="width:70%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Fill in the verb form. Marker: an hour ago.</p>
         <p class="q">She ____ looking for her keys an hour ago.</p>
         <div class="opts">
@@ -415,9 +415,9 @@
     </section>
 
     <section id="build">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Build</h1><span class="timer">07:01</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Build</h1><span class="timer">07:01</span></div>
       <div class="progress"><i style="width:74%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Build the sentence</p>
         <div class="slot" id="slot"></div>
         <div class="row" id="bank">
@@ -431,20 +431,20 @@
     </section>
 
     <section id="judge">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>True / false</h1><span class="timer">07:40</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>True / false</h1><span class="timer">07:40</span></div>
       <div class="progress"><i style="width:80%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Is the sentence correct?</p>
         <p class="q">She has finished the report yesterday.</p>
-        <div class="row"><button class="btn" type="button">True</button><button class="btn primary" type="button">False</button></div>
+        <div class="row"><button class="btn saas-btn" type="button" data-judge="bad">True</button><button class="btn primary saas-btn" type="button" data-judge="ok">False</button></div>
         <div class="explain">English. With yesterday, use the Past Simple: She finished the report yesterday. Russian. С yesterday нужен Past Simple: She finished the report yesterday.</div>
       </div>
     </section>
 
     <section id="tap">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
       <div class="progress"><i style="width:84%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Tap the Present Perfect time marker</p>
         <p class="sentence" id="tapLine">She <button type="button" data-tap="bad">has lived</button> here <button type="button" data-tap="ok">since</button> 2019.</p>
         <div id="tapFb"></div>
@@ -1841,13 +1841,13 @@
   </nav>
   </div>
   <div id="clipFrame" class="clip-frame" hidden>
-    <div class="clip-frame-box">
-      <div class="clip-frame-top"><b id="clipFrameTitle"></b><button class="clip-frame-x" type="button" id="clipFrameClose" aria-label="Close">×</button></div>
+    <div class="clip-frame-box saas-card">
+      <div class="clip-frame-top"><b id="clipFrameTitle"></b><button class="clip-frame-x saas-btn" type="button" id="clipFrameClose" aria-label="Close">×</button></div>
       <iframe id="clipFrameView" title="Pronunciation"></iframe>
     </div>
   </div>
-  <div id="selpop" class="selpop" hidden>
-    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
+  <div id="selpop" class="selpop saas-card" hidden>
+    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x saas-btn" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
     <div id="selpopBody"></div>
   </div>
   <script src="/main-bridge.js"></script><script src="grammar.js"></script>

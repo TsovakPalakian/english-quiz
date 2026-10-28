@@ -4990,7 +4990,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function toggleFlip() {
       if (!flipScene) return;
       if (!flipReady && flipBack) {
-        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
+        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary saas-btn" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button></div>';
         flipReady = true;
       }
       const on = flipScene.classList.toggle("is-flipped");
@@ -5014,12 +5014,38 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       document.getElementById("typeFb").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "Correct" : "Incorrect. Needed: give up") + "</div>";
     });
 
+    document.querySelectorAll("#gap .opt").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#gap .opt").forEach((o) => o.classList.remove("ok", "bad"));
+        if (idx === 1) {
+          btn.classList.add("ok");
+        } else {
+          btn.classList.add("bad");
+          const okBtn = document.querySelectorAll("#gap .opt")[1];
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
+    });
+
     const bank = document.getElementById("bank");
     const slot = document.getElementById("slot");
-    bank.addEventListener("click", (e) => {
+    function moveToken(e) {
       const token = e.target.closest(".token");
       if (!token) return;
       (token.parentElement === bank ? slot : bank).appendChild(token);
+    }
+    if (bank) bank.addEventListener("click", moveToken);
+    if (slot) slot.addEventListener("click", moveToken);
+
+    document.querySelectorAll("#judge [data-judge]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#judge [data-judge]").forEach((b) => b.classList.remove("ok", "bad"));
+        btn.classList.add(btn.dataset.judge === "ok" ? "ok" : "bad");
+        if (btn.dataset.judge !== "ok") {
+          const okBtn = document.querySelector('#judge [data-judge="ok"]');
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
     });
 
     document.querySelectorAll("#tapLine button").forEach((btn) => {
@@ -13054,47 +13080,47 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
-      const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
-      const microsoft='<button class="btn auth-google" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
-      const telegram='<button class="btn auth-google" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
-      const google='<button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
+      const microsoft='<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
+      const telegram='<button class="btn auth-google saas-btn" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
+      const google='<button class="btn auth-google saas-btn" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
         if(invite&&!inviteDetails){
-          box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+          box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
           return;
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
           ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1>' + flashHtml +
-          '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
-          '<label for="authEmail">Email</label><input id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-          '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
+        box.innerHTML = '<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1>' + flashHtml +
+          '<form id="registerForm"><label for="authLogin">Login</label><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
+          '<label for="authEmail">Email</label><input class="saas-input" id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+          '<label for="authName">Name</label><input class="saas-input" id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
-          (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
+          (teacherInvite?'<button class="btn auth-code-send saas-btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input class="saas-input" data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
       }
       let teacherEmailInvite=false;
       try{teacherEmailInvite=!!sessionStorage.getItem('enquiz-invite')&&inviteDetails?.kind==='teacher';}catch{}
-      box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
-        '<div class="auth-mode-switch"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
+      box.innerHTML = '<div class="account-gate"><div class="card saas-card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
+        '<div class="auth-mode-switch saas-segmented"><button class="btn chip saas-btn on" type="button" data-login-mode="password">Password</button><button class="btn chip saas-btn" type="button" data-login-mode="otp">Email code</button></div>' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
         passwordField(false)+
-        '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
-        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-        (teacherEmailInvite?'<label for="otpName">Name</label><input id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
-        '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
-        '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
+        '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input class="saas-input" id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+        (teacherEmailInvite?'<label for="otpName">Name</label><input class="saas-input" id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
+        '<div class="row" style="margin:8px 0"><button class="btn saas-btn" type="button" data-otp-send>Send code</button></div>' +
+        '<label for="otpCode" data-otp-step hidden>Code</label><input class="saas-input" id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
+        '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
+        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google saas-btn" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
       decorate();
     }
     function paintProfile() {
@@ -13901,7 +13927,7 @@ const STUDIO_CONSTELLATIONS = [{
 
   function paintRecovery(){
     const box=document.getElementById('accountBody');
-    box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send primary" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="32" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–32 characters</p><button class="btn primary" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form></div></div>';
+    box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input class="saas-input" id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send primary saas-btn" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input class="saas-input" id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input class="saas-input" id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="32" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–32 characters</p><button class="btn primary saas-btn" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form></div></div>';
     box.querySelector('input').focus();
   }
   const navigation=['home'];let restoring=false;
@@ -15362,7 +15388,7 @@ const STUDIO_CONSTELLATIONS = [{
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form saas-card" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input class="saas-input" type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select class="saas-select" data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select class="saas-select" data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input class="saas-input" type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary saas-btn" type="button" data-invite-create disabled>Create invite</button></div><input class="saas-input" type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -17402,9 +17428,9 @@ const STUDIO_CONSTELLATIONS = [{
       let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
       if(!token)return;
       if(['ADMIN','DEVELOPER'].includes(authUser.role)){
-        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog saas-card';
         const groupTitle=inviteDetails?.groupTitle||'the group';
-        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary" data-accept>Accept invitation</button><button type="button" class="btn" data-close>Cancel</button></div></form>';
+        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary saas-btn" data-accept>Accept invitation</button><button type="button" class="btn saas-btn" data-close>Cancel</button></div></form>';
         document.body.append(dialog);dialog.showModal();
         const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');
         form.querySelector('[data-close]').onclick=()=>{sessionStorage.removeItem('enquiz-invite');dialog.close();};
@@ -18050,9 +18076,9 @@ const STUDIO_CONSTELLATIONS = [{
               }
               try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
               const dialog = document.createElement('dialog');
-              dialog.className = 'account-deleted-dialog';
+              dialog.className = 'account-deleted-dialog saas-card';
               dialog.setAttribute('aria-labelledby', 'deletedAccountTitle');
-              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary saas-btn" type="submit">OK</button></form>';
               dialog.querySelector('p').textContent = 'The account for ' + name + ' has been moved to Archive.';
               dialog.addEventListener('cancel', event => event.preventDefault());
               dialog.addEventListener('close', () => { dialog.remove(); adminTab = 'accounts'; show('admin'); paintAdmin(); }, { once: true });
@@ -19564,7 +19590,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmInteractiveFrame(block) {
       const src = wordwallSource(block.url);
-      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
+      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive saas-card"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
     }
     function lmLinkCard(block, href) {
       const title = block.title || href || "Link";

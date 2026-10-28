@@ -13,9 +13,9 @@
       let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
       if(!token)return;
       if(['ADMIN','DEVELOPER'].includes(authUser.role)){
-        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog saas-card';
         const groupTitle=inviteDetails?.groupTitle||'the group';
-        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary" data-accept>Accept invitation</button><button type="button" class="btn" data-close>Cancel</button></div></form>';
+        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary saas-btn" data-accept>Accept invitation</button><button type="button" class="btn saas-btn" data-close>Cancel</button></div></form>';
         document.body.append(dialog);dialog.showModal();
         const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');
         form.querySelector('[data-close]').onclick=()=>{sessionStorage.removeItem('enquiz-invite');dialog.close();};
@@ -661,9 +661,9 @@
               }
               try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
               const dialog = document.createElement('dialog');
-              dialog.className = 'account-deleted-dialog';
+              dialog.className = 'account-deleted-dialog saas-card';
               dialog.setAttribute('aria-labelledby', 'deletedAccountTitle');
-              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary saas-btn" type="submit">OK</button></form>';
               dialog.querySelector('p').textContent = 'The account for ' + name + ' has been moved to Archive.';
               dialog.addEventListener('cancel', event => event.preventDefault());
               dialog.addEventListener('close', () => { dialog.remove(); adminTab = 'accounts'; show('admin'); paintAdmin(); }, { once: true });

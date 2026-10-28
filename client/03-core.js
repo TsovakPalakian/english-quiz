@@ -300,7 +300,7 @@
     function toggleFlip() {
       if (!flipScene) return;
       if (!flipReady && flipBack) {
-        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
+        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary saas-btn" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button></div>';
         flipReady = true;
       }
       const on = flipScene.classList.toggle("is-flipped");
@@ -324,12 +324,38 @@
       document.getElementById("typeFb").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "Correct" : "Incorrect. Needed: give up") + "</div>";
     });
 
+    document.querySelectorAll("#gap .opt").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#gap .opt").forEach((o) => o.classList.remove("ok", "bad"));
+        if (idx === 1) {
+          btn.classList.add("ok");
+        } else {
+          btn.classList.add("bad");
+          const okBtn = document.querySelectorAll("#gap .opt")[1];
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
+    });
+
     const bank = document.getElementById("bank");
     const slot = document.getElementById("slot");
-    bank.addEventListener("click", (e) => {
+    function moveToken(e) {
       const token = e.target.closest(".token");
       if (!token) return;
       (token.parentElement === bank ? slot : bank).appendChild(token);
+    }
+    if (bank) bank.addEventListener("click", moveToken);
+    if (slot) slot.addEventListener("click", moveToken);
+
+    document.querySelectorAll("#judge [data-judge]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#judge [data-judge]").forEach((b) => b.classList.remove("ok", "bad"));
+        btn.classList.add(btn.dataset.judge === "ok" ? "ok" : "bad");
+        if (btn.dataset.judge !== "ok") {
+          const okBtn = document.querySelector('#judge [data-judge="ok"]');
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
     });
 
     document.querySelectorAll("#tapLine button").forEach((btn) => {

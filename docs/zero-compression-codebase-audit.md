@@ -10,10 +10,10 @@
 | Метрика | Точное значение в кодовой базе |
 | :--- | :--- |
 | Всего проинвентаризировано исходных файлов | **367 файлов** |
-| Объявлений констант (`const`) | **10661 объявлений** |
+| Объявлений констант (`const`) | **10663 объявлений** |
 | Объявлений массивов (`= [...]`) | **596 массивов** |
-| Обработчиков событий (`addEventListener`, `on*`) | **561 обработчиков** |
-| Функций и методов | **3679 функций** |
+| Обработчиков событий (`addEventListener`, `on*`) | **564 обработчиков** |
+| Функций и методов | **3680 функций** |
 | Уникальных ключей хранилища (`localStorage`, `sessionStorage`) | **34 ключей** |
 | Скрытых ролевых и контекстных гардов (`[HIDDEN_GUARD]`) | **832 проверок** |
 | Интерактивных элементов интерфейса (проверено на `[ORPHAN_UI]`) | **470 элементов** (из них **1 [ORPHAN_UI]**) |
@@ -1356,7 +1356,7 @@
 | 595 | `[src/worker.js:4522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L4522)` | 4522 | `bases` |
 | 596 | `[src/worker.js:4724](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L4724)` | 4724 | `lines` |
 
-## 10. Полный реестр всех 10661 объявлений констант кодовой базы
+## 10. Полный реестр всех 10663 объявлений констант кодовой базы
 
 <details><summary><b>Файл <code>client/00-core.js</code> (132 констант)</b></summary>
 
@@ -1660,7 +1660,7 @@
 
 </details>
 
-<details><summary><b>Файл <code>client/03-core.js</code> (71 констант)</b></summary>
+<details><summary><b>Файл <code>client/03-core.js</code> (73 констант)</b></summary>
 
 | № | Строка | Имя константы | Значение |
 | :--- | :--- | :--- | :--- |
@@ -1730,11 +1730,13 @@
 | 64 | [строка 306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L306) | `on` | `flipScene.classList.toggle("is-flipped")` |
 | 65 | [строка 322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L322) | `value` | `document.getElementById("typeInput").value.trim().toLowerCase().replace(/\s+/g, " ")` |
 | 66 | [строка 323](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L323) | `ok` | `value === "give up"` |
-| 67 | [строка 327](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L327) | `bank` | `document.getElementById("bank")` |
-| 68 | [строка 328](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L328) | `slot` | `document.getElementById("slot")` |
-| 69 | [строка 330](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L330) | `token` | `e.target.closest(".token")` |
-| 70 | [строка 357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L357) | `good` | `leftPick.dataset.id === btn.dataset.id` |
-| 71 | [строка 364](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L364) | `a` | `leftPick` |
+| 67 | [строка 334](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L334) | `okBtn` | `document.querySelectorAll("#gap .opt")[1]` |
+| 68 | [строка 340](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L340) | `bank` | `document.getElementById("bank")` |
+| 69 | [строка 341](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L341) | `slot` | `document.getElementById("slot")` |
+| 70 | [строка 343](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L343) | `token` | `e.target.closest(".token")` |
+| 71 | [строка 355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L355) | `okBtn` | `document.querySelector('#judge [data-judge="ok"]')` |
+| 72 | [строка 383](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L383) | `good` | `leftPick.dataset.id === btn.dataset.id` |
+| 73 | [строка 390](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L390) | `a` | `leftPick` |
 
 </details>
 
@@ -3300,13 +3302,13 @@
 | 76 | [строка 403](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L403) | `person` | `faceUser()` |
 | 77 | [строка 416](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L416) | `box` | `document.getElementById("accountBody")` |
 | 78 | [строка 426](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L426) | `flashHtml` | `flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : ""` |
-| 79 | [строка 427](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L427) | `tabs` | `'<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>'` |
-| 80 | [строка 428](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L428) | `passwordField` | `(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'')` |
+| 79 | [строка 427](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L427) | `tabs` | `'<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>'` |
+| 80 | [строка 428](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L428) | `passwordField` | `(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'')` |
 | 81 | [строка 429](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L429) | `decorate` | `()=>{void window.MicrosoftSignIn?.decorate(box)` |
 | 82 | [строка 430](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L430) | `authDivider` | `'<div class="auth-divider"><span>OR CONTINUE WITH</span></div>'` |
-| 83 | [строка 431](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L431) | `microsoft` | `'<button class="btn auth-google" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>'` |
-| 84 | [строка 432](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L432) | `telegram` | `'<button class="btn auth-google" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>'` |
-| 85 | [строка 433](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L433) | `google` | `'<button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>'` |
+| 83 | [строка 431](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L431) | `microsoft` | `'<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>'` |
+| 84 | [строка 432](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L432) | `telegram` | `'<button class="btn auth-google saas-btn" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>'` |
+| 85 | [строка 433](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L433) | `google` | `'<button class="btn auth-google saas-btn" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>'` |
 | 86 | [строка 441](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L441) | `teacherInvite` | `inviteDetails?.kind==='teacher'&&!!invite` |
 | 87 | [строка 442](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L442) | `inviteHint` | `invite` |
 | 88 | [строка 471](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L471) | `box` | `document.getElementById("profileBody")` |
@@ -14183,7 +14185,7 @@
 </details>
 
 
-## 11. Полный реестр всех 561 обработчиков событий кодовой базы
+## 11. Полный реестр всех 564 обработчиков событий кодовой базы
 
 | № | Файл | Строка | Целевой селектор / элемент | Событие | Обработчик |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -14207,549 +14209,552 @@
 | 18 | `[client/03-core.js:311](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L311)` | 311 | `flipScene` | `click` | `(e` |
 | 19 | `[client/03-core.js:315](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L315)` | 315 | `flipScene` | `keydown` | `(e` |
 | 20 | `[client/03-core.js:321](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L321)` | 321 | `)` | `click` | `(` |
-| 21 | `[client/03-core.js:329](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L329)` | 329 | `bank` | `click` | `(e` |
-| 22 | `[client/03-core.js:336](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L336)` | 336 | `btn` | `click` | `(` |
-| 23 | `[client/03-core.js:348](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L348)` | 348 | `btn` | `click` | `(` |
-| 24 | `[client/03a-cards.js:1504](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1504)` | 1504 | `)` | `click` | `(e` |
-| 25 | `[client/03a-cards.js:1510](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1510)` | 1510 | `)` | `click` | `(e` |
-| 26 | `[client/03a-cards.js:1520](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1520)` | 1520 | `dayFlipScene` | `click` | `(e` |
-| 27 | `[client/03a-cards.js:1524](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1524)` | 1524 | `dayFlipScene` | `keydown` | `(e` |
-| 28 | `[client/03a-cards.js:1600](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1600)` | 1600 | `btn` | `click` | `(` |
-| 29 | `[client/03c-cards.js:276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L276)` | 276 | `)` | `click` | `async (e` |
-| 30 | `[client/03c-cards.js:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L385)` | 385 | `document.body` | `click` | `(e` |
-| 31 | `[client/03c-cards.js:659](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L659)` | 659 | `document.body` | `keydown` | `(e` |
-| 32 | `[client/03f-songs.js:176](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L176)` | 176 | `document` | `visibilitychange` | `(` |
-| 33 | `[client/03f-songs.js:177](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L177)` | 177 | `window` | `pagehide` | `(` |
-| 34 | `[client/03f-songs.js:178](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L178)` | 178 | `window` | `pageshow` | `(` |
-| 35 | `[client/03f-songs.js:310](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L310)` | 310 | `iframe` | `load` | `(` |
-| 36 | `[client/03f-songs.js:354](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L354)` | 354 | `document` | `play` | `(event` |
-| 37 | `[client/03f-songs.js:355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L355)` | 355 | `document` | `pause` | `(event` |
-| 38 | `[client/03f-songs.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L356)` | 356 | `document` | `ended` | `(event` |
-| 39 | `[client/03f-songs.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L357)` | 357 | `window` | `message` | `onEmbedMessage` |
-| 40 | `[client/03f-songs.js:358](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L358)` | 358 | `window` | `scroll` | `(` |
-| 41 | `[client/03f-songs.js:359](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L359)` | 359 | `window` | `resize` | `(` |
-| 42 | `[client/03f-songs.js:1306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1306)` | 1306 | `form` | `dragover` | `(e` |
-| 43 | `[client/03f-songs.js:1311](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1311)` | 1311 | `form` | `dragleave` | `(e` |
-| 44 | `[client/03f-songs.js:1315](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1315)` | 1315 | `form` | `drop` | `(e` |
-| 45 | `[client/03f-songs.js:1322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1322)` | 1322 | `)` | `input` | `refreshLyricPreview` |
-| 46 | `[client/03f-songs.js:1323](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1323)` | 1323 | `)` | `input` | `refreshLyricPreview` |
-| 47 | `[client/03f-songs.js:1324](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1324)` | 1324 | `)` | `click` | `(` |
-| 48 | `[client/03f-songs.js:1325](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1325)` | 1325 | `)` | `change` | `(` |
-| 49 | `[client/03f-songs.js:1330](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1330)` | 1330 | `)` | `click` | `(` |
-| 50 | `[client/03f-songs.js:1331](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1331)` | 1331 | `)` | `click` | `(e` |
-| 51 | `[client/03f-songs.js:1335](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1335)` | 1335 | `)` | `click` | `(e` |
-| 52 | `[client/03f-songs.js:1406](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1406)` | 1406 | `songBox` | `input` | `(e` |
-| 53 | `[client/03f-songs.js:1409](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1409)` | 1409 | `songBox` | `change` | `(e` |
-| 54 | `[client/03f-songs.js:1415](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1415)` | 1415 | `songBox` | `dragover` | `(e` |
-| 55 | `[client/03f-songs.js:1420](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1420)` | 1420 | `songBox` | `dragleave` | `(e` |
-| 56 | `[client/03f-songs.js:1424](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1424)` | 1424 | `songBox` | `drop` | `(e` |
-| 57 | `[client/03f-songs.js:1431](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1431)` | 1431 | `)` | `click` | `(e` |
-| 58 | `[client/03g-core.js:31](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L31)` | 31 | `document` | `input` | `(e` |
-| 59 | `[client/03g-core.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L49)` | 49 | `addWord` | `keydown` | `(e` |
-| 60 | `[client/03g-core.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L52)` | 52 | `addGo` | `click` | `(` |
-| 61 | `[client/03g-core.js:440](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L440)` | 440 | `document` | `click` | `(event` |
-| 62 | `[client/03g-core.js:1224](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1224)` | 1224 | `)` | `click` | `(e` |
-| 63 | `[client/03g-core.js:1785](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1785)` | 1785 | `)` | `click` | `toggleTypeChip` |
-| 64 | `[client/03g-core.js:1786](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1786)` | 1786 | `)` | `click` | `toggleTypeChip` |
-| 65 | `[client/03g-core.js:1787](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1787)` | 1787 | `)` | `click` | `(e` |
-| 66 | `[client/03g-core.js:1796](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1796)` | 1796 | `inp` | `pointerdown` | `(e` |
-| 67 | `[client/03g-core.js:1800](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1800)` | 1800 | `inp` | `click` | `(e` |
-| 68 | `[client/03g-core.js:1801](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1801)` | 1801 | `inp` | `input` | `(` |
-| 69 | `[client/03g-core.js:1819](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1819)` | 1819 | `inp` | `pointerdown` | `keepPoolInput` |
-| 70 | `[client/03g-core.js:1820](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1820)` | 1820 | `inp` | `mousedown` | `keepPoolInput` |
-| 71 | `[client/03g-core.js:1821](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1821)` | 1821 | `inp` | `click` | `keepPoolInput` |
-| 72 | `[client/03g-core.js:1822](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1822)` | 1822 | `inp` | `input` | `(` |
-| 73 | `[client/03g-core.js:1825](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1825)` | 1825 | `inp` | `change` | `(` |
-| 74 | `[client/03g-core.js:1837](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1837)` | 1837 | `input` | `focus` | `(` |
-| 75 | `[client/03g-core.js:1838](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1838)` | 1838 | `input` | `pointerdown` | `(event` |
-| 76 | `[client/03g-core.js:1843](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1843)` | 1843 | `input` | `click` | `(event` |
-| 77 | `[client/03g-core.js:1852](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1852)` | 1852 | `input` | `keydown` | `(event` |
-| 78 | `[client/03g-core.js:1856](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1856)` | 1856 | `input` | `change` | `(` |
-| 79 | `[client/03g-core.js:1865](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1865)` | 1865 | `)` | `keydown` | `(e` |
-| 80 | `[client/03g-core.js:1881](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1881)` | 1881 | `)` | `click` | `(e` |
-| 81 | `[client/03g-core.js:2090](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2090)` | 2090 | `document` | `selectionchange` | `(` |
-| 82 | `[client/03g-core.js:2093](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2093)` | 2093 | `document` | `contextmenu` | `event => {` |
-| 83 | `[client/03g-core.js:2205](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2205)` | 2205 | `clipFrameClose` | `click` | `closeClipFrame` |
-| 84 | `[client/03g-core.js:2207](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2207)` | 2207 | `clipFrame` | `click` | `(e` |
-| 85 | `[client/03g-core.js:2208](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2208)` | 2208 | `document` | `keydown` | `(e` |
-| 86 | `[client/03g-core.js:2209](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2209)` | 2209 | `)` | `click` | `(e` |
-| 87 | `[client/03g-core.js:2214](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2214)` | 2214 | `)` | `click` | `async (e` |
-| 88 | `[client/03g-core.js:2236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2236)` | 2236 | `document` | `mousedown` | `(e` |
-| 89 | `[client/03g-core.js:2239](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2239)` | 2239 | `document` | `mouseup` | `(event` |
-| 90 | `[client/03g-core.js:2244](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2244)` | 2244 | `document` | `keyup` | `(e` |
-| 91 | `[client/05-account.js:39](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L39)` | 39 | `document` | `visibilitychange` | `(` |
-| 92 | `[client/05-account.js:186](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L186)` | 186 | `window` | `pagehide` | `(` |
-| 93 | `[client/05-account.js:561](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L561)` | 561 | `document` | `click` | `event=>{` |
-| 94 | `[client/05-account.js:572](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L572)` | 572 | `window` | `resize` | `(` |
-| 95 | `[client/06-auth-scene.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L42)` | 42 | `document` | `click` | `event=>{` |
-| 96 | `[client/06-auth-scene.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L62)` | 62 | `document` | `input` | `event=>{` |
-| 97 | `[client/06-auth-scene.js:89](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L89)` | 89 | `document` | `click` | `event=>{const button=event.target.closest('[data-recovery-send]'` |
-| 98 | `[client/06-auth-scene.js:90](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L90)` | 90 | `document` | `submit` | `event=>{if(event.target.id!=='passwordRecoveryForm'` |
-| 99 | `[client/06-auth-sky.js:347](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L347)` | 347 | `canvas` | `sky:blackhole` | `triggerBlackHole` |
-| 100 | `[client/06-auth-sky.js:1139](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1139)` | 1139 | `conInspector` | `mouseenter` | `onConEnter` |
-| 101 | `[client/06-auth-sky.js:1140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1140)` | 1140 | `conInspector` | `mouseleave` | `onConLeave` |
-| 102 | `[client/06-auth-sky.js:1141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1141)` | 1141 | `window` | `click` | `onClick` |
-| 103 | `[client/06-auth-sky.js:1141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1141)` | 1141 | `window` | `mousemove` | `onMove` |
-| 104 | `[client/06-auth-sky.js:1142](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1142)` | 1142 | `window` | `keydown` | `onKeyDown` |
-| 105 | `[client/06-auth-sky.js:1143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1143)` | 1143 | `window` | `touchend` | `onTouchEnd` |
-| 106 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `window` | `blur` | `pauseReturn` |
-| 107 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `window` | `focus` | `resumeReturn` |
-| 108 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `document` | `visibilitychange` | `onVisibility` |
-| 109 | `[client/06-auth-sky.js:1162](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1162)` | 1162 | `document` | `visibilitychange` | `sync` |
-| 110 | `[client/06-auth-sky.js:1162](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1162)` | 1162 | `motion` | `change` | `sync` |
-| 111 | `[client/06-auth-sky.js:1164](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1164)` | 1164 | `document` | `input` | `sync` |
-| 112 | `[client/06-auth-sky.js:1165](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1165)` | 1165 | `document` | `click` | `event=>{if(event.target.closest('[data-auth-password]'` |
-| 113 | `[client/06-passkeys.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-passkeys.js#L52)` | 52 | `document` | `click` | `async event=>{` |
-| 114 | `[client/07-microsoft.js:47](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/07-microsoft.js#L47)` | 47 | `document` | `click` | `event=>{` |
-| 115 | `[client/10-admin.js:37](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L37)` | 37 | `document` | `click` | `event=>{if(event.target.closest('[data-jump="admin"]` |
-| 116 | `[client/10-admin.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L74)` | 74 | `document` | `input` | `event => {` |
-| 117 | `[client/10-admin.js:89](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L89)` | 89 | `document` | `input` | `event=>validateSignupInput(event.target` |
-| 118 | `[client/10-admin.js:90](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L90)` | 90 | `document` | `focusout` | `event=>validateSignupInput(event.target` |
-| 119 | `[client/10-admin.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L143)` | 143 | `document` | `input` | `event=>{` |
-| 120 | `[client/10-admin.js:148](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L148)` | 148 | `document` | `change` | `event=>{` |
-| 121 | `[client/10-admin.js:152](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L152)` | 152 | `document` | `toggle` | `event=>{` |
-| 122 | `[client/10-admin.js:159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L159)` | 159 | `document` | `click` | `event=>{` |
-| 123 | `[client/10-admin.js:174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L174)` | 174 | `document` | `focusout` | `event=>{` |
-| 124 | `[client/10-admin.js:178](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L178)` | 178 | `document` | `keydown` | `event=>{` |
-| 125 | `[client/10-admin.js:216](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L216)` | 216 | `document` | `click` | `async event=>{` |
-| 126 | `[client/10-admin.js:226](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L226)` | 226 | `document` | `click` | `async event=>{` |
-| 127 | `[client/10-admin.js:279](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L279)` | 279 | `document` | `click` | `event => {` |
-| 128 | `[client/10-admin.js:501](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L501)` | 501 | `document` | `change` | `event => {` |
-| 129 | `[client/22-archive.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L52)` | 52 | `document` | `click` | `(event` |
-| 130 | `[client/22-archive.js:103](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L103)` | 103 | `document` | `learning-archive-changed` | `(` |
-| 131 | `[client/22-archive.js:104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L104)` | 104 | `document` | `keydown` | `event => {` |
-| 132 | `[client/24-bugs.js:240](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L240)` | 240 | `img` | `click` | `(` |
-| 133 | `[client/24-bugs.js:255](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L255)` | 255 | `loadMoreBtn` | `click` | `(` |
-| 134 | `[client/24-bugs.js:332](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L332)` | 332 | `btn` | `click` | `(` |
-| 135 | `[client/24-bugs.js:341](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L341)` | 341 | `btn` | `click` | `(` |
-| 136 | `[client/24-bugs.js:351](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L351)` | 351 | `searchInput` | `input` | `(e` |
-| 137 | `[client/24-bugs.js:360](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L360)` | 360 | `exportBtn` | `click` | `(` |
-| 138 | `[client/25-feedback.js:4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L4)` | 4 | `window` | `error` | `function(e` |
-| 139 | `[client/25-feedback.js:26](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L26)` | 26 | `document` | `click` | `function(e` |
-| 140 | `[client/25-feedback.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L41)` | 41 | `window` | `hashchange` | `function(` |
-| 141 | `[client/25-feedback.js:109](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L109)` | 109 | `btn` | `click` | `closeFeedbackModal` |
-| 142 | `[client/25-feedback.js:114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L114)` | 114 | `textarea` | `input` | `(` |
-| 143 | `[client/25-feedback.js:118](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L118)` | 118 | `btn` | `click` | `function(` |
-| 144 | `[client/25-feedback.js:129](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L129)` | 129 | `dropzone` | `click` | `(` |
-| 145 | `[client/25-feedback.js:130](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L130)` | 130 | `fileInput` | `change` | `function(` |
-| 146 | `[client/25-feedback.js:134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L134)` | 134 | `dropzone` | `dragover` | `function(e` |
-| 147 | `[client/25-feedback.js:138](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L138)` | 138 | `dropzone` | `dragleave` | `function(` |
-| 148 | `[client/25-feedback.js:141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L141)` | 141 | `dropzone` | `drop` | `function(e` |
-| 149 | `[client/25-feedback.js:149](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L149)` | 149 | `removeBtn` | `click` | `clearScreenshot` |
-| 150 | `[client/25-feedback.js:152](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L152)` | 152 | `submitBtn` | `click` | `submitFeedback` |
-| 151 | `[client/25-feedback.js:224](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L224)` | 224 | `window` | `paste` | `function(e` |
-| 152 | `[client/25-feedback.js:409](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L409)` | 409 | `document` | `click` | `function(e` |
-| 153 | `[client/25-feedback.js:430](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L430)` | 430 | `document` | `DOMContentLoaded` | `initFloatingBtn` |
-| 154 | `[client/40-account.js:1](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L1)` | 1 | `document` | `input` | `event=>{` |
-| 155 | `[client/40-account.js:22](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L22)` | 22 | `dialog` | `close` | `(` |
-| 156 | `[client/40-account.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L40)` | 40 | `dialog` | `close` | `(` |
-| 157 | `[client/40-account.js:236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L236)` | 236 | `document.body` | `change` | `(e` |
-| 158 | `[client/40-account.js:250](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L250)` | 250 | `document.body` | `submit` | `(e` |
-| 159 | `[client/40-account.js:368](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L368)` | 368 | `)` | `click` | `(` |
-| 160 | `[client/40-account.js:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L369)` | 369 | `)` | `click` | `(` |
-| 161 | `[client/40-account.js:374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L374)` | 374 | `dialog` | `close` | `(` |
-| 162 | `[client/40-account.js:375](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L375)` | 375 | `dialog` | `click` | `(event` |
-| 163 | `[client/40-account.js:381](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L381)` | 381 | `document.body` | `click` | `(e` |
-| 164 | `[client/40-account.js:668](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L668)` | 668 | `dialog` | `cancel` | `event => event.preventDefault(` |
-| 165 | `[client/40-account.js:669](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L669)` | 669 | `dialog` | `close` | `(` |
-| 166 | `[client/47-account.js:153](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L153)` | 153 | `document` | `visibilitychange` | `(` |
-| 167 | `[client/47-account.js:154](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L154)` | 154 | `window` | `pageshow` | `(` |
-| 168 | `[client/47-account.js:155](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L155)` | 155 | `window` | `storage` | `event => { if (event.key === 'enquiz-idle-expired'` |
-| 169 | `[client/50-core.js:349](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L349)` | 349 | `)` | `click` | `(` |
-| 170 | `[client/50-core.js:355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L355)` | 355 | `)` | `click` | `(` |
-| 171 | `[client/50-core.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L356)` | 356 | `)` | `click` | `(` |
-| 172 | `[client/50-core.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L357)` | 357 | `)` | `click` | `(` |
-| 173 | `[client/50-core.js:361](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L361)` | 361 | `)` | `click` | `(` |
-| 174 | `[client/50-core.js:368](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L368)` | 368 | `)` | `click` | `(event` |
-| 175 | `[client/50-core.js:372](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L372)` | 372 | `)` | `click` | `(event` |
-| 176 | `[client/52-lessons.js:109](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L109)` | 109 | `document` | `input` | `event=>{if(event.target.id==='groupSearch'` |
-| 177 | `[client/52-lessons.js:116](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L116)` | 116 | `document` | `click` | `event=>{` |
-| 178 | `[client/52-lessons.js:1727](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1727)` | 1727 | `lmRoot` | `mousedown` | `(event` |
-| 179 | `[client/52-lessons.js:1737](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1737)` | 1737 | `lmRoot` | `input` | `(event` |
-| 180 | `[client/52-lessons.js:1835](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1835)` | 1835 | `lmRoot` | `change` | `(event` |
-| 181 | `[client/52-lessons.js:1894](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1894)` | 1894 | `lmRoot` | `click` | `(event` |
-| 182 | `[client/52-lessons.js:2119](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2119)` | 2119 | `lmRoot` | `dragstart` | `(event` |
-| 183 | `[client/52-lessons.js:2124](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2124)` | 2124 | `lmRoot` | `dragover` | `(event` |
-| 184 | `[client/52-lessons.js:2129](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2129)` | 2129 | `lmRoot` | `drop` | `(event` |
-| 185 | `[client/52-lessons.js:2151](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2151)` | 2151 | `lmRoot` | `dragend` | `(` |
-| 186 | `[client/52-lessons.js:2154](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2154)` | 2154 | `lmRoot` | `pointerdown` | `(event` |
-| 187 | `[client/52-lessons.js:2159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2159)` | 2159 | `lmRoot` | `keydown` | `(event` |
-| 188 | `[client/52-lessons.js:2166](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2166)` | 2166 | `)` | `click` | `(` |
-| 189 | `[client/52-lessons.js:2172](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2172)` | 2172 | `)` | `click` | `(` |
-| 190 | `[client/52-lessons.js:2173](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2173)` | 2173 | `)` | `click` | `(` |
-| 191 | `[client/52-lessons.js:2174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2174)` | 2174 | `)` | `click` | `(` |
-| 192 | `[client/52-lessons.js:2175](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2175)` | 2175 | `)` | `click` | `(` |
-| 193 | `[client/52-lessons.js:2186](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2186)` | 2186 | `lmNew` | `click` | `lmCreateLesson` |
-| 194 | `[client/52-lessons.js:2188](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2188)` | 2188 | `groupNew` | `click` | `groupCreate` |
-| 195 | `[client/52a-workbench.js:183](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L183)` | 183 | `document` | `click` | `event=>{` |
-| 196 | `[client/52a-workbench.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L213)` | 213 | `document` | `submit` | `event=>{` |
-| 197 | `[client/52a-workbench.js:236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L236)` | 236 | `document` | `click` | `event=>{` |
-| 198 | `[client/52a-workbench.js:249](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L249)` | 249 | `document` | `submit` | `event=>{` |
-| 199 | `[client/52a-workbench.js:303](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L303)` | 303 | `dialog` | `cancel` | `event=>{if(!discard(entry` |
-| 200 | `[client/52a-workbench.js:304](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L304)` | 304 | `dialog` | `close` | `(` |
-| 201 | `[client/52a-workbench.js:306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L306)` | 306 | `dialog` | `cancel` | `event=>{if(!discard(entry` |
-| 202 | `[client/52a-workbench.js:306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L306)` | 306 | `dialog` | `close` | `(` |
-| 203 | `[client/52a-workbench.js:337](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L337)` | 337 | `document` | `learning-workbench-session` | `reset` |
-| 204 | `[client/52a-workbench.js:338](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L338)` | 338 | `document` | `click` | `event=>{` |
-| 205 | `[client/52a-workbench.js:401](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L401)` | 401 | `document` | `change` | `event=>{` |
-| 206 | `[client/52a-workbench.js:413](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L413)` | 413 | `document` | `submit` | `event=>{` |
-| 207 | `[client/52a-workbench.js:437](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L437)` | 437 | `document` | `input` | `event=>{if(job?.view==='editor'&&dialog?.contains(event.target` |
-| 208 | `[client/52b-lesson-pdf-import.js:165](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52b-lesson-pdf-import.js#L165)` | 165 | `dialog` | `cancel` | `event=>{if(apply.disabled` |
-| 209 | `[client/53-group-directory.js:163](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/53-group-directory.js#L163)` | 163 | `document` | `click` | `event=>{` |
-| 210 | `[client/54-exams.js:487](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L487)` | 487 | `document` | `click` | `(event` |
-| 211 | `[client/54-exams.js:620](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L620)` | 620 | `document` | `selectionchange` | `(` |
-| 212 | `[client/54-exams.js:624](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L624)` | 624 | `document` | `mousedown` | `event => { if (event.target.closest('[data-review-command]'` |
-| 213 | `[client/54-exams.js:625](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L625)` | 625 | `document` | `paste` | `event => {` |
-| 214 | `[client/54-exams.js:647](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L647)` | 647 | `document` | `click` | `event => { const control = event.target.closest('[data-review-command]'` |
-| 215 | `[client/54-exams.js:648](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L648)` | 648 | `document` | `change` | `event => { if (event.target.matches('[data-review-color]` |
-| 216 | `[client/54-exams.js:1044](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1044)` | 1044 | `pop` | `pointerdown` | `(event` |
-| 217 | `[client/54-exams.js:1045](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1045)` | 1045 | `pop` | `click` | `(event` |
-| 218 | `[client/54-exams.js:1111](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1111)` | 1111 | `pop` | `pointerdown` | `(event` |
-| 219 | `[client/54-exams.js:1112](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1112)` | 1112 | `)` | `click` | `closeItemEditor` |
-| 220 | `[client/54-exams.js:1113](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1113)` | 1113 | `)` | `click` | `(event` |
-| 221 | `[client/54-exams.js:1117](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1117)` | 1117 | `pop` | `submit` | `(event` |
-| 222 | `[client/54-exams.js:1211](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1211)` | 1211 | `newer` | `click` | `examAdd` |
-| 223 | `[client/54-exams.js:1212](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1212)` | 1212 | `document` | `click` | `(event` |
-| 224 | `[client/54-exams.js:1223](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1223)` | 1223 | `document` | `pointerdown` | `(event` |
-| 225 | `[client/54-exams.js:1229](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1229)` | 1229 | `document` | `keydown` | `(event` |
-| 226 | `[client/54-exams.js:1232](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1232)` | 1232 | `blockNew` | `click` | `examAddBlock` |
-| 227 | `[client/54-exams.js:1233](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1233)` | 1233 | `document` | `click` | `event => {` |
-| 228 | `[client/54-exams.js:1239](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1239)` | 1239 | `list` | `click` | `async (event` |
-| 229 | `[client/54-exams.js:1245](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1245)` | 1245 | `blocks` | `click` | `(event` |
-| 230 | `[client/54-exams.js:1260](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1260)` | 1260 | `save` | `click` | `async (` |
-| 231 | `[client/54-exams.js:1281](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1281)` | 1281 | `dialog` | `close` | `(` |
-| 232 | `[client/54-exams.js:1284](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1284)` | 1284 | `document` | `click` | `event => { if (event.target.closest('#assessmentRetry'` |
-| 233 | `[client/54-exams.js:1285](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1285)` | 1285 | `document` | `input` | `(event` |
-| 234 | `[client/54-exams.js:1286](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1286)` | 1286 | `document` | `change` | `(event` |
-| 235 | `[client/56-search.js:16](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L16)` | 16 | `input` | `input` | `apply` |
-| 236 | `[client/56-search.js:71](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L71)` | 71 | `input` | `input` | `apply` |
-| 237 | `[client/56-search.js:120](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L120)` | 120 | `textPrevious` | `click` | `(` |
-| 238 | `[client/56-search.js:121](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L121)` | 121 | `textNext` | `click` | `(` |
-| 239 | `[client/56-search.js:122](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L122)` | 122 | `textSearch` | `keydown` | `(event` |
-| 240 | `[client/56-search.js:125](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L125)` | 125 | `textCollapse` | `click` | `(` |
-| 241 | `[client/56-search.js:159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L159)` | 159 | `textSearch` | `input` | `(` |
-| 242 | `[client/57-demand.js:18](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/57-demand.js#L18)` | 18 | `document` | `click` | `event => {` |
-| 243 | `[client/demos/independent-review-ui.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L62)` | 62 | `document` | `click` | `event=>{` |
-| 244 | `[client/demos/independent-review-ui.js:66](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L66)` | 66 | `document` | `change` | `event=>{` |
-| 245 | `[client/demos/independent-review-ui.js:71](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L71)` | 71 | `document` | `toggle` | `event=>{` |
-| 246 | `[client/demos/learning-kit-ui.js:73](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L73)` | 73 | `document` | `change` | `event=>{if(event.target.id==='kit-sense'` |
-| 247 | `[client/demos/learning-kit-ui.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L74)` | 74 | `document` | `click` | `event=>{` |
-| 248 | `[client/demos/learning-kit-ui.js:88](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L88)` | 88 | `document` | `submit` | `event=>{` |
-| 249 | `[client/demos/local-video-preview.js:25](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L25)` | 25 | `signal` | `abort` | `abort` |
-| 250 | `[client/demos/local-video-preview.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L41)` | 41 | `)` | `submit` | `async event=>{event.preventDefault(` |
-| 251 | `[client/demos/local-video-preview.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L42)` | 42 | `)` | `submit` | `async event=>{event.preventDefault(` |
-| 252 | `[client/demos/local-video-preview.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L44)` | 44 | `)` | `click` | `async event=>{` |
-| 253 | `[client/demos/local-video-preview.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L49)` | 49 | `window` | `pagehide` | `(` |
-| 254 | `[client/demos/local-workbench-shell.js:7](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-workbench-shell.js#L7)` | 7 | `select` | `change` | `async(` |
-| 255 | `[client/demos/preparation-pipeline-ui.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L40)` | 40 | `document` | `input` | `event=>{if(event.target.closest('#pipeline-settings-form'` |
-| 256 | `[client/demos/preparation-pipeline-ui.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L41)` | 41 | `document` | `change` | `event=>{if(event.target.matches('#pipeline-settings-form [name="enabled"]'` |
-| 257 | `[client/demos/preparation-pipeline-ui.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L42)` | 42 | `document` | `submit` | `event=>{if(event.target.id==='pipeline-settings-form'` |
-| 258 | `[client/demos/preparation-pipeline-ui.js:43](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L43)` | 43 | `document` | `click` | `event=>{const button=event.target.closest('[data-pipeline-action]'` |
-| 259 | `[client/demos/preparation-pipeline-ui.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L44)` | 44 | `document` | `toggle` | `event=>{if(!event.target.isConnected\|\|!event.target.matches('[data-pipeline-history]'` |
-| 260 | `[client/demos/provider-settings-ui.js:56](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L56)` | 56 | `document` | `change` | `event=>{` |
-| 261 | `[client/demos/provider-settings-ui.js:63](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L63)` | 63 | `document` | `input` | `event=>{if(event.target.id==='provider-reason'&&isDeveloper(` |
-| 262 | `[client/demos/provider-settings-ui.js:64](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L64)` | 64 | `document` | `submit` | `event=>{if(event.target.id==='provider-settings-form'` |
-| 263 | `[client/demos/provider-settings-ui.js:65](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L65)` | 65 | `document` | `click` | `event=>{` |
-| 264 | `[client/demos/provider-settings-ui.js:69](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L69)` | 69 | `document` | `toggle` | `event=>{if(event.target.id==='provider-history'&&event.target.isConnected` |
-| 265 | `[client/demos/quiz-materials-ui.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L40)` | 40 | `document` | `change` | `event=>{const form=event.target.closest('[data-material-form="upload"]'` |
-| 266 | `[client/demos/quiz-materials-ui.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L42)` | 42 | `document` | `click` | `event=>{` |
-| 267 | `[client/demos/quiz-materials-ui.js:54](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L54)` | 54 | `document` | `submit` | `event=>{` |
-| 268 | `[client/demos/quiz-review-local.js:269](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L269)` | 269 | `document` | `toggle` | `e=>{` |
-| 269 | `[client/demos/quiz-review-local.js:298](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L298)` | 298 | `document` | `click` | `e=>{` |
-| 270 | `[client/demos/quiz-review-local.js:337](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L337)` | 337 | `document` | `change` | `e=>{` |
-| 271 | `[client/demos/quiz-review-local.js:343](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L343)` | 343 | `)` | `submit` | `e=>{e.preventDefault(` |
-| 272 | `[client/demos/quiz-review-local.js:350](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L350)` | 350 | `)` | `submit` | `e=>{e.preventDefault(` |
-| 273 | `[client/demos/quiz-review-local.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L356)` | 356 | `document` | `input` | `event=>{const key=event.target.dataset.queueFilter;if(!key` |
-| 274 | `[client/demos/quiz-review-local.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L357)` | 357 | `document` | `submit` | `event=>{if(event.target.id==='quota-limit-form'` |
-| 275 | `[client/demos/quiz-review-local.js:358](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L358)` | 358 | `document` | `input` | `event=>{if(event.target.closest('#quota-limit-form'` |
-| 276 | `[client/demos/quiz-workbench.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L74)` | 74 | `document` | `toggle` | `e=>{if(e.target.dataset?.expand` |
-| 277 | `[client/demos/quiz-workbench.js:78](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L78)` | 78 | `document` | `click` | `e=>{` |
-| 278 | `[client/demos/quiz-workbench.js:99](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L99)` | 99 | `document` | `change` | `e=>{` |
-| 279 | `[client/demos/quiz-workbench.js:107](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L107)` | 107 | `document` | `input` | `e=>{if(e.target.id!=='search'` |
-| 280 | `[client/demos/quiz-workbench.js:108](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L108)` | 108 | `)` | `submit` | `e=>{` |
-| 281 | `[client/demos/quiz-workbench.js:114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L114)` | 114 | `)` | `submit` | `e=>{` |
-| 282 | `[client/demos/quiz-workbench.js:120](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L120)` | 120 | `)` | `submit` | `e=>{e.preventDefault(` |
-| 283 | `[client/demos/speech-practice-ui.js:176](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L176)` | 176 | `document` | `change` | `event=>{` |
-| 284 | `[client/demos/speech-practice-ui.js:189](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L189)` | 189 | `document` | `click` | `event=>{const button=event.target.closest('[data-speech-action]'` |
-| 285 | `[client/demos/speech-practice-ui.js:204](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L204)` | 204 | `document` | `submit` | `event=>{const form=event.target` |
-| 286 | `[client/demos/speech-practice-ui.js:230](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L230)` | 230 | `window` | `pagehide` | `reset` |
-| 287 | `[client/main/exam-workflow.js:10](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L10)` | 10 | `document` | `input` | `event=>{` |
-| 288 | `[client/main/exam-workflow.js:84](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L84)` | 84 | `window` | `resize` | `(` |
-| 289 | `[client/main/exam-workflow.js:85](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L85)` | 85 | `document` | `input` | `event=>{const field=event.target.closest('[data-exam-review-note]'` |
-| 290 | `[client/main/exam-workflow.js:135](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L135)` | 135 | `document` | `click` | `async event=>{` |
-| 291 | `[client/main/exam-workflow.js:140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L140)` | 140 | `document` | `click` | `async event=>{` |
-| 292 | `[client/main/exam-workflow.js:147](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L147)` | 147 | `document` | `click` | `async event=>{` |
-| 293 | `[client/main/exam-workflow.js:188](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L188)` | 188 | `document` | `click` | `event=>{` |
-| 294 | `[client/main/exam-workflow.js:198](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L198)` | 198 | `document` | `click` | `async event=>{` |
-| 295 | `[client/main/exam-workflow.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L213)` | 213 | `dialog` | `pointerdown` | `event=>{pressedOutside=event.target===dialog&&outside(event` |
-| 296 | `[client/main/exam-workflow.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L213)` | 213 | `dialog` | `click` | `event=>{if(pressedOutside&&event.target===dialog&&outside(event` |
-| 297 | `[client/main/main-bridge.js:4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L4)` | 4 | `document` | `submit` | `event=>{` |
-| 298 | `[client/main/main-bridge.js:72](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L72)` | 72 | `dialog` | `close` | `(` |
-| 299 | `[client/main/main-bridge.js:96](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L96)` | 96 | `close` | `click` | `dismissNotice` |
-| 300 | `[client/main/main-bridge.js:101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L101)` | 101 | `document` | `click` | `event=>{` |
-| 301 | `[client/main/main-bridge.js:106](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L106)` | 106 | `document` | `keydown` | `event=>{` |
-| 302 | `[client/main/main-bridge.js:199](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L199)` | 199 | `document` | `click` | `event=>{` |
-| 303 | `[client/main/main-bridge.js:206](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L206)` | 206 | `window` | `error` | `event=>reportClientBug({method:'CLIENT'` |
-| 304 | `[client/main/main-bridge.js:207](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L207)` | 207 | `window` | `unhandledrejection` | `event=>{const reason=event.reason;reportClientBug({method:'CLIENT'` |
-| 305 | `[client/main/main-bridge.js:753](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L753)` | 753 | `document` | `DOMContentLoaded` | `(` |
-| 306 | `[client/main/main-bridge.js:764](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L764)` | 764 | `)` | `click` | `(` |
-| 307 | `[client/main/main-bridge.js:769](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L769)` | 769 | `)` | `click` | `(` |
-| 308 | `[client/main/main-bridge.js:788](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L788)` | 788 | `)window` | `pagehide` | `(` |
-| 309 | `[client/main/main-hooks.js:81](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L81)` | 81 | `document` | `learning-content-copied` | `event=>{event.detail.refresh=stageRefreshCopies(event.detail` |
-| 310 | `[client/main/main-hooks.js:82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L82)` | 82 | `document` | `click` | `event=>{` |
-| 311 | `[client/main/main-hooks.js:87](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L87)` | 87 | `document` | `change` | `event=>{` |
-| 312 | `[client/main/main-hooks.js:91](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L91)` | 91 | `document` | `keydown` | `event=>{` |
-| 313 | `[client/main/main-hooks.js:101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L101)` | 101 | `document` | `submit` | `async event=>{` |
-| 314 | `[client/main/main-hooks.js:453](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L453)` | 453 | `document` | `visibilitychange` | `(` |
-| 315 | `[client/main/main-hooks.js:584](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L584)` | 584 | `document` | `input` | `event=>{if(event.target.matches('#lyricText` |
-| 316 | `[client/main/main-hooks.js:585](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L585)` | 585 | `window` | `resize` | `stageGrowTextEditors` |
-| 317 | `[client/main/main-hooks.js:893](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L893)` | 893 | `document` | `click` | `event=>{` |
-| 318 | `[client/main/main-hooks.js:905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L905)` | 905 | `document` | `DOMContentLoaded` | `(` |
-| 319 | `[client/main/main-hooks.js:909](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L909)` | 909 | `form` | `submit` | `event=>{` |
-| 320 | `[client/main/main-hooks.js:1247](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1247)` | 1247 | `document` | `click` | `event=>{` |
-| 321 | `[client/main/main-hooks.js:1277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1277)` | 1277 | `document` | `click` | `event=>{` |
-| 322 | `[client/main/main-hooks.js:1285](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1285)` | 1285 | `document` | `click` | `event=>{` |
-| 323 | `[client/main/main-hooks.js:1299](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1299)` | 1299 | `document` | `learning-personal-saved` | `event=>{` |
-| 324 | `[client/main/main-hooks.js:2148](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2148)` | 2148 | `document` | `learning-archive-changed` | `event=>{event.detail.refresh=stageRefreshArchiveSources(event.detail` |
-| 325 | `[client/main/main-hooks.js:2311](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2311)` | 2311 | `document` | `click` | `event=>{` |
-| 326 | `[client/main/main-hooks.js:2365](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2365)` | 2365 | `document` | `click` | `event=>{` |
-| 327 | `[client/main/main-hooks.js:2438](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2438)` | 2438 | `document` | `click` | `event=>{` |
-| 328 | `[client/main/main-hooks.js:2446](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2446)` | 2446 | `document` | `input` | `event=>{` |
-| 329 | `[client/main/main-hooks.js:2450](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2450)` | 2450 | `document` | `click` | `event=>{` |
-| 330 | `[client/shared/text-colors.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L44)` | 44 | `font` | `pointerdown` | `capture` |
-| 331 | `[client/shared/text-colors.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L44)` | 44 | `font` | `change` | `(` |
-| 332 | `[client/shared/text-colors.js:45](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L45)` | 45 | `size` | `pointerdown` | `capture` |
-| 333 | `[client/shared/text-colors.js:45](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L45)` | 45 | `size` | `change` | `(` |
-| 334 | `[client/shared/text-colors.js:46](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L46)` | 46 | `button` | `pointerdown` | `event=>{capture(` |
-| 335 | `[client/shared/text-colors.js:46](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L46)` | 46 | `button` | `click` | `(` |
-| 336 | `[client/shared/text-colors.js:59](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L59)` | 59 | `palette` | `pointerdown` | `captureColorSelection` |
-| 337 | `[client/shared/text-colors.js:60](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L60)` | 60 | `rich` | `pointerup` | `captureColorSelection` |
-| 338 | `[client/shared/text-colors.js:61](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L61)` | 61 | `rich` | `keyup` | `captureColorSelection` |
-| 339 | `[client/shared/text-colors.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L62)` | 62 | `palette` | `input` | `(` |
-| 340 | `[client/shared/text-colors.js:81](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L81)` | 81 | `rich` | `input` | `update` |
-| 341 | `[client/shared/text-colors.js:82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L82)` | 82 | `rich` | `beforeinput` | `event=>{if(single&&['insertParagraph'` |
-| 342 | `[client/shared/text-colors.js:83](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L83)` | 83 | `rich` | `blur` | `(` |
-| 343 | `[client/shared/text-colors.js:85](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L85)` | 85 | `rich` | `paste` | `event=>{event.preventDefault(` |
-| 344 | `[production/catalog-loader.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L143)` | 143 | `existing` | `load` | `(` |
-| 345 | `[production/catalog-loader.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L143)` | 143 | `existing` | `error` | `(` |
-| 346 | `[production/catalog-loader.js:163](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L163)` | 163 | `document` | `click` | `(event` |
-| 347 | `[production/chat/10-profiles.js:140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L140)` | 140 | `node` | `click` | `(event` |
-| 348 | `[production/chat/10-profiles.js:266](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L266)` | 266 | `node` | `close` | `(` |
-| 349 | `[production/chat/10-profiles.js:388](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L388)` | 388 | `timeline` | `keydown` | `(event` |
-| 350 | `[production/chat/30-rooms.js:445](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/30-rooms.js#L445)` | 445 | `document` | `pointerdown` | `unlockAlertAudio` |
-| 351 | `[production/chat/30-rooms.js:446](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/30-rooms.js#L446)` | 446 | `document` | `keydown` | `unlockAlertAudio` |
-| 352 | `[production/chat/40-messages.js:524](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L524)` | 524 | `video` | `loadeddata` | `(` |
-| 353 | `[production/chat/40-messages.js:528](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L528)` | 528 | `video` | `playing` | `resume` |
-| 354 | `[production/chat/40-messages.js:529](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L529)` | 529 | `video` | `pause` | `pause` |
-| 355 | `[production/chat/40-messages.js:530](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L530)` | 530 | `video` | `seeked` | `(` |
-| 356 | `[production/chat/40-messages.js:535](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L535)` | 535 | `video` | `timeupdate` | `checkEnd` |
-| 357 | `[production/chat/40-messages.js:536](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L536)` | 536 | `video` | `ended` | `(` |
-| 358 | `[production/chat/40-messages.js:681](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L681)` | 681 | `audio` | `play` | `decode` |
-| 359 | `[production/chat/40-messages.js:685](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L685)` | 685 | `document` | `click` | `(event` |
-| 360 | `[production/chat/40-messages.js:697](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L697)` | 697 | `document` | `visibilitychange` | `(` |
-| 361 | `[production/chat/40-messages.js:788](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L788)` | 788 | `part` | `animationend` | `(` |
-| 362 | `[production/chat/40-messages.js:792](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L792)` | 792 | `part` | `click` | `(` |
-| 363 | `[production/chat/40-messages.js:1008](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1008)` | 1008 | `timeline` | `scroll` | `(` |
-| 364 | `[production/chat/40-messages.js:1098](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1098)` | 1098 | `composer` | `input` | `remember` |
-| 365 | `[production/chat/40-messages.js:1101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1101)` | 1101 | `composer` | `compositionstart` | `(` |
-| 366 | `[production/chat/40-messages.js:1104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1104)` | 1104 | `composer` | `compositionend` | `(` |
-| 367 | `[production/chat/40-messages.js:1107](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1107)` | 1107 | `composer` | `keydown` | `(event` |
-| 368 | `[production/chat/40-messages.js:1114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1114)` | 1114 | `composer` | `keyup` | `(` |
-| 369 | `[production/chat/50-composer.js:14](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L14)` | 14 | `composer` | `beforeinput` | `enterInput` |
-| 370 | `[production/chat/50-composer.js:567](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L567)` | 567 | `document` | `pointerdown` | `(event` |
-| 371 | `[production/chat/50-composer.js:570](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L570)` | 570 | `document` | `keydown` | `(event` |
-| 372 | `[production/chat/60-uploads.js:322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L322)` | 322 | `document` | `pointerdown` | `(event` |
-| 373 | `[production/chat/60-uploads.js:325](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L325)` | 325 | `document` | `keydown` | `(event` |
-| 374 | `[production/chat/60-uploads.js:332](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L332)` | 332 | `section` | `dragenter` | `(event` |
-| 375 | `[production/chat/60-uploads.js:338](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L338)` | 338 | `section` | `dragover` | `(event` |
-| 376 | `[production/chat/60-uploads.js:344](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L344)` | 344 | `section` | `dragleave` | `(` |
-| 377 | `[production/chat/60-uploads.js:350](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L350)` | 350 | `section` | `drop` | `(event` |
-| 378 | `[production/chat/60-uploads.js:384](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L384)` | 384 | `recordPreview` | `loadeddata` | `(` |
-| 379 | `[production/chat/70-recording.js:270](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L270)` | 270 | `recordButton` | `pointerdown` | `onRecordPointerDown` |
-| 380 | `[production/chat/70-recording.js:271](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L271)` | 271 | `recordButton` | `pointermove` | `onRecordPointerMove` |
-| 381 | `[production/chat/70-recording.js:272](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L272)` | 272 | `recordButton` | `pointerup` | `onRecordPointerUp` |
-| 382 | `[production/chat/70-recording.js:273](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L273)` | 273 | `recordButton` | `pointercancel` | `(` |
-| 383 | `[production/chat/70-recording.js:276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L276)` | 276 | `recordButton` | `contextmenu` | `(event` |
-| 384 | `[production/chat/70-recording.js:277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L277)` | 277 | `recordButton` | `keydown` | `(event` |
-| 385 | `[production/chat/70-recording.js:286](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L286)` | 286 | `recordButton` | `keyup` | `(event` |
-| 386 | `[production/chat/70-recording.js:292](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L292)` | 292 | `window` | `blur` | `interruptRecording` |
-| 387 | `[production/chat/70-recording.js:293](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L293)` | 293 | `document` | `keydown` | `(event` |
-| 388 | `[production/chat/70-recording.js:296](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L296)` | 296 | `document` | `visibilitychange` | `(` |
-| 389 | `[production/chat/80-dialogs.js:304](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L304)` | 304 | `timeline` | `click` | `clearMessageFocus` |
-| 390 | `[production/chat/80-dialogs.js:574](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L574)` | 574 | `node` | `click` | `(event` |
-| 391 | `[production/chat/80-dialogs.js:857](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L857)` | 857 | `)` | `contextmenu` | `async (event` |
-| 392 | `[production/chat/80-dialogs.js:905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L905)` | 905 | `)` | `dragstart` | `(event` |
-| 393 | `[production/chat/80-dialogs.js:911](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L911)` | 911 | `)` | `dragover` | `(event` |
-| 394 | `[production/chat/80-dialogs.js:914](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L914)` | 914 | `)` | `drop` | `(event` |
-| 395 | `[production/chat/80-dialogs.js:923](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L923)` | 923 | `)` | `dragend` | `(` |
-| 396 | `[production/chat/80-dialogs.js:926](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L926)` | 926 | `)` | `click` | `async (event` |
-| 397 | `[production/chat/80-dialogs.js:984](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L984)` | 984 | `document` | `pointerdown` | `(event` |
-| 398 | `[production/chat/80-dialogs.js:988](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L988)` | 988 | `document` | `keydown` | `(event` |
-| 399 | `[production/chat/85-message-actions.js:352](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L352)` | 352 | `area` | `input` | `fit` |
-| 400 | `[production/chat/85-message-actions.js:380](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L380)` | 380 | `node` | `click` | `(event` |
-| 401 | `[production/chat/85-message-actions.js:501](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L501)` | 501 | `timeline` | `pointerdown` | `(event` |
-| 402 | `[production/chat/85-message-actions.js:516](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L516)` | 516 | `timeline` | `pointermove` | `(event` |
-| 403 | `[production/chat/85-message-actions.js:541](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L541)` | 541 | `document` | `pointerdown` | `(event` |
-| 404 | `[production/chat/85-message-actions.js:544](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L544)` | 544 | `document` | `keydown` | `(event` |
-| 405 | `[production/chat/85-message-actions.js:623](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L623)` | 623 | `timeline` | `click` | `(event` |
-| 406 | `[production/chat/85-message-actions.js:629](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L629)` | 629 | `document` | `keydown` | `(event` |
-| 407 | `[production/chat/90-settings.js:197](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L197)` | 197 | `file` | `change` | `(` |
-| 408 | `[production/chat/90-settings.js:205](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L205)` | 205 | `document` | `notification-sounds-rendered` | `(event` |
-| 409 | `[production/chat/90-settings.js:434](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L434)` | 434 | `window` | `keydown` | `onEsc` |
-| 410 | `[production/chat/90-settings.js:450](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L450)` | 450 | `node` | `close` | `(` |
-| 411 | `[production/chat/90-settings.js:461](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L461)` | 461 | `node` | `pointerdown` | `(event` |
-| 412 | `[production/chat/90-settings.js:464](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L464)` | 464 | `node` | `click` | `(event` |
-| 413 | `[production/chat/90-settings.js:809](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L809)` | 809 | `input` | `blur` | `(` |
-| 414 | `[production/chat/90-settings.js:982](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L982)` | 982 | `document` | `click` | `async (event` |
-| 415 | `[production/chat/99-boot.js:78](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L78)` | 78 | `window` | `database-context-reset` | `(` |
-| 416 | `[production/chat/99-boot.js:116](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L116)` | 116 | `document` | `visibilitychange` | `(` |
-| 417 | `[production/chat/99-boot.js:123](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L123)` | 123 | `window` | `focus` | `scheduleRead` |
-| 418 | `[production/chat/99-boot.js:126](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L126)` | 126 | `window` | `resize` | `(` |
-| 419 | `[production/color-picker.js:9](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L9)` | 9 | `field` | `input` | `sync` |
-| 420 | `[production/color-picker.js:11](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L11)` | 11 | `button` | `pointerdown` | `event=>{event.preventDefault(` |
-| 421 | `[production/color-picker.js:12](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L12)` | 12 | `button` | `click` | `event=>{` |
-| 422 | `[production/color-picker.js:18](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L18)` | 18 | `swatch` | `click` | `(` |
-| 423 | `[production/color-picker.js:21](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L21)` | 21 | `spectrum` | `input` | `(` |
-| 424 | `[production/color-picker.js:28](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L28)` | 28 | `input` | `keydown` | `e=>{if(e.key==='Enter'` |
-| 425 | `[production/color-picker.js:29](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L29)` | 29 | `input` | `change` | `(` |
-| 426 | `[production/color-picker.js:29](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L29)` | 29 | `input` | `input` | `(` |
-| 427 | `[production/color-picker.js:36](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L36)` | 36 | `document` | `pointerdown` | `event=>{if(open&&event.target!==open.field&&!open.popup.contains(event.target` |
-| 428 | `[production/color-picker.js:37](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L37)` | 37 | `document` | `keydown` | `event=>{if(event.key==='Escape'&&open` |
-| 429 | `[production/material-quiz.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L42)` | 42 | `root` | `change` | `event=>{` |
-| 430 | `[production/material-quiz.js:48](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L48)` | 48 | `root` | `input` | `event=>{const field=event.target.closest('[data-mq-input]'` |
-| 431 | `[production/material-quiz.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L49)` | 49 | `root` | `click` | `event=>{` |
-| 432 | `[production/notification-sounds.js:72](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/notification-sounds.js#L72)` | 72 | `dialog` | `close` | `(` |
-| 433 | `[production/notification-sounds.js:125](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/notification-sounds.js#L125)` | 125 | `document` | `click` | `event=>{if(event.target.closest('[data-notification-sounds]'` |
-| 434 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `input` | `input` |
-| 435 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `change` | `input` |
-| 436 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `click` | `click` |
-| 437 | `[production/speakout-editor.js:53](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L53)` | 53 | `root` | `mousedown` | `event=>{if(event.target.closest('[data-se-format]` |
-| 438 | `[production/speakout-editor.js:54](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L54)` | 54 | `root` | `dragstart` | `event=>{const grip=event.target.closest('[data-se-grip]'` |
-| 439 | `[production/speakout-editor.js:55](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L55)` | 55 | `root` | `dragover` | `event=>{if(editing&&!busy&&(event.target.closest('[data-se-block]'` |
-| 440 | `[production/speakout-editor.js:56](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L56)` | 56 | `root` | `drop` | `event=>{` |
-| 441 | `[production/speakout-editor.js:63](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L63)` | 63 | `document` | `selectionchange` | `(` |
-| 442 | `[production/speakout-editor.js:64](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L64)` | 64 | `window` | `speakout-cache-change` | `event=>{` |
-| 443 | `[site/demonstratives.js:590](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/demonstratives.js#L590)` | 590 | `document` | `click` | `onClick` |
-| 444 | `[site/saas-showcase.html:2083](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2083)` | 2083 | `inline` | `onclick` | `window.open(` |
-| 445 | `[site/saas-showcase.html:2214](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2214)` | 2214 | `inline` | `onclick` | `cycleShowcaseTheme()` |
-| 446 | `[site/saas-showcase.html:2241](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2241)` | 2241 | `inline` | `onclick` | `switchScreen(` |
-| 447 | `[site/saas-showcase.html:2242](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2242)` | 2242 | `inline` | `onclick` | `switchScreen(` |
-| 448 | `[site/saas-showcase.html:2251](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2251)` | 2251 | `inline` | `onclick` | `switchDashboardView(` |
-| 449 | `[site/saas-showcase.html:2252](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2252)` | 2252 | `inline` | `onclick` | `switchDashboardView(` |
-| 450 | `[site/saas-showcase.html:2275](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2275)` | 2275 | `inline` | `onclick` | `switchScreen(` |
-| 451 | `[site/saas-showcase.html:2276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2276)` | 2276 | `inline` | `onclick` | `switchScreen(` |
-| 452 | `[site/saas-showcase.html:2283](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2283)` | 2283 | `inline` | `onclick` | `switchScreen(` |
-| 453 | `[site/saas-showcase.html:2288](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2288)` | 2288 | `inline` | `onclick` | `switchScreen(` |
-| 454 | `[site/saas-showcase.html:2293](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2293)` | 2293 | `inline` | `onclick` | `switchScreen(` |
-| 455 | `[site/saas-showcase.html:2298](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2298)` | 2298 | `inline` | `onclick` | `switchScreen(` |
-| 456 | `[site/saas-showcase.html:2351](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2351)` | 2351 | `inline` | `onclick` | `switchScreen(` |
-| 457 | `[site/saas-showcase.html:2352](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2352)` | 2352 | `inline` | `onclick` | `switchScreen(` |
-| 458 | `[site/saas-showcase.html:2364](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2364)` | 2364 | `inline` | `onclick` | `switchScreen(` |
-| 459 | `[site/saas-showcase.html:2371](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2371)` | 2371 | `inline` | `onclick` | `switchScreen(` |
-| 460 | `[site/saas-showcase.html:2378](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2378)` | 2378 | `inline` | `onclick` | `switchScreen(` |
-| 461 | `[site/saas-showcase.html:2437](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2437)` | 2437 | `inline` | `onclick` | `switchScreen(` |
-| 462 | `[site/saas-showcase.html:2483](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2483)` | 2483 | `inline` | `onclick` | `switchScreen(` |
-| 463 | `[site/saas-showcase.html:2487](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2487)` | 2487 | `inline` | `onclick` | `switchScreen(` |
-| 464 | `[site/saas-showcase.html:2491](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2491)` | 2491 | `inline` | `onclick` | `switchScreen(` |
-| 465 | `[site/saas-showcase.html:2495](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2495)` | 2495 | `inline` | `onclick` | `switchScreen(` |
-| 466 | `[site/saas-showcase.html:2519](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2519)` | 2519 | `inline` | `onclick` | `document.querySelectorAll(` |
-| 467 | `[site/saas-showcase.html:2522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2522)` | 2522 | `inline` | `onclick` | `switchScreen(` |
-| 468 | `[site/saas-showcase.html:2592](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2592)` | 2592 | `inline` | `onclick` | `switchScreen(` |
-| 469 | `[site/saas-showcase.html:2674](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2674)` | 2674 | `inline` | `onclick` | `switchScreen(` |
-| 470 | `[site/saas-showcase.html:2771](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2771)` | 2771 | `inline` | `onclick` | `switchScreen(` |
-| 471 | `[site/saas-showcase.html:2847](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2847)` | 2847 | `inline` | `onclick` | `switchScreen(` |
-| 472 | `[site/saas-showcase.html:2923](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2923)` | 2923 | `inline` | `onclick` | `switchScreen(` |
-| 473 | `[site/saas-showcase.html:3067](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3067)` | 3067 | `inline` | `onclick` | `switchScreen(` |
-| 474 | `[site/saas-showcase.html:3134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3134)` | 3134 | `inline` | `onclick` | `switchScreen(` |
-| 475 | `[site/saas-showcase.html:3243](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3243)` | 3243 | `inline` | `onclick` | `switchScreen(` |
-| 476 | `[site/saas-showcase.html:3341](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3341)` | 3341 | `inline` | `onclick` | `switchScreen(` |
-| 477 | `[site/saas-showcase.html:3342](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3342)` | 3342 | `inline` | `onclick` | `switchScreen(` |
-| 478 | `[site/saas-showcase.html:3424](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3424)` | 3424 | `inline` | `onclick` | `showCrmTab(` |
-| 479 | `[site/saas-showcase.html:3432](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3432)` | 3432 | `inline` | `onclick` | `showCrmTab(` |
-| 480 | `[site/saas-showcase.html:3435](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3435)` | 3435 | `inline` | `onclick` | `showCrmTab(` |
-| 481 | `[site/saas-showcase.html:3439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3439)` | 3439 | `inline` | `onclick` | `showCrmTab(` |
-| 482 | `[site/saas-showcase.html:3442](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3442)` | 3442 | `inline` | `onclick` | `showCrmTab(` |
-| 483 | `[site/saas-showcase.html:3494](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3494)` | 3494 | `inline` | `onclick` | `switchScreen(` |
-| 484 | `[site/saas-showcase.html:3753](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3753)` | 3753 | `inline` | `onclick` | `switchScreen(` |
-| 485 | `[site/saas-showcase.html:3816](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3816)` | 3816 | `inline` | `onsubmit` | `event.preventDefault();alert(` |
-| 486 | `[site/saas-showcase.html:3905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3905)` | 3905 | `inline` | `onclick` | `filterCefrLevel(` |
-| 487 | `[site/saas-showcase.html:3906](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3906)` | 3906 | `inline` | `onclick` | `filterCefrLevel(` |
-| 488 | `[site/saas-showcase.html:3907](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3907)` | 3907 | `inline` | `onclick` | `filterCefrLevel(` |
-| 489 | `[site/saas-showcase.html:3908](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3908)` | 3908 | `inline` | `onclick` | `filterCefrLevel(` |
-| 490 | `[site/saas-showcase.html:3909](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3909)` | 3909 | `inline` | `onclick` | `filterCefrLevel(` |
-| 491 | `[site/saas-showcase.html:3910](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3910)` | 3910 | `inline` | `onclick` | `filterCefrLevel(` |
-| 492 | `[site/saas-showcase.html:4017](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4017)` | 4017 | `inline` | `onclick` | `showGroupTab(` |
-| 493 | `[site/saas-showcase.html:4018](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4018)` | 4018 | `inline` | `onclick` | `showGroupTab(` |
-| 494 | `[site/saas-showcase.html:4019](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4019)` | 4019 | `inline` | `onclick` | `showGroupTab(` |
-| 495 | `[site/saas-showcase.html:4055](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4055)` | 4055 | `inline` | `onclick` | `alert(` |
-| 496 | `[site/saas-showcase.html:4074](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4074)` | 4074 | `inline` | `onclick` | `alert(` |
-| 497 | `[site/saas-showcase.html:4126](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4126)` | 4126 | `inline` | `onclick` | `switchScreen(` |
-| 498 | `[site/saas-showcase.html:4158](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4158)` | 4158 | `inline` | `onclick` | `alert(` |
-| 499 | `[site/saas-showcase.html:4168](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4168)` | 4168 | `inline` | `onclick` | `showLessonTab(` |
-| 500 | `[site/saas-showcase.html:4169](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4169)` | 4169 | `inline` | `onclick` | `showLessonTab(` |
-| 501 | `[site/saas-showcase.html:4170](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4170)` | 4170 | `inline` | `onclick` | `showLessonTab(` |
-| 502 | `[site/saas-showcase.html:4518](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4518)` | 4518 | `inline` | `onclick` | `switchDrill(` |
-| 503 | `[site/saas-showcase.html:4519](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4519)` | 4519 | `inline` | `onclick` | `switchDrill(` |
-| 504 | `[site/saas-showcase.html:4520](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4520)` | 4520 | `inline` | `onclick` | `switchDrill(` |
-| 505 | `[site/saas-showcase.html:4521](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4521)` | 4521 | `inline` | `onclick` | `switchDrill(` |
-| 506 | `[site/saas-showcase.html:4522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4522)` | 4522 | `inline` | `onclick` | `switchDrill(` |
-| 507 | `[site/saas-showcase.html:4523](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4523)` | 4523 | `inline` | `onclick` | `switchDrill(` |
-| 508 | `[site/saas-showcase.html:4692](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4692)` | 4692 | `inline` | `onclick` | `showMediaTab(` |
-| 509 | `[site/saas-showcase.html:4693](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4693)` | 4693 | `inline` | `onclick` | `showMediaTab(` |
-| 510 | `[site/saas-showcase.html:4694](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4694)` | 4694 | `inline` | `onclick` | `showMediaTab(` |
-| 511 | `[site/saas-showcase.html:4695](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4695)` | 4695 | `inline` | `onclick` | `showMediaTab(` |
-| 512 | `[site/saas-showcase.html:4742](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4742)` | 4742 | `inline` | `onclick` | `alert(` |
-| 513 | `[site/saas-showcase.html:4785](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4785)` | 4785 | `inline` | `onclick` | `alert(` |
-| 514 | `[site/saas-showcase.html:4809](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4809)` | 4809 | `inline` | `onclick` | `const el=document.getElementById(` |
-| 515 | `[site/saas-showcase.html:4813](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4813)` | 4813 | `inline` | `onclick` | `alert(` |
-| 516 | `[site/saas-showcase.html:4839](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4839)` | 4839 | `inline` | `onclick` | `const p=this.querySelector(` |
-| 517 | `[site/saas-showcase.html:4892](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4892)` | 4892 | `inline` | `onclick` | `document.getElementById(` |
-| 518 | `[site/saas-showcase.html:4896](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4896)` | 4896 | `inline` | `onclick` | `document.getElementById(` |
-| 519 | `[site/saas-showcase.html:4899](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4899)` | 4899 | `inline` | `onclick` | `document.getElementById(` |
-| 520 | `[site/saas-showcase.html:4903](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4903)` | 4903 | `inline` | `onclick` | `document.getElementById(` |
-| 521 | `[site/saas-showcase.html:4941](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4941)` | 4941 | `inline` | `onclick` | `alert(` |
-| 522 | `[site/saas-showcase.html:4960](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4960)` | 4960 | `inline` | `onclick` | `alert(` |
-| 523 | `[site/saas-showcase.html:4970](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4970)` | 4970 | `inline` | `onclick` | `alert(` |
-| 524 | `[site/saas-showcase.html:4983](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4983)` | 4983 | `inline` | `onclick` | `switchScreen(` |
-| 525 | `[site/saas-showcase.html:4984](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4984)` | 4984 | `inline` | `onclick` | `alert(` |
-| 526 | `[site/saas-showcase.html:5002](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5002)` | 5002 | `inline` | `onclick` | `alert(` |
-| 527 | `[site/saas-showcase.html:5009](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5009)` | 5009 | `inline` | `onclick` | `alert(` |
-| 528 | `[site/saas-showcase.html:5034](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5034)` | 5034 | `inline` | `onclick` | `document.getElementById(` |
-| 529 | `[site/saas-showcase.html:5060](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5060)` | 5060 | `inline` | `onclick` | `alert(` |
-| 530 | `[site/saas-showcase.html:5073](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5073)` | 5073 | `inline` | `onclick` | `document.getElementById(` |
-| 531 | `[site/saas-showcase.html:5074](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5074)` | 5074 | `inline` | `onclick` | `alert(` |
-| 532 | `[site/saas-showcase.html:5101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5101)` | 5101 | `inline` | `onclick` | `showSetTab(` |
-| 533 | `[site/saas-showcase.html:5102](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5102)` | 5102 | `inline` | `onclick` | `showSetTab(` |
-| 534 | `[site/saas-showcase.html:5103](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5103)` | 5103 | `inline` | `onclick` | `showSetTab(` |
-| 535 | `[site/saas-showcase.html:5133](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5133)` | 5133 | `inline` | `onclick` | `filterShowcaseThemes(` |
-| 536 | `[site/saas-showcase.html:5134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5134)` | 5134 | `inline` | `onclick` | `filterShowcaseThemes(` |
-| 537 | `[site/saas-showcase.html:5135](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5135)` | 5135 | `inline` | `onclick` | `filterShowcaseThemes(` |
-| 538 | `[site/saas-showcase.html:5136](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5136)` | 5136 | `inline` | `onclick` | `filterShowcaseThemes(` |
-| 539 | `[site/saas-showcase.html:5139](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5139)` | 5139 | `inline` | `oninput` | `searchShowcaseThemes(this.value)` |
-| 540 | `[site/saas-showcase.html:5174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5174)` | 5174 | `inline` | `oninput` | `document.getElementById(` |
-| 541 | `[site/saas-showcase.html:5182](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5182)` | 5182 | `inline` | `onclick` | `alert(` |
-| 542 | `[site/saas-showcase.html:5183](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5183)` | 5183 | `inline` | `onclick` | `alert(` |
-| 543 | `[site/saas-showcase.html:5277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5277)` | 5277 | `inline` | `onclick` | `alert(` |
-| 544 | `[site/saas-showcase.html:5374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5374)` | 5374 | `inline` | `onclick` | `alert(` |
-| 545 | `[site/saas-showcase.html:5692](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5692)` | 5692 | `inline` | `onsubmit` | `event.preventDefault()` |
-| 546 | `[site/saas-showcase.html:5806](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5806)` | 5806 | `inline` | `onclick` | `alert(` |
-| 547 | `[site/saas-showcase.html:5877](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5877)` | 5877 | `inline` | `onclick` | `this.parentElement.querySelector(` |
-| 548 | `[site/saas-showcase.html:5886](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5886)` | 5886 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 549 | `[site/saas-showcase.html:5887](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5887)` | 5887 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 550 | `[site/saas-showcase.html:5928](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5928)` | 5928 | `inline` | `onclick` | `this.parentElement.querySelector(` |
-| 551 | `[site/saas-showcase.html:5937](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5937)` | 5937 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 552 | `[site/saas-showcase.html:5938](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5938)` | 5938 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 553 | `[site/saas-showcase.html:5953](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5953)` | 5953 | `inline` | `onclick` | `this.parentElement.querySelector(` |
-| 554 | `[site/saas-showcase.html:5962](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5962)` | 5962 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 555 | `[site/saas-showcase.html:5963](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5963)` | 5963 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
-| 556 | `[site/saas-showcase.html:5991](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5991)` | 5991 | `inline` | `onclick` | `saveFeedback()` |
-| 557 | `[site/saas-showcase.html:6027](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6027)` | 6027 | `item` | `click` | `(` |
-| 558 | `[site/saas-showcase.html:6038](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6038)` | 6038 | `btn` | `click` | `(` |
-| 559 | `[site/saas-showcase.html:6075](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6075)` | 6075 | `inline` | `onclick` | `selectShowcaseTheme(\` |
-| 560 | `[site/saas-showcase.html:6127](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6127)` | 6127 | `document` | `DOMContentLoaded` | `(` |
-| 561 | `[src/workbench-inspector-worker.mjs:12](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/workbench-inspector-worker.mjs#L12)` | 12 | `request.signal` | `abort` | `abort` |
+| 21 | `[client/03-core.js:328](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L328)` | 328 | `btn` | `click` | `(` |
+| 22 | `[client/03-core.js:347](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L347)` | 347 | `bank` | `click` | `moveToken` |
+| 23 | `[client/03-core.js:348](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L348)` | 348 | `slot` | `click` | `moveToken` |
+| 24 | `[client/03-core.js:351](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L351)` | 351 | `btn` | `click` | `(` |
+| 25 | `[client/03-core.js:362](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L362)` | 362 | `btn` | `click` | `(` |
+| 26 | `[client/03-core.js:374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L374)` | 374 | `btn` | `click` | `(` |
+| 27 | `[client/03a-cards.js:1504](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1504)` | 1504 | `)` | `click` | `(e` |
+| 28 | `[client/03a-cards.js:1510](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1510)` | 1510 | `)` | `click` | `(e` |
+| 29 | `[client/03a-cards.js:1520](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1520)` | 1520 | `dayFlipScene` | `click` | `(e` |
+| 30 | `[client/03a-cards.js:1524](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1524)` | 1524 | `dayFlipScene` | `keydown` | `(e` |
+| 31 | `[client/03a-cards.js:1600](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03a-cards.js#L1600)` | 1600 | `btn` | `click` | `(` |
+| 32 | `[client/03c-cards.js:276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L276)` | 276 | `)` | `click` | `async (e` |
+| 33 | `[client/03c-cards.js:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L385)` | 385 | `document.body` | `click` | `(e` |
+| 34 | `[client/03c-cards.js:659](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L659)` | 659 | `document.body` | `keydown` | `(e` |
+| 35 | `[client/03f-songs.js:176](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L176)` | 176 | `document` | `visibilitychange` | `(` |
+| 36 | `[client/03f-songs.js:177](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L177)` | 177 | `window` | `pagehide` | `(` |
+| 37 | `[client/03f-songs.js:178](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L178)` | 178 | `window` | `pageshow` | `(` |
+| 38 | `[client/03f-songs.js:310](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L310)` | 310 | `iframe` | `load` | `(` |
+| 39 | `[client/03f-songs.js:354](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L354)` | 354 | `document` | `play` | `(event` |
+| 40 | `[client/03f-songs.js:355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L355)` | 355 | `document` | `pause` | `(event` |
+| 41 | `[client/03f-songs.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L356)` | 356 | `document` | `ended` | `(event` |
+| 42 | `[client/03f-songs.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L357)` | 357 | `window` | `message` | `onEmbedMessage` |
+| 43 | `[client/03f-songs.js:358](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L358)` | 358 | `window` | `scroll` | `(` |
+| 44 | `[client/03f-songs.js:359](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L359)` | 359 | `window` | `resize` | `(` |
+| 45 | `[client/03f-songs.js:1306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1306)` | 1306 | `form` | `dragover` | `(e` |
+| 46 | `[client/03f-songs.js:1311](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1311)` | 1311 | `form` | `dragleave` | `(e` |
+| 47 | `[client/03f-songs.js:1315](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1315)` | 1315 | `form` | `drop` | `(e` |
+| 48 | `[client/03f-songs.js:1322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1322)` | 1322 | `)` | `input` | `refreshLyricPreview` |
+| 49 | `[client/03f-songs.js:1323](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1323)` | 1323 | `)` | `input` | `refreshLyricPreview` |
+| 50 | `[client/03f-songs.js:1324](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1324)` | 1324 | `)` | `click` | `(` |
+| 51 | `[client/03f-songs.js:1325](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1325)` | 1325 | `)` | `change` | `(` |
+| 52 | `[client/03f-songs.js:1330](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1330)` | 1330 | `)` | `click` | `(` |
+| 53 | `[client/03f-songs.js:1331](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1331)` | 1331 | `)` | `click` | `(e` |
+| 54 | `[client/03f-songs.js:1335](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1335)` | 1335 | `)` | `click` | `(e` |
+| 55 | `[client/03f-songs.js:1406](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1406)` | 1406 | `songBox` | `input` | `(e` |
+| 56 | `[client/03f-songs.js:1409](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1409)` | 1409 | `songBox` | `change` | `(e` |
+| 57 | `[client/03f-songs.js:1415](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1415)` | 1415 | `songBox` | `dragover` | `(e` |
+| 58 | `[client/03f-songs.js:1420](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1420)` | 1420 | `songBox` | `dragleave` | `(e` |
+| 59 | `[client/03f-songs.js:1424](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1424)` | 1424 | `songBox` | `drop` | `(e` |
+| 60 | `[client/03f-songs.js:1431](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03f-songs.js#L1431)` | 1431 | `)` | `click` | `(e` |
+| 61 | `[client/03g-core.js:31](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L31)` | 31 | `document` | `input` | `(e` |
+| 62 | `[client/03g-core.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L49)` | 49 | `addWord` | `keydown` | `(e` |
+| 63 | `[client/03g-core.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L52)` | 52 | `addGo` | `click` | `(` |
+| 64 | `[client/03g-core.js:440](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L440)` | 440 | `document` | `click` | `(event` |
+| 65 | `[client/03g-core.js:1224](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1224)` | 1224 | `)` | `click` | `(e` |
+| 66 | `[client/03g-core.js:1785](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1785)` | 1785 | `)` | `click` | `toggleTypeChip` |
+| 67 | `[client/03g-core.js:1786](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1786)` | 1786 | `)` | `click` | `toggleTypeChip` |
+| 68 | `[client/03g-core.js:1787](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1787)` | 1787 | `)` | `click` | `(e` |
+| 69 | `[client/03g-core.js:1796](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1796)` | 1796 | `inp` | `pointerdown` | `(e` |
+| 70 | `[client/03g-core.js:1800](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1800)` | 1800 | `inp` | `click` | `(e` |
+| 71 | `[client/03g-core.js:1801](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1801)` | 1801 | `inp` | `input` | `(` |
+| 72 | `[client/03g-core.js:1819](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1819)` | 1819 | `inp` | `pointerdown` | `keepPoolInput` |
+| 73 | `[client/03g-core.js:1820](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1820)` | 1820 | `inp` | `mousedown` | `keepPoolInput` |
+| 74 | `[client/03g-core.js:1821](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1821)` | 1821 | `inp` | `click` | `keepPoolInput` |
+| 75 | `[client/03g-core.js:1822](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1822)` | 1822 | `inp` | `input` | `(` |
+| 76 | `[client/03g-core.js:1825](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1825)` | 1825 | `inp` | `change` | `(` |
+| 77 | `[client/03g-core.js:1837](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1837)` | 1837 | `input` | `focus` | `(` |
+| 78 | `[client/03g-core.js:1838](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1838)` | 1838 | `input` | `pointerdown` | `(event` |
+| 79 | `[client/03g-core.js:1843](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1843)` | 1843 | `input` | `click` | `(event` |
+| 80 | `[client/03g-core.js:1852](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1852)` | 1852 | `input` | `keydown` | `(event` |
+| 81 | `[client/03g-core.js:1856](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1856)` | 1856 | `input` | `change` | `(` |
+| 82 | `[client/03g-core.js:1865](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1865)` | 1865 | `)` | `keydown` | `(e` |
+| 83 | `[client/03g-core.js:1881](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L1881)` | 1881 | `)` | `click` | `(e` |
+| 84 | `[client/03g-core.js:2090](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2090)` | 2090 | `document` | `selectionchange` | `(` |
+| 85 | `[client/03g-core.js:2093](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2093)` | 2093 | `document` | `contextmenu` | `event => {` |
+| 86 | `[client/03g-core.js:2205](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2205)` | 2205 | `clipFrameClose` | `click` | `closeClipFrame` |
+| 87 | `[client/03g-core.js:2207](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2207)` | 2207 | `clipFrame` | `click` | `(e` |
+| 88 | `[client/03g-core.js:2208](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2208)` | 2208 | `document` | `keydown` | `(e` |
+| 89 | `[client/03g-core.js:2209](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2209)` | 2209 | `)` | `click` | `(e` |
+| 90 | `[client/03g-core.js:2214](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2214)` | 2214 | `)` | `click` | `async (e` |
+| 91 | `[client/03g-core.js:2236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2236)` | 2236 | `document` | `mousedown` | `(e` |
+| 92 | `[client/03g-core.js:2239](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2239)` | 2239 | `document` | `mouseup` | `(event` |
+| 93 | `[client/03g-core.js:2244](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03g-core.js#L2244)` | 2244 | `document` | `keyup` | `(e` |
+| 94 | `[client/05-account.js:39](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L39)` | 39 | `document` | `visibilitychange` | `(` |
+| 95 | `[client/05-account.js:186](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L186)` | 186 | `window` | `pagehide` | `(` |
+| 96 | `[client/05-account.js:561](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L561)` | 561 | `document` | `click` | `event=>{` |
+| 97 | `[client/05-account.js:572](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/05-account.js#L572)` | 572 | `window` | `resize` | `(` |
+| 98 | `[client/06-auth-scene.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L42)` | 42 | `document` | `click` | `event=>{` |
+| 99 | `[client/06-auth-scene.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L62)` | 62 | `document` | `input` | `event=>{` |
+| 100 | `[client/06-auth-scene.js:89](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L89)` | 89 | `document` | `click` | `event=>{const button=event.target.closest('[data-recovery-send]'` |
+| 101 | `[client/06-auth-scene.js:90](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-scene.js#L90)` | 90 | `document` | `submit` | `event=>{if(event.target.id!=='passwordRecoveryForm'` |
+| 102 | `[client/06-auth-sky.js:347](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L347)` | 347 | `canvas` | `sky:blackhole` | `triggerBlackHole` |
+| 103 | `[client/06-auth-sky.js:1139](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1139)` | 1139 | `conInspector` | `mouseenter` | `onConEnter` |
+| 104 | `[client/06-auth-sky.js:1140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1140)` | 1140 | `conInspector` | `mouseleave` | `onConLeave` |
+| 105 | `[client/06-auth-sky.js:1141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1141)` | 1141 | `window` | `click` | `onClick` |
+| 106 | `[client/06-auth-sky.js:1141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1141)` | 1141 | `window` | `mousemove` | `onMove` |
+| 107 | `[client/06-auth-sky.js:1142](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1142)` | 1142 | `window` | `keydown` | `onKeyDown` |
+| 108 | `[client/06-auth-sky.js:1143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1143)` | 1143 | `window` | `touchend` | `onTouchEnd` |
+| 109 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `window` | `blur` | `pauseReturn` |
+| 110 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `window` | `focus` | `resumeReturn` |
+| 111 | `[client/06-auth-sky.js:1144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1144)` | 1144 | `document` | `visibilitychange` | `onVisibility` |
+| 112 | `[client/06-auth-sky.js:1162](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1162)` | 1162 | `document` | `visibilitychange` | `sync` |
+| 113 | `[client/06-auth-sky.js:1162](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1162)` | 1162 | `motion` | `change` | `sync` |
+| 114 | `[client/06-auth-sky.js:1164](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1164)` | 1164 | `document` | `input` | `sync` |
+| 115 | `[client/06-auth-sky.js:1165](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-auth-sky.js#L1165)` | 1165 | `document` | `click` | `event=>{if(event.target.closest('[data-auth-password]'` |
+| 116 | `[client/06-passkeys.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/06-passkeys.js#L52)` | 52 | `document` | `click` | `async event=>{` |
+| 117 | `[client/07-microsoft.js:47](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/07-microsoft.js#L47)` | 47 | `document` | `click` | `event=>{` |
+| 118 | `[client/10-admin.js:37](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L37)` | 37 | `document` | `click` | `event=>{if(event.target.closest('[data-jump="admin"]` |
+| 119 | `[client/10-admin.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L74)` | 74 | `document` | `input` | `event => {` |
+| 120 | `[client/10-admin.js:89](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L89)` | 89 | `document` | `input` | `event=>validateSignupInput(event.target` |
+| 121 | `[client/10-admin.js:90](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L90)` | 90 | `document` | `focusout` | `event=>validateSignupInput(event.target` |
+| 122 | `[client/10-admin.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L143)` | 143 | `document` | `input` | `event=>{` |
+| 123 | `[client/10-admin.js:148](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L148)` | 148 | `document` | `change` | `event=>{` |
+| 124 | `[client/10-admin.js:152](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L152)` | 152 | `document` | `toggle` | `event=>{` |
+| 125 | `[client/10-admin.js:159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L159)` | 159 | `document` | `click` | `event=>{` |
+| 126 | `[client/10-admin.js:174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L174)` | 174 | `document` | `focusout` | `event=>{` |
+| 127 | `[client/10-admin.js:178](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L178)` | 178 | `document` | `keydown` | `event=>{` |
+| 128 | `[client/10-admin.js:216](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L216)` | 216 | `document` | `click` | `async event=>{` |
+| 129 | `[client/10-admin.js:226](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L226)` | 226 | `document` | `click` | `async event=>{` |
+| 130 | `[client/10-admin.js:279](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L279)` | 279 | `document` | `click` | `event => {` |
+| 131 | `[client/10-admin.js:501](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/10-admin.js#L501)` | 501 | `document` | `change` | `event => {` |
+| 132 | `[client/22-archive.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L52)` | 52 | `document` | `click` | `(event` |
+| 133 | `[client/22-archive.js:103](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L103)` | 103 | `document` | `learning-archive-changed` | `(` |
+| 134 | `[client/22-archive.js:104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/22-archive.js#L104)` | 104 | `document` | `keydown` | `event => {` |
+| 135 | `[client/24-bugs.js:240](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L240)` | 240 | `img` | `click` | `(` |
+| 136 | `[client/24-bugs.js:255](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L255)` | 255 | `loadMoreBtn` | `click` | `(` |
+| 137 | `[client/24-bugs.js:332](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L332)` | 332 | `btn` | `click` | `(` |
+| 138 | `[client/24-bugs.js:341](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L341)` | 341 | `btn` | `click` | `(` |
+| 139 | `[client/24-bugs.js:351](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L351)` | 351 | `searchInput` | `input` | `(e` |
+| 140 | `[client/24-bugs.js:360](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js#L360)` | 360 | `exportBtn` | `click` | `(` |
+| 141 | `[client/25-feedback.js:4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L4)` | 4 | `window` | `error` | `function(e` |
+| 142 | `[client/25-feedback.js:26](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L26)` | 26 | `document` | `click` | `function(e` |
+| 143 | `[client/25-feedback.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L41)` | 41 | `window` | `hashchange` | `function(` |
+| 144 | `[client/25-feedback.js:109](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L109)` | 109 | `btn` | `click` | `closeFeedbackModal` |
+| 145 | `[client/25-feedback.js:114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L114)` | 114 | `textarea` | `input` | `(` |
+| 146 | `[client/25-feedback.js:118](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L118)` | 118 | `btn` | `click` | `function(` |
+| 147 | `[client/25-feedback.js:129](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L129)` | 129 | `dropzone` | `click` | `(` |
+| 148 | `[client/25-feedback.js:130](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L130)` | 130 | `fileInput` | `change` | `function(` |
+| 149 | `[client/25-feedback.js:134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L134)` | 134 | `dropzone` | `dragover` | `function(e` |
+| 150 | `[client/25-feedback.js:138](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L138)` | 138 | `dropzone` | `dragleave` | `function(` |
+| 151 | `[client/25-feedback.js:141](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L141)` | 141 | `dropzone` | `drop` | `function(e` |
+| 152 | `[client/25-feedback.js:149](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L149)` | 149 | `removeBtn` | `click` | `clearScreenshot` |
+| 153 | `[client/25-feedback.js:152](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L152)` | 152 | `submitBtn` | `click` | `submitFeedback` |
+| 154 | `[client/25-feedback.js:224](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L224)` | 224 | `window` | `paste` | `function(e` |
+| 155 | `[client/25-feedback.js:409](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L409)` | 409 | `document` | `click` | `function(e` |
+| 156 | `[client/25-feedback.js:430](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/25-feedback.js#L430)` | 430 | `document` | `DOMContentLoaded` | `initFloatingBtn` |
+| 157 | `[client/40-account.js:1](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L1)` | 1 | `document` | `input` | `event=>{` |
+| 158 | `[client/40-account.js:22](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L22)` | 22 | `dialog` | `close` | `(` |
+| 159 | `[client/40-account.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L40)` | 40 | `dialog` | `close` | `(` |
+| 160 | `[client/40-account.js:236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L236)` | 236 | `document.body` | `change` | `(e` |
+| 161 | `[client/40-account.js:250](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L250)` | 250 | `document.body` | `submit` | `(e` |
+| 162 | `[client/40-account.js:368](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L368)` | 368 | `)` | `click` | `(` |
+| 163 | `[client/40-account.js:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L369)` | 369 | `)` | `click` | `(` |
+| 164 | `[client/40-account.js:374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L374)` | 374 | `dialog` | `close` | `(` |
+| 165 | `[client/40-account.js:375](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L375)` | 375 | `dialog` | `click` | `(event` |
+| 166 | `[client/40-account.js:381](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L381)` | 381 | `document.body` | `click` | `(e` |
+| 167 | `[client/40-account.js:668](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L668)` | 668 | `dialog` | `cancel` | `event => event.preventDefault(` |
+| 168 | `[client/40-account.js:669](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/40-account.js#L669)` | 669 | `dialog` | `close` | `(` |
+| 169 | `[client/47-account.js:153](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L153)` | 153 | `document` | `visibilitychange` | `(` |
+| 170 | `[client/47-account.js:154](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L154)` | 154 | `window` | `pageshow` | `(` |
+| 171 | `[client/47-account.js:155](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L155)` | 155 | `window` | `storage` | `event => { if (event.key === 'enquiz-idle-expired'` |
+| 172 | `[client/50-core.js:349](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L349)` | 349 | `)` | `click` | `(` |
+| 173 | `[client/50-core.js:355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L355)` | 355 | `)` | `click` | `(` |
+| 174 | `[client/50-core.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L356)` | 356 | `)` | `click` | `(` |
+| 175 | `[client/50-core.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L357)` | 357 | `)` | `click` | `(` |
+| 176 | `[client/50-core.js:361](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L361)` | 361 | `)` | `click` | `(` |
+| 177 | `[client/50-core.js:368](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L368)` | 368 | `)` | `click` | `(event` |
+| 178 | `[client/50-core.js:372](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/50-core.js#L372)` | 372 | `)` | `click` | `(event` |
+| 179 | `[client/52-lessons.js:109](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L109)` | 109 | `document` | `input` | `event=>{if(event.target.id==='groupSearch'` |
+| 180 | `[client/52-lessons.js:116](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L116)` | 116 | `document` | `click` | `event=>{` |
+| 181 | `[client/52-lessons.js:1727](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1727)` | 1727 | `lmRoot` | `mousedown` | `(event` |
+| 182 | `[client/52-lessons.js:1737](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1737)` | 1737 | `lmRoot` | `input` | `(event` |
+| 183 | `[client/52-lessons.js:1835](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1835)` | 1835 | `lmRoot` | `change` | `(event` |
+| 184 | `[client/52-lessons.js:1894](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1894)` | 1894 | `lmRoot` | `click` | `(event` |
+| 185 | `[client/52-lessons.js:2119](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2119)` | 2119 | `lmRoot` | `dragstart` | `(event` |
+| 186 | `[client/52-lessons.js:2124](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2124)` | 2124 | `lmRoot` | `dragover` | `(event` |
+| 187 | `[client/52-lessons.js:2129](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2129)` | 2129 | `lmRoot` | `drop` | `(event` |
+| 188 | `[client/52-lessons.js:2151](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2151)` | 2151 | `lmRoot` | `dragend` | `(` |
+| 189 | `[client/52-lessons.js:2154](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2154)` | 2154 | `lmRoot` | `pointerdown` | `(event` |
+| 190 | `[client/52-lessons.js:2159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2159)` | 2159 | `lmRoot` | `keydown` | `(event` |
+| 191 | `[client/52-lessons.js:2166](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2166)` | 2166 | `)` | `click` | `(` |
+| 192 | `[client/52-lessons.js:2172](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2172)` | 2172 | `)` | `click` | `(` |
+| 193 | `[client/52-lessons.js:2173](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2173)` | 2173 | `)` | `click` | `(` |
+| 194 | `[client/52-lessons.js:2174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2174)` | 2174 | `)` | `click` | `(` |
+| 195 | `[client/52-lessons.js:2175](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2175)` | 2175 | `)` | `click` | `(` |
+| 196 | `[client/52-lessons.js:2186](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2186)` | 2186 | `lmNew` | `click` | `lmCreateLesson` |
+| 197 | `[client/52-lessons.js:2188](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L2188)` | 2188 | `groupNew` | `click` | `groupCreate` |
+| 198 | `[client/52a-workbench.js:183](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L183)` | 183 | `document` | `click` | `event=>{` |
+| 199 | `[client/52a-workbench.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L213)` | 213 | `document` | `submit` | `event=>{` |
+| 200 | `[client/52a-workbench.js:236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L236)` | 236 | `document` | `click` | `event=>{` |
+| 201 | `[client/52a-workbench.js:249](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L249)` | 249 | `document` | `submit` | `event=>{` |
+| 202 | `[client/52a-workbench.js:303](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L303)` | 303 | `dialog` | `cancel` | `event=>{if(!discard(entry` |
+| 203 | `[client/52a-workbench.js:304](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L304)` | 304 | `dialog` | `close` | `(` |
+| 204 | `[client/52a-workbench.js:306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L306)` | 306 | `dialog` | `cancel` | `event=>{if(!discard(entry` |
+| 205 | `[client/52a-workbench.js:306](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L306)` | 306 | `dialog` | `close` | `(` |
+| 206 | `[client/52a-workbench.js:337](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L337)` | 337 | `document` | `learning-workbench-session` | `reset` |
+| 207 | `[client/52a-workbench.js:338](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L338)` | 338 | `document` | `click` | `event=>{` |
+| 208 | `[client/52a-workbench.js:401](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L401)` | 401 | `document` | `change` | `event=>{` |
+| 209 | `[client/52a-workbench.js:413](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L413)` | 413 | `document` | `submit` | `event=>{` |
+| 210 | `[client/52a-workbench.js:437](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52a-workbench.js#L437)` | 437 | `document` | `input` | `event=>{if(job?.view==='editor'&&dialog?.contains(event.target` |
+| 211 | `[client/52b-lesson-pdf-import.js:165](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52b-lesson-pdf-import.js#L165)` | 165 | `dialog` | `cancel` | `event=>{if(apply.disabled` |
+| 212 | `[client/53-group-directory.js:163](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/53-group-directory.js#L163)` | 163 | `document` | `click` | `event=>{` |
+| 213 | `[client/54-exams.js:487](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L487)` | 487 | `document` | `click` | `(event` |
+| 214 | `[client/54-exams.js:620](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L620)` | 620 | `document` | `selectionchange` | `(` |
+| 215 | `[client/54-exams.js:624](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L624)` | 624 | `document` | `mousedown` | `event => { if (event.target.closest('[data-review-command]'` |
+| 216 | `[client/54-exams.js:625](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L625)` | 625 | `document` | `paste` | `event => {` |
+| 217 | `[client/54-exams.js:647](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L647)` | 647 | `document` | `click` | `event => { const control = event.target.closest('[data-review-command]'` |
+| 218 | `[client/54-exams.js:648](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L648)` | 648 | `document` | `change` | `event => { if (event.target.matches('[data-review-color]` |
+| 219 | `[client/54-exams.js:1044](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1044)` | 1044 | `pop` | `pointerdown` | `(event` |
+| 220 | `[client/54-exams.js:1045](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1045)` | 1045 | `pop` | `click` | `(event` |
+| 221 | `[client/54-exams.js:1111](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1111)` | 1111 | `pop` | `pointerdown` | `(event` |
+| 222 | `[client/54-exams.js:1112](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1112)` | 1112 | `)` | `click` | `closeItemEditor` |
+| 223 | `[client/54-exams.js:1113](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1113)` | 1113 | `)` | `click` | `(event` |
+| 224 | `[client/54-exams.js:1117](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1117)` | 1117 | `pop` | `submit` | `(event` |
+| 225 | `[client/54-exams.js:1211](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1211)` | 1211 | `newer` | `click` | `examAdd` |
+| 226 | `[client/54-exams.js:1212](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1212)` | 1212 | `document` | `click` | `(event` |
+| 227 | `[client/54-exams.js:1223](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1223)` | 1223 | `document` | `pointerdown` | `(event` |
+| 228 | `[client/54-exams.js:1229](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1229)` | 1229 | `document` | `keydown` | `(event` |
+| 229 | `[client/54-exams.js:1232](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1232)` | 1232 | `blockNew` | `click` | `examAddBlock` |
+| 230 | `[client/54-exams.js:1233](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1233)` | 1233 | `document` | `click` | `event => {` |
+| 231 | `[client/54-exams.js:1239](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1239)` | 1239 | `list` | `click` | `async (event` |
+| 232 | `[client/54-exams.js:1245](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1245)` | 1245 | `blocks` | `click` | `(event` |
+| 233 | `[client/54-exams.js:1260](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1260)` | 1260 | `save` | `click` | `async (` |
+| 234 | `[client/54-exams.js:1281](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1281)` | 1281 | `dialog` | `close` | `(` |
+| 235 | `[client/54-exams.js:1284](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1284)` | 1284 | `document` | `click` | `event => { if (event.target.closest('#assessmentRetry'` |
+| 236 | `[client/54-exams.js:1285](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1285)` | 1285 | `document` | `input` | `(event` |
+| 237 | `[client/54-exams.js:1286](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L1286)` | 1286 | `document` | `change` | `(event` |
+| 238 | `[client/56-search.js:16](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L16)` | 16 | `input` | `input` | `apply` |
+| 239 | `[client/56-search.js:71](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L71)` | 71 | `input` | `input` | `apply` |
+| 240 | `[client/56-search.js:120](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L120)` | 120 | `textPrevious` | `click` | `(` |
+| 241 | `[client/56-search.js:121](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L121)` | 121 | `textNext` | `click` | `(` |
+| 242 | `[client/56-search.js:122](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L122)` | 122 | `textSearch` | `keydown` | `(event` |
+| 243 | `[client/56-search.js:125](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L125)` | 125 | `textCollapse` | `click` | `(` |
+| 244 | `[client/56-search.js:159](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/56-search.js#L159)` | 159 | `textSearch` | `input` | `(` |
+| 245 | `[client/57-demand.js:18](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/57-demand.js#L18)` | 18 | `document` | `click` | `event => {` |
+| 246 | `[client/demos/independent-review-ui.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L62)` | 62 | `document` | `click` | `event=>{` |
+| 247 | `[client/demos/independent-review-ui.js:66](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L66)` | 66 | `document` | `change` | `event=>{` |
+| 248 | `[client/demos/independent-review-ui.js:71](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/independent-review-ui.js#L71)` | 71 | `document` | `toggle` | `event=>{` |
+| 249 | `[client/demos/learning-kit-ui.js:73](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L73)` | 73 | `document` | `change` | `event=>{if(event.target.id==='kit-sense'` |
+| 250 | `[client/demos/learning-kit-ui.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L74)` | 74 | `document` | `click` | `event=>{` |
+| 251 | `[client/demos/learning-kit-ui.js:88](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/learning-kit-ui.js#L88)` | 88 | `document` | `submit` | `event=>{` |
+| 252 | `[client/demos/local-video-preview.js:25](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L25)` | 25 | `signal` | `abort` | `abort` |
+| 253 | `[client/demos/local-video-preview.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L41)` | 41 | `)` | `submit` | `async event=>{event.preventDefault(` |
+| 254 | `[client/demos/local-video-preview.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L42)` | 42 | `)` | `submit` | `async event=>{event.preventDefault(` |
+| 255 | `[client/demos/local-video-preview.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L44)` | 44 | `)` | `click` | `async event=>{` |
+| 256 | `[client/demos/local-video-preview.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-video-preview.js#L49)` | 49 | `window` | `pagehide` | `(` |
+| 257 | `[client/demos/local-workbench-shell.js:7](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/local-workbench-shell.js#L7)` | 7 | `select` | `change` | `async(` |
+| 258 | `[client/demos/preparation-pipeline-ui.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L40)` | 40 | `document` | `input` | `event=>{if(event.target.closest('#pipeline-settings-form'` |
+| 259 | `[client/demos/preparation-pipeline-ui.js:41](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L41)` | 41 | `document` | `change` | `event=>{if(event.target.matches('#pipeline-settings-form [name="enabled"]'` |
+| 260 | `[client/demos/preparation-pipeline-ui.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L42)` | 42 | `document` | `submit` | `event=>{if(event.target.id==='pipeline-settings-form'` |
+| 261 | `[client/demos/preparation-pipeline-ui.js:43](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L43)` | 43 | `document` | `click` | `event=>{const button=event.target.closest('[data-pipeline-action]'` |
+| 262 | `[client/demos/preparation-pipeline-ui.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/preparation-pipeline-ui.js#L44)` | 44 | `document` | `toggle` | `event=>{if(!event.target.isConnected\|\|!event.target.matches('[data-pipeline-history]'` |
+| 263 | `[client/demos/provider-settings-ui.js:56](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L56)` | 56 | `document` | `change` | `event=>{` |
+| 264 | `[client/demos/provider-settings-ui.js:63](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L63)` | 63 | `document` | `input` | `event=>{if(event.target.id==='provider-reason'&&isDeveloper(` |
+| 265 | `[client/demos/provider-settings-ui.js:64](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L64)` | 64 | `document` | `submit` | `event=>{if(event.target.id==='provider-settings-form'` |
+| 266 | `[client/demos/provider-settings-ui.js:65](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L65)` | 65 | `document` | `click` | `event=>{` |
+| 267 | `[client/demos/provider-settings-ui.js:69](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/provider-settings-ui.js#L69)` | 69 | `document` | `toggle` | `event=>{if(event.target.id==='provider-history'&&event.target.isConnected` |
+| 268 | `[client/demos/quiz-materials-ui.js:40](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L40)` | 40 | `document` | `change` | `event=>{const form=event.target.closest('[data-material-form="upload"]'` |
+| 269 | `[client/demos/quiz-materials-ui.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L42)` | 42 | `document` | `click` | `event=>{` |
+| 270 | `[client/demos/quiz-materials-ui.js:54](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-materials-ui.js#L54)` | 54 | `document` | `submit` | `event=>{` |
+| 271 | `[client/demos/quiz-review-local.js:269](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L269)` | 269 | `document` | `toggle` | `e=>{` |
+| 272 | `[client/demos/quiz-review-local.js:298](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L298)` | 298 | `document` | `click` | `e=>{` |
+| 273 | `[client/demos/quiz-review-local.js:337](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L337)` | 337 | `document` | `change` | `e=>{` |
+| 274 | `[client/demos/quiz-review-local.js:343](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L343)` | 343 | `)` | `submit` | `e=>{e.preventDefault(` |
+| 275 | `[client/demos/quiz-review-local.js:350](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L350)` | 350 | `)` | `submit` | `e=>{e.preventDefault(` |
+| 276 | `[client/demos/quiz-review-local.js:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L356)` | 356 | `document` | `input` | `event=>{const key=event.target.dataset.queueFilter;if(!key` |
+| 277 | `[client/demos/quiz-review-local.js:357](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L357)` | 357 | `document` | `submit` | `event=>{if(event.target.id==='quota-limit-form'` |
+| 278 | `[client/demos/quiz-review-local.js:358](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-review-local.js#L358)` | 358 | `document` | `input` | `event=>{if(event.target.closest('#quota-limit-form'` |
+| 279 | `[client/demos/quiz-workbench.js:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L74)` | 74 | `document` | `toggle` | `e=>{if(e.target.dataset?.expand` |
+| 280 | `[client/demos/quiz-workbench.js:78](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L78)` | 78 | `document` | `click` | `e=>{` |
+| 281 | `[client/demos/quiz-workbench.js:99](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L99)` | 99 | `document` | `change` | `e=>{` |
+| 282 | `[client/demos/quiz-workbench.js:107](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L107)` | 107 | `document` | `input` | `e=>{if(e.target.id!=='search'` |
+| 283 | `[client/demos/quiz-workbench.js:108](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L108)` | 108 | `)` | `submit` | `e=>{` |
+| 284 | `[client/demos/quiz-workbench.js:114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L114)` | 114 | `)` | `submit` | `e=>{` |
+| 285 | `[client/demos/quiz-workbench.js:120](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/quiz-workbench.js#L120)` | 120 | `)` | `submit` | `e=>{e.preventDefault(` |
+| 286 | `[client/demos/speech-practice-ui.js:176](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L176)` | 176 | `document` | `change` | `event=>{` |
+| 287 | `[client/demos/speech-practice-ui.js:189](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L189)` | 189 | `document` | `click` | `event=>{const button=event.target.closest('[data-speech-action]'` |
+| 288 | `[client/demos/speech-practice-ui.js:204](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L204)` | 204 | `document` | `submit` | `event=>{const form=event.target` |
+| 289 | `[client/demos/speech-practice-ui.js:230](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/demos/speech-practice-ui.js#L230)` | 230 | `window` | `pagehide` | `reset` |
+| 290 | `[client/main/exam-workflow.js:10](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L10)` | 10 | `document` | `input` | `event=>{` |
+| 291 | `[client/main/exam-workflow.js:84](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L84)` | 84 | `window` | `resize` | `(` |
+| 292 | `[client/main/exam-workflow.js:85](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L85)` | 85 | `document` | `input` | `event=>{const field=event.target.closest('[data-exam-review-note]'` |
+| 293 | `[client/main/exam-workflow.js:135](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L135)` | 135 | `document` | `click` | `async event=>{` |
+| 294 | `[client/main/exam-workflow.js:140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L140)` | 140 | `document` | `click` | `async event=>{` |
+| 295 | `[client/main/exam-workflow.js:147](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L147)` | 147 | `document` | `click` | `async event=>{` |
+| 296 | `[client/main/exam-workflow.js:188](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L188)` | 188 | `document` | `click` | `event=>{` |
+| 297 | `[client/main/exam-workflow.js:198](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L198)` | 198 | `document` | `click` | `async event=>{` |
+| 298 | `[client/main/exam-workflow.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L213)` | 213 | `dialog` | `pointerdown` | `event=>{pressedOutside=event.target===dialog&&outside(event` |
+| 299 | `[client/main/exam-workflow.js:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/exam-workflow.js#L213)` | 213 | `dialog` | `click` | `event=>{if(pressedOutside&&event.target===dialog&&outside(event` |
+| 300 | `[client/main/main-bridge.js:4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L4)` | 4 | `document` | `submit` | `event=>{` |
+| 301 | `[client/main/main-bridge.js:72](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L72)` | 72 | `dialog` | `close` | `(` |
+| 302 | `[client/main/main-bridge.js:96](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L96)` | 96 | `close` | `click` | `dismissNotice` |
+| 303 | `[client/main/main-bridge.js:101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L101)` | 101 | `document` | `click` | `event=>{` |
+| 304 | `[client/main/main-bridge.js:106](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L106)` | 106 | `document` | `keydown` | `event=>{` |
+| 305 | `[client/main/main-bridge.js:199](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L199)` | 199 | `document` | `click` | `event=>{` |
+| 306 | `[client/main/main-bridge.js:206](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L206)` | 206 | `window` | `error` | `event=>reportClientBug({method:'CLIENT'` |
+| 307 | `[client/main/main-bridge.js:207](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L207)` | 207 | `window` | `unhandledrejection` | `event=>{const reason=event.reason;reportClientBug({method:'CLIENT'` |
+| 308 | `[client/main/main-bridge.js:753](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L753)` | 753 | `document` | `DOMContentLoaded` | `(` |
+| 309 | `[client/main/main-bridge.js:764](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L764)` | 764 | `)` | `click` | `(` |
+| 310 | `[client/main/main-bridge.js:769](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L769)` | 769 | `)` | `click` | `(` |
+| 311 | `[client/main/main-bridge.js:788](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L788)` | 788 | `)window` | `pagehide` | `(` |
+| 312 | `[client/main/main-hooks.js:81](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L81)` | 81 | `document` | `learning-content-copied` | `event=>{event.detail.refresh=stageRefreshCopies(event.detail` |
+| 313 | `[client/main/main-hooks.js:82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L82)` | 82 | `document` | `click` | `event=>{` |
+| 314 | `[client/main/main-hooks.js:87](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L87)` | 87 | `document` | `change` | `event=>{` |
+| 315 | `[client/main/main-hooks.js:91](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L91)` | 91 | `document` | `keydown` | `event=>{` |
+| 316 | `[client/main/main-hooks.js:101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L101)` | 101 | `document` | `submit` | `async event=>{` |
+| 317 | `[client/main/main-hooks.js:453](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L453)` | 453 | `document` | `visibilitychange` | `(` |
+| 318 | `[client/main/main-hooks.js:584](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L584)` | 584 | `document` | `input` | `event=>{if(event.target.matches('#lyricText` |
+| 319 | `[client/main/main-hooks.js:585](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L585)` | 585 | `window` | `resize` | `stageGrowTextEditors` |
+| 320 | `[client/main/main-hooks.js:893](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L893)` | 893 | `document` | `click` | `event=>{` |
+| 321 | `[client/main/main-hooks.js:905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L905)` | 905 | `document` | `DOMContentLoaded` | `(` |
+| 322 | `[client/main/main-hooks.js:909](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L909)` | 909 | `form` | `submit` | `event=>{` |
+| 323 | `[client/main/main-hooks.js:1247](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1247)` | 1247 | `document` | `click` | `event=>{` |
+| 324 | `[client/main/main-hooks.js:1277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1277)` | 1277 | `document` | `click` | `event=>{` |
+| 325 | `[client/main/main-hooks.js:1285](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1285)` | 1285 | `document` | `click` | `event=>{` |
+| 326 | `[client/main/main-hooks.js:1299](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1299)` | 1299 | `document` | `learning-personal-saved` | `event=>{` |
+| 327 | `[client/main/main-hooks.js:2148](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2148)` | 2148 | `document` | `learning-archive-changed` | `event=>{event.detail.refresh=stageRefreshArchiveSources(event.detail` |
+| 328 | `[client/main/main-hooks.js:2311](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2311)` | 2311 | `document` | `click` | `event=>{` |
+| 329 | `[client/main/main-hooks.js:2365](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2365)` | 2365 | `document` | `click` | `event=>{` |
+| 330 | `[client/main/main-hooks.js:2438](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2438)` | 2438 | `document` | `click` | `event=>{` |
+| 331 | `[client/main/main-hooks.js:2446](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2446)` | 2446 | `document` | `input` | `event=>{` |
+| 332 | `[client/main/main-hooks.js:2450](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2450)` | 2450 | `document` | `click` | `event=>{` |
+| 333 | `[client/shared/text-colors.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L44)` | 44 | `font` | `pointerdown` | `capture` |
+| 334 | `[client/shared/text-colors.js:44](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L44)` | 44 | `font` | `change` | `(` |
+| 335 | `[client/shared/text-colors.js:45](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L45)` | 45 | `size` | `pointerdown` | `capture` |
+| 336 | `[client/shared/text-colors.js:45](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L45)` | 45 | `size` | `change` | `(` |
+| 337 | `[client/shared/text-colors.js:46](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L46)` | 46 | `button` | `pointerdown` | `event=>{capture(` |
+| 338 | `[client/shared/text-colors.js:46](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L46)` | 46 | `button` | `click` | `(` |
+| 339 | `[client/shared/text-colors.js:59](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L59)` | 59 | `palette` | `pointerdown` | `captureColorSelection` |
+| 340 | `[client/shared/text-colors.js:60](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L60)` | 60 | `rich` | `pointerup` | `captureColorSelection` |
+| 341 | `[client/shared/text-colors.js:61](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L61)` | 61 | `rich` | `keyup` | `captureColorSelection` |
+| 342 | `[client/shared/text-colors.js:62](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L62)` | 62 | `palette` | `input` | `(` |
+| 343 | `[client/shared/text-colors.js:81](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L81)` | 81 | `rich` | `input` | `update` |
+| 344 | `[client/shared/text-colors.js:82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L82)` | 82 | `rich` | `beforeinput` | `event=>{if(single&&['insertParagraph'` |
+| 345 | `[client/shared/text-colors.js:83](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L83)` | 83 | `rich` | `blur` | `(` |
+| 346 | `[client/shared/text-colors.js:85](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/shared/text-colors.js#L85)` | 85 | `rich` | `paste` | `event=>{event.preventDefault(` |
+| 347 | `[production/catalog-loader.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L143)` | 143 | `existing` | `load` | `(` |
+| 348 | `[production/catalog-loader.js:143](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L143)` | 143 | `existing` | `error` | `(` |
+| 349 | `[production/catalog-loader.js:163](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/catalog-loader.js#L163)` | 163 | `document` | `click` | `(event` |
+| 350 | `[production/chat/10-profiles.js:140](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L140)` | 140 | `node` | `click` | `(event` |
+| 351 | `[production/chat/10-profiles.js:266](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L266)` | 266 | `node` | `close` | `(` |
+| 352 | `[production/chat/10-profiles.js:388](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/10-profiles.js#L388)` | 388 | `timeline` | `keydown` | `(event` |
+| 353 | `[production/chat/30-rooms.js:445](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/30-rooms.js#L445)` | 445 | `document` | `pointerdown` | `unlockAlertAudio` |
+| 354 | `[production/chat/30-rooms.js:446](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/30-rooms.js#L446)` | 446 | `document` | `keydown` | `unlockAlertAudio` |
+| 355 | `[production/chat/40-messages.js:524](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L524)` | 524 | `video` | `loadeddata` | `(` |
+| 356 | `[production/chat/40-messages.js:528](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L528)` | 528 | `video` | `playing` | `resume` |
+| 357 | `[production/chat/40-messages.js:529](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L529)` | 529 | `video` | `pause` | `pause` |
+| 358 | `[production/chat/40-messages.js:530](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L530)` | 530 | `video` | `seeked` | `(` |
+| 359 | `[production/chat/40-messages.js:535](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L535)` | 535 | `video` | `timeupdate` | `checkEnd` |
+| 360 | `[production/chat/40-messages.js:536](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L536)` | 536 | `video` | `ended` | `(` |
+| 361 | `[production/chat/40-messages.js:681](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L681)` | 681 | `audio` | `play` | `decode` |
+| 362 | `[production/chat/40-messages.js:685](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L685)` | 685 | `document` | `click` | `(event` |
+| 363 | `[production/chat/40-messages.js:697](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L697)` | 697 | `document` | `visibilitychange` | `(` |
+| 364 | `[production/chat/40-messages.js:788](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L788)` | 788 | `part` | `animationend` | `(` |
+| 365 | `[production/chat/40-messages.js:792](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L792)` | 792 | `part` | `click` | `(` |
+| 366 | `[production/chat/40-messages.js:1008](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1008)` | 1008 | `timeline` | `scroll` | `(` |
+| 367 | `[production/chat/40-messages.js:1098](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1098)` | 1098 | `composer` | `input` | `remember` |
+| 368 | `[production/chat/40-messages.js:1101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1101)` | 1101 | `composer` | `compositionstart` | `(` |
+| 369 | `[production/chat/40-messages.js:1104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1104)` | 1104 | `composer` | `compositionend` | `(` |
+| 370 | `[production/chat/40-messages.js:1107](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1107)` | 1107 | `composer` | `keydown` | `(event` |
+| 371 | `[production/chat/40-messages.js:1114](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/40-messages.js#L1114)` | 1114 | `composer` | `keyup` | `(` |
+| 372 | `[production/chat/50-composer.js:14](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L14)` | 14 | `composer` | `beforeinput` | `enterInput` |
+| 373 | `[production/chat/50-composer.js:567](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L567)` | 567 | `document` | `pointerdown` | `(event` |
+| 374 | `[production/chat/50-composer.js:570](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/50-composer.js#L570)` | 570 | `document` | `keydown` | `(event` |
+| 375 | `[production/chat/60-uploads.js:322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L322)` | 322 | `document` | `pointerdown` | `(event` |
+| 376 | `[production/chat/60-uploads.js:325](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L325)` | 325 | `document` | `keydown` | `(event` |
+| 377 | `[production/chat/60-uploads.js:332](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L332)` | 332 | `section` | `dragenter` | `(event` |
+| 378 | `[production/chat/60-uploads.js:338](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L338)` | 338 | `section` | `dragover` | `(event` |
+| 379 | `[production/chat/60-uploads.js:344](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L344)` | 344 | `section` | `dragleave` | `(` |
+| 380 | `[production/chat/60-uploads.js:350](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L350)` | 350 | `section` | `drop` | `(event` |
+| 381 | `[production/chat/60-uploads.js:384](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/60-uploads.js#L384)` | 384 | `recordPreview` | `loadeddata` | `(` |
+| 382 | `[production/chat/70-recording.js:270](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L270)` | 270 | `recordButton` | `pointerdown` | `onRecordPointerDown` |
+| 383 | `[production/chat/70-recording.js:271](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L271)` | 271 | `recordButton` | `pointermove` | `onRecordPointerMove` |
+| 384 | `[production/chat/70-recording.js:272](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L272)` | 272 | `recordButton` | `pointerup` | `onRecordPointerUp` |
+| 385 | `[production/chat/70-recording.js:273](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L273)` | 273 | `recordButton` | `pointercancel` | `(` |
+| 386 | `[production/chat/70-recording.js:276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L276)` | 276 | `recordButton` | `contextmenu` | `(event` |
+| 387 | `[production/chat/70-recording.js:277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L277)` | 277 | `recordButton` | `keydown` | `(event` |
+| 388 | `[production/chat/70-recording.js:286](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L286)` | 286 | `recordButton` | `keyup` | `(event` |
+| 389 | `[production/chat/70-recording.js:292](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L292)` | 292 | `window` | `blur` | `interruptRecording` |
+| 390 | `[production/chat/70-recording.js:293](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L293)` | 293 | `document` | `keydown` | `(event` |
+| 391 | `[production/chat/70-recording.js:296](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/70-recording.js#L296)` | 296 | `document` | `visibilitychange` | `(` |
+| 392 | `[production/chat/80-dialogs.js:304](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L304)` | 304 | `timeline` | `click` | `clearMessageFocus` |
+| 393 | `[production/chat/80-dialogs.js:574](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L574)` | 574 | `node` | `click` | `(event` |
+| 394 | `[production/chat/80-dialogs.js:857](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L857)` | 857 | `)` | `contextmenu` | `async (event` |
+| 395 | `[production/chat/80-dialogs.js:905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L905)` | 905 | `)` | `dragstart` | `(event` |
+| 396 | `[production/chat/80-dialogs.js:911](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L911)` | 911 | `)` | `dragover` | `(event` |
+| 397 | `[production/chat/80-dialogs.js:914](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L914)` | 914 | `)` | `drop` | `(event` |
+| 398 | `[production/chat/80-dialogs.js:923](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L923)` | 923 | `)` | `dragend` | `(` |
+| 399 | `[production/chat/80-dialogs.js:926](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L926)` | 926 | `)` | `click` | `async (event` |
+| 400 | `[production/chat/80-dialogs.js:984](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L984)` | 984 | `document` | `pointerdown` | `(event` |
+| 401 | `[production/chat/80-dialogs.js:988](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/80-dialogs.js#L988)` | 988 | `document` | `keydown` | `(event` |
+| 402 | `[production/chat/85-message-actions.js:352](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L352)` | 352 | `area` | `input` | `fit` |
+| 403 | `[production/chat/85-message-actions.js:380](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L380)` | 380 | `node` | `click` | `(event` |
+| 404 | `[production/chat/85-message-actions.js:501](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L501)` | 501 | `timeline` | `pointerdown` | `(event` |
+| 405 | `[production/chat/85-message-actions.js:516](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L516)` | 516 | `timeline` | `pointermove` | `(event` |
+| 406 | `[production/chat/85-message-actions.js:541](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L541)` | 541 | `document` | `pointerdown` | `(event` |
+| 407 | `[production/chat/85-message-actions.js:544](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L544)` | 544 | `document` | `keydown` | `(event` |
+| 408 | `[production/chat/85-message-actions.js:623](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L623)` | 623 | `timeline` | `click` | `(event` |
+| 409 | `[production/chat/85-message-actions.js:629](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js#L629)` | 629 | `document` | `keydown` | `(event` |
+| 410 | `[production/chat/90-settings.js:197](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L197)` | 197 | `file` | `change` | `(` |
+| 411 | `[production/chat/90-settings.js:205](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L205)` | 205 | `document` | `notification-sounds-rendered` | `(event` |
+| 412 | `[production/chat/90-settings.js:434](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L434)` | 434 | `window` | `keydown` | `onEsc` |
+| 413 | `[production/chat/90-settings.js:450](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L450)` | 450 | `node` | `close` | `(` |
+| 414 | `[production/chat/90-settings.js:461](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L461)` | 461 | `node` | `pointerdown` | `(event` |
+| 415 | `[production/chat/90-settings.js:464](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L464)` | 464 | `node` | `click` | `(event` |
+| 416 | `[production/chat/90-settings.js:809](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L809)` | 809 | `input` | `blur` | `(` |
+| 417 | `[production/chat/90-settings.js:982](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L982)` | 982 | `document` | `click` | `async (event` |
+| 418 | `[production/chat/99-boot.js:78](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L78)` | 78 | `window` | `database-context-reset` | `(` |
+| 419 | `[production/chat/99-boot.js:116](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L116)` | 116 | `document` | `visibilitychange` | `(` |
+| 420 | `[production/chat/99-boot.js:123](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L123)` | 123 | `window` | `focus` | `scheduleRead` |
+| 421 | `[production/chat/99-boot.js:126](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/99-boot.js#L126)` | 126 | `window` | `resize` | `(` |
+| 422 | `[production/color-picker.js:9](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L9)` | 9 | `field` | `input` | `sync` |
+| 423 | `[production/color-picker.js:11](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L11)` | 11 | `button` | `pointerdown` | `event=>{event.preventDefault(` |
+| 424 | `[production/color-picker.js:12](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L12)` | 12 | `button` | `click` | `event=>{` |
+| 425 | `[production/color-picker.js:18](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L18)` | 18 | `swatch` | `click` | `(` |
+| 426 | `[production/color-picker.js:21](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L21)` | 21 | `spectrum` | `input` | `(` |
+| 427 | `[production/color-picker.js:28](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L28)` | 28 | `input` | `keydown` | `e=>{if(e.key==='Enter'` |
+| 428 | `[production/color-picker.js:29](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L29)` | 29 | `input` | `change` | `(` |
+| 429 | `[production/color-picker.js:29](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L29)` | 29 | `input` | `input` | `(` |
+| 430 | `[production/color-picker.js:36](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L36)` | 36 | `document` | `pointerdown` | `event=>{if(open&&event.target!==open.field&&!open.popup.contains(event.target` |
+| 431 | `[production/color-picker.js:37](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/color-picker.js#L37)` | 37 | `document` | `keydown` | `event=>{if(event.key==='Escape'&&open` |
+| 432 | `[production/material-quiz.js:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L42)` | 42 | `root` | `change` | `event=>{` |
+| 433 | `[production/material-quiz.js:48](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L48)` | 48 | `root` | `input` | `event=>{const field=event.target.closest('[data-mq-input]'` |
+| 434 | `[production/material-quiz.js:49](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L49)` | 49 | `root` | `click` | `event=>{` |
+| 435 | `[production/notification-sounds.js:72](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/notification-sounds.js#L72)` | 72 | `dialog` | `close` | `(` |
+| 436 | `[production/notification-sounds.js:125](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/notification-sounds.js#L125)` | 125 | `document` | `click` | `event=>{if(event.target.closest('[data-notification-sounds]'` |
+| 437 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `input` | `input` |
+| 438 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `change` | `input` |
+| 439 | `[production/speakout-editor.js:52](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L52)` | 52 | `root` | `click` | `click` |
+| 440 | `[production/speakout-editor.js:53](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L53)` | 53 | `root` | `mousedown` | `event=>{if(event.target.closest('[data-se-format]` |
+| 441 | `[production/speakout-editor.js:54](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L54)` | 54 | `root` | `dragstart` | `event=>{const grip=event.target.closest('[data-se-grip]'` |
+| 442 | `[production/speakout-editor.js:55](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L55)` | 55 | `root` | `dragover` | `event=>{if(editing&&!busy&&(event.target.closest('[data-se-block]'` |
+| 443 | `[production/speakout-editor.js:56](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L56)` | 56 | `root` | `drop` | `event=>{` |
+| 444 | `[production/speakout-editor.js:63](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L63)` | 63 | `document` | `selectionchange` | `(` |
+| 445 | `[production/speakout-editor.js:64](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/speakout-editor.js#L64)` | 64 | `window` | `speakout-cache-change` | `event=>{` |
+| 446 | `[site/demonstratives.js:590](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/demonstratives.js#L590)` | 590 | `document` | `click` | `onClick` |
+| 447 | `[site/saas-showcase.html:2083](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2083)` | 2083 | `inline` | `onclick` | `window.open(` |
+| 448 | `[site/saas-showcase.html:2214](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2214)` | 2214 | `inline` | `onclick` | `cycleShowcaseTheme()` |
+| 449 | `[site/saas-showcase.html:2241](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2241)` | 2241 | `inline` | `onclick` | `switchScreen(` |
+| 450 | `[site/saas-showcase.html:2242](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2242)` | 2242 | `inline` | `onclick` | `switchScreen(` |
+| 451 | `[site/saas-showcase.html:2251](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2251)` | 2251 | `inline` | `onclick` | `switchDashboardView(` |
+| 452 | `[site/saas-showcase.html:2252](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2252)` | 2252 | `inline` | `onclick` | `switchDashboardView(` |
+| 453 | `[site/saas-showcase.html:2275](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2275)` | 2275 | `inline` | `onclick` | `switchScreen(` |
+| 454 | `[site/saas-showcase.html:2276](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2276)` | 2276 | `inline` | `onclick` | `switchScreen(` |
+| 455 | `[site/saas-showcase.html:2283](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2283)` | 2283 | `inline` | `onclick` | `switchScreen(` |
+| 456 | `[site/saas-showcase.html:2288](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2288)` | 2288 | `inline` | `onclick` | `switchScreen(` |
+| 457 | `[site/saas-showcase.html:2293](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2293)` | 2293 | `inline` | `onclick` | `switchScreen(` |
+| 458 | `[site/saas-showcase.html:2298](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2298)` | 2298 | `inline` | `onclick` | `switchScreen(` |
+| 459 | `[site/saas-showcase.html:2351](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2351)` | 2351 | `inline` | `onclick` | `switchScreen(` |
+| 460 | `[site/saas-showcase.html:2352](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2352)` | 2352 | `inline` | `onclick` | `switchScreen(` |
+| 461 | `[site/saas-showcase.html:2364](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2364)` | 2364 | `inline` | `onclick` | `switchScreen(` |
+| 462 | `[site/saas-showcase.html:2371](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2371)` | 2371 | `inline` | `onclick` | `switchScreen(` |
+| 463 | `[site/saas-showcase.html:2378](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2378)` | 2378 | `inline` | `onclick` | `switchScreen(` |
+| 464 | `[site/saas-showcase.html:2437](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2437)` | 2437 | `inline` | `onclick` | `switchScreen(` |
+| 465 | `[site/saas-showcase.html:2483](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2483)` | 2483 | `inline` | `onclick` | `switchScreen(` |
+| 466 | `[site/saas-showcase.html:2487](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2487)` | 2487 | `inline` | `onclick` | `switchScreen(` |
+| 467 | `[site/saas-showcase.html:2491](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2491)` | 2491 | `inline` | `onclick` | `switchScreen(` |
+| 468 | `[site/saas-showcase.html:2495](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2495)` | 2495 | `inline` | `onclick` | `switchScreen(` |
+| 469 | `[site/saas-showcase.html:2519](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2519)` | 2519 | `inline` | `onclick` | `document.querySelectorAll(` |
+| 470 | `[site/saas-showcase.html:2522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2522)` | 2522 | `inline` | `onclick` | `switchScreen(` |
+| 471 | `[site/saas-showcase.html:2592](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2592)` | 2592 | `inline` | `onclick` | `switchScreen(` |
+| 472 | `[site/saas-showcase.html:2674](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2674)` | 2674 | `inline` | `onclick` | `switchScreen(` |
+| 473 | `[site/saas-showcase.html:2771](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2771)` | 2771 | `inline` | `onclick` | `switchScreen(` |
+| 474 | `[site/saas-showcase.html:2847](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2847)` | 2847 | `inline` | `onclick` | `switchScreen(` |
+| 475 | `[site/saas-showcase.html:2923](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L2923)` | 2923 | `inline` | `onclick` | `switchScreen(` |
+| 476 | `[site/saas-showcase.html:3067](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3067)` | 3067 | `inline` | `onclick` | `switchScreen(` |
+| 477 | `[site/saas-showcase.html:3134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3134)` | 3134 | `inline` | `onclick` | `switchScreen(` |
+| 478 | `[site/saas-showcase.html:3243](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3243)` | 3243 | `inline` | `onclick` | `switchScreen(` |
+| 479 | `[site/saas-showcase.html:3341](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3341)` | 3341 | `inline` | `onclick` | `switchScreen(` |
+| 480 | `[site/saas-showcase.html:3342](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3342)` | 3342 | `inline` | `onclick` | `switchScreen(` |
+| 481 | `[site/saas-showcase.html:3424](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3424)` | 3424 | `inline` | `onclick` | `showCrmTab(` |
+| 482 | `[site/saas-showcase.html:3432](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3432)` | 3432 | `inline` | `onclick` | `showCrmTab(` |
+| 483 | `[site/saas-showcase.html:3435](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3435)` | 3435 | `inline` | `onclick` | `showCrmTab(` |
+| 484 | `[site/saas-showcase.html:3439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3439)` | 3439 | `inline` | `onclick` | `showCrmTab(` |
+| 485 | `[site/saas-showcase.html:3442](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3442)` | 3442 | `inline` | `onclick` | `showCrmTab(` |
+| 486 | `[site/saas-showcase.html:3494](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3494)` | 3494 | `inline` | `onclick` | `switchScreen(` |
+| 487 | `[site/saas-showcase.html:3753](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3753)` | 3753 | `inline` | `onclick` | `switchScreen(` |
+| 488 | `[site/saas-showcase.html:3816](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3816)` | 3816 | `inline` | `onsubmit` | `event.preventDefault();alert(` |
+| 489 | `[site/saas-showcase.html:3905](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3905)` | 3905 | `inline` | `onclick` | `filterCefrLevel(` |
+| 490 | `[site/saas-showcase.html:3906](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3906)` | 3906 | `inline` | `onclick` | `filterCefrLevel(` |
+| 491 | `[site/saas-showcase.html:3907](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3907)` | 3907 | `inline` | `onclick` | `filterCefrLevel(` |
+| 492 | `[site/saas-showcase.html:3908](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3908)` | 3908 | `inline` | `onclick` | `filterCefrLevel(` |
+| 493 | `[site/saas-showcase.html:3909](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3909)` | 3909 | `inline` | `onclick` | `filterCefrLevel(` |
+| 494 | `[site/saas-showcase.html:3910](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L3910)` | 3910 | `inline` | `onclick` | `filterCefrLevel(` |
+| 495 | `[site/saas-showcase.html:4017](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4017)` | 4017 | `inline` | `onclick` | `showGroupTab(` |
+| 496 | `[site/saas-showcase.html:4018](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4018)` | 4018 | `inline` | `onclick` | `showGroupTab(` |
+| 497 | `[site/saas-showcase.html:4019](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4019)` | 4019 | `inline` | `onclick` | `showGroupTab(` |
+| 498 | `[site/saas-showcase.html:4055](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4055)` | 4055 | `inline` | `onclick` | `alert(` |
+| 499 | `[site/saas-showcase.html:4074](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4074)` | 4074 | `inline` | `onclick` | `alert(` |
+| 500 | `[site/saas-showcase.html:4126](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4126)` | 4126 | `inline` | `onclick` | `switchScreen(` |
+| 501 | `[site/saas-showcase.html:4158](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4158)` | 4158 | `inline` | `onclick` | `alert(` |
+| 502 | `[site/saas-showcase.html:4168](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4168)` | 4168 | `inline` | `onclick` | `showLessonTab(` |
+| 503 | `[site/saas-showcase.html:4169](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4169)` | 4169 | `inline` | `onclick` | `showLessonTab(` |
+| 504 | `[site/saas-showcase.html:4170](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4170)` | 4170 | `inline` | `onclick` | `showLessonTab(` |
+| 505 | `[site/saas-showcase.html:4518](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4518)` | 4518 | `inline` | `onclick` | `switchDrill(` |
+| 506 | `[site/saas-showcase.html:4519](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4519)` | 4519 | `inline` | `onclick` | `switchDrill(` |
+| 507 | `[site/saas-showcase.html:4520](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4520)` | 4520 | `inline` | `onclick` | `switchDrill(` |
+| 508 | `[site/saas-showcase.html:4521](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4521)` | 4521 | `inline` | `onclick` | `switchDrill(` |
+| 509 | `[site/saas-showcase.html:4522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4522)` | 4522 | `inline` | `onclick` | `switchDrill(` |
+| 510 | `[site/saas-showcase.html:4523](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4523)` | 4523 | `inline` | `onclick` | `switchDrill(` |
+| 511 | `[site/saas-showcase.html:4692](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4692)` | 4692 | `inline` | `onclick` | `showMediaTab(` |
+| 512 | `[site/saas-showcase.html:4693](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4693)` | 4693 | `inline` | `onclick` | `showMediaTab(` |
+| 513 | `[site/saas-showcase.html:4694](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4694)` | 4694 | `inline` | `onclick` | `showMediaTab(` |
+| 514 | `[site/saas-showcase.html:4695](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4695)` | 4695 | `inline` | `onclick` | `showMediaTab(` |
+| 515 | `[site/saas-showcase.html:4742](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4742)` | 4742 | `inline` | `onclick` | `alert(` |
+| 516 | `[site/saas-showcase.html:4785](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4785)` | 4785 | `inline` | `onclick` | `alert(` |
+| 517 | `[site/saas-showcase.html:4809](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4809)` | 4809 | `inline` | `onclick` | `const el=document.getElementById(` |
+| 518 | `[site/saas-showcase.html:4813](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4813)` | 4813 | `inline` | `onclick` | `alert(` |
+| 519 | `[site/saas-showcase.html:4839](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4839)` | 4839 | `inline` | `onclick` | `const p=this.querySelector(` |
+| 520 | `[site/saas-showcase.html:4892](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4892)` | 4892 | `inline` | `onclick` | `document.getElementById(` |
+| 521 | `[site/saas-showcase.html:4896](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4896)` | 4896 | `inline` | `onclick` | `document.getElementById(` |
+| 522 | `[site/saas-showcase.html:4899](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4899)` | 4899 | `inline` | `onclick` | `document.getElementById(` |
+| 523 | `[site/saas-showcase.html:4903](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4903)` | 4903 | `inline` | `onclick` | `document.getElementById(` |
+| 524 | `[site/saas-showcase.html:4941](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4941)` | 4941 | `inline` | `onclick` | `alert(` |
+| 525 | `[site/saas-showcase.html:4960](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4960)` | 4960 | `inline` | `onclick` | `alert(` |
+| 526 | `[site/saas-showcase.html:4970](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4970)` | 4970 | `inline` | `onclick` | `alert(` |
+| 527 | `[site/saas-showcase.html:4983](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4983)` | 4983 | `inline` | `onclick` | `switchScreen(` |
+| 528 | `[site/saas-showcase.html:4984](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L4984)` | 4984 | `inline` | `onclick` | `alert(` |
+| 529 | `[site/saas-showcase.html:5002](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5002)` | 5002 | `inline` | `onclick` | `alert(` |
+| 530 | `[site/saas-showcase.html:5009](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5009)` | 5009 | `inline` | `onclick` | `alert(` |
+| 531 | `[site/saas-showcase.html:5034](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5034)` | 5034 | `inline` | `onclick` | `document.getElementById(` |
+| 532 | `[site/saas-showcase.html:5060](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5060)` | 5060 | `inline` | `onclick` | `alert(` |
+| 533 | `[site/saas-showcase.html:5073](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5073)` | 5073 | `inline` | `onclick` | `document.getElementById(` |
+| 534 | `[site/saas-showcase.html:5074](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5074)` | 5074 | `inline` | `onclick` | `alert(` |
+| 535 | `[site/saas-showcase.html:5101](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5101)` | 5101 | `inline` | `onclick` | `showSetTab(` |
+| 536 | `[site/saas-showcase.html:5102](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5102)` | 5102 | `inline` | `onclick` | `showSetTab(` |
+| 537 | `[site/saas-showcase.html:5103](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5103)` | 5103 | `inline` | `onclick` | `showSetTab(` |
+| 538 | `[site/saas-showcase.html:5133](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5133)` | 5133 | `inline` | `onclick` | `filterShowcaseThemes(` |
+| 539 | `[site/saas-showcase.html:5134](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5134)` | 5134 | `inline` | `onclick` | `filterShowcaseThemes(` |
+| 540 | `[site/saas-showcase.html:5135](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5135)` | 5135 | `inline` | `onclick` | `filterShowcaseThemes(` |
+| 541 | `[site/saas-showcase.html:5136](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5136)` | 5136 | `inline` | `onclick` | `filterShowcaseThemes(` |
+| 542 | `[site/saas-showcase.html:5139](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5139)` | 5139 | `inline` | `oninput` | `searchShowcaseThemes(this.value)` |
+| 543 | `[site/saas-showcase.html:5174](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5174)` | 5174 | `inline` | `oninput` | `document.getElementById(` |
+| 544 | `[site/saas-showcase.html:5182](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5182)` | 5182 | `inline` | `onclick` | `alert(` |
+| 545 | `[site/saas-showcase.html:5183](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5183)` | 5183 | `inline` | `onclick` | `alert(` |
+| 546 | `[site/saas-showcase.html:5277](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5277)` | 5277 | `inline` | `onclick` | `alert(` |
+| 547 | `[site/saas-showcase.html:5374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5374)` | 5374 | `inline` | `onclick` | `alert(` |
+| 548 | `[site/saas-showcase.html:5692](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5692)` | 5692 | `inline` | `onsubmit` | `event.preventDefault()` |
+| 549 | `[site/saas-showcase.html:5806](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5806)` | 5806 | `inline` | `onclick` | `alert(` |
+| 550 | `[site/saas-showcase.html:5877](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5877)` | 5877 | `inline` | `onclick` | `this.parentElement.querySelector(` |
+| 551 | `[site/saas-showcase.html:5886](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5886)` | 5886 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 552 | `[site/saas-showcase.html:5887](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5887)` | 5887 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 553 | `[site/saas-showcase.html:5928](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5928)` | 5928 | `inline` | `onclick` | `this.parentElement.querySelector(` |
+| 554 | `[site/saas-showcase.html:5937](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5937)` | 5937 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 555 | `[site/saas-showcase.html:5938](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5938)` | 5938 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 556 | `[site/saas-showcase.html:5953](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5953)` | 5953 | `inline` | `onclick` | `this.parentElement.querySelector(` |
+| 557 | `[site/saas-showcase.html:5962](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5962)` | 5962 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 558 | `[site/saas-showcase.html:5963](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5963)` | 5963 | `inline` | `onclick` | `event.stopPropagation(); alert(` |
+| 559 | `[site/saas-showcase.html:5991](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L5991)` | 5991 | `inline` | `onclick` | `saveFeedback()` |
+| 560 | `[site/saas-showcase.html:6027](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6027)` | 6027 | `item` | `click` | `(` |
+| 561 | `[site/saas-showcase.html:6038](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6038)` | 6038 | `btn` | `click` | `(` |
+| 562 | `[site/saas-showcase.html:6075](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6075)` | 6075 | `inline` | `onclick` | `selectShowcaseTheme(\` |
+| 563 | `[site/saas-showcase.html:6127](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/saas-showcase.html#L6127)` | 6127 | `document` | `DOMContentLoaded` | `(` |
+| 564 | `[src/workbench-inspector-worker.mjs:12](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/workbench-inspector-worker.mjs#L12)` | 12 | `request.signal` | `abort` | `abort` |
 
-## 12. Полный реестр всех 3679 функций и методов кодовой базы
+## 12. Полный реестр всех 3680 функций и методов кодовой базы
 
 <details><summary><b>Файл <code>client/00-core.js</code> (55 функций)</b></summary>
 
@@ -14872,12 +14877,13 @@
 
 </details>
 
-<details><summary><b>Файл <code>client/03-core.js</code> (2 функций)</b></summary>
+<details><summary><b>Файл <code>client/03-core.js</code> (3 функций)</b></summary>
 
 | № | Строка | Имя функции / метода | Параметры |
 | :--- | :--- | :--- | :--- |
 | 1 | [строка 256](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L256) | `toggleTypeChip` | `e` |
 | 2 | [строка 300](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L300) | `toggleFlip` | `` |
+| 3 | [строка 342](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L342) | `moveToken` | `e` |
 
 </details>
 
@@ -21478,9 +21484,9 @@
 | 33 | `<button>` | `` | `home-text-link` | [preview.html:98](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L98) | `BOUND` | `{'class': 'home-text-link', 'type': 'button', 'data-jump': 'stats'}` |
 | 34 | `<button>` | `` | `home-text-link` | [preview.html:99](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L99) | `BOUND` | `{'class': 'home-text-link', 'type': 'button', 'data-jump': 'groups', 'data-home-` |
 | 35 | `<button>` | `` | `btn primary` | [preview.html:99](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L99) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-jump': 'groups', 'data-home-gro` |
-| 36 | `<button>` | `` | `btn ghost` | [preview.html:104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L104) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 37 | `<button>` | `` | `btn primary` | [preview.html:105](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L105) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-page-study': None}` |
-| 38 | `<input>` | `` | `` | [preview.html:106](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L106) | `BOUND` | `{'type': 'search', 'placeholder': 'Search cards', 'data-card-search': None, 'aut` |
+| 36 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:104](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L104) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 37 | `<button>` | `` | `btn primary saas-btn` | [preview.html:105](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L105) | `BOUND` | `{'class': 'btn primary saas-btn', 'type': 'button', 'data-page-study': None}` |
+| 38 | `<input>` | `` | `saas-input` | [preview.html:106](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L106) | `BOUND` | `{'type': 'search', 'class': 'saas-input', 'placeholder': 'Search cards', 'data-c` |
 | 39 | `<button>` | `` | `btn ghost` | [preview.html:111](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L111) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
 | 40 | `<button>` | `` | `add-link` | [preview.html:113](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L113) | `BOUND` | `{'class': 'add-link', 'type': 'button', 'data-add-open': None, 'aria-label': 'Ad` |
 | 41 | `<input>` | `` | `` | [preview.html:115](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L115) | `BOUND` | `{'type': 'text', 'placeholder': 'Word or expression', 'autocomplete': 'off', 'da` |
@@ -21562,34 +21568,34 @@
 | 117 | `<input>` | `` | `chip-n` | [preview.html:345](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L345) | `BOUND` | `{'class': 'chip-n', 'type': 'text', 'inputmode': 'numeric', 'maxlength': '4', 'v` |
 | 118 | `<button>` | `studyStart` | `btn primary` | [preview.html:348](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L348) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'id': 'studyStart'}` |
 | 119 | `<button>` | `studyMistakes` | `btn` | [preview.html:349](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L349) | `BOUND` | `{'class': 'btn', 'type': 'button', 'id': 'studyMistakes'}` |
-| 120 | `<button>` | `` | `btn ghost` | [preview.html:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L356) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
+| 120 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L356) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
 | 121 | `<button>` | `` | `opt` | [preview.html:363](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L363) | `BOUND` | `{'class': 'opt', 'type': 'button', 'data-choice': 'bad'}` |
 | 122 | `<button>` | `` | `opt` | [preview.html:364](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L364) | `BOUND` | `{'class': 'opt', 'type': 'button', 'data-choice': 'ok'}` |
 | 123 | `<button>` | `` | `opt` | [preview.html:365](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L365) | `BOUND` | `{'class': 'opt', 'type': 'button', 'data-choice': 'bad'}` |
 | 124 | `<button>` | `` | `opt` | [preview.html:366](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L366) | `BOUND` | `{'class': 'opt', 'type': 'button', 'data-choice': 'bad'}` |
-| 125 | `<button>` | `` | `btn stop` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn stop', 'type': 'button', 'data-jump': 'exam'}` |
-| 126 | `<button>` | `` | `btn` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn', 'type': 'button', 'data-usages': 'give up', 'data-usages-ru': '` |
-| 127 | `<button>` | `` | `btn primary` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-jump': 'flip'}` |
-| 128 | `<button>` | `` | `btn ghost` | [preview.html:374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L374) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 129 | `<button>` | `flipBtn` | `btn` | [preview.html:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L385) | `BOUND` | `{'class': 'btn', 'type': 'button', 'id': 'flipBtn', 'aria-pressed': 'false'}` |
-| 130 | `<button>` | `` | `btn primary` | [preview.html:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L385) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-jump': 'type'}` |
-| 131 | `<button>` | `` | `btn ghost` | [preview.html:390](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L390) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 132 | `<input>` | `typeInput` | `` | [preview.html:395](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L395) | `BOUND` | `{'id': 'typeInput', 'type': 'text', 'placeholder': 'Answer', 'autocomplete': 'of` |
-| 133 | `<button>` | `` | `btn stop` | [preview.html:397](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L397) | `BOUND` | `{'class': 'btn stop', 'type': 'button', 'data-jump': 'home'}` |
-| 134 | `<button>` | `typeCheck` | `btn primary` | [preview.html:397](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L397) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'id': 'typeCheck'}` |
-| 135 | `<button>` | `` | `btn ghost` | [preview.html:402](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L402) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
+| 125 | `<button>` | `` | `btn stop saas-btn` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn stop saas-btn', 'type': 'button', 'data-jump': 'exam'}` |
+| 126 | `<button>` | `` | `btn saas-btn` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn saas-btn', 'type': 'button', 'data-usages': 'give up', 'data-usag` |
+| 127 | `<button>` | `` | `btn primary saas-btn` | [preview.html:369](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L369) | `BOUND` | `{'class': 'btn primary saas-btn', 'type': 'button', 'data-jump': 'flip'}` |
+| 128 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:374](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L374) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 129 | `<button>` | `flipBtn` | `btn saas-btn` | [preview.html:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L385) | `BOUND` | `{'class': 'btn saas-btn', 'type': 'button', 'id': 'flipBtn', 'aria-pressed': 'fa` |
+| 130 | `<button>` | `` | `btn primary saas-btn` | [preview.html:385](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L385) | `BOUND` | `{'class': 'btn primary saas-btn', 'type': 'button', 'data-jump': 'type'}` |
+| 131 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:390](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L390) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 132 | `<input>` | `typeInput` | `saas-input` | [preview.html:395](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L395) | `BOUND` | `{'id': 'typeInput', 'class': 'saas-input', 'type': 'text', 'placeholder': 'Answe` |
+| 133 | `<button>` | `` | `btn stop saas-btn` | [preview.html:397](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L397) | `BOUND` | `{'class': 'btn stop saas-btn', 'type': 'button', 'data-jump': 'home'}` |
+| 134 | `<button>` | `typeCheck` | `btn primary saas-btn` | [preview.html:397](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L397) | `BOUND` | `{'class': 'btn primary saas-btn', 'type': 'button', 'id': 'typeCheck'}` |
+| 135 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:402](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L402) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
 | 136 | `<button>` | `` | `opt` | [preview.html:408](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L408) | `BOUND` | `{'class': 'opt', 'type': 'button'}` |
 | 137 | `<button>` | `` | `opt` | [preview.html:409](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L409) | `BOUND` | `{'class': 'opt', 'type': 'button'}` |
 | 138 | `<button>` | `` | `opt` | [preview.html:410](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L410) | `BOUND` | `{'class': 'opt', 'type': 'button'}` |
 | 139 | `<button>` | `` | `opt` | [preview.html:411](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L411) | `BOUND` | `{'class': 'opt', 'type': 'button'}` |
-| 140 | `<button>` | `` | `btn ghost` | [preview.html:418](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L418) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
+| 140 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:418](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L418) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
 | 141 | `<button>` | `` | `token` | [preview.html:424](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L424) | `BOUND` | `{'class': 'token', 'type': 'button'}` |
 | 142 | `<button>` | `` | `token` | [preview.html:425](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L425) | `BOUND` | `{'class': 'token', 'type': 'button'}` |
 | 143 | `<button>` | `` | `token` | [preview.html:426](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L426) | `BOUND` | `{'class': 'token', 'type': 'button'}` |
 | 144 | `<button>` | `` | `token` | [preview.html:427](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L427) | `BOUND` | `{'class': 'token', 'type': 'button'}` |
-| 145 | `<button>` | `` | `btn ghost` | [preview.html:434](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L434) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 146 | `<button>` | `` | `btn` | [preview.html:439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L439) | `BOUND` | `{'class': 'btn', 'type': 'button'}` |
-| 147 | `<button>` | `` | `btn primary` | [preview.html:439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L439) | `BOUND` | `{'class': 'btn primary', 'type': 'button'}` |
+| 145 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:434](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L434) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 146 | `<button>` | `` | `btn saas-btn` | [preview.html:439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L439) | `BOUND` | `{'class': 'btn saas-btn', 'type': 'button', 'data-judge': 'bad'}` |
+| 147 | `<button>` | `` | `btn primary saas-btn` | [preview.html:439](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L439) | `BOUND` | `{'class': 'btn primary saas-btn', 'type': 'button', 'data-judge': 'ok'}` |
 | 148 | `<button>` | `` | `btn ghost` | [preview.html:445](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L445) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
 | 149 | `<button>` | `` | `` | [preview.html:449](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L449) | `BOUND` | `{'type': 'button', 'data-tap': 'bad'}` |
 | 150 | `<button>` | `` | `` | [preview.html:449](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L449) | `BOUND` | `{'type': 'button', 'data-tap': 'ok'}` |
@@ -21910,9 +21916,9 @@
 | 465 | `<button>` | `` | `` | [preview.html:1838](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1838) | `BOUND` | `{'type': 'button', 'data-jump': 'bugs', 'data-developer-only': None, 'hidden': N` |
 | 466 | `<button>` | `` | `` | [preview.html:1839](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1839) | `BOUND` | `{'type': 'button', 'data-msg-open': None, 'data-nav-role': 'student', 'hidden': ` |
 | 467 | `<button>` | `` | `` | [preview.html:1840](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1840) | `BOUND` | `{'type': 'button', 'data-jump': 'account', 'data-nav-role': 'student', 'hidden':` |
-| 468 | `<button>` | `clipFrameClose` | `clip-frame-x` | [preview.html:1845](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1845) | `BOUND` | `{'class': 'clip-frame-x', 'type': 'button', 'id': 'clipFrameClose', 'aria-label'` |
-| 469 | `<button>` | `selpopAdd` | `btn primary dict-add selpop-add` | [preview.html:1850](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1850) | `BOUND` | `{'class': 'btn primary dict-add selpop-add', 'type': 'button', 'id': 'selpopAdd'` |
-| 470 | `<button>` | `selpopClose` | `selpop-x` | [preview.html:1850](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1850) | `BOUND` | `{'class': 'selpop-x', 'type': 'button', 'id': 'selpopClose', 'aria-label': 'Clos` |
+| 468 | `<button>` | `clipFrameClose` | `clip-frame-x saas-btn` | [preview.html:1845](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1845) | `BOUND` | `{'class': 'clip-frame-x saas-btn', 'type': 'button', 'id': 'clipFrameClose', 'ar` |
+| 469 | `<button>` | `selpopAdd` | `btn primary dict-add selpop-add saas-btn` | [preview.html:1850](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1850) | `BOUND` | `{'class': 'btn primary dict-add selpop-add saas-btn', 'type': 'button', 'id': 's` |
+| 470 | `<button>` | `selpopClose` | `selpop-x saas-btn` | [preview.html:1850](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L1850) | `BOUND` | `{'class': 'selpop-x saas-btn', 'type': 'button', 'id': 'selpopClose', 'aria-labe` |
 
 ## 16. Four Sight Anomaly Detection: Инвентаризация серверных маршрутов и реестр `[ORPHAN_ENDPOINT]`
 

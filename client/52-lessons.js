@@ -692,7 +692,7 @@
     }
     function lmInteractiveFrame(block) {
       const src = wordwallSource(block.url);
-      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
+      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive saas-card"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
     }
     function lmLinkCard(block, href) {
       const title = block.title || href || "Link";
