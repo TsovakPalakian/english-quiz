@@ -5250,6 +5250,255 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
   color: var(--saas-text-body, #334155);
 }
 
+/* ============================================================
+   LUMISCIA SAAS STAGE 7: COMMUNICATIONS, WORKBENCH, SETTINGS & BUGS
+   ============================================================ */
+
+/* 1. AI Workbench Screens (#workbenchqueue, #workbenchmine, #workbenchproviders) */
+#workbenchqueue, #workbenchmine, #workbenchproviders {
+  padding-bottom: 40px;
+}
+
+.workbench-page-view {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-xl);
+  box-shadow: var(--saas-shadow-card);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.provider-access {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--saas-shadow-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.provider-access:hover {
+  border-color: var(--saas-brand);
+  box-shadow: var(--saas-shadow-md);
+}
+
+.provider-access > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.learning-review-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  background: var(--saas-card-muted);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-lg);
+}
+
+details[data-review-key] {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-lg);
+  margin-bottom: 10px;
+  padding: 14px 18px;
+  box-shadow: var(--saas-shadow-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+details[data-review-key]:hover {
+  border-color: var(--saas-brand);
+  box-shadow: var(--saas-shadow-md);
+}
+
+details[data-review-key] > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  list-style: none;
+}
+
+/* 2. Settings & Themes (#settings, #themes) */
+#settingsHost {
+  width: 100%;
+  margin-top: 14px;
+}
+
+#settingsHost > .card {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-xl);
+  box-shadow: var(--saas-shadow-card);
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+#themes .card {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-xl);
+  box-shadow: var(--saas-shadow-card);
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.theme-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.theme-card {
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+  padding: 12px;
+  background: var(--saas-card);
+  transition: all 0.15s ease;
+}
+
+.theme-card:hover {
+  border-color: var(--saas-brand);
+  box-shadow: var(--saas-shadow-sm);
+}
+
+/* 3. System Logs & Diagnostics (#bugs) */
+#bugs {
+  padding-bottom: 40px;
+}
+
+.saas-bugs-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin: 16px 0 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 600px) {
+  .saas-bugs-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+#bugTabs {
+  margin-bottom: 18px;
+}
+
+#bugListSearch {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+  background: var(--saas-card);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+.bug-day {
+  margin: 0 0 16px;
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-lg);
+  background: var(--saas-card);
+  box-shadow: var(--saas-shadow-card);
+  overflow: hidden;
+}
+
+.bug-day > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 14px 18px;
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 14px;
+  list-style: none;
+  background: var(--saas-card-muted);
+  border-bottom: 1px solid var(--saas-border);
+}
+
+.bug-day > summary small {
+  margin-left: auto;
+  color: var(--saas-text-muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.bug-day-list {
+  padding: 12px 16px;
+}
+
+.bug-item {
+  margin-bottom: 10px;
+}
+
+.bug-item .day-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+  box-shadow: var(--saas-shadow-xs);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.bug-item .day-row:hover {
+  transform: translateY(-1px);
+  border-color: var(--saas-brand);
+  box-shadow: var(--saas-shadow-md);
+}
+
+.bug-body .bug-detail {
+  background: var(--saas-subtle, #f8fafc);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+  padding: 14px 16px;
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.bug-history {
+  margin: 10px 0 14px;
+  padding: 10px 14px;
+  background: var(--saas-card-muted);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-md);
+}
+
+.bug-history summary {
+  color: var(--saas-brand);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bug-history ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--saas-text-secondary);
+  font-size: 12.5px;
+}
+
+
 
 
 
