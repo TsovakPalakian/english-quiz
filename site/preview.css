@@ -4517,4 +4517,740 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
   background: var(--saas-primary-hover, #0f766e) !important;
 }
 
+/* ============================================================
+   Stage 4: Lumiscia SaaS CRM & Groups Management Design System
+   ============================================================ */
+
+/* Segmented Accounts Tab Navigation */
+.accounts-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--saas-card-muted, #f8fafc);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-lg, 12px);
+  padding: 6px;
+  margin-bottom: 20px;
+}
+.accounts-tabs button {
+  border: none;
+  background: transparent;
+  color: var(--saas-text-muted, #64748b);
+  border-radius: var(--saas-radius-md, 8px);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  flex: 1 1 150px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.accounts-tabs button:hover {
+  color: var(--saas-text, #0f172a);
+  background: rgba(0, 0, 0, 0.03);
+}
+.accounts-tabs button.on,
+.accounts-tabs button[aria-selected="true"] {
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-primary, #0d9488);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Accounts CRM Search & Special Deck */
+#adminAccountSearch {
+  width: 100%;
+  max-width: 480px;
+  height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--saas-radius-md, 8px);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-text, #0f172a);
+  font-size: 13.5px;
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.04));
+  margin: 8px 0 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#adminAccountSearch:focus {
+  border-color: var(--saas-primary, #0d9488);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--saas-focus-ring, rgba(13, 148, 136, 0.15));
+}
+#admin .accounts-special {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+#admin .file-card {
+  min-height: 84px;
+  max-height: 150px;
+  padding: 16px 18px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+}
+#admin .file-card:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 2px 8px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+#admin .path {
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-card, #ffffff);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.03));
+  margin-bottom: 8px;
+  padding: 12px 18px;
+  transition: all 0.15s ease;
+}
+#admin .path:hover {
+  border-color: var(--saas-primary, #0d9488);
+  background: var(--saas-card-muted, #f8fafc);
+  box-shadow: var(--saas-shadow-card, 0 2px 6px rgba(0,0,0,0.06));
+}
+
+/* Accounts Approval & Requests Cards */
+#adminBody .card {
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0,0,0,0.05));
+  padding: 20px;
+  margin-bottom: 18px;
+}
+#adminBody .card .label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--saas-text-muted, #64748b);
+  margin-bottom: 12px;
+}
+.account-approval-row {
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-card, #ffffff);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.03));
+  padding: 12px 16px;
+  margin: 10px 0;
+  transition: background 0.15s ease;
+}
+.account-approval-row:hover {
+  background: var(--saas-card-muted, #f8fafc);
+}
+
+/* Groups Directory & Roster Grid */
+#groups .sub {
+  color: var(--saas-text-muted, #64748b);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+#groupList > .decks {
+  gap: 16px;
+}
+#groupList .file-card {
+  min-height: 96px;
+  padding: 18px 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+}
+#groupList .file-card:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-2px);
+}
+#groupList .day-row {
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  transition: all 0.15s ease;
+}
+#groupList .day-row:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 3px 10px rgba(0,0,0,0.06));
+}
+#groupList .day-row .day {
+  padding: 6px 8px;
+}
+#groupList .day-row .day .date {
+  border-radius: 8px;
+  background: var(--saas-card-muted, #f8fafc);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  width: 44px;
+  height: 44px;
+  margin-right: 12px;
+}
+
+/* Group Detail Destination Hub */
+.group-detail-destinations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.group-detail-destinations .file-card {
+  min-height: 90px;
+  padding: 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+}
+.group-detail-destinations .file-card:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+#groupDetailDiagnostic {
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0,0,0,0.05));
+  padding: 20px;
+  margin-top: 20px;
+}
+
+/* ============================================================
+   STAGE 5: Curriculum & Testing Center (Lessons, Exams & Assessment)
+   ============================================================ */
+
+/* Exam & Lessons Section Headers & Meta */
+#days .meta, #exams .meta, #examblocks .meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#days .page-heading h1, #exams .page-heading h1, #examblocks .page-heading h1 {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--saas-text-primary, #0f172a);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+#days .page-context, #exams .page-context, #examblocks .page-context {
+  font-size: 13px;
+  color: var(--saas-text-muted, #64748b);
+  margin: 2px 0 0;
+}
+
+/* Exam Sections Segmented Pill Tab Bar */
+#examSections {
+  display: inline-flex;
+  align-items: center;
+  background: var(--saas-card-muted, #f1f5f9);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 4px;
+  gap: 4px;
+  margin: 14px 0 16px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#examSections button {
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--saas-text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+#examSections button:hover {
+  color: var(--saas-text-primary, #0f172a);
+}
+
+#examSections button.primary {
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-brand, #146c5c);
+  border-color: var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.06));
+  font-weight: 700;
+}
+
+#examSections .exam-attention-count {
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* Exams Catalog Level & Group Decks */
+#examList > .decks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+  margin-bottom: 20px;
+}
+
+#examList .file-card {
+  min-height: 100px;
+  padding: 18px 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+}
+
+#examList .file-card:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+#examList .file-card b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--saas-text-primary, #0f172a);
+}
+
+#examList .file-card .label {
+  font-size: 12.5px;
+  color: var(--saas-text-muted, #64748b);
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+/* Exam Overview Subtitle */
+#examOverview {
+  font-size: 13.5px;
+  color: var(--saas-text-muted, #64748b);
+  margin: 6px 0 14px;
+  line-height: 1.5;
+}
+
+#examOverview b {
+  color: var(--saas-text-primary, #0f172a);
+  font-weight: 700;
+}
+
+#examOverview .exam-attention-count {
+  color: #d97706;
+  font-weight: 800;
+}
+
+/* Exam Instance Cards in #examList & #examBlocks */
+#examList .day-row, #examBlocks .day-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#examList .day, #examBlocks .day {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+  text-align: left;
+  cursor: pointer;
+}
+
+#examList .day:hover, #examBlocks .day:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+#examList .date, #examBlocks .date {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 44px;
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-card-muted, #f1f5f9);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  color: var(--saas-brand, #146c5c);
+  font-weight: 700;
+}
+
+#examList .date b, #examBlocks .date b {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+}
+
+#examList .date small, #examBlocks .date small {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--saas-text-muted, #64748b);
+  margin: 0;
+}
+
+#examList .day > b, #examBlocks .day > b {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--saas-text-primary, #0f172a);
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#examList .exam-student {
+  display: block;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--saas-text-muted, #64748b);
+  margin-top: 2px;
+}
+
+#examList .day .about, #examBlocks .day .about {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 3px 10px;
+  background: var(--saas-card-muted, #f1f5f9);
+  color: var(--saas-text-muted, #64748b);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  white-space: nowrap;
+}
+
+/* Assessment Actions & Review Styling */
+.lm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lm-actions .lm-btn {
+  border-radius: var(--saas-radius-md, 8px);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.lm-actions .lm-btn-primary, #assessmentPublish {
+  background: var(--saas-brand, #146c5c);
+  color: #ffffff;
+  border: 1px solid var(--saas-brand, #146c5c);
+}
+
+.lm-actions .lm-btn-primary:hover, #assessmentPublish:hover {
+  background: var(--saas-primary-hover, #0f766e);
+  box-shadow: var(--saas-shadow-sm, 0 2px 4px rgba(0,0,0,0.06));
+}
+
+#assessmentReopen, #assessmentAmend, #assessmentHistory {
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  color: var(--saas-text-primary, #0f172a);
+}
+
+#assessmentReopen:hover, #assessmentAmend:hover, #assessmentHistory:hover {
+  border-color: var(--saas-primary, #0d9488);
+  background: var(--saas-brand-subtle, #f0fdfa);
+}
+
+/* ============================================================
+   STAGE 6: Words Studio & Grammar Matrix (#allwords, #tenses)
+   ============================================================ */
+
+/* Words Studio & Collections */
+#wordcollections .decks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+#wordcollections .file-card {
+  min-height: 100px;
+  padding: 18px 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+#wordcollections .file-card:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+#wordcollections .file-card .num {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-card-muted, #f1f5f9);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  color: var(--saas-brand, #146c5c);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+#wordcollections .file-card b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--saas-text-primary, #0f172a);
+  display: block;
+}
+
+#wordcollections .file-card .label {
+  font-size: 12.5px;
+  color: var(--saas-text-muted, #64748b);
+  display: block;
+  margin-top: 2px;
+}
+
+/* All Words Catalog & Word Source Rows */
+#allWordGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.word-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  margin-bottom: 8px;
+  transition: all 0.15s ease;
+}
+
+.word-source-row:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+.word-source-card {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  flex: 1 1 auto;
+}
+
+.word-source-card b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--saas-text-primary, #0f172a);
+}
+
+.word-source-card .label {
+  font-size: 13px;
+  color: var(--saas-text-muted, #64748b);
+}
+
+.word-source-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.word-source-links a {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--saas-radius-pill, 9999px);
+  background: var(--saas-card-muted, #f1f5f9);
+  color: var(--saas-text-muted, #64748b);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.word-source-links a:hover {
+  background: var(--saas-brand-subtle, #f0fdfa);
+  color: var(--saas-brand, #146c5c);
+  border-color: var(--saas-primary, #0d9488);
+}
+
+/* Grammar Matrix (#tenses) */
+#tenses .resource-fold {
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-lg, 12px);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+#tenses .resource-fold summary {
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--saas-text-primary, #0f172a);
+  cursor: pointer;
+  background: var(--saas-card-muted, #f8fafc);
+}
+
+#tenses .resource-fold .decks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+#tenses .g-areas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+#tenses .g-area {
+  padding: 18px 20px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  transition: all 0.15s ease;
+  text-align: left;
+  cursor: pointer;
+}
+
+#tenses .g-area:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+#tenses .g-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: var(--saas-radius-pill, 9999px);
+  background: var(--saas-brand-subtle, #f0fdfa);
+  color: var(--saas-brand, #146c5c);
+  border: 1px solid var(--saas-brand-border, rgba(20,108,92,0.15));
+  margin-bottom: 8px;
+}
+
+#tenses .g-topic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: var(--saas-radius-lg, 12px);
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
+  margin-bottom: 10px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+#tenses .g-topic:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  transform: translateY(-1px);
+}
+
+#tenses .g-topic b {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--saas-text-primary, #0f172a);
+}
+
+#tenses .g-topic .form {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--saas-brand, #146c5c);
+  background: var(--saas-brand-subtle, #f0fdfa);
+  padding: 2px 8px;
+  border-radius: var(--saas-radius-pill, 9999px);
+}
+
+/* Child Tense & Marker Screens */
+#tenseLang {
+  display: inline-flex;
+  background: var(--saas-card-muted, #f1f5f9);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 3px;
+  gap: 4px;
+}
+
+#tenseLang button.chip {
+  border-radius: var(--saas-radius-pill, 9999px);
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--saas-text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+#tenseLang button.chip.on {
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-brand, #146c5c);
+  border-color: var(--saas-border, #e2e8f0);
+  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.05));
+  font-weight: 700;
+}
+
+#tenseView, #markerView {
+  padding: 20px;
+  line-height: 1.6;
+  color: var(--saas-text-body, #334155);
+}
+
+
+
+
 
