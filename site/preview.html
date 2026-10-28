@@ -191,20 +191,20 @@
     </section>
 
     <section id="phrasal">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
       <p class="sub" id="phrasalSub">Cards on this page. Study uses them.</p>
       <div class="study-bar">
-        <button class="btn primary" type="button" data-deck-study="phrasal">Study</button>
+        <button class="btn primary saas-btn saas-btn-primary" type="button" data-deck-study="phrasal">Study</button>
         <div class="here-add" data-place="phrasal">
           <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
-            <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
-            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input class="saas-input" />
+            <div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button" data-add-go>Look up and make cards</button></div>
             <p class="hint" data-add-status></p>
           </div>
         </div>
       </div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" class="saas-input" />
       <div class="words" id="phrasalGrid"></div>
       <div class="words" id="phrasalAdded"></div>
     </section>
@@ -229,9 +229,9 @@
     </section>
 
     <section id="articles">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Articles</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Articles</h1></div>
       <p class="sub">Three examples. Each row opens the Grammar note.</p>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <button class="path" type="button" data-topic="a"><span><b>a book</b><br><span class="label">a + consonant sound</span></span><span class="to">a</span></button>
         <button class="path" type="button" data-topic="an"><span><b>an apple</b><br><span class="label">an + vowel sound</span></span><span class="to">an</span></button>
         <button class="path" type="button" data-topic="the"><span><b>the sun</b><br><span class="label">both speakers know which one</span></span><span class="to">the</span></button>
@@ -239,33 +239,35 @@
     </section>
 
     <section id="demonstratives">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Demonstratives</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Demonstratives</h1></div>
       <div id="demoLesson">
-        <div class="card study">
+        <div class="card study saas-card">
           <p class="sub" style="margin-top:0">This, that, these, those. One or many. Near or far.</p>
           <div id="demoProgress"></div>
           <p class="label">Practice</p>
           <div class="row" style="margin-bottom:8px">
-            <button class="btn primary" type="button" data-demo="practice">Practice</button>
-            <button class="btn" type="button" data-demo="quick">Quick Quiz</button>
-            <button class="btn" type="button" data-demo="mistakes">Practice my mistakes</button>
+            <button class="btn primary saas-btn saas-btn-primary" type="button" data-demo="practice">Practice</button>
+            <button class="btn saas-btn" type="button" data-demo="quick">Quick Quiz</button>
+            <button class="btn saas-btn" type="button" data-demo="mistakes">Practice my mistakes</button>
           </div>
           <div class="row" style="margin-bottom:8px">
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="1">Level 1</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="2">Level 2</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="3">Level 3</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="4">Level 4</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="1">Level 1</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="2">Level 2</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="3">Level 3</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="4">Level 4</button>
           </div>
           <p class="hint" id="demoReviewNote" hidden>You marked this topic to review.</p>
           <h2>The rule</h2>
           <p>Two things decide the word: how many, and how far.</p>
-          <table class="demo-table">
-            <thead><tr><th></th><th>Near</th><th>Far</th></tr></thead>
-            <tbody>
-              <tr><th>One</th><td>THIS</td><td>THAT</td></tr>
-              <tr><th>More than one</th><td>THESE</td><td>THOSE</td></tr>
-            </tbody>
-          </table>
+          <div class="saas-table-wrap" style="margin:12px 0">
+            <table class="demo-table saas-table">
+              <thead><tr><th></th><th>Near</th><th>Far</th></tr></thead>
+              <tbody>
+                <tr><th>One</th><td>THIS</td><td>THAT</td></tr>
+                <tr><th>More than one</th><td>THESE</td><td>THOSE</td></tr>
+              </tbody>
+            </table>
+          </div>
           <p><b>This</b> = one + near. <b>That</b> = one + far. <b>These</b> = several + near. <b>Those</b> = several + far.</p>
           <h2>See the difference</h2>
           <div class="demo-grid" id="demoScenes"></div>
@@ -296,19 +298,19 @@
           <h2>Learn more</h2>
           <p id="demoLinks"></p>
           <div class="row">
-            <button class="btn" type="button" data-demo="review">Review later</button>
+            <button class="btn saas-btn" type="button" data-demo="review">Review later</button>
           </div>
         </div>
       </div>
       <div id="demoQuiz" hidden>
-        <div class="card">
-          <div class="row" style="margin-bottom:8px"><button class="btn" type="button" data-demo="lesson">Back to the lesson</button></div>
+        <div class="card saas-card">
+          <div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-demo="lesson">Back to the lesson</button></div>
           <p class="label" id="demoQuizMeta"></p>
           <div id="demoQuizBody"></div>
         </div>
       </div>
       <div id="demoResult" hidden>
-        <div class="card" id="demoResultBody"></div>
+        <div class="card saas-card" id="demoResultBody"></div>
       </div>
     </section>
 

@@ -2454,6 +2454,27 @@ button:disabled { opacity: .45; }
 #rules[data-lang="en"] .ru, #tense[data-lang="en"] .ru, #guide[data-lang="en"] .ru { display: none; }
 #rules[data-lang="ru"] .en, #tense[data-lang="ru"] .en, #guide[data-lang="ru"] .en { display: none; }
 #guide > .card.grow > .rule { display: none; }
+.grammar-band {
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  border: 1px solid var(--saas-border, var(--line));
+  border-radius: var(--saas-radius-xl, 16px);
+  background: var(--saas-card, var(--card));
+  box-shadow: var(--saas-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+.grammar-band h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--saas-text-primary, var(--ink));
+}
+.grammar-band ol, .grammar-band ul {
+  margin: 0;
+  padding-left: 20px;
+}
+.grammar-band li {
+  margin-bottom: 8px;
+}
 .guide-content { display: grid; gap: 16px; }
 .guide-role { display: flex; align-items: baseline; gap: 8px; padding: 4px 0 2px; color: var(--muted); }
 .guide-role b { color: var(--ink); font-size: 20px; }
@@ -2511,6 +2532,14 @@ button:disabled { opacity: .45; }
 .path:hover {
   transform: translateY(-1px);
   box-shadow: var(--saas-shadow-md);
+}
+#articles .card.grow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#articles .path {
+  margin-bottom: 0;
 }
 .study-bar {
   display: flex;
@@ -2640,7 +2669,18 @@ details.g-fold { padding: 8px 0; border-bottom: 1px solid var(--line); }
 details.g-fold summary { cursor: pointer; font-weight: 700; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
 .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.demo-card { border: 1px solid var(--line); border-radius: 16px; padding: 8px; background: var(--card); }
+.demo-card {
+  border: 1px solid var(--saas-border, var(--line));
+  border-radius: var(--saas-radius-lg, 16px);
+  padding: 12px;
+  background: var(--saas-card, var(--card));
+  box-shadow: var(--saas-shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.demo-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--saas-shadow-md);
+}
 .demo-card b { display: block; margin-top: 4px; }
 .demo-card span { color: var(--mute); font-size: 13px; }
 .demo-scene { display: block; width: 100%; height: 72px; }
