@@ -5059,6 +5059,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       });
     });
 
+    document.querySelectorAll("#multi .opts .opt").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("pick");
+      });
+    });
+
     let leftPick = null;
     document.querySelectorAll("#pairs .pair").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -5409,7 +5415,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
       const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>';
-      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;
@@ -10671,7 +10677,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const attr = row.kind === "added"
           ? 'data-added="' + row.index + '"'
           : 'data-bank-place="' + place + '" data-bank-index="' + row.index + '"';
-        return '<button class="wcard" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
+        return '<button class="wcard saas-card" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
       }).join("");
       if (keep) show("daywords");
       else visit("daywords");
@@ -10783,8 +10789,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function linkChip(item) {
       const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
-      if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      if (!href) return '<span class="link-chip"><span class="btn chip saas-btn">' + esc(item.title) + "</span>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip saas-btn" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';

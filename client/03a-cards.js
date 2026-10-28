@@ -321,7 +321,7 @@
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
       const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>';
-      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;

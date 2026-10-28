@@ -369,6 +369,12 @@
       });
     });
 
+    document.querySelectorAll("#multi .opts .opt").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("pick");
+      });
+    });
+
     let leftPick = null;
     document.querySelectorAll("#pairs .pair").forEach((btn) => {
       btn.addEventListener("click", () => {

@@ -2301,7 +2301,7 @@ function stageGrammarPaint(){
   list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title+' / '+(window.GrammarGroupNames?.[group.id]||''),group.cards.length,'data-grammar-group','categories')).join('');
   const group=groups.find(group=>group.id===stageGrammarGroup);if(!group)return;
   document.getElementById('grammarCategoryTitle').textContent=group.title+' / '+(window.GrammarGroupNames?.[group.id]||'');
-  document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
+  document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card saas-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
   const detail=window.GrammarDetails?.[stageGrammarRule];if(!detail)return;
   document.getElementById('grammarRuleTitle').textContent=stageGrammarRule+' / '+detail.ru;
   const pair=(en,ru)=>'<p lang="en">'+esc(en)+'</p><p lang="ru" class="label">'+esc(ru)+'</p>';
@@ -2392,7 +2392,7 @@ async function stageRemoveEssential(host){
     stageEverydayData=null;await stageEverydayLoad();paintAllWords();
   }catch(error){window.LearningMain.notice(error.message,true);if(error.status===409){stageEverydayData=null;await stageEverydayLoad();}}
 }
-function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
+function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card saas-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
 function stageEverydayPaint(){
   if(!stageEverydayData)return;
   const groups=stageEverydayData.groups||[];

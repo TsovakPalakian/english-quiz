@@ -452,9 +452,9 @@
     </section>
 
     <section id="multi">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Select all</h1><span class="timer">08:22</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Select all</h1><span class="timer">08:22</span></div>
       <div class="progress"><i style="width:88%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Select every Present Perfect sentence</p>
         <div class="opts">
           <button class="opt" type="button"><span class="bullet">1</span><span>She has lost her keys.</span></button>
@@ -467,9 +467,9 @@
     </section>
 
     <section id="pairs">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Match</h1><span class="timer">09:10</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Match</h1><span class="timer">09:10</span></div>
       <div class="progress"><i style="width:92%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Match the English with the Russian translation</p>
         <div class="pairs" id="pairs">
           <button class="pair" type="button" data-side="l" data-id="a">give up</button>
@@ -488,8 +488,8 @@
     </section>
 
     <section id="errors">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="setup" id="errorsBack">Back</button><h1 id="errorsTitle">Mistakes</h1></div>
-      <div class="card grow" id="errorsBody"></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="setup" id="errorsBack">Back</button><h1 id="errorsTitle">Mistakes</h1></div>
+      <div class="card grow saas-card" id="errorsBody"></div>
     </section>
 
     <section id="tenses">
@@ -748,30 +748,30 @@
     </section>
 
     <section id="daywork">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days" id="dayworkBack">Back</button><h1 id="dayworkTitle">Classwork</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="days" id="dayworkBack">Back</button><h1 id="dayworkTitle">Classwork</h1></div>
       <p class="sub" id="dayworkSub"></p>
       <div class="day-links day-work" id="dayworkList" data-work-list></div>
     </section>
 
     <section id="daywords">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayWordsBack">Back</button><h1 id="dayWordsTitle">Words</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="dayWordsBack">Back</button><h1 id="dayWordsTitle">Words</h1></div>
       <div class="words" id="dayWordsList"></div>
     </section>
 
     <section id="rules" data-lang="en">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <div class="row" id="ruleLang" style="margin-bottom:8px">
-          <button class="btn chip on" type="button" data-rule-lang="en">English</button>
-          <button class="btn chip" type="button" data-rule-lang="ru">Russian</button>
+          <button class="btn chip on saas-btn" type="button" data-rule-lang="en">English</button>
+          <button class="btn chip saas-btn" type="button" data-rule-lang="ru">Russian</button>
         </div>
         <div id="ruleList"></div>
       </div>
     </section>
 
     <section id="daysetup">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
-      <div class="card">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
+      <div class="card saas-card">
         <p class="hint" id="daySetupNote" style="margin-top:0"></p>
         <p class="label">Answer types, pick more than one</p>
         <p class="hint" id="dayExerciseCount" style="margin-top:0"></p>
@@ -803,24 +803,24 @@
           <button class="btn chip chip-mem" type="button" data-day-mix="mix"><span class="mix-label">Random</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-mix-count aria-label="Cards"></span></button>
         </div>
         <div class="row" style="margin-top:16px">
-          <button class="btn primary" type="button" id="dayStart">Study</button>
-          <button class="btn" type="button" id="dayMistakes">Mistakes</button>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" id="dayStart">Study</button>
+          <button class="btn saas-btn" type="button" id="dayMistakes">Mistakes</button>
         </div>
         <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
       </div>
     </section>
 
     <section id="dayq">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
       <div class="tags"><span id="dayqType">Quiz</span></div>
       <div class="dayq-clock"><span class="timer" id="dayqTimer" hidden></span></div>
       <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqMistakes" hidden></span></div>
-      <div class="card grow" id="dayqView"></div>
+      <div class="card grow saas-card" id="dayqView"></div>
     </section>
 
     <section id="daychoice">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Choice · day 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Choice · day 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">From the flashcard description</p>
         <p class="q">The air has a lot of water in it, so it feels wet.</p>
         <div class="opts">
@@ -834,8 +834,8 @@
     </section>
 
     <section id="dayflip">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">Recall the translation and the transcription</p>
         <div class="flip-scene" id="dayFlipScene" tabindex="0" role="button" aria-label="Flip card">
           <div class="flip-inner">
@@ -843,18 +843,18 @@
             <div class="flip-face flip-back" id="dayFlipBack"></div>
           </div>
         </div>
-        <div class="bar"><button class="btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary" type="button" id="dayFlipNext">Next</button></div>
+        <div class="bar"><button class="btn saas-btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary saas-btn saas-btn-primary" type="button" id="dayFlipNext">Next</button></div>
       </div>
     </section>
 
     <section id="dayjudge">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>True / false · 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>True / false · 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">Line from the Wordwall sort</p>
         <p class="q">You're keen on learn English.</p>
         <div class="row">
-          <button class="btn" type="button" id="judgeYes">True</button>
-          <button class="btn primary" type="button" id="judgeNo">False</button>
+          <button class="btn saas-btn" type="button" id="judgeYes">True</button>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" id="judgeNo">False</button>
         </div>
         <div id="judgeFb"></div>
       </div>
