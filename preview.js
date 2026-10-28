@@ -2881,6 +2881,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "account" && authUser) id = "profile";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
+      const crumbCurrent = document.getElementById('crumbCurrent');
+      if (crumbCurrent) {
+        const titleMap = {
+          home: 'Dashboard', days: 'Lessons & Days', groups: 'Classes & Groups',
+          exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
+          library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
+          speakout: 'Speakout', admin: 'Accounts CRM', archive: 'Archive', bugs: 'System Logs & Bugs',
+          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
+        };
+        crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+      }
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();
@@ -23548,6 +23559,16 @@ async function lmImportPdfDraft(file) {
       input?.addEventListener('input',()=>{
         const query=input.value.trim().toLocaleLowerCase();
         document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
+      });
+      const gqs=document.getElementById('globalQuickSearch');
+      gqs?.addEventListener('input',()=>{
+        if(input){input.value=gqs.value;input.dispatchEvent(new Event('input'));}
+      });
+      document?.addEventListener?.('keydown',e=>{
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+          const target=document.getElementById('globalQuickSearch')||input;
+          if(target&&target.offsetParent!==null){e.preventDefault();target.focus();}
+        }
       });
       const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
       if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();

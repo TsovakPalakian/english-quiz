@@ -144,6 +144,16 @@
         const query=input.value.trim().toLocaleLowerCase();
         document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
       });
+      const gqs=document.getElementById('globalQuickSearch');
+      gqs?.addEventListener('input',()=>{
+        if(input){input.value=gqs.value;input.dispatchEvent(new Event('input'));}
+      });
+      document?.addEventListener?.('keydown',e=>{
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+          const target=document.getElementById('globalQuickSearch')||input;
+          if(target&&target.offsetParent!==null){e.preventDefault();target.focus();}
+        }
+      });
       const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
       if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();
     }

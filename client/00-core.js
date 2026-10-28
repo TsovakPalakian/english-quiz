@@ -154,6 +154,17 @@
       if (id === "account" && authUser) id = "profile";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
+      const crumbCurrent = document.getElementById('crumbCurrent');
+      if (crumbCurrent) {
+        const titleMap = {
+          home: 'Dashboard', days: 'Lessons & Days', groups: 'Classes & Groups',
+          exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
+          library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
+          speakout: 'Speakout', admin: 'Accounts CRM', archive: 'Archive', bugs: 'System Logs & Bugs',
+          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
+        };
+        crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+      }
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();

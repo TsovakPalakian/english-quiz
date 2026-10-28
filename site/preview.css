@@ -3301,9 +3301,138 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .side-search:focus-within { outline: 2px solid var(--acc); outline-offset: 2px; }
 .side-search input:focus-visible { outline: 0; }
 .side nav { padding: 0 4px; }
-.side nav button { min-height: 40px; padding: 8px 12px; font-size: 14px; }
+.nav-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--saas-text-muted, var(--mute));
+  padding: 12px 12px 4px;
+}
+.nav-group-title[data-nav-role="staff"][hidden],
+.nav-group-title[data-developer-only][hidden] {
+  display: none !important;
+}
+.side nav button { min-height: 40px; padding: 8px 12px; font-size: 14px; position: relative; border-radius: var(--saas-radius-md, 6px); }
 .side nav button.is-nav-filtered { display: none !important; }
 .side nav button > i, .tabbar button > i { display: block; width: 18px; height: 18px; flex: 0 0 18px; }
+.side nav button .nav-counter {
+  margin-left: auto;
+  background: var(--saas-border, #e2e8f0);
+  color: var(--saas-text-body, #334155);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--saas-radius-pill, 9999px);
+}
+.side nav button.on .nav-counter {
+  background: var(--saas-brand, var(--acc));
+  color: #ffffff;
+}
+
+/* Lumiscia Sticky Top Header */
+.saas-header {
+  height: 60px;
+  background: var(--saas-card, var(--card));
+  border-bottom: 1px solid var(--saas-border, var(--line));
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  margin: -16px -16px 20px -16px;
+}
+.saas-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.saas-header .breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--saas-text-muted, var(--mute));
+}
+.saas-header .breadcrumbs a {
+  color: var(--saas-text-muted, var(--mute));
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+.saas-header .breadcrumbs a:hover {
+  color: var(--saas-brand, var(--acc));
+}
+.saas-header .breadcrumbs .crumb-sep {
+  color: var(--saas-border, var(--line));
+}
+.saas-header .breadcrumbs .crumb-active {
+  color: var(--saas-text-primary, var(--ink));
+  font-weight: 700;
+}
+.saas-header .header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.saas-header .header-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--saas-input-bg, var(--bg));
+  border: 1px solid var(--saas-border, var(--line));
+  border-radius: var(--saas-radius-md, 6px);
+  padding: 6px 12px;
+  min-width: 220px;
+}
+.saas-header .header-search svg {
+  color: var(--saas-text-muted, var(--mute));
+  flex-shrink: 0;
+}
+.saas-header .header-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: var(--saas-text-primary, var(--ink));
+  width: 100%;
+  min-height: auto;
+  padding: 0;
+}
+.saas-header .header-btn {
+  background: transparent;
+  border: 1px solid var(--saas-border, var(--line));
+  border-radius: var(--saas-radius-md, 6px);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--saas-text-body, var(--ink));
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+.saas-header .header-btn:hover {
+  background: var(--saas-card-muted, var(--acc-s));
+  color: var(--saas-brand, var(--acc));
+}
+.saas-header .header-btn .dot-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--saas-status-danger-dot, #ef4444);
+}
+@media (max-width: 800px) {
+  .saas-header {
+    display: none !important;
+  }
+}
 .shell-progress { margin: 18px 4px 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
 .shell-progress > div:first-child { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
 .shell-progress > div:first-child > span { padding: 3px 8px; border-radius: 3px; background: var(--acc-s); color: var(--acc); font-size: 11px; font-weight: 600; }

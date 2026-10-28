@@ -18,14 +18,17 @@
     <div class="brand-row"><button class="brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button></div>
     <label class="side-search"><i data-lucide="search" aria-hidden="true"></i><input id="shellSearch" type="search" placeholder="Search" aria-label="Search navigation" autocomplete="off" /></label>
     <nav aria-label="Primary">
+      <div class="nav-group-title">Overview</div>
       <button type="button" data-jump="home" data-nav-role="student" class="on"><i data-lucide="house" aria-hidden="true"></i>Home</button>
       <button type="button" data-jump="days" data-nav-role="student" hidden><i data-lucide="calendar-days" aria-hidden="true"></i>Lessons</button>
       <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days,groupdetail,groupteachers,groupstudents" hidden><i data-lucide="users-round" aria-hidden="true"></i>Groups</button>
       <button type="button" data-jump="exams" data-nav-role="student" hidden><i data-lucide="clipboard-check" aria-hidden="true"></i><span data-exam-menu-label>Exam</span></button>
+      <div class="nav-group-title">Curriculum</div>
       <button type="button" data-jump="wordcollections"><i data-lucide="book-open" aria-hidden="true"></i>Words</button>
       <button type="button" data-jump="tenses"><i data-lucide="languages" aria-hidden="true"></i>Grammar</button>
       <button type="button" data-jump="library"><i data-lucide="music" aria-hidden="true"></i>Entertainment</button>
       <button type="button" data-jump="speakout"><i data-lucide="speech" aria-hidden="true"></i>Speakout</button>
+      <div class="nav-group-title">Workspace</div>
       <button type="button" data-msg-open data-chrome="messages"><i data-lucide="messages-square" aria-hidden="true"></i>Messages</button>
       <button type="button" data-jump="admin" data-teacher-only hidden><i data-lucide="users-round" aria-hidden="true"></i>Accounts</button>
       <button type="button" data-jump="archive" data-archive-only data-nav-role="staff" hidden><i data-lucide="archive" aria-hidden="true"></i>Archive</button>
@@ -55,6 +58,33 @@
       <button class="brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
       <button class="btn ghost shell-settings-open" type="button" data-jump="settings" data-user-settings data-shell-settings-open aria-label="Settings" hidden><i data-lucide="settings" aria-hidden="true"></i></button>
     </div>
+
+    <header class="saas-header" id="saasHeader">
+      <div class="header-left">
+        <nav class="breadcrumbs" aria-label="Breadcrumbs">
+          <a href="#home" data-jump="home">Home</a>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-active" id="crumbCurrent">Dashboard</span>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="header-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" placeholder="Quick search (Ctrl+K)" aria-label="Quick search" id="globalQuickSearch" autocomplete="off" />
+        </div>
+        <button class="header-btn" type="button" data-theme-cycle title="Cycle theme" aria-label="Cycle theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20v-20z"/></svg>
+        </button>
+        <button class="header-btn" type="button" title="Notifications" aria-label="Notifications" data-msg-open>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="dot-indicator" id="headerNotifyDot" hidden></span>
+        </button>
+        <button class="saas-btn saas-btn-primary" type="button" id="headerCreateBtn" data-jump="days" style="padding: 7px 14px; font-size: 12.5px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create
+        </button>
+      </div>
+    </header>
 
     <section id="home" class="on">
       <button class="guest-brand brand" type="button" aria-label="Lumiscia" aria-expanded="false" aria-controls="brandMotto"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
