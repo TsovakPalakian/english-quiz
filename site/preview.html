@@ -893,76 +893,293 @@
     </section>
 
     <section id="music">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Song lyrics</h1></div>
-      <p class="sub">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-jump="lyricadd">Add a song</button></div>
-      <input type="search" placeholder="Song, artist or a word" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button>
+            <h1 style="font-size:20px; font-weight:800; margin:0;">Song lyrics</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;" id="lyricCountBadge">Library</span>
+            <span id="lyricCount" hidden></span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>
+        </div>
+        <div class="page-actions" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="lyricadd" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a song
+          </button>
+        </div>
+      </div>
+      <div class="card saas-card" style="padding:14px; margin-bottom:16px;">
+        <input type="search" placeholder="Song, artist or a word" data-card-search autocomplete="off" class="saas-input" style="width:100%; margin-bottom:0;" />
+      </div>
       <div id="lyricList"></div>
     </section>
 
     <section id="lyricadd">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="music">Back</button><h1>Add a song</h1></div>
-      <div class="card saas-card saas-form-grid" id="lyricForm">
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="music">Back</button>
+            <h1 style="font-size:20px; font-weight:800; margin:0;">Add a song</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;">Ingestion</span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Upload audio or video, attach Spotify/YouTube stream, and synchronize line-by-line karaoke timestamps.</p>
+        </div>
+      </div>
+      <div class="card saas-card saas-form-grid" id="lyricForm" style="padding:24px; border:2px dashed var(--saas-primary, #0d9488); background:#fafffd;">
         <p class="label">Song title</p>
-        <input id="lyricTitle" type="text" placeholder="Song title" autocomplete="off" />
+        <input id="lyricTitle" type="text" placeholder="Song title" autocomplete="off" class="saas-input" />
         <p class="label">Artist</p>
-        <input id="lyricArtist" type="text" placeholder="Band or singer" autocomplete="off" />
+        <input id="lyricArtist" type="text" placeholder="Band or singer" autocomplete="off" class="saas-input" />
         <p class="label">Video link</p>
-        <input id="lyricVideo" type="text" placeholder="YouTube or another video link" autocomplete="off" />
+        <input id="lyricVideo" type="text" placeholder="YouTube or another video link" autocomplete="off" class="saas-input" />
         <div id="lyricVideoPreview"></div>
         <p class="label">Music link</p>
-        <input id="lyricMusic" type="text" placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" />
+        <input id="lyricMusic" type="text" placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" class="saas-input" />
         <div id="lyricMusicPreview"></div>
         <p class="label">File</p>
-        <div class="drop" id="lyricDrop">Drop a file here, or <button class="btn" type="button" id="lyricFilePick">choose a file</button><input id="lyricFile" type="file" accept="audio/*,video/*" hidden /></div>
+        <div class="drop" id="lyricDrop">Drop a file here, or <button class="btn saas-btn" type="button" id="lyricFilePick">choose a file</button><input id="lyricFile" type="file" accept="audio/*,video/*" hidden /></div>
         <p class="hint" id="lyricFileName"></p>
         <p class="file-progress" id="lyricFileProgress" hidden><span class="ring" id="lyricFileRing" style="--p:0"><b>0</b></span><span id="lyricFileProgressText"></span></p>
         <div id="lyricFilePreview"></div>
         <p class="label">Lyrics</p>
-        <textarea id="lyricText" placeholder="Paste the lyrics. Line breaks stay as you paste them."></textarea>
-        <div class="row" style="margin-top:8px"><button class="btn primary" type="button" id="lyricGo">Read the words</button></div>
+        <textarea id="lyricText" placeholder="Paste the lyrics. Line breaks stay as you paste them." class="saas-textarea"></textarea>
+        <div class="row" style="margin-top:12px"><button class="btn primary saas-btn saas-btn-primary" type="button" id="lyricGo">Read the words</button></div>
         <p class="hint" id="lyricStatus"></p>
       </div>
     </section>
 
     <section id="song">
-      <div class="meta">
-        <div class="meta-side">
-          <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="music">Back</button>
-          <div class="song-banner"><b id="songBanner">Sample line</b><span id="songBannerArtist"></span></div>
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="music">Back</button>
+            <div class="song-banner" style="display:none;"><b id="songBanner">Sample line</b><span id="songBannerArtist"></span></div>
+            <h1 id="songTitle" style="font-size:20px; font-weight:800; margin:0;">Music &amp; Song Lyrics Karaoke Studio</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;">Karaoke Sync</span>
+            <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">UK/US Audio IPA</span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Synchronized lyrics player, vocabulary discovery from songs, dual UK/US phonetics, and audio ingestion studio.</p>
         </div>
-        <h1 id="songTitle" class="full">Sample line</h1>
-      </div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary saas-btn" type="button" data-song-study>Study</button></div>
-      <div class="card grow saas-card" id="songSample">
-        <p class="sentence">It's <button type="button" data-jump="word">humid</button>, but I <button type="button" data-jump="musicword" data-song="wont">won't</button> <button type="button" data-jump="flip">give up</button> in the <button type="button" data-jump="musicword" data-song="moonlight">moonlight</button>.</p>
-        <p class="hint">This line shows the no-duplicate rule. A real song appears when you add one.</p>
-        <p class="label" style="margin:10px 0 6px">Already in other quizzes</p>
-        <button class="path saas-card" type="button" data-jump="word">
-          <span><b>It's humid</b><br><span class="label">no new card</span></span>
-          <span class="to">Days · 21 Sep · humid</span>
-        </button>
-        <button class="path saas-card" type="button" data-jump="flip">
-          <span><b>give up</b><br><span class="label">no new card</span></span>
-          <span class="to">Home · deck 12 · give up</span>
-        </button>
-        <p class="label" style="margin:10px 0 6px">New cards in this song</p>
-        <div class="words">
-          <button class="wcard saas-card" type="button" data-jump="musicword" data-song="moonlight">
-            <div class="en">moonlight</div>
-            <div class="pos">noun</div>
-            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="moonlight" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="moonlight" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span></div>
-            <div class="label">лунный свет</div>
+        <div class="page-actions" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn saas-btn saas-btn-secondary" type="button" data-jump="lyricadd" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a song
           </button>
-          <button class="wcard saas-card" type="button" data-jump="musicword" data-song="wont">
-            <div class="en">won't</div>
-            <div class="pos">contraction</div>
-            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="won't" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/wəʊnt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="won't" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/woʊnt/</span></span></div>
-            <div class="label">contraction of will not</div>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" data-song-study style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Study Song Words
           </button>
         </div>
       </div>
-      <div class="card grow saas-card" id="songUser" hidden></div>
+
+      <!-- KARAOKE ACTIVE MEDIA PLAYER BAR -->
+      <div class="saas-card saas-music-player-bar" style="padding:16px 20px; margin-bottom:20px; background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color:#fff; border-radius:var(--saas-radius-lg, 12px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 20px rgba(15,23,42,0.15);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <div style="width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #0d9488, #4acdcc); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(13,148,136,0.3);">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px; font-weight:700; color:#fff;" id="songBannerDisplay">Moonlight Melody</span>
+                <span class="badge" style="background:#0d9488; color:#fff; font-size:10px; font-weight:700;">SYNCED</span>
+              </div>
+              <div style="font-size:12px; color:#94a3b8;" id="songBannerArtistDisplay">Lumiscia Acoustic Session · 128 BPM</div>
+            </div>
+          </div>
+
+          <!-- Player Controls -->
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="saas-btn saas-btn-sm" style="background:rgba(255,255,255,0.1); color:#fff; border:none; padding:6px 10px;" title="Previous Line" type="button">&larr; Line</button>
+            <button class="saas-btn" style="background:var(--saas-primary, #0d9488); color:#fff; border:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" title="Play / Pause" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            </button>
+            <button class="saas-btn saas-btn-sm" style="background:rgba(255,255,255,0.1); color:#fff; border:none; padding:6px 10px;" title="Next Line" type="button">Line &rarr;</button>
+            <div style="font-size:12px; font-family:monospace; color:#cbd5e1; margin-left:6px;">00:42 / 03:15</div>
+          </div>
+
+          <!-- Source Badges -->
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge badge-emerald" style="font-size:11px;">R2 Lossless Audio</span>
+            <span class="badge" style="background:rgba(255,255,255,0.12); color:#e2e8f0; font-size:11px;">Spotify Link</span>
+            <span class="badge" style="background:rgba(255,255,255,0.12); color:#e2e8f0; font-size:11px;">YouTube</span>
+          </div>
+        </div>
+
+        <!-- Scrubber Progress Bar -->
+        <div style="width:100%; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; margin-top:12px; position:relative; cursor:pointer;">
+          <div style="width:28%; height:100%; background:var(--saas-primary, #0d9488); border-radius:3px; position:relative;">
+            <span style="position:absolute; right:-5px; top:-4px; width:13px; height:13px; border-radius:50%; background:#fff; box-shadow:0 0 8px rgba(0,0,0,0.4);"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN KARAOKE & LYRICS WORKSPACE (2 COLUMNS) -->
+      <div class="saas-music-workspace" style="display:grid; grid-template-columns: 1.4fr 1fr; gap:24px; align-items:start;">
+        
+        <!-- COLUMN 1: SYNCHRONIZED KARAOKE TIMELINE (#song) -->
+        <div class="saas-music-col-timeline">
+          <div class="card grow saas-card" id="songSample" style="padding:22px;">
+            <div class="karaoke-card-header" style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--saas-border-subtle, #f1f5f9); padding-bottom:12px; margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h2 style="font-size:16px; margin:0; font-weight:700;">Synchronized Lyrics Timeline (#song)</h2>
+                <span class="badge badge-purple" style="font-size:10px;">Tap word to inspect</span>
+              </div>
+              <span style="font-size:11.5px; color:#64748b;">Line 3 of 12</span>
+            </div>
+
+            <div class="karaoke-timeline-box" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">00:15</span>
+                <span>The shadows fall across the quiet street</span>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#64748b; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#64748b;">00:28</span>
+                <span>I hear the distant sound of summer rain</span>
+              </div>
+
+              <!-- CURRENT ACTIVE KARAOKE LINE (GLOWING HIGHLIGHT) -->
+              <div class="karaoke-line-active" style="padding:14px 18px; border-radius:8px; background:linear-gradient(to right, #f0fdfa, #ecfdf5); border:1.5px solid #4acdcc; box-shadow:0 4px 14px rgba(74,205,204,0.15); font-size:16px; font-weight:600; color:#0f172a; display:flex; align-items:center; gap:14px;">
+                <span style="font-family:monospace; font-size:12px; color:#0d9488; font-weight:700;">00:42</span>
+                <p class="sentence" style="margin:0; line-height:1.7;">It's <button type="button" class="saas-btn saas-btn-sm" style="background:#ccfbf1; color:#0f766e; border:1px solid #99f6e4; font-weight:700; padding:2px 8px;" data-jump="word">humid</button>, but I <button type="button" class="saas-btn saas-btn-sm" style="background:#ccfbf1; color:#0f766e; border:1px solid #99f6e4; font-weight:700; padding:2px 8px;" data-jump="musicword" data-song="wont">won't</button> <button type="button" class="saas-btn saas-btn-sm" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:2px 8px;" data-jump="flip">give up</button> in the <button type="button" class="saas-btn saas-btn-sm" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; padding:2px 8px;" data-jump="musicword" data-song="moonlight">moonlight</button>.</p>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">00:58</span>
+                <span>Tomorrow brings a brand new melody</span>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">01:14</span>
+                <span>We keep on walking through the midnight glow</span>
+              </div>
+            </div>
+
+            <!-- Cross-reference Badges -->
+            <div class="karaoke-crossrefs" style="margin-top:16px; padding:12px 16px; background:#f8fafc; border-radius:8px; border:1px solid var(--saas-border-subtle, #f1f5f9);">
+              <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:8px;">No-Duplicate Rule &amp; Quiz Cross-References:</div>
+              <p class="hint" style="margin:0 0 10px 0;">This line shows the no-duplicate rule. A real song appears when you add one.</p>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button class="path saas-card" type="button" data-jump="word" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; text-align:left;">
+                  <span><b>It's humid</b> · <span class="label" style="color:#64748b;">already in quizzes</span></span>
+                  <span class="to badge badge-purple" style="font-size:10px;">Days · 21 Sep · humid</span>
+                </button>
+                <button class="path saas-card" type="button" data-jump="flip" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; text-align:left;">
+                  <span><b>give up</b> · <span class="label" style="color:#64748b;">phrasal verb</span></span>
+                  <span class="to badge badge-purple" style="font-size:10px;">Home · deck 12 · give up</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="label" style="margin:16px 0 8px; font-weight:700;">New cards in this song</p>
+            <div class="words" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+              <button class="wcard saas-card" type="button" data-jump="musicword" data-song="moonlight" style="padding:14px; text-align:left;">
+                <div class="en" style="font-size:16px; font-weight:700; color:var(--saas-text-primary);">moonlight</div>
+                <div class="pos" style="font-size:12px; color:#64748b; margin-bottom:6px;">noun</div>
+                <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="moonlight" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="moonlight" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span></div>
+                <div class="label" style="font-weight:600; color:#0f766e; margin-top:6px;">лунный свет</div>
+              </button>
+              <button class="wcard saas-card" type="button" data-jump="musicword" data-song="wont" style="padding:14px; text-align:left;">
+                <div class="en" style="font-size:16px; font-weight:700; color:var(--saas-text-primary);">won't</div>
+                <div class="pos" style="font-size:12px; color:#64748b; margin-bottom:6px;">contraction</div>
+                <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="won't" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/wəʊnt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="won't" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/woʊnt/</span></span></div>
+                <div class="label" style="font-weight:600; color:#0f766e; margin-top:6px;">contraction of will not</div>
+              </button>
+            </div>
+          </div>
+          <div class="card grow saas-card" id="songUser" hidden style="padding:22px;"></div>
+        </div>
+
+        <!-- COLUMN 2: ACTIVE WORD INSPECTOR & SONG CATALOG (#musicword & #music) -->
+        <div class="saas-music-col-sidebar" style="display:flex; flex-direction:column; gap:16px;">
+          
+          <!-- INSPECTED WORD CARD (#musicword inspector) -->
+          <div class="saas-card" id="inspectedWordCard" style="padding:20px; border-top:3px solid var(--saas-primary, #0d9488);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">Active Word Card (#musicword)</span>
+              <button class="saas-btn saas-btn-sm saas-btn-secondary" type="button" data-jump="musicword" data-song="moonlight">+ Add to Deck</button>
+            </div>
+
+            <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:4px;">
+              <h3 style="font-size:22px; font-weight:800; color:var(--saas-text-primary); margin:0;" id="inspectedWordTitle">moonlight</h3>
+              <span style="font-size:12px; color:#64748b; font-style:italic;" id="inspectedWordPos">noun · B1 Intermediate</span>
+            </div>
+
+            <div style="font-size:14px; font-weight:600; color:#0f766e; margin-bottom:14px;" id="inspectedWordRu">
+              лунный свет
+            </div>
+
+            <!-- Dual UK / US Phonetics Audio -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px;">
+              <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:10px; font-weight:800; color:#0d9488;">UK DIALECT</div>
+                  <div style="font-size:12px; font-family:monospace; color:#0f766e;" id="inspectedUkIpa">/ˈmuːn.laɪt/</div>
+                </div>
+                <button class="saas-btn saas-btn-sm say" style="background:#0d9488; color:#fff; border:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" type="button" role="button" data-say="uk" data-say-text="moonlight" title="Play UK" id="inspectedUkSay">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                </button>
+              </div>
+
+              <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:10px; font-weight:800; color:#0d9488;">US DIALECT</div>
+                  <div style="font-size:12px; font-family:monospace; color:#0f766e;" id="inspectedUsIpa">/ˈmuːn.laɪt/</div>
+                </div>
+                <button class="saas-btn saas-btn-sm say" style="background:#0d9488; color:#fff; border:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" type="button" role="button" data-say="us" data-say-text="moonlight" title="Play US" id="inspectedUsSay">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Example and Usages -->
+            <div style="background:#f8fafc; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:12.5px; border-left:3px solid #cbd5e1;">
+              <div style="color:#334155; font-style:italic; margin-bottom:4px;" id="inspectedWordEx">"We took a long romantic stroll under the soft moonlight."</div>
+              <div style="color:#64748b; font-size:11.5px;" id="inspectedWordExRu">Мы совершили долгую романтическую прогулку под мягким лунным светом.</div>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <button class="saas-btn saas-btn-sm saas-btn-primary" style="flex:1;" type="button" data-jump="flip">Flip This Card (#flip)</button>
+              <button class="saas-btn saas-btn-sm saas-btn-secondary" style="flex:1;" type="button" data-jump="made">Usages (#made)</button>
+            </div>
+          </div>
+
+          <!-- SONG CATALOG LIST (#music side preview) -->
+          <div class="saas-card" style="padding:18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:#64748b; margin:0;">Song Library Catalog</h4>
+              <button class="saas-btn saas-btn-ghost saas-btn-sm" type="button" data-jump="music" style="font-size:11px; padding:2px 6px;">View All &rarr;</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; font-size:12px;">
+                <div>
+                  <strong>Moonlight Melody</strong>
+                  <div style="color:#64748b; font-size:11px;">18 words &middot; B1 Intermediate</div>
+                </div>
+                <span class="badge badge-emerald" style="font-size:10px;">NOW PLAYING</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; cursor:pointer;" data-jump="music">
+                <div>
+                  <strong>Shape of You</strong>
+                  <div style="color:#64748b; font-size:11px;">24 words &middot; A2 Elementary</div>
+                </div>
+                <span class="badge" style="background:#e2e8f0; color:#475569; font-size:10px;">Play</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; cursor:pointer;" data-jump="music">
+                <div>
+                  <strong>Rolling in the Deep</strong>
+                  <div style="color:#64748b; font-size:11px;">21 words &middot; B2 Upper-Int</div>
+                </div>
+                <span class="badge" style="background:#e2e8f0; color:#475569; font-size:10px;">Play</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <section id="lesson07">
@@ -1688,8 +1905,16 @@
     </section>
 
     <section id="musicword">
-      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="song">Back</button><h1 id="musicTitle">Song card</h1></div>
-      <div class="card grow saas-card" id="musicView"></div>
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="song">Back</button>
+            <h1 id="musicTitle" style="font-size:20px; font-weight:800; margin:0;">Song card</h1>
+            <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">Word Inspector</span>
+          </div>
+        </div>
+      </div>
+      <div class="card grow saas-card" id="musicView" style="padding:24px; border-top:3px solid var(--saas-primary, #0d9488);"></div>
     </section>
 
     <section id="pdfview">

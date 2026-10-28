@@ -4443,3 +4443,78 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
   background: var(--saas-card-muted);
 }
 
+/* ==========================================================================
+   Lumiscia SaaS Stage 2: Music & Song Lyrics Karaoke Studio
+   ========================================================================== */
+.saas-music-workspace {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .saas-music-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+.saas-music-player-bar {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  border-radius: var(--saas-radius-lg, 12px);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
+}
+.karaoke-line {
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--saas-subtle, #f8fafc);
+  color: var(--saas-text-muted, #94a3b8);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+.karaoke-line-active {
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: linear-gradient(to right, #f0fdfa, #ecfdf5);
+  border: 1.5px solid #4acdcc;
+  box-shadow: 0 4px 14px rgba(74, 205, 204, 0.15);
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.karaoke-line-active .sentence {
+  margin: 0;
+  line-height: 1.7;
+}
+.karaoke-line-active .sentence button {
+  vertical-align: middle;
+}
+#inspectedWordCard {
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-top: 3px solid var(--saas-primary, #0d9488);
+  border-radius: var(--saas-radius-lg, 12px);
+  padding: 20px;
+  box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0,0,0,0.05));
+}
+#inspectedWordCard .say {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+#inspectedWordCard .say:hover {
+  transform: scale(1.08);
+  background: var(--saas-primary-hover, #0f766e) !important;
+}
+
+

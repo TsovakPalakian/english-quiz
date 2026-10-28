@@ -1556,17 +1556,41 @@
     function renderSong(key) {
       songKey = key;
       const w = songCards[key];
-      document.getElementById("musicTitle").textContent = w.en;
-      document.getElementById("musicView").innerHTML =
-        catalogEditHtml(w) +
-        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
-        ipaHtml(w) +
-        (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
-        '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
-        "<p>" + cardLinks(w.en, w.url) + "</p>" +
-        '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
-        '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
-        cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      const titleEl = document.getElementById("musicTitle");
+      if (titleEl && w) titleEl.textContent = w.en;
+      const viewEl = document.getElementById("musicView");
+      if (viewEl && w) {
+        viewEl.innerHTML =
+          catalogEditHtml(w) +
+          '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
+          ipaHtml(w) +
+          (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
+          '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
+          "<p>" + cardLinks(w.en, w.url) + "</p>" +
+          '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
+          '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
+          cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      }
+      const sideTitle = document.getElementById("inspectedWordTitle");
+      if (sideTitle && w) {
+        sideTitle.textContent = w.en;
+        const sideRu = document.getElementById("inspectedWordRu");
+        if (sideRu) sideRu.textContent = w.ru || "";
+        const sidePos = document.getElementById("inspectedWordPos");
+        if (sidePos) sidePos.textContent = (w.pos || "") + (w.level ? " · " + w.level : "");
+        const sideEx = document.getElementById("inspectedWordEx");
+        if (sideEx) sideEx.textContent = w.ex ? `"${w.ex}"` : "";
+        const sideExRu = document.getElementById("inspectedWordExRu");
+        if (sideExRu) sideExRu.textContent = w.exRu || (w.ru ? "Пример употребления в песне: " + w.ru : "");
+        const ukIpa = document.getElementById("inspectedUkIpa");
+        if (ukIpa) ukIpa.textContent = w.uk || (w.ipa && w.ipa.uk) || w.ipa || "/ˈmuːn.laɪt/";
+        const usIpa = document.getElementById("inspectedUsIpa");
+        if (usIpa) usIpa.textContent = w.us || (w.ipa && w.ipa.us) || w.ipa || "/ˈmuːn.laɪt/";
+        const ukSay = document.getElementById("inspectedUkSay");
+        if (ukSay) ukSay.dataset.sayText = w.en;
+        const usSay = document.getElementById("inspectedUsSay");
+        if (usSay) usSay.dataset.sayText = w.en;
+      }
     }
     function applySongEdits() {
       const map = loadEdits();
