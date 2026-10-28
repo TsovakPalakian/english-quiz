@@ -73,13 +73,17 @@ const fastScripts=sortByWeight(scripts.filter(name=>!browser(name)));
 const browserScripts=sortByWeight(scripts.filter(browser));
 const fast=[...(filters.length?[]:[['vitest',()=>run(process.execPath,[fileURLToPath(new URL('../node_modules/vitest/vitest.mjs',import.meta.url)),'run'])]]),...fastScripts.map(job)];
 const results=[];
+const totalJobs=fast.length+browserScripts.length;
+let completed=0;
 async function pool(jobs,width){
   let next=0;
   await Promise.all(Array.from({length:Math.min(width,jobs.length)},async()=>{
     while(next<jobs.length){const [name,start]=jobs[next++];const result=await start();
       const skipped=[...result.output.matchAll(/(?:^|\n)\s*(?:#\s*|\u2139\s*)?skipped\s+(\d+)/g)].reduce((sum,match)=>sum+Number(match[1]),0);
       results.push({name,...result,skipped});
-      console.log((result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(result.subtests.length?'; '+result.subtests.length+' subtests; longest '+(Math.max(...result.subtests.map(t=>t.milliseconds))/1000).toFixed(2)+'s':'')+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));
+      completed++;
+      const prefix='['+String(completed).padStart(String(totalJobs).length,' ')+'/'+totalJobs+'] ';
+      console.log(prefix+(result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(result.subtests.length?'; '+result.subtests.length+' subtests; longest '+(Math.max(...result.subtests.map(t=>t.milliseconds))/1000).toFixed(2)+'s':'')+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));
       for(const step of result.subtests.filter(step=>step.milliseconds>5000))console.log('  SLOW '+step.name+' ('+(step.milliseconds/1000).toFixed(2)+'s)');}
   }));
 }

@@ -3194,9 +3194,9 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
 .assessment-question-score { font-weight:600; }
 .assessment-feedback { border-left:3px solid currentColor; padding:8px 16px; margin:12px 0; overflow-wrap:anywhere; }
 .assessment-feedback span { margin-left:12px; }
-.assessment-history { max-width:min(640px,90vw); max-height:80vh; overflow:auto; padding:24px; color:var(--ink); background:var(--card); border:1px solid var(--line); border-radius:8px; }
+.assessment-history { max-width:min(640px,90vw); max-height:80vh; overflow:auto; padding:24px; color:var(--saas-ink, var(--ink)); background:var(--saas-card-bg, var(--card)); border:1px solid var(--saas-border-subtle, var(--line)); border-radius:var(--saas-radius-lg, 8px); box-shadow:var(--saas-shadow-modal, 0 16px 36px rgba(15,23,42,0.16)); }
 .assessment-history form { text-align:right; }
-.assessment-history::backdrop { background:rgba(0,0,0,.4); }
+.assessment-history::backdrop { background:rgba(15,23,42,0.45); backdrop-filter:blur(2px); }
 
 /* Shared dashboard surfaces; chat keeps its independent layout and controls. */
 .wrap > section:not(#messages) { letter-spacing: 0; }

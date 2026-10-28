@@ -10,7 +10,7 @@
 | Метрика | Точное значение в кодовой базе |
 | :--- | :--- |
 | Всего проинвентаризировано исходных файлов | **367 файлов** |
-| Объявлений констант (`const`) | **10663 объявлений** |
+| Объявлений констант (`const`) | **10665 объявлений** |
 | Объявлений массивов (`= [...]`) | **596 массивов** |
 | Обработчиков событий (`addEventListener`, `on*`) | **565 обработчиков** |
 | Функций и методов | **3680 функций** |
@@ -1018,7 +1018,7 @@
 | 257 | `[ops/build-chat-icons.mjs:42](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/build-chat-icons.mjs#L42)` | 42 | `missing` |
 | 258 | `[ops/check-all.mjs:74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L74)` | 74 | `fast` |
 | 259 | `[ops/check-all.mjs:75](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L75)` | 75 | `results` |
-| 260 | `[ops/check-all.mjs:80](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L80)` | 80 | `skipped` |
+| 260 | `[ops/check-all.mjs:82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L82)` | 82 | `skipped` |
 | 261 | `[ops/check-environment.mjs:29](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-environment.mjs#L29)` | 29 | `roots` |
 | 262 | `[ops/check-learning-deployed-catalogs.mjs:12](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-learning-deployed-catalogs.mjs#L12)` | 12 | `results` |
 | 263 | `[ops/ci-build-inputs.py:67](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/ci-build-inputs.py#L67)` | 67 | `files` |
@@ -1356,7 +1356,7 @@
 | 595 | `[src/worker.js:4522](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L4522)` | 4522 | `bases` |
 | 596 | `[src/worker.js:4724](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/worker.js#L4724)` | 4724 | `lines` |
 
-## 10. Полный реестр всех 10663 объявлений констант кодовой базы
+## 10. Полный реестр всех 10665 объявлений констант кодовой базы
 
 <details><summary><b>Файл <code>client/00-core.js</code> (132 констант)</b></summary>
 
@@ -7086,7 +7086,7 @@
 
 </details>
 
-<details><summary><b>Файл <code>ops/check-all.mjs</code> (24 констант)</b></summary>
+<details><summary><b>Файл <code>ops/check-all.mjs</code> (26 констант)</b></summary>
 
 | № | Строка | Имя константы | Значение |
 | :--- | :--- | :--- | :--- |
@@ -7112,8 +7112,10 @@
 | 20 | [строка 73](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L73) | `browserScripts` | `sortByWeight(scripts.filter(browser))` |
 | 21 | [строка 74](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L74) | `fast` | `[...(filters.length?[]:[['vitest',()=>run(process.execPath,[fileURLToPath(new URL('../node_modules/vitest/vitest.mjs',import.meta.url)),'run'])]]),...fastScripts.map(job)]` |
 | 22 | [строка 75](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L75) | `results` | `[]` |
-| 23 | [строка 80](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L80) | `skipped` | `[...result.output.matchAll(/(?:^\|\n)\s*(?:#\s*\|\u2139\s*)?skipped\s+(\d+)/g)].reduce((sum,match)=>sum+Number(match[1]),0)` |
-| 24 | [строка 88](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L88) | `failed` | `results.filter(result=>result.code!==0)` |
+| 23 | [строка 76](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L76) | `totalJobs` | `fast.length+browserScripts.length` |
+| 24 | [строка 82](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L82) | `skipped` | `[...result.output.matchAll(/(?:^\|\n)\s*(?:#\s*\|\u2139\s*)?skipped\s+(\d+)/g)].reduce((sum,match)=>sum+Number(match[1]),0)` |
+| 25 | [строка 85](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L85) | `prefix` | `'['+String(completed).padStart(String(totalJobs).length,' ')+'/'+totalJobs+'] '` |
+| 26 | [строка 92](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L92) | `failed` | `results.filter(result=>result.code!==0)` |
 
 </details>
 
@@ -17049,7 +17051,7 @@
 | № | Строка | Имя функции / метода | Параметры |
 | :--- | :--- | :--- | :--- |
 | 1 | [строка 27](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L27) | `run` | `command,args` |
-| 2 | [строка 76](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L76) | `pool` | `jobs,width` |
+| 2 | [строка 78](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/ops/check-all.mjs#L78) | `pool` | `jobs,width` |
 
 </details>
 
@@ -21522,12 +21524,12 @@
 | 70 | `<input>` | `` | `saas-input` | [preview.html:201](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L201) | `BOUND` | `{'type': 'text', 'placeholder': 'give up or сдаваться', 'autocomplete': 'off', '` |
 | 71 | `<button>` | `` | `btn primary saas-btn saas-btn-primary` | [preview.html:202](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L202) | `BOUND` | `{'class': 'btn primary saas-btn saas-btn-primary', 'type': 'button', 'data-add-g` |
 | 72 | `<input>` | `` | `saas-input` | [preview.html:207](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L207) | `BOUND` | `{'type': 'search', 'placeholder': 'Search cards', 'data-card-search': None, 'aut` |
-| 73 | `<button>` | `` | `btn ghost` | [preview.html:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L213) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 74 | `<button>` | `` | `btn primary` | [preview.html:216](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L216) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-deck-study': 'idioms'}` |
+| 73 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:213](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L213) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 74 | `<button>` | `` | `btn primary saas-btn saas-btn-primary` | [preview.html:216](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L216) | `BOUND` | `{'class': 'btn primary saas-btn saas-btn-primary', 'type': 'button', 'data-deck-` |
 | 75 | `<button>` | `` | `add-link` | [preview.html:218](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L218) | `BOUND` | `{'class': 'add-link', 'type': 'button', 'data-add-open': None, 'aria-label': 'Ad` |
-| 76 | `<input>` | `` | `` | [preview.html:220](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L220) | `BOUND` | `{'type': 'text', 'placeholder': 'break the ice or начать разговор', 'autocomplet` |
-| 77 | `<button>` | `` | `btn primary` | [preview.html:221](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L221) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'data-add-go': None}` |
-| 78 | `<input>` | `` | `` | [preview.html:226](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L226) | `BOUND` | `{'type': 'search', 'placeholder': 'Search cards', 'data-card-search': None, 'aut` |
+| 76 | `<input>` | `` | `saas-input` | [preview.html:220](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L220) | `BOUND` | `{'type': 'text', 'placeholder': 'break the ice or начать разговор', 'autocomplet` |
+| 77 | `<button>` | `` | `btn primary saas-btn saas-btn-primary` | [preview.html:221](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L221) | `BOUND` | `{'class': 'btn primary saas-btn saas-btn-primary', 'type': 'button', 'data-add-g` |
+| 78 | `<input>` | `` | `saas-input` | [preview.html:226](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L226) | `BOUND` | `{'type': 'search', 'placeholder': 'Search cards', 'data-card-search': None, 'aut` |
 | 79 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:232](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L232) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
 | 80 | `<button>` | `` | `path` | [preview.html:235](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L235) | `BOUND` | `{'class': 'path', 'type': 'button', 'data-topic': 'a'}` |
 | 81 | `<button>` | `` | `path` | [preview.html:236](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L236) | `BOUND` | `{'class': 'path', 'type': 'button', 'data-topic': 'an'}` |
@@ -21631,9 +21633,9 @@
 | 179 | `<button>` | `` | `file-card` | [preview.html:541](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L541) | `BOUND` | `{'class': 'file-card', 'type': 'button', 'data-detail-people': 'students'}` |
 | 180 | `<button>` | `` | `file-card` | [preview.html:544](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L544) | `BOUND` | `{'class': 'file-card', 'type': 'button', 'data-detail-lessons': None}` |
 | 181 | `<button>` | `` | `file-card` | [preview.html:545](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L545) | `BOUND` | `{'class': 'file-card', 'type': 'button', 'data-detail-exams': None}` |
-| 182 | `<button>` | `` | `btn ghost` | [preview.html:558](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L558) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 183 | `<button>` | `` | `btn ghost` | [preview.html:562](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L562) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
-| 184 | `<input>` | `groupStudentSearch` | `` | [preview.html:563](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L563) | `BOUND` | `{'type': 'search', 'id': 'groupStudentSearch', 'placeholder': 'Name, login or em` |
+| 182 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:558](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L558) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 183 | `<button>` | `` | `btn ghost saas-btn` | [preview.html:562](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L562) | `BOUND` | `{'class': 'btn ghost saas-btn', 'type': 'button', 'data-nav-back': None, 'data-f` |
+| 184 | `<input>` | `groupStudentSearch` | `saas-input` | [preview.html:563](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L563) | `BOUND` | `{'type': 'search', 'id': 'groupStudentSearch', 'placeholder': 'Name, login or em` |
 | 185 | `<button>` | `` | `btn ghost` | [preview.html:567](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L567) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
 | 186 | `<button>` | `lmNew` | `btn primary` | [preview.html:570](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L570) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'id': 'lmNew'}` |
 | 187 | `<button>` | `` | `btn ghost` | [preview.html:576](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L576) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
@@ -21644,10 +21646,10 @@
 | 192 | `<button>` | `examBlockNew` | `btn primary` | [preview.html:589](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L589) | `BOUND` | `{'class': 'btn primary', 'type': 'button', 'id': 'examBlockNew'}` |
 | 193 | `<button>` | `` | `btn ghost` | [preview.html:597](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L597) | `BOUND` | `{'class': 'btn ghost', 'type': 'button', 'data-nav-back': None, 'data-fallback':` |
 | 194 | `<button>` | `examSave` | `lm-btn` | [preview.html:600](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L600) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'examSave', 'hidden': None}` |
-| 195 | `<button>` | `assessmentPublish` | `lm-btn` | [preview.html:601](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L601) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'assessmentPublish', 'hidden': None}` |
-| 196 | `<button>` | `assessmentReopen` | `lm-btn` | [preview.html:602](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L602) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'assessmentReopen', 'hidden': None}` |
-| 197 | `<button>` | `assessmentAmend` | `lm-btn` | [preview.html:603](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L603) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'assessmentAmend', 'hidden': None}` |
-| 198 | `<button>` | `assessmentHistory` | `lm-btn` | [preview.html:604](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L604) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'assessmentHistory', 'hidden': None}` |
+| 195 | `<button>` | `assessmentPublish` | `lm-btn saas-btn saas-btn-primary` | [preview.html:601](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L601) | `BOUND` | `{'class': 'lm-btn saas-btn saas-btn-primary', 'type': 'button', 'id': 'assessmen` |
+| 196 | `<button>` | `assessmentReopen` | `lm-btn saas-btn` | [preview.html:602](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L602) | `BOUND` | `{'class': 'lm-btn saas-btn', 'type': 'button', 'id': 'assessmentReopen', 'hidden` |
+| 197 | `<button>` | `assessmentAmend` | `lm-btn saas-btn` | [preview.html:603](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L603) | `BOUND` | `{'class': 'lm-btn saas-btn', 'type': 'button', 'id': 'assessmentAmend', 'hidden'` |
+| 198 | `<button>` | `assessmentHistory` | `lm-btn saas-btn` | [preview.html:604](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L604) | `BOUND` | `{'class': 'lm-btn saas-btn', 'type': 'button', 'id': 'assessmentHistory', 'hidde` |
 | 199 | `<button>` | `lmSave` | `lm-btn` | [preview.html:605](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L605) | `BOUND` | `{'class': 'lm-btn', 'type': 'button', 'id': 'lmSave'}` |
 | 200 | `<button>` | `lmPublish` | `lm-btn lm-btn-primary` | [preview.html:606](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L606) | `BOUND` | `{'class': 'lm-btn lm-btn-primary', 'type': 'button', 'id': 'lmPublish'}` |
 | 201 | `<button>` | `lmCopy` | `lm-btn icon content-copy-icon` | [preview.html:607](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L607) | `BOUND` | `{'class': 'lm-btn icon content-copy-icon', 'type': 'button', 'id': 'lmCopy', 'ar` |

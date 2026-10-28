@@ -1276,8 +1276,8 @@
         try {
           const result = await accountFetch('/api/assessment?history=1&kind=' + (doc.examOwned ? 'exam-block' : 'lesson') + '&id=' + (doc.examOwned ? doc.blockId : doc.id) + '&student=' + encodeURIComponent(doc.reviewStudentId||viewAccount?.id||examWorkAccount()));
           const rows = result.history || [];
-          const dialog = document.createElement('dialog'); dialog.className = 'assessment-history';
-          dialog.innerHTML = '<form method="dialog"><button class="lm-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');
+          const dialog = document.createElement('dialog'); dialog.className = 'assessment-history saas-card';
+          dialog.innerHTML = '<form method="dialog"><button class="lm-btn saas-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');
           document.body.append(dialog); dialog.addEventListener('close',() => dialog.remove()); dialog.showModal();
         } catch(error) { assessmentStatus(error.message); }
       });
