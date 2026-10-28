@@ -1630,7 +1630,7 @@
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" data-lm-open="' + material.id + '"><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about saas-badge ' + (material.published ? 'saas-badge-active' : 'saas-badge-muted') + '">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {

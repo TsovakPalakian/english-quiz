@@ -2979,15 +2979,18 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
 #library .file-card .label { grid-column: 2; font-size: 12px; overflow-wrap: anywhere; }
 #library .file-card .mini { grid-column: 2; display: block; width: 100%; height: 5px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 6px; }
 #library .mini > i { display: block; height: 100%; background: var(--warm); }
-#lmDayList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+#lmDayList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
 #lmDayList > :not(.day-row) { grid-column: 1 / -1; }
-#lmDayList .day-row { margin: 0; min-width: 0; gap: 6px; }
-#lmDayList .day { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 16px; min-height: 168px; min-width: 0; }
-#lmDayList .date { width: auto; height: auto; flex-direction: row; gap: 4px; border-radius: 3px; padding: 4px 8px; }
-#lmDayList .date b, #lmDayList .date small { font-size: 12px; margin: 0; }
-#lmDayList .day > b { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+#lmDayList .day-row { margin: 0; min-width: 0; gap: 8px; }
+#lmDayList .day { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 18px 20px; min-height: 168px; min-width: 0; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+#lmDayList .day:hover { border-color: var(--saas-brand); transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
+#lmDayList .date { width: auto; height: auto; flex-direction: row; gap: 6px; border-radius: var(--saas-radius-pill); padding: 4px 10px; background: var(--saas-brand-subtle); color: var(--saas-brand); border: 1px solid var(--saas-brand-border); }
+#lmDayList .date b, #lmDayList .date small { font-size: 12px; margin: 0; font-weight: 600; }
+#lmDayList .day > b { font-size: 17px; font-weight: 600; color: var(--saas-text-primary); overflow-wrap: anywhere; }
 #lmDayList .day .about, #lmDayList .lm-course { font-size: 13px; overflow-wrap: anywhere; }
-#lmDayList .day-tools { border-radius: 5px; }
+#lmDayList .day .about { border-radius: var(--saas-radius-pill); padding: 3px 9px; }
+#lmDayList .day-tools { border-radius: var(--saas-radius-lg); border: 1px solid var(--saas-border); background: var(--saas-card); box-shadow: var(--saas-shadow-xs); }
+#lmDayList .day-tools button:hover { background: var(--saas-brand-subtle); }
 .tabbar { background: var(--card); }
 @media (max-width: 1100px) and (min-width: 761px) {
   .side { width: 210px; flex-basis: 210px; padding-inline: 10px; }
