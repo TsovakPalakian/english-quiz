@@ -3118,7 +3118,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "Eight levels. Each level has 8 units and 32 lessons.";
         list.className = "decks";
         list.innerHTML = book.map((row, i) =>
-          '<button class="file-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
+          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num saas-badge saas-badge-muted">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
         ).join("");
         return;
       }
@@ -3129,7 +3129,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "8 units. Each unit has lessons A–D.";
         list.className = "card grow";
         list.innerHTML = row.units.map((item, i) =>
-          '<button class="tense" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form">A–D</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form saas-badge saas-badge-info">A–D</span></button>'
         ).join("");
         return;
       }
@@ -3140,7 +3140,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = row.level + " · 4 lessons";
         list.className = "card grow";
         list.innerHTML = item.lessons.map((lesson, i) =>
-          '<button class="tense" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form">' + esc(lesson.letter) + '</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form saas-badge saas-badge-info">' + esc(lesson.letter) + '</span></button>'
         ).join("");
         return;
       }
@@ -3150,7 +3150,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       sub.textContent = row.level + " · " + (speakUnit + 1) + " " + item.title;
       list.className = "card grow";
       list.innerHTML = item.lessons.map((entry, i) =>
-        '<button class="tense' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form">' + esc(entry.letter) + '</span></button>'
+        '<button class="tense saas-card' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form saas-badge saas-badge-info">' + esc(entry.letter) + '</span></button>'
       ).join("");
     }
     function rememberPlace() {
@@ -18695,7 +18695,7 @@ const STUDIO_CONSTELLATIONS = [{
         const children = (expr.children || []).map((child) => esc(child.canonicalForm || child.exactText)).join(", ");
         const times = expr.occurrences && expr.occurrences.length > 1 ? expr.occurrences.length : 0;
         const saved = expressionSaved(expr);
-        return "<article class=\"card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
+        return "<article class=\"card saas-card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
           + "<div class=\"expression-fold\"><b>" + esc(expr.exactText || "") + "</b>"
           + expressionCardButton(expr, index) + "</div>"
           + "<div class=\"expression-more\">"
@@ -18706,7 +18706,7 @@ const STUDIO_CONSTELLATIONS = [{
           + "<p class=\"hint\">Context: " + esc(expr.context || "") + "</p>"
           + "<p class=\"hint\">Confidence " + pct(expr.confidence) + " · Usefulness " + pct(expr.usefulnessScore) + "</p>"
           + (children ? "<p class=\"hint\">Related: " + children + "</p>" : "")
-          + "<div class=\"row\"><a class=\"btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
+          + "<div class=\"row\"><a class=\"btn saas-btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
           + "</div></article>";
       }).join("");
     }
@@ -18751,8 +18751,8 @@ const STUDIO_CONSTELLATIONS = [{
       const place = expressionPlace(expr);
       const saved = findExpressionCard(expr);
       const deck = expressionDeckName(place, !!(saved && saved.fromText));
-      if (saved) return "<button class=\"btn ok\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
-      return "<button class=\"btn primary\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
+      if (saved) return "<button class=\"btn ok saas-btn\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
+      return "<button class=\"btn primary saas-btn\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
     }
     function markExpressionButton(button, place, fromText) {
       if (!button) return;

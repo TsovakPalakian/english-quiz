@@ -391,7 +391,7 @@
         sub.textContent = "Eight levels. Each level has 8 units and 32 lessons.";
         list.className = "decks";
         list.innerHTML = book.map((row, i) =>
-          '<button class="file-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
+          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num saas-badge saas-badge-muted">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
         ).join("");
         return;
       }
@@ -402,7 +402,7 @@
         sub.textContent = "8 units. Each unit has lessons A–D.";
         list.className = "card grow";
         list.innerHTML = row.units.map((item, i) =>
-          '<button class="tense" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form">A–D</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form saas-badge saas-badge-info">A–D</span></button>'
         ).join("");
         return;
       }
@@ -413,7 +413,7 @@
         sub.textContent = row.level + " · 4 lessons";
         list.className = "card grow";
         list.innerHTML = item.lessons.map((lesson, i) =>
-          '<button class="tense" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form">' + esc(lesson.letter) + '</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form saas-badge saas-badge-info">' + esc(lesson.letter) + '</span></button>'
         ).join("");
         return;
       }
@@ -423,7 +423,7 @@
       sub.textContent = row.level + " · " + (speakUnit + 1) + " " + item.title;
       list.className = "card grow";
       list.innerHTML = item.lessons.map((entry, i) =>
-        '<button class="tense' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form">' + esc(entry.letter) + '</span></button>'
+        '<button class="tense saas-card' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form saas-badge saas-badge-info">' + esc(entry.letter) + '</span></button>'
       ).join("");
     }
     function rememberPlace() {

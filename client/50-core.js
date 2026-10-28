@@ -204,7 +204,7 @@
         const children = (expr.children || []).map((child) => esc(child.canonicalForm || child.exactText)).join(", ");
         const times = expr.occurrences && expr.occurrences.length > 1 ? expr.occurrences.length : 0;
         const saved = expressionSaved(expr);
-        return "<article class=\"card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
+        return "<article class=\"card saas-card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
           + "<div class=\"expression-fold\"><b>" + esc(expr.exactText || "") + "</b>"
           + expressionCardButton(expr, index) + "</div>"
           + "<div class=\"expression-more\">"
@@ -215,7 +215,7 @@
           + "<p class=\"hint\">Context: " + esc(expr.context || "") + "</p>"
           + "<p class=\"hint\">Confidence " + pct(expr.confidence) + " · Usefulness " + pct(expr.usefulnessScore) + "</p>"
           + (children ? "<p class=\"hint\">Related: " + children + "</p>" : "")
-          + "<div class=\"row\"><a class=\"btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
+          + "<div class=\"row\"><a class=\"btn saas-btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
           + "</div></article>";
       }).join("");
     }
@@ -260,8 +260,8 @@
       const place = expressionPlace(expr);
       const saved = findExpressionCard(expr);
       const deck = expressionDeckName(place, !!(saved && saved.fromText));
-      if (saved) return "<button class=\"btn ok\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
-      return "<button class=\"btn primary\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
+      if (saved) return "<button class=\"btn ok saas-btn\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
+      return "<button class=\"btn primary saas-btn\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
     }
     function markExpressionButton(button, place, fromText) {
       if (!button) return;

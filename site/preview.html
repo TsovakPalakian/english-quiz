@@ -161,14 +161,14 @@
 
     <section id="textedit">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textEditTitle">Add a text</h1></div>
-      <div class="card">
+      <div class="card saas-card saas-form-grid">
         <p class="label">Title</p>
         <input id="textTitle" type="text" placeholder="My first article" autocomplete="off" />
         <p class="label">Text</p>
         <textarea id="textBody" placeholder="Paste an article, a dialogue, or any English text. Line breaks stay as you paste them."></textarea>
         <div class="row" style="margin-top:8px">
-          <button class="btn" type="button" id="textSave">Save</button>
-          <button class="btn primary" type="button" id="textSaveAnalyze">Save &amp; Analyze</button>
+          <button class="btn saas-btn" type="button" id="textSave">Save</button>
+          <button class="btn primary saas-btn" type="button" id="textSaveAnalyze">Save &amp; Analyze</button>
         </div>
         <p class="hint" id="textStatus"></p>
       </div>
@@ -177,8 +177,8 @@
     <section id="textread">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textReadTitle">Text</h1></div>
       <div id="textReadBody" class="text-read"></div>
-      <button class="btn" type="button" id="textReadMore" hidden>Show the rest</button>
-      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" id="textAnalyze">Analyze</button><button class="btn" type="button" id="textEdit">Edit</button></div>
+      <button class="btn saas-btn" type="button" id="textReadMore" hidden>Show the rest</button>
+      <div class="row" style="margin-bottom:10px"><button class="btn saas-btn" type="button" id="textAnalyze">Analyze</button><button class="btn saas-btn" type="button" id="textEdit">Edit</button></div>
       <p class="hint" id="textReadStatus"></p>
       <div id="textExpressions"></div>
     </section>

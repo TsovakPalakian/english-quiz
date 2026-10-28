@@ -1570,7 +1570,7 @@ function stagePaintSpeakLevels(){
     const count=stageSpeakCount(i);
     const num=count.lessons?String(count.lessons):'';
     const label=count.units?count.units+(count.units===1?' unit':' units'):'Open';
-    return '<button class="file-card" type="button" data-speak-level="'+i+'"><b>'+esc(row[0])+'</b><span class="num">'+num+'</span><span class="label">'+label+'</span></button>';
+    return '<button class="file-card saas-card" type="button" data-speak-level="'+i+'"><b>'+esc(row[0])+'</b><span class="num saas-badge saas-badge-muted">'+num+'</span><span class="label">'+label+'</span></button>';
   }).join('');
 }
 function stageSpeakIncomplete(){return stageLevels().some((_,index)=>!(window.SPEAKOUT&&window.SPEAKOUT[index]&&window.SPEAKOUT[index].level));}
