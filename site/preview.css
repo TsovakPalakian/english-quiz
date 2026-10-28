@@ -2345,9 +2345,33 @@ button:disabled { opacity: .45; }
 .pair { text-align: left; }
 .opt.pick, .pair.pick { border-color: var(--acc); background: var(--acc-s); }
 .sentence { font-size: 20px; font-weight: 700; line-height: 1.6; }
-.sentence button { border: 0; background: transparent; padding: 4px 6px; font-weight: 800; color: var(--acc); text-decoration: underline; text-underline-offset: 3px; border-radius: 8px; }
-.sentence button.ok { color: var(--ok); }
-.sentence button.bad { color: var(--bad); }
+.sentence button {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 8px;
+  font-weight: 800;
+  color: var(--saas-brand, var(--acc));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: var(--saas-radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sentence button:hover {
+  background: var(--saas-surface-subtle, rgba(0, 0, 0, 0.05));
+}
+.sentence button.ok {
+  background: var(--saas-status-active-bg, var(--ok-s));
+  color: var(--saas-status-active-text, var(--ok));
+  border-color: var(--saas-status-active-dot, var(--ok));
+  text-decoration: none;
+}
+.sentence button.bad {
+  background: var(--saas-status-danger-bg, var(--bad-s));
+  color: var(--saas-status-danger-text, var(--bad));
+  border-color: var(--saas-status-danger-dot, var(--bad));
+  text-decoration: none;
+}
 .score { font-size: 42px; font-weight: 800; letter-spacing: -0.04em; margin: 8px 0; color: var(--bad); }
 .miss { padding: 8px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
 .miss b { display: block; }
