@@ -9,7 +9,7 @@ export const grammarReferences = [
   ['The Algebra of Language · Introduction to Syntax','https://scholar.harvard.edu/files/adam/files/the_algebra_of_language_introduction_to_syntax_v2.pdf']
 ];
 export const grammarGroupNames = {classes:'Части речи',functions:'Члены предложения',morphology:'Морфологические категории',units:'Синтаксические единицы',semantics:'Семантические роли',discourse:'Организация высказывания',functional:'Функциональные категории'};
-export const grammarUi={meaning:'Meaning / Значение',structure:'Structure and use / Структура и употребление',distinctions:'Distinctions and common mistakes / Различия и типичные ошибки',examples:'Examples / Примеры',vocabulary:'Grammar vocabulary / Термины для изучения',references:'References / Источники'};
+export const grammarUi={meaning:'Meaning',structure:'Structure and use',distinctions:'Distinctions and common mistakes',examples:'Examples',vocabulary:'Grammar vocabulary',references:'References'};
 const note = (ru,en,definition,pattern,patternRu,contrast,contrastRu,examples) => ({ru,en,definition,pattern,patternRu,contrast,contrastRu,examples:examples.split('|').map(line=>line.split('~'))});
 export const grammarDetails = {
   Noun:note('Существительное','A noun identifies an entity, substance, quality or idea. Its grammatical behaviour matters more than whether it names a physical thing.','Существительное обозначает участника, вещество, качество или понятие. Его класс определяется и грамматическим поведением, а не только значением.',

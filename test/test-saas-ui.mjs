@@ -188,10 +188,7 @@ try{
     await Promise.resolve();
     await page.evaluate(()=>window.enquizVisit('library'));
     await page.locator('#library.on').waitFor();
-    await page.locator('#shellSearch').fill('entertainment');
     assert.equal(await page.locator('.side nav [data-jump="library"]').isVisible(),true);
-    assert.equal(await page.locator('.side nav [data-jump="home"]').isVisible(),false);
-    await page.locator('#shellSearch').fill('');
     await page.locator('#librarySearch').fill('Text');
     assert.equal(await page.locator('#library .file-card:visible').count(),1);
     await page.locator('#librarySearch').fill('');

@@ -318,7 +318,7 @@
   function lessonButton(block){
     const cardId=block.stageDefinition?.cardId||block.stageId;
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!valid(cardId)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
-    return '<button class="btn" type="button" data-workbench-lesson="'+esc(block.id)+'">Learning kit</button>';
+    return '<button class="lm-icon lm-word-more" type="button" data-workbench-lesson="'+esc(block.id)+'" aria-label="More" title="Actions">⋮</button>';
   }
   function lessonSpeechButton(){
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';

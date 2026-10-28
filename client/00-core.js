@@ -133,7 +133,16 @@
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) {
-        stopPageMedia(previous);
+        const songFlow = ['musicword', 'word', 'made', 'verbs', 'flip'];
+        const isSongNav = (previous.id === 'song' && songFlow.includes(id)) ||
+                          (songFlow.includes(previous.id) && (id === 'song' || songFlow.includes(id)));
+        if (!isSongNav) {
+          stopPageMedia(previous);
+          if (previous.id !== 'song') {
+            const songSec = document.getElementById('song');
+            if (songSec) stopPageMedia(songSec);
+          }
+        }
         if (previous.id === 'settings') {
           document.querySelector('#settingsHost dialog.user-settings')?.close();
         }
@@ -160,7 +169,7 @@
           home: 'Dashboard', days: 'Lessons & Days', groups: 'Classes & Groups',
           exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
           library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
-          speakout: 'Speakout', admin: 'Accounts CRM', archive: 'Archive', bugs: 'System Logs & Bugs',
+          speakout: 'Speakout', admin: 'Accounts', archive: 'Archive', bugs: 'System Logs & Bugs',
           settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
         };
         crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
