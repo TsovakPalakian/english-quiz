@@ -45,7 +45,7 @@
     function groupPeopleHTML(users) {
       return users.length?users.map((user,index)=>{
         const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
-        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b></'+tag+'>';
+        return '<'+tag+' class="group-person saas-card" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span class="saas-badge saas-badge-muted" style="margin-right:8px;">'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b>'+(inspect?'<span class="saas-badge saas-badge-info" style="margin-left:auto;">Inspect ↗</span>':'')+'</'+tag+'>';
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
