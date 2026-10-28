@@ -3063,38 +3063,39 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 #homeLearnedCount > span { font-size: 15px; font-weight: 500; color: var(--mute); }
 .home-study { display: flex; flex-wrap: wrap; gap: 8px; }
 .home-study .btn, .home-group-body > .btn { min-height: 38px; font-size: 13px; }
-#homeDemo .stat-tile { gap: 8px; min-height: 124px; padding: 16px; background: color-mix(in srgb, var(--card) 94%, var(--bg)); }
+#homeDemo .stat-tile { gap: 8px; min-height: 124px; padding: 18px 20px; background: var(--saas-card); border: 1px solid var(--line); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+#homeDemo .stat-tile:hover { border-color: var(--saas-brand); transform: translateY(-2px); box-shadow: var(--saas-shadow-md); }
 #homeDemo .stat-tile > b { font-size: 24px; }
 #homeDemo .stat-tile > span, #homeDemo .stat-tile > small { display: block; font-size: 12px; color: var(--mute); }
 #homeDemo .stat-tile > small { font-weight: 500; overflow-wrap: anywhere; }
 #homeNextLessonLabel { color: var(--ok); font-size: 18px !important; }
 .home-dashboard { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 14px; margin-top: 18px; }
-.home-dashboard > div { min-width: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--card); overflow: hidden; }
-.home-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.home-dashboard > div { min-width: 0; border: 1px solid var(--line); border-radius: var(--saas-radius-lg); background: var(--saas-card); box-shadow: var(--saas-shadow-card); overflow: hidden; }
+.home-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--saas-border); }
 .home-panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .home-text-link { background: none; border: 0; padding: 4px 0; color: var(--acc); font-size: 13px; font-weight: 600; }
-.home-recent-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; }
+.home-recent-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 12px 18px; border: 0; border-bottom: 1px solid var(--saas-border); background: transparent; text-align: left; transition: background-color 0.15s ease; }
 .home-recent-row:last-child { border-bottom: 0; }
-.home-recent-row:hover { background: var(--acc-s); }
-.home-recent-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 4px; background: var(--acc-s); color: var(--acc); font-size: 12px; font-weight: 700; }
+.home-recent-row:hover { background: var(--saas-brand-subtle); }
+.home-recent-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--saas-radius-md); background: var(--saas-brand-subtle); color: var(--saas-brand); font-size: 12px; font-weight: 700; border: 1px solid var(--saas-brand-border); }
 .home-recent-row b { display: block; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
 .home-recent-row small, .home-recent-row time { color: var(--mute); font-size: 12px; }
 .home-recent-list > .hint { padding: 12px 16px; margin: 0; }
-.home-group-body { padding: 16px; }
+.home-group-body { padding: 18px; }
 .home-group-body p { margin: 0 0 12px; color: var(--mute); font-size: 13px; overflow-wrap: anywhere; }
 .home-group-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-.home-group-meta > span { border: 1px solid var(--line); padding: 4px 8px; background: var(--bg); color: var(--mute); font-size: 12px; border-radius: 3px; }
+.home-group-meta > span { border: 1px solid var(--saas-border); padding: 4px 10px; background: var(--saas-card-muted); color: var(--saas-text-muted); font-size: 12px; border-radius: var(--saas-radius-pill); font-weight: 500; }
 .home-group-body > .btn { width: 100%; }
-.home-warmup { margin-top: 18px; min-width: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--card); overflow: hidden; }
-.home-warmup-content { padding: 16px; }
-.home-warmup-badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--bg); color: var(--mute); border: 1px solid var(--line); }
-.home-warmup-badge.is-due { background: var(--acc-s); color: var(--acc); border-color: var(--acc); }
-.home-warmup-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--mute); margin-bottom: 8px; }
+.home-warmup { margin-top: 18px; min-width: 0; border: 1px solid var(--line); border-radius: var(--saas-radius-lg); background: var(--saas-card); box-shadow: var(--saas-shadow-card); overflow: hidden; }
+.home-warmup-content { padding: 18px; }
+.home-warmup-badge { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: var(--saas-radius-pill); background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); border: 1px solid var(--saas-status-muted-border); }
+.home-warmup-badge.is-due { background: var(--saas-status-active-bg); color: var(--saas-status-active-text); border-color: var(--saas-status-active-border); }
+.home-warmup-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--mute); margin-bottom: 10px; }
 .home-warmup-stage { font-weight: 600; color: var(--acc); }
 .home-warmup-prompt { font-size: 15px; font-weight: 500; margin: 0 0 10px; }
 .home-warmup-hint { display: block; color: var(--mute); font-size: 12px; margin-bottom: 8px; }
 .home-warmup-inputs { display: flex; gap: 8px; margin-top: 10px; }
-.home-warmup-inputs input, .home-warmup-inputs textarea { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); font-size: 14px; color: var(--fg); }
+.home-warmup-inputs input, .home-warmup-inputs textarea { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--saas-border); border-radius: var(--saas-radius-md); background: var(--saas-input-bg); font-size: 14px; color: var(--fg); }
 .home-warmup-inputs button { flex-shrink: 0; }
 .home-warmup-feedback { margin: 8px 0 0; font-size: 13px; font-weight: 600; }
 .home-warmup-feedback.is-correct { color: #10b981; }
