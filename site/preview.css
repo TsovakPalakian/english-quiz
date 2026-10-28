@@ -1581,11 +1581,8 @@ a.btn { text-decoration: none; }
 .clips a { color: var(--acc); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 2px; }
 .clips .hint { margin: 0; font-weight: 700; font-size: 15px; color: var(--ink); }
 .day,
-.file-card,
 .wcard,
-.archive-group .day-row,
-#adminAccountList > *,
-#groupList > * {
+.archive-group .day-row {
   content-visibility: auto;
   contain-intrinsic-size: auto 72px;
 }
@@ -2363,6 +2360,7 @@ button:disabled { opacity: .45; }
   font-size: 13px;
   font-weight: 600;
 }
+.hint:empty, .card .hint:empty { display: none !important; }
 .sentence { font-size: 20px; font-weight: 700; line-height: 1.6; }
 .sentence button {
   border: 1px solid transparent;
@@ -2634,7 +2632,11 @@ button:disabled { opacity: .45; }
 .g-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 10px; }
 .g-area, .g-topic { text-align: left; width: 100%; color: inherit; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); border-top: 4px solid var(--tone, var(--saas-brand)); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .g-area:hover, .g-topic:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
-.verb-form-cards .card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); }
+.verb-form-cards { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 16px !important; align-items: stretch !important; }
+.verb-form-cards .card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 960px) {
+  .verb-form-cards { grid-template-columns: minmax(0, 1fr) !important; }
+}
 #tenses .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); }
 #tenses .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
 #wordcollections .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
@@ -3330,109 +3332,6 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
   color: #ffffff;
 }
 
-/* Lumiscia Sticky Top Header */
-.saas-header {
-  height: 60px;
-  background: var(--saas-card, var(--card));
-  border-bottom: 1px solid var(--saas-border, var(--line));
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 90;
-  margin: -16px -16px 20px -16px;
-}
-.saas-header .header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.saas-header .breadcrumbs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--saas-text-muted, var(--mute));
-}
-.saas-header .breadcrumbs a {
-  color: var(--saas-text-muted, var(--mute));
-  text-decoration: none;
-  font-weight: 500;
-  cursor: pointer;
-}
-.saas-header .breadcrumbs a:hover {
-  color: var(--saas-brand, var(--acc));
-}
-.saas-header .breadcrumbs .crumb-sep {
-  color: var(--saas-border, var(--line));
-}
-.saas-header .breadcrumbs .crumb-active {
-  color: var(--saas-text-primary, var(--ink));
-  font-weight: 700;
-}
-.saas-header .header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.saas-header .header-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--saas-input-bg, var(--bg));
-  border: 1px solid var(--saas-border, var(--line));
-  border-radius: var(--saas-radius-md, 6px);
-  padding: 6px 12px;
-  min-width: 220px;
-}
-.saas-header .header-search svg {
-  color: var(--saas-text-muted, var(--mute));
-  flex-shrink: 0;
-}
-.saas-header .header-search input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 13px;
-  color: var(--saas-text-primary, var(--ink));
-  width: 100%;
-  min-height: auto;
-  padding: 0;
-}
-.saas-header .header-btn {
-  background: transparent;
-  border: 1px solid var(--saas-border, var(--line));
-  border-radius: var(--saas-radius-md, 6px);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--saas-text-body, var(--ink));
-  cursor: pointer;
-  position: relative;
-  transition: all 0.15s ease;
-}
-.saas-header .header-btn:hover {
-  background: var(--saas-card-muted, var(--acc-s));
-  color: var(--saas-brand, var(--acc));
-}
-.saas-header .header-btn .dot-indicator {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--saas-status-danger-dot, #ef4444);
-}
-@media (max-width: 800px) {
-  .saas-header {
-    display: none !important;
-  }
-}
 .shell-progress { margin: 18px 4px 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
 .shell-progress > div:first-child { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
 .shell-progress > div:first-child > span { padding: 3px 8px; border-radius: 3px; background: var(--acc-s); color: var(--acc); font-size: 11px; font-weight: 600; }
@@ -3523,7 +3422,16 @@ body.guest-auth #account > .meta, body.guest-auth #account .account-links, body.
 body.guest-auth .shell { display: block; width: 100%; max-width: none; margin: 0; padding: 0; }
 body.guest-auth .phone { width: 100%; min-height: 100dvh; background: transparent; border: 0; box-shadow: none; }
 body.guest-auth .wrap { min-height: 100dvh; padding: 24px 16px; }
-html:has(body:not(.chat-active):not(.guest-home)) { scrollbar-gutter: stable; }
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 body.guest-auth #account { flex: 0 0 auto; width: 100%; max-width: 440px; margin: 0 auto auto; overflow-anchor: none; }
 body.guest-auth .auth-brand { display: flex; justify-content: center; align-items: center; gap: 12px; align-self: center; padding: 0; margin: 0 0 24px; background: transparent; border: 0; }
 body.guest-auth .auth-brand .brand-mark { flex-basis: 50px; width: 50px; height: 50px; }
@@ -3680,20 +3588,70 @@ button.group-person:hover { background: var(--acc-s); }
 .exam-copilot-draft-note { font-size: 11px; color: var(--mute, #64748b); font-style: italic; }
 .exam-copilot-loading { font-size: 12px; color: var(--mute, #64748b); font-style: italic; }
 .exam-copilot-error { color: var(--red, #ef4444); font-size: 12px; }
-.accounts-invite-panel { max-width: 560px; }
-.accounts-invite-panel h2 { margin: 0; font-size: 20px; }
-.invite-group-picker { position: relative; margin-top: 6px; }
-.invite-group-picker > summary { padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; overflow-wrap: anywhere; }
-.invite-group-picker > summary:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
-.invite-group-menu { position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 20; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); box-shadow: 0 8px 24px rgb(0 0 0 / 12%); }
+.accounts-invite-panel { max-width: 560px; padding: 24px; border-radius: var(--saas-radius-xl, 16px); border: 1px solid var(--saas-border, var(--line)); background: var(--saas-card, var(--card)); box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0, 0, 0, 0.05)); }
+.accounts-invite-panel h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: var(--saas-text-primary, #0f172a); }
+.accounts-invite-panel .invite-panel-sub { margin: 0 0 16px; font-size: 13px; color: var(--saas-text-muted, #64748b); }
+.invite-form { display: grid; gap: 16px; min-width: 0; }
+.invite-form label, .invite-form > div { display: grid; gap: 6px; min-width: 0; }
+#inviteGroupLabel, .invite-form label > span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--saas-text-muted, #64748b); }
+.invite-group-picker { position: relative; margin-top: 0; }
+.invite-group-picker > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-surface, #ffffff);
+  color: var(--saas-ink, #0f172a);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.invite-group-picker > summary::-webkit-details-marker { display: none; }
+.invite-group-picker > summary::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--saas-text-muted, #64748b);
+  border-bottom: 2px solid var(--saas-text-muted, #64748b);
+  transform: rotate(45deg);
+  margin-left: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+.invite-group-picker[open] > summary::after {
+  transform: rotate(-135deg);
+}
+.invite-group-picker > summary:focus-visible { outline: 2px solid var(--saas-focus-ring, var(--acc)); outline-offset: 2px; }
+.invite-group-menu { position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 20; padding: 10px; border: 1px solid var(--saas-border, var(--line)); border-radius: var(--saas-radius-md, 8px); background: var(--saas-card, var(--card)); box-shadow: 0 8px 24px rgb(0 0 0 / 12%); }
 .invite-group-menu input { width: 100%; min-width: 0; box-sizing: border-box; }
 .invite-group-options { max-height: min(280px, 40dvh); overflow: auto; overscroll-behavior: contain; margin-top: 8px; }
 .invite-group-options button { display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: 4px; background: transparent; color: var(--ink); text-align: left; font: inherit; overflow-wrap: anywhere; }
 .invite-group-options button:hover, .invite-group-options button:focus-visible, .invite-group-options button[aria-selected="true"] { background: var(--acc-s); color: var(--acc); }
 .accounts-invite-panel[aria-busy="true"] .invite-group-picker > summary { pointer-events: none; opacity: .65; }
-.accounts-invite-panel { padding: 24px; border-radius: var(--saas-radius-xl, 16px); border: 1px solid var(--saas-border, var(--line)); background: var(--saas-card, var(--card)); box-shadow: var(--saas-shadow-xs, 0 1px 3px rgba(0, 0, 0, 0.05)); }
-.invite-form { display: grid; gap: 14px; padding: 14px 0; min-width: 0; }
-.invite-form label { display: grid; gap: 6px; min-width: 0; }
+.invite-form [data-invite-unassigned] {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+.invite-form [data-invite-teacher]:disabled {
+  background: var(--saas-surface-subtle, #f8fafc);
+  border-color: var(--saas-border-subtle, #e2e8f0);
+  color: var(--saas-text-muted, #94a3b8);
+}
 .invite-form [hidden] { display: none !important; }
 .invite-form [data-invite-url] { width: 100%; cursor: copy; }
 .invite-form [data-invite-qr] { justify-self: start; padding: 0; border: 0; background: transparent; cursor: copy; }
@@ -3712,7 +3670,7 @@ button.group-person:hover { background: var(--acc-s); }
 #groupdetail .file-card { min-height: 88px; justify-content: center; overflow-wrap: anywhere; }
 @media (max-width: 760px) { #groupList > .decks { grid-template-columns: minmax(0, 1fr); } }
 
-/* Student Account Redesign (Modern SaaS/CRM 2-Column Desktop Grid) */
+/* Student Account Redesign (Modern SaaS 2-Column Desktop Grid) */
 #adminuser { max-width: 1140px; margin: 0 auto; padding-bottom: 32px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
 .admin-user-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin: 8px 0 24px; }
 .admin-user-breadcrumbs { display: flex; align-items: center; gap: 10px; }
@@ -3765,8 +3723,7 @@ button.group-person:hover { background: var(--acc-s); }
 .admin-form-field .field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mute, #64748b); }
 .admin-form-field input, .admin-form-field select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; background: #f8fafc; color: var(--ink, #0f172a); font-size: 14px; box-sizing: border-box; transition: all 0.15s ease; }
 .admin-form-field input:focus, .admin-form-field select:focus { outline: none; border-color: #0d9488; background: #fff; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15); }
-#adminuser .account-group-row label span { font-size: 20px !important; font-weight: 700; text-transform: none; color: #0f172a; display: block; margin-bottom: 12px; }
-.account-group-actions, .account-role-actions { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.account-group-actions, .account-role-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
 .admin-card-footer { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line, #e2e8f0); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
 .admin-form-hint { margin: 0; font-size: 12px; color: var(--mute, #64748b); }
 .admin-card-actions { display: flex; gap: 10px; }
@@ -3776,10 +3733,11 @@ button.group-person:hover { background: var(--acc-s); }
 #adminuser [data-account="cancel-profile"]:hover { background: #f8fafc; color: #0f172a; }
 
 /* Danger Zone Card */
-.admin-danger-card { background: var(--saas-status-danger-bg, #fff1f2); border: 1px solid var(--saas-status-danger-border, #fecdd3); border-radius: var(--saas-radius-xl, 16px); box-shadow: var(--saas-shadow-card); }
+.admin-danger-card { background: var(--saas-status-danger-bg, #fff1f2); border: 1px solid var(--saas-status-danger-border, #fecdd3); border-radius: var(--saas-radius-xl, 16px); box-shadow: var(--saas-shadow-card); padding: 20px; }
+.admin-danger-head { border-bottom: 1px solid var(--saas-status-danger-border, #fecdd3); padding-bottom: 14px; margin-bottom: 16px; }
 .admin-danger-head h4 { margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #9f1239; }
-.admin-danger-subtitle { margin: 0 0 16px; font-size: 13px; color: var(--saas-status-danger-text, #be123c); opacity: 0.9; }
-.admin-danger-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.admin-danger-subtitle { margin: 0; font-size: 13px; color: var(--saas-status-danger-text, #be123c); opacity: 0.9; }
+.admin-danger-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .admin-danger-actions .btn { background: var(--saas-card, #fff); border: 1px solid var(--saas-status-danger-border, #fecdd3); color: var(--saas-status-danger-text, #be123c); font-size: 13px; font-weight: 600; border-radius: var(--saas-radius-md, 10px); padding: 8px 16px; transition: all 0.15s ease; box-shadow: var(--saas-shadow-sm); }
 .admin-danger-actions .btn:hover { background: #ffe4e6; transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
 .admin-danger-actions .btn.stop { background: var(--saas-btn-danger, #e11d48); border-color: var(--saas-btn-danger, #e11d48); color: #fff; }
@@ -3980,7 +3938,7 @@ body.guest-auth .studio-brand .brand-copy { gap: 10px; }
 body.guest-auth .studio-brand .brand-copy b { font-size: 34px; }
 body.guest-auth .studio-brand .brand-copy small { font-size: 11px; padding-bottom: 12px; }
 body.guest-auth .studio-translation { font-size: 12px; }
-body.guest-auth .account-gate > .card { background: transparent; box-shadow: none; border: 0; padding: 0; margin: 0; }
+body.guest-auth .account-gate > .card { background: transparent; box-shadow: none; border: 0; padding: 0; margin: 0; overflow: visible; }
 body.guest-auth .auth-tabs { margin-bottom: 16px; }
 body.guest-auth .account-gate:has(#loginForm) .auth-tabs, body.guest-auth .account-gate:has(#loginForm) .auth-title { display: none; }
 body.guest-auth .auth-title { font-size: 20px; text-align: center; }
@@ -4032,7 +3990,7 @@ body:is(.guest-home,.guest-auth) .wrap { height: 100%; min-height: 0; display: g
 body.guest-auth #account.on { display: flex; flex-direction: column; align-items: center; justify-content: center; max-height: 100%; min-height: 0; margin: 0 auto; }
 body.guest-auth #account .auth-brand { flex: 0 0 auto; }
 body.guest-auth #account .account-stage, body.guest-auth #account .account-main { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; width: 100%; }
-body.guest-auth #accountBody { width: 100%; min-height: 0; flex: 0 1 auto; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 4px 6px; box-sizing: border-box; }
+body.guest-auth #accountBody { width: 100%; min-height: 0; flex: 0 1 auto; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; padding: 6px 8px; box-sizing: border-box; }
 body.guest-auth #accountBody::-webkit-scrollbar { display: none; width: 0; height: 0; }
 /* Auth scroll containers may differ between the narrow and desktop layouts. */
 #account.on, #account.on *,
@@ -4074,12 +4032,84 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   body:is(.guest-home,.guest-auth) .studio-brand .brand-copy b { font-size: 30px; }
   body:is(.guest-home,.guest-auth) .studio-translation { font-size: 11px; }
 }
-.lm-pdf-draft { width:min(860px,94vw); max-height:90vh; overflow:auto; padding:24px; border:1px solid var(--line,#8899aa); border-radius:16px; background:var(--bg,#fff); color:var(--text,#172b35); }
-.lm-pdf-draft::backdrop { background:#0008; }
-.lm-pdf-draft details { padding:12px 0; border-bottom:1px solid #8885; }
-.lm-pdf-draft pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.5; }
-.lm-pdf-draft input[type=checkbox] { width:auto; margin-right:8px; }
-.lm-pdf-draft button { margin:16px 12px 0 0; }
+.lm-pdf-draft {
+  display: block;
+  position: static;
+  width: 100%;
+  max-width: 900px;
+  max-height: none;
+  overflow: visible;
+  padding: 24px;
+  margin: 16px 0;
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-xl, 16px);
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-text, #0f172a);
+  box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0,0,0,0.05));
+  box-sizing: border-box;
+}
+.lm-pdf-draft::backdrop { display: none; }
+.lm-pdf-draft h2 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--saas-text, #0f172a); }
+.lm-pdf-draft > p { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: var(--saas-text-muted, #64748b); }
+.lm-pdf-draft details {
+  padding: 12px 16px;
+  margin: 8px 0;
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-md, 8px);
+  background: var(--saas-subtle, #f8fafc);
+  transition: all 0.15s ease;
+}
+.lm-pdf-draft details[open] { background: #ffffff; box-shadow: var(--saas-shadow-sm); }
+.lm-pdf-draft details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--saas-text, #0f172a);
+  display: flex;
+  align-items: center;
+}
+.lm-pdf-draft details > summary label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.lm-pdf-draft pre {
+  margin: 12px 0 4px;
+  padding: 12px;
+  background: var(--saas-subtle, #f8fafc);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--saas-text, #0f172a);
+}
+.lm-pdf-draft input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--saas-brand, #0d9488); cursor: pointer; }
+.lm-pdf-draft button {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--saas-radius-md, 8px);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 16px 12px 0 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lm-pdf-draft button:not([disabled]):last-of-type {
+  background: var(--saas-brand, #0d9488);
+  color: #ffffff;
+  border: 1px solid var(--saas-brand, #0d9488);
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
+}
+.lm-pdf-draft button:not([disabled]):last-of-type:hover {
+  background: #0f766e;
+}
+.lm-pdf-draft button:first-of-type {
+  background: #ffffff;
+  color: var(--saas-text-muted, #64748b);
+  border: 1px solid var(--saas-border, #e2e8f0);
+}
+.lm-pdf-draft button:first-of-type:hover {
+  background: #f8fafc;
+  color: var(--saas-text, #0f172a);
+}
 
 /* User Feedback & Bug Reporting Modal */
 .feedback-dialog { width: min(500px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--ink); box-shadow: 0 20px 60px color-mix(in srgb, var(--ink) 25%, transparent), 0 0 1px var(--line); backdrop-filter: blur(16px); }
@@ -4518,7 +4548,7 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
 }
 
 /* ============================================================
-   Stage 4: Lumiscia SaaS CRM & Groups Management Design System
+   Stage 4: Lumiscia SaaS Accounts & Groups Management Design System
    ============================================================ */
 
 /* Segmented Accounts Tab Navigation */
@@ -4557,7 +4587,31 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* Accounts CRM Search & Special Deck */
+/* Registration History Row (Two-sided flex layout) */
+.registration-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--saas-border-subtle, #f1f5f9);
+  transition: background-color 0.12s ease;
+}
+.registration-history-row:last-child {
+  border-bottom: none;
+}
+.registration-history-row:hover {
+  background-color: var(--saas-surface-subtle, #f8fafc);
+}
+@media (max-width: 600px) {
+  .registration-history-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+/* Accounts Search & Special Deck */
 #adminAccountSearch {
   width: 100%;
   max-width: 480px;

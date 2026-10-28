@@ -2298,12 +2298,12 @@ var stageGrammarRule='';
 function stageGrammarPaint(){
   const groups=window.GrammarCategories||[];
   const list=document.getElementById('grammarCategoryGroups');if(!list)return;
-  list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title+' / '+(window.GrammarGroupNames?.[group.id]||''),group.cards.length,'data-grammar-group','categories')).join('');
+  list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title,group.cards.length,'data-grammar-group','categories')).join('');
   const group=groups.find(group=>group.id===stageGrammarGroup);if(!group)return;
-  document.getElementById('grammarCategoryTitle').textContent=group.title+' / '+(window.GrammarGroupNames?.[group.id]||'');
+  document.getElementById('grammarCategoryTitle').textContent=group.title;
   document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card saas-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
   const detail=window.GrammarDetails?.[stageGrammarRule];if(!detail)return;
-  document.getElementById('grammarRuleTitle').textContent=stageGrammarRule+' / '+detail.ru;
+  document.getElementById('grammarRuleTitle').textContent=stageGrammarRule;
   const pair=(en,ru)=>'<p lang="en">'+esc(en)+'</p><p lang="ru" class="label">'+esc(ru)+'</p>';
   const labels=window.GrammarUi;
   document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band saas-card"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.examples)+'</h2><ol>'+detail.examples.map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn primary saas-btn saas-btn-primary" type="button" data-grammar-vocabulary style="margin-bottom:12px">'+esc(labels.vocabulary)+'</button><div class="grammar-band saas-card"><h2>'+esc(labels.references)+'</h2><ul>'+window.GrammarReferences.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';

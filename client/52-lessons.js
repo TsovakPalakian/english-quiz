@@ -572,7 +572,7 @@
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
       const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
-      return kit ? '<div class="learning-kit-entry">' + content + kit + '</div>' : content;
+      return kit ? '<div class="lm-word-card-wrap" style="position:relative; display:inline-block;">' + content + '<div style="position:absolute; top:6px; right:6px; z-index:2;">' + kit + '</div></div>' : content;
     }
     function lmRuleCardHtml(block, link) {
       if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
@@ -1143,13 +1143,13 @@
       let cards = [];
       const flush = () => {
         if (!cards.length) return;
-        html += '<div class="lm-panel"><div class="words">' + cards.join("") + "</div></div>";
+        cards.sort((a, b) => (a.word || "").localeCompare(b.word || "", "en", { sensitivity: "base" }));
+        html += '<div class="lm-panel"><div class="words">' + cards.map(c => c.html).join("") + "</div></div>";
         cards = [];
       };
       blocks.forEach((block) => {
         if (block.type === "wordcard") {
-          const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
-          cards.push(copy ? '<div class="lm-copy-word"><div class="lm-copy-tools">' + copy + '</div>' + lmWordCardHtml(block) + '</div>' : lmWordCardHtml(block));
+          cards.push({ word: block.word || "", html: lmWordCardHtml(block) });
         }
         else {
           flush();

@@ -2860,7 +2860,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) {
-        stopPageMedia(previous);
+        const songFlow = ['musicword', 'word', 'made', 'verbs', 'flip'];
+        const isSongNav = (previous.id === 'song' && songFlow.includes(id)) ||
+                          (songFlow.includes(previous.id) && (id === 'song' || songFlow.includes(id)));
+        if (!isSongNav) {
+          stopPageMedia(previous);
+          if (previous.id !== 'song') {
+            const songSec = document.getElementById('song');
+            if (songSec) stopPageMedia(songSec);
+          }
+        }
         if (previous.id === 'settings') {
           document.querySelector('#settingsHost dialog.user-settings')?.close();
         }
@@ -2887,7 +2896,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           home: 'Dashboard', days: 'Lessons & Days', groups: 'Classes & Groups',
           exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
           library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
-          speakout: 'Speakout', admin: 'Accounts CRM', archive: 'Archive', bugs: 'System Logs & Bugs',
+          speakout: 'Speakout', admin: 'Accounts', archive: 'Archive', bugs: 'System Logs & Bugs',
           settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
         };
         crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
@@ -5413,7 +5422,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         (w.deck
           ? '<button class="btn primary" type="button" data-deck-study="' + esc(w.deck) + '">Study</button>'
           : '<button class="btn primary" type="button" data-day-quiz="' + esc((w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21")) + '">This day\'s quiz</button>') +
-        '</div>' + (window.LearningWorkbench?.cardButton(w) || '') + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+        '</div>' + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
       if (wordBack) wordBack.dataset.fallback = w.deck || "lesson";
@@ -6676,26 +6685,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
           cardQuizHtml(cardQuizKey(w), w.en, w.ru);
       }
-      const sideTitle = document.getElementById("inspectedWordTitle");
-      if (sideTitle && w) {
-        sideTitle.textContent = w.en;
-        const sideRu = document.getElementById("inspectedWordRu");
-        if (sideRu) sideRu.textContent = w.ru || "";
-        const sidePos = document.getElementById("inspectedWordPos");
-        if (sidePos) sidePos.textContent = (w.pos || "") + (w.level ? " · " + w.level : "");
-        const sideEx = document.getElementById("inspectedWordEx");
-        if (sideEx) sideEx.textContent = w.ex ? `"${w.ex}"` : "";
-        const sideExRu = document.getElementById("inspectedWordExRu");
-        if (sideExRu) sideExRu.textContent = w.exRu || (w.ru ? "Пример употребления в песне: " + w.ru : "");
-        const ukIpa = document.getElementById("inspectedUkIpa");
-        if (ukIpa) ukIpa.textContent = w.uk || (w.ipa && w.ipa.uk) || w.ipa || "/ˈmuːn.laɪt/";
-        const usIpa = document.getElementById("inspectedUsIpa");
-        if (usIpa) usIpa.textContent = w.us || (w.ipa && w.ipa.us) || w.ipa || "/ˈmuːn.laɪt/";
-        const ukSay = document.getElementById("inspectedUkSay");
-        if (ukSay) ukSay.dataset.sayText = w.en;
-        const usSay = document.getElementById("inspectedUsSay");
-        if (usSay) usSay.dataset.sayText = w.en;
-      }
     }
     function applySongEdits() {
       const map = loadEdits();
@@ -7860,7 +7849,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
     }
     function dictionaryAddHtml(item) {
-      if(item?.stageEverydayReference)return '';
+      if(item?.stageEverydayReference || item?.isLessonWord || item?.data?.isLessonWord)return '';
+      if(window.LearningMain && typeof lmState !== 'undefined' && lmState?.blocks?.some(b => b.type === 'wordcard' && String(b.word || '').trim().toLowerCase() === String(item?.word || '').trim().toLowerCase())) return '';
       if (!item || dictionaryOwned(item.word)) return "";
       return '<button class="btn primary dict-add" type="button" data-dict-add="' + dictionaryPlace(item) + '">Add word</button>';
     }
@@ -8016,7 +8006,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       html += usageQuizzes(usages);
       html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
-      document.getElementById("madeView").innerHTML = (window.LearningWorkbench?.cardButton(item) || '') + html;
+      document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
       if ((document.querySelector("section.on") || {}).id !== "made") pushHistory();
@@ -8117,19 +8107,20 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
     });
     async function openUsages(word, lessonRu, quizKey) {
+      const isLesson = !!lessonRu || (typeof lmState !== 'undefined' && lmState?.blocks?.some(b => b.type === 'wordcard' && String(b.word || '').trim().toLowerCase() === String(word || '').trim().toLowerCase()));
       const btn = document.activeElement;
       if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Looking up…";
       try {
         const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
         const data = await res.json();
         if (res.ok && data.found) {
-          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data, quizKey });
+          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data, quizKey, isLessonWord: isLesson });
           return;
         }
       } catch (err) {
         if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Usages";
       }
-      renderMade({ word: word, ru: lessonRu || "", data: {}, quizKey });
+      renderMade({ word: word, ru: lessonRu || "", data: {}, quizKey, isLessonWord: isLesson });
     }
     document.body.addEventListener("click", (e) => {
       const statSongBtn = e.target.closest("[data-stat-song]");
@@ -8371,10 +8362,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (lmWord) {
         const block = lmBlock(lmWord.dataset.lmWord);
         if (!block || block.type !== "wordcard") return;
-        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word});return;}
-        const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey };
+        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word,isLessonWord:true});return;}
+        const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey, isLessonWord: true };
         if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
-        else openUsages(item.word, item.ru, item.quizKey);
+        else openUsages(item.word, item.ru, item.quizKey, true);
         return;
       }
       const openAdd = e.target.closest("[data-add-open]");
@@ -9413,6 +9404,71 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       else box.append(node);
     }
     let mediaPaint = 0;
+    function bindSongPlayerBar(song, container) {
+      const bar = document.getElementById("songPlayerBar");
+      if (!bar) return;
+      const audio = container ? container.querySelector("audio") : null;
+      if (!audio) {
+        bar.hidden = true;
+        return;
+      }
+      bar.hidden = false;
+      const titleEl = document.getElementById("songPlayerTitle");
+      const artistEl = document.getElementById("songPlayerArtist");
+      const playBtn = document.getElementById("songPlayerPlayBtn");
+      const timeEl = document.getElementById("songPlayerTime");
+      const progressEl = document.getElementById("songPlayerProgress");
+      const scrubberEl = document.getElementById("songPlayerScrubber");
+
+      if (titleEl) titleEl.textContent = (song && song.title) || "Audio Track";
+      if (artistEl) artistEl.textContent = (song && (song.artist || song.fileName)) || "";
+
+      function fmtTime(sec) {
+        if (isNaN(sec) || !isFinite(sec)) return "00:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+
+      function updateUi() {
+        if (playBtn) {
+          playBtn.innerHTML = audio.paused
+            ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>'
+            : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        }
+        if (timeEl) {
+          timeEl.textContent = fmtTime(audio.currentTime) + " / " + fmtTime(audio.duration);
+        }
+        if (progressEl && audio.duration) {
+          progressEl.style.width = ((audio.currentTime / audio.duration) * 100) + "%";
+        }
+      }
+
+      if (playBtn) {
+        playBtn.onclick = () => {
+          if (audio.paused) {
+            audio.play().catch(() => {});
+          } else {
+            audio.pause();
+          }
+        };
+      }
+
+      if (scrubberEl) {
+        scrubberEl.onclick = (e) => {
+          if (!audio.duration) return;
+          const rect = scrubberEl.getBoundingClientRect();
+          const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          audio.currentTime = pos * audio.duration;
+        };
+      }
+
+      audio.ontimeupdate = updateUi;
+      audio.onplay = updateUi;
+      audio.onpause = updateUi;
+      audio.onloadedmetadata = updateUi;
+      updateUi();
+    }
     function paintSongMedia(song, box) {
       const token = ++mediaPaint;
       const slots = mediaOf(song);
@@ -9421,6 +9477,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         box.innerHTML = videoHtml(slots.video) + musicHtml(slots.music);
         mountSongFile(box, fileHtml || "");
         watchSongPlayers(document.getElementById("songUser") || box);
+        bindSongPlayerBar(song, box);
       };
       if (!song || !song.fileName) { draw(""); return; }
       const remote = !accountApi() && authUser ? songFilePath(song.id) : "";
@@ -9585,6 +9642,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function showSampleSong() {
       setSongHead("Sample line", "");
       document.getElementById("songSample").hidden = false;
+      const bar = document.getElementById("songPlayerBar");
+      if (bar) bar.hidden = true;
       const user = document.getElementById("songUser");
       user.hidden = true;
       user.dataset.songId = "";
@@ -15429,7 +15488,7 @@ const STUDIO_CONSTELLATIONS = [{
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form saas-card" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input class="saas-input" type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select class="saas-select" data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select class="saas-select" data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input class="saas-input" type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary saas-btn" type="button" data-invite-create disabled>Create invite</button></div><input class="saas-input" type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form saas-card" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><p class="invite-panel-sub">Generate single-use invite links or QR codes.</p><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input class="saas-input" type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select class="saas-select" data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select class="saas-select" data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input class="saas-input" type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary saas-btn" type="button" data-invite-create disabled>Create invite</button></div><input class="saas-input" type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -15676,9 +15735,13 @@ const STUDIO_CONSTELLATIONS = [{
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
           '</div>';
+        const statusBadge = (st) => {
+          const cls = st === 'approved' ? 'badge badge-emerald' : st === 'rejected' ? 'badge badge-rose' : 'badge badge-amber';
+          return '<span class="' + cls + '" style="font-size:11px; font-weight:700;">' + esc(statusLabel(st)) + '</span>';
+        };
         const historyHtml = '<div class="card"><p class="label">Registration history</p>' +
           (history.length ? recentRows(history, (row, n) =>
-            '<p data-list-row><b>' + n + ". " + esc(row.login) + '</b> · ' + esc(row.email) + '<br><span class="hint">' + statusLabel(row.status) + ' · ' + esc(when(row.created_at)) + '</span></p>'
+            '<div class="registration-history-row" data-list-row><div><b>' + n + ". " + esc(row.login) + '</b> <span style="color:var(--saas-text-muted, #64748b);">· ' + esc(row.email) + '</span></div><div style="display:flex; align-items:center; gap:12px; flex-shrink:0;">' + statusBadge(row.status) + '<span class="hint" style="margin:0; font-size:12px; color:var(--saas-text-muted, #64748b);">' + esc(when(row.created_at)) + '</span></div></div>'
           ) : '<p class="hint">No registrations yet.</p>') +
           '</div>';
         box.innerHTML = adminTab === 'requests' ? waitingHtml + changesHtml : adminTab === 'history' ? historyHtml : adminTab === 'invite' ? accountInviteHTML() :
@@ -19511,7 +19574,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
       const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
-      return kit ? '<div class="learning-kit-entry">' + content + kit + '</div>' : content;
+      return kit ? '<div class="lm-word-card-wrap" style="position:relative; display:inline-block;">' + content + '<div style="position:absolute; top:6px; right:6px; z-index:2;">' + kit + '</div></div>' : content;
     }
     function lmRuleCardHtml(block, link) {
       if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
@@ -20082,13 +20145,13 @@ const STUDIO_CONSTELLATIONS = [{
       let cards = [];
       const flush = () => {
         if (!cards.length) return;
-        html += '<div class="lm-panel"><div class="words">' + cards.join("") + "</div></div>";
+        cards.sort((a, b) => (a.word || "").localeCompare(b.word || "", "en", { sensitivity: "base" }));
+        html += '<div class="lm-panel"><div class="words">' + cards.map(c => c.html).join("") + "</div></div>";
         cards = [];
       };
       blocks.forEach((block) => {
         if (block.type === "wordcard") {
-          const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
-          cards.push(copy ? '<div class="lm-copy-word"><div class="lm-copy-tools">' + copy + '</div>' + lmWordCardHtml(block) + '</div>' : lmWordCardHtml(block));
+          cards.push({ word: block.word || "", html: lmWordCardHtml(block) });
         }
         else {
           flush();
@@ -21448,7 +21511,7 @@ const STUDIO_CONSTELLATIONS = [{
   function lessonButton(block){
     const cardId=block.stageDefinition?.cardId||block.stageId;
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!valid(cardId)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
-    return '<button class="btn" type="button" data-workbench-lesson="'+esc(block.id)+'">Learning kit</button>';
+    return '<button class="lm-icon lm-word-more" type="button" data-workbench-lesson="'+esc(block.id)+'" aria-label="More" title="Actions">⋮</button>';
   }
   function lessonSpeechButton(){
     if(!enabled()||lmState?.examOwned||!valid(lmState?.id)||!classGroups.some(group=>valid(group.id)&&group.lessonIds?.includes(lmState.id)))return '';
@@ -21712,7 +21775,7 @@ async function lmImportPdfDraft(file) {
     if(!active())return;
     const groups=await lmPdfDraftBlocks(data,hash);
     if(!active())return;
-    const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft';
+    const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft saas-card';dialog.setAttribute('open','');
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
     const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
@@ -21729,7 +21792,7 @@ async function lmImportPdfDraft(file) {
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
-    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.close();dialog.remove();};
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
     dialog.addEventListener('cancel',event=>{if(apply.disabled){event.preventDefault();return;}controller.abort();lmPdfProgressEnd();dialog.remove();});
     apply.onclick=async()=>{
@@ -21773,12 +21836,15 @@ async function lmImportPdfDraft(file) {
             try{await window.LearningMain.pdfGrammarAlerts(draft.id,hash);}catch{alertWarning=' Missing Grammar alert could not be delivered. Apply Rules again to retry.';}
           }
           if(active()){lmRenderEditor();lmPdfProgress('Draft ready',[...['words','phrases','rules','classwork'].filter(key=>selected.has(key)).map(key=>key[0].toUpperCase()+key.slice(1)+' saved'),...(selected.has('pdf')?['Lesson PDF attached']:[])],1,1);lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.'+alertWarning,false);}
-          dialog.close();dialog.remove();
+          dialog.remove();
         },status);
       }catch(error){status.textContent=error.message;}
       finally{apply.disabled=false;cancel.disabled=false;}
     };
-    document.body.append(dialog);dialog.showModal();
+    const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
+    if(mount&&mount.id==='lmPdfProgress'){mount.insertAdjacentElement('afterend',dialog);}
+    else if(mount){mount.prepend(dialog);}
+    else{document.body.append(dialog);}
     lmPdfProgress('Ready to review',Object.entries(groups).map(([key,rows])=>key[0].toUpperCase()+key.slice(1)+': '+rows.length),1,1);
     lmPdfImportStatus('Review the draft before applying it.',false);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not analyse this PDF.',true);}}
@@ -23579,22 +23645,7 @@ async function lmImportPdfDraft(file) {
     }
     function installShellBranding() {
       document.querySelectorAll('[data-copyright-year]').forEach(node=>{node.textContent=String(new Date().getFullYear());});
-      const input=document.getElementById('shellSearch');
-      input?.addEventListener('input',()=>{
-        const query=input.value.trim().toLocaleLowerCase();
-        document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
-      });
-      const gqs=document.getElementById('globalQuickSearch');
-      gqs?.addEventListener('input',()=>{
-        if(input){input.value=gqs.value;input.dispatchEvent(new Event('input'));}
-      });
-      document?.addEventListener?.('keydown',e=>{
-        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
-          const target=document.getElementById('globalQuickSearch')||input;
-          if(target&&target.offsetParent!==null){e.preventDefault();target.focus();}
-        }
-      });
-      const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
+      const icons=()=>document.querySelectorAll('.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
       if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();
     }
     installShellBranding();

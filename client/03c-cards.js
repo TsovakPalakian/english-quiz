@@ -111,7 +111,8 @@
       return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
     }
     function dictionaryAddHtml(item) {
-      if(item?.stageEverydayReference)return '';
+      if(item?.stageEverydayReference || item?.isLessonWord || item?.data?.isLessonWord)return '';
+      if(window.LearningMain && typeof lmState !== 'undefined' && lmState?.blocks?.some(b => b.type === 'wordcard' && String(b.word || '').trim().toLowerCase() === String(item?.word || '').trim().toLowerCase())) return '';
       if (!item || dictionaryOwned(item.word)) return "";
       return '<button class="btn primary dict-add" type="button" data-dict-add="' + dictionaryPlace(item) + '">Add word</button>';
     }
@@ -267,7 +268,7 @@
       }
       html += usageQuizzes(usages);
       html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
-      document.getElementById("madeView").innerHTML = (window.LearningWorkbench?.cardButton(item) || '') + html;
+      document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
       if ((document.querySelector("section.on") || {}).id !== "made") pushHistory();
@@ -368,19 +369,20 @@
       }
     });
     async function openUsages(word, lessonRu, quizKey) {
+      const isLesson = !!lessonRu || (typeof lmState !== 'undefined' && lmState?.blocks?.some(b => b.type === 'wordcard' && String(b.word || '').trim().toLowerCase() === String(word || '').trim().toLowerCase()));
       const btn = document.activeElement;
       if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Looking up…";
       try {
         const res = await fetch(lookupBase() + "/lookup?word=" + encodeURIComponent(word));
         const data = await res.json();
         if (res.ok && data.found) {
-          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data, quizKey });
+          renderMade({ word: data.word || word, ru: lessonRu || data.ru, data: data, quizKey, isLessonWord: isLesson });
           return;
         }
       } catch (err) {
         if (btn && btn.dataset && btn.dataset.usages) btn.textContent = "Usages";
       }
-      renderMade({ word: word, ru: lessonRu || "", data: {}, quizKey });
+      renderMade({ word: word, ru: lessonRu || "", data: {}, quizKey, isLessonWord: isLesson });
     }
     document.body.addEventListener("click", (e) => {
       const statSongBtn = e.target.closest("[data-stat-song]");
@@ -622,10 +624,10 @@
       if (lmWord) {
         const block = lmBlock(lmWord.dataset.lmWord);
         if (!block || block.type !== "wordcard") return;
-        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word});return;}
-        const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey };
+        if(block.pdfVocabulary&&block.stageId&&typeof stageHydrateMade==='function'){stageHydrateMade({...block,word:block.word,en:block.word,isLessonWord:true});return;}
+        const item = { word: block.word, ru: block.ru || "", data: block.data || {}, quizKey: block.quizKey, isLessonWord: true };
         if (item.data && item.data.usages && item.data.usages.length) renderMade(item);
-        else openUsages(item.word, item.ru, item.quizKey);
+        else openUsages(item.word, item.ru, item.quizKey, true);
         return;
       }
       const openAdd = e.target.closest("[data-add-open]");

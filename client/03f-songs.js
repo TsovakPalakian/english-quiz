@@ -432,6 +432,71 @@
       else box.append(node);
     }
     let mediaPaint = 0;
+    function bindSongPlayerBar(song, container) {
+      const bar = document.getElementById("songPlayerBar");
+      if (!bar) return;
+      const audio = container ? container.querySelector("audio") : null;
+      if (!audio) {
+        bar.hidden = true;
+        return;
+      }
+      bar.hidden = false;
+      const titleEl = document.getElementById("songPlayerTitle");
+      const artistEl = document.getElementById("songPlayerArtist");
+      const playBtn = document.getElementById("songPlayerPlayBtn");
+      const timeEl = document.getElementById("songPlayerTime");
+      const progressEl = document.getElementById("songPlayerProgress");
+      const scrubberEl = document.getElementById("songPlayerScrubber");
+
+      if (titleEl) titleEl.textContent = (song && song.title) || "Audio Track";
+      if (artistEl) artistEl.textContent = (song && (song.artist || song.fileName)) || "";
+
+      function fmtTime(sec) {
+        if (isNaN(sec) || !isFinite(sec)) return "00:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+      }
+
+      function updateUi() {
+        if (playBtn) {
+          playBtn.innerHTML = audio.paused
+            ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>'
+            : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+        }
+        if (timeEl) {
+          timeEl.textContent = fmtTime(audio.currentTime) + " / " + fmtTime(audio.duration);
+        }
+        if (progressEl && audio.duration) {
+          progressEl.style.width = ((audio.currentTime / audio.duration) * 100) + "%";
+        }
+      }
+
+      if (playBtn) {
+        playBtn.onclick = () => {
+          if (audio.paused) {
+            audio.play().catch(() => {});
+          } else {
+            audio.pause();
+          }
+        };
+      }
+
+      if (scrubberEl) {
+        scrubberEl.onclick = (e) => {
+          if (!audio.duration) return;
+          const rect = scrubberEl.getBoundingClientRect();
+          const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          audio.currentTime = pos * audio.duration;
+        };
+      }
+
+      audio.ontimeupdate = updateUi;
+      audio.onplay = updateUi;
+      audio.onpause = updateUi;
+      audio.onloadedmetadata = updateUi;
+      updateUi();
+    }
     function paintSongMedia(song, box) {
       const token = ++mediaPaint;
       const slots = mediaOf(song);
@@ -440,6 +505,7 @@
         box.innerHTML = videoHtml(slots.video) + musicHtml(slots.music);
         mountSongFile(box, fileHtml || "");
         watchSongPlayers(document.getElementById("songUser") || box);
+        bindSongPlayerBar(song, box);
       };
       if (!song || !song.fileName) { draw(""); return; }
       const remote = !accountApi() && authUser ? songFilePath(song.id) : "";
@@ -604,6 +670,8 @@
     function showSampleSong() {
       setSongHead("Sample line", "");
       document.getElementById("songSample").hidden = false;
+      const bar = document.getElementById("songPlayerBar");
+      if (bar) bar.hidden = true;
       const user = document.getElementById("songUser");
       user.hidden = true;
       user.dataset.songId = "";

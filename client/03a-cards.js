@@ -308,7 +308,7 @@
         (w.deck
           ? '<button class="btn primary" type="button" data-deck-study="' + esc(w.deck) + '">Study</button>'
           : '<button class="btn primary" type="button" data-day-quiz="' + esc((w.quiz || { "7 Sep": "lesson-07", "9 Sep": "lesson-09", "14 Sep": "lesson-14", "16 Sep": "lesson-16", "21 Sep": "lesson-21", "23 Sep": "lesson-23" }[w.lesson] || "lesson-21")) + '">This day\'s quiz</button>') +
-        '</div>' + (window.LearningWorkbench?.cardButton(w) || '') + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+        '</div>' + cardQuizHtml(cardQuizKey(w), w.en, w.ru);
       document.getElementById("toDayFlip").onclick = () => { setDayFlip(w, false); visit("dayflip"); };
       const wordBack = document.querySelector("#word [data-nav-back]");
       if (wordBack) wordBack.dataset.fallback = w.deck || "lesson";
@@ -1570,26 +1570,6 @@
           '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
           '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
           cardQuizHtml(cardQuizKey(w), w.en, w.ru);
-      }
-      const sideTitle = document.getElementById("inspectedWordTitle");
-      if (sideTitle && w) {
-        sideTitle.textContent = w.en;
-        const sideRu = document.getElementById("inspectedWordRu");
-        if (sideRu) sideRu.textContent = w.ru || "";
-        const sidePos = document.getElementById("inspectedWordPos");
-        if (sidePos) sidePos.textContent = (w.pos || "") + (w.level ? " · " + w.level : "");
-        const sideEx = document.getElementById("inspectedWordEx");
-        if (sideEx) sideEx.textContent = w.ex ? `"${w.ex}"` : "";
-        const sideExRu = document.getElementById("inspectedWordExRu");
-        if (sideExRu) sideExRu.textContent = w.exRu || (w.ru ? "Пример употребления в песне: " + w.ru : "");
-        const ukIpa = document.getElementById("inspectedUkIpa");
-        if (ukIpa) ukIpa.textContent = w.uk || (w.ipa && w.ipa.uk) || w.ipa || "/ˈmuːn.laɪt/";
-        const usIpa = document.getElementById("inspectedUsIpa");
-        if (usIpa) usIpa.textContent = w.us || (w.ipa && w.ipa.us) || w.ipa || "/ˈmuːn.laɪt/";
-        const ukSay = document.getElementById("inspectedUkSay");
-        if (ukSay) ukSay.dataset.sayText = w.en;
-        const usSay = document.getElementById("inspectedUsSay");
-        if (usSay) usSay.dataset.sayText = w.en;
       }
     }
     function applySongEdits() {
