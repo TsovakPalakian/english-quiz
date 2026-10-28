@@ -100,9 +100,9 @@
         const stamp = '<small class="bug-stamp">'+esc(row.resolved?'Resolved: '+(row.resolvedAt?bugWhen(row.resolvedAt,zone):'Date not recorded'):when)+'</small>';
         const caption = esc(happened) + " · " + esc(who) + stamp;
         const route = ((row.method || "") + " " + (row.path || "")).trim();
-        const resolve = canResolve ? '<button class="day-hide bug-resolve" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
-        const copy = '<button class="day-edit bug-copy" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
+        const resolve = canResolve ? '<button class="day-hide bug-resolve saas-btn" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
+        const copy = '<button class="day-edit bug-copy saas-btn" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row saas-card"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date saas-badge saas-badge-muted"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about saas-badge saas-badge-info">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
       }).join("");
     }
     function bugListHtml(rows,canResolve){

@@ -1570,7 +1570,7 @@ function stagePaintSpeakLevels(){
     const count=stageSpeakCount(i);
     const num=count.lessons?String(count.lessons):'';
     const label=count.units?count.units+(count.units===1?' unit':' units'):'Open';
-    return '<button class="file-card" type="button" data-speak-level="'+i+'"><b>'+esc(row[0])+'</b><span class="num">'+num+'</span><span class="label">'+label+'</span></button>';
+    return '<button class="file-card saas-card" type="button" data-speak-level="'+i+'"><b>'+esc(row[0])+'</b><span class="num saas-badge saas-badge-muted">'+num+'</span><span class="label">'+label+'</span></button>';
   }).join('');
 }
 function stageSpeakIncomplete(){return stageLevels().some((_,index)=>!(window.SPEAKOUT&&window.SPEAKOUT[index]&&window.SPEAKOUT[index].level));}
@@ -2301,12 +2301,12 @@ function stageGrammarPaint(){
   list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title+' / '+(window.GrammarGroupNames?.[group.id]||''),group.cards.length,'data-grammar-group','categories')).join('');
   const group=groups.find(group=>group.id===stageGrammarGroup);if(!group)return;
   document.getElementById('grammarCategoryTitle').textContent=group.title+' / '+(window.GrammarGroupNames?.[group.id]||'');
-  document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
+  document.getElementById('grammarCategoryCards').innerHTML=group.cards.map(([title,meaning])=>'<button class="wcard grammar-rule-card saas-card" type="button" data-grammar-rule="'+esc(title)+'">'+wordPic(title)+'<span class="en">'+esc(title)+'</span><span class="label">'+esc(window.GrammarDetails?.[title]?.ru||meaning)+'</span></button>').join('');
   const detail=window.GrammarDetails?.[stageGrammarRule];if(!detail)return;
   document.getElementById('grammarRuleTitle').textContent=stageGrammarRule+' / '+detail.ru;
   const pair=(en,ru)=>'<p lang="en">'+esc(en)+'</p><p lang="ru" class="label">'+esc(ru)+'</p>';
   const labels=window.GrammarUi;
-  document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band"><h2>'+esc(labels.examples)+'</h2><ol>'+detail.examples.map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn" type="button" data-grammar-vocabulary>'+esc(labels.vocabulary)+'</button><div class="grammar-band"><h2>'+esc(labels.references)+'</h2><ul>'+window.GrammarReferences.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';
+  document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band saas-card"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.examples)+'</h2><ol>'+detail.examples.map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn primary saas-btn saas-btn-primary" type="button" data-grammar-vocabulary style="margin-bottom:12px">'+esc(labels.vocabulary)+'</button><div class="grammar-band saas-card"><h2>'+esc(labels.references)+'</h2><ul>'+window.GrammarReferences.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';
 }
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-grammar-group],[data-grammar-rule],[data-grammar-vocabulary]');if(!button)return;
@@ -2392,7 +2392,7 @@ async function stageRemoveEssential(host){
     stageEverydayData=null;await stageEverydayLoad();paintAllWords();
   }catch(error){window.LearningMain.notice(error.message,true);if(error.status===409){stageEverydayData=null;await stageEverydayLoad();}}
 }
-function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
+function stageEverydayButton(id,title,count,attribute,label){return '<button class="file-card saas-card" type="button" '+attribute+'="'+esc(id)+'"><span class="num">'+count+'</span><b>'+esc(title)+'</b><span class="label">'+esc(label)+'</span></button>';}
 function stageEverydayPaint(){
   if(!stageEverydayData)return;
   const groups=stageEverydayData.groups||[];

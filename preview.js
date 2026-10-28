@@ -2881,6 +2881,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "account" && authUser) id = "profile";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
+      const crumbCurrent = document.getElementById('crumbCurrent');
+      if (crumbCurrent) {
+        const titleMap = {
+          home: 'Dashboard', days: 'Lessons & Days', groups: 'Classes & Groups',
+          exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
+          library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
+          speakout: 'Speakout', admin: 'Accounts CRM', archive: 'Archive', bugs: 'System Logs & Bugs',
+          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
+        };
+        crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+      }
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
       if (id === "add") renderAddedList();
@@ -3068,7 +3079,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         window.openChatSettings(tab);
         return;
       }
-      host.innerHTML = '<div class="card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost" type="button" data-jump="themes">Theme</button><button class="btn ghost" type="button" data-jump="stats">Statistics</button><button class="btn ghost" type="button" data-jump="guide">Navigate</button></div></div>';
+      host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
     }
     window.paintSettings = paintSettings;
     let statKind = "learned";
@@ -3118,7 +3129,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "Eight levels. Each level has 8 units and 32 lessons.";
         list.className = "decks";
         list.innerHTML = book.map((row, i) =>
-          '<button class="file-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
+          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num saas-badge saas-badge-muted">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
         ).join("");
         return;
       }
@@ -3129,7 +3140,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "8 units. Each unit has lessons A–D.";
         list.className = "card grow";
         list.innerHTML = row.units.map((item, i) =>
-          '<button class="tense" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form">A–D</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form saas-badge saas-badge-info">A–D</span></button>'
         ).join("");
         return;
       }
@@ -3140,7 +3151,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = row.level + " · 4 lessons";
         list.className = "card grow";
         list.innerHTML = item.lessons.map((lesson, i) =>
-          '<button class="tense" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form">' + esc(lesson.letter) + '</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, lesson)) + '</b><span class="form saas-badge saas-badge-info">' + esc(lesson.letter) + '</span></button>'
         ).join("");
         return;
       }
@@ -3150,7 +3161,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       sub.textContent = row.level + " · " + (speakUnit + 1) + " " + item.title;
       list.className = "card grow";
       list.innerHTML = item.lessons.map((entry, i) =>
-        '<button class="tense' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form">' + esc(entry.letter) + '</span></button>'
+        '<button class="tense saas-card' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form saas-badge saas-badge-info">' + esc(entry.letter) + '</span></button>'
       ).join("");
     }
     function rememberPlace() {
@@ -3727,7 +3738,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           const base = page.getViewport({ scale: 1 });
           const viewport = page.getViewport({ scale: width / base.width });
           const canvas = document.createElement("canvas");
-          canvas.className = "pdf-page";
+          canvas.className = "pdf-page saas-card";
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           box.appendChild(canvas);
@@ -4990,7 +5001,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function toggleFlip() {
       if (!flipScene) return;
       if (!flipReady && flipBack) {
-        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button></div>';
+        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary saas-btn" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button></div>';
         flipReady = true;
       }
       const on = flipScene.classList.toggle("is-flipped");
@@ -5014,12 +5025,38 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       document.getElementById("typeFb").innerHTML = '<div class="feedback ' + (ok ? "ok" : "bad") + '">' + (ok ? "Correct" : "Incorrect. Needed: give up") + "</div>";
     });
 
+    document.querySelectorAll("#gap .opt").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#gap .opt").forEach((o) => o.classList.remove("ok", "bad"));
+        if (idx === 1) {
+          btn.classList.add("ok");
+        } else {
+          btn.classList.add("bad");
+          const okBtn = document.querySelectorAll("#gap .opt")[1];
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
+    });
+
     const bank = document.getElementById("bank");
     const slot = document.getElementById("slot");
-    bank.addEventListener("click", (e) => {
+    function moveToken(e) {
       const token = e.target.closest(".token");
       if (!token) return;
       (token.parentElement === bank ? slot : bank).appendChild(token);
+    }
+    if (bank) bank.addEventListener("click", moveToken);
+    if (slot) slot.addEventListener("click", moveToken);
+
+    document.querySelectorAll("#judge [data-judge]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#judge [data-judge]").forEach((b) => b.classList.remove("ok", "bad"));
+        btn.classList.add(btn.dataset.judge === "ok" ? "ok" : "bad");
+        if (btn.dataset.judge !== "ok") {
+          const okBtn = document.querySelector('#judge [data-judge="ok"]');
+          if (okBtn) okBtn.classList.add("ok");
+        }
+      });
     });
 
     document.querySelectorAll("#tapLine button").forEach((btn) => {
@@ -5030,6 +5067,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           (btn.dataset.tap === "ok"
             ? "Correct. since 2019 marks a start that is still connected to now.<br>Верно. since 2019 показывает начало, которое связано с настоящим."
             : "That is the verb form. The time marker here is since.<br>Это форма глагола. Показатель времени здесь — since.") + "</div>";
+      });
+    });
+
+    document.querySelectorAll("#multi .opts .opt").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("pick");
       });
     });
 
@@ -5383,7 +5426,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
       const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>';
-      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;
@@ -5501,7 +5544,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return '<div class="guide-shot" aria-label="' + esc(title) + '"><div class="guide-shot-top"><span>English</span><b>' + esc(title) + '</b><i></i></div><div class="guide-shot-body">' + items.map((item) => '<button type="button" class="guide-hotspot" data-jump="' + esc(item[1]) + '">' + esc(item[0]) + '</button>').join('') + '</div></div>';
     }
     function guideBlock(title, text, jump, label, shot = '') {
-      return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
+      return '<article class="guide-block saas-card">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary saas-btn" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
     }
     function guideVisitorKey() {
       if (authUser?.id) return String(authUser.id).slice(0, 80);
@@ -5572,7 +5615,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
       if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Submitted exams cannot be reopened; a new assignment creates a separate exam. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Сданный экзамен нельзя разблокировать; новое назначение создаёт отдельный экзамен. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
       if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Accounts','Открыть Accounts'));
-      html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
+      html += '<article class="guide-block saas-card"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn saas-btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
     function faceUser() {
@@ -6618,17 +6661,41 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function renderSong(key) {
       songKey = key;
       const w = songCards[key];
-      document.getElementById("musicTitle").textContent = w.en;
-      document.getElementById("musicView").innerHTML =
-        catalogEditHtml(w) +
-        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
-        ipaHtml(w) +
-        (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
-        '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
-        "<p>" + cardLinks(w.en, w.url) + "</p>" +
-        '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
-        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
-        cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      const titleEl = document.getElementById("musicTitle");
+      if (titleEl && w) titleEl.textContent = w.en;
+      const viewEl = document.getElementById("musicView");
+      if (viewEl && w) {
+        viewEl.innerHTML =
+          catalogEditHtml(w) +
+          '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
+          ipaHtml(w) +
+          (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
+          '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
+          "<p>" + cardLinks(w.en, w.url) + "</p>" +
+          '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
+          '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
+          cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      }
+      const sideTitle = document.getElementById("inspectedWordTitle");
+      if (sideTitle && w) {
+        sideTitle.textContent = w.en;
+        const sideRu = document.getElementById("inspectedWordRu");
+        if (sideRu) sideRu.textContent = w.ru || "";
+        const sidePos = document.getElementById("inspectedWordPos");
+        if (sidePos) sidePos.textContent = (w.pos || "") + (w.level ? " · " + w.level : "");
+        const sideEx = document.getElementById("inspectedWordEx");
+        if (sideEx) sideEx.textContent = w.ex ? `"${w.ex}"` : "";
+        const sideExRu = document.getElementById("inspectedWordExRu");
+        if (sideExRu) sideExRu.textContent = w.exRu || (w.ru ? "Пример употребления в песне: " + w.ru : "");
+        const ukIpa = document.getElementById("inspectedUkIpa");
+        if (ukIpa) ukIpa.textContent = w.uk || (w.ipa && w.ipa.uk) || w.ipa || "/ˈmuːn.laɪt/";
+        const usIpa = document.getElementById("inspectedUsIpa");
+        if (usIpa) usIpa.textContent = w.us || (w.ipa && w.ipa.us) || w.ipa || "/ˈmuːn.laɪt/";
+        const ukSay = document.getElementById("inspectedUkSay");
+        if (ukSay) ukSay.dataset.sayText = w.en;
+        const usSay = document.getElementById("inspectedUsSay");
+        if (usSay) usSay.dataset.sayText = w.en;
+      }
     }
     function applySongEdits() {
       const map = loadEdits();
@@ -7159,7 +7226,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
           const n = map[name].length;
-          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+          return '<button class="day active saas-card" type="button" data-all-group="' + esc(name) + '"><span class="date saas-badge saas-badge-muted">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about saas-badge saas-badge-info">' + n + (n === 1 ? " word" : " words") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -7536,8 +7603,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         ["v2", "V2", v.past],
         ["v3", "V3", v.pp]
       ].filter((row) => row[0] !== model.slot);
-      let html = '<div class="card grow study" id="verbform-' + model.slot + '">';
-      html += '<p class="g-badge">' + esc(model.badge) + "</p>";
+      let html = '<div class="card grow study saas-card" id="verbform-' + model.slot + '">';
+      html += '<p class="g-badge saas-badge saas-badge-info">' + esc(model.badge) + "</p>";
       html += '<p class="entry">' + esc(model.form) + "</p>";
       html += verbAlts(model.form).map((word) => ipaHtml(verbSay(v, model.slot, word))).join("");
       html += '<div class="tags">' + model.tags.map((tag) => "<span>" + esc(tag) + "</span>").join("") + "</div>";
@@ -7563,7 +7630,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       html += '<p class="label">Grammar</p><p class="src">' + verbTopicChips(model.grammar) + "</p>";
       html += '<p class="label">Irregular verb family</p><p class="src">' + esc(v.base) + " → " + esc(v.past) + " → " + esc(v.pp) + "</p>";
       html += '<p class="src">' + others.map((row) =>
-        '<button class="btn chip" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
+        '<button class="btn chip saas-btn" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
       ).join(" ") + "</p>";
       html += "<p>" + cardLinks(v.base, "https://dictionary.cambridge.org/dictionary/english/" + encodeURIComponent(v.base)) + "</p>";
       html += clipLine(clipOf({ en: model.form }));
@@ -7616,7 +7683,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
         box.innerHTML = VERB_LEVELS.map((pair, index) => {
           const n = list.filter((v) => v.level === pair[0] && cardVisible(v)).length;
-          return '<button class="file-card" type="button" data-verb-level="' + pair[0] + '"><span class="num">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
+          return '<button class="file-card saas-card" type="button" data-verb-level="' + pair[0] + '"><span class="num saas-badge saas-badge-muted">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label saas-badge saas-badge-info">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -7628,7 +7695,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (title) title.textContent = (level ? level[1] : "Irregular verbs") + " · " + shown.length;
         if (sub) sub.hidden = true;
         box.innerHTML = shown.slice().sort((a,b)=>a.base.localeCompare(b.base,'en')).map((v) =>
-          '<button class="wcard" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
+          '<button class="wcard saas-card" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos saas-badge saas-badge-muted">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
         ).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -9501,7 +9568,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function songRow(number, title, artist, about, attrs) {
       const who = artist ? '<span class="plain">. ' + esc(artist) + "</span>" : "";
-      return '<button class="day active" type="button" ' + attrs + '><span class="date">' + number + '</span><span class="song-line"><b>' + esc(title) + "</b>" + who + '</span><span class="label about">' + esc(about) + "</span></button>";
+      return '<button class="day active saas-card" type="button" ' + attrs + '><span class="date saas-badge saas-badge-muted">' + number + '</span><span class="song-line"><b>' + esc(title) + "</b>" + who + '</span><span class="label about saas-badge saas-badge-info">' + esc(about) + "</span></button>";
     }
     function lyricMark(label, key, mark) {
       if(mark&&(mark.state==='error'||mark.state==='untranslated'))return '<button class="word lyric-unchecked" type="button" title="'+esc(mark.state==='error'?'Check failed. Try again.':'No definition available yet.')+'" data-lyric-open="'+esc(key)+'">'+esc(label)+'</button>';
@@ -9540,10 +9607,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         checkLine = statsLine(songStat(keys, song.marks || {}));
       } catch (e) { checkLine = ""; }
       user.innerHTML = '<div data-song-media></div>' +
-        '<div class="row" style="margin-bottom:8px"><button class="btn" type="button" data-lyric-size="-1">A−</button><button class="btn" type="button" data-lyric-size="1">A+</button><button class="btn" type="button" data-lyric-meta>Edit song</button><button class="btn" type="button" data-lyric-edit>Edit lyric</button><button class="btn" type="button" data-lyric-archive>Archive</button></div>' +
+        '<div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-lyric-size="-1">A−</button><button class="btn saas-btn" type="button" data-lyric-size="1">A+</button><button class="btn saas-btn" type="button" data-lyric-meta>Edit song</button><button class="btn saas-btn" type="button" data-lyric-edit>Edit lyric</button><button class="btn saas-btn" type="button" data-lyric-archive>Archive</button></div>' +
         '<p class="hint" data-lyric-check>' + esc(checkLine) + "</p>" +
-        '<div data-lyric-meta-editor hidden><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/*,video/*" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
-        '<div data-lyric-editor hidden><textarea data-lyric-draft></textarea><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-lyric-recheck>Check the words again</button></div><p class="hint" data-lyric-edit-status></p></div>' +
+        '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn saas-btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/*,video/*" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn saas-btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
+        '<div class="saas-card saas-form-grid" data-lyric-editor hidden style="margin-bottom:12px;padding:16px"><textarea data-lyric-draft></textarea><div class="row" style="margin-top:8px"><button class="btn primary saas-btn" type="button" data-lyric-recheck>Check the words again</button></div><p class="hint" data-lyric-edit-status></p></div>' +
         '<div class="lyric-text">' + lyricBody + "</div>";
       const titleInput = user.querySelector("[data-lyric-title]");
       const artistInput = user.querySelector("[data-lyric-artist]");
@@ -10645,7 +10712,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const attr = row.kind === "added"
           ? 'data-added="' + row.index + '"'
           : 'data-bank-place="' + place + '" data-bank-index="' + row.index + '"';
-        return '<button class="wcard" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
+        return '<button class="wcard saas-card" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
       }).join("");
       if (keep) show("daywords");
       else visit("daywords");
@@ -10757,8 +10824,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function linkChip(item) {
       const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
-      if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      if (!href) return '<span class="link-chip"><span class="btn chip saas-btn">' + esc(item.title) + "</span>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip saas-btn" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';
@@ -13031,10 +13098,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (!box) return;
       if (authUser) {
         const person = faceUser();
-        box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+        box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="profile">Account</button>' +
+          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }
@@ -13054,67 +13121,67 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
-      const tabs='<div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
-      const microsoft='<button class="btn auth-google" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
-      const telegram='<button class="btn auth-google" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
-      const google='<button class="btn auth-google" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
+      const microsoft='<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
+      const telegram='<button class="btn auth-google saas-btn" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
+      const google='<button class="btn auth-google saas-btn" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
         if(invite&&!inviteDetails){
-          box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+          box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
           return;
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
           ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
-        box.innerHTML = '<div class="account-gate"><div class="card"><h1 class="auth-title">Create account</h1>' + flashHtml +
-          '<form id="registerForm"><label for="authLogin">Login</label><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
-          '<label for="authEmail">Email</label><input id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-          '<label for="authName">Name</label><input id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
+        box.innerHTML = '<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1>' + flashHtml +
+          '<form id="registerForm"><label for="authLogin">Login</label><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
+          '<label for="authEmail">Email</label><input class="saas-input" id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+          '<label for="authName">Name</label><input class="saas-input" id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
-          (teacherInvite?'<button class="btn auth-code-send" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
+          (teacherInvite?'<button class="btn auth-code-send saas-btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input class="saas-input" data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
       }
       let teacherEmailInvite=false;
       try{teacherEmailInvite=!!sessionStorage.getItem('enquiz-invite')&&inviteDetails?.kind==='teacher';}catch{}
-      box.innerHTML = '<div class="account-gate"><div class="card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
-        '<div class="auth-mode-switch"><button class="btn chip on" type="button" data-login-mode="password">Password</button><button class="btn chip" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
+      box.innerHTML = '<div class="account-gate"><div class="card saas-card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
+        '<div class="auth-mode-switch saas-segmented"><button class="btn chip saas-btn on" type="button" data-login-mode="password">Password</button><button class="btn chip saas-btn" type="button" data-login-mode="otp">Email code</button></div>' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
         passwordField(false)+
-        '<p class="hint" role="status" data-form-status></p><button class="btn primary" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
-        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-        (teacherEmailInvite?'<label for="otpName">Name</label><input id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
-        '<div class="row" style="margin:8px 0"><button class="btn" type="button" data-otp-send>Send code</button></div>' +
-        '<label for="otpCode" data-otp-step hidden>Code</label><input id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
+        '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input class="saas-input" id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+        (teacherEmailInvite?'<label for="otpName">Name</label><input class="saas-input" id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
+        '<div class="row" style="margin:8px 0"><button class="btn saas-btn" type="button" data-otp-send>Send code</button></div>' +
+        '<label for="otpCode" data-otp-step hidden>Code</label><input class="saas-input" id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
+        '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
+        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google saas-btn" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
       decorate();
     }
     function paintProfile() {
       const box = document.getElementById("profileBody");
       if (!box) return;
       if (!authUser) {
-        box.innerHTML = '<div class="card"><p>Sign in to see your profile.</p><button class="btn primary" type="button" data-jump="account">Profile</button></div>';
+        box.innerHTML = '<div class="card saas-card"><p>Sign in to see your profile.</p><button class="btn primary saas-btn" type="button" data-jump="account">Profile</button></div>';
         return;
       }
       const person = faceUser();
       const counts = personalCounts();
-      box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+      box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+        (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
-        (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
+        (viewAccount ? "" : '<div class="card saas-card" id="ownAccount"><p class="hint">Loading…</p></div>') +
         '<div class="overview"><button class="stat-tile" type="button" data-stat="learned"><b>' + counts.learned + '</b><span>Learned</span></button><button class="stat-tile" type="button" data-jump="allwords"><b>' + counts.words + '</b><span>Words</span></button></div>' +
         (viewAccount ? "" : '<p class="hint">Words, songs and progress stay with the account. Signing out removes them from this browser. They come back after you sign in.</p>' +
-        '<div class="row"><button class="btn stop" type="button" data-account="revoke">Delete my data</button></div>');
+        '<div class="row"><button class="btn stop saas-btn" type="button" data-account="revoke">Delete my data</button></div>');
       if (!viewAccount) {
         if (ownAccountData) renderOwnAccount(ownAccountData);
         else loadOwnAccount();
@@ -13138,8 +13205,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (!box || !data || !data.user) return;
       const change = data.change && data.change.status === "pending" ? data.change : null;
       box.innerHTML = (change ? changeHtml(change) + '<p class="hint">Waiting for approval.</p>' : "") +
-        '<div class="row"><button class="btn" type="button" data-account="edit-details">Change details</button>' +
-        '<button class="btn" type="button" data-account="edit-password">Change password</button></div>' +
+        '<div class="row"><button class="btn saas-btn" type="button" data-account="edit-details">Change details</button>' +
+        '<button class="btn saas-btn" type="button" data-account="edit-password">Change password</button></div>' +
         '<div id="ownAccountFormSlot" hidden></div><div id="ownPasswordSlot" hidden></div>';
     }
     function openOwnAccountForm() {
@@ -13161,8 +13228,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         '<p class="label">Login</p><input name="login" type="text" autocomplete="username" required />' +
         '<p class="label">Email</p><input name="email" type="email" autocomplete="email" required />' +
         '<p class="label">Name</p><input name="name" type="text" autocomplete="name" />' +
-        (change ? '<button class="btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Request change</button></form>';
+        (change ? '<button class="btn saas-btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
+        '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit">Request change</button></form>';
       const form = document.getElementById("ownAccountForm");
       if (!form) return;
       form.login.value = change ? change.login : user.login;
@@ -13901,7 +13968,7 @@ const STUDIO_CONSTELLATIONS = [{
 
   function paintRecovery(){
     const box=document.getElementById('accountBody');
-    box.innerHTML='<div class="account-gate"><div class="card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send primary" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="32" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–32 characters</p><button class="btn primary" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form></div></div>';
+    box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input class="saas-input" id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send primary saas-btn" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input class="saas-input" id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input class="saas-input" id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="32" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–32 characters</p><button class="btn primary saas-btn" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form></div></div>';
     box.querySelector('input').focus();
   }
   const navigation=['home'];let restoring=false;
@@ -15362,7 +15429,7 @@ const STUDIO_CONSTELLATIONS = [{
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form saas-card" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input class="saas-input" type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select class="saas-select" data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select class="saas-select" data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input class="saas-input" type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary saas-btn" type="button" data-invite-create disabled>Create invite</button></div><input class="saas-input" type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -15664,15 +15731,15 @@ const STUDIO_CONSTELLATIONS = [{
 
         // Left column: Profile Summary Card
         html += '<aside class="admin-user-sidebar">';
-        html += '<div class="admin-user-summary-card card">';
+        html += '<div class="admin-user-summary-card card saas-card">';
         html += '<div class="admin-user-summary-cover"></div>';
-        html += '<div class="admin-user-summary-body">';
+        html += '<div class="admin-user-summary-body saas-card-body">';
         html += '<div class="admin-user-avatar">' + esc(initials) + '</div>';
-        html += '<h2 class="admin-user-name">' + esc(user.name || user.login) + '</h2>';
-        html += '<p class="admin-user-email">' + esc(user.email) + '</p>';
+        html += '<h2 class="admin-user-name saas-card-title">' + esc(user.name || user.login) + '</h2>';
+        html += '<p class="admin-user-email saas-card-subtitle">' + esc(user.email) + '</p>';
         html += '<div class="admin-user-badges">';
-        html += '<span class="admin-status-badge ' + (isActive ? 'is-active' : 'is-inactive') + '"><span class="badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
-        html += '<span class="admin-role-badge">' + esc(roleName) + '</span>';
+        html += '<span class="admin-status-badge saas-badge ' + (isActive ? 'is-active saas-badge-active' : 'is-inactive saas-badge-muted') + '"><span class="badge-dot saas-badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
+        html += '<span class="admin-role-badge saas-badge saas-badge-info">' + esc(roleName) + '</span>';
         html += '</div>';
         html += '<hr class="admin-user-divider">';
         html += '<dl class="admin-user-metadata">';
@@ -15683,7 +15750,7 @@ const STUDIO_CONSTELLATIONS = [{
         html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
         html += '</dl>';
         html += '<div class="admin-user-sidebar-actions">';
-        html += '<button type="button" class="btn admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+        html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
         html += '</div>';
         html += '</div></div></aside>';
 
@@ -15691,56 +15758,56 @@ const STUDIO_CONSTELLATIONS = [{
         html += '<div class="admin-user-main">';
 
         // Card 1: Account Information & Access
-        html += '<div class="card admin-user-card admin-personal-card">';
-        html += '<div class="admin-card-head"><h3>Account Information & Access</h3><span class="admin-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div>';
-        html += '<div class="admin-form-grid">';
-        html += '<label class="admin-form-field"><span class="field-label">Full Name</span><input data-profile-name type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
-        html += '<label class="admin-form-field"><span class="field-label">Username (Login)</span><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
-        html += '<label class="admin-form-field is-full"><span class="field-label">Email Address</span><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<div class="card admin-user-card admin-personal-card saas-card">';
+        html += '<div class="admin-card-head saas-card-header"><div class="saas-card-title-group"><h3 class="saas-card-title">Account Information & Access</h3><span class="admin-card-subtitle saas-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div></div>';
+        html += '<div class="admin-form-grid saas-form-grid">';
+        html += '<label class="admin-form-field saas-form-group"><span class="field-label saas-label">Full Name</span><input data-profile-name class="saas-input" type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field saas-form-group"><span class="field-label saas-label">Username (Login)</span><input data-profile-login class="saas-input" type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field saas-form-group is-full"><span class="field-label saas-label">Email Address</span><input data-profile-email class="saas-input" type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
 
         // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
-        html += '<div class="admin-form-field account-group-row">';
-        html += '<label><span class="field-label">Assigned Group</span>';
-        html += '<select data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
+        html += '<div class="admin-form-field saas-form-group account-group-row">';
+        html += '<label><span class="field-label saas-label">Assigned Group</span>';
+        html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
         html += '</label>';
-        html += '<div class="account-group-actions"><button class="btn small" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
+        html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
 
         // Role field
-        html += '<div class="admin-form-field">';
-        html += '<label><span class="field-label">System Role</span>';
-        html += '<select data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
+        html += '<div class="admin-form-field saas-form-group">';
+        html += '<label><span class="field-label saas-label">System Role</span>';
+        html += '<select class="saas-select" data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
         html += '<option value="USER"' + (user.role === 'USER' ? ' selected' : '') + '>Student</option>';
         html += '<option value="ADMIN"' + (user.role === 'ADMIN' ? ' selected' : '') + '>Teacher</option>';
         html += '<option value="DEVELOPER"' + (user.role === 'DEVELOPER' ? ' selected' : '') + '>Developer</option>';
         html += '</select></label>';
         if (isDeveloper()) {
-          html += '<div class="account-role-actions"><button class="btn small" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
+          html += '<div class="account-role-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
         }
         html += '</div>';
 
-        html += '</div>'; // end admin-form-grid
+        html += '</div>'; // end admin-form-grid saas-form-grid
 
-        html += '<div class="admin-card-footer">';
-        html += '<p class="admin-form-hint">Passwords are managed securely and not displayed here.</p>';
-        html += '<div class="admin-card-actions">';
-        html += '<button type="button" class="btn" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
+        html += '<div class="admin-card-footer saas-card-footer">';
+        html += '<p class="admin-form-hint saas-card-hint">Passwords are managed securely and not displayed here.</p>';
+        html += '<div class="admin-card-actions saas-card-actions">';
+        html += '<button type="button" class="btn saas-btn saas-btn-secondary" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
         if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
-          html += '<button class="btn primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
+          html += '<button class="btn primary saas-btn saas-btn-primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
         }
         html += '</div></div>';
         html += '</div>'; // end Card 1
 
         // Card 2: Account Status & Lifecycle (Danger Zone)
-        html += '<div class="card admin-user-card admin-danger-card">';
-        html += '<div class="admin-danger-head"><h4>Account Status & Lifecycle</h4><p class="admin-danger-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div>';
-        html += '<div class="admin-danger-actions">';
+        html += '<div class="card admin-user-card admin-danger-card saas-card">';
+        html += '<div class="admin-danger-head saas-card-header"><div class="saas-card-title-group"><h4 class="saas-card-title">Account Status & Lifecycle</h4><p class="admin-danger-subtitle saas-card-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div></div>';
+        html += '<div class="admin-danger-actions saas-card-actions">';
         if (isDeveloper()) {
-          html += '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
-          html += '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
         }
         if (user.role === 'USER' || isDeveloper()) {
-          html += '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
         }
         html += '</div>';
         html += '</div>'; // end Card 2
@@ -15887,7 +15954,7 @@ const STUDIO_CONSTELLATIONS = [{
           const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
           const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Delete";
           const icon = (path) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
-          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
+          const tools = '<div class="day-tools"><button class="day-hide saas-btn" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del saas-btn" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
           const label = 'Deleted by ' + (item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + when : "") + hidden;
           return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
         }).join("") + "</div>").join("");}).join('');
@@ -16080,9 +16147,9 @@ const STUDIO_CONSTELLATIONS = [{
         const stamp = '<small class="bug-stamp">'+esc(row.resolved?'Resolved: '+(row.resolvedAt?bugWhen(row.resolvedAt,zone):'Date not recorded'):when)+'</small>';
         const caption = esc(happened) + " · " + esc(who) + stamp;
         const route = ((row.method || "") + " " + (row.path || "")).trim();
-        const resolve = canResolve ? '<button class="day-hide bug-resolve" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
-        const copy = '<button class="day-edit bug-copy" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
+        const resolve = canResolve ? '<button class="day-hide bug-resolve saas-btn" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
+        const copy = '<button class="day-edit bug-copy saas-btn" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row saas-card"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date saas-badge saas-badge-muted"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about saas-badge saas-badge-info">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
       }).join("");
     }
     function bugListHtml(rows,canResolve){
@@ -17119,7 +17186,7 @@ const STUDIO_CONSTELLATIONS = [{
     function statsList(title, map) {
       const names = Object.keys(map || {}).sort((a, b) => map[b] - map[a]);
       if (!names.length) return "";
-      let html = '<div class="card"><p class="label">' + esc(title) + "</p>";
+      let html = '<div class="card saas-card"><p class="label">' + esc(title) + "</p>";
       names.forEach((name) => {
         html += '<div class="funnel-step"><span>' + esc(name) + "</span><b>" + map[name] + "</b></div>";
       });
@@ -17207,7 +17274,7 @@ const STUDIO_CONSTELLATIONS = [{
       html += statsVisualSummary(data, compare);
       html += '<div class="stat-panel' + (statsMode === "details" ? " on" : "") + '" data-stat-panel="details">';
       if (overall && data.directory === false) {
-        html += '<div class="card"><p>Account and registration counts are not ready yet. They appear after a teacher signs in once, when the account list is saved. Nothing here is filled in with zero.</p></div>';
+        html += '<div class="card saas-card"><p>Account and registration counts are not ready yet. They appear after a teacher signs in once, when the account list is saved. Nothing here is filled in with zero.</p></div>';
       } else if (overall) {
         html += '<div class="overview">';
         html += '<div><b>' + accounts.created + '</b><span>New accounts</span>' + statsDelta(accounts.created, accounts.previous, compare) + "</div>";
@@ -17220,10 +17287,10 @@ const STUDIO_CONSTELLATIONS = [{
       html += '<p class="hint">' + esc(period) + (compare ? ". Previous period " + esc(data.previousFrom) + " to " + esc(data.previousTo) + "." : "") + "</p>";
       if (overall && data.directory !== false) {
         const accountBars = statsBuckets(accounts.series || [], "count");
-        html += '<div class="card"><p class="label">New accounts' + ((accounts.series || []).length > 42 ? " by week" : " by day") + "</p>";
+        html += '<div class="card saas-card"><p class="label">New accounts' + ((accounts.series || []).length > 42 ? " by week" : " by day") + "</p>";
         html += '<p class="hint">Count of accounts whose creation date falls in each ' + ((accounts.series || []).length > 42 ? "week" : "day") + ". A day with none is a real zero.</p>";
         html += statsBars(accountBars, "New accounts");
-        html += '<table class="stat-table"><thead><tr><th>Day</th><th>Accounts</th></tr></thead><tbody>';
+        html += '<table class="stat-table saas-table"><thead><tr><th>Day</th><th>Accounts</th></tr></thead><tbody>';
         (accounts.series || []).forEach((row) => {
           if (!row.count) return;
           html += "<tr><td>" + esc(row.day) + "</td><td>" + row.count + "</td></tr>";
@@ -17231,7 +17298,7 @@ const STUDIO_CONSTELLATIONS = [{
         if (!(accounts.series || []).some((row) => row.count)) html += '<tr><td colspan="2">No new accounts in this period.</td></tr>';
         html += "</tbody></table></div>";
         const roles = accounts.byRole || {};
-        html += '<div class="card"><p class="label">New accounts by role</p><p class="hint">Role on the account now, among accounts created in this period.</p>';
+        html += '<div class="card saas-card"><p class="label">New accounts by role</p><p class="hint">Role on the account now, among accounts created in this period.</p>';
         html += '<div class="funnel-step"><span>Students</span><b>' + (roles.USER || 0) + "</b></div>";
         html += '<div class="funnel-step"><span>Teachers</span><b>' + (roles.ADMIN || 0) + "</b></div>";
         html += '<div class="funnel-step"><span>Developers</span><b>' + (roles.DEVELOPER || 0) + "</b></div>";
@@ -17241,7 +17308,7 @@ const STUDIO_CONSTELLATIONS = [{
         html += "</div>";
       }
       if (!activity.tracked) {
-        html += '<div class="card"><p class="label">Study activity</p><p>' + (overall
+        html += '<div class="card saas-card"><p class="label">Study activity</p><p>' + (overall
           ? "No study activity has been recorded yet. Checked answers, exams, new cards and new songs will appear here after they happen. Older study is not shown as zero."
           : "No study activity has been recorded for you yet. Checked answers, exams, new cards and new songs will appear here after they happen.") + "</p></div>";
       } else {
@@ -17340,14 +17407,14 @@ const STUDIO_CONSTELLATIONS = [{
       html += '<section class="stat-compare"><div class="stat-title"><h2>Progress by period</h2><span><i></i>Selected period <i></i>Previous</span></div>' + rows.map((row) => '<div class="stat-compare-row"><b>' + row[0] + '</b><div><i style="--w:' + Math.round(row[1] * 100 / max) + '%"></i><i style="--w:' + Math.round(row[2] * 100 / max) + '%"></i></div><span>' + row[1] + (compare ? ' / ' + row[2] : '') + '</span></div>').join('') + '</section></div>';
       const accuracy = pct(a.correct || 0, a.answers || 0), examRate = pct(a.examPass || 0, a.exams || 0);
       const ring = (value, label, detail) => '<div class="stat-ring-item"><div class="stat-ring" style="--p:' + value + '"><b>' + value + '%</b></div><strong>' + label + '</strong><small>' + detail + '</small></div>';
-      html += '<div class="stat-panel' + (statsMode === "learning" ? " on" : "") + '" data-stat-panel="learning"><div class="stat-rings">' + ring(accuracy, "Answer accuracy", (a.correct || 0) + " correct") + ring(Math.min(100, (a.learned || 0) * 10), "Learned checks", (a.learned || 0) + " completed") + ring(examRate, "Exam success", (a.examPass || 0) + " passed") + '</div><div class="card"><p class="label">Answers over time</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Answers over time") + '</div>' + statsList("Practice by quiz type", a.byArea) + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "learning" ? " on" : "") + '" data-stat-panel="learning"><div class="stat-rings">' + ring(accuracy, "Answer accuracy", (a.correct || 0) + " correct") + ring(Math.min(100, (a.learned || 0) * 10), "Learned checks", (a.learned || 0) + " completed") + ring(examRate, "Exam success", (a.examPass || 0) + " passed") + '</div><div class="card saas-card"><p class="label">Answers over time</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Answers over time") + '</div>' + statsList("Practice by quiz type", a.byArea) + '</div>';
       html += '<div class="stat-panel' + (statsMode === "materials" ? " on" : "") + '" data-stat-panel="materials"><div class="stat-kpis"><div class="stat-kpi"><b>' + (a.cards || 0) + '</b><span>Cards added</span></div><div class="stat-kpi"><b>' + (a.songs || 0) + '</b><span>Songs added</span></div><div class="stat-kpi"><b>' + (a.archives || 0) + '</b><span>Archived</span></div><div class="stat-kpi"><b>' + (a.learned || 0) + '</b><span>Learned checks</span></div></div>' + statsList("Cards and materials by section", a.cardAreas) + '</div>';
       html += '<div class="stat-panel' + (statsMode === "exams" ? " on" : "") + '" data-stat-panel="exams"><div class="stat-rings">' + ring(examRate, "Pass rate", (a.examPass || 0) + " of " + (a.exams || 0)) + ring(Math.max(0, 100 - examRate), "Needs review", Math.max(0, (a.exams || 0) - (a.examPass || 0)) + " attempts") + '</div>' + statsList("Why exams were not passed", a.examFail) + '</div>';
-      html += '<div class="stat-panel' + (statsMode === "activity" ? " on" : "") + '" data-stat-panel="activity"><div class="stat-kpis"><div class="stat-kpi"><b>' + minutes + '</b><span>Study minutes</span></div><div class="stat-kpi"><b>' + (a.answers || 0) + '</b><span>Interactions</span></div><div class="stat-kpi"><b>' + ((a.series || []).filter((row) => (row.answers || row.seconds || row.exams)).length) + '</b><span>Active days</span></div><div class="stat-kpi"><b>' + accuracy + '%</b><span>Accuracy</span></div></div><div class="card"><p class="label">Daily activity</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Daily activity") + '</div></div>';
+      html += '<div class="stat-panel' + (statsMode === "activity" ? " on" : "") + '" data-stat-panel="activity"><div class="stat-kpis"><div class="stat-kpi"><b>' + minutes + '</b><span>Study minutes</span></div><div class="stat-kpi"><b>' + (a.answers || 0) + '</b><span>Interactions</span></div><div class="stat-kpi"><b>' + ((a.series || []).filter((row) => (row.answers || row.seconds || row.exams)).length) + '</b><span>Active days</span></div><div class="stat-kpi"><b>' + accuracy + '%</b><span>Accuracy</span></div></div><div class="card saas-card"><p class="label">Daily activity</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Daily activity") + '</div></div>';
       if (data.developerBugs) {
         const bugs = data.developerBugs;
         const system = data.developerSystem || {};
-        html += '<div class="stat-panel' + (statsMode === "system" ? " on" : "") + '" data-stat-panel="system"><div class="stat-system"><div class="stat-title"><h2>System health</h2><span>Live application snapshot</span></div><div class="stat-kpis"><div class="stat-kpi"><b>' + bugs.active + '</b><span>Active bugs</span><small>' + bugs.hits + ' recorded occurrences</small></div><div class="stat-kpi"><b>' + bugs.resolved + '</b><span>Resolved bugs</span></div><div class="stat-kpi"><b>' + (system.cards || 0) + '</b><span>Cards available</span></div><div class="stat-kpi"><b>' + (system.materials || 0) + '</b><span>Personal materials</span></div></div><div class="system-status"><div><i class="' + (system.online ? "ok" : "bad") + '"></i><span>Network</span><b>' + (system.online ? "Online" : "Offline") + '</b></div><div><i class="' + (system.preloadActive ? "busy" : "ok") + '"></i><span>Background loading</span><b>' + (system.preloadActive || 0) + ' active · ' + (system.preloadWaiting || 0) + ' waiting</b></div><div><i class="ok"></i><span>Viewport</span><b>' + esc(system.viewport || "—") + '</b></div></div><button class="btn primary" type="button" data-jump="bugs">Open bug diagnostics</button></div></div>';
+        html += '<div class="stat-panel' + (statsMode === "system" ? " on" : "") + '" data-stat-panel="system"><div class="stat-system"><div class="stat-title"><h2>System health</h2><span>Live application snapshot</span></div><div class="stat-kpis"><div class="stat-kpi"><b>' + bugs.active + '</b><span>Active bugs</span><small>' + bugs.hits + ' recorded occurrences</small></div><div class="stat-kpi"><b>' + bugs.resolved + '</b><span>Resolved bugs</span></div><div class="stat-kpi"><b>' + (system.cards || 0) + '</b><span>Cards available</span></div><div class="stat-kpi"><b>' + (system.materials || 0) + '</b><span>Personal materials</span></div></div><div class="system-status"><div><i class="' + (system.online ? "ok" : "bad") + '"></i><span>Network</span><b>' + (system.online ? "Online" : "Offline") + '</b></div><div><i class="' + (system.preloadActive ? "busy" : "ok") + '"></i><span>Background loading</span><b>' + (system.preloadActive || 0) + ' active · ' + (system.preloadWaiting || 0) + ' waiting</b></div><div><i class="ok"></i><span>Viewport</span><b>' + esc(system.viewport || "—") + '</b></div></div><button class="btn primary saas-btn" type="button" data-jump="bugs">Open bug diagnostics</button></div></div>';
       }
       return html;
     }
@@ -17402,9 +17469,9 @@ const STUDIO_CONSTELLATIONS = [{
       let token='';try{token=sessionStorage.getItem('enquiz-invite')||'';}catch{}
       if(!token)return;
       if(['ADMIN','DEVELOPER'].includes(authUser.role)){
-        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog';
+        const dialog=document.createElement('dialog');dialog.className='invite-accept-dialog saas-card';
         const groupTitle=inviteDetails?.groupTitle||'the group';
-        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary" data-accept>Accept invitation</button><button type="button" class="btn" data-close>Cancel</button></div></form>';
+        dialog.innerHTML='<form class="invite-form"><h2>Join '+esc(groupTitle)+'</h2><p>You have been invited to become a co-teacher of <b>'+esc(groupTitle)+'</b> as <b>'+esc(authUser.name||authUser.login)+'</b>.</p><p role="status" class="hint"></p><div class="row"><button type="submit" class="btn primary saas-btn" data-accept>Accept invitation</button><button type="button" class="btn saas-btn" data-close>Cancel</button></div></form>';
         document.body.append(dialog);dialog.showModal();
         const form=dialog.querySelector('form'),status=form.querySelector('[role="status"]');
         form.querySelector('[data-close]').onclick=()=>{sessionStorage.removeItem('enquiz-invite');dialog.close();};
@@ -17731,12 +17798,12 @@ const STUDIO_CONSTELLATIONS = [{
 
     function showDangerConfirm({ title, message, confirmText, dangerLevel = 'warn', onConfirm }) {
       const dialog = document.createElement('dialog');
-      dialog.className = 'danger-confirm-dialog';
+      dialog.className = 'danger-confirm-dialog saas-card';
       dialog.setAttribute('aria-labelledby', 'dangerConfirmTitle');
       dialog.setAttribute('aria-describedby', 'dangerConfirmDesc');
 
       const iconEmoji = dangerLevel === 'danger' ? '🗑️' : dangerLevel === 'warn' ? '⚠️' : 'ℹ️';
-      const confirmClass = dangerLevel === 'danger' ? 'btn stop' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn' : 'btn primary';
+      const confirmClass = dangerLevel === 'danger' ? 'btn stop saas-btn saas-btn-danger' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn saas-btn' : 'btn primary saas-btn';
 
       dialog.innerHTML = '<div class="danger-confirm-content">' +
         '<div class="danger-confirm-icon ' + esc(dangerLevel) + '" aria-hidden="true">' + iconEmoji + '</div>' +
@@ -17746,7 +17813,7 @@ const STUDIO_CONSTELLATIONS = [{
         '</div>' +
         '</div>' +
         '<div class="danger-confirm-footer">' +
-        '<button type="button" class="btn" data-danger-cancel>Cancel</button>' +
+        '<button type="button" class="btn saas-btn" data-danger-cancel>Cancel</button>' +
         '<button type="button" class="' + confirmClass + '" data-danger-confirm></button>' +
         '</div>';
 
@@ -18050,9 +18117,9 @@ const STUDIO_CONSTELLATIONS = [{
               }
               try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
               const dialog = document.createElement('dialog');
-              dialog.className = 'account-deleted-dialog';
+              dialog.className = 'account-deleted-dialog saas-card';
               dialog.setAttribute('aria-labelledby', 'deletedAccountTitle');
-              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary" type="submit">OK</button></form>';
+              dialog.innerHTML = '<h2 id="deletedAccountTitle">Account archived</h2><p></p><form method="dialog"><button class="btn primary saas-btn" type="submit">OK</button></form>';
               dialog.querySelector('p').textContent = 'The account for ' + name + ' has been moved to Archive.';
               dialog.addEventListener('cancel', event => event.preventDefault());
               dialog.addEventListener('close', () => { dialog.remove(); adminTab = 'accounts'; show('admin'); paintAdmin(); }, { once: true });
@@ -18695,7 +18762,7 @@ const STUDIO_CONSTELLATIONS = [{
         const children = (expr.children || []).map((child) => esc(child.canonicalForm || child.exactText)).join(", ");
         const times = expr.occurrences && expr.occurrences.length > 1 ? expr.occurrences.length : 0;
         const saved = expressionSaved(expr);
-        return "<article class=\"card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
+        return "<article class=\"card saas-card expression-card" + (saved ? " expression-added" : "") + "\" style=\"margin-bottom:10px\">"
           + "<div class=\"expression-fold\"><b>" + esc(expr.exactText || "") + "</b>"
           + expressionCardButton(expr, index) + "</div>"
           + "<div class=\"expression-more\">"
@@ -18706,7 +18773,7 @@ const STUDIO_CONSTELLATIONS = [{
           + "<p class=\"hint\">Context: " + esc(expr.context || "") + "</p>"
           + "<p class=\"hint\">Confidence " + pct(expr.confidence) + " · Usefulness " + pct(expr.usefulnessScore) + "</p>"
           + (children ? "<p class=\"hint\">Related: " + children + "</p>" : "")
-          + "<div class=\"row\"><a class=\"btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
+          + "<div class=\"row\"><a class=\"btn saas-btn\" href=\"" + reverso + "\" target=\"_blank\" rel=\"noopener\">Open in Reverso</a></div>"
           + "</div></article>";
       }).join("");
     }
@@ -18751,8 +18818,8 @@ const STUDIO_CONSTELLATIONS = [{
       const place = expressionPlace(expr);
       const saved = findExpressionCard(expr);
       const deck = expressionDeckName(place, !!(saved && saved.fromText));
-      if (saved) return "<button class=\"btn ok\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
-      return "<button class=\"btn primary\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
+      if (saved) return "<button class=\"btn ok saas-btn\" type=\"button\" data-text-open-card=\"" + index + "\">In " + esc(deck) + "</button>";
+      return "<button class=\"btn primary saas-btn\" type=\"button\" data-text-card=\"" + index + "\">Add to Cards</button>";
     }
     function markExpressionButton(button, place, fromText) {
       if (!button) return;
@@ -19564,7 +19631,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmInteractiveFrame(block) {
       const src = wordwallSource(block.url);
-      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
+      return src ? (block.title ? '<h3>' + esc(block.title) + '</h3>' : '') + '<div class="lm-frame-interactive saas-card"><iframe src="' + esc(src) + '" title="' + esc(block.title || 'Wordwall activity') + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="fullscreen" allowfullscreen></iframe></div>' : '';
     }
     function lmLinkCard(block, href) {
       const title = block.title || href || "Link";
@@ -20502,7 +20569,7 @@ const STUDIO_CONSTELLATIONS = [{
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" data-lm-open="' + material.id + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about">' + esc(about) + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" data-lm-open="' + material.id + '"><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about saas-badge ' + (material.published ? 'saas-badge-active' : 'saas-badge-muted') + '">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {
@@ -21112,13 +21179,13 @@ const STUDIO_CONSTELLATIONS = [{
   }
   function paintProviders(entry){
     const data=entry.providerAccess;if(!data){render(entry,'<p role="status">Loading provider settings...</p>');return;}
-    render(entry,(data.initialized?providers().render():'<button class="btn" type="button" data-workbench-provider-init '+(!entry.writable?'disabled':'')+'>Initialize providers</button>')+
+    render(entry,(data.initialized?providers().render():'<button class="btn saas-btn" type="button" data-workbench-provider-init '+(!entry.writable?'disabled':'')+'>Initialize providers</button>')+
       data.accounts.map(account=>{
         const saved=account.access.policy,tasks=account.tasks;
-        return '<details class="provider-access"><summary>'+esc(account.provider)+' · '+esc(saved?.enabled?'Enabled':'Off')+'</summary><p>'+esc(account.bindings.map(binding=>binding.model).join(' · '))+'</p><p>'+account.access.usedRequests+' requests · '+account.access.usedInputBytes+' input bytes today</p><form data-workbench-provider-access="'+esc(account.scope)+'"><fieldset '+(!entry.writable||!data.initialized?'disabled':'')+'><label><input name="enabled" type="checkbox" '+(saved?.enabled?'checked':'')+'> Allow requests</label><label>Terms revision<input name="termsRevision" required maxlength="200" value="'+esc(saved?.termsRevision||'')+'"></label>'+tasks.map(task=>'<label><input name="tasks" type="checkbox" value="'+esc(task)+'" '+(saved?.tasks.includes(task)?'checked':'')+'>'+esc(task)+'</label>').join('')+'<label>Daily requests<input name="dailyRequests" type="number" min="1" max="1000000" value="'+(saved?.dailyRequests||10)+'" required></label><label>Maximum input bytes<input name="maxInputBytes" type="number" min="1" max="11000000" value="'+(saved?.maxInputBytes||12000)+'" required></label><label>Daily input bytes<input name="dailyInputBytes" type="number" min="1" max="10000000000" value="'+(saved?.dailyInputBytes||120000)+'" required></label><label>Expires after days<input name="days" type="number" min="1" max="31" value="7" required></label><label><input name="dataProcessingApproved" type="checkbox" '+(saved?.dataProcessingApproved?'checked':'')+'> Data processing approved</label><label><input name="noPaidOverageConfirmed" type="checkbox" '+(saved?.noPaidOverageConfirmed?'checked':'')+'> No paid overage confirmed</label><label>Reason<textarea name="reason" required maxlength="500"></textarea></label><button class="btn" type="submit">Save access policy</button></fieldset></form><form data-workbench-provider-budget="'+esc(account.provider)+'"><fieldset '+(!entry.writable?'disabled':'')+'><label>Generation and review daily budget<input name="requestLimit" type="number" min="1" max="1000000" value="'+(account.quota?.requestLimit||10)+'" required></label><label>Reason<textarea name="reason" '+(account.quota?'required':'')+' maxlength="500"></textarea></label><button class="btn" type="submit">'+(account.quota?'Update':'Initialize')+' budget</button></fieldset></form></details>';
-      }).join('')+(entry.preparationSettings?'<form data-workbench-provider-preparation><fieldset '+(!entry.writable?'disabled':'')+'><legend>Automatic preparation</legend><label><input name="enabled" type="checkbox" '+(entry.preparationSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn" type="submit">Save preparation settings</button></fieldset></form>':''));
+        return '<details class="provider-access saas-card"><summary>'+esc(account.provider)+' · '+esc(saved?.enabled?'Enabled':'Off')+'</summary><p>'+esc(account.bindings.map(binding=>binding.model).join(' · '))+'</p><p>'+account.access.usedRequests+' requests · '+account.access.usedInputBytes+' input bytes today</p><form class="saas-form-grid" data-workbench-provider-access="'+esc(account.scope)+'"><fieldset '+(!entry.writable||!data.initialized?'disabled':'')+'><label><input name="enabled" type="checkbox" '+(saved?.enabled?'checked':'')+'> Allow requests</label><label>Terms revision<input name="termsRevision" required maxlength="200" value="'+esc(saved?.termsRevision||'')+'"></label>'+tasks.map(task=>'<label><input name="tasks" type="checkbox" value="'+esc(task)+'" '+(saved?.tasks.includes(task)?'checked':'')+'>'+esc(task)+'</label>').join('')+'<label>Daily requests<input name="dailyRequests" type="number" min="1" max="1000000" value="'+(saved?.dailyRequests||10)+'" required></label><label>Maximum input bytes<input name="maxInputBytes" type="number" min="1" max="11000000" value="'+(saved?.maxInputBytes||12000)+'" required></label><label>Daily input bytes<input name="dailyInputBytes" type="number" min="1" max="10000000000" value="'+(saved?.dailyInputBytes||120000)+'" required></label><label>Expires after days<input name="days" type="number" min="1" max="31" value="7" required></label><label><input name="dataProcessingApproved" type="checkbox" '+(saved?.dataProcessingApproved?'checked':'')+'> Data processing approved</label><label><input name="noPaidOverageConfirmed" type="checkbox" '+(saved?.noPaidOverageConfirmed?'checked':'')+'> No paid overage confirmed</label><label>Reason<textarea name="reason" required maxlength="500"></textarea></label><button class="btn saas-btn" type="submit">Save access policy</button></fieldset></form><form class="saas-form-grid" data-workbench-provider-budget="'+esc(account.provider)+'"><fieldset '+(!entry.writable?'disabled':'')+'><label>Generation and review daily budget<input name="requestLimit" type="number" min="1" max="1000000" value="'+(account.quota?.requestLimit||10)+'" required></label><label>Reason<textarea name="reason" '+(account.quota?'required':'')+' maxlength="500"></textarea></label><button class="btn saas-btn" type="submit">'+(account.quota?'Update':'Initialize')+' budget</button></fieldset></form></details>';
+      }).join('')+(entry.preparationSettings?'<form class="saas-form-grid" data-workbench-provider-preparation><fieldset '+(!entry.writable?'disabled':'')+'><legend>Automatic preparation</legend><label><input name="enabled" type="checkbox" '+(entry.preparationSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn saas-btn" type="submit">Save preparation settings</button></fieldset></form>':''));
     if(data.initialized)providers().afterRender();
-    if(entry.pipelineSettings!==undefined){const section=document.createElement('div');section.innerHTML=entry.pipelineSettings?'<form data-workbench-provider-pipeline><fieldset '+(!entry.writable?'disabled':'')+'><legend>Independent AI review</legend><label><input name="enabled" type="checkbox" '+(entry.pipelineSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn" type="submit">Save review settings</button></fieldset></form>':'<button class="btn" type="button" data-workbench-pipeline-init '+(!entry.writable?'disabled':'')+'>Initialize independent review</button>';dialog.querySelector('[data-workbench-body]').append(section);}
+    if(entry.pipelineSettings!==undefined){const section=document.createElement('div');section.innerHTML=entry.pipelineSettings?'<form class="saas-form-grid" data-workbench-provider-pipeline><fieldset '+(!entry.writable?'disabled':'')+'><legend>Independent AI review</legend><label><input name="enabled" type="checkbox" '+(entry.pipelineSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn saas-btn" type="submit">Save review settings</button></fieldset></form>':'<button class="btn saas-btn" type="button" data-workbench-pipeline-init '+(!entry.writable?'disabled':'')+'>Initialize independent review</button>';dialog.querySelector('[data-workbench-body]').append(section);}
   }
   async function lessonSpeech(entry){
     if(!entry.features?.includes('speech'))throw Error('Speech practice is not configured.');
@@ -21139,8 +21206,8 @@ const STUDIO_CONSTELLATIONS = [{
     const q=entry.edit,locked=q&&(!['draft','returned'].includes(q.state)||q.author.id!==authUser.id);
     if(locked||!entry.writable)return;
     const draft=entry.draft;
-    const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
-    render(entry,'<button class="btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+[...quizTypes,...(entry.pronunciationQuizzes?['Pronunciation']:[])].map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items,entry.pronunciationRubrics||[])+'</div><button class="btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn" type="submit" value="save">Save draft</button><button class="btn primary" type="submit" value="submit">Send for review</button></div></form>');
+    const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn saas-btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
+    render(entry,'<button class="btn saas-btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+[...quizTypes,...(entry.pronunciationQuizzes?['Pronunciation']:[])].map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items,entry.pronunciationRubrics||[])+'</div><button class="btn saas-btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn saas-btn" type="submit" value="save">Save draft</button><button class="btn primary saas-btn" type="submit" value="submit">Send for review</button></div></form>');
   }
   function readEditor(entry){
     const form=dialog.querySelector('[data-workbench-editor]');if(!form)return;
@@ -21209,10 +21276,10 @@ const STUDIO_CONSTELLATIONS = [{
   function reviewRow(entry,q){
     const allowed=staff()&&entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
     const signal=entry.reportSignals?.get(q.id);
-    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
-    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
+    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn saas-btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
+    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn saas-btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
     const speechChecks=q.type==='Pronunciation'?'<label><input type="checkbox" name="reference" required>Reading reference and locale checked</label><label><input type="checkbox" name="rubric" required>Scoring weights, scales and sufficiency checked</label>':'';
-    return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
+    return '<details class="saas-card" data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn saas-btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary saas-btn" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn saas-btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
   }
   function paintQueue(entry){
     const query=(entry.search||'').trim().toLocaleLowerCase(),rows=entry.rows.filter(q=>(!entry.filter||q.state===entry.filter)&&(!query||[q.origin?.groupName,q.origin?.lessonName,q.origin?.word,q.type,q.author.name,q.author.group,q.origin?.meaning].join(' ').toLocaleLowerCase().includes(query)));
@@ -21221,8 +21288,8 @@ const STUDIO_CONSTELLATIONS = [{
       for(const q of list){const key=String(q[keys[depth]]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);}
       return [...groups].map(([key,items])=>'<details data-review-key="'+esc(keys.slice(0,depth+1).map(field=>items[0][field]).join(':'))+'"><summary>'+esc(labels[depth](items[0]))+' · '+items.length+'</summary><div class="learning-review-group">'+group(items,depth+1)+'</div></details>').join('');
     }
-    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn" data-workbench-more>Load more</button>':''));
-    if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
+    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
+    if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn saas-btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn saas-btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
   }
   async function coverage(entry){
     speechUI?.deactivate();entry.view='kit';
@@ -21355,8 +21422,8 @@ const STUDIO_CONSTELLATIONS = [{
       show(pageId);
     }
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
-    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
-    dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
+    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view saas-card':'learning-kit-dialog saas-card';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
+    dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn saas-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     if(card.lessonSpeech){const host=speechHost();if(!host){close();return;}host.append(dialog);}
     else if(host){
       host.replaceChildren(dialog);
@@ -21764,7 +21831,7 @@ async function lmImportPdfDraft(file) {
     function groupPeopleHTML(users) {
       return users.length?users.map((user,index)=>{
         const inspect=user.role==='USER'&&canInspectAccount(user),tag=inspect?'button':'div';
-        return '<'+tag+' class="group-person" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span>'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b></'+tag+'>';
+        return '<'+tag+' class="group-person saas-card" data-people-search="'+esc([user.name,user.login,user.email].filter(Boolean).join(' ').toLocaleLowerCase())+'"'+(inspect?' type="button" data-account="user" data-id="'+esc(user.id)+'"':'')+'><span class="saas-badge saas-badge-muted" style="margin-right:8px;">'+(index+1)+'.</span><b>'+esc(user.name||'—')+'</b>'+(inspect?'<span class="saas-badge saas-badge-info" style="margin-left:auto;">Inspect ↗</span>':'')+'</'+tag+'>';
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
@@ -22756,7 +22823,7 @@ async function lmImportPdfDraft(file) {
       document.querySelectorAll('[data-exam-task-earned]').forEach(node=>{const key=node.dataset.examTaskEarned,total=questions.filter(q=>(q.part.assignmentKey||q.part.assignmentId||('part-'+q.part.id))===key).reduce((sum,q)=>sum+(Number(String(lmState.examPoints?.[q.part.id]?.[0]||0).replace(',','.'))||0),0);node.textContent=String(Number(total.toFixed(10)));});
     }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
-      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
+      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about saas-badge saas-badge-info">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
     }
     function examTools(kind, id, hidden) {
       if (!canEditLessons() && !canTuneStudentLessons()) return "";
@@ -22800,7 +22867,7 @@ async function lmImportPdfDraft(file) {
       const groups=[...new Map(rows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})).values()];
       if(!examViewLevel){box.innerHTML=levelButtons(groups,'data-exam-level');return;}
       const back='<button class="btn ghost" type="button" data-exam-level="">Back</button><h2>'+esc(examViewLevel==='unassigned'?'Unassigned':examViewLevel)+'</h2>';
-      if(examViewGroup===null){box.innerHTML=back+'<div class="decks">'+groups.filter(group=>accountGroupLevel(group)===examViewLevel).map(group=>'<button class="file-card" type="button" data-exam-group-view="'+esc(group.id)+'"><b>'+esc(group.title)+'</b><span class="label">'+rows.filter(exam=>String(groupFor(exam).id)===String(group.id)).length+' exams</span></button>').join('')+'</div>';return;}
+      if(examViewGroup===null){box.innerHTML=back+'<div class="decks">'+groups.filter(group=>accountGroupLevel(group)===examViewLevel).map(group=>'<button class="file-card saas-card" type="button" data-exam-group-view="'+esc(group.id)+'"><b>'+esc(group.title)+'</b><span class="label saas-badge saas-badge-muted">'+rows.filter(exam=>String(groupFor(exam).id)===String(group.id)).length+' exams</span></button>').join('')+'</div>';return;}
       const selectedGroup=groups.find(group=>String(group.id)===String(examViewGroup));
       box.innerHTML = '<button class="btn ghost" type="button" data-exam-level="'+esc(examViewLevel)+'">Back</button><h2>'+esc(selectedGroup?.title||'Unassigned')+'</h2>' + rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map((exam) => {
         const chip = lmDateChip(exam.date);
@@ -23172,8 +23239,8 @@ async function lmImportPdfDraft(file) {
         try {
           const result = await accountFetch('/api/assessment?history=1&kind=' + (doc.examOwned ? 'exam-block' : 'lesson') + '&id=' + (doc.examOwned ? doc.blockId : doc.id) + '&student=' + encodeURIComponent(doc.reviewStudentId||viewAccount?.id||examWorkAccount()));
           const rows = result.history || [];
-          const dialog = document.createElement('dialog'); dialog.className = 'assessment-history';
-          dialog.innerHTML = '<form method="dialog"><button class="lm-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');
+          const dialog = document.createElement('dialog'); dialog.className = 'assessment-history saas-card';
+          dialog.innerHTML = '<form method="dialog"><button class="lm-btn saas-btn" aria-label="Close">Close</button></form><h2>Submission history</h2>' + (rows.length ? rows.map(row => '<p><strong>' + esc(row.action) + '</strong> · ' + esc(new Date(row.createdAt * 1000).toLocaleString()) + '</p>' + (row.reason ? '<p>' + esc(row.reason) + '</p>' : '')).join('') : '<p>No changes yet.</p>');
           document.body.append(dialog); dialog.addEventListener('close',() => dialog.remove()); dialog.showModal();
         } catch(error) { assessmentStatus(error.message); }
       });
@@ -23271,12 +23338,12 @@ async function lmImportPdfDraft(file) {
     textSearch.type = 'search'; textSearch.id = 'textBodySearch'; textSearch.className = 'text-body-search';
     textSearch.placeholder = 'Search in this text'; textSearch.setAttribute('aria-label', 'Search in this text');
     const textBody = document.getElementById('textReadBody');
-    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar';
+    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar saas-card';
     textBody.before(textSearchBar); textSearchBar.append(textSearch);
     const textSearchNav = document.createElement('div'); textSearchNav.className = 'text-search-nav'; textSearchNav.hidden = true;
-    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number'; textMatchNumber.setAttribute('role', 'status');
+    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number saas-badge saas-badge-muted'; textMatchNumber.setAttribute('role', 'status');
     function textIconButton(label, path) {
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon';
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon saas-btn';
       button.title = label; button.setAttribute('aria-label', label);
       button.innerHTML = '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + path + '"/></svg>';
       return button;
@@ -23435,16 +23502,16 @@ async function lmImportPdfDraft(file) {
       const stageLabels = { 1: 'Level 1: Recognition', 2: 'Level 2: Cued Recall', 3: 'Level 3: Context Writing', 4: 'Level 4: Speech Recall' };
       let inputHtml = '';
       if (item.stage === 1) {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Check</button></div>';
       } else if (item.stage === 2) {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Check</button></div>';
       } else if (item.stage === 3) {
-        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" class="saas-textarea" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
       } else {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Pronounce or confirm text" /><button class="btn primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="Pronounce or confirm text" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
       }
-      content.innerHTML = '<div class="home-warmup-card" data-warmup-id="' + item.id + '">' +
-        '<div class="home-warmup-meta"><span class="home-warmup-stage">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
+      content.innerHTML = '<div class="home-warmup-card saas-card" data-warmup-id="' + item.id + '">' +
+        '<div class="home-warmup-meta"><span class="home-warmup-stage saas-badge saas-badge-info">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter saas-badge saas-badge-muted">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
         '<p class="home-warmup-prompt">' + esc(item.prompt) + '</p>' +
         (item.hint ? '<small class="home-warmup-hint">' + esc(item.hint) + '</small>' : '') +
         inputHtml +
@@ -23497,13 +23564,13 @@ async function lmImportPdfDraft(file) {
       text('homeGroupTitle',group?.title||'No group assigned');
       const lessons=group&&(typeof lmLibrary!=='undefined'?lmLibrary?.materials:[])?.filter(row=>group.lessonIds?.includes(row.id)&&lmLessonVisibleToViewer(row))||[];
       const metrics=document.getElementById('homeGroupMetrics');
-      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span>'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
+      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
       const today=new Date(),date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
       const next=lessons.filter(row=>row.published&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&row.date>=date).sort((a,b)=>a.date.localeCompare(b.date))[0];
       text('homeNextLessonLabel',next?next.date.split('-').reverse().join('.'):'\u2014');
       text('homeNextLessonNote',next?.title||'No upcoming lessons');
       const recent=document.getElementById('homeRecentList'),rows=homeRecentItems();
-      if(recent)recent.innerHTML=rows.length?rows.map(row=>'<button class="home-recent-row" type="button" data-jump="'+row.screen+'"><span class="home-recent-mark" aria-hidden="true">'+homeScreenLabels[row.screen].slice(0,2).toUpperCase()+'</span><span><b>'+homeScreenLabels[row.screen]+'</b><small>Opened on this device</small></span><time datetime="'+new Date(row.at).toISOString()+'">'+esc(new Date(row.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}))+'</time></button>').join(''):'<p class="hint">No recent activity on this device.</p>';
+      if(recent)recent.innerHTML=rows.length?rows.map(row=>'<button class="home-recent-row" type="button" data-jump="'+row.screen+'"><span class="home-recent-mark" aria-hidden="true">'+homeScreenLabels[row.screen].slice(0,2).toUpperCase()+'</span><span><b>'+homeScreenLabels[row.screen]+'</b><small>Opened on this device</small></span><time class="saas-badge saas-badge-muted" datetime="'+new Date(row.at).toISOString()+'">'+esc(new Date(row.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}))+'</time></button>').join(''):'<p class="hint">No recent activity on this device.</p>';
       const student=authUser?.role==='USER'&&!viewAccount;
       document.querySelectorAll('[data-home-continue],[data-home-groups],[data-home-group-open]').forEach(node=>{node.dataset.jump=student?'days':'groups';node.hidden=!authUser;});
       const open=document.querySelector('[data-home-group-open]');if(open)open.disabled=!group;
@@ -23516,6 +23583,16 @@ async function lmImportPdfDraft(file) {
       input?.addEventListener('input',()=>{
         const query=input.value.trim().toLocaleLowerCase();
         document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
+      });
+      const gqs=document.getElementById('globalQuickSearch');
+      gqs?.addEventListener('input',()=>{
+        if(input){input.value=gqs.value;input.dispatchEvent(new Event('input'));}
+      });
+      document?.addEventListener?.('keydown',e=>{
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+          const target=document.getElementById('globalQuickSearch')||input;
+          if(target&&target.offsetParent!==null){e.preventDefault();target.focus();}
+        }
       });
       const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
       if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();

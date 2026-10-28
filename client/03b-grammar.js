@@ -290,8 +290,8 @@
         ["v2", "V2", v.past],
         ["v3", "V3", v.pp]
       ].filter((row) => row[0] !== model.slot);
-      let html = '<div class="card grow study" id="verbform-' + model.slot + '">';
-      html += '<p class="g-badge">' + esc(model.badge) + "</p>";
+      let html = '<div class="card grow study saas-card" id="verbform-' + model.slot + '">';
+      html += '<p class="g-badge saas-badge saas-badge-info">' + esc(model.badge) + "</p>";
       html += '<p class="entry">' + esc(model.form) + "</p>";
       html += verbAlts(model.form).map((word) => ipaHtml(verbSay(v, model.slot, word))).join("");
       html += '<div class="tags">' + model.tags.map((tag) => "<span>" + esc(tag) + "</span>").join("") + "</div>";
@@ -317,7 +317,7 @@
       html += '<p class="label">Grammar</p><p class="src">' + verbTopicChips(model.grammar) + "</p>";
       html += '<p class="label">Irregular verb family</p><p class="src">' + esc(v.base) + " → " + esc(v.past) + " → " + esc(v.pp) + "</p>";
       html += '<p class="src">' + others.map((row) =>
-        '<button class="btn chip" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
+        '<button class="btn chip saas-btn" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
       ).join(" ") + "</p>";
       html += "<p>" + cardLinks(v.base, "https://dictionary.cambridge.org/dictionary/english/" + encodeURIComponent(v.base)) + "</p>";
       html += clipLine(clipOf({ en: model.form }));
@@ -370,7 +370,7 @@
         }
         box.innerHTML = VERB_LEVELS.map((pair, index) => {
           const n = list.filter((v) => v.level === pair[0] && cardVisible(v)).length;
-          return '<button class="file-card" type="button" data-verb-level="' + pair[0] + '"><span class="num">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
+          return '<button class="file-card saas-card" type="button" data-verb-level="' + pair[0] + '"><span class="num saas-badge saas-badge-muted">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label saas-badge saas-badge-info">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -382,7 +382,7 @@
         if (title) title.textContent = (level ? level[1] : "Irregular verbs") + " · " + shown.length;
         if (sub) sub.hidden = true;
         box.innerHTML = shown.slice().sort((a,b)=>a.base.localeCompare(b.base,'en')).map((v) =>
-          '<button class="wcard" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
+          '<button class="wcard saas-card" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos saas-badge saas-badge-muted">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
         ).join("");
         applyCardSearch(box.closest("section"));
         return;

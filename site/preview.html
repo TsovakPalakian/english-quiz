@@ -18,14 +18,17 @@
     <div class="brand-row"><button class="brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button></div>
     <label class="side-search"><i data-lucide="search" aria-hidden="true"></i><input id="shellSearch" type="search" placeholder="Search" aria-label="Search navigation" autocomplete="off" /></label>
     <nav aria-label="Primary">
+      <div class="nav-group-title">Overview</div>
       <button type="button" data-jump="home" data-nav-role="student" class="on"><i data-lucide="house" aria-hidden="true"></i>Home</button>
       <button type="button" data-jump="days" data-nav-role="student" hidden><i data-lucide="calendar-days" aria-hidden="true"></i>Lessons</button>
       <button type="button" data-jump="groups" data-nav-role="staff" data-chrome="groups,exams,days,groupdetail,groupteachers,groupstudents" hidden><i data-lucide="users-round" aria-hidden="true"></i>Groups</button>
       <button type="button" data-jump="exams" data-nav-role="student" hidden><i data-lucide="clipboard-check" aria-hidden="true"></i><span data-exam-menu-label>Exam</span></button>
+      <div class="nav-group-title">Curriculum</div>
       <button type="button" data-jump="wordcollections"><i data-lucide="book-open" aria-hidden="true"></i>Words</button>
       <button type="button" data-jump="tenses"><i data-lucide="languages" aria-hidden="true"></i>Grammar</button>
       <button type="button" data-jump="library"><i data-lucide="music" aria-hidden="true"></i>Entertainment</button>
       <button type="button" data-jump="speakout"><i data-lucide="speech" aria-hidden="true"></i>Speakout</button>
+      <div class="nav-group-title">Workspace</div>
       <button type="button" data-msg-open data-chrome="messages"><i data-lucide="messages-square" aria-hidden="true"></i>Messages</button>
       <button type="button" data-jump="admin" data-teacher-only hidden><i data-lucide="users-round" aria-hidden="true"></i>Accounts</button>
       <button type="button" data-jump="archive" data-archive-only data-nav-role="staff" hidden><i data-lucide="archive" aria-hidden="true"></i>Archive</button>
@@ -56,6 +59,33 @@
       <button class="btn ghost shell-settings-open" type="button" data-jump="settings" data-user-settings data-shell-settings-open aria-label="Settings" hidden><i data-lucide="settings" aria-hidden="true"></i></button>
     </div>
 
+    <header class="saas-header" id="saasHeader">
+      <div class="header-left">
+        <nav class="breadcrumbs" aria-label="Breadcrumbs">
+          <a href="#home" data-jump="home">Home</a>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-active" id="crumbCurrent">Dashboard</span>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="header-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" placeholder="Quick search (Ctrl+K)" aria-label="Quick search" id="globalQuickSearch" autocomplete="off" />
+        </div>
+        <button class="header-btn" type="button" data-theme-cycle title="Cycle theme" aria-label="Cycle theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20v-20z"/></svg>
+        </button>
+        <button class="header-btn" type="button" title="Notifications" aria-label="Notifications" data-msg-open>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="dot-indicator" id="headerNotifyDot" hidden></span>
+        </button>
+        <button class="saas-btn saas-btn-primary" type="button" id="headerCreateBtn" data-jump="days" style="padding: 7px 14px; font-size: 12.5px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create
+        </button>
+      </div>
+    </header>
+
     <section id="home" class="on">
       <button class="guest-brand brand" type="button" aria-label="Lumiscia" aria-expanded="false" aria-controls="brandMotto"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
       <div id="brandMotto" class="brand-motto" hidden><b lang="la">Lumen ex Scientia</b><span lang="en">Knowledge that brings the world into focus</span></div>
@@ -70,40 +100,79 @@
       </div>
       <div id="homeWho" class="card" hidden></div>
       <div id="homeDemo">
-      <div class="hero">
-        <button class="ring" type="button" data-stat="learned" aria-label="Learned cards">
-          <svg viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
-            <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
-          </svg>
-          <b id="homeLearnedPct">0%</b>
-        </button>
-        <div>
-          <p class="hero-copy"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
-          <span class="home-study"><button class="btn" type="button" id="homeStudy" data-jump="groups">Start studying</button><button class="btn" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
+        <div class="hero saas-card" style="padding:24px; border-radius:var(--saas-radius-xl, 14px); background:var(--saas-card); border:1px solid var(--saas-border); display:flex; align-items:center; gap:24px; margin-bottom:20px; box-shadow:var(--saas-shadow-card);">
+          <button class="ring" type="button" data-stat="learned" aria-label="Learned cards" style="flex-shrink:0;">
+            <svg viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
+              <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
+            </svg>
+            <b id="homeLearnedPct">0%</b>
+          </button>
+          <div style="flex:1;">
+            <p class="hero-copy" style="font-size:20px; font-weight:700; margin:0 0 6px;"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
+            <p style="font-size:13px; color:var(--saas-text-muted, #64748b); margin:0 0 14px;">Mastered vocabulary across enrolled units with spaced repetition retention.</p>
+            <span class="home-study" style="display:flex; gap:10px;"><button class="btn saas-btn saas-btn-primary" type="button" id="homeStudy" data-jump="groups">Start studying</button><button class="btn saas-btn saas-btn-secondary" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
+          </div>
+        </div>
+        <div class="overview" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:20px;">
+          <button class="stat-tile saas-card" type="button" data-msg-open id="homeUnreadTile" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Unread messages</span>
+            <b id="homeUnreadCount" style="color:#0ea5e9; font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">in Messages</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-jump="days" id="homeNextLesson" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Next lesson</span>
+            <b id="homeNextLessonLabel" style="color:var(--saas-primary); font-size:20px; font-weight:800; margin:4px 0;">—</b>
+            <small id="homeNextLessonNote" style="color:var(--saas-text-muted); font-size:12px;">No upcoming lessons</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-stat="weak" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Weak cards</span>
+            <b class="bad" style="color:#ef4444; font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">needs review</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-stat="learning" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Still learning</span>
+            <b id="homeLearningCount" style="color:var(--saas-primary); font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">in progress</small>
+          </button>
         </div>
       </div>
-      <div class="overview">
-        <button class="stat-tile" type="button" data-msg-open id="homeUnreadTile"><span>Unread messages</span><b id="homeUnreadCount">0</b><small>in Messages</small></button>
-        <button class="stat-tile" type="button" data-jump="days" id="homeNextLesson"><span>Next lesson</span><b id="homeNextLessonLabel">—</b><small id="homeNextLessonNote">No upcoming lessons</small></button>
-        <button class="stat-tile" type="button" data-stat="weak"><span>Weak cards</span><b class="bad">0</b><small>needs review</small></button>
-        <button class="stat-tile" type="button" data-stat="learning"><span>Still learning</span><b id="homeLearningCount">0</b><small>in progress</small></button>
-      </div>
-      </div>
-      <div id="homeWarmupPanel" class="home-warmup" hidden>
-        <div class="home-panel-head"><h2>Daily 5-Min Warmup</h2><span id="homeWarmupBadge" class="home-warmup-badge">0 due</span></div>
-        <div id="homeWarmupContent" class="home-warmup-content"></div>
+      <div id="homeWarmupPanel" class="home-warmup saas-card" hidden style="margin-bottom:20px; border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card);">
+        <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#be123c" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Daily 5-Min Warmup</h2>
+          </div>
+          <span id="homeWarmupBadge" class="home-warmup-badge saas-badge">0 due</span>
+        </div>
+        <div id="homeWarmupContent" class="home-warmup-content" style="padding:18px;"></div>
       </div>
       <div id="homeDashboard" class="home-dashboard" hidden>
-        <div class="home-activity"><div class="home-panel-head"><h2>Recent activity</h2><button class="home-text-link" type="button" data-jump="stats">View all</button></div><div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div></div>
-        <div class="home-group"><div class="home-panel-head"><h2>Your group</h2><button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button></div><div class="home-group-body"><p id="homeGroupTitle">No group assigned</p><div id="homeGroupMetrics" class="home-group-meta"></div><button class="btn primary" type="button" data-jump="groups" data-home-group-open>Open group</button></div></div>
+        <div class="home-activity saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
+          <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Recent activity</h2>
+            <button class="home-text-link" type="button" data-jump="stats">View all</button>
+          </div>
+          <div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div>
+        </div>
+        <div class="home-group saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
+          <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Your group</h2>
+            <button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button>
+          </div>
+          <div class="home-group-body" style="padding:18px;">
+            <p id="homeGroupTitle" style="font-size:15px; font-weight:700; margin:0 0 8px;">No group assigned</p>
+            <div id="homeGroupMetrics" class="home-group-meta" style="margin-bottom:14px;"></div>
+            <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="groups" data-home-group-open style="width:100%;">Open group</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <section id="cardstat">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1 id="cardStatTitle">Learned</h1></div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-page-study>Study</button></div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1 id="cardStatTitle">Learned</h1></div>
+      <div class="row" style="margin-bottom:10px"><button class="btn primary saas-btn" type="button" data-page-study>Study</button></div>
+      <input type="search" class="saas-input" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
       <div id="cardStatList"></div>
     </section>
 
@@ -161,14 +230,14 @@
 
     <section id="textedit">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textEditTitle">Add a text</h1></div>
-      <div class="card">
+      <div class="card saas-card saas-form-grid">
         <p class="label">Title</p>
         <input id="textTitle" type="text" placeholder="My first article" autocomplete="off" />
         <p class="label">Text</p>
         <textarea id="textBody" placeholder="Paste an article, a dialogue, or any English text. Line breaks stay as you paste them."></textarea>
         <div class="row" style="margin-top:8px">
-          <button class="btn" type="button" id="textSave">Save</button>
-          <button class="btn primary" type="button" id="textSaveAnalyze">Save &amp; Analyze</button>
+          <button class="btn saas-btn" type="button" id="textSave">Save</button>
+          <button class="btn primary saas-btn" type="button" id="textSaveAnalyze">Save &amp; Analyze</button>
         </div>
         <p class="hint" id="textStatus"></p>
       </div>
@@ -177,8 +246,8 @@
     <section id="textread">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="texts">Back</button><h1 id="textReadTitle">Text</h1></div>
       <div id="textReadBody" class="text-read"></div>
-      <button class="btn" type="button" id="textReadMore" hidden>Show the rest</button>
-      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" id="textAnalyze">Analyze</button><button class="btn" type="button" id="textEdit">Edit</button></div>
+      <button class="btn saas-btn" type="button" id="textReadMore" hidden>Show the rest</button>
+      <div class="row" style="margin-bottom:10px"><button class="btn saas-btn" type="button" id="textAnalyze">Analyze</button><button class="btn saas-btn" type="button" id="textEdit">Edit</button></div>
       <p class="hint" id="textReadStatus"></p>
       <div id="textExpressions"></div>
     </section>
@@ -191,47 +260,47 @@
     </section>
 
     <section id="phrasal">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Phrasal verbs</h1></div>
       <p class="sub" id="phrasalSub">Cards on this page. Study uses them.</p>
       <div class="study-bar">
-        <button class="btn primary" type="button" data-deck-study="phrasal">Study</button>
+        <button class="btn primary saas-btn saas-btn-primary" type="button" data-deck-study="phrasal">Study</button>
         <div class="here-add" data-place="phrasal">
           <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
-            <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input />
-            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <input type="text" placeholder="give up or сдаваться" autocomplete="off" data-add-input class="saas-input" />
+            <div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button" data-add-go>Look up and make cards</button></div>
             <p class="hint" data-add-status></p>
           </div>
         </div>
       </div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" class="saas-input" />
       <div class="words" id="phrasalGrid"></div>
       <div class="words" id="phrasalAdded"></div>
     </section>
 
     <section id="idioms">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Idioms</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Idioms</h1></div>
       <p class="sub" id="idiomSub">Cards on this page. Study uses them.</p>
       <div class="study-bar">
-        <button class="btn primary" type="button" data-deck-study="idioms">Study</button>
+        <button class="btn primary saas-btn saas-btn-primary" type="button" data-deck-study="idioms">Study</button>
         <div class="here-add" data-place="idioms">
           <button class="add-link" type="button" data-add-open aria-label="Add a word">+</button>
           <div data-add-form hidden>
-            <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input />
-            <div class="row"><button class="btn primary" type="button" data-add-go>Look up and make cards</button></div>
+            <input type="text" placeholder="break the ice or начать разговор" autocomplete="off" data-add-input class="saas-input" />
+            <div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button" data-add-go>Look up and make cards</button></div>
             <p class="hint" data-add-status></p>
           </div>
         </div>
       </div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" />
+      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" class="saas-input" />
       <div class="words" id="idiomGrid"></div>
       <div class="words" id="idiomAdded"></div>
     </section>
 
     <section id="articles">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Articles</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Articles</h1></div>
       <p class="sub">Three examples. Each row opens the Grammar note.</p>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <button class="path" type="button" data-topic="a"><span><b>a book</b><br><span class="label">a + consonant sound</span></span><span class="to">a</span></button>
         <button class="path" type="button" data-topic="an"><span><b>an apple</b><br><span class="label">an + vowel sound</span></span><span class="to">an</span></button>
         <button class="path" type="button" data-topic="the"><span><b>the sun</b><br><span class="label">both speakers know which one</span></span><span class="to">the</span></button>
@@ -239,33 +308,35 @@
     </section>
 
     <section id="demonstratives">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Demonstratives</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Demonstratives</h1></div>
       <div id="demoLesson">
-        <div class="card study">
+        <div class="card study saas-card">
           <p class="sub" style="margin-top:0">This, that, these, those. One or many. Near or far.</p>
           <div id="demoProgress"></div>
           <p class="label">Practice</p>
           <div class="row" style="margin-bottom:8px">
-            <button class="btn primary" type="button" data-demo="practice">Practice</button>
-            <button class="btn" type="button" data-demo="quick">Quick Quiz</button>
-            <button class="btn" type="button" data-demo="mistakes">Practice my mistakes</button>
+            <button class="btn primary saas-btn saas-btn-primary" type="button" data-demo="practice">Practice</button>
+            <button class="btn saas-btn" type="button" data-demo="quick">Quick Quiz</button>
+            <button class="btn saas-btn" type="button" data-demo="mistakes">Practice my mistakes</button>
           </div>
           <div class="row" style="margin-bottom:8px">
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="1">Level 1</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="2">Level 2</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="3">Level 3</button>
-            <button class="btn chip" type="button" data-demo="level" data-demo-level="4">Level 4</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="1">Level 1</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="2">Level 2</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="3">Level 3</button>
+            <button class="btn chip saas-btn" type="button" data-demo="level" data-demo-level="4">Level 4</button>
           </div>
           <p class="hint" id="demoReviewNote" hidden>You marked this topic to review.</p>
           <h2>The rule</h2>
           <p>Two things decide the word: how many, and how far.</p>
-          <table class="demo-table">
-            <thead><tr><th></th><th>Near</th><th>Far</th></tr></thead>
-            <tbody>
-              <tr><th>One</th><td>THIS</td><td>THAT</td></tr>
-              <tr><th>More than one</th><td>THESE</td><td>THOSE</td></tr>
-            </tbody>
-          </table>
+          <div class="saas-table-wrap" style="margin:12px 0">
+            <table class="demo-table saas-table">
+              <thead><tr><th></th><th>Near</th><th>Far</th></tr></thead>
+              <tbody>
+                <tr><th>One</th><td>THIS</td><td>THAT</td></tr>
+                <tr><th>More than one</th><td>THESE</td><td>THOSE</td></tr>
+              </tbody>
+            </table>
+          </div>
           <p><b>This</b> = one + near. <b>That</b> = one + far. <b>These</b> = several + near. <b>Those</b> = several + far.</p>
           <h2>See the difference</h2>
           <div class="demo-grid" id="demoScenes"></div>
@@ -296,19 +367,19 @@
           <h2>Learn more</h2>
           <p id="demoLinks"></p>
           <div class="row">
-            <button class="btn" type="button" data-demo="review">Review later</button>
+            <button class="btn saas-btn" type="button" data-demo="review">Review later</button>
           </div>
         </div>
       </div>
       <div id="demoQuiz" hidden>
-        <div class="card">
-          <div class="row" style="margin-bottom:8px"><button class="btn" type="button" data-demo="lesson">Back to the lesson</button></div>
+        <div class="card saas-card">
+          <div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-demo="lesson">Back to the lesson</button></div>
           <p class="label" id="demoQuizMeta"></p>
           <div id="demoQuizBody"></div>
         </div>
       </div>
       <div id="demoResult" hidden>
-        <div class="card" id="demoResultBody"></div>
+        <div class="card saas-card" id="demoResultBody"></div>
       </div>
     </section>
 
@@ -353,10 +424,10 @@
     </section>
 
     <section id="choice">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button></div>
       <div class="tags"><span>Choice</span></div>
       <div class="drill-bar"><h1>3 / 8</h1><div class="progress"><i style="width:37%"></i></div><span class="timer">04:12</span></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">English → Russian</p>
         <p class="q">give up</p>
         <div class="opts">
@@ -366,15 +437,15 @@
           <button class="opt" type="button" data-choice="bad"><span class="bullet">4</span><span>присматривать</span></button>
         </div>
         <div id="choiceFb"></div>
-        <div class="bar"><button class="btn stop" type="button" data-jump="exam">Stop</button><button class="btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary" type="button" data-jump="flip">Next</button></div>
+        <div class="bar"><button class="btn stop saas-btn" type="button" data-jump="exam">Stop</button><button class="btn saas-btn" type="button" data-usages="give up" data-usages-ru="сдаваться, бросать">Usages</button><button class="btn primary saas-btn" type="button" data-jump="flip">Next</button></div>
       </div>
     </section>
 
     <section id="flip">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button></div>
       <div class="tags"><span>Flip</span></div>
       <div class="drill-bar"><h1>4 / 8</h1><div class="progress"><i style="width:50%"></i></div><span class="timer">04:40</span></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Recall the translation, then flip</p>
         <div class="flip-scene" id="flipScene" tabindex="0" role="button" aria-label="Flip card">
           <div class="flip-inner">
@@ -382,26 +453,26 @@
             <div class="flip-face flip-back" id="flipBack"></div>
           </div>
         </div>
-        <div class="bar"><button class="btn" type="button" id="flipBtn" aria-pressed="false">Flip</button><button class="btn primary" type="button" data-jump="type">Next</button></div>
+        <div class="bar"><button class="btn saas-btn" type="button" id="flipBtn" aria-pressed="false">Flip</button><button class="btn primary saas-btn" type="button" data-jump="type">Next</button></div>
       </div>
     </section>
 
     <section id="type">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Type · 5 / 8</h1><span class="timer">05:02</span></div>
       <div class="progress"><i style="width:62%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Type it in English</p>
         <p class="q">сдаваться, бросать</p>
-        <input id="typeInput" type="text" placeholder="Answer" autocomplete="off" />
+        <input id="typeInput" class="saas-input" type="text" placeholder="Answer" autocomplete="off" />
         <div id="typeFb"></div>
-        <div class="bar"><button class="btn stop" type="button" data-jump="home">Stop</button><button class="btn primary" type="button" id="typeCheck">Check</button></div>
+        <div class="bar"><button class="btn stop saas-btn" type="button" data-jump="home">Stop</button><button class="btn primary saas-btn" type="button" id="typeCheck">Check</button></div>
       </div>
     </section>
 
     <section id="gap">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Gap · tense</h1><span class="timer">06:18</span></div>
       <div class="progress"><i style="width:70%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Fill in the verb form. Marker: an hour ago.</p>
         <p class="q">She ____ looking for her keys an hour ago.</p>
         <div class="opts">
@@ -415,9 +486,9 @@
     </section>
 
     <section id="build">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Build</h1><span class="timer">07:01</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Build</h1><span class="timer">07:01</span></div>
       <div class="progress"><i style="width:74%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Build the sentence</p>
         <div class="slot" id="slot"></div>
         <div class="row" id="bank">
@@ -431,20 +502,20 @@
     </section>
 
     <section id="judge">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>True / false</h1><span class="timer">07:40</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>True / false</h1><span class="timer">07:40</span></div>
       <div class="progress"><i style="width:80%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Is the sentence correct?</p>
         <p class="q">She has finished the report yesterday.</p>
-        <div class="row"><button class="btn" type="button">True</button><button class="btn primary" type="button">False</button></div>
+        <div class="row"><button class="btn saas-btn" type="button" data-judge="bad">True</button><button class="btn primary saas-btn" type="button" data-judge="ok">False</button></div>
         <div class="explain">English. With yesterday, use the Past Simple: She finished the report yesterday. Russian. С yesterday нужен Past Simple: She finished the report yesterday.</div>
       </div>
     </section>
 
     <section id="tap">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Tap in the text</h1><span class="timer">08:05</span></div>
       <div class="progress"><i style="width:84%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Tap the Present Perfect time marker</p>
         <p class="sentence" id="tapLine">She <button type="button" data-tap="bad">has lived</button> here <button type="button" data-tap="ok">since</button> 2019.</p>
         <div id="tapFb"></div>
@@ -452,9 +523,9 @@
     </section>
 
     <section id="multi">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Select all</h1><span class="timer">08:22</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Select all</h1><span class="timer">08:22</span></div>
       <div class="progress"><i style="width:88%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Select every Present Perfect sentence</p>
         <div class="opts">
           <button class="opt" type="button"><span class="bullet">1</span><span>She has lost her keys.</span></button>
@@ -467,9 +538,9 @@
     </section>
 
     <section id="pairs">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Match</h1><span class="timer">09:10</span></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Match</h1><span class="timer">09:10</span></div>
       <div class="progress"><i style="width:92%"></i></div>
-      <div class="card grow">
+      <div class="card grow saas-card">
         <p class="prompt">Match the English with the Russian translation</p>
         <div class="pairs" id="pairs">
           <button class="pair" type="button" data-side="l" data-id="a">give up</button>
@@ -488,8 +559,8 @@
     </section>
 
     <section id="errors">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="setup" id="errorsBack">Back</button><h1 id="errorsTitle">Mistakes</h1></div>
-      <div class="card grow" id="errorsBody"></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="setup" id="errorsBack">Back</button><h1 id="errorsTitle">Mistakes</h1></div>
+      <div class="card grow saas-card" id="errorsBody"></div>
     </section>
 
     <section id="tenses">
@@ -502,12 +573,12 @@
       <p class="sub">Twelve tenses are one part of the system. Future forms, conditionals and modals are not extra tenses.</p>
       <input type="search" placeholder="Search" data-card-search autocomplete="off" style="margin-bottom:10px" />
       <div class="words" id="tenseAdded" style="margin-bottom:8px"></div>
-      <div class="card grow" id="tenseList"></div>
+      <div class="card grow saas-card" id="tenseList"></div>
     </section>
 
     <section id="marker">
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="tenses" id="markerBack">Back</button><h1 id="markerTitle">Marker</h1></div>
-      <div class="card grow" id="markerView"></div>
+      <div class="card grow saas-card" id="markerView"></div>
     </section>
 
     <section id="tense" data-lang="en">
@@ -553,12 +624,12 @@
       </div>
     </section>
     <section id="groupteachers">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Teachers</h1><p class="page-context" data-people-group-name></p></div></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Teachers</h1><p class="page-context" data-people-group-name></p></div></div>
       <div id="groupDetailTeachers"></div>
     </section>
     <section id="groupstudents">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Students</h1><p class="page-context" data-people-group-name></p></div></div>
-      <label>Search students<input type="search" id="groupStudentSearch" placeholder="Name, login or email" autocomplete="off"></label>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="groupdetail">Back</button><div class="page-heading"><h1>Students</h1><p class="page-context" data-people-group-name></p></div></div>
+      <label>Search students<input type="search" id="groupStudentSearch" placeholder="Name, login or email" autocomplete="off" class="saas-input"></label>
       <div id="groupDetailStudents"></div>
     </section>
     <section id="days">
@@ -596,10 +667,10 @@
           <h1>Learning material</h1>
           <div class="lm-actions">
             <button class="lm-btn" type="button" id="examSave" hidden>Submit</button>
-            <button class="lm-btn" type="button" id="assessmentPublish" hidden>Publish results</button>
-            <button class="lm-btn" type="button" id="assessmentReopen" hidden>Reopen submission</button>
-            <button class="lm-btn" type="button" id="assessmentAmend" hidden>Amend review</button>
-            <button class="lm-btn" type="button" id="assessmentHistory" hidden>History</button>
+            <button class="lm-btn saas-btn saas-btn-primary" type="button" id="assessmentPublish" hidden>Publish results</button>
+            <button class="lm-btn saas-btn" type="button" id="assessmentReopen" hidden>Reopen submission</button>
+            <button class="lm-btn saas-btn" type="button" id="assessmentAmend" hidden>Amend review</button>
+            <button class="lm-btn saas-btn" type="button" id="assessmentHistory" hidden>History</button>
             <button class="lm-btn" type="button" id="lmSave">Save draft</button>
             <button class="lm-btn lm-btn-primary" type="button" id="lmPublish">Publish</button>
             <button class="lm-btn icon content-copy-icon" type="button" id="lmCopy" aria-label="Copy" title="Copy" hidden><span aria-hidden="true">&#10697;</span></button>
@@ -748,30 +819,30 @@
     </section>
 
     <section id="daywork">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days" id="dayworkBack">Back</button><h1 id="dayworkTitle">Classwork</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="days" id="dayworkBack">Back</button><h1 id="dayworkTitle">Classwork</h1></div>
       <p class="sub" id="dayworkSub"></p>
       <div class="day-links day-work" id="dayworkList" data-work-list></div>
     </section>
 
     <section id="daywords">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayWordsBack">Back</button><h1 id="dayWordsTitle">Words</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="dayWordsBack">Back</button><h1 id="dayWordsTitle">Words</h1></div>
       <div class="words" id="dayWordsList"></div>
     </section>
 
     <section id="rules" data-lang="en">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="rulesBack">Back</button><h1 id="rulesTitle">Rules · 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <div class="row" id="ruleLang" style="margin-bottom:8px">
-          <button class="btn chip on" type="button" data-rule-lang="en">English</button>
-          <button class="btn chip" type="button" data-rule-lang="ru">Russian</button>
+          <button class="btn chip on saas-btn" type="button" data-rule-lang="en">English</button>
+          <button class="btn chip saas-btn" type="button" data-rule-lang="ru">Russian</button>
         </div>
         <div id="ruleList"></div>
       </div>
     </section>
 
     <section id="daysetup">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
-      <div class="card">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
+      <div class="card saas-card">
         <p class="hint" id="daySetupNote" style="margin-top:0"></p>
         <p class="label">Answer types, pick more than one</p>
         <p class="hint" id="dayExerciseCount" style="margin-top:0"></p>
@@ -803,24 +874,24 @@
           <button class="btn chip chip-mem" type="button" data-day-mix="mix"><span class="mix-label">Random</span><span class="mix-nums"><input class="chip-n" type="text" inputmode="numeric" maxlength="4" value="20" data-mix-count aria-label="Cards"></span></button>
         </div>
         <div class="row" style="margin-top:16px">
-          <button class="btn primary" type="button" id="dayStart">Study</button>
-          <button class="btn" type="button" id="dayMistakes">Mistakes</button>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" id="dayStart">Study</button>
+          <button class="btn saas-btn" type="button" id="dayMistakes">Mistakes</button>
         </div>
         <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
       </div>
     </section>
 
     <section id="dayq">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="dayqBack">Back</button></div>
       <div class="tags"><span id="dayqType">Quiz</span></div>
       <div class="dayq-clock"><span class="timer" id="dayqTimer" hidden></span></div>
       <div class="drill-bar"><h1 id="dayqTitle">Quiz</h1><div class="progress"><i id="dayqBar" style="width:0%"></i></div><span class="timer" id="dayqMistakes" hidden></span></div>
-      <div class="card grow" id="dayqView"></div>
+      <div class="card grow saas-card" id="dayqView"></div>
     </section>
 
     <section id="daychoice">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Choice · day 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Choice · day 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">From the flashcard description</p>
         <p class="q">The air has a lot of water in it, so it feels wet.</p>
         <div class="opts">
@@ -834,8 +905,8 @@
     </section>
 
     <section id="dayflip">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>Flip · day 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">Recall the translation and the transcription</p>
         <div class="flip-scene" id="dayFlipScene" tabindex="0" role="button" aria-label="Flip card">
           <div class="flip-inner">
@@ -843,94 +914,311 @@
             <div class="flip-face flip-back" id="dayFlipBack"></div>
           </div>
         </div>
-        <div class="bar"><button class="btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary" type="button" id="dayFlipNext">Next</button></div>
+        <div class="bar"><button class="btn saas-btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary saas-btn saas-btn-primary" type="button" id="dayFlipNext">Next</button></div>
       </div>
     </section>
 
     <section id="dayjudge">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="lesson">Back</button><h1>True / false · 21 Sep</h1></div>
-      <div class="card grow">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson">Back</button><h1>True / false · 21 Sep</h1></div>
+      <div class="card grow saas-card">
         <p class="prompt">Line from the Wordwall sort</p>
         <p class="q">You're keen on learn English.</p>
         <div class="row">
-          <button class="btn" type="button" id="judgeYes">True</button>
-          <button class="btn primary" type="button" id="judgeNo">False</button>
+          <button class="btn saas-btn" type="button" id="judgeYes">True</button>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" id="judgeNo">False</button>
         </div>
         <div id="judgeFb"></div>
       </div>
     </section>
 
     <section id="music">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Song lyrics</h1></div>
-      <p class="sub">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-jump="lyricadd">Add a song</button></div>
-      <input type="search" placeholder="Song, artist or a word" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button>
+            <h1 style="font-size:20px; font-weight:800; margin:0;">Song lyrics</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;" id="lyricCountBadge">Library</span>
+            <span id="lyricCount" hidden></span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>
+        </div>
+        <div class="page-actions" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="lyricadd" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a song
+          </button>
+        </div>
+      </div>
+      <div class="card saas-card" style="padding:14px; margin-bottom:16px;">
+        <input type="search" placeholder="Song, artist or a word" data-card-search autocomplete="off" class="saas-input" style="width:100%; margin-bottom:0;" />
+      </div>
       <div id="lyricList"></div>
     </section>
 
     <section id="lyricadd">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="music">Back</button><h1>Add a song</h1></div>
-      <div class="card" id="lyricForm">
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="music">Back</button>
+            <h1 style="font-size:20px; font-weight:800; margin:0;">Add a song</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;">Ingestion</span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Upload audio or video, attach Spotify/YouTube stream, and synchronize line-by-line karaoke timestamps.</p>
+        </div>
+      </div>
+      <div class="card saas-card saas-form-grid" id="lyricForm" style="padding:24px; border:2px dashed var(--saas-primary, #0d9488); background:#fafffd;">
         <p class="label">Song title</p>
-        <input id="lyricTitle" type="text" placeholder="Song title" autocomplete="off" />
+        <input id="lyricTitle" type="text" placeholder="Song title" autocomplete="off" class="saas-input" />
         <p class="label">Artist</p>
-        <input id="lyricArtist" type="text" placeholder="Band or singer" autocomplete="off" />
+        <input id="lyricArtist" type="text" placeholder="Band or singer" autocomplete="off" class="saas-input" />
         <p class="label">Video link</p>
-        <input id="lyricVideo" type="text" placeholder="YouTube or another video link" autocomplete="off" />
+        <input id="lyricVideo" type="text" placeholder="YouTube or another video link" autocomplete="off" class="saas-input" />
         <div id="lyricVideoPreview"></div>
         <p class="label">Music link</p>
-        <input id="lyricMusic" type="text" placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" />
+        <input id="lyricMusic" type="text" placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" class="saas-input" />
         <div id="lyricMusicPreview"></div>
         <p class="label">File</p>
-        <div class="drop" id="lyricDrop">Drop a file here, or <button class="btn" type="button" id="lyricFilePick">choose a file</button><input id="lyricFile" type="file" accept="audio/*,video/*" hidden /></div>
+        <div class="drop" id="lyricDrop">Drop a file here, or <button class="btn saas-btn" type="button" id="lyricFilePick">choose a file</button><input id="lyricFile" type="file" accept="audio/*,video/*" hidden /></div>
         <p class="hint" id="lyricFileName"></p>
         <p class="file-progress" id="lyricFileProgress" hidden><span class="ring" id="lyricFileRing" style="--p:0"><b>0</b></span><span id="lyricFileProgressText"></span></p>
         <div id="lyricFilePreview"></div>
         <p class="label">Lyrics</p>
-        <textarea id="lyricText" placeholder="Paste the lyrics. Line breaks stay as you paste them."></textarea>
-        <div class="row" style="margin-top:8px"><button class="btn primary" type="button" id="lyricGo">Read the words</button></div>
+        <textarea id="lyricText" placeholder="Paste the lyrics. Line breaks stay as you paste them." class="saas-textarea"></textarea>
+        <div class="row" style="margin-top:12px"><button class="btn primary saas-btn saas-btn-primary" type="button" id="lyricGo">Read the words</button></div>
         <p class="hint" id="lyricStatus"></p>
       </div>
     </section>
 
     <section id="song">
-      <div class="meta">
-        <div class="meta-side">
-          <button class="btn ghost" type="button" data-nav-back data-fallback="music">Back</button>
-          <div class="song-banner"><b id="songBanner">Sample line</b><span id="songBannerArtist"></span></div>
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="music">Back</button>
+            <div class="song-banner" style="display:none;"><b id="songBanner">Sample line</b><span id="songBannerArtist"></span></div>
+            <h1 id="songTitle" style="font-size:20px; font-weight:800; margin:0;">Music &amp; Song Lyrics Karaoke Studio</h1>
+            <span class="badge badge-purple" style="font-size:11px; font-weight:700;">Karaoke Sync</span>
+            <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">UK/US Audio IPA</span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Synchronized lyrics player, vocabulary discovery from songs, dual UK/US phonetics, and audio ingestion studio.</p>
         </div>
-        <h1 id="songTitle" class="full">Sample line</h1>
-      </div>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-song-study>Study</button></div>
-      <div class="card grow" id="songSample">
-        <p class="sentence">It's <button type="button" data-jump="word">humid</button>, but I <button type="button" data-jump="musicword" data-song="wont">won't</button> <button type="button" data-jump="flip">give up</button> in the <button type="button" data-jump="musicword" data-song="moonlight">moonlight</button>.</p>
-        <p class="hint">This line shows the no-duplicate rule. A real song appears when you add one.</p>
-        <p class="label" style="margin:10px 0 6px">Already in other quizzes</p>
-        <button class="path" type="button" data-jump="word">
-          <span><b>It's humid</b><br><span class="label">no new card</span></span>
-          <span class="to">Days · 21 Sep · humid</span>
-        </button>
-        <button class="path" type="button" data-jump="flip">
-          <span><b>give up</b><br><span class="label">no new card</span></span>
-          <span class="to">Home · deck 12 · give up</span>
-        </button>
-        <p class="label" style="margin:10px 0 6px">New cards in this song</p>
-        <div class="words">
-          <button class="wcard" type="button" data-jump="musicword" data-song="moonlight">
-            <div class="en">moonlight</div>
-            <div class="pos">noun</div>
-            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="moonlight" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="moonlight" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span></div>
-            <div class="label">лунный свет</div>
+        <div class="page-actions" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn saas-btn saas-btn-secondary" type="button" data-jump="lyricadd" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a song
           </button>
-          <button class="wcard" type="button" data-jump="musicword" data-song="wont">
-            <div class="en">won't</div>
-            <div class="pos">contraction</div>
-            <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="won't" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/wəʊnt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="won't" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/woʊnt/</span></span></div>
-            <div class="label">contraction of will not</div>
+          <button class="btn primary saas-btn saas-btn-primary" type="button" data-song-study style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Study Song Words
           </button>
         </div>
       </div>
-      <div class="card grow" id="songUser" hidden></div>
+
+      <!-- KARAOKE ACTIVE MEDIA PLAYER BAR -->
+      <div class="saas-card saas-music-player-bar" style="padding:16px 20px; margin-bottom:20px; background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color:#fff; border-radius:var(--saas-radius-lg, 12px); border:1px solid rgba(255,255,255,0.08); box-shadow:0 4px 20px rgba(15,23,42,0.15);">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <div style="width:48px; height:48px; border-radius:8px; background:linear-gradient(135deg, #0d9488, #4acdcc); display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(13,148,136,0.3);">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            </div>
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:16px; font-weight:700; color:#fff;" id="songBannerDisplay">Moonlight Melody</span>
+                <span class="badge" style="background:#0d9488; color:#fff; font-size:10px; font-weight:700;">SYNCED</span>
+              </div>
+              <div style="font-size:12px; color:#94a3b8;" id="songBannerArtistDisplay">Lumiscia Acoustic Session · 128 BPM</div>
+            </div>
+          </div>
+
+          <!-- Player Controls -->
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="saas-btn saas-btn-sm" style="background:rgba(255,255,255,0.1); color:#fff; border:none; padding:6px 10px;" title="Previous Line" type="button">&larr; Line</button>
+            <button class="saas-btn" style="background:var(--saas-primary, #0d9488); color:#fff; border:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" title="Play / Pause" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            </button>
+            <button class="saas-btn saas-btn-sm" style="background:rgba(255,255,255,0.1); color:#fff; border:none; padding:6px 10px;" title="Next Line" type="button">Line &rarr;</button>
+            <div style="font-size:12px; font-family:monospace; color:#cbd5e1; margin-left:6px;">00:42 / 03:15</div>
+          </div>
+
+          <!-- Source Badges -->
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge badge-emerald" style="font-size:11px;">R2 Lossless Audio</span>
+            <span class="badge" style="background:rgba(255,255,255,0.12); color:#e2e8f0; font-size:11px;">Spotify Link</span>
+            <span class="badge" style="background:rgba(255,255,255,0.12); color:#e2e8f0; font-size:11px;">YouTube</span>
+          </div>
+        </div>
+
+        <!-- Scrubber Progress Bar -->
+        <div style="width:100%; height:5px; background:rgba(255,255,255,0.15); border-radius:3px; margin-top:12px; position:relative; cursor:pointer;">
+          <div style="width:28%; height:100%; background:var(--saas-primary, #0d9488); border-radius:3px; position:relative;">
+            <span style="position:absolute; right:-5px; top:-4px; width:13px; height:13px; border-radius:50%; background:#fff; box-shadow:0 0 8px rgba(0,0,0,0.4);"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN KARAOKE & LYRICS WORKSPACE (2 COLUMNS) -->
+      <div class="saas-music-workspace" style="display:grid; grid-template-columns: 1.4fr 1fr; gap:24px; align-items:start;">
+        
+        <!-- COLUMN 1: SYNCHRONIZED KARAOKE TIMELINE (#song) -->
+        <div class="saas-music-col-timeline">
+          <div class="card grow saas-card" id="songSample" style="padding:22px;">
+            <div class="karaoke-card-header" style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--saas-border-subtle, #f1f5f9); padding-bottom:12px; margin-bottom:16px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <h2 style="font-size:16px; margin:0; font-weight:700;">Synchronized Lyrics Timeline (#song)</h2>
+                <span class="badge badge-purple" style="font-size:10px;">Tap word to inspect</span>
+              </div>
+              <span style="font-size:11.5px; color:#64748b;">Line 3 of 12</span>
+            </div>
+
+            <div class="karaoke-timeline-box" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">00:15</span>
+                <span>The shadows fall across the quiet street</span>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#64748b; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#64748b;">00:28</span>
+                <span>I hear the distant sound of summer rain</span>
+              </div>
+
+              <!-- CURRENT ACTIVE KARAOKE LINE (GLOWING HIGHLIGHT) -->
+              <div class="karaoke-line-active" style="padding:14px 18px; border-radius:8px; background:linear-gradient(to right, #f0fdfa, #ecfdf5); border:1.5px solid #4acdcc; box-shadow:0 4px 14px rgba(74,205,204,0.15); font-size:16px; font-weight:600; color:#0f172a; display:flex; align-items:center; gap:14px;">
+                <span style="font-family:monospace; font-size:12px; color:#0d9488; font-weight:700;">00:42</span>
+                <p class="sentence" style="margin:0; line-height:1.7;">It's <button type="button" class="saas-btn saas-btn-sm" style="background:#ccfbf1; color:#0f766e; border:1px solid #99f6e4; font-weight:700; padding:2px 8px;" data-jump="word">humid</button>, but I <button type="button" class="saas-btn saas-btn-sm" style="background:#ccfbf1; color:#0f766e; border:1px solid #99f6e4; font-weight:700; padding:2px 8px;" data-jump="musicword" data-song="wont">won't</button> <button type="button" class="saas-btn saas-btn-sm" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:2px 8px;" data-jump="flip">give up</button> in the <button type="button" class="saas-btn saas-btn-sm" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; padding:2px 8px;" data-jump="musicword" data-song="moonlight">moonlight</button>.</p>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">00:58</span>
+                <span>Tomorrow brings a brand new melody</span>
+              </div>
+
+              <div class="karaoke-line" style="padding:10px 14px; border-radius:6px; background:#f8fafc; color:#94a3b8; font-size:14px; display:flex; align-items:center; gap:12px;">
+                <span style="font-family:monospace; font-size:11px; color:#94a3b8;">01:14</span>
+                <span>We keep on walking through the midnight glow</span>
+              </div>
+            </div>
+
+            <!-- Cross-reference Badges -->
+            <div class="karaoke-crossrefs" style="margin-top:16px; padding:12px 16px; background:#f8fafc; border-radius:8px; border:1px solid var(--saas-border-subtle, #f1f5f9);">
+              <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:#64748b; margin-bottom:8px;">No-Duplicate Rule &amp; Quiz Cross-References:</div>
+              <p class="hint" style="margin:0 0 10px 0;">This line shows the no-duplicate rule. A real song appears when you add one.</p>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button class="path saas-card" type="button" data-jump="word" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; text-align:left;">
+                  <span><b>It's humid</b> · <span class="label" style="color:#64748b;">already in quizzes</span></span>
+                  <span class="to badge badge-purple" style="font-size:10px;">Days · 21 Sep · humid</span>
+                </button>
+                <button class="path saas-card" type="button" data-jump="flip" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#fff; text-align:left;">
+                  <span><b>give up</b> · <span class="label" style="color:#64748b;">phrasal verb</span></span>
+                  <span class="to badge badge-purple" style="font-size:10px;">Home · deck 12 · give up</span>
+                </button>
+              </div>
+            </div>
+
+            <p class="label" style="margin:16px 0 8px; font-weight:700;">New cards in this song</p>
+            <div class="words" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+              <button class="wcard saas-card" type="button" data-jump="musicword" data-song="moonlight" style="padding:14px; text-align:left;">
+                <div class="en" style="font-size:16px; font-weight:700; color:var(--saas-text-primary);">moonlight</div>
+                <div class="pos" style="font-size:12px; color:#64748b; margin-bottom:6px;">noun</div>
+                <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="moonlight" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="moonlight" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/ˈmuːn.laɪt/</span></span></div>
+                <div class="label" style="font-weight:600; color:#0f766e; margin-top:6px;">лунный свет</div>
+              </button>
+              <button class="wcard saas-card" type="button" data-jump="musicword" data-song="wont" style="padding:14px; text-align:left;">
+                <div class="en" style="font-size:16px; font-weight:700; color:var(--saas-text-primary);">won't</div>
+                <div class="pos" style="font-size:12px; color:#64748b; margin-bottom:6px;">contraction</div>
+                <div class="ipa"><span class="say-side"><b>UK</b><span class="say" role="button" data-say="uk" data-say-text="won't" title="Play UK"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/wəʊnt/</span></span><span class="say-side"><b>US</b><span class="say" role="button" data-say="us" data-say-text="won't" title="Play US"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.6 10.1h1.7l2.3-1.9v7.6l-2.3-1.9H8.6z" fill="currentColor"/><path d="M14.4 10.1a2.6 2.6 0 0 1 0 3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="say-ipa">/woʊnt/</span></span></div>
+                <div class="label" style="font-weight:600; color:#0f766e; margin-top:6px;">contraction of will not</div>
+              </button>
+            </div>
+          </div>
+          <div class="card grow saas-card" id="songUser" hidden style="padding:22px;"></div>
+        </div>
+
+        <!-- COLUMN 2: ACTIVE WORD INSPECTOR & SONG CATALOG (#musicword & #music) -->
+        <div class="saas-music-col-sidebar" style="display:flex; flex-direction:column; gap:16px;">
+          
+          <!-- INSPECTED WORD CARD (#musicword inspector) -->
+          <div class="saas-card" id="inspectedWordCard" style="padding:20px; border-top:3px solid var(--saas-primary, #0d9488);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">Active Word Card (#musicword)</span>
+              <button class="saas-btn saas-btn-sm saas-btn-secondary" type="button" data-jump="musicword" data-song="moonlight">+ Add to Deck</button>
+            </div>
+
+            <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:4px;">
+              <h3 style="font-size:22px; font-weight:800; color:var(--saas-text-primary); margin:0;" id="inspectedWordTitle">moonlight</h3>
+              <span style="font-size:12px; color:#64748b; font-style:italic;" id="inspectedWordPos">noun · B1 Intermediate</span>
+            </div>
+
+            <div style="font-size:14px; font-weight:600; color:#0f766e; margin-bottom:14px;" id="inspectedWordRu">
+              лунный свет
+            </div>
+
+            <!-- Dual UK / US Phonetics Audio -->
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:16px;">
+              <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:10px; font-weight:800; color:#0d9488;">UK DIALECT</div>
+                  <div style="font-size:12px; font-family:monospace; color:#0f766e;" id="inspectedUkIpa">/ˈmuːn.laɪt/</div>
+                </div>
+                <button class="saas-btn saas-btn-sm say" style="background:#0d9488; color:#fff; border:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" type="button" role="button" data-say="uk" data-say-text="moonlight" title="Play UK" id="inspectedUkSay">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                </button>
+              </div>
+
+              <div style="background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:8px 10px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <div style="font-size:10px; font-weight:800; color:#0d9488;">US DIALECT</div>
+                  <div style="font-size:12px; font-family:monospace; color:#0f766e;" id="inspectedUsIpa">/ˈmuːn.laɪt/</div>
+                </div>
+                <button class="saas-btn saas-btn-sm say" style="background:#0d9488; color:#fff; border:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:0;" type="button" role="button" data-say="us" data-say-text="moonlight" title="Play US" id="inspectedUsSay">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Example and Usages -->
+            <div style="background:#f8fafc; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:12.5px; border-left:3px solid #cbd5e1;">
+              <div style="color:#334155; font-style:italic; margin-bottom:4px;" id="inspectedWordEx">"We took a long romantic stroll under the soft moonlight."</div>
+              <div style="color:#64748b; font-size:11.5px;" id="inspectedWordExRu">Мы совершили долгую романтическую прогулку под мягким лунным светом.</div>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <button class="saas-btn saas-btn-sm saas-btn-primary" style="flex:1;" type="button" data-jump="flip">Flip This Card (#flip)</button>
+              <button class="saas-btn saas-btn-sm saas-btn-secondary" style="flex:1;" type="button" data-jump="made">Usages (#made)</button>
+            </div>
+          </div>
+
+          <!-- SONG CATALOG LIST (#music side preview) -->
+          <div class="saas-card" style="padding:18px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <h4 style="font-size:13px; font-weight:700; text-transform:uppercase; color:#64748b; margin:0;">Song Library Catalog</h4>
+              <button class="saas-btn saas-btn-ghost saas-btn-sm" type="button" data-jump="music" style="font-size:11px; padding:2px 6px;">View All &rarr;</button>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; font-size:12px;">
+                <div>
+                  <strong>Moonlight Melody</strong>
+                  <div style="color:#64748b; font-size:11px;">18 words &middot; B1 Intermediate</div>
+                </div>
+                <span class="badge badge-emerald" style="font-size:10px;">NOW PLAYING</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; cursor:pointer;" data-jump="music">
+                <div>
+                  <strong>Shape of You</strong>
+                  <div style="color:#64748b; font-size:11px;">24 words &middot; A2 Elementary</div>
+                </div>
+                <span class="badge" style="background:#e2e8f0; color:#475569; font-size:10px;">Play</span>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:12px; cursor:pointer;" data-jump="music">
+                <div>
+                  <strong>Rolling in the Deep</strong>
+                  <div style="color:#64748b; font-size:11px;">21 words &middot; B2 Upper-Int</div>
+                </div>
+                <span class="badge" style="background:#e2e8f0; color:#475569; font-size:10px;">Play</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </section>
 
     <section id="lesson07">
@@ -1585,9 +1873,9 @@
     </section>
 
     <section id="guide" data-lang="en">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Navigate</h1><span class="guide-visits" id="guideVisits" hidden></span></div>
-      <div class="card grow">
-        <div class="row" id="guideLang" style="margin-bottom:8px">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Navigate</h1><span class="guide-visits" id="guideVisits" hidden></span></div>
+      <div class="card grow saas-card">
+        <div class="row saas-segmented" id="guideLang" style="margin-bottom:8px">
           <button class="btn chip on" type="button" data-guide-lang="en">English</button>
           <button class="btn chip" type="button" data-guide-lang="ru">Russian</button>
         </div>
@@ -1656,31 +1944,39 @@
     </section>
 
     <section id="musicword">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="song">Back</button><h1 id="musicTitle">Song card</h1></div>
-      <div class="card grow" id="musicView"></div>
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="song">Back</button>
+            <h1 id="musicTitle" style="font-size:20px; font-weight:800; margin:0;">Song card</h1>
+            <span class="badge badge-emerald" style="font-size:11px; font-weight:700;">Word Inspector</span>
+          </div>
+        </div>
+      </div>
+      <div class="card grow saas-card" id="musicView" style="padding:24px; border-top:3px solid var(--saas-primary, #0d9488);"></div>
     </section>
 
     <section id="pdfview">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="days">Back</button><h1 id="pdfTitle">PDF</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="days">Back</button><h1 id="pdfTitle">PDF</h1></div>
       <p class="sub" id="pdfStatus"></p>
       <div id="pdfPages"></div>
     </section>
 
     <section id="verbs">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1 id="verbTitle">Irregular verbs</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1 id="verbTitle">Irregular verbs</h1></div>
       <p class="sub" id="verbSub">Five levels by how often the verb is used.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn primary" type="button" data-verb-study>Study</button></div>
-      <input type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
+      <div class="row" style="margin-bottom:10px"><button class="btn primary saas-btn" type="button" data-verb-study>Study</button></div>
+      <input class="saas-input" type="search" placeholder="Search cards" data-card-search autocomplete="off" style="margin-bottom:10px" />
       <div id="verbList"></div>
     </section>
 
     <section id="stats">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Statistics</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Statistics</h1></div>
       <p class="sub" id="statsSub">Dates are UTC. The period filter applies to every figure on this page.</p>
-      <div class="row" style="margin-bottom:8px">
-        <button class="btn" type="button" data-stats-range="7">7 days</button>
-        <button class="btn primary" type="button" data-stats-range="30">30 days</button>
-        <button class="btn" type="button" data-stats-range="90">90 days</button>
+      <div class="row saas-segmented" style="margin-bottom:8px">
+        <button class="btn saas-btn" type="button" data-stats-range="7">7 days</button>
+        <button class="btn primary saas-btn" type="button" data-stats-range="30">30 days</button>
+        <button class="btn saas-btn" type="button" data-stats-range="90">90 days</button>
       </div>
       <div class="row stats-filters">
         <span class="date-control"><input id="statsFrom" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" maxlength="10" aria-label="From" /><button class="date-picker-btn" type="button" data-date-picker="statsFrom" aria-label="Choose start date"></button></span>
@@ -1699,14 +1995,14 @@
     </section>
 
     <section id="themes">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="account">Back</button><h1>Theme</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="account">Back</button><h1>Theme</h1></div>
       <p class="sub" id="themeSaveNote">Your choice is saved in this browser.</p>
-      <button class="btn theme-open" type="button" id="customThemeOpen" aria-expanded="false" aria-controls="customThemeForm">Add a theme</button>
-      <form class="card theme-make" id="customThemeForm" hidden>
+      <button class="btn theme-open saas-btn" type="button" id="customThemeOpen" aria-expanded="false" aria-controls="customThemeForm">Add a theme</button>
+      <form class="card theme-make saas-card" id="customThemeForm" hidden>
         <p class="hint" id="customThemeHint">Add a painting. The theme takes its colors, and the picture stays on the background, dimmed.</p>
         <input id="customThemeName" type="text" maxlength="64" placeholder="Name" autocomplete="off" />
         <div class="theme-file">
-          <label class="btn">Picture<input id="customThemeFile" type="file" accept="image/*" hidden /></label>
+          <label class="btn saas-btn">Picture<input id="customThemeFile" type="file" accept="image/*" hidden /></label>
           <span class="theme-shot-wrap" id="customThemeShot" hidden>
             <img id="customThemePreview" class="theme-shot" alt="" />
             <span id="customThemeWash" class="theme-shot-wash"></span>
@@ -1716,38 +2012,66 @@
           <input id="customThemeVeil" type="range" min="0" max="100" value="60" />
         </label>
         <div class="theme-make-actions">
-          <button class="btn primary" type="submit" id="customThemeSubmit">Make a theme</button>
-          <button class="btn" type="button" id="customThemeCancel" hidden>Cancel</button>
+          <button class="btn primary saas-btn" type="submit" id="customThemeSubmit">Make a theme</button>
+          <button class="btn saas-btn" type="button" id="customThemeCancel" hidden>Cancel</button>
         </div>
       </form>
       <p id="customThemeStatus" class="hint" role="status"></p>
-      <div class="card"><div class="theme-seg" data-theme-seg></div></div>
+      <div class="card saas-card"><div class="theme-seg" data-theme-seg></div></div>
     </section>
 
     <section id="settings">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Settings</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Settings</h1></div>
       <div id="settingsHost"></div>
     </section>
 
     <section id="workbenchqueue">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Review queue</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Review queue</h1></div>
       <div id="workbenchQueueHost"></div>
     </section>
 
     <section id="workbenchmine">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>My quizzes</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>My quizzes</h1></div>
       <div id="workbenchMineHost"></div>
     </section>
 
     <section id="workbenchproviders">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>AI providers</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>AI providers</h1></div>
       <div id="workbenchProvidersHost"></div>
     </section>
 
     <section id="bugs">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Bugs</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Bugs</h1></div>
       <p class="sub">One row for each failure. The same failure stays on that row and counts up. Open a row for the request, what happened, and the response.</p>
-      <div class="steps" id="bugTabs">
+      <div class="saas-form-grid saas-bugs-kpis" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 16px 0 20px;">
+        <div class="card saas-card" style="padding: 16px 20px;">
+          <div style="font-size: 11.5px; font-weight: 600; color: var(--saas-text-muted); text-transform: uppercase; margin-bottom: 6px;">Active Worker Errors</div>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 24px; font-weight: 700; color: #dc2626;">3</span>
+            <span style="font-size: 12px; color: var(--saas-text-muted);">signatures (18 hits / 24h)</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 11.5px; color: #b91c1c;">Highest: POST /api/cards/study-progress</div>
+        </div>
+
+        <div class="card saas-card" style="padding: 16px 20px;">
+          <div style="font-size: 11.5px; font-weight: 600; color: var(--saas-text-muted); text-transform: uppercase; margin-bottom: 6px;">System Health &amp; Cache</div>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 24px; font-weight: 700; color: #16a34a;">99.8%</span>
+            <span style="font-size: 12px; color: var(--saas-text-muted);">uptime (Edge KV cached)</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 11.5px; color: #15803d;">Prefetch Queue: 0 pending · RAM: 14.2 MB</div>
+        </div>
+
+        <div class="card saas-card" style="padding: 16px 20px;">
+          <div style="font-size: 11.5px; font-weight: 600; color: var(--saas-text-muted); text-transform: uppercase; margin-bottom: 6px;">CRM Mutations Audit Log</div>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 24px; font-weight: 700; color: #2563eb;">42</span>
+            <span style="font-size: 12px; color: var(--saas-text-muted);">recorded events (/api/admin/changes)</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 11.5px; color: var(--saas-text-muted);">Latest: role changed for student_olga</div>
+        </div>
+      </div>
+      <div class="steps saas-segmented" id="bugTabs">
         <button class="step on" type="button" data-bug-tab="open">Active</button>
         <button class="step" type="button" data-bug-tab="done">Resolved</button>
         <button class="step" type="button" data-bug-tab="feedback">User feedback</button>
@@ -1757,23 +2081,24 @@
 
     <section id="account">
       <button class="auth-brand brand" type="button" data-jump="home" aria-label="Lumiscia Home"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Profile</h1></div>
       <div class="account-stage">
         <div class="account-main">
-          <div class="row account-links"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-msg-open>Messages</button><button class="btn" type="button" data-jump="guide">Navigate</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
+          <div class="row account-links"><button class="btn saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn saas-btn" type="button" data-msg-open>Messages</button><button class="btn saas-btn" type="button" data-jump="guide">Navigate</button><button class="btn saas-btn" type="button" data-jump="themes">Theme</button></div>
           <div id="accountBody"></div>
         </div>
       </div>
     </section>
 
     <section id="profile">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>My account</h1></div>
-      <div class="row" style="margin-bottom:12px"><button class="btn" type="button" data-jump="stats">Statistics</button><button class="btn" type="button" data-msg-open>Messages</button><button class="btn" type="button" data-jump="guide">Navigate</button><button class="btn" type="button" data-jump="themes">Theme</button></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>My account</h1></div>
+      <div class="row" style="margin-bottom:12px"><button class="btn saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn saas-btn" type="button" data-msg-open>Messages</button><button class="btn saas-btn" type="button" data-jump="guide">Navigate</button><button class="btn saas-btn" type="button" data-jump="themes">Theme</button></div>
       <div id="profileBody"></div>
     </section>
 
     <section id="admin">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="profile">Back</button><h1>Accounts</h1></div>
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="profile">Back</button><h1>Accounts</h1></div>
+      <p class="sub" style="color:var(--saas-text-muted); font-size:13px; margin:0 0 16px;">Comprehensive user lifecycle: approved roster, approval requests queue, single-use invite links with QR codes, and audit logs.</p>
       <div class="seg accounts-tabs" role="tablist" aria-label="Accounts"><button type="button" role="tab" data-admin-tab="accounts" aria-selected="true" class="on">Approved accounts</button><button type="button" role="tab" data-admin-tab="requests" aria-selected="false">Approval requests</button><button type="button" role="tab" data-admin-tab="invite" aria-selected="false">Invite</button><button type="button" role="tab" data-admin-tab="groups" aria-selected="false">Groups</button><button type="button" role="tab" data-admin-tab="history" aria-selected="false">Registration history</button></div>
       <div id="adminBody"></div>
     </section>
@@ -1789,31 +2114,31 @@
   </div></div>
   <div class="display-dialog archive-preview-dialog" id="archivePreviewDialog" hidden>
     <button class="display-backdrop" type="button" data-archive-close aria-label="Close archive preview"></button>
-    <div class="display-panel archive-preview-panel" role="dialog" aria-modal="true" aria-labelledby="archivePreviewTitle">
-      <div class="display-head"><h2 id="archivePreviewTitle">Archived material</h2><button class="btn icon" type="button" data-archive-close aria-label="Close">&#215;</button></div>
+    <div class="display-panel archive-preview-panel saas-card" role="dialog" aria-modal="true" aria-labelledby="archivePreviewTitle">
+      <div class="display-head"><h2 id="archivePreviewTitle">Archived material</h2><button class="btn icon saas-btn" type="button" data-archive-close aria-label="Close">&#215;</button></div>
       <div id="archivePreviewBody"></div>
     </div>
   </div>
   <div class="display-dialog content-copy-dialog" id="contentCopyDialog" hidden>
     <button class="display-backdrop" type="button" data-copy-close aria-label="Cancel copy"></button>
-    <form class="display-panel content-copy-panel" role="dialog" aria-modal="true" aria-labelledby="contentCopyTitle" id="contentCopyForm">
-      <div class="display-head"><h2 id="contentCopyTitle">Copy</h2><button class="btn icon" type="button" data-copy-close aria-label="Close">&#215;</button></div>
+    <form class="display-panel content-copy-panel saas-card" role="dialog" aria-modal="true" aria-labelledby="contentCopyTitle" id="contentCopyForm">
+      <div class="display-head"><h2 id="contentCopyTitle">Copy</h2><button class="btn icon saas-btn" type="button" data-copy-close aria-label="Close">&#215;</button></div>
       <p id="contentCopySource" class="sub"></p>
       <fieldset id="contentCopyFields">
-        <label>Copy name<input id="contentCopyName" type="text" maxlength="120" required /></label>
-        <label>Destination<select id="contentCopyKind"></select></label>
-        <label id="contentCopyContainerLabel">Group<select id="contentCopyContainer"></select></label>
-        <label id="contentCopyItemLabel" hidden>Lesson<select id="contentCopyItem"></select></label>
-        <label id="contentCopyTabLabel" hidden>Page<select id="contentCopyTab"><option value="overview">Overview</option><option value="words">Words</option><option value="phrases">Phrases</option><option value="rules">Rules</option><option value="classwork">Classwork</option><option value="homework">Homework</option><option value="pdf">PDF</option></select></label>
+        <label>Copy name<input class="saas-input" id="contentCopyName" type="text" maxlength="120" required /></label>
+        <label>Destination<select class="saas-select" id="contentCopyKind"></select></label>
+        <label id="contentCopyContainerLabel">Group<select class="saas-select" id="contentCopyContainer"></select></label>
+        <label id="contentCopyItemLabel" hidden>Lesson<select class="saas-select" id="contentCopyItem"></select></label>
+        <label id="contentCopyTabLabel" hidden>Page<select class="saas-select" id="contentCopyTab"><option value="overview">Overview</option><option value="words">Words</option><option value="phrases">Phrases</option><option value="rules">Rules</option><option value="classwork">Classwork</option><option value="homework">Homework</option><option value="pdf">PDF</option></select></label>
       </fieldset>
       <p id="contentCopyStatus" class="hint" role="status"></p>
-      <div class="content-copy-actions"><button class="btn" type="button" data-copy-close>Cancel</button><button class="btn primary" type="submit" id="contentCopySubmit">Create copy</button></div>
+      <div class="content-copy-actions"><button class="btn saas-btn" type="button" data-copy-close>Cancel</button><button class="btn primary saas-btn" type="submit" id="contentCopySubmit">Create copy</button></div>
     </form>
   </div>
   <div class="display-dialog" id="displayDialog" hidden>
     <button class="display-backdrop" type="button" data-display-close aria-label="Close display settings"></button>
-    <div class="display-panel" role="dialog" aria-modal="true" aria-labelledby="displayTitle">
-      <div class="display-head"><div><span>Accessibility</span><h2 id="displayTitle">Display</h2></div><button class="btn icon" type="button" data-display-close aria-label="Close">×</button></div>
+    <div class="display-panel saas-card" role="dialog" aria-modal="true" aria-labelledby="displayTitle">
+      <div class="display-head"><div><span>Accessibility</span><h2 id="displayTitle">Display</h2></div><button class="btn icon saas-btn" type="button" data-display-close aria-label="Close">×</button></div>
       <p>Choose a comfortable size for every page.</p>
       <div class="display-sizes" role="group" aria-label="Text and interface size">
         <button type="button" data-display-size="small"><b>Aa</b><span>Small</span></button>
@@ -1841,13 +2166,13 @@
   </nav>
   </div>
   <div id="clipFrame" class="clip-frame" hidden>
-    <div class="clip-frame-box">
-      <div class="clip-frame-top"><b id="clipFrameTitle"></b><button class="clip-frame-x" type="button" id="clipFrameClose" aria-label="Close">×</button></div>
+    <div class="clip-frame-box saas-card">
+      <div class="clip-frame-top"><b id="clipFrameTitle"></b><button class="clip-frame-x saas-btn" type="button" id="clipFrameClose" aria-label="Close">×</button></div>
       <iframe id="clipFrameView" title="Pronunciation"></iframe>
     </div>
   </div>
-  <div id="selpop" class="selpop" hidden>
-    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
+  <div id="selpop" class="selpop saas-card" hidden>
+    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x saas-btn" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
     <div id="selpopBody"></div>
   </div>
   <script src="/main-bridge.js"></script><script src="grammar.js"></script>

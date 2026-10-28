@@ -321,7 +321,7 @@
       const scene = document.getElementById("dayFlipScene");
       const btn = document.getElementById("dayFlipBtn");
       const frontHtml = '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>';
-      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary" type="button">Knew</button><button class="btn" type="button">Didn\'t know</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
+      const backHtml = '<p class="entry">' + esc(w.ru || w.gloss || "No Russian translation on this slide.") + '</p><p class="pos">' + esc(w.en) + ' · ' + esc(w.pos) + '</p>' + ipaHtml(w) + (w.ex ? '<p>' + esc(w.ex) + '</p>' : '') + '<p>' + cardLinks(w.en, w.url) + '</p>' + clipLine(clipOf(w)) + '<div class="row"><button class="btn primary saas-btn saas-btn-primary" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>';
       if (face && back && scene) {
         face.innerHTML = frontHtml;
         back.innerHTML = backHtml;
@@ -439,7 +439,7 @@
       return '<div class="guide-shot" aria-label="' + esc(title) + '"><div class="guide-shot-top"><span>English</span><b>' + esc(title) + '</b><i></i></div><div class="guide-shot-body">' + items.map((item) => '<button type="button" class="guide-hotspot" data-jump="' + esc(item[1]) + '">' + esc(item[0]) + '</button>').join('') + '</div></div>';
     }
     function guideBlock(title, text, jump, label, shot = '') {
-      return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
+      return '<article class="guide-block saas-card">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary saas-btn" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
     }
     function guideVisitorKey() {
       if (authUser?.id) return String(authUser.id).slice(0, 80);
@@ -510,7 +510,7 @@
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
       if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Submitted exams cannot be reopened; a new assignment creates a separate exam. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Сданный экзамен нельзя разблокировать; новое назначение создаёт отдельный экзамен. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
       if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Accounts','Открыть Accounts'));
-      html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
+      html += '<article class="guide-block saas-card"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn saas-btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
     function faceUser() {
@@ -1556,17 +1556,41 @@
     function renderSong(key) {
       songKey = key;
       const w = songCards[key];
-      document.getElementById("musicTitle").textContent = w.en;
-      document.getElementById("musicView").innerHTML =
-        catalogEditHtml(w) +
-        '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
-        ipaHtml(w) +
-        (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
-        '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
-        "<p>" + cardLinks(w.en, w.url) + "</p>" +
-        '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
-        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
-        cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      const titleEl = document.getElementById("musicTitle");
+      if (titleEl && w) titleEl.textContent = w.en;
+      const viewEl = document.getElementById("musicView");
+      if (viewEl && w) {
+        viewEl.innerHTML =
+          catalogEditHtml(w) +
+          '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
+          ipaHtml(w) +
+          (w.level ? '<p><span class="level">' + esc(w.level) + '</span></p>' : '') +
+          '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
+          "<p>" + cardLinks(w.en, w.url) + "</p>" +
+          '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
+          '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
+          cardQuizHtml(cardQuizKey(w), w.en, w.ru);
+      }
+      const sideTitle = document.getElementById("inspectedWordTitle");
+      if (sideTitle && w) {
+        sideTitle.textContent = w.en;
+        const sideRu = document.getElementById("inspectedWordRu");
+        if (sideRu) sideRu.textContent = w.ru || "";
+        const sidePos = document.getElementById("inspectedWordPos");
+        if (sidePos) sidePos.textContent = (w.pos || "") + (w.level ? " · " + w.level : "");
+        const sideEx = document.getElementById("inspectedWordEx");
+        if (sideEx) sideEx.textContent = w.ex ? `"${w.ex}"` : "";
+        const sideExRu = document.getElementById("inspectedWordExRu");
+        if (sideExRu) sideExRu.textContent = w.exRu || (w.ru ? "Пример употребления в песне: " + w.ru : "");
+        const ukIpa = document.getElementById("inspectedUkIpa");
+        if (ukIpa) ukIpa.textContent = w.uk || (w.ipa && w.ipa.uk) || w.ipa || "/ˈmuːn.laɪt/";
+        const usIpa = document.getElementById("inspectedUsIpa");
+        if (usIpa) usIpa.textContent = w.us || (w.ipa && w.ipa.us) || w.ipa || "/ˈmuːn.laɪt/";
+        const ukSay = document.getElementById("inspectedUkSay");
+        if (ukSay) ukSay.dataset.sayText = w.en;
+        const usSay = document.getElementById("inspectedUsSay");
+        if (usSay) usSay.dataset.sayText = w.en;
+      }
     }
     function applySongEdits() {
       const map = loadEdits();
@@ -2097,7 +2121,7 @@
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
           const n = map[name].length;
-          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+          return '<button class="day active saas-card" type="button" data-all-group="' + esc(name) + '"><span class="date saas-badge saas-badge-muted">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about saas-badge saas-badge-info">' + n + (n === 1 ? " word" : " words") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;

@@ -106,7 +106,7 @@
       const selected=adminGroups.find(group=>group.id===adminInviteGroupId);
       if(!selected)adminInviteGroupId=null;
       const groups=adminGroups.slice().sort((a,b)=>a.title.localeCompare(b.title));
-      return '<div class="accounts-invite-panel invite-form" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary" type="button" data-invite-create disabled>Create invite</button></div><input type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
+      return '<div class="accounts-invite-panel invite-form saas-card" data-group-invites data-group-id="'+(selected?.id||'')+'"><h2>Invite</h2><div><span id="inviteGroupLabel">Group</span><details class="invite-group-picker" data-invite-group-picker><summary aria-labelledby="inviteGroupLabel inviteGroupValue" aria-controls="inviteGroupOptions" aria-expanded="false"><span id="inviteGroupValue" data-invite-selected-group>'+esc(selected?.title||'Choose group')+'</span></summary><div class="invite-group-menu"><input class="saas-input" type="search" data-invite-group-search aria-label="Search groups" aria-controls="inviteGroupOptions" placeholder="Search groups" autocomplete="off"><div class="invite-group-options" id="inviteGroupOptions" role="listbox" aria-label="Groups">'+groups.map(group=>'<button type="button" role="option" data-invite-group-option="'+group.id+'" aria-selected="'+(group.id===selected?.id)+'">'+esc(group.title)+'</button>').join('')+'</div><p class="hint" role="status" data-invite-group-empty'+(groups.length?' hidden':'')+'>'+(groups.length?'No matching groups.':'No groups available.')+'</p></div></details></div><label><span>Invite</span><select class="saas-select" data-invite-kind><option value="student">Student</option><option value="teacher">Teacher</option></select></label><label data-invite-student><span>Teacher</span><select class="saas-select" data-invite-teacher disabled></select></label><p class="hint" data-invite-unassigned>Choose a group first.</p><label hidden data-invite-staff><span>Invited teacher email (optional)</span><input class="saas-input" type="email" maxlength="120" data-invite-email autocomplete="off" placeholder="Optional email"></label><p class="hint">Single use · expires in 72 hours</p><div class="row"><button class="btn primary saas-btn" type="button" data-invite-create disabled>Create invite</button></div><input class="saas-input" type="text" readonly hidden data-invite-url aria-label="Copy invite link" title="Copy invite link"><button type="button" class="invite-qr" data-invite-qr hidden aria-label="Copy QR image" title="Copy QR image"></button><p class="hint" role="status" data-invite-status></p></div>';
     }
     function resetInviteResult(box){
       const input=box.querySelector('[data-invite-url]'),qr=box.querySelector('[data-invite-qr]');
@@ -408,15 +408,15 @@
 
         // Left column: Profile Summary Card
         html += '<aside class="admin-user-sidebar">';
-        html += '<div class="admin-user-summary-card card">';
+        html += '<div class="admin-user-summary-card card saas-card">';
         html += '<div class="admin-user-summary-cover"></div>';
-        html += '<div class="admin-user-summary-body">';
+        html += '<div class="admin-user-summary-body saas-card-body">';
         html += '<div class="admin-user-avatar">' + esc(initials) + '</div>';
-        html += '<h2 class="admin-user-name">' + esc(user.name || user.login) + '</h2>';
-        html += '<p class="admin-user-email">' + esc(user.email) + '</p>';
+        html += '<h2 class="admin-user-name saas-card-title">' + esc(user.name || user.login) + '</h2>';
+        html += '<p class="admin-user-email saas-card-subtitle">' + esc(user.email) + '</p>';
         html += '<div class="admin-user-badges">';
-        html += '<span class="admin-status-badge ' + (isActive ? 'is-active' : 'is-inactive') + '"><span class="badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
-        html += '<span class="admin-role-badge">' + esc(roleName) + '</span>';
+        html += '<span class="admin-status-badge saas-badge ' + (isActive ? 'is-active saas-badge-active' : 'is-inactive saas-badge-muted') + '"><span class="badge-dot saas-badge-dot"></span> ' + (isActive ? 'Active' : 'Inactive') + '</span>';
+        html += '<span class="admin-role-badge saas-badge saas-badge-info">' + esc(roleName) + '</span>';
         html += '</div>';
         html += '<hr class="admin-user-divider">';
         html += '<dl class="admin-user-metadata">';
@@ -427,7 +427,7 @@
         html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
         html += '</dl>';
         html += '<div class="admin-user-sidebar-actions">';
-        html += '<button type="button" class="btn admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+        html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
         html += '</div>';
         html += '</div></div></aside>';
 
@@ -435,56 +435,56 @@
         html += '<div class="admin-user-main">';
 
         // Card 1: Account Information & Access
-        html += '<div class="card admin-user-card admin-personal-card">';
-        html += '<div class="admin-card-head"><h3>Account Information & Access</h3><span class="admin-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div>';
-        html += '<div class="admin-form-grid">';
-        html += '<label class="admin-form-field"><span class="field-label">Full Name</span><input data-profile-name type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
-        html += '<label class="admin-form-field"><span class="field-label">Username (Login)</span><input data-profile-login type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
-        html += '<label class="admin-form-field is-full"><span class="field-label">Email Address</span><input data-profile-email type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<div class="card admin-user-card admin-personal-card saas-card">';
+        html += '<div class="admin-card-head saas-card-header"><div class="saas-card-title-group"><h3 class="saas-card-title">Account Information & Access</h3><span class="admin-card-subtitle saas-card-subtitle">' + (isDeveloper() ? 'All fields editable' : 'View & Group assignment') + '</span></div></div>';
+        html += '<div class="admin-form-grid saas-form-grid">';
+        html += '<label class="admin-form-field saas-form-group"><span class="field-label saas-label">Full Name</span><input data-profile-name class="saas-input" type="text" value="' + esc(user.name || '') + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field saas-form-group"><span class="field-label saas-label">Username (Login)</span><input data-profile-login class="saas-input" type="text" value="' + esc(user.login) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
+        html += '<label class="admin-form-field saas-form-group is-full"><span class="field-label saas-label">Email Address</span><input data-profile-email class="saas-input" type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
 
         // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
-        html += '<div class="admin-form-field account-group-row">';
-        html += '<label><span class="field-label">Assigned Group</span>';
-        html += '<select data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
+        html += '<div class="admin-form-field saas-form-group account-group-row">';
+        html += '<label><span class="field-label saas-label">Assigned Group</span>';
+        html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
         html += '</label>';
-        html += '<div class="account-group-actions"><button class="btn small" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
+        html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
 
         // Role field
-        html += '<div class="admin-form-field">';
-        html += '<label><span class="field-label">System Role</span>';
-        html += '<select data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
+        html += '<div class="admin-form-field saas-form-group">';
+        html += '<label><span class="field-label saas-label">System Role</span>';
+        html += '<select class="saas-select" data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
         html += '<option value="USER"' + (user.role === 'USER' ? ' selected' : '') + '>Student</option>';
         html += '<option value="ADMIN"' + (user.role === 'ADMIN' ? ' selected' : '') + '>Teacher</option>';
         html += '<option value="DEVELOPER"' + (user.role === 'DEVELOPER' ? ' selected' : '') + '>Developer</option>';
         html += '</select></label>';
         if (isDeveloper()) {
-          html += '<div class="account-role-actions"><button class="btn small" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
+          html += '<div class="account-role-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
         }
         html += '</div>';
 
-        html += '</div>'; // end admin-form-grid
+        html += '</div>'; // end admin-form-grid saas-form-grid
 
-        html += '<div class="admin-card-footer">';
-        html += '<p class="admin-form-hint">Passwords are managed securely and not displayed here.</p>';
-        html += '<div class="admin-card-actions">';
-        html += '<button type="button" class="btn" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
+        html += '<div class="admin-card-footer saas-card-footer">';
+        html += '<p class="admin-form-hint saas-card-hint">Passwords are managed securely and not displayed here.</p>';
+        html += '<div class="admin-card-actions saas-card-actions">';
+        html += '<button type="button" class="btn saas-btn saas-btn-secondary" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
         if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
-          html += '<button class="btn primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
+          html += '<button class="btn primary saas-btn saas-btn-primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
         }
         html += '</div></div>';
         html += '</div>'; // end Card 1
 
         // Card 2: Account Status & Lifecycle (Danger Zone)
-        html += '<div class="card admin-user-card admin-danger-card">';
-        html += '<div class="admin-danger-head"><h4>Account Status & Lifecycle</h4><p class="admin-danger-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div>';
-        html += '<div class="admin-danger-actions">';
+        html += '<div class="card admin-user-card admin-danger-card saas-card">';
+        html += '<div class="admin-danger-head saas-card-header"><div class="saas-card-title-group"><h4 class="saas-card-title">Account Status & Lifecycle</h4><p class="admin-danger-subtitle saas-card-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div></div>';
+        html += '<div class="admin-danger-actions saas-card-actions">';
         if (isDeveloper()) {
-          html += '<button class="btn" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
-          html += '<button class="btn" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
         }
         if (user.role === 'USER' || isDeveloper()) {
-          html += '<button class="btn stop" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
         }
         html += '</div>';
         html += '</div>'; // end Card 2

@@ -62,16 +62,16 @@
       const stageLabels = { 1: 'Level 1: Recognition', 2: 'Level 2: Cued Recall', 3: 'Level 3: Context Writing', 4: 'Level 4: Speech Recall' };
       let inputHtml = '';
       if (item.stage === 1) {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="Type answer" autocomplete="off" autocorrect="off" autocapitalize="off" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Check</button></div>';
       } else if (item.stage === 2) {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary" type="button" id="warmupCheckBtn">Check</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="' + esc(item.cuedHint || 'Fill in the gap') + '" autocomplete="off" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Check</button></div>';
       } else if (item.stage === 3) {
-        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><textarea id="warmupAnswer" class="saas-textarea" placeholder="Write a complete sentence..." rows="2"></textarea><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Submit sentence</button></div>';
       } else {
-        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" placeholder="Pronounce or confirm text" /><button class="btn primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
+        inputHtml = '<div class="home-warmup-inputs"><input type="text" id="warmupAnswer" class="saas-input" placeholder="Pronounce or confirm text" /><button class="btn primary saas-btn saas-btn-primary" type="button" id="warmupCheckBtn">Confirm</button></div>';
       }
-      content.innerHTML = '<div class="home-warmup-card" data-warmup-id="' + item.id + '">' +
-        '<div class="home-warmup-meta"><span class="home-warmup-stage">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
+      content.innerHTML = '<div class="home-warmup-card saas-card" data-warmup-id="' + item.id + '">' +
+        '<div class="home-warmup-meta"><span class="home-warmup-stage saas-badge saas-badge-info">' + esc(stageLabels[item.stage] || 'Practice') + '</span><span class="home-warmup-counter saas-badge saas-badge-muted">' + (warmupCurrentIndex + 1) + ' of ' + warmupQueue.length + '</span></div>' +
         '<p class="home-warmup-prompt">' + esc(item.prompt) + '</p>' +
         (item.hint ? '<small class="home-warmup-hint">' + esc(item.hint) + '</small>' : '') +
         inputHtml +
@@ -124,13 +124,13 @@
       text('homeGroupTitle',group?.title||'No group assigned');
       const lessons=group&&(typeof lmLibrary!=='undefined'?lmLibrary?.materials:[])?.filter(row=>group.lessonIds?.includes(row.id)&&lmLessonVisibleToViewer(row))||[];
       const metrics=document.getElementById('homeGroupMetrics');
-      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span>'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
+      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
       const today=new Date(),date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
       const next=lessons.filter(row=>row.published&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&row.date>=date).sort((a,b)=>a.date.localeCompare(b.date))[0];
       text('homeNextLessonLabel',next?next.date.split('-').reverse().join('.'):'\u2014');
       text('homeNextLessonNote',next?.title||'No upcoming lessons');
       const recent=document.getElementById('homeRecentList'),rows=homeRecentItems();
-      if(recent)recent.innerHTML=rows.length?rows.map(row=>'<button class="home-recent-row" type="button" data-jump="'+row.screen+'"><span class="home-recent-mark" aria-hidden="true">'+homeScreenLabels[row.screen].slice(0,2).toUpperCase()+'</span><span><b>'+homeScreenLabels[row.screen]+'</b><small>Opened on this device</small></span><time datetime="'+new Date(row.at).toISOString()+'">'+esc(new Date(row.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}))+'</time></button>').join(''):'<p class="hint">No recent activity on this device.</p>';
+      if(recent)recent.innerHTML=rows.length?rows.map(row=>'<button class="home-recent-row" type="button" data-jump="'+row.screen+'"><span class="home-recent-mark" aria-hidden="true">'+homeScreenLabels[row.screen].slice(0,2).toUpperCase()+'</span><span><b>'+homeScreenLabels[row.screen]+'</b><small>Opened on this device</small></span><time class="saas-badge saas-badge-muted" datetime="'+new Date(row.at).toISOString()+'">'+esc(new Date(row.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}))+'</time></button>').join(''):'<p class="hint">No recent activity on this device.</p>';
       const student=authUser?.role==='USER'&&!viewAccount;
       document.querySelectorAll('[data-home-continue],[data-home-groups],[data-home-group-open]').forEach(node=>{node.dataset.jump=student?'days':'groups';node.hidden=!authUser;});
       const open=document.querySelector('[data-home-group-open]');if(open)open.disabled=!group;
@@ -143,6 +143,16 @@
       input?.addEventListener('input',()=>{
         const query=input.value.trim().toLocaleLowerCase();
         document.querySelectorAll('.side nav button').forEach(node=>node.classList.toggle('is-nav-filtered',!!query&&!node.textContent.toLocaleLowerCase().includes(query)));
+      });
+      const gqs=document.getElementById('globalQuickSearch');
+      gqs?.addEventListener('input',()=>{
+        if(input){input.value=gqs.value;input.dispatchEvent(new Event('input'));}
+      });
+      document?.addEventListener?.('keydown',e=>{
+        if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){
+          const target=document.getElementById('globalQuickSearch')||input;
+          if(target&&target.offsetParent!==null){e.preventDefault();target.focus();}
+        }
       });
       const icons=()=>document.querySelectorAll('.side-search,.shell-settings-open,.side nav,.tabbar').forEach(root=>{window.lucide?.createIcons({root});root.querySelectorAll('svg[data-lucide]').forEach(node=>node.removeAttribute('data-lucide'));});
       if(window.ensureChatIcons)window.ensureChatIcons().then(icons).catch(()=>{});else icons();

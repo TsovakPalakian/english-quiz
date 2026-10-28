@@ -266,7 +266,7 @@
         const attr = row.kind === "added"
           ? 'data-added="' + row.index + '"'
           : 'data-bank-place="' + place + '" data-bank-index="' + row.index + '"';
-        return '<button class="wcard" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
+        return '<button class="wcard saas-card" type="button" ' + attr + '><div class="en">' + esc(row.en) + '</div><div class="pos">' + esc(row.pos) + '</div>' + ipaHtml(row) + '<div class="label">' + esc(row.ru) + "</div></button>";
       }).join("");
       if (keep) show("daywords");
       else visit("daywords");
@@ -378,8 +378,8 @@
     function linkChip(item) {
       const href = safeHttpHref(item && item.href);
       const remove = item.added ? '<button class="chip-x" type="button" data-link-remove="' + item.index + '" aria-label="Remove">×</button>' : "";
-      if (!href) return '<span class="link-chip"><span class="btn chip">' + esc(item.title) + "</span>" + remove + "</span>";
-      return '<span class="link-chip"><a class="btn chip" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
+      if (!href) return '<span class="link-chip"><span class="btn chip saas-btn">' + esc(item.title) + "</span>" + remove + "</span>";
+      return '<span class="link-chip"><a class="btn chip saas-btn" href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(item.title) + "</a>" + remove + "</span>";
     }
     function linkAdd(kind) {
       return '<button class="add-link" type="button" data-link-add="' + kind + '" aria-label="Add a ' + kind + ' link">+</button>';

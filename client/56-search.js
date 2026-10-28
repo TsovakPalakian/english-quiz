@@ -88,12 +88,12 @@
     textSearch.type = 'search'; textSearch.id = 'textBodySearch'; textSearch.className = 'text-body-search';
     textSearch.placeholder = 'Search in this text'; textSearch.setAttribute('aria-label', 'Search in this text');
     const textBody = document.getElementById('textReadBody');
-    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar';
+    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar saas-card';
     textBody.before(textSearchBar); textSearchBar.append(textSearch);
     const textSearchNav = document.createElement('div'); textSearchNav.className = 'text-search-nav'; textSearchNav.hidden = true;
-    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number'; textMatchNumber.setAttribute('role', 'status');
+    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number saas-badge saas-badge-muted'; textMatchNumber.setAttribute('role', 'status');
     function textIconButton(label, path) {
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon';
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon saas-btn';
       button.title = label; button.setAttribute('aria-label', label);
       button.innerHTML = '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + path + '"/></svg>';
       return button;
