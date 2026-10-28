@@ -317,7 +317,7 @@
       html += '<p class="label">Grammar</p><p class="src">' + verbTopicChips(model.grammar) + "</p>";
       html += '<p class="label">Irregular verb family</p><p class="src">' + esc(v.base) + " → " + esc(v.past) + " → " + esc(v.pp) + "</p>";
       html += '<p class="src">' + others.map((row) =>
-        '<button class="btn chip" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
+        '<button class="btn chip saas-btn" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
       ).join(" ") + "</p>";
       html += "<p>" + cardLinks(v.base, "https://dictionary.cambridge.org/dictionary/english/" + encodeURIComponent(v.base)) + "</p>";
       html += clipLine(clipOf({ en: model.form }));

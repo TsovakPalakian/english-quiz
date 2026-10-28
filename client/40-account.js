@@ -342,12 +342,12 @@
 
     function showDangerConfirm({ title, message, confirmText, dangerLevel = 'warn', onConfirm }) {
       const dialog = document.createElement('dialog');
-      dialog.className = 'danger-confirm-dialog';
+      dialog.className = 'danger-confirm-dialog saas-card';
       dialog.setAttribute('aria-labelledby', 'dangerConfirmTitle');
       dialog.setAttribute('aria-describedby', 'dangerConfirmDesc');
 
       const iconEmoji = dangerLevel === 'danger' ? '🗑️' : dangerLevel === 'warn' ? '⚠️' : 'ℹ️';
-      const confirmClass = dangerLevel === 'danger' ? 'btn stop' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn' : 'btn primary';
+      const confirmClass = dangerLevel === 'danger' ? 'btn stop saas-btn saas-btn-danger' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn saas-btn' : 'btn primary saas-btn';
 
       dialog.innerHTML = '<div class="danger-confirm-content">' +
         '<div class="danger-confirm-icon ' + esc(dangerLevel) + '" aria-hidden="true">' + iconEmoji + '</div>' +
@@ -357,7 +357,7 @@
         '</div>' +
         '</div>' +
         '<div class="danger-confirm-footer">' +
-        '<button type="button" class="btn" data-danger-cancel>Cancel</button>' +
+        '<button type="button" class="btn saas-btn" data-danger-cancel>Cancel</button>' +
         '<button type="button" class="' + confirmClass + '" data-danger-confirm></button>' +
         '</div>';
 

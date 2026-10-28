@@ -3068,7 +3068,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         window.openChatSettings(tab);
         return;
       }
-      host.innerHTML = '<div class="card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost" type="button" data-jump="themes">Theme</button><button class="btn ghost" type="button" data-jump="stats">Statistics</button><button class="btn ghost" type="button" data-jump="guide">Navigate</button></div></div>';
+      host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
     }
     window.paintSettings = paintSettings;
     let statKind = "learned";
@@ -3727,7 +3727,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           const base = page.getViewport({ scale: 1 });
           const viewport = page.getViewport({ scale: width / base.width });
           const canvas = document.createElement("canvas");
-          canvas.className = "pdf-page";
+          canvas.className = "pdf-page saas-card";
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           box.appendChild(canvas);
@@ -5501,7 +5501,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return '<div class="guide-shot" aria-label="' + esc(title) + '"><div class="guide-shot-top"><span>English</span><b>' + esc(title) + '</b><i></i></div><div class="guide-shot-body">' + items.map((item) => '<button type="button" class="guide-hotspot" data-jump="' + esc(item[1]) + '">' + esc(item[0]) + '</button>').join('') + '</div></div>';
     }
     function guideBlock(title, text, jump, label, shot = '') {
-      return '<article class="guide-block">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
+      return '<article class="guide-block saas-card">' + shot + '<div class="guide-copy"><h2>' + title + '</h2><p>' + text + '</p><button class="btn primary saas-btn" type="button" data-jump="' + jump + '">' + label + '</button></div></article>';
     }
     function guideVisitorKey() {
       if (authUser?.id) return String(authUser.id).slice(0, 80);
@@ -5572,7 +5572,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (hideStudentSongs()) html = guideBlock(t('Manage learning access', 'Управление доступом к обучению'), t('Hide or show groups, lessons and exams for this student. Buttons show how many materials are hidden out of the total. Hidden materials do not appear in the student account. You may add words to the student dictionaries; Study is unavailable here.', 'Скрывайте и открывайте группы, занятия и экзамены для ученика. На кнопках указано число скрытых материалов из общего количества. Скрытые материалы не показываются ученику. Можно добавлять слова в его словари; Study в этом режиме недоступен.'), 'groups', t('Open Groups', 'Открыть Groups'), guideShot(t('Student materials', 'Материалы ученика'), [['Groups','groups'], ['Exams','exams'], [t('Dictionaries', 'Словари'),'add']])) + guideBlock(t('Review exam answers', 'Проверка ответов на экзаменах'), t('Open Exams to correct student answers and award points without changing the exam questions. Edit exam material from your own account. Student texts, songs and themes are private; this view always uses Van Gogh. Student data cannot be deleted here.', 'Откройте Exams, чтобы исправить ответы ученика и выставить баллы, не меняя задания. Материал экзамена редактируется из своей учётной записи. Тексты, песни и темы ученика приватны; здесь всегда используется Van Gogh. Удаление данных ученика недоступно.'), 'exams', t('Open Exams', 'Открыть Exams'), guideShot(t('Review', 'Проверка'), [['Exams','exams'], [t('Statistics','Статистика'),'stats']]));
       if (role === 'USER' && !viewAccount) html += guideBlock(t('Answers and results', 'Ответы и результаты'),t('Answers are saved as a draft while you type. Check the saving status. Submit sends the entire examination block, or all assessed tasks in a lesson, and locks your answers after confirmation from the server. Submitted exams cannot be reopened; a new assignment creates a separate exam. Maximum points are shown beside questions. After your teacher publishes the review, you can see your answers, earned points, error marks and feedback, but not solution keys.', 'Во время ввода ответы сохраняются в черновик. Следите за статусом сохранения. Submit сдаёт весь экзаменационный блок или все оцениваемые задания занятия и блокирует ответы после подтверждения сервера. Сданный экзамен нельзя разблокировать; новое назначение создаёт отдельный экзамен. Рядом с вопросами указаны возможные баллы. После публикации проверки доступны ваши ответы, полученные баллы, отметки ошибок и комментарии, но не ключи правильных ответов.'),'exams',t('Open Exams','Открыть Exams'));
       if (['ADMIN','DEVELOPER'].includes(role) || canTuneStudentLessons()) html += guideBlock(t('Assess and publish results','Оценивание и публикация результатов'),t('Set maximum points for each question or task. Criteria use one line per criterion: Content | 3. In ordinary lessons, enable Assessed task only where grading is needed. Open a student to review submitted answers, assign points and feedback, and use Save review for a private draft. Publish results makes the review visible to the student. Published grades are locked until Amend review. Reopen submission lets the student edit again; a reason and change history are retained. Ungraded questions remain ungraded, not zero.', 'Задайте максимум баллов каждому вопросу или заданию. Критерии записываются по строкам: Content | 3. В обычных занятиях включайте Assessed task только там, где нужна оценка. Откройте ученика, проверьте сданные ответы, выставьте баллы и комментарии. Save review сохраняет закрытый черновик проверки; Publish results открывает результаты ученику. Опубликованные оценки блокируются до Amend review. Reopen submission разрешает ученику снова редактировать ответы; причина и история изменений сохраняются. Непроверенное задание не получает автоматически ноль.'),'admin',t('Open Accounts','Открыть Accounts'));
-      html += '<article class="guide-block"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
+      html += '<article class="guide-block saas-card"><div class="guide-copy"><h2>'+t('Display and readability', 'Размер и читаемость')+'</h2><p>'+t('Open Aa Display to choose one of five interface sizes or enable High visibility. The setting applies across pages and is remembered on this device.', 'Откройте Aa Display, чтобы выбрать один из пяти размеров интерфейса или включить High visibility. Настройка действует на всех страницах и сохраняется на этом устройстве.')+'</p><button class="btn saas-btn" type="button" data-display-open>'+t('Open Display', 'Открыть Display')+'</button></div></article>';
       box.innerHTML = html;
     }
     function faceUser() {
@@ -6627,7 +6627,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         '<p><b>' + esc(w.ru) + '</b></p>' + clipLine(clipOf({ en: w.en, ex: w.ex })) + '<p>In the line: ' + esc(w.ex) + '</p>' +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<p class="hint">This card is not in the decks or the lesson days, so it lives only in Song lyrics.</p>' +
-        '<div class="row" style="margin-top:12px"><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
+        '<div class="row" style="margin-top:12px"><button class="btn saas-btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button></div>' +
         cardQuizHtml(cardQuizKey(w), w.en, w.ru);
     }
     function applySongEdits() {
@@ -7563,7 +7563,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       html += '<p class="label">Grammar</p><p class="src">' + verbTopicChips(model.grammar) + "</p>";
       html += '<p class="label">Irregular verb family</p><p class="src">' + esc(v.base) + " → " + esc(v.past) + " → " + esc(v.pp) + "</p>";
       html += '<p class="src">' + others.map((row) =>
-        '<button class="btn chip" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
+        '<button class="btn chip saas-btn" type="button" data-verb-focus="' + esc(v.base) + '" data-verb-slot="' + row[0] + '">' + row[1] + " · " + esc(row[2]) + "</button>"
       ).join(" ") + "</p>";
       html += "<p>" + cardLinks(v.base, "https://dictionary.cambridge.org/dictionary/english/" + encodeURIComponent(v.base)) + "</p>";
       html += clipLine(clipOf({ en: model.form }));
@@ -9542,7 +9542,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       user.innerHTML = '<div data-song-media></div>' +
         '<div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-lyric-size="-1">A−</button><button class="btn saas-btn" type="button" data-lyric-size="1">A+</button><button class="btn saas-btn" type="button" data-lyric-meta>Edit song</button><button class="btn saas-btn" type="button" data-lyric-edit>Edit lyric</button><button class="btn saas-btn" type="button" data-lyric-archive>Archive</button></div>' +
         '<p class="hint" data-lyric-check>' + esc(checkLine) + "</p>" +
-        '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/*,video/*" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
+        '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn saas-btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/*,video/*" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn saas-btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
         '<div class="saas-card saas-form-grid" data-lyric-editor hidden style="margin-bottom:12px;padding:16px"><textarea data-lyric-draft></textarea><div class="row" style="margin-top:8px"><button class="btn primary saas-btn" type="button" data-lyric-recheck>Check the words again</button></div><p class="hint" data-lyric-edit-status></p></div>' +
         '<div class="lyric-text">' + lyricBody + "</div>";
       const titleInput = user.querySelector("[data-lyric-title]");
@@ -13031,10 +13031,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (!box) return;
       if (authUser) {
         const person = faceUser();
-        box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+        box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="profile">Account</button>' +
+          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }
@@ -13101,20 +13101,20 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const box = document.getElementById("profileBody");
       if (!box) return;
       if (!authUser) {
-        box.innerHTML = '<div class="card"><p>Sign in to see your profile.</p><button class="btn primary" type="button" data-jump="account">Profile</button></div>';
+        box.innerHTML = '<div class="card saas-card"><p>Sign in to see your profile.</p><button class="btn primary saas-btn" type="button" data-jump="account">Profile</button></div>';
         return;
       }
       const person = faceUser();
       const counts = personalCounts();
-      box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+      box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+        (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
-        (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
+        (viewAccount ? "" : '<div class="card saas-card" id="ownAccount"><p class="hint">Loading…</p></div>') +
         '<div class="overview"><button class="stat-tile" type="button" data-stat="learned"><b>' + counts.learned + '</b><span>Learned</span></button><button class="stat-tile" type="button" data-jump="allwords"><b>' + counts.words + '</b><span>Words</span></button></div>' +
         (viewAccount ? "" : '<p class="hint">Words, songs and progress stay with the account. Signing out removes them from this browser. They come back after you sign in.</p>' +
-        '<div class="row"><button class="btn stop" type="button" data-account="revoke">Delete my data</button></div>');
+        '<div class="row"><button class="btn stop saas-btn" type="button" data-account="revoke">Delete my data</button></div>');
       if (!viewAccount) {
         if (ownAccountData) renderOwnAccount(ownAccountData);
         else loadOwnAccount();
@@ -13138,8 +13138,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (!box || !data || !data.user) return;
       const change = data.change && data.change.status === "pending" ? data.change : null;
       box.innerHTML = (change ? changeHtml(change) + '<p class="hint">Waiting for approval.</p>' : "") +
-        '<div class="row"><button class="btn" type="button" data-account="edit-details">Change details</button>' +
-        '<button class="btn" type="button" data-account="edit-password">Change password</button></div>' +
+        '<div class="row"><button class="btn saas-btn" type="button" data-account="edit-details">Change details</button>' +
+        '<button class="btn saas-btn" type="button" data-account="edit-password">Change password</button></div>' +
         '<div id="ownAccountFormSlot" hidden></div><div id="ownPasswordSlot" hidden></div>';
     }
     function openOwnAccountForm() {
@@ -13161,8 +13161,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         '<p class="label">Login</p><input name="login" type="text" autocomplete="username" required />' +
         '<p class="label">Email</p><input name="email" type="email" autocomplete="email" required />' +
         '<p class="label">Name</p><input name="name" type="text" autocomplete="name" />' +
-        (change ? '<button class="btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Request change</button></form>';
+        (change ? '<button class="btn saas-btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
+        '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit">Request change</button></form>';
       const form = document.getElementById("ownAccountForm");
       if (!form) return;
       form.login.value = change ? change.login : user.login;
@@ -15887,7 +15887,7 @@ const STUDIO_CONSTELLATIONS = [{
           const hidden = item.teacherHiddenAt ? " · hidden from teachers" : "";
           const token = esc(type + ":" + item.id), removeLabel = isDeveloper() ? "Delete permanently" : "Delete";
           const icon = (path) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>';
-          const tools = '<div class="day-tools"><button class="day-hide" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
+          const tools = '<div class="day-tools"><button class="day-hide saas-btn" type="button" data-archive-restore="' + token + '"'+(item.purging?' disabled':'')+' aria-label="Restore" title="Restore">' + icon('<path d="M3 10a9 9 0 1 1 2.7 8M3 4v6h6"/>') + '</button><button class="day-del saas-btn" type="button" data-archive-remove="' + token + '" aria-label="' + removeLabel + '" title="' + removeLabel + '">' + icon('<path d="M3 6h18M5 6v14h14V6M9 6V3h6v3M10 10v6M14 10v6"/>') + '</button></div>';
           const label = 'Deleted by ' + (item.archivedByName || item.archivedBy || "unknown") + (when ? " · " + when : "") + hidden;
           return examRow(lmDateChip(item.archivedAt ? new Date(item.archivedAt * 1000).toISOString().slice(0,10) : ""), item.title || "Untitled", label, 'data-archive-open="' + token + '"', false, false, tools);
         }).join("") + "</div>").join("");}).join('');
@@ -16080,9 +16080,9 @@ const STUDIO_CONSTELLATIONS = [{
         const stamp = '<small class="bug-stamp">'+esc(row.resolved?'Resolved: '+(row.resolvedAt?bugWhen(row.resolvedAt,zone):'Date not recorded'):when)+'</small>';
         const caption = esc(happened) + " · " + esc(who) + stamp;
         const route = ((row.method || "") + " " + (row.path || "")).trim();
-        const resolve = canResolve ? '<button class="day-hide bug-resolve" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
-        const copy = '<button class="day-edit bug-copy" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
-        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
+        const resolve = canResolve ? '<button class="day-hide bug-resolve saas-btn" type="button" data-bug-resolve="' + esc(row.id) + '" aria-label="Resolve bug" title="Resolve bug">✓</button>' : "";
+        const copy = '<button class="day-edit bug-copy saas-btn" type="button" data-bug-copy="' + esc(row.id) + '" aria-label="Copy bug body" title="Copy bug body">⧉</button>';
+        return '<div class="bug-item' + (row.resolved ? " is-fixed" : "") + '"><div class="day-row saas-card"><button class="day" type="button" data-bug="' + esc(row.id) + '" aria-expanded="false"><span class="date saas-badge saas-badge-muted"><b>' + (index + 1) + '</b><small>×' + hits + '</small></span><b>' + esc(route || place) + '</b><span class="label about saas-badge saas-badge-info">' + caption + '</span></button><div class="day-tools">' + resolve + copy + '</div></div><div class="bug-body" hidden>'+bugHistoryHtml(row)+'<pre class="bug-detail">' + esc(detail) + "</pre></div></div>";
       }).join("");
     }
     function bugListHtml(rows,canResolve){
@@ -17119,7 +17119,7 @@ const STUDIO_CONSTELLATIONS = [{
     function statsList(title, map) {
       const names = Object.keys(map || {}).sort((a, b) => map[b] - map[a]);
       if (!names.length) return "";
-      let html = '<div class="card"><p class="label">' + esc(title) + "</p>";
+      let html = '<div class="card saas-card"><p class="label">' + esc(title) + "</p>";
       names.forEach((name) => {
         html += '<div class="funnel-step"><span>' + esc(name) + "</span><b>" + map[name] + "</b></div>";
       });
@@ -17207,7 +17207,7 @@ const STUDIO_CONSTELLATIONS = [{
       html += statsVisualSummary(data, compare);
       html += '<div class="stat-panel' + (statsMode === "details" ? " on" : "") + '" data-stat-panel="details">';
       if (overall && data.directory === false) {
-        html += '<div class="card"><p>Account and registration counts are not ready yet. They appear after a teacher signs in once, when the account list is saved. Nothing here is filled in with zero.</p></div>';
+        html += '<div class="card saas-card"><p>Account and registration counts are not ready yet. They appear after a teacher signs in once, when the account list is saved. Nothing here is filled in with zero.</p></div>';
       } else if (overall) {
         html += '<div class="overview">';
         html += '<div><b>' + accounts.created + '</b><span>New accounts</span>' + statsDelta(accounts.created, accounts.previous, compare) + "</div>";
@@ -17220,10 +17220,10 @@ const STUDIO_CONSTELLATIONS = [{
       html += '<p class="hint">' + esc(period) + (compare ? ". Previous period " + esc(data.previousFrom) + " to " + esc(data.previousTo) + "." : "") + "</p>";
       if (overall && data.directory !== false) {
         const accountBars = statsBuckets(accounts.series || [], "count");
-        html += '<div class="card"><p class="label">New accounts' + ((accounts.series || []).length > 42 ? " by week" : " by day") + "</p>";
+        html += '<div class="card saas-card"><p class="label">New accounts' + ((accounts.series || []).length > 42 ? " by week" : " by day") + "</p>";
         html += '<p class="hint">Count of accounts whose creation date falls in each ' + ((accounts.series || []).length > 42 ? "week" : "day") + ". A day with none is a real zero.</p>";
         html += statsBars(accountBars, "New accounts");
-        html += '<table class="stat-table"><thead><tr><th>Day</th><th>Accounts</th></tr></thead><tbody>';
+        html += '<table class="stat-table saas-table"><thead><tr><th>Day</th><th>Accounts</th></tr></thead><tbody>';
         (accounts.series || []).forEach((row) => {
           if (!row.count) return;
           html += "<tr><td>" + esc(row.day) + "</td><td>" + row.count + "</td></tr>";
@@ -17231,7 +17231,7 @@ const STUDIO_CONSTELLATIONS = [{
         if (!(accounts.series || []).some((row) => row.count)) html += '<tr><td colspan="2">No new accounts in this period.</td></tr>';
         html += "</tbody></table></div>";
         const roles = accounts.byRole || {};
-        html += '<div class="card"><p class="label">New accounts by role</p><p class="hint">Role on the account now, among accounts created in this period.</p>';
+        html += '<div class="card saas-card"><p class="label">New accounts by role</p><p class="hint">Role on the account now, among accounts created in this period.</p>';
         html += '<div class="funnel-step"><span>Students</span><b>' + (roles.USER || 0) + "</b></div>";
         html += '<div class="funnel-step"><span>Teachers</span><b>' + (roles.ADMIN || 0) + "</b></div>";
         html += '<div class="funnel-step"><span>Developers</span><b>' + (roles.DEVELOPER || 0) + "</b></div>";
@@ -17241,7 +17241,7 @@ const STUDIO_CONSTELLATIONS = [{
         html += "</div>";
       }
       if (!activity.tracked) {
-        html += '<div class="card"><p class="label">Study activity</p><p>' + (overall
+        html += '<div class="card saas-card"><p class="label">Study activity</p><p>' + (overall
           ? "No study activity has been recorded yet. Checked answers, exams, new cards and new songs will appear here after they happen. Older study is not shown as zero."
           : "No study activity has been recorded for you yet. Checked answers, exams, new cards and new songs will appear here after they happen.") + "</p></div>";
       } else {
@@ -17340,14 +17340,14 @@ const STUDIO_CONSTELLATIONS = [{
       html += '<section class="stat-compare"><div class="stat-title"><h2>Progress by period</h2><span><i></i>Selected period <i></i>Previous</span></div>' + rows.map((row) => '<div class="stat-compare-row"><b>' + row[0] + '</b><div><i style="--w:' + Math.round(row[1] * 100 / max) + '%"></i><i style="--w:' + Math.round(row[2] * 100 / max) + '%"></i></div><span>' + row[1] + (compare ? ' / ' + row[2] : '') + '</span></div>').join('') + '</section></div>';
       const accuracy = pct(a.correct || 0, a.answers || 0), examRate = pct(a.examPass || 0, a.exams || 0);
       const ring = (value, label, detail) => '<div class="stat-ring-item"><div class="stat-ring" style="--p:' + value + '"><b>' + value + '%</b></div><strong>' + label + '</strong><small>' + detail + '</small></div>';
-      html += '<div class="stat-panel' + (statsMode === "learning" ? " on" : "") + '" data-stat-panel="learning"><div class="stat-rings">' + ring(accuracy, "Answer accuracy", (a.correct || 0) + " correct") + ring(Math.min(100, (a.learned || 0) * 10), "Learned checks", (a.learned || 0) + " completed") + ring(examRate, "Exam success", (a.examPass || 0) + " passed") + '</div><div class="card"><p class="label">Answers over time</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Answers over time") + '</div>' + statsList("Practice by quiz type", a.byArea) + '</div>';
+      html += '<div class="stat-panel' + (statsMode === "learning" ? " on" : "") + '" data-stat-panel="learning"><div class="stat-rings">' + ring(accuracy, "Answer accuracy", (a.correct || 0) + " correct") + ring(Math.min(100, (a.learned || 0) * 10), "Learned checks", (a.learned || 0) + " completed") + ring(examRate, "Exam success", (a.examPass || 0) + " passed") + '</div><div class="card saas-card"><p class="label">Answers over time</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Answers over time") + '</div>' + statsList("Practice by quiz type", a.byArea) + '</div>';
       html += '<div class="stat-panel' + (statsMode === "materials" ? " on" : "") + '" data-stat-panel="materials"><div class="stat-kpis"><div class="stat-kpi"><b>' + (a.cards || 0) + '</b><span>Cards added</span></div><div class="stat-kpi"><b>' + (a.songs || 0) + '</b><span>Songs added</span></div><div class="stat-kpi"><b>' + (a.archives || 0) + '</b><span>Archived</span></div><div class="stat-kpi"><b>' + (a.learned || 0) + '</b><span>Learned checks</span></div></div>' + statsList("Cards and materials by section", a.cardAreas) + '</div>';
       html += '<div class="stat-panel' + (statsMode === "exams" ? " on" : "") + '" data-stat-panel="exams"><div class="stat-rings">' + ring(examRate, "Pass rate", (a.examPass || 0) + " of " + (a.exams || 0)) + ring(Math.max(0, 100 - examRate), "Needs review", Math.max(0, (a.exams || 0) - (a.examPass || 0)) + " attempts") + '</div>' + statsList("Why exams were not passed", a.examFail) + '</div>';
-      html += '<div class="stat-panel' + (statsMode === "activity" ? " on" : "") + '" data-stat-panel="activity"><div class="stat-kpis"><div class="stat-kpi"><b>' + minutes + '</b><span>Study minutes</span></div><div class="stat-kpi"><b>' + (a.answers || 0) + '</b><span>Interactions</span></div><div class="stat-kpi"><b>' + ((a.series || []).filter((row) => (row.answers || row.seconds || row.exams)).length) + '</b><span>Active days</span></div><div class="stat-kpi"><b>' + accuracy + '%</b><span>Accuracy</span></div></div><div class="card"><p class="label">Daily activity</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Daily activity") + '</div></div>';
+      html += '<div class="stat-panel' + (statsMode === "activity" ? " on" : "") + '" data-stat-panel="activity"><div class="stat-kpis"><div class="stat-kpi"><b>' + minutes + '</b><span>Study minutes</span></div><div class="stat-kpi"><b>' + (a.answers || 0) + '</b><span>Interactions</span></div><div class="stat-kpi"><b>' + ((a.series || []).filter((row) => (row.answers || row.seconds || row.exams)).length) + '</b><span>Active days</span></div><div class="stat-kpi"><b>' + accuracy + '%</b><span>Accuracy</span></div></div><div class="card saas-card"><p class="label">Daily activity</p>' + statsBars(statsBuckets(a.series || [], "answers"), "Daily activity") + '</div></div>';
       if (data.developerBugs) {
         const bugs = data.developerBugs;
         const system = data.developerSystem || {};
-        html += '<div class="stat-panel' + (statsMode === "system" ? " on" : "") + '" data-stat-panel="system"><div class="stat-system"><div class="stat-title"><h2>System health</h2><span>Live application snapshot</span></div><div class="stat-kpis"><div class="stat-kpi"><b>' + bugs.active + '</b><span>Active bugs</span><small>' + bugs.hits + ' recorded occurrences</small></div><div class="stat-kpi"><b>' + bugs.resolved + '</b><span>Resolved bugs</span></div><div class="stat-kpi"><b>' + (system.cards || 0) + '</b><span>Cards available</span></div><div class="stat-kpi"><b>' + (system.materials || 0) + '</b><span>Personal materials</span></div></div><div class="system-status"><div><i class="' + (system.online ? "ok" : "bad") + '"></i><span>Network</span><b>' + (system.online ? "Online" : "Offline") + '</b></div><div><i class="' + (system.preloadActive ? "busy" : "ok") + '"></i><span>Background loading</span><b>' + (system.preloadActive || 0) + ' active · ' + (system.preloadWaiting || 0) + ' waiting</b></div><div><i class="ok"></i><span>Viewport</span><b>' + esc(system.viewport || "—") + '</b></div></div><button class="btn primary" type="button" data-jump="bugs">Open bug diagnostics</button></div></div>';
+        html += '<div class="stat-panel' + (statsMode === "system" ? " on" : "") + '" data-stat-panel="system"><div class="stat-system"><div class="stat-title"><h2>System health</h2><span>Live application snapshot</span></div><div class="stat-kpis"><div class="stat-kpi"><b>' + bugs.active + '</b><span>Active bugs</span><small>' + bugs.hits + ' recorded occurrences</small></div><div class="stat-kpi"><b>' + bugs.resolved + '</b><span>Resolved bugs</span></div><div class="stat-kpi"><b>' + (system.cards || 0) + '</b><span>Cards available</span></div><div class="stat-kpi"><b>' + (system.materials || 0) + '</b><span>Personal materials</span></div></div><div class="system-status"><div><i class="' + (system.online ? "ok" : "bad") + '"></i><span>Network</span><b>' + (system.online ? "Online" : "Offline") + '</b></div><div><i class="' + (system.preloadActive ? "busy" : "ok") + '"></i><span>Background loading</span><b>' + (system.preloadActive || 0) + ' active · ' + (system.preloadWaiting || 0) + ' waiting</b></div><div><i class="ok"></i><span>Viewport</span><b>' + esc(system.viewport || "—") + '</b></div></div><button class="btn primary saas-btn" type="button" data-jump="bugs">Open bug diagnostics</button></div></div>';
       }
       return html;
     }
@@ -17731,12 +17731,12 @@ const STUDIO_CONSTELLATIONS = [{
 
     function showDangerConfirm({ title, message, confirmText, dangerLevel = 'warn', onConfirm }) {
       const dialog = document.createElement('dialog');
-      dialog.className = 'danger-confirm-dialog';
+      dialog.className = 'danger-confirm-dialog saas-card';
       dialog.setAttribute('aria-labelledby', 'dangerConfirmTitle');
       dialog.setAttribute('aria-describedby', 'dangerConfirmDesc');
 
       const iconEmoji = dangerLevel === 'danger' ? '🗑️' : dangerLevel === 'warn' ? '⚠️' : 'ℹ️';
-      const confirmClass = dangerLevel === 'danger' ? 'btn stop' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn' : 'btn primary';
+      const confirmClass = dangerLevel === 'danger' ? 'btn stop saas-btn saas-btn-danger' : dangerLevel === 'warn' ? 'btn primary danger-warn-btn saas-btn' : 'btn primary saas-btn';
 
       dialog.innerHTML = '<div class="danger-confirm-content">' +
         '<div class="danger-confirm-icon ' + esc(dangerLevel) + '" aria-hidden="true">' + iconEmoji + '</div>' +
@@ -17746,7 +17746,7 @@ const STUDIO_CONSTELLATIONS = [{
         '</div>' +
         '</div>' +
         '<div class="danger-confirm-footer">' +
-        '<button type="button" class="btn" data-danger-cancel>Cancel</button>' +
+        '<button type="button" class="btn saas-btn" data-danger-cancel>Cancel</button>' +
         '<button type="button" class="' + confirmClass + '" data-danger-confirm></button>' +
         '</div>';
 
@@ -21112,13 +21112,13 @@ const STUDIO_CONSTELLATIONS = [{
   }
   function paintProviders(entry){
     const data=entry.providerAccess;if(!data){render(entry,'<p role="status">Loading provider settings...</p>');return;}
-    render(entry,(data.initialized?providers().render():'<button class="btn" type="button" data-workbench-provider-init '+(!entry.writable?'disabled':'')+'>Initialize providers</button>')+
+    render(entry,(data.initialized?providers().render():'<button class="btn saas-btn" type="button" data-workbench-provider-init '+(!entry.writable?'disabled':'')+'>Initialize providers</button>')+
       data.accounts.map(account=>{
         const saved=account.access.policy,tasks=account.tasks;
-        return '<details class="provider-access"><summary>'+esc(account.provider)+' · '+esc(saved?.enabled?'Enabled':'Off')+'</summary><p>'+esc(account.bindings.map(binding=>binding.model).join(' · '))+'</p><p>'+account.access.usedRequests+' requests · '+account.access.usedInputBytes+' input bytes today</p><form data-workbench-provider-access="'+esc(account.scope)+'"><fieldset '+(!entry.writable||!data.initialized?'disabled':'')+'><label><input name="enabled" type="checkbox" '+(saved?.enabled?'checked':'')+'> Allow requests</label><label>Terms revision<input name="termsRevision" required maxlength="200" value="'+esc(saved?.termsRevision||'')+'"></label>'+tasks.map(task=>'<label><input name="tasks" type="checkbox" value="'+esc(task)+'" '+(saved?.tasks.includes(task)?'checked':'')+'>'+esc(task)+'</label>').join('')+'<label>Daily requests<input name="dailyRequests" type="number" min="1" max="1000000" value="'+(saved?.dailyRequests||10)+'" required></label><label>Maximum input bytes<input name="maxInputBytes" type="number" min="1" max="11000000" value="'+(saved?.maxInputBytes||12000)+'" required></label><label>Daily input bytes<input name="dailyInputBytes" type="number" min="1" max="10000000000" value="'+(saved?.dailyInputBytes||120000)+'" required></label><label>Expires after days<input name="days" type="number" min="1" max="31" value="7" required></label><label><input name="dataProcessingApproved" type="checkbox" '+(saved?.dataProcessingApproved?'checked':'')+'> Data processing approved</label><label><input name="noPaidOverageConfirmed" type="checkbox" '+(saved?.noPaidOverageConfirmed?'checked':'')+'> No paid overage confirmed</label><label>Reason<textarea name="reason" required maxlength="500"></textarea></label><button class="btn" type="submit">Save access policy</button></fieldset></form><form data-workbench-provider-budget="'+esc(account.provider)+'"><fieldset '+(!entry.writable?'disabled':'')+'><label>Generation and review daily budget<input name="requestLimit" type="number" min="1" max="1000000" value="'+(account.quota?.requestLimit||10)+'" required></label><label>Reason<textarea name="reason" '+(account.quota?'required':'')+' maxlength="500"></textarea></label><button class="btn" type="submit">'+(account.quota?'Update':'Initialize')+' budget</button></fieldset></form></details>';
-      }).join('')+(entry.preparationSettings?'<form data-workbench-provider-preparation><fieldset '+(!entry.writable?'disabled':'')+'><legend>Automatic preparation</legend><label><input name="enabled" type="checkbox" '+(entry.preparationSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn" type="submit">Save preparation settings</button></fieldset></form>':''));
+        return '<details class="provider-access saas-card"><summary>'+esc(account.provider)+' · '+esc(saved?.enabled?'Enabled':'Off')+'</summary><p>'+esc(account.bindings.map(binding=>binding.model).join(' · '))+'</p><p>'+account.access.usedRequests+' requests · '+account.access.usedInputBytes+' input bytes today</p><form class="saas-form-grid" data-workbench-provider-access="'+esc(account.scope)+'"><fieldset '+(!entry.writable||!data.initialized?'disabled':'')+'><label><input name="enabled" type="checkbox" '+(saved?.enabled?'checked':'')+'> Allow requests</label><label>Terms revision<input name="termsRevision" required maxlength="200" value="'+esc(saved?.termsRevision||'')+'"></label>'+tasks.map(task=>'<label><input name="tasks" type="checkbox" value="'+esc(task)+'" '+(saved?.tasks.includes(task)?'checked':'')+'>'+esc(task)+'</label>').join('')+'<label>Daily requests<input name="dailyRequests" type="number" min="1" max="1000000" value="'+(saved?.dailyRequests||10)+'" required></label><label>Maximum input bytes<input name="maxInputBytes" type="number" min="1" max="11000000" value="'+(saved?.maxInputBytes||12000)+'" required></label><label>Daily input bytes<input name="dailyInputBytes" type="number" min="1" max="10000000000" value="'+(saved?.dailyInputBytes||120000)+'" required></label><label>Expires after days<input name="days" type="number" min="1" max="31" value="7" required></label><label><input name="dataProcessingApproved" type="checkbox" '+(saved?.dataProcessingApproved?'checked':'')+'> Data processing approved</label><label><input name="noPaidOverageConfirmed" type="checkbox" '+(saved?.noPaidOverageConfirmed?'checked':'')+'> No paid overage confirmed</label><label>Reason<textarea name="reason" required maxlength="500"></textarea></label><button class="btn saas-btn" type="submit">Save access policy</button></fieldset></form><form class="saas-form-grid" data-workbench-provider-budget="'+esc(account.provider)+'"><fieldset '+(!entry.writable?'disabled':'')+'><label>Generation and review daily budget<input name="requestLimit" type="number" min="1" max="1000000" value="'+(account.quota?.requestLimit||10)+'" required></label><label>Reason<textarea name="reason" '+(account.quota?'required':'')+' maxlength="500"></textarea></label><button class="btn saas-btn" type="submit">'+(account.quota?'Update':'Initialize')+' budget</button></fieldset></form></details>';
+      }).join('')+(entry.preparationSettings?'<form class="saas-form-grid" data-workbench-provider-preparation><fieldset '+(!entry.writable?'disabled':'')+'><legend>Automatic preparation</legend><label><input name="enabled" type="checkbox" '+(entry.preparationSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn saas-btn" type="submit">Save preparation settings</button></fieldset></form>':''));
     if(data.initialized)providers().afterRender();
-    if(entry.pipelineSettings!==undefined){const section=document.createElement('div');section.innerHTML=entry.pipelineSettings?'<form data-workbench-provider-pipeline><fieldset '+(!entry.writable?'disabled':'')+'><legend>Independent AI review</legend><label><input name="enabled" type="checkbox" '+(entry.pipelineSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn" type="submit">Save review settings</button></fieldset></form>':'<button class="btn" type="button" data-workbench-pipeline-init '+(!entry.writable?'disabled':'')+'>Initialize independent review</button>';dialog.querySelector('[data-workbench-body]').append(section);}
+    if(entry.pipelineSettings!==undefined){const section=document.createElement('div');section.innerHTML=entry.pipelineSettings?'<form class="saas-form-grid" data-workbench-provider-pipeline><fieldset '+(!entry.writable?'disabled':'')+'><legend>Independent AI review</legend><label><input name="enabled" type="checkbox" '+(entry.pipelineSettings.enabled?'checked':'')+'> Enabled</label><label>Reason<textarea name="reason" maxlength="500" required></textarea></label><button class="btn saas-btn" type="submit">Save review settings</button></fieldset></form>':'<button class="btn saas-btn" type="button" data-workbench-pipeline-init '+(!entry.writable?'disabled':'')+'>Initialize independent review</button>';dialog.querySelector('[data-workbench-body]').append(section);}
   }
   async function lessonSpeech(entry){
     if(!entry.features?.includes('speech'))throw Error('Speech practice is not configured.');
@@ -21139,8 +21139,8 @@ const STUDIO_CONSTELLATIONS = [{
     const q=entry.edit,locked=q&&(!['draft','returned'].includes(q.state)||q.author.id!==authUser.id);
     if(locked||!entry.writable)return;
     const draft=entry.draft;
-    const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
-    render(entry,'<button class="btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+[...quizTypes,...(entry.pronunciationQuizzes?['Pronunciation']:[])].map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items,entry.pronunciationRubrics||[])+'</div><button class="btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn" type="submit" value="save">Save draft</button><button class="btn primary" type="submit" value="submit">Send for review</button></div></form>');
+    const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn saas-btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
+    render(entry,'<button class="btn saas-btn" type="button" data-workbench-editor-back>Back</button><h3>'+esc(q?'Edit '+q.type:'New quiz')+'</h3><p>'+esc([entry.contextLabel,entry.kit?.meaning?.definition].filter(Boolean).join(' · '))+'</p>'+(q?.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+'<form data-workbench-editor><label>Type<select data-workbench-type '+(q?'disabled':'')+'>'+[...quizTypes,...(entry.pronunciationQuizzes?['Pronunciation']:[])].map(type=>'<option '+(type===draft.type?'selected':'')+'>'+esc(type)+'</option>').join('')+'</select></label><div data-workbench-items>'+integratedReviewEditor.renderReviewItems(draft.type,draft.items,entry.pronunciationRubrics||[])+'</div><button class="btn saas-btn" type="button" id="add-quiz-item">Add item</button><label>Explanation<textarea name="explanation" maxlength="4000" required>'+esc(draft.explanation)+'</textarea></label>'+media+'<div class="learning-workbench-actions"><button class="btn saas-btn" type="submit" value="save">Save draft</button><button class="btn primary saas-btn" type="submit" value="submit">Send for review</button></div></form>');
   }
   function readEditor(entry){
     const form=dialog.querySelector('[data-workbench-editor]');if(!form)return;
@@ -21209,10 +21209,10 @@ const STUDIO_CONSTELLATIONS = [{
   function reviewRow(entry,q){
     const allowed=staff()&&entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
     const signal=entry.reportSignals?.get(q.id);
-    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
-    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
+    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn saas-btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
+    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn saas-btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
     const speechChecks=q.type==='Pronunciation'?'<label><input type="checkbox" name="reference" required>Reading reference and locale checked</label><label><input type="checkbox" name="rubric" required>Scoring weights, scales and sufficiency checked</label>':'';
-    return '<details data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
+    return '<details class="saas-card" data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn saas-btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary saas-btn" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn saas-btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
   }
   function paintQueue(entry){
     const query=(entry.search||'').trim().toLocaleLowerCase(),rows=entry.rows.filter(q=>(!entry.filter||q.state===entry.filter)&&(!query||[q.origin?.groupName,q.origin?.lessonName,q.origin?.word,q.type,q.author.name,q.author.group,q.origin?.meaning].join(' ').toLocaleLowerCase().includes(query)));
@@ -21221,8 +21221,8 @@ const STUDIO_CONSTELLATIONS = [{
       for(const q of list){const key=String(q[keys[depth]]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);}
       return [...groups].map(([key,items])=>'<details data-review-key="'+esc(keys.slice(0,depth+1).map(field=>items[0][field]).join(':'))+'"><summary>'+esc(labels[depth](items[0]))+' · '+items.length+'</summary><div class="learning-review-group">'+group(items,depth+1)+'</div></details>').join('');
     }
-    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn" data-workbench-more>Load more</button>':''));
-    if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
+    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
+    if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn saas-btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn saas-btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
   }
   async function coverage(entry){
     speechUI?.deactivate();entry.view='kit';
@@ -21355,8 +21355,8 @@ const STUDIO_CONSTELLATIONS = [{
       show(pageId);
     }
     const entry=job={...card,groups,lessonId,identity:identity(),screen:document.querySelector('section.on')?.id,writable:false};
-    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view':'learning-kit-dialog';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
-    dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
+    dialog=document.createElement(card.lessonSpeech?'div':'dialog');dialog.className=card.lessonSpeech?'learning-speech-inline':host?'learning-kit-dialog workbench-page-view saas-card':'learning-kit-dialog saas-card';dialog.setAttribute('aria-label',card.lessonSpeech?'Speech':'Learning kit');
+    dialog.innerHTML=(card.lessonSpeech?'':'<header><h2>'+esc(card.title||'Learning kit')+'</h2><button class="icon-btn saas-btn" type="button" data-workbench-close aria-label="Close" title="Close"><i data-lucide="x"></i><span aria-hidden="true">×</span></button></header>')+'<p data-workbench-status role="status"></p><div data-workbench-body>Loading...</div>';
     if(card.lessonSpeech){const host=speechHost();if(!host){close();return;}host.append(dialog);}
     else if(host){
       host.replaceChildren(dialog);
@@ -23271,12 +23271,12 @@ async function lmImportPdfDraft(file) {
     textSearch.type = 'search'; textSearch.id = 'textBodySearch'; textSearch.className = 'text-body-search';
     textSearch.placeholder = 'Search in this text'; textSearch.setAttribute('aria-label', 'Search in this text');
     const textBody = document.getElementById('textReadBody');
-    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar';
+    const textSearchBar = document.createElement('div'); textSearchBar.className = 'text-search-bar saas-card';
     textBody.before(textSearchBar); textSearchBar.append(textSearch);
     const textSearchNav = document.createElement('div'); textSearchNav.className = 'text-search-nav'; textSearchNav.hidden = true;
-    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number'; textMatchNumber.setAttribute('role', 'status');
+    const textMatchNumber = document.createElement('span'); textMatchNumber.className = 'text-match-number saas-badge saas-badge-muted'; textMatchNumber.setAttribute('role', 'status');
     function textIconButton(label, path) {
-      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon';
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn icon saas-btn';
       button.title = label; button.setAttribute('aria-label', label);
       button.innerHTML = '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + path + '"/></svg>';
       return button;

@@ -401,10 +401,10 @@
       if (!box) return;
       if (authUser) {
         const person = faceUser();
-        box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+        box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="profile">Account</button>' +
+          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }
@@ -471,20 +471,20 @@
       const box = document.getElementById("profileBody");
       if (!box) return;
       if (!authUser) {
-        box.innerHTML = '<div class="card"><p>Sign in to see your profile.</p><button class="btn primary" type="button" data-jump="account">Profile</button></div>';
+        box.innerHTML = '<div class="card saas-card"><p>Sign in to see your profile.</p><button class="btn primary saas-btn" type="button" data-jump="account">Profile</button></div>';
         return;
       }
       const person = faceUser();
       const counts = personalCounts();
-      box.innerHTML = '<div class="card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
+      box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
         '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
         '<div class="row">' +
-        (viewAccount ? "" : '<button class="btn" type="button" data-user-settings>Settings</button><button class="btn" type="button" data-account="logout">Log out</button>') +
+        (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
         '</div></div>' +
-        (viewAccount ? "" : '<div class="card" id="ownAccount"><p class="hint">Loading…</p></div>') +
+        (viewAccount ? "" : '<div class="card saas-card" id="ownAccount"><p class="hint">Loading…</p></div>') +
         '<div class="overview"><button class="stat-tile" type="button" data-stat="learned"><b>' + counts.learned + '</b><span>Learned</span></button><button class="stat-tile" type="button" data-jump="allwords"><b>' + counts.words + '</b><span>Words</span></button></div>' +
         (viewAccount ? "" : '<p class="hint">Words, songs and progress stay with the account. Signing out removes them from this browser. They come back after you sign in.</p>' +
-        '<div class="row"><button class="btn stop" type="button" data-account="revoke">Delete my data</button></div>');
+        '<div class="row"><button class="btn stop saas-btn" type="button" data-account="revoke">Delete my data</button></div>');
       if (!viewAccount) {
         if (ownAccountData) renderOwnAccount(ownAccountData);
         else loadOwnAccount();
@@ -508,8 +508,8 @@
       if (!box || !data || !data.user) return;
       const change = data.change && data.change.status === "pending" ? data.change : null;
       box.innerHTML = (change ? changeHtml(change) + '<p class="hint">Waiting for approval.</p>' : "") +
-        '<div class="row"><button class="btn" type="button" data-account="edit-details">Change details</button>' +
-        '<button class="btn" type="button" data-account="edit-password">Change password</button></div>' +
+        '<div class="row"><button class="btn saas-btn" type="button" data-account="edit-details">Change details</button>' +
+        '<button class="btn saas-btn" type="button" data-account="edit-password">Change password</button></div>' +
         '<div id="ownAccountFormSlot" hidden></div><div id="ownPasswordSlot" hidden></div>';
     }
     function openOwnAccountForm() {
@@ -531,8 +531,8 @@
         '<p class="label">Login</p><input name="login" type="text" autocomplete="username" required />' +
         '<p class="label">Email</p><input name="email" type="email" autocomplete="email" required />' +
         '<p class="label">Name</p><input name="name" type="text" autocomplete="name" />' +
-        (change ? '<button class="btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
-        '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Request change</button></form>';
+        (change ? '<button class="btn saas-btn" type="button" data-account="cancel-change">Cancel request</button>' : "") +
+        '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit">Request change</button></form>';
       const form = document.getElementById("ownAccountForm");
       if (!form) return;
       form.login.value = change ? change.login : user.login;

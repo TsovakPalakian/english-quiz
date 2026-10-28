@@ -341,7 +341,7 @@
         window.openChatSettings(tab);
         return;
       }
-      host.innerHTML = '<div class="card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost" type="button" data-jump="themes">Theme</button><button class="btn ghost" type="button" data-jump="stats">Statistics</button><button class="btn ghost" type="button" data-jump="guide">Navigate</button></div></div>';
+      host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
     }
     window.paintSettings = paintSettings;
     let statKind = "learned";
@@ -1000,7 +1000,7 @@
           const base = page.getViewport({ scale: 1 });
           const viewport = page.getViewport({ scale: width / base.width });
           const canvas = document.createElement("canvas");
-          canvas.className = "pdf-page";
+          canvas.className = "pdf-page saas-card";
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
           box.appendChild(canvas);
