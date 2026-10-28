@@ -7159,7 +7159,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
           const n = map[name].length;
-          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+          return '<button class="day active saas-card" type="button" data-all-group="' + esc(name) + '"><span class="date saas-badge saas-badge-muted">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about saas-badge saas-badge-info">' + n + (n === 1 ? " word" : " words") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -7536,8 +7536,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         ["v2", "V2", v.past],
         ["v3", "V3", v.pp]
       ].filter((row) => row[0] !== model.slot);
-      let html = '<div class="card grow study" id="verbform-' + model.slot + '">';
-      html += '<p class="g-badge">' + esc(model.badge) + "</p>";
+      let html = '<div class="card grow study saas-card" id="verbform-' + model.slot + '">';
+      html += '<p class="g-badge saas-badge saas-badge-info">' + esc(model.badge) + "</p>";
       html += '<p class="entry">' + esc(model.form) + "</p>";
       html += verbAlts(model.form).map((word) => ipaHtml(verbSay(v, model.slot, word))).join("");
       html += '<div class="tags">' + model.tags.map((tag) => "<span>" + esc(tag) + "</span>").join("") + "</div>";
@@ -7616,7 +7616,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
         box.innerHTML = VERB_LEVELS.map((pair, index) => {
           const n = list.filter((v) => v.level === pair[0] && cardVisible(v)).length;
-          return '<button class="file-card" type="button" data-verb-level="' + pair[0] + '"><span class="num">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
+          return '<button class="file-card saas-card" type="button" data-verb-level="' + pair[0] + '"><span class="num saas-badge saas-badge-muted">' + (index + 1) + '</span><b>' + esc(pair[1]) + '</b><span class="label saas-badge saas-badge-info">' + n + (n === 1 ? " verb" : " verbs") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -7628,7 +7628,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (title) title.textContent = (level ? level[1] : "Irregular verbs") + " · " + shown.length;
         if (sub) sub.hidden = true;
         box.innerHTML = shown.slice().sort((a,b)=>a.base.localeCompare(b.base,'en')).map((v) =>
-          '<button class="wcard" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
+          '<button class="wcard saas-card" type="button" data-verb="' + esc(v.base) + '">'+wordPic(v.base)+'<div class="en">' + esc(v.base) + '</div><div class="pos saas-badge saas-badge-muted">verb</div>'+ipaHtml(verbSay(v,'v1',v.base))+'<div class="label">' + esc(v.past) + " · " + esc(v.pp) + '</div><div class="label">' + esc(verbMeaning(v)) + "</div></button>"
         ).join("");
         applyCardSearch(box.closest("section"));
         return;
@@ -22756,7 +22756,7 @@ async function lmImportPdfDraft(file) {
       document.querySelectorAll('[data-exam-task-earned]').forEach(node=>{const key=node.dataset.examTaskEarned,total=questions.filter(q=>(q.part.assignmentKey||q.part.assignmentId||('part-'+q.part.id))===key).reduce((sum,q)=>sum+(Number(String(lmState.examPoints?.[q.part.id]?.[0]||0).replace(',','.'))||0),0);node.textContent=String(Number(total.toFixed(10)));});
     }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
-      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day" type="button" ' + attr + '><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
+      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about saas-badge saas-badge-info">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
     }
     function examTools(kind, id, hidden) {
       if (!canEditLessons() && !canTuneStudentLessons()) return "";
@@ -22800,7 +22800,7 @@ async function lmImportPdfDraft(file) {
       const groups=[...new Map(rows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})).values()];
       if(!examViewLevel){box.innerHTML=levelButtons(groups,'data-exam-level');return;}
       const back='<button class="btn ghost" type="button" data-exam-level="">Back</button><h2>'+esc(examViewLevel==='unassigned'?'Unassigned':examViewLevel)+'</h2>';
-      if(examViewGroup===null){box.innerHTML=back+'<div class="decks">'+groups.filter(group=>accountGroupLevel(group)===examViewLevel).map(group=>'<button class="file-card" type="button" data-exam-group-view="'+esc(group.id)+'"><b>'+esc(group.title)+'</b><span class="label">'+rows.filter(exam=>String(groupFor(exam).id)===String(group.id)).length+' exams</span></button>').join('')+'</div>';return;}
+      if(examViewGroup===null){box.innerHTML=back+'<div class="decks">'+groups.filter(group=>accountGroupLevel(group)===examViewLevel).map(group=>'<button class="file-card saas-card" type="button" data-exam-group-view="'+esc(group.id)+'"><b>'+esc(group.title)+'</b><span class="label saas-badge saas-badge-muted">'+rows.filter(exam=>String(groupFor(exam).id)===String(group.id)).length+' exams</span></button>').join('')+'</div>';return;}
       const selectedGroup=groups.find(group=>String(group.id)===String(examViewGroup));
       box.innerHTML = '<button class="btn ghost" type="button" data-exam-level="'+esc(examViewLevel)+'">Back</button><h2>'+esc(selectedGroup?.title||'Unassigned')+'</h2>' + rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup)).map((exam) => {
         const chip = lmDateChip(exam.date);

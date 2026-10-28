@@ -2451,7 +2451,16 @@ button:disabled { opacity: .45; }
 .tone-advanced { --tone: var(--mute); }
 .g-map { margin: 0 0 14px; }
 .g-areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)); gap: 10px; }
-.g-area, .g-topic { text-align: left; width: 100%; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 16px; border-top: 4px solid var(--tone, var(--acc)); }
+.g-area, .g-topic { text-align: left; width: 100%; color: inherit; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); border-top: 4px solid var(--tone, var(--saas-brand)); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.g-area:hover, .g-topic:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
+.verb-form-cards .card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); }
+#tenses .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); }
+#tenses .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
+#wordcollections .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+#wordcollections .file-card:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
+#wordcollections .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
+.wcard { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.wcard:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
 .g-area { padding: 12px 14px; }
 .g-area b, .g-topic b { display: block; font-size: 16px; font-weight: 800; }
 .g-badge { display: inline-block; margin-bottom: 4px; font-size: 13px; font-weight: 700; color: var(--tone, var(--acc)); }
@@ -2736,6 +2745,12 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .exam-cal-pad { width: 36px; height: 36px; }
 #examDate { margin: 0 0 12px; }
 .day-row .exam-date { margin: 0; align-self: center; }
+#examList .day-row, #examBlocks .day-row { margin-bottom: 12px; }
+#examList .day, #examBlocks .day { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); padding: 16px 20px; transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+#examList .day:hover, #examBlocks .day:hover { border-color: var(--saas-brand); transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
+#examSections { margin: 12px 0 16px; display: flex; gap: 8px; }
+#examSections button { border-radius: var(--saas-radius-pill); padding: 6px 16px; font-size: 13px; font-weight: 600; border: 1px solid var(--saas-border); background: var(--saas-card); color: var(--saas-text-muted); transition: all 0.15s ease; }
+#examSections button.primary { background: var(--saas-brand); color: var(--saas-on-brand); border-color: var(--saas-brand); }
 .lm-read-date { margin: 0 0 8px; color: var(--lm); font-size: 13px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
 #material .lm textarea { min-height: 88px; }
 #material .lm input:focus, #material .lm textarea:focus, #material .lm select:focus { outline: 3px solid var(--lm-soft); border-color: var(--lm); }

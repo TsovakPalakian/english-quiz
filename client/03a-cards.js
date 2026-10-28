@@ -2097,7 +2097,7 @@
         if (sub) { sub.hidden = false; sub.textContent = "Every word card, once. The line under a word shows where it lives."; }
         box.innerHTML = names.map((name, index) => {
           const n = map[name].length;
-          return '<button class="day active" type="button" data-all-group="' + esc(name) + '"><span class="date">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about">' + n + (n === 1 ? " word" : " words") + "</span></button>";
+          return '<button class="day active saas-card" type="button" data-all-group="' + esc(name) + '"><span class="date saas-badge saas-badge-muted">' + (name==='Essential English'?8:index+1) + '</span><span class="song-line"><b>' + esc(name) + '</b></span><span class="label about saas-badge saas-badge-info">' + n + (n === 1 ? " word" : " words") + "</span></button>";
         }).join("");
         applyCardSearch(box.closest("section"));
         return;
