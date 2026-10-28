@@ -100,33 +100,72 @@
       </div>
       <div id="homeWho" class="card" hidden></div>
       <div id="homeDemo">
-      <div class="hero">
-        <button class="ring" type="button" data-stat="learned" aria-label="Learned cards">
-          <svg viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
-            <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
-          </svg>
-          <b id="homeLearnedPct">0%</b>
-        </button>
-        <div>
-          <p class="hero-copy"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
-          <span class="home-study"><button class="btn" type="button" id="homeStudy" data-jump="groups">Start studying</button><button class="btn" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
+        <div class="hero saas-card" style="padding:24px; border-radius:var(--saas-radius-xl, 14px); background:var(--saas-card); border:1px solid var(--saas-border); display:flex; align-items:center; gap:24px; margin-bottom:20px; box-shadow:var(--saas-shadow-card);">
+          <button class="ring" type="button" data-stat="learned" aria-label="Learned cards" style="flex-shrink:0;">
+            <svg viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
+              <circle class="ring-fg" cx="18" cy="18" r="15.5" pathLength="1" stroke-dasharray="0 1" style="stroke-linecap:butt"></circle>
+            </svg>
+            <b id="homeLearnedPct">0%</b>
+          </button>
+          <div style="flex:1;">
+            <p class="hero-copy" style="font-size:20px; font-weight:700; margin:0 0 6px;"><span id="homeLearnedCount">0 <span>of 0</span></span> cards learned</p>
+            <p style="font-size:13px; color:var(--saas-text-muted, #64748b); margin:0 0 14px;">Mastered vocabulary across enrolled units with spaced repetition retention.</p>
+            <span class="home-study" style="display:flex; gap:10px;"><button class="btn saas-btn saas-btn-primary" type="button" id="homeStudy" data-jump="groups">Start studying</button><button class="btn saas-btn saas-btn-secondary" type="button" id="homeStudyAlt" data-stat="learned" hidden>Review words</button></span>
+          </div>
+        </div>
+        <div class="overview" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-bottom:20px;">
+          <button class="stat-tile saas-card" type="button" data-msg-open id="homeUnreadTile" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Unread messages</span>
+            <b id="homeUnreadCount" style="color:#0ea5e9; font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">in Messages</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-jump="days" id="homeNextLesson" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Next lesson</span>
+            <b id="homeNextLessonLabel" style="color:var(--saas-primary); font-size:20px; font-weight:800; margin:4px 0;">—</b>
+            <small id="homeNextLessonNote" style="color:var(--saas-text-muted); font-size:12px;">No upcoming lessons</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-stat="weak" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Weak cards</span>
+            <b class="bad" style="color:#ef4444; font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">needs review</small>
+          </button>
+          <button class="stat-tile saas-card" type="button" data-stat="learning" style="text-align:left;">
+            <span style="font-size:12px; font-weight:600; color:var(--saas-text-muted); text-transform:uppercase;">Still learning</span>
+            <b id="homeLearningCount" style="color:var(--saas-primary); font-size:26px; font-weight:800; margin:4px 0;">0</b>
+            <small style="color:var(--saas-text-muted); font-size:12px;">in progress</small>
+          </button>
         </div>
       </div>
-      <div class="overview">
-        <button class="stat-tile" type="button" data-msg-open id="homeUnreadTile"><span>Unread messages</span><b id="homeUnreadCount">0</b><small>in Messages</small></button>
-        <button class="stat-tile" type="button" data-jump="days" id="homeNextLesson"><span>Next lesson</span><b id="homeNextLessonLabel">—</b><small id="homeNextLessonNote">No upcoming lessons</small></button>
-        <button class="stat-tile" type="button" data-stat="weak"><span>Weak cards</span><b class="bad">0</b><small>needs review</small></button>
-        <button class="stat-tile" type="button" data-stat="learning"><span>Still learning</span><b id="homeLearningCount">0</b><small>in progress</small></button>
-      </div>
-      </div>
-      <div id="homeWarmupPanel" class="home-warmup saas-card" hidden>
-        <div class="home-panel-head"><h2>Daily 5-Min Warmup</h2><span id="homeWarmupBadge" class="home-warmup-badge saas-badge">0 due</span></div>
-        <div id="homeWarmupContent" class="home-warmup-content"></div>
+      <div id="homeWarmupPanel" class="home-warmup saas-card" hidden style="margin-bottom:20px; border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card);">
+        <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#be123c" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Daily 5-Min Warmup</h2>
+          </div>
+          <span id="homeWarmupBadge" class="home-warmup-badge saas-badge">0 due</span>
+        </div>
+        <div id="homeWarmupContent" class="home-warmup-content" style="padding:18px;"></div>
       </div>
       <div id="homeDashboard" class="home-dashboard" hidden>
-        <div class="home-activity"><div class="home-panel-head"><h2>Recent activity</h2><button class="home-text-link" type="button" data-jump="stats">View all</button></div><div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div></div>
-        <div class="home-group"><div class="home-panel-head"><h2>Your group</h2><button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button></div><div class="home-group-body"><p id="homeGroupTitle">No group assigned</p><div id="homeGroupMetrics" class="home-group-meta"></div><button class="btn primary" type="button" data-jump="groups" data-home-group-open>Open group</button></div></div>
+        <div class="home-activity saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
+          <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Recent activity</h2>
+            <button class="home-text-link" type="button" data-jump="stats">View all</button>
+          </div>
+          <div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div>
+        </div>
+        <div class="home-group saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
+          <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
+            <h2 style="font-size:15px; font-weight:700; margin:0;">Your group</h2>
+            <button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button>
+          </div>
+          <div class="home-group-body" style="padding:18px;">
+            <p id="homeGroupTitle" style="font-size:15px; font-weight:700; margin:0 0 8px;">No group assigned</p>
+            <div id="homeGroupMetrics" class="home-group-meta" style="margin-bottom:14px;"></div>
+            <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="groups" data-home-group-open style="width:100%;">Open group</button>
+          </div>
+        </div>
       </div>
     </section>
 
