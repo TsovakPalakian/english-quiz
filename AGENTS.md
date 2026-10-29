@@ -9,7 +9,7 @@
 - For each new feature, create a Markdown (.md) document detailing implementation steps and stages. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files.
 - Use only colored squares for checklist status, without checkmarks, crosses or Markdown checkboxes: `🟩` verified done, `🟨` selected/current work, `⬜` not started, `🟥` checked but needs rework. For rework, record the failed check and required correction; use green only after fixing and reverifying. Mark the selected scope before implementation; do not mark a prototype as a completed production integration. Split mixed tasks when only part is selected.
 - Always provide the user a short commit-message line in English and past tense, such as "Added ..." or "Fixed ...", for completed changes.
-- Do not deploy directly via wrangler; deployments are handled automatically by CI/CD when the user commits and pushes. Verify changes with the production asset builder and full test suite before handing off.
+- Do not deploy directly via wrangler; deployments are handled automatically by CI/CD when the user commits and pushes. Verify changes with the production asset builder and targeted tests for modified or newly added test files; do not run the entire test suite unless explicitly requested.
 - The production builder reads HTML/CSS from site/ and private inline media from private/ (untracked); verify new UI is included in the generated production assets.
 - Never commit or push; the user does that.
 - Update docs/change-history/refactoring-plan.md after publication only if the user explicitly requests that documentation update.
