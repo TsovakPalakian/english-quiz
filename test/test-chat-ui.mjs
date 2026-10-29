@@ -177,7 +177,7 @@ try{
     yield "26. #grammarrule.on / checks";
     await page.locator('#grammarrule.on').waitFor();assert.match(await page.locator('#grammarRuleTitle').innerText(),/Noun/);assert.equal(await page.locator('#grammarRuleBody ol li').count(),6);assert.equal(await page.locator('#grammarRuleBody [lang="ru"]').count(),9);
     yield "27. #grammarRuleBody .grammar-band / checks";
-    assert.equal(await page.locator('#grammarRuleBody .grammar-band').first().isVisible(),true);assert.match(await page.locator('#grammarrule .page-path').innerText(),/Grammatical Categories\nParts of Speech\nNoun/);
+    assert.equal(await page.locator('#grammarRuleBody .grammar-band').first().isVisible(),true);assert.match(await page.locator('#grammarrule .page-path').innerText(),/Grammar\nParts of Speech\nNoun/);
   for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#grammarrule').evaluate(node=>node.scrollWidth<=node.clientWidth+1),'Grammar detail fits '+width);}await Promise.resolve();await page.locator('#grammarrule [data-page-path="grammarcategory"]').click();
     yield "28. #grammarcategory.on / checks";
     await page.locator('#grammarcategory.on').waitFor();await page.locator('[data-grammar-rule="Verb"]').click();await page.locator('[data-grammar-vocabulary]').click();await page.locator('#everydaytopic.on').waitFor();

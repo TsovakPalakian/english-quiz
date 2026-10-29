@@ -1940,7 +1940,7 @@
     function statRow(row, linkSources=false) {
       const bits = statKind === "weak" ? mistakeBits([row]) : [];
       const side = bits.length ? bits.join(", ") : row.where.join(" · ");
-      if(linkSources===true&&typeof stageWordSources==='function')return '<div class="path word-source-row"><button class="word-source-card" type="button" data-all-kind="'+row.kind+'" data-all-key="'+esc(row.key)+'"><b>'+esc(row.en)+'</b>'+ipaHtml(rowToCard(row))+'<br><span class="label">'+esc(row.ru)+'</span></button><span class="to word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</span></div>';
+      if(linkSources===true&&typeof stageWordSources==='function')return '<div class="path word-source-row saas-card"><div class="word-source-main"><div class="word-source-head"><button class="word-source-title" type="button" data-all-kind="'+row.kind+'" data-all-key="'+esc(row.key)+'">'+esc(row.en)+'</button><span class="to word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</span></div>'+ipaHtml(rowToCard(row))+'<div class="word-source-translation label">'+esc(row.ru)+'</div></div></div>';
       return '<button class="path" type="button" data-all-kind="' + row.kind + '" data-all-key="' + esc(row.key) + '"><span><b>' + esc(row.en) + '</b>' + ipaHtml(rowToCard(row)) + '<br><span class="label">' + esc(row.ru) + '</span></span><span class="to">' + esc(side) + "</span></button>";
     }
     function keysOfMarks(marks) {

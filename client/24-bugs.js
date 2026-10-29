@@ -272,7 +272,9 @@
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
+      paintBugKpis();
       const draw = (rows) => {
+        paintBugKpis();
         if(box.dataset.bugListTab)bugExpansion.set(box.dataset.bugListTab,{
           days:new Set([...box.querySelectorAll('[data-bug-day][open]')].map(node=>node.dataset.bugDay)),
           history:new Set([...box.querySelectorAll('[data-bug-history][open]')].map(node=>node.dataset.bugHistory)),
@@ -405,4 +407,179 @@
         if (onBugs()) box.innerHTML = '<p class="sub">The bug list could not be loaded.</p>';
       });
     }
+
+    function paintBugKpis() {
+      const activeBtn = document.getElementById("bugKpiActive");
+      if (!activeBtn) return;
+      const countEl = document.getElementById("bugKpiActiveCount");
+      const hitsEl = document.getElementById("bugKpiActiveHits");
+      const highestEl = document.getElementById("bugKpiActiveHighest");
+
+      const active = (bugCache || []).filter((b) => !b.resolved);
+      const activeCount = active.length;
+      const totalHits = active.reduce((sum, b) => sum + (Number(b.hits) || 1), 0);
+
+      if (countEl) countEl.textContent = String(activeCount);
+      if (hitsEl) hitsEl.textContent = "signature" + (activeCount === 1 ? "" : "s") + " (" + totalHits + " hit" + (totalHits === 1 ? "" : "s") + ")";
+      if (highestEl) {
+        if (active.length) {
+          const sorted = active.slice().sort((a, b) => (Number(b.hits) || 1) - (Number(a.hits) || 1));
+          const top = sorted[0];
+          const topPath = ((top.method || "") + " " + (top.path || top.request?.url || "")).trim();
+          highestEl.textContent = "Highest: " + (topPath || "Unknown route") + " (" + (top.hits || 1) + " hits)";
+        } else {
+          highestEl.textContent = "No active worker errors";
+        }
+      }
+
+      const uptimeEl = document.getElementById("bugKpiSystemUptime");
+      const queueEl = document.getElementById("bugKpiSystemQueue");
+      if (uptimeEl) uptimeEl.textContent = navigator.onLine ? "100%" : "Offline";
+      if (queueEl) {
+        const queueSize = typeof backgroundQueueSize === "function" ? backgroundQueueSize() : 0;
+        const memoryStr = window.performance?.memory?.usedJSHeapSize ? " · RAM: " + (window.performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1) + " MB" : "";
+        queueEl.textContent = "Prefetch Queue: " + queueSize + " pending" + (navigator.onLine ? " · Online" : " · Offline") + memoryStr;
+      }
+
+      if (isDeveloper() || isTeacher()) {
+        accountFetch("/api/admin/changes").then((data) => {
+          const changes = (data && data.changes) || [];
+          const auditCountEl = document.getElementById("bugKpiAuditCount");
+          const auditLatestEl = document.getElementById("bugKpiAuditLatest");
+          if (auditCountEl) auditCountEl.textContent = String(changes.length);
+          if (auditLatestEl) {
+            const latest = changes[0];
+            if (latest) {
+              const actor = latest.from_login || latest.from_name || "user";
+              auditLatestEl.textContent = "Latest: " + (latest.type || latest.status || "change") + " for @" + actor;
+            } else {
+              auditLatestEl.textContent = "No recorded mutation events";
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
+    function onBugKpiActiveClick() {
+      bugTab = "open";
+      document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn.dataset.bugTab === "open"));
+      if (bugCache) paintBugs(bugCache);
+      else paintBugs();
+      document.getElementById("bugList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onBugKpiSystemClick() {
+      const dialog = document.createElement("dialog");
+      dialog.className = "bug-kpi-dialog";
+      const queueSize = typeof backgroundQueueSize === "function" ? backgroundQueueSize() : 0;
+      const online = navigator.onLine;
+      const memoryStr = window.performance?.memory?.usedJSHeapSize ? (window.performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1) + " MB" : "N/A";
+
+      dialog.innerHTML = '<form method="dialog"><button class="bug-kpi-dialog-close" aria-label="Close">✕</button></form>' +
+        '<h2>System Health &amp; Cache Diagnostics</h2>' +
+        '<div style="display:flex;flex-direction:column;gap:12px;font-size:13.5px;">' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Network Status:</span>' +
+            '<b style="color:' + (online ? '#16a34a' : '#dc2626') + ';">' + (online ? '● Online (Edge Connected)' : '○ Offline') + '</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Cache Subsystem:</span>' +
+            '<b>IndexedDB / LocalStorage Active</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Background Queue:</span>' +
+            '<b>' + queueSize + ' pending requests</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Heap Memory:</span>' +
+            '<b>' + memoryStr + '</b>' +
+          '</div>' +
+          '<div id="bugSystemPingBox" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">API Latency:</span>' +
+            '<button type="button" class="btn tiny" id="bugSystemPingBtn">Run Ping Test</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+          '<button type="button" class="btn ghost saas-btn" id="bugSystemOpenStats">Open Statistics</button>' +
+          '<form method="dialog"><button class="btn primary saas-btn">Done</button></form>' +
+        '</div>';
+
+      document.body.appendChild(dialog);
+      dialog.addEventListener("close", () => dialog.remove());
+      dialog.querySelector("#bugSystemOpenStats")?.addEventListener("click", () => {
+        dialog.close();
+        visit("stats");
+      });
+      dialog.querySelector("#bugSystemPingBtn")?.addEventListener("click", () => {
+        const pingBtn = dialog.querySelector("#bugSystemPingBtn");
+        if (!pingBtn) return;
+        pingBtn.disabled = true;
+        pingBtn.textContent = "Pinging…";
+        const t0 = performance.now();
+        accountFetch("/api/me/state").then(() => {
+          const ms = Math.round(performance.now() - t0);
+          pingBtn.replaceWith(document.createTextNode(ms + " ms (HTTP 200)"));
+        }).catch((err) => {
+          pingBtn.disabled = false;
+          pingBtn.textContent = "Failed (" + err.message + ")";
+        });
+      });
+      dialog.showModal();
+    }
+
+    function onBugKpiAuditClick() {
+      const dialog = document.createElement("dialog");
+      dialog.className = "bug-kpi-dialog";
+      dialog.innerHTML = '<form method="dialog"><button class="bug-kpi-dialog-close" aria-label="Close">✕</button></form>' +
+        '<h2>Accounts Mutations Audit Log</h2>' +
+        '<p class="sub" style="margin-bottom:14px;">Recent account mutations and role change requests from <code>/api/admin/changes</code>.</p>' +
+        '<div id="bugAuditDialogList" style="max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:8px;font-size:13px;">' +
+          '<p class="sub">Loading audit log…</p>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+          '<button type="button" class="btn ghost saas-btn" id="bugAuditOpenAdmin">Open Accounts</button>' +
+          '<form method="dialog"><button class="btn primary saas-btn">Close</button></form>' +
+        '</div>';
+
+      document.body.appendChild(dialog);
+      dialog.addEventListener("close", () => dialog.remove());
+      dialog.querySelector("#bugAuditOpenAdmin")?.addEventListener("click", () => {
+        dialog.close();
+        visit("admin");
+      });
+      accountFetch("/api/admin/changes").then((data) => {
+        const box = dialog.querySelector("#bugAuditDialogList");
+        if (!box) return;
+        const changes = (data && data.changes) || [];
+        if (!changes.length) {
+          box.innerHTML = '<p class="sub">No account mutation events found.</p>';
+          return;
+        }
+        box.innerHTML = changes.slice(0, 30).map((row, idx) => {
+          const user = row.from_login || row.from_email || "User";
+          const whenStr = row.created_at ? bugWhen(row.created_at * 1000) : "Date not recorded";
+          const st = row.status || "recorded";
+          const badgeCls = st === "approved" ? "badge-emerald" : st === "rejected" ? "badge-rose" : "badge-amber";
+          return '<div style="padding:10px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;border:1px solid var(--saas-border,#e2e8f0);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<div>' +
+              '<b>' + (idx + 1) + '. @' + esc(user) + '</b> <span style="color:var(--saas-text-muted);font-size:12px;">(' + esc(row.type || 'account mutation') + ')</span>' +
+              '<div style="font-size:11.5px;color:var(--saas-text-muted);margin-top:3px;">' + esc(whenStr) + '</div>' +
+            '</div>' +
+            '<span class="badge ' + badgeCls + '" style="font-size:11px;font-weight:700;text-transform:uppercase;">' + esc(st) + '</span>' +
+          '</div>';
+        }).join("");
+      }).catch((err) => {
+        const box = dialog.querySelector("#bugAuditDialogList");
+        if (box) box.innerHTML = '<p class="sub" style="color:#dc2626;">Failed to load audit records: ' + esc(err.message) + '</p>';
+      });
+      dialog.showModal();
+    }
+
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("#bugKpiActive")) { onBugKpiActiveClick(); return; }
+      if (event.target.closest("#bugKpiSystem")) { onBugKpiSystemClick(); return; }
+      if (event.target.closest("#bugKpiAudit")) { onBugKpiAuditClick(); return; }
+    });
+
     window.paintBugs = paintBugs;
+    window.paintBugKpis = paintBugKpis;

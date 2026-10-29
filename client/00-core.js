@@ -53,7 +53,7 @@
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
-      choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
+      choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
@@ -258,8 +258,20 @@
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
-        const category=(window.GrammarCategories||[]).find(row=>row.id===stageGrammarGroup);
-        return [{id:'tenses',label:'Grammar'},{id:'grammarcategories',label:'Grammatical Categories'},...(id!=='grammarcategories'&&category?[{id:'grammarcategory',label:category.title}]:[]),...(id==='grammarrule'?[{id:'grammarrule',label:stageGrammarRule}]:[])];
+        const isConfused = stageGrammarGroup === 'confused' || (Boolean(stageGrammarRule) && /\b(vs\.?|versus| or )\b/i.test(stageGrammarRule));
+        let category = (window.GrammarCategories || []).find(row => row.id === stageGrammarGroup);
+        if (!category && !isConfused && stageGrammarRule) {
+          category = (window.GrammarCategories || []).find(row => (row.cards || []).some(([title]) => title === stageGrammarRule));
+        }
+        if (id === 'grammarcategories') {
+          return [{ id: 'tenses', label: 'Grammar' }, { id: 'grammarcategories', label: 'Categories' }];
+        }
+        const middleLabel = isConfused ? 'Often confused' : (category ? category.title : (stageGrammarGroup === 'custom' ? 'Custom rules' : 'Category'));
+        return [
+          { id: 'tenses', label: 'Grammar' },
+          { id: 'grammarcategory', label: middleLabel },
+          ...(id === 'grammarrule' ? [{ id: 'grammarrule', label: stageGrammarRule || 'Rule' }] : [])
+        ];
       }
       if (id === 'exams') return examPagePath();
       if (id === "examblocks") return examPagePath(examFind(examCurrentId));
@@ -712,24 +724,27 @@
     function paintHub() {
       const data = window.GRAMMAR;
       const root = document.getElementById("tenseList");
-      if (!data || !data.areas) {
-        root.innerHTML = tenseGroups.map((g) =>
-          '<p class="tense-group">' + g.group + '</p>' +
-          g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
-        ).join("");
+      if (!data || !data.areas || !data.areas.length) {
+        let html = '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body">' +
+          tenseGroups.map((g) =>
+            '<p class="tense-group">' + g.group + '</p>' +
+            g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
+          ).join("") + '</div></details>';
+        root.innerHTML = html;
         applyCardSearches();
         return;
       }
       let html = '<p class="g-map">A tense is a form. be going to, conditionals, modals, the passive and clauses are other parts of the system.</p>';
-      html += '<div class="g-areas">' + data.areas.map((area) =>
-        '<button class="g-area tone-' + area.tone + '" type="button" data-area="' + area.id + '"><span class="g-badge">' + esc(area.badge) + '</span><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb) + '</span></button>'
-      ).join("") + "</div>";
+      html += '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body"><div class="g-areas">' +
+        data.areas.map((area) =>
+          '<button class="g-area tone-' + area.tone + '" type="button" data-area="' + area.id + '"><span class="g-badge">' + esc(area.badge) + '</span><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb) + '</span></button>'
+        ).join("") + '</div></div></details>';
       const comparisons = data.comparisons || [];
       if (comparisons.length) {
-        html += '<p class="g-head tone-advanced">Often confused</p>';
-        html += comparisons.map((item) =>
-          '<button class="g-topic tone-' + (item.tone || "advanced") + '" type="button" data-compare="' + item.id + '"><b>' + esc(item.title) + '</b><span class="form">compare</span></button>'
-        ).join("");
+        html += '<details class="resource-fold" id="grammarConfusedFold" open><summary>Often confused</summary><div class="fold-body">' +
+          comparisons.map((item) =>
+            '<button class="g-topic tone-' + (item.tone || "advanced") + '" type="button" data-compare="' + item.id + '"><b>' + esc(item.title) + '</b><span class="form">compare</span></button>'
+          ).join("") + '</div></details>';
       }
       root.innerHTML = html;
       applyCardSearches();

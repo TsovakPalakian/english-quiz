@@ -2344,30 +2344,66 @@ function stageLoadCustomGrammar(){
   }
   stageSyncGrammarCategories();
 }
+function stageClassifyGrammarRule(title, detail = {}) {
+  if (detail.category && detail.category !== 'custom') return detail.category;
+  const raw = (String(title || '') + ' ' + String(detail.en || detail.definition || '')).toLowerCase();
+  if (/\b(vs\.?|versus| or )\b/i.test(title)) return 'confused';
+  if (/\b(noun|verb|adjective|adverb|pronoun|determiner|preposition|conjunction|interjection|numeral)\b/i.test(raw)) return 'classes';
+  if (/\b(subject|predicate|direct object|indirect object|complement|adverbial|adjunct|attribute|modifier)\b/i.test(raw)) return 'functions';
+  if (/\b(number|gender|case|person|tense|aspect|mood|voice|passive|degree|comparative|superlative)\b/i.test(raw)) return 'morphology';
+  if (/\b(phrase|clause|main clause|subordinate|declarative|interrogative|imperative|exclamative)\b/i.test(raw)) return 'units';
+  if (/\b(agent|patient|theme|experiencer|beneficiary|instrument)\b/i.test(raw)) return 'semantics';
+  if (/\b(topic|focus|given information|new information|discourse marker)\b/i.test(raw)) return 'discourse';
+  if (/\b(determiner phrase|tense phrase|complementizer phrase|dp\b|tp\b|cp\b)\b/i.test(raw)) return 'functional';
+  return 'classes';
+}
+window.stageClassifyGrammarRule = stageClassifyGrammarRule;
 function stageSyncGrammarCategories(){
   if(!window.GrammarCategories||!window.GrammarDetails)return;
-  let customGroup=window.GrammarCategories.find(g=>g.id==='custom');
-  const knownTitles=new Set(window.GrammarCategories.filter(g=>g.id!=='custom').flatMap(g=>g.cards.map(c=>c[0])));
-  const customCards=[];
-  for(const [title,detail] of Object.entries(window.GrammarDetails)){
-    if(!knownTitles.has(title)){
-      const example=detail.examples?.[0]||['',''];
-      customCards.push([title,detail.ru||detail.definition||title,example[0]||'',example[1]||'']);
+  const baseBuiltInTitles = new Set([
+    'Noun','Verb','Adjective','Adverb','Pronoun','Determiner','Preposition','Conjunction','Interjection','Numeral',
+    'Subject','Predicate','Direct Object','Indirect Object','Complement','Adverbial / Adjunct','Attribute / Modifier',
+    'Number','Gender','Case','Person','Tense','Aspect','Mood','Voice','Degree',
+    'Phrase','Main Clause','Subordinate Clause','Declarative Sentence','Interrogative Sentence','Imperative Sentence','Exclamative Sentence',
+    'Agent','Patient','Theme','Experiencer','Beneficiary','Instrument',
+    'Topic','Focus','Given / New Information','Discourse Marker',
+    'Determiner Phrase (DP)','Tense Phrase (TP)','Complementizer Phrase (CP)'
+  ]);
+  for(const [title, detail] of Object.entries(window.GrammarDetails)){
+    if(baseBuiltInTitles.has(title)) continue;
+    const catId = stageClassifyGrammarRule(title, detail);
+    detail.category = catId;
+    const example = detail.examples?.[0] || ['', ''];
+    const cardData = [title, detail.ru || detail.definition || title, example[0] || '', example[1] || ''];
+    if(catId === 'confused'){
+      let confusedGroup = window.GrammarCategories.find(g => g.id === 'confused');
+      if(!confusedGroup){
+        confusedGroup = { id: 'confused', title: 'Often confused', cards: [] };
+        window.GrammarCategories.push(confusedGroup);
+      }
+      if(!confusedGroup.cards.some(c => c[0] === title)){
+        confusedGroup.cards.push(cardData);
+      }
+      if(window.GRAMMAR && Array.isArray(window.GRAMMAR.comparisons)){
+        const compId = title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if(!window.GRAMMAR.comparisons.some(c => c.id === compId || c.title === title)){
+          window.GRAMMAR.comparisons.push({ id: compId, title, tone: 'advanced' });
+        }
+      }
+    } else {
+      let targetGroup = window.GrammarCategories.find(g => g.id === catId);
+      if(!targetGroup){
+        targetGroup = window.GrammarCategories.find(g => g.id === 'classes');
+      }
+      if(targetGroup && !targetGroup.cards.some(c => c[0] === title)){
+        targetGroup.cards.push(cardData);
+      }
     }
-  }
-  if(customCards.length){
-    if(!customGroup){
-      customGroup={id:'custom',title:'Additional Rules',cards:[]};
-      window.GrammarCategories.push(customGroup);
-    }
-    customGroup.cards=customCards;
-  } else if(customGroup){
-    const idx=window.GrammarCategories.indexOf(customGroup);
-    if(idx>=0)window.GrammarCategories.splice(idx,1);
   }
 }
 function stageSaveGrammarRule(title,detail){
   if(!title||!detail)return;
+  if(!detail.category)detail.category=stageClassifyGrammarRule(title,detail);
   if(!window.GrammarDetails)window.GrammarDetails={};
   window.GrammarDetails[title]=detail;
   try{
@@ -2489,11 +2525,13 @@ document.addEventListener('submit',event=>{
       examples:examples.length?examples:[[title,'']],
       source:'Oxford Practical English Usage'
     };
+    const cat=detail.category||stageClassifyGrammarRule(title,detail);
+    detail.category=cat;
     stageSaveGrammarRule(title,detail);
     form.reset();
     const dialog=document.getElementById('grammarNewRuleDialog');
     if(dialog&&typeof dialog.close==='function')dialog.close();
-    stageGrammarGroup='custom';
+    stageGrammarGroup=cat;
     stageGrammarPaint();
     show('grammarcategory');
   }

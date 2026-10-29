@@ -187,3 +187,82 @@ test('stats() provides accurate overview of errors, daily queue and mastered ite
     f.sqlite.close();
   }
 });
+
+test('ErrorBankService captures response latency, hints, and distractor telemetry via meta',async()=>{
+  const f=fixture();
+  try{
+    const bank=new ErrorBankService(f.db);
+    const questions=[
+      {
+        part:{id:'p_telemetry',type:'choice',allowedAnswers:'depend on'},
+        index:0,
+        max:1,
+        item:{prompt:'Select correct preposition',answer:'depend on',options:['depend from','depend on']}
+      }
+    ];
+
+    // Student chose distractor 'depend from' with 5200ms latency and hint
+    const answers={'p_telemetry':{0:'depend from'}};
+    const points={'p_telemetry':{0:0}};
+    const meta={'p_telemetry':{0:{latencyMs:5200,hint:'Think about Russian transfer: зависеть от'}}};
+
+    const recorded=await bank.recordErrors(student.id,'exam-block',301,questions,answers,points,meta);
+    assert.equal(recorded.length,1);
+    assert.equal(recorded[0].latencyMs,5200);
+
+    const [row]=await f.db.read('SELECT latency_ms,diagnostic_note,error_tag,error_category FROM account_error_items WHERE account_id=? AND part_id=?',[student.id,'p_telemetry']);
+    assert.equal(row.latency_ms,5200,'Latency must be persisted in account_error_items');
+    assert.ok(row.diagnostic_note.includes('Selected distractor'),'Diagnostic note must identify chosen distractor');
+    assert.ok(row.diagnostic_note.includes('Used hint'),'Diagnostic note must record hint usage');
+
+    // Submit review updating latency
+    const reviewResult=await bank.submitReview(student,{itemId:1,answer:'depend on',latencyMs:1850});
+    assert.equal(reviewResult.correct,true);
+
+    const [updatedRow]=await f.db.read('SELECT latency_ms FROM account_error_items WHERE id=1');
+    assert.equal(updatedRow.latency_ms,1850,'Review latency must be updated');
+  }finally{
+    f.sqlite.close();
+  }
+});
+
+test('ErrorBankService queue in fsrs_retrievability mode orders items dynamically by lowest retrievability', async () => {
+  const f = fixture();
+  try {
+    const bank = new ErrorBankService(f.db);
+    await bank.ensure();
+
+    const now = Math.floor(Date.now() / 1000);
+
+    // Card High Retrievability (stability 10, reviewed 1 day ago => R ~ 0.976)
+    f.sqlite.exec(`INSERT INTO account_error_items(id,account_id,material_id,kind,part_id,question_index,prompt,expected_answer,stage,interval_days,next_review_at,status,stability,difficulty,reps,lapses,last_reviewed_at)
+      VALUES(101,'${student.id}',500,'quiz','p1',0,'High R word','word1',1,10,${now + 864000},'active',10.0,5.0,2,0,${now - 1 * 86400})`);
+
+    // Card Low Retrievability (stability 2, reviewed 4 days ago => R ~ 0.816)
+    f.sqlite.exec(`INSERT INTO account_error_items(id,account_id,material_id,kind,part_id,question_index,prompt,expected_answer,stage,interval_days,next_review_at,status,stability,difficulty,reps,lapses,last_reviewed_at)
+      VALUES(102,'${student.id}',500,'quiz','p2',0,'Low R word','word2',1,2,${now - 86400},'active',2.0,6.0,1,1,${now - 4 * 86400})`);
+
+    // Card Unreviewed (stability 0 => R = 0.0)
+    f.sqlite.exec(`INSERT INTO account_error_items(id,account_id,material_id,kind,part_id,question_index,prompt,expected_answer,stage,interval_days,next_review_at,status,stability,difficulty,reps,lapses,last_reviewed_at)
+      VALUES(103,'${student.id}',500,'quiz','p3',0,'Unreviewed word','word3',1,1,${now - 500},'active',0,5.0,0,0,0)`);
+
+    const q = await bank.queue(student, { limit: 10, mode: 'fsrs_retrievability' });
+    assert.equal(q.length, 3);
+
+    // Dynamic queue order must be ascending by R:
+    // 1st: Unreviewed (R = 0)
+    assert.equal(q[0].id, 103);
+    assert.equal(q[0].retrievability, 0);
+
+    // 2nd: Low R (~0.816)
+    assert.equal(q[1].id, 102);
+    assert.ok(q[1].retrievability < 0.85);
+
+    // 3rd: High R (~0.976)
+    assert.equal(q[2].id, 101);
+    assert.ok(q[2].retrievability > 0.95);
+    assert.ok(q[1].retrievability < q[2].retrievability);
+  } finally {
+    f.sqlite.close();
+  }
+});

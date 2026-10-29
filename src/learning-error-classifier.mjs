@@ -152,21 +152,51 @@ function levenshtein(a, b) {
   return matrix[bn][an];
 }
 
-export function classifyError({ prompt = '', expected = '', given = '', partType = 'gap', wordnet = null } = {}) {
+export function classifyError({ prompt = '', expected = '', given = '', partType = 'gap', wordnet = null, options = [], hint = null, latencyMs = 0 } = {}) {
   const expTrim = String(expected || '').trim();
   const givTrim = String(given || '').trim();
   const expLower = expTrim.toLowerCase();
   const givLower = givTrim.toLowerCase();
 
+  const opts = Array.isArray(options) ? options.map(String) : [];
+  const isDistractor = opts.some(opt => {
+    const s = String(opt).trim().toLowerCase();
+    return s === givLower && s !== expLower;
+  });
+  const latency = Number(latencyMs) || 0;
+  const hintVal = hint ? String(hint) : null;
+
+  function withTelemetry(res) {
+    if (!res) return null;
+    let enhancedNote = res.note || '';
+    if (isDistractor && !enhancedNote.includes('Selected distractor')) {
+      enhancedNote += ` Selected distractor: "${givTrim}".`;
+    }
+    if (hintVal && !enhancedNote.includes('Used hint')) {
+      enhancedNote += ` Used hint: "${hintVal}".`;
+    }
+    if (latency > 15000 && !enhancedNote.includes('Hesitation')) {
+      enhancedNote += ` Hesitation: ${Math.round(latency / 1000)}s response time.`;
+    }
+    return {
+      ...res,
+      note: enhancedNote.trim(),
+      distractor: isDistractor ? givTrim : null,
+      options: opts,
+      hint: hintVal,
+      latencyMs: latency
+    };
+  }
+
   // Blank answer
   if (!givLower) {
-    return {
+    return withTelemetry({
       tag: ERROR_TAGS.OMISSION,
       category: ERROR_CATEGORIES.BLANK_ANSWER,
       note: 'Answer was omitted.',
       expected: expTrim,
       given: ''
-    };
+    });
   }
 
   // Exact match - no error
@@ -175,75 +205,75 @@ export function classifyError({ prompt = '', expected = '', given = '', partType
   // 1. Morphological Overgeneralization: Irregular verb regularization with -ed
   if (IRREGULAR_VERBS_OVERGENERALIZED[givLower]) {
     const targetIrreg = IRREGULAR_VERBS_OVERGENERALIZED[givLower];
-    return {
+    return withTelemetry({
       tag: ERROR_TAGS.OVERGENERALIZATION,
       category: ERROR_CATEGORIES.MORPH_IRREGULAR_VERB,
       note: `Overgeneralization: "${givTrim}" applies regular -ed to irregular verb (expected: "${targetIrreg}").`,
       expected: targetIrreg,
       given: givTrim
-    };
+    });
   }
 
   // 2. Morphological Overgeneralization: Irregular plural with -s
   if (IRREGULAR_PLURALS_OVERGENERALIZED[givLower]) {
     const targetPlural = IRREGULAR_PLURALS_OVERGENERALIZED[givLower];
-    return {
+    return withTelemetry({
       tag: ERROR_TAGS.OVERGENERALIZATION,
       category: ERROR_CATEGORIES.MORPH_IRREGULAR_PLURAL,
       note: `Overgeneralization: "${givTrim}" applies regular -s suffix to irregular plural (expected: "${targetPlural}").`,
       expected: targetPlural,
       given: givTrim
-    };
+    });
   }
 
   // 3. Morphological Overgeneralization: Subject-verb agreement (3rd person singular -s)
   if (/\b(he|she|it)\s+(do|have|go|make|say|take|know|see|come|think|want|give)\b/i.test(givLower) ||
       (/\b(he|she|it)\b/i.test(prompt) && !givLower.endsWith('s') && expLower.endsWith('s'))) {
-    return {
+    return withTelemetry({
       tag: ERROR_TAGS.OVERGENERALIZATION,
       category: ERROR_CATEGORIES.MORPH_SUBJECT_VERB,
       note: `Subject-verb concord error: missing 3rd-person singular -s/-es suffix with third-person subject.`,
       expected: expTrim,
       given: givTrim
-    };
+    });
   }
 
   // 4. L1 Interference: Question Word Order (Russian inversion missing)
   for (const qPattern of L1_QUESTION_WORD_ORDER) {
     if (qPattern.regex.test(givLower)) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.L1_TRANSFER,
         category: ERROR_CATEGORIES.L1_WORD_ORDER,
         note: `L1 Transfer (Word Order): Question lacks standard auxiliary verb inversion (e.g. did/do/are).`,
         expected: expTrim,
         given: givTrim
-      };
+      });
     }
   }
 
   // 5. L1 Interference: Calques and False Friends
   for (const calque of L1_CALQUE_PATTERNS) {
     if (calque.regex.test(givLower) || calque.regex.test(prompt + ' ' + givLower)) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.L1_TRANSFER,
         category: ERROR_CATEGORIES.L1_CALQUE,
         note: calque.note,
         expected: expTrim || calque.correct,
         given: givTrim
-      };
+      });
     }
   }
 
   // 6. L1 Interference: Prepositions
   for (const prep of L1_PREPOSITION_PATTERNS) {
     if (prep.regex.test(givLower) || prep.regex.test(prompt + ' ' + givLower)) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.L1_TRANSFER,
         category: ERROR_CATEGORIES.L1_PREPOSITION,
         note: prep.note,
         expected: expTrim || prep.correct,
         given: givTrim
-      };
+      });
     }
   }
 
@@ -254,22 +284,22 @@ export function classifyError({ prompt = '', expected = '', given = '', partType
     const isMake = givWords.includes('make') || givWords.includes('made');
     const objectPhrase = givWords.filter(w => !['do', 'make', 'did', 'made', 'a', 'an', 'the'].includes(w)).join(' ');
     if (isDo && MAKE_COLLECTIONS.has(objectPhrase)) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.COLLOCATION_CLASH,
         category: ERROR_CATEGORIES.COLLOCATION_DO_MAKE,
         note: `Collocation clash: "${objectPhrase}" takes "make", not "do".`,
         expected: expTrim,
         given: givTrim
-      };
+      });
     }
     if (isMake && DO_COLLECTIONS.has(objectPhrase)) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.COLLOCATION_CLASH,
         category: ERROR_CATEGORIES.COLLOCATION_DO_MAKE,
         note: `Collocation clash: "${objectPhrase}" takes "do", not "make".`,
         expected: expTrim,
         given: givTrim
-      };
+      });
     }
   }
 
@@ -277,13 +307,13 @@ export function classifyError({ prompt = '', expected = '', given = '', partType
   for (const cp of CONFUSED_PAIRS) {
     const [wordA, wordB] = cp.pair;
     if ((givLower.includes(wordA) && expLower.includes(wordB)) || (givLower.includes(wordB) && expLower.includes(wordA))) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.COLLOCATION_CLASH,
         category: ERROR_CATEGORIES.COLLOCATION_CONFUSED_PAIR,
         note: cp.note,
         expected: expTrim,
         given: givTrim
-      };
+      });
     }
   }
 
@@ -291,25 +321,25 @@ export function classifyError({ prompt = '', expected = '', given = '', partType
   if (expLower.length >= 4 && givLower.length >= 3) {
     const dist = levenshtein(expLower, givLower);
     if (dist <= 2) {
-      return {
+      return withTelemetry({
         tag: ERROR_TAGS.TYPO,
         category: ERROR_CATEGORIES.SPELLING_TYPO,
         note: `Spelling slip: minor distance (${dist}) from target "${expTrim}".`,
         expected: expTrim,
         given: givTrim
-      };
+      });
     }
   }
 
   // 10. Fallback: Vocabulary or Grammar
   const isVocab = ['vocab', 'cards', 'text'].includes(partType) || (!givLower.includes(' ') && !expLower.includes(' '));
-  return {
+  return withTelemetry({
     tag: isVocab ? ERROR_TAGS.VOCABULARY : ERROR_TAGS.GRAMMAR,
     category: isVocab ? ERROR_CATEGORIES.LEXICAL_GAP : ERROR_CATEGORIES.GENERAL_GRAMMAR,
     note: isVocab ? `Lexical gap: target vocabulary word "${expTrim}".` : `Grammar construction gap (expected: "${expTrim}").`,
     expected: expTrim,
     given: givTrim
-  };
+  });
 }
 
 export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}) {

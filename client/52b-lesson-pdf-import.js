@@ -29,15 +29,17 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   if(!node){node=document.createElement('div');node.id='lmPdfProgress';node.className='lm-pdf-progress';drop.before(node);}
   const measurable=Number.isFinite(done)&&total>0,percent=measurable?Math.floor(done/total*100):null;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
+  let nextUpload=document.getElementById('lmPdfNextUpload');
   if(label==='Draft ready'){
-    const readyBox=document.createElement('div');readyBox.className='lm-pdf-ready-box';readyBox.style.marginTop='12px';
-    const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Import another PDF';
-    button.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    const dropPrompt=document.createElement('div');
-    dropPrompt.className='lm-drop lm-pdf-import is-ready-drop';
-    dropPrompt.style.marginTop='8px';
-    dropPrompt.style.cursor='pointer';
-    dropPrompt.innerHTML='<span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small>';
+    if(!nextUpload){
+      nextUpload=document.createElement('div');
+      nextUpload.id='lmPdfNextUpload';
+      nextUpload.className='lm-pdf-next-upload card saas-card';
+      node.after(nextUpload);
+    }
+    nextUpload.innerHTML='<div class="lm-pdf-ready-box" style="padding:16px 20px;"><button type="button" class="btn" id="lmPdfImportAnotherBtn">Import another PDF</button><div class="lm-drop lm-pdf-import is-ready-drop" style="margin-top:12px;cursor:pointer;"><span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small></div></div>';
+    nextUpload.querySelector('#lmPdfImportAnotherBtn').onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
+    const dropPrompt=nextUpload.querySelector('.is-ready-drop');
     dropPrompt.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
     dropPrompt.ondragover=e=>{e.preventDefault();dropPrompt.classList.add('is-over');};
     dropPrompt.ondragleave=()=>{dropPrompt.classList.remove('is-over');};
@@ -47,13 +49,14 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
       const file=e.dataTransfer?.files?.[0];
       if(file)lmImportPdfDraft(file);
     };
-    readyBox.append(button,dropPrompt);
-    node.append(readyBox);
+  } else {
+    document.getElementById('lmPdfNextUpload')?.remove();
   }
   drop.hidden=true;
 }
 function lmPdfProgressEnd(){
   document.getElementById('lmPdfProgress')?.remove();
+  document.getElementById('lmPdfNextUpload')?.remove();
   const drop=document.querySelector('[data-lesson-pdf-import]');if(drop)drop.hidden=false;
 }
 async function lmPdfPrepareCards(draft,active,onProgress=()=>{},selected=new Set(['words','phrases'])){
@@ -165,11 +168,26 @@ async function lmImportPdfDraft(file) {
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
     const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
+    let sectionCount = 0;
     const section=(key,title,renderContent,checked)=>{
+      sectionCount += 1;
+      const idx = sectionCount;
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
       input.type='checkbox';input.checked=checked;choices.set(key,input);
+      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.dataset.num=String(idx);
+      numBadge.title='Click to toggle section import';
+      const syncState=()=>{
+        numBadge.classList.toggle('is-off',!input.checked);
+        details.classList.toggle('is-section-off',!input.checked);
+      };
+      input.onchange=syncState;
+      numBadge.onclick=(e)=>{
+        e.stopPropagation();
+        input.checked=!input.checked;
+        syncState();
+      };
       const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
-      label.append(input,titleSpan);summary.append(label);details.append(summary);
+      label.append(input,numBadge,titleSpan);summary.append(label);details.append(summary);
       const container=document.createElement('div');container.className='lm-pdf-section-content';details.append(container);
       let rendered=false;
       const mount=()=>{
@@ -443,7 +461,7 @@ async function lmImportPdfDraft(file) {
       window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
-      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';return;}
+      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';status.classList.add('bad');return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
@@ -543,6 +561,8 @@ async function lmImportPdfDraft(file) {
                 examples:examples.length?examples:[[title,'']],
                 source:'Oxford Practical English Usage'
               };
+              const cat=typeof window.stageClassifyGrammarRule==='function'?window.stageClassifyGrammarRule(title,detail):(/\b(vs\.?|versus| or )\b/i.test(title)?'confused':'classes');
+              detail.category=cat;
               if(typeof stageSaveGrammarRule==='function'){
                 stageSaveGrammarRule(title,detail);
               } else if(window.GrammarDetails){

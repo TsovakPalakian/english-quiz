@@ -1,5 +1,13 @@
 import {StudyService,StudyError,statement as s} from './learning-study.mjs';
 import {classifyError,synthesizeSubgroupDiagnostic,ERROR_TAGS,ERROR_CATEGORIES} from './learning-error-classifier.mjs';
+import {
+  FSRS_GRADES,
+  DEFAULT_DESIRED_RETENTION,
+  calculateRetrievability,
+  calculateInterval,
+  scheduleReview,
+  previewIntervals
+} from './fsrs-engine.mjs';
 
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const ready=new WeakMap();
@@ -18,7 +26,16 @@ export const SRS_INTERVALS=Object.freeze({
   4:21  // Day 21
 });
 
-export {ERROR_TAGS,ERROR_CATEGORIES};
+export {
+  ERROR_TAGS,
+  ERROR_CATEGORIES,
+  FSRS_GRADES,
+  DEFAULT_DESIRED_RETENTION,
+  calculateRetrievability,
+  calculateInterval,
+  scheduleReview,
+  previewIntervals
+};
 
 export class ErrorBankService extends StudyService {
   ensure(){
@@ -44,25 +61,40 @@ export class ErrorBankService extends StudyService {
             error_count INTEGER NOT NULL DEFAULT 1,
             success_streak INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'active',
+            stability REAL NOT NULL DEFAULT 0.0,
+            difficulty REAL NOT NULL DEFAULT 0.0,
+            retrievability REAL NOT NULL DEFAULT 0.0,
+            last_reviewed_at INTEGER NOT NULL DEFAULT 0,
+            reps INTEGER NOT NULL DEFAULT 0,
+            lapses INTEGER NOT NULL DEFAULT 0,
+            latency_ms INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL DEFAULT(unixepoch()),
             updated_at INTEGER NOT NULL DEFAULT(unixepoch()),
             UNIQUE(account_id, kind, material_id, part_id, question_index)
           )`),
           s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)'),
-          s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)')
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)'),
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_retrievability ON account_error_items(account_id, status, retrievability)')
         ]);
         const cols=await this.db.read('PRAGMA table_info(account_error_items)');
         const colNames=new Set(cols.map(c=>c.name));
         const alters=[];
         if(!colNames.has('error_category'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN error_category TEXT NOT NULL DEFAULT ''"));
         if(!colNames.has('diagnostic_note'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN diagnostic_note TEXT NOT NULL DEFAULT ''"));
+        if(!colNames.has('stability'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN stability REAL NOT NULL DEFAULT 0.0"));
+        if(!colNames.has('difficulty'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN difficulty REAL NOT NULL DEFAULT 0.0"));
+        if(!colNames.has('retrievability'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN retrievability REAL NOT NULL DEFAULT 0.0"));
+        if(!colNames.has('last_reviewed_at'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN last_reviewed_at INTEGER NOT NULL DEFAULT 0"));
+        if(!colNames.has('reps'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN reps INTEGER NOT NULL DEFAULT 0"));
+        if(!colNames.has('lapses'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0"));
+        if(!colNames.has('latency_ms'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN latency_ms INTEGER NOT NULL DEFAULT 0"));
         if(alters.length)await this.db.atomic(alters);
       })());
     }
     return ready.get(this.db);
   }
 
-  async recordErrors(account,kind,materialId,questions,answers={},points={}){
+  async recordErrors(account,kind,materialId,questions,answers={},points={},meta={}){
     if(!account||!materialId||!questions?.length)return [];
     await this.ensure();
     const now=Math.floor(Date.now()/1000);
@@ -79,14 +111,25 @@ export class ErrorBankService extends StudyService {
       if(score!=null&&Number(score)<max){
         const given=String(answers[partId]?.[index]??'');
         let expected=q.item?.answer!=null?String(q.item.answer):q.part?.allowedAnswers?String(q.part.allowedAnswers).split('/')[0].trim():'';
+        if(q.item?.options&&Number.isInteger(Number(q.item?.answer))&&isNaN(Number(given))){
+          expected=String(q.item.options[q.item.answer]||expected);
+        }
         if(!expected&&q.item?.options&&q.item?.answer!=null)expected=String(q.item.options[q.item.answer]||'');
         const prompt=q.item?.prompt||q.part?.title||q.item?.left||q.part?.html||'Language item';
+
+        const itemMeta=meta[partId]?.[index]||meta[`${partId}_${index}`]||meta[index]||{};
+        const latencyMs=Number(itemMeta.latencyMs)||0;
+        const hintUsed=itemMeta.hint||null;
+        const options=q.item?.options||[];
 
         const classification=classifyError({
           prompt,
           expected,
           given,
-          partType:q.part?.type||'gap'
+          partType:q.part?.type||'gap',
+          options,
+          hint:hintUsed,
+          latencyMs
         })||{
           tag:['text','vocab','cards'].includes(q.part?.type)?'vocabulary':'grammar',
           category:'general_grammar',
@@ -97,8 +140,11 @@ export class ErrorBankService extends StudyService {
         const errorCategory=classification.category||'';
         const diagnosticNote=classification.note||'';
 
-        commands.push(s(`INSERT INTO account_error_items(account_id,material_id,kind,part_id,question_index,prompt,expected_answer,given_answer,error_tag,error_category,diagnostic_note,stage,interval_days,next_review_at,error_count,success_streak,status,updated_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?,1,1,?,1,0,'active',?)
+        commands.push(s(`INSERT INTO account_error_items(
+            account_id,material_id,kind,part_id,question_index,prompt,expected_answer,given_answer,
+            error_tag,error_category,diagnostic_note,stage,interval_days,next_review_at,error_count,
+            success_streak,status,stability,difficulty,retrievability,last_reviewed_at,reps,lapses,latency_ms,updated_at
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,1,?,1,0,'active',0.4026,7.1949,1.0,?,1,1,?,?)
           ON CONFLICT(account_id,kind,material_id,part_id,question_index) DO UPDATE SET
             given_answer=excluded.given_answer,
             error_tag=excluded.error_tag,
@@ -110,10 +156,14 @@ export class ErrorBankService extends StudyService {
             interval_days=1,
             next_review_at=?,
             status='active',
+            lapses=lapses+1,
+            reps=reps+1,
+            last_reviewed_at=?,
+            latency_ms=excluded.latency_ms,
             updated_at=?`,
-          [account,materialId,kind,partId,index,prompt,expected,given,errorTag,errorCategory,diagnosticNote,now+86400,now,now+86400,now]
+          [account,materialId,kind,partId,index,prompt,expected,given,errorTag,errorCategory,diagnosticNote,now+86400,now,latencyMs,now,now+86400,now,now]
         ));
-        recorded.push({partId,index,expected,given,errorTag,errorCategory,diagnosticNote});
+        recorded.push({partId,index,expected,given,errorTag,errorCategory,diagnosticNote,latencyMs});
       }
     }
 
@@ -121,25 +171,55 @@ export class ErrorBankService extends StudyService {
     return recorded;
   }
 
-  async queue(actor,{limit=20}={}){
+  async queue(actor,{limit=20,mode='due'}={}){
     if(!actor?.id)fail(401,'Sign in first.');
     await this.ensure();
     const now=Math.floor(Date.now()/1000);
-    const rows=await this.db.read(
-      `SELECT id,material_id materialId,kind,part_id partId,question_index questionIndex,
-              prompt,expected_answer expectedAnswer,given_answer givenAnswer,
-              error_tag errorTag,error_category errorCategory,diagnostic_note diagnosticNote,
-              stage,interval_days intervalDays,next_review_at nextReviewAt,error_count errorCount,
-              success_streak successStreak
-       FROM account_error_items
-       WHERE account_id=? AND status='active' AND next_review_at<=?
-       ORDER BY next_review_at ASC, id ASC LIMIT ?`,
-      [actor.id,now,Math.min(limit,50)]
-    );
+    const maxLimit=Math.min(Number(limit)||20,50);
 
-    return rows.map(item=>{
+    let rows;
+    if(mode==='fsrs_retrievability'){
+      rows=await this.db.read(
+        `SELECT id,material_id materialId,kind,part_id partId,question_index questionIndex,
+                prompt,expected_answer expectedAnswer,given_answer givenAnswer,
+                error_tag errorTag,error_category errorCategory,diagnostic_note diagnosticNote,
+                stage,interval_days intervalDays,next_review_at nextReviewAt,error_count errorCount,
+                success_streak successStreak,
+                stability,difficulty,retrievability,last_reviewed_at lastReviewedAt,
+                reps,lapses,latency_ms latencyMs
+         FROM account_error_items
+         WHERE account_id=? AND status='active'
+         ORDER BY next_review_at ASC, id ASC LIMIT 200`,
+        [actor.id]
+      );
+    }else{
+      rows=await this.db.read(
+        `SELECT id,material_id materialId,kind,part_id partId,question_index questionIndex,
+                prompt,expected_answer expectedAnswer,given_answer givenAnswer,
+                error_tag errorTag,error_category errorCategory,diagnostic_note diagnosticNote,
+                stage,interval_days intervalDays,next_review_at nextReviewAt,error_count errorCount,
+                success_streak successStreak,
+                stability,difficulty,retrievability,last_reviewed_at lastReviewedAt,
+                reps,lapses,latency_ms latencyMs
+         FROM account_error_items
+         WHERE account_id=? AND status='active' AND next_review_at<=?
+         ORDER BY next_review_at ASC, id ASC LIMIT ?`,
+        [actor.id,now,maxLimit]
+      );
+    }
+
+    const processed=rows.map(item=>{
       const stage=item.stage||1;
-      let card={...item,stageName:stage===1?'recognition':stage===2?'cued_gap':stage===3?'generation':'speech'};
+      const elapsedDays = item.lastReviewedAt > 0 ? Math.max((now - item.lastReviewedAt) / 86400, 0) : 1;
+      const currentR = item.stability > 0 ? calculateRetrievability(elapsedDays, item.stability) : 0;
+      const intervals = previewIntervals(item, now);
+
+      let card={
+        ...item,
+        stageName:stage===1?'recognition':stage===2?'cued_gap':stage===3?'generation':'speech',
+        retrievability: Number(currentR.toFixed(4)),
+        previewIntervals: intervals
+      };
 
       if(stage===SRS_STAGES.RECOGNITION){
         // Stage 1: Recognition with distractor options
@@ -165,37 +245,92 @@ export class ErrorBankService extends StudyService {
 
       return card;
     });
+
+    if(mode==='fsrs_retrievability'){
+      processed.sort((a,b)=>{
+        if(a.retrievability!==b.retrievability)return a.retrievability-b.retrievability;
+        if(a.nextReviewAt!==b.nextReviewAt)return a.nextReviewAt-b.nextReviewAt;
+        return a.id-b.id;
+      });
+      return processed.slice(0,maxLimit);
+    }
+
+    return processed;
   }
 
-  async submitReview(actor,{itemId,answer}){
+  async submitReview(actor,{itemId,word,expectedAnswer,prompt,answer,grade,latencyMs,desiredRetention,kind,materialId,partId,questionIndex}){
     if(!actor?.id)fail(401,'Sign in first.');
     await this.ensure();
-    if(!itemId||answer==null)fail(400,'Item ID and answer are required.');
+    if(!itemId&&!word&&!expectedAnswer&&!prompt)fail(400,'Item identifier or word is required.');
+    if(answer==null&&grade==null)fail(400,'Answer or grade is required.');
 
-    const [item]=await this.db.read(
-      `SELECT * FROM account_error_items WHERE id=? AND account_id=?`,
-      [itemId,actor.id]
-    );
-    if(!item)fail(404,'Review item not found.');
+    let item;
+    if(itemId){
+      const rows=await this.db.read(
+        `SELECT * FROM account_error_items WHERE id=? AND account_id=?`,
+        [itemId,actor.id]
+      );
+      item=rows[0];
+    }else{
+      const target=String(expectedAnswer||word||prompt||'').trim().toLowerCase();
+      const rows=await this.db.read(
+        `SELECT * FROM account_error_items WHERE account_id=? AND (LOWER(expected_answer)=? OR LOWER(prompt)=?) ORDER BY id DESC LIMIT 1`,
+        [actor.id,target,target]
+      );
+      item=rows[0];
+    }
 
-    const normalizedAnswer=String(answer).trim().toLowerCase().replace(/[.,!?;:]/g,'');
-    const expectedNormalized=String(item.expected_answer).trim().toLowerCase().replace(/[.,!?;:]/g,'');
+    let assignedGrade=grade!=null?Math.min(Math.max(Number(grade)||3,1),4):null;
+    let correct=assignedGrade!=null?assignedGrade>FSRS_GRADES.AGAIN:false;
 
-    let correct=false;
-    if(item.stage===SRS_STAGES.RECOGNITION||item.stage===SRS_STAGES.CUED_GAP){
-      correct=normalizedAnswer===expectedNormalized || (expectedNormalized && normalizedAnswer.includes(expectedNormalized));
-    }else if(item.stage===SRS_STAGES.GENERATION){
-      // Generation must contain the target expected form and meet minimum length
-      correct=normalizedAnswer.includes(expectedNormalized)&&normalizedAnswer.split(/\s+/).length>=3;
-    }else if(item.stage===SRS_STAGES.SPEECH){
-      // Speech recall verification
-      correct=normalizedAnswer===expectedNormalized || normalizedAnswer.length>0;
+    if(!item){
+      if(!correct){
+        const targetPrompt=String(prompt||word||expectedAnswer||'Language item');
+        const targetExpected=String(expectedAnswer||word||'');
+        const targetGiven=String(answer||'');
+        const recorded=await this.recordErrors(actor.id,kind||'quiz',materialId||1,[
+          {part:{id:partId||'quiz',type:'quiz'},index:questionIndex||0,max:1,item:{prompt:targetPrompt,answer:targetExpected}}
+        ],{[partId||'quiz']:{[questionIndex||0]:targetGiven}},{[partId||'quiz']:{[questionIndex||0]:0}},{
+          [partId||'quiz']:{[questionIndex||0]:{latencyMs:Number(latencyMs)||0}}
+        });
+        return {ok:true,created:true,grade:assignedGrade||FSRS_GRADES.AGAIN,recorded};
+      }
+      return {ok:true,untracked:true};
+    }
+
+    if(answer!=null){
+      const normalizedAnswer=String(answer).trim().toLowerCase().replace(/[.,!?;:]/g,'');
+      const expectedNormalized=String(item.expected_answer).trim().toLowerCase().replace(/[.,!?;:]/g,'');
+
+      if(item.stage===SRS_STAGES.RECOGNITION||item.stage===SRS_STAGES.CUED_GAP){
+        correct=normalizedAnswer===expectedNormalized || (expectedNormalized && normalizedAnswer.includes(expectedNormalized));
+      }else if(item.stage===SRS_STAGES.GENERATION){
+        // Generation must contain the target expected form and meet minimum length
+        correct=normalizedAnswer.includes(expectedNormalized)&&normalizedAnswer.split(/\s+/).length>=3;
+      }else if(item.stage===SRS_STAGES.SPEECH){
+        // Speech recall verification
+        correct=normalizedAnswer===expectedNormalized || normalizedAnswer.length>0;
+      }
+
+      if(assignedGrade==null){
+        assignedGrade=correct?FSRS_GRADES.GOOD:FSRS_GRADES.AGAIN;
+      }
+    }else{
+      correct=assignedGrade>FSRS_GRADES.AGAIN;
     }
 
     const now=Math.floor(Date.now()/1000);
+    const fsrsResult=scheduleReview({
+      stability:item.stability,
+      difficulty:item.difficulty,
+      reps:item.reps,
+      lapses:item.lapses,
+      lastReviewedAt:item.last_reviewed_at
+    },assignedGrade,now,{desiredRetention});
+
     let nextStage=item.stage;
-    let nextInterval=item.interval_days;
-    let nextReviewAt=now+86400;
+    let nextInterval;
+    let nextReviewAt;
     let newStatus=item.status;
     let newStreak=item.success_streak;
 
@@ -204,36 +339,52 @@ export class ErrorBankService extends StudyService {
       if(item.stage>=SRS_STAGES.SPEECH){
         // Mastered after passing all 4 stages
         newStatus='mastered';
-        nextReviewAt=now+SRS_INTERVALS[4]*86400;
+        nextInterval=grade!=null?fsrsResult.intervalDays:SRS_INTERVALS[4];
+        nextReviewAt=now+nextInterval*86400;
       }else{
         nextStage=item.stage+1;
-        nextInterval=SRS_INTERVALS[nextStage]||(item.interval_days*2);
+        nextInterval=grade!=null?fsrsResult.intervalDays:(SRS_INTERVALS[nextStage]||(item.interval_days*2));
         nextReviewAt=now+nextInterval*86400;
       }
     }else{
       // Demote stage and reset interval on mistake
       newStreak=0;
       nextStage=Math.max(1,item.stage-1);
-      nextInterval=1;
-      nextReviewAt=now+86400;
+      nextInterval=grade!=null?fsrsResult.intervalDays:1;
+      nextReviewAt=now+nextInterval*86400;
     }
+
+    const recordedLatency=Number(latencyMs)||item.latency_ms||0;
 
     await this.db.atomic([
       s(`UPDATE account_error_items
-         SET stage=?,interval_days=?,next_review_at=?,status=?,success_streak=?,error_count=error_count+?,updated_at=?
+         SET stage=?,interval_days=?,next_review_at=?,status=?,success_streak=?,
+             error_count=error_count+?,stability=?,difficulty=?,retrievability=?,
+             last_reviewed_at=?,reps=?,lapses=?,latency_ms=?,updated_at=?
          WHERE id=? AND account_id=?`,
-        [nextStage,nextInterval,nextReviewAt,newStatus,newStreak,correct?0:1,now,itemId,actor.id]
+        [
+          nextStage,nextInterval,nextReviewAt,newStatus,newStreak,
+          correct?0:1,fsrsResult.stability,fsrsResult.difficulty,fsrsResult.retrievability,
+          now,fsrsResult.reps,fsrsResult.lapses,recordedLatency,now,
+          item.id,actor.id
+        ]
       )
     ]);
 
     return {
-      itemId,
+      itemId:item.id,
       correct,
+      grade:assignedGrade,
       stage:nextStage,
       intervalDays:nextInterval,
       nextReviewAt,
       status:newStatus,
-      expected:item.expected_answer
+      expected:item.expected_answer,
+      stability:fsrsResult.stability,
+      difficulty:fsrsResult.difficulty,
+      retrievability:fsrsResult.retrievability,
+      reps:fsrsResult.reps,
+      lapses:fsrsResult.lapses
     };
   }
 
@@ -247,7 +398,9 @@ export class ErrorBankService extends StudyService {
          SUM(CASE WHEN status='active' AND next_review_at<=? THEN 1 ELSE 0 END) dueToday,
          SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) activeItems,
          SUM(CASE WHEN status='mastered' THEN 1 ELSE 0 END) masteredItems,
-         MAX(success_streak) maxStreak
+         MAX(success_streak) maxStreak,
+         AVG(CASE WHEN status='active' AND stability>0 THEN stability ELSE NULL END) avgStability,
+         AVG(CASE WHEN status='active' AND difficulty>0 THEN difficulty ELSE NULL END) avgDifficulty
        FROM account_error_items
        WHERE account_id=?`,
       [now,actor.id]
@@ -258,7 +411,9 @@ export class ErrorBankService extends StudyService {
       dueToday:counts?.dueToday||0,
       activeItems:counts?.activeItems||0,
       masteredItems:counts?.masteredItems||0,
-      maxStreak:counts?.maxStreak||0
+      maxStreak:counts?.maxStreak||0,
+      avgStability:counts?.avgStability ? Number(counts.avgStability.toFixed(2)) : 0,
+      avgDifficulty:counts?.avgDifficulty ? Number(counts.avgDifficulty.toFixed(2)) : 0
     };
   }
 

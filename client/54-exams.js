@@ -876,7 +876,9 @@
       document.querySelectorAll('[data-exam-task-earned]').forEach(node=>{const key=node.dataset.examTaskEarned,total=questions.filter(q=>(q.part.assignmentKey||q.part.assignmentId||('part-'+q.part.id))===key).reduce((sum,q)=>sum+(Number(String(lmState.examPoints?.[q.part.id]?.[0]||0).replace(',','.'))||0),0);node.textContent=String(Number(total.toFixed(10)));});
     }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
-      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about saas-badge saas-badge-info">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
+      const badgeHtml = Array.isArray(about) ? about.join('') : (about ? '<span class="label about saas-badge saas-badge-info">' + esc(about) + '</span>' : '');
+      const dateHtml = chip ? '<span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b>" + (chip.month ? "<small>" + esc(chip.month) + "</small>" : "") + "</span>" : "";
+      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '>' + dateHtml + '<b>' + esc(title) + '</b><div class="exam-card-badges">' + badgeHtml + '</div></button>' + (tools || "") + "</div>";
     }
     function examTools(kind, id, hidden) {
       if (!canEditLessons() && !canTuneStudentLessons()) return "";
@@ -927,16 +929,25 @@
         const mine = !canEditLessons();
         const ready = mine && examReadyForReview(exam);
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
-        let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
         const visible = examVisibleBlocks(exam), maximum = Math.round(visible.reduce((n,b) => n + assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q) => m + q.max,0),0)*1e8)/1e8;
         const reviewed = visible.filter(b => b.doc?.assessmentState === 'published').length;
-        about += ' · Maximum ' + maximum;
-        if (mine && (canTuneStudentLessons() || reviewed)) about += ' · ' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed';
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
-        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
-        if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
-        if(exam.instanceStatus==='completed')about='Completed · Maximum '+exam.maximumPoints+' · '+exam.earnedPoints+' points';
-        return examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), about, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
+        const badges = [];
+        if (exam.instanceStatus === 'completed') {
+          badges.push('<span class="label about saas-badge saas-badge-success">Completed · Maximum ' + exam.maximumPoints + ' · ' + exam.earnedPoints + ' points</span>');
+        } else {
+          const statusClass = exam.published ? 'saas-badge-active' : 'saas-badge-muted';
+          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published' : 'Draft'));
+          badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(statusText) + '</span>');
+          badges.push('<span class="saas-badge saas-badge-muted">Examination blocks · ' + (exam.blocks || []).length + '</span>');
+          badges.push('<span class="saas-badge saas-badge-info">Maximum score: ' + maximum + '</span>');
+          if (mine && (canTuneStudentLessons() || reviewed)) badges.push('<span class="saas-badge saas-badge-muted">' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed</span>');
+          if (viewAccount && !hidden) {
+            const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length;
+            if (hiddenBlocks) badges.push('<span class="saas-badge saas-badge-muted">Hidden ' + hiddenBlocks + ' / ' + (exam.blocks || []).length + ' blocks</span>');
+          }
+        }
+        return examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), badges, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -956,14 +967,16 @@
         const saved = !canEditLessons() && block.doc && block.doc.studentSaved;
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
-        let about = block.hidden ? "Hidden" : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? "Submitted" : (block.doc && block.doc.published ? "Published" : "Draft"));
-        if (canTuneStudentLessons() && !block.hidden) about = ({draft:'Not submitted',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'})[block.doc?.assessmentState] || (examWorkLoadedFor === examWorkAccount() && !examWorkPulling ? 'Not submitted' : 'Loading status…');
         const maximum = Math.round(assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0)*1e8)/1e8;
-        about += ' · Maximum ' + maximum;
-        if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
         const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
-        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
-        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, exam.instanceStatus==='completed' ? '' : examTools("block", block.id, hidden));
+        const badges = [];
+        const statusClass = (block.doc?.assessmentState === 'published' || (block.doc && block.doc.published)) ? 'saas-badge-active' : (saved ? 'saas-badge-info' : 'saas-badge-muted');
+        let statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? 'Submitted' : (block.doc && block.doc.published ? 'Published' : 'Draft'));
+        if (canTuneStudentLessons() && !hidden) statusText = ({draft:'Not submitted',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'})[block.doc?.assessmentState] || (examWorkLoadedFor === examWorkAccount() && !examWorkPulling ? 'Not submitted' : 'Loading status…');
+        let aboutText = statusText + ' · Maximum ' + maximum;
+        if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) aboutText += ' · ' + sum + ' points';
+        badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(aboutText) + '</span>');
+        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", badges, 'data-exam-block="' + block.id + '"', saved, hidden, exam.instanceStatus==='completed' ? '' : examTools("block", block.id, hidden));
       }).join("");
     }
     function examHide(kind, id) {

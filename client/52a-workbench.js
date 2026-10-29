@@ -4,7 +4,7 @@
   let job=null,dialog=null,observer=null,serial=0;
   const displayedCards=new Map();
   let speechUI=null,providerUI=null;
-  const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice'];
+  const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice','FSRS Flashcard'];
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
