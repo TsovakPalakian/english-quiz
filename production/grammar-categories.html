@@ -1,5 +1,5 @@
 <section id="grammarcategories">
-  <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Grammatical Categories</h1></div>
+  <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button><h1>Grammatical Categories</h1><button class="btn primary saas-btn" type="button" id="grammarRuleNew" style="margin-left:auto">+ Add rule</button></div>
   <div class="decks" id="grammarCategoryGroups"></div>
 </section>
 <section id="grammarcategory">
@@ -10,3 +10,60 @@
   <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="grammarcategory">Back</button><h1 id="grammarRuleTitle"></h1></div>
   <div id="grammarRuleBody"></div>
 </section>
+<dialog id="grammarNewRuleDialog" class="saas-card" style="max-width:680px; width:92vw; padding:24px; border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:#ffffff; box-shadow:var(--saas-shadow-lg);">
+  <form id="grammarNewRuleForm" method="dialog">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h2 style="margin:0; font-size:18px;">Add grammar rule</h2>
+      <button class="btn ghost saas-btn" type="button" data-action="close-dialog">Cancel</button>
+    </div>
+    <div class="saas-form-grid" style="margin-bottom:12px;">
+      <div class="saas-form-group">
+        <label class="saas-label">Rule title (English)</label>
+        <input class="saas-input" name="title" required placeholder="e.g. Cost vs. Be Worth">
+      </div>
+      <div class="saas-form-group">
+        <label class="saas-label">Russian name</label>
+        <input class="saas-input" name="ru" required placeholder="e.g. Cost и be worth">
+      </div>
+    </div>
+    <div class="saas-form-group" style="margin-bottom:12px;">
+      <label class="saas-label">Meaning / English explanation</label>
+      <textarea class="saas-textarea" name="en" required style="min-height:64px;" placeholder="English definition and usage"></textarea>
+    </div>
+    <div class="saas-form-group" style="margin-bottom:12px;">
+      <label class="saas-label">Definition in Russian</label>
+      <textarea class="saas-textarea" name="definition" style="min-height:54px;" placeholder="Пояснение правила на русском"></textarea>
+    </div>
+    <div class="saas-form-grid" style="margin-bottom:12px;">
+      <div class="saas-form-group">
+        <label class="saas-label">Structure / Pattern (EN)</label>
+        <input class="saas-input" name="pattern" placeholder="e.g. costs + price">
+      </div>
+      <div class="saas-form-group">
+        <label class="saas-label">Pattern (RU)</label>
+        <input class="saas-input" name="patternRu" placeholder="Схема употребления">
+      </div>
+    </div>
+    <div class="saas-form-grid" style="margin-bottom:12px;">
+      <div class="saas-form-group">
+        <label class="saas-label">Distinctions / Contrast (EN)</label>
+        <input class="saas-input" name="contrast" placeholder="Common mistakes / distinction">
+      </div>
+      <div class="saas-form-group">
+        <label class="saas-label">Distinctions (RU)</label>
+        <input class="saas-input" name="contrastRu" placeholder="Типовые ошибки и различия">
+      </div>
+    </div>
+    <div class="saas-form-group" style="margin-bottom:16px;">
+      <label class="saas-label">Examples (one per line, English ~ Russian)</label>
+      <textarea class="saas-textarea" name="examples" style="min-height:72px;" placeholder="The car costs $200,000. ~ Машина стоит 200 000 $.&#10;The house is worth 50 million $. ~ Дом оценивается в 50 млн $."></textarea>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <button class="btn secondary saas-btn" type="button" id="grammarEnrichBtn">Search in Oxford</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn ghost saas-btn" type="button" data-action="close-dialog">Cancel</button>
+        <button class="btn primary saas-btn" type="submit">Save rule</button>
+      </div>
+    </div>
+  </form>
+</dialog>

@@ -371,7 +371,7 @@
   async function perform(action,status){
     if(busy||preparing){notice('Дождитесь ответа на текущую запись.',true);return;}
     preparing=true;const startedActor=actorId,startedView=typeof viewGen==='undefined'?null:viewGen,startedTarget=typeof viewAccount==='undefined'?'':viewAccount?.id||'';
-    const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#stageNewCard button,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
+    const buttons=[...document.querySelectorAll('[data-edit-save],[data-card-delete],[data-card-quiz-save],[data-card-quiz-del],[data-add-go],#addGo,#textedit button,#songUser button,#songUser input[type="file"],#lyricForm button,#material button,#material input,#material textarea,#material select,[data-lm-delete],[data-lm-hide]')];
     const disabled=buttons.map(b=>b.disabled);for(const b of buttons)b.disabled=true;
     const rich=[...document.querySelectorAll('#material [contenteditable="true"]')];for(const el of rich)el.setAttribute('contenteditable','false');
     notice('Сохранение в тестовую Learning…');

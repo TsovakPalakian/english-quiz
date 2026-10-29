@@ -1745,6 +1745,9 @@ a.btn { text-decoration: none; }
 .wcard-tools .wcard { width: 100%; }
 .wcard-tools .edit-actions { position: absolute; top: 8px; right: 8px; z-index: 2; gap: 6px; }
 .wcard-tools .icon-btn { width: 32px; height: 32px; }
+.lm-word-card-wrap { position: relative; display: flex; flex-direction: column; width: 100%; min-width: 0; }
+.lm-word-card-wrap .wcard { width: 100%; height: 100%; box-sizing: border-box; }
+.lm-word-card-wrap .lm-word-kit { position: absolute; top: 6px; right: 6px; z-index: 2; }
 .wcard.is-learned { background: var(--ok-s); border-color: var(--ok); }
 .wcard .pic { margin-bottom: 6px; }
 .pic svg { width: 40px; height: 40px; display: block; }
@@ -2638,10 +2641,8 @@ button:disabled { opacity: .45; }
   .verb-form-cards { grid-template-columns: minmax(0, 1fr) !important; }
 }
 #tenses .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); }
-#tenses .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
 #wordcollections .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
 #wordcollections .file-card:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
-#wordcollections .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
 .wcard { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .wcard:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
 #music .day.active, #lyricList .day.active { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
@@ -4081,6 +4082,69 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   line-height: 1.5;
   color: var(--saas-text, #0f172a);
 }
+.lm-pdf-form-box {
+  margin: 12px 0 4px;
+  padding: 14px 16px;
+  background: var(--saas-subtle, #f8fafc);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-md, 8px);
+}
+.lm-pdf-words-container,
+.lm-pdf-rules-container {
+  margin: 12px 0 4px;
+}
+.lm-pdf-words-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.lm-pdf-word-list,
+.lm-pdf-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lm-pdf-word-card,
+.lm-pdf-rule-card {
+  padding: 14px 16px;
+  border: 1px solid var(--saas-border, #e2e8f0);
+  border-radius: var(--saas-radius-md, 8px);
+  background: #ffffff;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+.lm-pdf-word-card.is-unselected,
+.lm-pdf-rule-card.is-unselected {
+  opacity: 0.45;
+  background: var(--saas-subtle, #f8fafc);
+}
+.lm-pdf-word-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.lm-pdf-word-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--saas-text, #0f172a);
+}
+.lm-pdf-word-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lm-pdf-draft .lm-pdf-words-toolbar button,
+.lm-pdf-draft .lm-pdf-word-actions button {
+  height: auto;
+  margin: 0;
+}
 .lm-pdf-draft input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--saas-brand, #0d9488); cursor: pointer; }
 .lm-pdf-draft button {
   height: 40px;
@@ -5038,62 +5102,6 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
    STAGE 6: Words Studio & Grammar Matrix (#allwords, #tenses)
    ============================================================ */
 
-/* Words Studio & Collections */
-#wordcollections .decks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 14px;
-}
-
-#wordcollections .file-card {
-  min-height: 100px;
-  padding: 18px 20px;
-  border-radius: var(--saas-radius-lg, 12px);
-  background: var(--saas-card, #ffffff);
-  border: 1px solid var(--saas-border, #e2e8f0);
-  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
-  transition: all 0.15s ease;
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-  gap: 14px;
-  text-align: left;
-}
-
-#wordcollections .file-card:hover {
-  border-color: var(--saas-primary, #0d9488);
-  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
-  transform: translateY(-1px);
-}
-
-#wordcollections .file-card .num {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--saas-radius-md, 8px);
-  background: var(--saas-card-muted, #f1f5f9);
-  border: 1px solid var(--saas-border, #e2e8f0);
-  color: var(--saas-brand, #146c5c);
-  font-weight: 800;
-  font-size: 16px;
-}
-
-#wordcollections .file-card b {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--saas-text-primary, #0f172a);
-  display: block;
-}
-
-#wordcollections .file-card .label {
-  font-size: 12.5px;
-  color: var(--saas-text-muted, #64748b);
-  display: block;
-  margin-top: 2px;
-}
 
 /* All Words Catalog & Word Source Rows */
 #allWordGrid {
@@ -5188,85 +5196,6 @@ body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; ba
   background: var(--saas-card-muted, #f8fafc);
 }
 
-#tenses .resource-fold .decks {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 18px;
-}
-
-#tenses .g-areas {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-#tenses .g-area {
-  padding: 18px 20px;
-  border-radius: var(--saas-radius-lg, 12px);
-  background: var(--saas-card, #ffffff);
-  border: 1px solid var(--saas-border, #e2e8f0);
-  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
-  transition: all 0.15s ease;
-  text-align: left;
-  cursor: pointer;
-}
-
-#tenses .g-area:hover {
-  border-color: var(--saas-primary, #0d9488);
-  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
-  transform: translateY(-1px);
-}
-
-#tenses .g-badge {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 8px;
-  border-radius: var(--saas-radius-pill, 9999px);
-  background: var(--saas-brand-subtle, #f0fdfa);
-  color: var(--saas-brand, #146c5c);
-  border: 1px solid var(--saas-brand-border, rgba(20,108,92,0.15));
-  margin-bottom: 8px;
-}
-
-#tenses .g-topic {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-radius: var(--saas-radius-lg, 12px);
-  background: var(--saas-card, #ffffff);
-  border: 1px solid var(--saas-border, #e2e8f0);
-  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
-  margin-bottom: 10px;
-  transition: all 0.15s ease;
-  cursor: pointer;
-}
-
-#tenses .g-topic:hover {
-  border-color: var(--saas-primary, #0d9488);
-  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
-  transform: translateY(-1px);
-}
-
-#tenses .g-topic b {
-  font-size: 14.5px;
-  font-weight: 700;
-  color: var(--saas-text-primary, #0f172a);
-}
-
-#tenses .g-topic .form {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--saas-brand, #146c5c);
-  background: var(--saas-brand-subtle, #f0fdfa);
-  padding: 2px 8px;
-  border-radius: var(--saas-radius-pill, 9999px);
-}
 
 /* Child Tense & Marker Screens */
 #tenseLang {

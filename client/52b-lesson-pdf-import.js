@@ -141,21 +141,174 @@ async function lmImportPdfDraft(file) {
     if(!active())return;
     if(typeof stageEnsureStatic==='function')await stageEnsureStatic('GRAMMAR');
     if(!active())return;
-    const groups=await lmPdfDraftBlocks(data,hash);
+    let groups=await lmPdfDraftBlocks(data,hash);
     if(!active())return;
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft saas-card';dialog.setAttribute('open','');
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
     const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
-    const section=(key,title,body,checked)=>{
+    const section=(key,title,renderContent,checked)=>{
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
-      input.type='checkbox';input.checked=checked;choices.set(key,input);label.append(input,document.createTextNode(' '+title));summary.append(label);details.append(summary);
-      const preview=document.createElement('pre');preview.textContent=body;details.append(preview);dialog.append(details);
+      input.type='checkbox';input.checked=checked;choices.set(key,input);
+      const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
+      label.append(input,titleSpan);summary.append(label);details.append(summary);
+      const container=document.createElement('div');container.className='lm-pdf-section-content';details.append(container);
+      let rendered=false;
+      const mount=()=>{
+        if(rendered)return;
+        rendered=true;
+        renderContent(container,titleSpan);
+      };
+      details.addEventListener('toggle',()=>{if(details.open)mount();});
+      if(details.open)mount();
+      dialog.append(details);
     };
-    section('metadata','Basic information',[data.title,data.description,data.unit?'Unit: '+data.unit:'',data.lesson?'Lesson: '+data.lesson:''].filter(Boolean).join('\n'),!current.title&&!current.description);
-    section('overview','Overview',data.overview,true);
-    for(const key of ['words','phrases','rules','classwork'])section(key,key[0].toUpperCase()+key.slice(1)+' · '+data[key].length,data[key].map(r=>[r.word||r.phrase||r.title,r.meaning||r.explanation||r.text,r.translation,r.example,...(r.examples||[]),...(r.options||[]),r.kind==='choice'?'Teacher key: '+r.options[r.answer]:'',r.criteria,r.teacherAnswer,r.feedback,'Pages: '+r.pages.join(', ')+(r.generated?' · generated practice':'')].filter(Boolean).join('\n')).join('\n\n'),true);
-    section('pdf','Lesson PDF',file.name,true);
+    section('metadata','Basic information',(container)=>{
+      const box=document.createElement('div');box.className='lm-pdf-form-box';
+      box.innerHTML=
+        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Lesson title</label><input class="saas-input" data-pdf-field="title" value="'+esc(data.title||'')+'" placeholder="Lesson title"></div>'+
+        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" placeholder="Description" style="min-height:60px">'+esc(data.description||'')+'</textarea></div>'+
+        '<div class="saas-form-grid"><div class="saas-form-group"><label class="saas-label">Unit</label><input class="saas-input" data-pdf-field="unit" value="'+esc(data.unit||'')+'" placeholder="Unit"></div>'+
+        '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>';
+      container.append(box);
+    },!current.title&&!current.description);
+    section('overview','Overview',(container)=>{
+      const box=document.createElement('div');box.className='lm-pdf-form-box';
+      box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
+      container.append(box);
+    },true);
+    section('words','Words · '+data.words.length,(container,titleSpan)=>{
+      const wrap=document.createElement('div');wrap.className='lm-pdf-words-container';
+      const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
+      toolbar.innerHTML='<span class="saas-text-muted" style="font-size:12.5px">Select words to import, edit entries, or add missing words.</span>';
+      const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='btn primary saas-btn saas-btn-sm';addBtn.textContent='+ Add word';
+      toolbar.append(addBtn);wrap.append(toolbar);
+      const list=document.createElement('div');list.className='lm-pdf-word-list';
+      const updateCount=()=>{
+        const rows=list.querySelectorAll('.lm-pdf-word-card');
+        titleSpan.textContent=' Words · '+rows.length;
+      };
+      const renderWordCard=(r,selected=true)=>{
+        const card=document.createElement('div');card.className='lm-pdf-word-card saas-card'+(selected?'':' is-unselected');card.dataset.pdfWordCard='';
+        if(r.pages?.length)card.dataset.pages=JSON.stringify(r.pages);
+        card.innerHTML=
+          '<div class="lm-pdf-word-header">'+
+            '<label class="lm-pdf-word-check"><input type="checkbox" data-word-select '+(selected?'checked':'')+'> <b data-word-title>'+esc(r.word||'New word')+'</b></label>'+
+            '<div class="lm-pdf-word-actions">'+
+              (r.pages?.length?'<span class="saas-badge saas-badge-muted" style="font-size:11px">Pages: '+esc(r.pages.join(', '))+'</span>':'')+
+              '<button type="button" class="btn ghost saas-btn-sm saas-btn-danger" data-action="remove-word" title="Remove" style="padding:0 8px;min-height:28px">✕</button>'+
+            '</div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Word</label><input class="saas-input" data-word-key="word" value="'+esc(r.word||'')+'" placeholder="English word"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Russian translation</label><input class="saas-input" data-word-key="translation" value="'+esc(r.translation||'')+'" placeholder="Перевод"></div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Meaning</label><input class="saas-input" data-word-key="meaning" value="'+esc(r.meaning||'')+'" placeholder="English definition"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Example</label><input class="saas-input" data-word-key="example" value="'+esc(r.example||'')+'" placeholder="Example sentence"></div>'+
+          '</div>';
+        const wordInput=card.querySelector('[data-word-key="word"]'),titleEl=card.querySelector('[data-word-title]'),checkEl=card.querySelector('[data-word-select]');
+        wordInput.oninput=()=>{titleEl.textContent=wordInput.value.trim()||'New word';};
+        checkEl.onchange=()=>{card.classList.toggle('is-unselected',!checkEl.checked);};
+        card.querySelector('[data-action="remove-word"]').onclick=()=>{card.remove();updateCount();};
+        return card;
+      };
+      data.words.forEach(r=>list.append(renderWordCard(r,true)));
+      addBtn.onclick=()=>{
+        const newCard=renderWordCard({word:'',translation:'',meaning:'',example:'',pages:[]},true);
+        list.prepend(newCard);updateCount();newCard.querySelector('[data-word-key="word"]')?.focus();
+      };
+      wrap.append(list);container.append(wrap);
+    },true);
+    for(const key of ['phrases','classwork']){
+      section(key,key[0].toUpperCase()+key.slice(1)+' · '+data[key].length,(container)=>{
+        const preview=document.createElement('pre');
+        preview.textContent=data[key].map(r=>[r.word||r.phrase||r.title,r.meaning||r.explanation||r.text,r.translation,r.example,...(r.examples||[]),...(r.options||[]),r.kind==='choice'?'Teacher key: '+r.options[r.answer]:'',r.criteria,r.teacherAnswer,r.feedback,'Pages: '+r.pages.join(', ')+(r.generated?' · generated practice':'')].filter(Boolean).join('\n')).join('\n\n');
+        container.append(preview);
+      },true);
+    }
+    section('rules','Rules · '+data.rules.length,(container,titleSpan)=>{
+      const wrap=document.createElement('div');wrap.className='lm-pdf-rules-container';
+      const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
+      const countLabel=document.createElement('span');countLabel.className='saas-badge';
+      const updateCount=()=>{
+        const activeCount=list.querySelectorAll('[data-pdf-rule-card]:not(.is-unselected)').length;
+        const totalCount=list.querySelectorAll('[data-pdf-rule-card]').length;
+        countLabel.textContent=activeCount+' of '+totalCount+' selected';
+        titleSpan.textContent=' Rules · '+totalCount;
+      };
+      const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='btn secondary saas-btn';addBtn.textContent='+ Add rule';
+      toolbar.append(countLabel,addBtn);wrap.append(toolbar);
+      const list=document.createElement('div');list.className='lm-pdf-rule-list';
+      const renderRuleCard=(r,isSelected=true)=>{
+        const card=document.createElement('div');card.className='lm-pdf-rule-card'+(isSelected?'':' is-unselected');
+        card.setAttribute('data-pdf-rule-card','');
+        if(r.pages)card.dataset.pages=JSON.stringify(r.pages);
+        const match=lmPdfGrammarMatch(r.title);
+        const matchBadge=match?'<span class="saas-badge" style="background:var(--saas-status-success-bg,#ecfdf5);color:var(--saas-status-success-text,#065f46);">In service</span>':'<span class="saas-badge" style="background:var(--saas-status-info-bg,#eff6ff);color:var(--saas-status-info-text,#1e40af);">Oxford / Trusted sources</span>';
+        const exText=Array.isArray(r.examples)?r.examples.map(e=>Array.isArray(e)?(e[0]+(e[1]?' ~ '+e[1]:'')):String(e)).join('\n'):'';
+        card.innerHTML=
+          '<div class="lm-pdf-word-header">'+
+            '<label class="lm-pdf-word-check"><input type="checkbox" data-rule-select '+(isSelected?'checked':'')+'><span data-rule-title>'+esc(r.title||'New rule')+'</span> '+matchBadge+'</label>'+
+            '<div class="lm-pdf-word-actions">'+
+              '<button type="button" class="btn ghost saas-btn" data-action="enrich-rule" title="Enrich from Oxford and trusted sources">Oxford</button>'+
+              '<button type="button" class="btn ghost saas-btn" data-action="remove-rule" title="Remove rule">✕</button>'+
+            '</div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:10px">'+
+            '<div class="saas-form-group"><label class="saas-label">Rule title</label><input class="saas-input" data-rule-key="title" value="'+esc(r.title||'')+'" placeholder="Rule name (English)"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Russian name</label><input class="saas-input" data-rule-key="ru" value="'+esc(r.ru||r.title||'')+'" placeholder="Название на русском"></div>'+
+          '</div>'+
+          '<div class="saas-form-group" style="margin-top:8px">'+
+            '<label class="saas-label">English explanation</label><textarea class="saas-textarea" data-rule-key="explanation" style="min-height:56px" placeholder="English explanation / definition">'+esc(r.explanation||r.en||'')+'</textarea>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Structure / Pattern (EN)</label><input class="saas-input" data-rule-key="pattern" value="'+esc(r.pattern||'')+'" placeholder="Grammar pattern"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Structure (RU)</label><input class="saas-input" data-rule-key="patternRu" value="'+esc(r.patternRu||'')+'" placeholder="Модель употребления"></div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Distinctions (EN)</label><input class="saas-input" data-rule-key="contrast" value="'+esc(r.contrast||'')+'" placeholder="Distinctions / common mistakes"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Distinctions (RU)</label><input class="saas-input" data-rule-key="contrastRu" value="'+esc(r.contrastRu||'')+'" placeholder="Различия на русском"></div>'+
+          '</div>'+
+          '<div class="saas-form-group" style="margin-top:8px">'+
+            '<label class="saas-label">Examples (one per line, English ~ Russian)</label><textarea class="saas-textarea" data-rule-key="examples" style="min-height:60px" placeholder="The car costs $200,000. ~ Машина стоит 200 000 $.">'+esc(exText)+'</textarea>'+
+          '</div>';
+        const titleInput=card.querySelector('[data-rule-key="title"]'),titleEl=card.querySelector('[data-rule-title]'),checkEl=card.querySelector('[data-rule-select]'),enrichBtn=card.querySelector('[data-action="enrich-rule"]');
+        titleInput.oninput=()=>{titleEl.textContent=titleInput.value.trim()||'New rule';};
+        checkEl.onchange=()=>{card.classList.toggle('is-unselected',!checkEl.checked);updateCount();};
+        card.querySelector('[data-action="remove-rule"]').onclick=()=>{card.remove();updateCount();};
+        enrichBtn.onclick=async()=>{
+          const curTitle=titleInput.value.trim();if(!curTitle)return;
+          enrichBtn.disabled=true;enrichBtn.textContent='…';
+          try{
+            const enriched=typeof stageEnrichGrammarRule==='function'?await stageEnrichGrammarRule(curTitle,card.querySelector('[data-rule-key="explanation"]')?.value||''):null;
+            if(enriched){
+              if(!card.querySelector('[data-rule-key="ru"]')?.value)card.querySelector('[data-rule-key="ru"]').value=enriched.ru||'';
+              if(!card.querySelector('[data-rule-key="explanation"]')?.value)card.querySelector('[data-rule-key="explanation"]').value=enriched.en||'';
+              if(!card.querySelector('[data-rule-key="pattern"]')?.value)card.querySelector('[data-rule-key="pattern"]').value=enriched.pattern||'';
+              if(!card.querySelector('[data-rule-key="patternRu"]')?.value)card.querySelector('[data-rule-key="patternRu"]').value=enriched.patternRu||'';
+              if(!card.querySelector('[data-rule-key="contrast"]')?.value)card.querySelector('[data-rule-key="contrast"]').value=enriched.contrast||'';
+              if(!card.querySelector('[data-rule-key="contrastRu"]')?.value)card.querySelector('[data-rule-key="contrastRu"]').value=enriched.contrastRu||'';
+              if(!card.querySelector('[data-rule-key="examples"]')?.value&&Array.isArray(enriched.examples)){
+                card.querySelector('[data-rule-key="examples"]').value=enriched.examples.map(([e,r])=>e+(r?' ~ '+r:'')).join('\n');
+              }
+            }
+          }finally{
+            enrichBtn.disabled=false;enrichBtn.textContent='Oxford';
+          }
+        };
+        return card;
+      };
+      data.rules.forEach(r=>list.append(renderRuleCard(r,true)));
+      addBtn.onclick=()=>{
+        const newCard=renderRuleCard({title:'',ru:'',explanation:'',pattern:'',patternRu:'',contrast:'',contrastRu:'',examples:[],pages:[]},true);
+        list.prepend(newCard);updateCount();newCard.querySelector('[data-rule-key="title"]')?.focus();
+      };
+      wrap.append(list);container.append(wrap);
+    },true);
+    section('pdf','Lesson PDF',(container)=>{
+      const preview=document.createElement('pre');preview.textContent=file.name;container.append(preview);
+    },true);
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
@@ -172,6 +325,74 @@ async function lmImportPdfDraft(file) {
       apply.disabled=true;cancel.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
+          if(!active())throw new Error('The lesson changed.');
+          const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput)data.title=titleInput.value.trim();
+          const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim();
+          const unitInput=dialog.querySelector('[data-pdf-field="unit"]');if(unitInput)data.unit=unitInput.value.trim();
+          const lessonInput=dialog.querySelector('[data-pdf-field="lesson"]');if(lessonInput)data.lesson=lessonInput.value.trim();
+          const overviewInput=dialog.querySelector('[data-pdf-field="overview"]');if(overviewInput)data.overview=overviewInput.value.trim();
+          const wordCards=dialog.querySelectorAll('[data-pdf-word-card]');
+          if(wordCards.length){
+            const updatedWords=[];
+            for(const card of wordCards){
+              if(!card.querySelector('[data-word-select]')?.checked)continue;
+              const word=card.querySelector('[data-word-key="word"]')?.value.trim()||'';
+              if(!word)continue;
+              const translation=card.querySelector('[data-word-key="translation"]')?.value.trim()||'';
+              const meaning=card.querySelector('[data-word-key="meaning"]')?.value.trim()||word;
+              const example=card.querySelector('[data-word-key="example"]')?.value.trim()||'';
+              const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
+              updatedWords.push({word,meaning,translation,example,pages});
+            }
+            data.words=updatedWords;
+          }
+          const ruleCards=dialog.querySelectorAll('[data-pdf-rule-card]');
+          if(ruleCards.length){
+            const updatedRules=[];
+            for(const card of ruleCards){
+              if(!card.querySelector('[data-rule-select]')?.checked)continue;
+              const title=card.querySelector('[data-rule-key="title"]')?.value.trim()||'';
+              if(!title)continue;
+              const ru=card.querySelector('[data-rule-key="ru"]')?.value.trim()||title;
+              const explanation=card.querySelector('[data-rule-key="explanation"]')?.value.trim()||title;
+              const pattern=card.querySelector('[data-rule-key="pattern"]')?.value.trim()||'';
+              const patternRu=card.querySelector('[data-rule-key="patternRu"]')?.value.trim()||'';
+              const contrast=card.querySelector('[data-rule-key="contrast"]')?.value.trim()||'';
+              const contrastRu=card.querySelector('[data-rule-key="contrastRu"]')?.value.trim()||'';
+              const rawEx=(card.querySelector('[data-rule-key="examples"]')?.value||'').split('\n').map(l=>l.trim()).filter(Boolean);
+              const examples=rawEx.map(line=>{const parts=line.split('~');return [parts[0].trim(),parts.slice(1).join('~').trim()];});
+              const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
+              const detail={
+                ru,
+                en:explanation,
+                definition:explanation,
+                pattern,
+                patternRu,
+                contrast,
+                contrastRu,
+                examples:examples.length?examples:[[title,'']],
+                source:'Oxford Practical English Usage'
+              };
+              if(typeof stageSaveGrammarRule==='function'){
+                stageSaveGrammarRule(title,detail);
+              } else if(window.GrammarDetails){
+                window.GrammarDetails[title]=detail;
+              }
+              updatedRules.push({
+                title,
+                ru,
+                explanation,
+                pattern,
+                patternRu,
+                contrast,
+                contrastRu,
+                examples:examples.map(([e,r])=>e+(r?' — '+r:'')),
+                pages
+              });
+            }
+            data.rules=updatedRules;
+          }
+          groups=await lmPdfDraftBlocks(data,hash);
           if(!active())throw new Error('The lesson changed.');
           if(typeof stageServerBaseline==='function')await stageServerBaseline(current);
           if(!active())throw new Error('The lesson changed.');
