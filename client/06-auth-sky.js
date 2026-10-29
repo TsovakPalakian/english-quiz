@@ -933,6 +933,7 @@
         }
       }
       ctx.save();
+      if(phase==='hold')for(const r of uiRects){if(!r.element||!r.element.includes('brand')){ctx.beginPath();ctx.rect(0,0,w,h);ctx.rect(r.left,r.top,r.right-r.left,r.bottom-r.top);ctx.clip('evenodd');}}
       for(const slot of slots){
         Object.assign(slot,geometry.point(slot.path,t));slot.opacity=slot.fromOpacity+(slot.toOpacity-slot.fromOpacity)*t;
         const mag=slot.fromMag+(slot.mag-slot.fromMag)*t,style=astro.appearance(mag,slot.bv);

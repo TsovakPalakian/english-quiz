@@ -53,7 +53,7 @@
       return foldedLinkHtml(order.filter((pair) => links && links[pair[0]]).map((pair) => [pair[1], links[pair[0]]]));
     }
     function usageList(usages) {
-      if (!usages.length) return '<details class="saas-details made-details"><summary class="saas-summary">Usages · 0</summary><div class="gen"><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div></details>';
+      if (!usages.length) return '<details class="saas-details made-details" open><summary class="saas-summary">Usages · 0</summary><div class="gen"><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div></details>';
       const simple = usages.filter((usage) => usage.kind === "simple").length;
       const complex = usages.filter((usage) => usage.kind === "complex").length;
       const names = [];
@@ -61,7 +61,7 @@
         const name = usage.source || "Dictionary";
         if (names.indexOf(name) === -1) names.push(name);
       });
-      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usages · ' + usages.length + '</summary><div class="gen">';
+      let html = '<details class="saas-details made-details" open><summary class="saas-summary">Usages · ' + usages.length + '</summary><div class="gen">';
       if (usages.length < 10) html += '<p style="color:var(--bad)">Only ' + usages.length + (usages.length === 1 ? " example sentence" : " example sentences") + " for this phrase.</p>";
       else html += '<p class="hint">' + simple + " simple · " + complex + " complex.</p>";
       html += '<p class="hint">Sources: ' + esc(names.join(", ")) + ".</p>";
@@ -80,7 +80,7 @@
         if (pool.length < 4 && pool.indexOf(usage.en) === -1) pool.push(usage.en);
       });
       const options = shuffle(pool);
-      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usage quizzes · 2</summary><div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
+      let html = '<details class="saas-details made-details" open><summary class="saas-summary">Usage quizzes · 2</summary><div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
       options.forEach((option, index) => {
         html += '<button class="opt" type="button" data-usage-choice="' + (option === target.en ? "ok" : "bad") + '"><span class="bullet">' + (index + 1) + "</span><span>" + esc(option) + "</span></button>";
       });
@@ -340,7 +340,7 @@
       }
 
       if (phrases.length) {
-        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · ' + phrases.length + '</summary><div class="gen">';
+        html += '<details class="saas-details made-details" open><summary class="saas-summary">Phrases · ' + phrases.length + '</summary><div class="gen">';
         phrases.forEach((phrase, index) => {
           html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.en) + '</p><button class="btn" type="button" data-phrase="' + index + '">Flip</button><p class="hint" id="madePhrase' + index + '" hidden>' + esc(phrase.ru) + "</p></div>";
         });
@@ -350,13 +350,13 @@
         });
         html += "</div></details>";
       } else if (!item.fromText) {
-        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · 0</summary><div class="gen"><p class="hint">Wooordhunt has no phrases for this word.</p></div></details>';
+        html += '<details class="saas-details made-details" open><summary class="saas-summary">Phrases · 0</summary><div class="gen"><p class="hint">Wooordhunt has no phrases for this word.</p></div></details>';
       }
       html += usageQuizzes(usages);
       const quizHtml = cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
       if (quizHtml) {
         const quizCount = typeof cardQuizzesOf === "function" ? cardQuizzesOf(cardQuizKey(item)).length : 0;
-        html += '<details class="saas-details made-details"><summary class="saas-summary">Quiz · ' + quizCount + '</summary>' + quizHtml + '</details>';
+        html += '<details class="saas-details made-details" open><summary class="saas-summary">Quiz · ' + quizCount + '</summary>' + quizHtml + '</details>';
       }
       document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
