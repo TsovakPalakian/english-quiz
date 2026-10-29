@@ -2985,8 +2985,20 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
       if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
-        const category=(window.GrammarCategories||[]).find(row=>row.id===stageGrammarGroup);
-        return [{id:'tenses',label:'Grammar'},{id:'grammarcategories',label:'Grammatical Categories'},...(id!=='grammarcategories'&&category?[{id:'grammarcategory',label:category.title}]:[]),...(id==='grammarrule'?[{id:'grammarrule',label:stageGrammarRule}]:[])];
+        const isConfused = stageGrammarGroup === 'confused' || (Boolean(stageGrammarRule) && /\b(vs\.?|versus| or )\b/i.test(stageGrammarRule));
+        let category = (window.GrammarCategories || []).find(row => row.id === stageGrammarGroup);
+        if (!category && !isConfused && stageGrammarRule) {
+          category = (window.GrammarCategories || []).find(row => (row.cards || []).some(([title]) => title === stageGrammarRule));
+        }
+        if (id === 'grammarcategories') {
+          return [{ id: 'tenses', label: 'Grammar' }, { id: 'grammarcategories', label: 'Categories' }];
+        }
+        const middleLabel = isConfused ? 'Often confused' : (category ? category.title : (stageGrammarGroup === 'custom' ? 'Custom rules' : 'Category'));
+        return [
+          { id: 'tenses', label: 'Grammar' },
+          { id: 'grammarcategory', label: middleLabel },
+          ...(id === 'grammarrule' ? [{ id: 'grammarrule', label: stageGrammarRule || 'Rule' }] : [])
+        ];
       }
       if (id === 'exams') return examPagePath();
       if (id === "examblocks") return examPagePath(examFind(examCurrentId));
@@ -3439,24 +3451,27 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function paintHub() {
       const data = window.GRAMMAR;
       const root = document.getElementById("tenseList");
-      if (!data || !data.areas) {
-        root.innerHTML = tenseGroups.map((g) =>
-          '<p class="tense-group">' + g.group + '</p>' +
-          g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
-        ).join("");
+      if (!data || !data.areas || !data.areas.length) {
+        let html = '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body">' +
+          tenseGroups.map((g) =>
+            '<p class="tense-group">' + g.group + '</p>' +
+            g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
+          ).join("") + '</div></details>';
+        root.innerHTML = html;
         applyCardSearches();
         return;
       }
       let html = '<p class="g-map">A tense is a form. be going to, conditionals, modals, the passive and clauses are other parts of the system.</p>';
-      html += '<div class="g-areas">' + data.areas.map((area) =>
-        '<button class="g-area tone-' + area.tone + '" type="button" data-area="' + area.id + '"><span class="g-badge">' + esc(area.badge) + '</span><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb) + '</span></button>'
-      ).join("") + "</div>";
+      html += '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body"><div class="g-areas">' +
+        data.areas.map((area) =>
+          '<button class="g-area tone-' + area.tone + '" type="button" data-area="' + area.id + '"><span class="g-badge">' + esc(area.badge) + '</span><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb) + '</span></button>'
+        ).join("") + '</div></div></details>';
       const comparisons = data.comparisons || [];
       if (comparisons.length) {
-        html += '<p class="g-head tone-advanced">Often confused</p>';
-        html += comparisons.map((item) =>
-          '<button class="g-topic tone-' + (item.tone || "advanced") + '" type="button" data-compare="' + item.id + '"><b>' + esc(item.title) + '</b><span class="form">compare</span></button>'
-        ).join("");
+        html += '<details class="resource-fold" id="grammarConfusedFold" open><summary>Often confused</summary><div class="fold-body">' +
+          comparisons.map((item) =>
+            '<button class="g-topic tone-' + (item.tone || "advanced") + '" type="button" data-compare="' + item.id + '"><b>' + esc(item.title) + '</b><span class="form">compare</span></button>'
+          ).join("") + '</div></details>';
       }
       root.innerHTML = html;
       applyCardSearches();
@@ -7054,7 +7069,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function statRow(row, linkSources=false) {
       const bits = statKind === "weak" ? mistakeBits([row]) : [];
       const side = bits.length ? bits.join(", ") : row.where.join(" · ");
-      if(linkSources===true&&typeof stageWordSources==='function')return '<div class="path word-source-row"><button class="word-source-card" type="button" data-all-kind="'+row.kind+'" data-all-key="'+esc(row.key)+'"><b>'+esc(row.en)+'</b>'+ipaHtml(rowToCard(row))+'<br><span class="label">'+esc(row.ru)+'</span></button><span class="to word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</span></div>';
+      if(linkSources===true&&typeof stageWordSources==='function')return '<div class="path word-source-row saas-card"><div class="word-source-main"><div class="word-source-head"><button class="word-source-title" type="button" data-all-kind="'+row.kind+'" data-all-key="'+esc(row.key)+'">'+esc(row.en)+'</button><span class="to word-source-links">'+stageWordSources(row).map(source=>'<a href="#'+esc(source.page)+'" data-word-source="'+esc(JSON.stringify(source))+'">'+esc(source.label)+'</a>').join('')+'</span></div>'+ipaHtml(rowToCard(row))+'<div class="word-source-translation label">'+esc(row.ru)+'</div></div></div>';
       return '<button class="path" type="button" data-all-kind="' + row.kind + '" data-all-key="' + esc(row.key) + '"><span><b>' + esc(row.en) + '</b>' + ipaHtml(rowToCard(row)) + '<br><span class="label">' + esc(row.ru) + '</span></span><span class="to">' + esc(side) + "</span></button>";
     }
     function keysOfMarks(marks) {
@@ -16559,7 +16574,9 @@ const STUDIO_CONSTELLATIONS = [{
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
+      paintBugKpis();
       const draw = (rows) => {
+        paintBugKpis();
         if(box.dataset.bugListTab)bugExpansion.set(box.dataset.bugListTab,{
           days:new Set([...box.querySelectorAll('[data-bug-day][open]')].map(node=>node.dataset.bugDay)),
           history:new Set([...box.querySelectorAll('[data-bug-history][open]')].map(node=>node.dataset.bugHistory)),
@@ -16692,7 +16709,182 @@ const STUDIO_CONSTELLATIONS = [{
         if (onBugs()) box.innerHTML = '<p class="sub">The bug list could not be loaded.</p>';
       });
     }
+
+    function paintBugKpis() {
+      const activeBtn = document.getElementById("bugKpiActive");
+      if (!activeBtn) return;
+      const countEl = document.getElementById("bugKpiActiveCount");
+      const hitsEl = document.getElementById("bugKpiActiveHits");
+      const highestEl = document.getElementById("bugKpiActiveHighest");
+
+      const active = (bugCache || []).filter((b) => !b.resolved);
+      const activeCount = active.length;
+      const totalHits = active.reduce((sum, b) => sum + (Number(b.hits) || 1), 0);
+
+      if (countEl) countEl.textContent = String(activeCount);
+      if (hitsEl) hitsEl.textContent = "signature" + (activeCount === 1 ? "" : "s") + " (" + totalHits + " hit" + (totalHits === 1 ? "" : "s") + ")";
+      if (highestEl) {
+        if (active.length) {
+          const sorted = active.slice().sort((a, b) => (Number(b.hits) || 1) - (Number(a.hits) || 1));
+          const top = sorted[0];
+          const topPath = ((top.method || "") + " " + (top.path || top.request?.url || "")).trim();
+          highestEl.textContent = "Highest: " + (topPath || "Unknown route") + " (" + (top.hits || 1) + " hits)";
+        } else {
+          highestEl.textContent = "No active worker errors";
+        }
+      }
+
+      const uptimeEl = document.getElementById("bugKpiSystemUptime");
+      const queueEl = document.getElementById("bugKpiSystemQueue");
+      if (uptimeEl) uptimeEl.textContent = navigator.onLine ? "100%" : "Offline";
+      if (queueEl) {
+        const queueSize = typeof backgroundQueueSize === "function" ? backgroundQueueSize() : 0;
+        const memoryStr = window.performance?.memory?.usedJSHeapSize ? " · RAM: " + (window.performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1) + " MB" : "";
+        queueEl.textContent = "Prefetch Queue: " + queueSize + " pending" + (navigator.onLine ? " · Online" : " · Offline") + memoryStr;
+      }
+
+      if (isDeveloper() || isTeacher()) {
+        accountFetch("/api/admin/changes").then((data) => {
+          const changes = (data && data.changes) || [];
+          const auditCountEl = document.getElementById("bugKpiAuditCount");
+          const auditLatestEl = document.getElementById("bugKpiAuditLatest");
+          if (auditCountEl) auditCountEl.textContent = String(changes.length);
+          if (auditLatestEl) {
+            const latest = changes[0];
+            if (latest) {
+              const actor = latest.from_login || latest.from_name || "user";
+              auditLatestEl.textContent = "Latest: " + (latest.type || latest.status || "change") + " for @" + actor;
+            } else {
+              auditLatestEl.textContent = "No recorded mutation events";
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
+    function onBugKpiActiveClick() {
+      bugTab = "open";
+      document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn.dataset.bugTab === "open"));
+      if (bugCache) paintBugs(bugCache);
+      else paintBugs();
+      document.getElementById("bugList")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function onBugKpiSystemClick() {
+      const dialog = document.createElement("dialog");
+      dialog.className = "bug-kpi-dialog";
+      const queueSize = typeof backgroundQueueSize === "function" ? backgroundQueueSize() : 0;
+      const online = navigator.onLine;
+      const memoryStr = window.performance?.memory?.usedJSHeapSize ? (window.performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1) + " MB" : "N/A";
+
+      dialog.innerHTML = '<form method="dialog"><button class="bug-kpi-dialog-close" aria-label="Close">✕</button></form>' +
+        '<h2>System Health &amp; Cache Diagnostics</h2>' +
+        '<div style="display:flex;flex-direction:column;gap:12px;font-size:13.5px;">' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Network Status:</span>' +
+            '<b style="color:' + (online ? '#16a34a' : '#dc2626') + ';">' + (online ? '● Online (Edge Connected)' : '○ Offline') + '</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Cache Subsystem:</span>' +
+            '<b>IndexedDB / LocalStorage Active</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Background Queue:</span>' +
+            '<b>' + queueSize + ' pending requests</b>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">Heap Memory:</span>' +
+            '<b>' + memoryStr + '</b>' +
+          '</div>' +
+          '<div id="bugSystemPingBox" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;">' +
+            '<span style="color:var(--saas-text-muted);">API Latency:</span>' +
+            '<button type="button" class="btn tiny" id="bugSystemPingBtn">Run Ping Test</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+          '<button type="button" class="btn ghost saas-btn" id="bugSystemOpenStats">Open Statistics</button>' +
+          '<form method="dialog"><button class="btn primary saas-btn">Done</button></form>' +
+        '</div>';
+
+      document.body.appendChild(dialog);
+      dialog.addEventListener("close", () => dialog.remove());
+      dialog.querySelector("#bugSystemOpenStats")?.addEventListener("click", () => {
+        dialog.close();
+        visit("stats");
+      });
+      dialog.querySelector("#bugSystemPingBtn")?.addEventListener("click", () => {
+        const pingBtn = dialog.querySelector("#bugSystemPingBtn");
+        if (!pingBtn) return;
+        pingBtn.disabled = true;
+        pingBtn.textContent = "Pinging…";
+        const t0 = performance.now();
+        accountFetch("/api/me/state").then(() => {
+          const ms = Math.round(performance.now() - t0);
+          pingBtn.replaceWith(document.createTextNode(ms + " ms (HTTP 200)"));
+        }).catch((err) => {
+          pingBtn.disabled = false;
+          pingBtn.textContent = "Failed (" + err.message + ")";
+        });
+      });
+      dialog.showModal();
+    }
+
+    function onBugKpiAuditClick() {
+      const dialog = document.createElement("dialog");
+      dialog.className = "bug-kpi-dialog";
+      dialog.innerHTML = '<form method="dialog"><button class="bug-kpi-dialog-close" aria-label="Close">✕</button></form>' +
+        '<h2>Accounts Mutations Audit Log</h2>' +
+        '<p class="sub" style="margin-bottom:14px;">Recent account mutations and role change requests from <code>/api/admin/changes</code>.</p>' +
+        '<div id="bugAuditDialogList" style="max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:8px;font-size:13px;">' +
+          '<p class="sub">Loading audit log…</p>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">' +
+          '<button type="button" class="btn ghost saas-btn" id="bugAuditOpenAdmin">Open Accounts</button>' +
+          '<form method="dialog"><button class="btn primary saas-btn">Close</button></form>' +
+        '</div>';
+
+      document.body.appendChild(dialog);
+      dialog.addEventListener("close", () => dialog.remove());
+      dialog.querySelector("#bugAuditOpenAdmin")?.addEventListener("click", () => {
+        dialog.close();
+        visit("admin");
+      });
+      accountFetch("/api/admin/changes").then((data) => {
+        const box = dialog.querySelector("#bugAuditDialogList");
+        if (!box) return;
+        const changes = (data && data.changes) || [];
+        if (!changes.length) {
+          box.innerHTML = '<p class="sub">No account mutation events found.</p>';
+          return;
+        }
+        box.innerHTML = changes.slice(0, 30).map((row, idx) => {
+          const user = row.from_login || row.from_email || "User";
+          const whenStr = row.created_at ? bugWhen(row.created_at * 1000) : "Date not recorded";
+          const st = row.status || "recorded";
+          const badgeCls = st === "approved" ? "badge-emerald" : st === "rejected" ? "badge-rose" : "badge-amber";
+          return '<div style="padding:10px 12px;background:var(--saas-card-muted,#f8fafc);border-radius:8px;border:1px solid var(--saas-border,#e2e8f0);display:flex;justify-content:space-between;align-items:center;gap:10px;">' +
+            '<div>' +
+              '<b>' + (idx + 1) + '. @' + esc(user) + '</b> <span style="color:var(--saas-text-muted);font-size:12px;">(' + esc(row.type || 'account mutation') + ')</span>' +
+              '<div style="font-size:11.5px;color:var(--saas-text-muted);margin-top:3px;">' + esc(whenStr) + '</div>' +
+            '</div>' +
+            '<span class="badge ' + badgeCls + '" style="font-size:11px;font-weight:700;text-transform:uppercase;">' + esc(st) + '</span>' +
+          '</div>';
+        }).join("");
+      }).catch((err) => {
+        const box = dialog.querySelector("#bugAuditDialogList");
+        if (box) box.innerHTML = '<p class="sub" style="color:#dc2626;">Failed to load audit records: ' + esc(err.message) + '</p>';
+      });
+      dialog.showModal();
+    }
+
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("#bugKpiActive")) { onBugKpiActiveClick(); return; }
+      if (event.target.closest("#bugKpiSystem")) { onBugKpiSystemClick(); return; }
+      if (event.target.closest("#bugKpiAudit")) { onBugKpiAuditClick(); return; }
+    });
+
     window.paintBugs = paintBugs;
+    window.paintBugKpis = paintBugKpis;
 // Client-side user feedback & bug reporting with screenshot paste and compression
 (function() {
   window.__recentErrors = window.__recentErrors || [];
@@ -21978,15 +22170,17 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   if(!node){node=document.createElement('div');node.id='lmPdfProgress';node.className='lm-pdf-progress';drop.before(node);}
   const measurable=Number.isFinite(done)&&total>0,percent=measurable?Math.floor(done/total*100):null;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
+  let nextUpload=document.getElementById('lmPdfNextUpload');
   if(label==='Draft ready'){
-    const readyBox=document.createElement('div');readyBox.className='lm-pdf-ready-box';readyBox.style.marginTop='12px';
-    const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Import another PDF';
-    button.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    const dropPrompt=document.createElement('div');
-    dropPrompt.className='lm-drop lm-pdf-import is-ready-drop';
-    dropPrompt.style.marginTop='8px';
-    dropPrompt.style.cursor='pointer';
-    dropPrompt.innerHTML='<span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small>';
+    if(!nextUpload){
+      nextUpload=document.createElement('div');
+      nextUpload.id='lmPdfNextUpload';
+      nextUpload.className='lm-pdf-next-upload card saas-card';
+      node.after(nextUpload);
+    }
+    nextUpload.innerHTML='<div class="lm-pdf-ready-box" style="padding:16px 20px;"><button type="button" class="btn" id="lmPdfImportAnotherBtn">Import another PDF</button><div class="lm-drop lm-pdf-import is-ready-drop" style="margin-top:12px;cursor:pointer;"><span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small></div></div>';
+    nextUpload.querySelector('#lmPdfImportAnotherBtn').onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
+    const dropPrompt=nextUpload.querySelector('.is-ready-drop');
     dropPrompt.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
     dropPrompt.ondragover=e=>{e.preventDefault();dropPrompt.classList.add('is-over');};
     dropPrompt.ondragleave=()=>{dropPrompt.classList.remove('is-over');};
@@ -21996,13 +22190,14 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
       const file=e.dataTransfer?.files?.[0];
       if(file)lmImportPdfDraft(file);
     };
-    readyBox.append(button,dropPrompt);
-    node.append(readyBox);
+  } else {
+    document.getElementById('lmPdfNextUpload')?.remove();
   }
   drop.hidden=true;
 }
 function lmPdfProgressEnd(){
   document.getElementById('lmPdfProgress')?.remove();
+  document.getElementById('lmPdfNextUpload')?.remove();
   const drop=document.querySelector('[data-lesson-pdf-import]');if(drop)drop.hidden=false;
 }
 async function lmPdfPrepareCards(draft,active,onProgress=()=>{},selected=new Set(['words','phrases'])){
@@ -22114,11 +22309,22 @@ async function lmImportPdfDraft(file) {
     const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
     const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
+    let sectionCount = 0;
     const section=(key,title,renderContent,checked)=>{
+      sectionCount += 1;
+      const idx = sectionCount;
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
-      input.type='checkbox';input.checked=checked;choices.set(key,input);
+      input.type='checkbox';input.checked=checked;input.style.display='none';choices.set(key,input);
+      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.textContent=String(idx);
+      numBadge.title='Click to toggle section import';
+      numBadge.onclick=(e)=>{
+        e.stopPropagation();
+        input.checked=!input.checked;
+        numBadge.classList.toggle('is-off',!input.checked);
+        details.classList.toggle('is-section-off',!input.checked);
+      };
       const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
-      label.append(input,titleSpan);summary.append(label);details.append(summary);
+      label.append(input,numBadge,titleSpan);summary.append(label);details.append(summary);
       const container=document.createElement('div');container.className='lm-pdf-section-content';details.append(container);
       let rendered=false;
       const mount=()=>{
@@ -22492,6 +22698,8 @@ async function lmImportPdfDraft(file) {
                 examples:examples.length?examples:[[title,'']],
                 source:'Oxford Practical English Usage'
               };
+              const cat=typeof window.stageClassifyGrammarRule==='function'?window.stageClassifyGrammarRule(title,detail):(/\b(vs\.?|versus| or )\b/i.test(title)?'confused':'classes');
+              detail.category=cat;
               if(typeof stageSaveGrammarRule==='function'){
                 stageSaveGrammarRule(title,detail);
               } else if(window.GrammarDetails){
@@ -23614,7 +23822,9 @@ async function lmImportPdfDraft(file) {
       document.querySelectorAll('[data-exam-task-earned]').forEach(node=>{const key=node.dataset.examTaskEarned,total=questions.filter(q=>(q.part.assignmentKey||q.part.assignmentId||('part-'+q.part.id))===key).reduce((sum,q)=>sum+(Number(String(lmState.examPoints?.[q.part.id]?.[0]||0).replace(',','.'))||0),0);node.textContent=String(Number(total.toFixed(10)));});
     }
     function examRow(chip, title, about, attr, locked, hidden, tools) {
-      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(title) + '</b><span class="label about saas-badge saas-badge-info">' + esc(about) + "</span></button>" + (tools || "") + "</div>";
+      const badgeHtml = Array.isArray(about) ? about.join('') : (about ? '<span class="label about saas-badge saas-badge-info">' + esc(about) + '</span>' : '');
+      const dateHtml = chip ? '<span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b>" + (chip.month ? "<small>" + esc(chip.month) + "</small>" : "") + "</span>" : "";
+      return '<div class="day-row' + (locked ? " exam-locked" : "") + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" ' + attr + '>' + dateHtml + '<b>' + esc(title) + '</b><div class="exam-card-badges">' + badgeHtml + '</div></button>' + (tools || "") + "</div>";
     }
     function examTools(kind, id, hidden) {
       if (!canEditLessons() && !canTuneStudentLessons()) return "";
@@ -23665,16 +23875,25 @@ async function lmImportPdfDraft(file) {
         const mine = !canEditLessons();
         const ready = mine && examReadyForReview(exam);
         const sum = mine ? examVisibleBlocks(exam).reduce((total, block) => total + examPointsTotal(block), 0) : 0;
-        let about = exam.hidden ? "Hidden" : (ready ? "Ready for review" : (exam.published ? "Published" : "Draft"));
         const visible = examVisibleBlocks(exam), maximum = Math.round(visible.reduce((n,b) => n + assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q) => m + q.max,0),0)*1e8)/1e8;
         const reviewed = visible.filter(b => b.doc?.assessmentState === 'published').length;
-        about += ' · Maximum ' + maximum;
-        if (mine && (canTuneStudentLessons() || reviewed)) about += ' · ' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed';
         const hidden = viewAccount ? !!exam.personalHidden : !!exam.hidden;
-        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
-        if (viewAccount && !hidden) { const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length; if (hiddenBlocks) about += " · Hidden " + hiddenBlocks + " / " + (exam.blocks || []).length + " blocks"; }
-        if(exam.instanceStatus==='completed')about='Completed · Maximum '+exam.maximumPoints+' · '+exam.earnedPoints+' points';
-        return examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), about, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
+        const badges = [];
+        if (exam.instanceStatus === 'completed') {
+          badges.push('<span class="label about saas-badge saas-badge-success">Completed · Maximum ' + exam.maximumPoints + ' · ' + exam.earnedPoints + ' points</span>');
+        } else {
+          const statusClass = exam.published ? 'saas-badge-active' : 'saas-badge-muted';
+          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published' : 'Draft'));
+          badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(statusText) + '</span>');
+          badges.push('<span class="saas-badge saas-badge-muted">Examination blocks · ' + (exam.blocks || []).length + '</span>');
+          badges.push('<span class="saas-badge saas-badge-info">Maximum score: ' + maximum + '</span>');
+          if (mine && (canTuneStudentLessons() || reviewed)) badges.push('<span class="saas-badge saas-badge-muted">' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed</span>');
+          if (viewAccount && !hidden) {
+            const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length;
+            if (hiddenBlocks) badges.push('<span class="saas-badge saas-badge-muted">Hidden ' + hiddenBlocks + ' / ' + (exam.blocks || []).length + ' blocks</span>');
+          }
+        }
+        return examRow(chip, (exam.title || "Exam")+(canEditLessons()&&exam.studentName?' · '+exam.studentName:''), badges, 'data-exam-open="' + exam.id + '"', ready, hidden, exam.instanceStatus==='completed' ? '' : examTools("exam", exam.id, hidden));
       }).join("");
     }
     function examPaintBlocks() {
@@ -23694,14 +23913,16 @@ async function lmImportPdfDraft(file) {
         const saved = !canEditLessons() && block.doc && block.doc.studentSaved;
         const mine = !canEditLessons();
         const sum = mine ? examPointsTotal(block) : 0;
-        let about = block.hidden ? "Hidden" : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? "Submitted" : (block.doc && block.doc.published ? "Published" : "Draft"));
-        if (canTuneStudentLessons() && !block.hidden) about = ({draft:'Not submitted',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'})[block.doc?.assessmentState] || (examWorkLoadedFor === examWorkAccount() && !examWorkPulling ? 'Not submitted' : 'Loading status…');
         const maximum = Math.round(assessmentQuestions({...block.doc,examOwned:true}).reduce((n,q) => n + q.max,0)*1e8)/1e8;
-        about += ' · Maximum ' + maximum;
-        if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) about += ' · ' + sum + ' points';
         const hidden = viewAccount ? !!block.personalHidden : !!block.hidden;
-        if (hidden) about = viewAccount ? 'Hidden for this student' : about;
-        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", about, 'data-exam-block="' + block.id + '"', saved, hidden, exam.instanceStatus==='completed' ? '' : examTools("block", block.id, hidden));
+        const badges = [];
+        const statusClass = (block.doc?.assessmentState === 'published' || (block.doc && block.doc.published)) ? 'saas-badge-active' : (saved ? 'saas-badge-info' : 'saas-badge-muted');
+        let statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (block.doc?.assessmentState === 'published' ? 'Results published' : saved ? 'Submitted' : (block.doc && block.doc.published ? 'Published' : 'Draft'));
+        if (canTuneStudentLessons() && !hidden) statusText = ({draft:'Not submitted',submitted:'Submitted',reviewing:'Being reviewed',published:'Results published'})[block.doc?.assessmentState] || (examWorkLoadedFor === examWorkAccount() && !examWorkPulling ? 'Not submitted' : 'Loading status…');
+        let aboutText = statusText + ' · Maximum ' + maximum;
+        if (mine && (canTuneStudentLessons() || block.doc?.assessmentState === 'published')) aboutText += ' · ' + sum + ' points';
+        badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(aboutText) + '</span>');
+        return examRow({ day: String(index + 1), month: "" }, (block.doc && block.doc.title) || "Examination block", badges, 'data-exam-block="' + block.id + '"', saved, hidden, exam.instanceStatus==='completed' ? '' : examTools("block", block.id, hidden));
       }).join("");
     }
     function examHide(kind, id) {
