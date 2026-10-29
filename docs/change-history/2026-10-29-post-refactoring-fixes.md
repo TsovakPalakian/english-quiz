@@ -93,3 +93,58 @@
     - **Изменение**: ограничение максимального размера до 62% свободного пространства для 40 небольших фигур каталога (в том числе созвездия Dorado).
     - **Скриншот**:
       ![Растянутое созвездие Dorado](/Users/tsovakpalakian/.gemini/antigravity/brain/eb97b91f-b10c-4f3e-a907-bfdb8eb3b794/.user_uploaded/media_1793277140646_78878aff.png)
+
+19. **Редактирование названий уроков, классов и фраз в черновиках PDF-импорта**
+    - **Место на UI**: [https://lumiscia.org/#material](https://lumiscia.org/#material) (импорт PDF)
+    - **Изменение**: добавлены интерактивные редакторы для фраз (`phrases`) и классной работы (`classwork`), а также возможность изменения названий урока (`pdf-title`) и класса (`className`).
+    - **Файлы**: [client/52b-lesson-pdf-import.js:242-356](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52b-lesson-pdf-import.js#L242-L356).
+
+20. **Автопрокрутка вверх при применении выбранных секций черновика PDF**
+    - **Место на UI**: [https://lumiscia.org/#material](https://lumiscia.org/#material) (кнопка Apply selected sections to draft)
+    - **Изменение**: перемещение экрана в верхнюю часть страницы после применения секций в черновик урока.
+    - **Файлы**: [client/52b-lesson-pdf-import.js:446, 563](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52b-lesson-pdf-import.js#L446).
+
+21. **Универсальная загрузка любых файлов при повторном импорте**
+    - **Место на UI**: [https://lumiscia.org/#material](https://lumiscia.org/#material) (кнопка Import another PDF)
+    - **Изменение**: добавлена возможность перетаскивания (drag-and-drop) и выбора файлов любого расширения без ограничения форматом `.pdf`.
+    - **Файлы**: [site/preview.html:645](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L645).
+
+22. **Коррекция навигационных путей и хлебных крошек грамматики**
+    - **Место на UI**: [https://lumiscia.org/#grammar](https://lumiscia.org/#grammar), категории грамматики и правила
+    - **Изменение**: замена неактуальных путей с префиксом `Library` на разделы `Grammar` в хлебных крошках и резервной навигации.
+    - **Файлы**: [client/00-core.js:260-263](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/00-core.js#L260-L263), [production/grammar-categories.html:2](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/grammar-categories.html#L2), [production/essential.html:2](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/essential.html#L2).
+
+23. **Сворачивание упражнений и квизов карточки слова**
+    - **Место на UI**: [https://lumiscia.org/#made](https://lumiscia.org/#made)
+    - **Изменение**: группировка упражнений и проверочных карточек в раскрывающиеся элементы `<details>` со свернутым состоянием по умолчанию.
+    - **Файлы**: [client/03c-cards.js:318-355](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03c-cards.js#L318-L355).
+
+24. **Устранение ошибок 401 на маршруте /api/grammar/custom для гостевых сессий**
+    - **Место на UI**: [https://lumiscia.org/#grammar](https://lumiscia.org/#grammar)
+    - **Изменение**: предотвращение неавторизованных повторных сетевых вызовов пользовательских правил грамматики без активной авторизации.
+    - **Файлы**: [client/main/main-hooks.js:2316-2342](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2316-L2342).
+
+25. **Пакетная оптимизация загрузки уроков единым запросом**
+    - **Место на UI**: списки уроков платформы
+    - **Изменение**: поддержка параметра `ids=` на маршруте `GET /api/lessons` для пакетной отдачи данных в 1 сетевом ответе вместо каскада из 22 отдельных запросов.
+    - **Файлы**: [src/learning-legacy-read.mjs:140-145](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-legacy-read.mjs#L140-L145), [src/learning-stage-worker.mjs:319-322](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-stage-worker.mjs#L319-L322), [src/learning-integrated-worker.mjs:969-974](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-integrated-worker.mjs#L969-L974), [client/main/main-hooks.js:2156-2188](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L2156-L2188).
+
+26. **Дедупликация сетевых запросов при создании экзаменов и экзаменационных блоков**
+    - **Место на UI**: [https://lumiscia.org/#exams](https://lumiscia.org/#exams), [https://lumiscia.org/#examblocks](https://lumiscia.org/#examblocks)
+    - **Изменение**: внедрение карты базовых слепков `examBaselines` для исключения неизмененных объектов из повторного сохранения, сокращение 7 сетевых запросов до 1.
+    - **Файлы**: [client/54-exams.js:8-144](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L8-L144).
+
+27. **Своевременное отображение кнопки копирования экзаменов и блоков**
+    - **Место на UI**: [https://lumiscia.org/#exams](https://lumiscia.org/#exams), [https://lumiscia.org/#examblocks](https://lumiscia.org/#examblocks)
+    - **Изменение**: немедленный вызов отрисовки интерфейса после фиксации постоянного числового идентификатора сервером, отображение кнопки копирования без задержки.
+    - **Файлы**: [client/54-exams.js:104-120](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L104-L120).
+
+28. **Устранение ошибки «Material not found» при удалении экзаменационных блоков**
+    - **Место на UI**: [https://lumiscia.org/#examblocks](https://lumiscia.org/#examblocks)
+    - **Изменение**: определение актуального числового идентификатора; удаление несохраненных на сервере блоков локально без отправки некорректных запросов в `/api/archive`.
+    - **Файлы**: [client/54-exams.js:988-1006](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L988-L1006).
+
+29. **Подавление ложных сообщений об ошибках при фоновом обновлении кэша Speakout**
+    - **Место на UI**: фоновый опрос кэша
+    - **Изменение**: передача параметра `quietBug: true` при опросе версий кэша для исключения ложных записей в `/api/bugs`.
+    - **Файлы**: [client/main/main-hooks.js:1581](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-hooks.js#L1581).

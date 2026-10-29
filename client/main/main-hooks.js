@@ -1578,7 +1578,7 @@ async function stageSpeakCatalog(level){
 }
 function stageSpeakCacheOptions(){
   const actor=authUser?.id,role=authUser?.role,generation=viewGen;
-  return {actor,role,read:accountFetch,active:()=>authUser?.id===actor&&authUser?.role===role&&!viewAccount&&viewGen===generation,catalog:revision=>{
+  return {actor,role,read:(path,options)=>accountFetch(path,{quietBug:true,...options}),active:()=>authUser?.id===actor&&authUser?.role===role&&!viewAccount&&viewGen===generation,catalog:revision=>{
     if(!revision||stageSpeakVersion()===revision)return;
     const bootstrap=window.ContentCache.get('account:bootstrap');
     if(bootstrap){bootstrap.versions={...bootstrap.versions,speakout:revision};window.ContentCache.set('account:bootstrap',bootstrap);}
@@ -1910,10 +1910,11 @@ async function stageHydrateStep(){
       stageFlushBlocks();stageRepaintHydrated();
       return !!(stageMissingLibrary().length||stageMissingLessons().length||stageMissingDictionary().length);
     }
-    const lesson=stageMissingLessons()[0];
-    if(lesson){
-      await stageFetchLesson(lesson);
-      if(stageLessonGap(lesson))stageBlockMiss.add(lesson.id+':blocks');
+    const lessons=stageMissingLessons();
+    if(lessons.length){
+      const batch=lessons.slice(0,50);
+      await stageFetchLessons(batch);
+      for(const lesson of batch){if(stageLessonGap(lesson))stageBlockMiss.add(lesson.id+':blocks');}
       stageFlushBlocks();stageRepaintHydrated();
       return !!(stageMissingLessons().length||stageMissingDictionary().length);
     }
@@ -2152,6 +2153,43 @@ function stageFetchLesson(material){
     return data;
   });
 }
+function stageFetchLessons(materials){
+  if(!Array.isArray(materials)||!materials.length||!authUser)return Promise.resolve();
+  const generation=viewGen,target=viewAccount?.id||'',actor=authUser.id;
+  const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/lessons':'/api/lessons';
+  const needed=[];
+  for(const material of materials){
+    if(!material?.id)continue;
+    const saved=stageReadBlock(material.id,'blocks');
+    if(saved&&saved.revision===(material.stageRevision||0)){
+      const index=lmLibrary?.materials?.findIndex(row=>row.id===material.id)??-1;
+      if(index>=0){const opened={...lmLibrary.materials[index],blocks:saved.data?.blocks||[],stageLessonDeferred:false};stageStampLesson(opened);lmLibrary.materials[index]=opened;stageLoadedLessons.add(opened);}
+    }else{
+      needed.push(material);
+    }
+  }
+  if(!needed.length)return Promise.resolve();
+  const ids=needed.map(m=>m.id);
+  const query=ids.length===1?('id='+encodeURIComponent(ids[0])):('ids='+ids.map(encodeURIComponent).join(','));
+  return accountFetch(path+'?'+query).then(data=>{
+    if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id||viewSwitching)return data;
+    const byId=new Map((data.materials||[]).map(row=>[row.id,row]));
+    for(const material of needed){
+      const full=byId.get(material.id);
+      if(!full||!lmLibrary)continue;
+      const index=lmLibrary.materials.findIndex(row=>row.id===material.id);
+      if(index>=0){
+        const opened={...full,stageLessonDeferred:false,stageLessonOwner:actor+':'+target};
+        stageStampLesson(opened);
+        lmLibrary.materials[index]=opened;
+        stageLoadedLessons.add(opened);
+        stageWriteBlock(material.id,'blocks',full.stageRevision||material.stageRevision||0,{blocks:full.blocks||[]});
+      }
+    }
+    stageFlushBlocks();
+    return data;
+  });
+}
 function stageQueueLessons(){
   return Promise.resolve(stagePullLessons()).then(()=>{
     window.ContentCache?.set('lesson:summary',lmLibrary?.materials||[]);
@@ -2279,6 +2317,8 @@ function stageFetchSpeak(index,active=()=>true){
 let stageEverydayState={group:'speech',topic:'',groupSearch:'',wordSearch:''};
 var stageGrammarGroup='classes';
 var stageGrammarRule='';
+let stageCustomGrammarLoaded=false;
+let stageCustomGrammarLoading=false;
 function stageLoadCustomGrammar(){
   try{
     const raw=localStorage.getItem('enquiz_custom_grammar');
@@ -2290,15 +2330,17 @@ function stageLoadCustomGrammar(){
       }
     }
   }catch(e){}
-  if(authUser&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
-    fetch('/api/grammar/custom').then(r=>r.ok?r.json():null).then(data=>{
+  if(!stageCustomGrammarLoaded&&!stageCustomGrammarLoading&&authUser&&!viewAccount&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
+    stageCustomGrammarLoading=true;
+    accountFetch('/api/grammar/custom').then(data=>{
+      stageCustomGrammarLoaded=true;
       if(data?.rules&&typeof data.rules==='object'){
         if(!window.GrammarDetails)window.GrammarDetails={};
         for(const [title,detail] of Object.entries(data.rules))window.GrammarDetails[title]=detail;
         stageSyncGrammarCategories();
         stageGrammarPaint();
       }
-    }).catch(()=>{});
+    }).catch(()=>{stageCustomGrammarLoaded=true;}).finally(()=>{stageCustomGrammarLoading=false;});
   }
   stageSyncGrammarCategories();
 }
@@ -2337,8 +2379,8 @@ function stageSaveGrammarRule(title,detail){
   }catch(e){}
   stageSyncGrammarCategories();
   stageGrammarPaint();
-  if(authUser&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
-    fetch('/api/grammar/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,detail})}).catch(()=>{});
+  if(authUser&&!viewAccount&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
+    accountFetch('/api/grammar/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,detail})}).catch(()=>{});
   }
 }
 async function stageEnrichGrammarRule(title,explanation='',examples=[]){

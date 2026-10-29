@@ -5,6 +5,7 @@
     let examPulling = false;
     let examFlight = null;
     let examSession = 0;
+    const examBaselines = new Map();
     function examPreload() {
       examPull();
       examPullWork();
@@ -16,6 +17,7 @@
       examReady = false;
       examPulling = false;
       examFlight = null;
+      examBaselines.clear();
       examResetWork();
     }
     function examLoad() {
@@ -115,12 +117,18 @@
             rememberPlace();
           }
         });
+        examBaselines.set(saved.id, JSON.stringify(examWire(local)));
+        examKnown?.add(saved.id);
         try { localStorage.setItem("enquiz-exams", JSON.stringify(exams)); } catch (e) {}
+        examPaintList();
+        const blocks = document.getElementById("examblocks");
+        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
         return saved;
       });
     }
     function examRemoteDrop(id) {
       if (!Number.isSafeInteger(id) || id < 1 || typeof accountFetch !== "function") return Promise.resolve();
+      examBaselines.delete(id);
       return window.LearningMain.archiveItem("exam", id);
     }
     function examPush(list) {
@@ -130,7 +138,12 @@
       const instanceIds=new Set((list||[]).filter(row=>row.instanceStatus).map(row=>row.id));
       const gone = examKnown ? [...examKnown].filter((id) => !ids.has(id)&&!instanceIds.has(id)) : [];
       examKnown = ids;
-      return Promise.all(gone.map(examRemoteDrop).concat(rows.map(examRemoteSave)));
+      const dirtyRows = rows.filter((row) => {
+        if (!row) return false;
+        if (!Number.isSafeInteger(row.id) || row.id < 1) return true;
+        return examBaselines.get(row.id) !== JSON.stringify(examWire(row));
+      });
+      return Promise.all(gone.map(examRemoteDrop).concat(dirtyRows.map(examRemoteSave)));
     }
     let examSaveQueue = Promise.resolve();
     function examSave(list) {
@@ -156,6 +169,9 @@
         if (session !== examSession || !authUser || authUser.id !== actorId || generation !== viewGen || target !== (viewAccount?.id || '')) return;
         const remote = Array.isArray(data && data.exams) ? data.exams.map(examFromWire) : [];
         examKnown = new Set(remote.filter(row=>!row.instanceStatus).map((row) => row.id));
+        remote.forEach((row) => {
+          if (Number.isSafeInteger(row.id)) examBaselines.set(row.id, JSON.stringify(examWire(row)));
+        });
         examReady = true;
         examPulling = false;
         try { localStorage.setItem("enquiz-exams", JSON.stringify(remote)); } catch (e) {}
@@ -991,16 +1007,41 @@
       if (!confirm(kind === "exam" ? "Move this exam to Archive?" : "Move this examination block to Archive?")) return;
       const exams = examLoad();
       if (kind === "exam") {
+        if (!Number.isSafeInteger(id) || id < 1) {
+          const next = exams.filter((row) => row.id !== id);
+          if (examCurrentId === id) examCurrentId = "";
+          examSave(next);
+          examPaintList();
+          return;
+        }
         return window.LearningMain.perform(async () => {
           await window.LearningMain.archiveItem("exam", id);
           if (examCurrentId === id) examCurrentId = "";
+          const next = examLoad().filter((row) => row.id !== id);
+          try { localStorage.setItem("enquiz-exams", JSON.stringify(next)); } catch (e) {}
           examPaintList();
         });
       }
       const exam = exams.find((row) => row.id === examCurrentId);
       if (!exam) return;
+      const blockIndex = (exam.blocks || []).findIndex((b) => b.id === id || b.doc?.id === id);
+      if (blockIndex < 0) return;
+      const block = exam.blocks[blockIndex];
+      const targetId = Number.isSafeInteger(block.id) && block.id > 0 ? block.id : (Number.isSafeInteger(id) && id > 0 ? id : null);
+      if (!targetId) {
+        exam.blocks.splice(blockIndex, 1);
+        examSave(exams);
+        examPaintBlocks();
+        return;
+      }
       return window.LearningMain.perform(async () => {
-        await window.LearningMain.archiveItem("exam-block", id);
+        await window.LearningMain.archiveItem("exam-block", targetId);
+        const currentExams = examLoad();
+        const currentExam = currentExams.find((row) => row.id === examCurrentId);
+        if (currentExam) {
+          currentExam.blocks = (currentExam.blocks || []).filter((b) => b.id !== targetId);
+          try { localStorage.setItem("enquiz-exams", JSON.stringify(currentExams)); } catch (e) {}
+        }
         examPaintBlocks();
       });
     }

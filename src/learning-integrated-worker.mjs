@@ -967,8 +967,9 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         }
         // Teacher may inspect definitions; responses belong strictly to target.
         if(managedRead[2]==='lessons'){
-          const params=new URL(request.url).searchParams,lessonId=params.get('id');
-          return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:params.get('summary')==='1',lessonId:lessonId?cardKey(lessonId):''})));
+          const params=new URL(request.url).searchParams,lessonId=params.get('id'),idsParam=params.get('ids')||'';
+          const lessonIds=idsParam?idsParam.split(',').map(part=>cardKey(part.trim())).filter(id=>Number.isSafeInteger(id)&&id>=1):[];
+          return json(mediaPlaceholders(await legacyLessons(db,{id:target.id,role:actor.role},{summary:params.get('summary')==='1',lessonId:lessonId?cardKey(lessonId):'',lessonIds})));
         }
         const params=new URL(request.url).searchParams,query={after:params.get('after')||'',limit:pageLimit(params.get('limit')),place:params.get('place')||''};
         if(managedRead[2]==='texts'){if(actor.role!=='DEVELOPER')throw new StudyError(403,'This material is unavailable.');return json(await legacyTexts(db,{...target,role:actor.role},{summary:params.get('summary')!=='0',...query}));}

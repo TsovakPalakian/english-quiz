@@ -137,9 +137,11 @@ export async function legacyTexts(db,actor,{summary=false,after='',limit=50}={})
   const more=rows.length>size,page=rows.slice(0,size);
   return {texts:page.map(row=>({id:row.client_id||row.id,stageId:row.id,title:row.title||'',level:row.level||'',preview:row.preview||'',archived:row.archived===1||row.archived==='true'||row.archived===true,stageRevision:row.revision,stageScope:row.scope,stageTextDeferred:true})),next:more?page.at(-1).id:null};
 }
-export async function legacyLessons(db,actor,{summary=false,lessonId=''}={}){
+export async function legacyLessons(db,actor,{summary=false,lessonId='',lessonIds=[]}={}){
   if(lessonId!==''&&lessonId!=null&&(!Number.isSafeInteger(lessonId)||lessonId<1))throw new StudyError(400,'Invalid lesson ID.');
-  const filter=lessonId?' AND l.id=?':'',args=[review(actor),actor.id,actor.id,...(lessonId?[lessonId]:[])];
+  const ids=Array.isArray(lessonIds)&&lessonIds.length?lessonIds.filter(id=>Number.isSafeInteger(id)&&id>=1):(lessonId?[lessonId]:[]);
+  const filter=ids.length===1?' AND l.id=?':(ids.length>1?` AND l.id IN (${ids.map(()=>'?').join(',')})`:'');
+  const args=[review(actor),actor.id,actor.id,...ids];
   if(summary){
     const [rows,counts]=await db.readMany([
       s(`SELECT l.* FROM lessons l WHERE ${lessonAccess}${filter} ORDER BY l.lesson_date,l.id`,args),

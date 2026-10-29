@@ -1,7 +1,7 @@
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;
 function lmPdfApplyMetadata(draft,data,selected){
-  if(selected){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;}
+  if(selected){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;if(data.className)draft.className=data.className;}
   // A new lesson still needs its required title when only content sections
   // were selected. Preserve any title/description the teacher already entered.
   if(!String(draft.title||'').trim())draft.title=String(data.title||'').trim();
@@ -30,7 +30,25 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   const measurable=Number.isFinite(done)&&total>0,percent=measurable?Math.floor(done/total*100):null;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
   if(label==='Draft ready'){
-    const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Import another PDF';button.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();node.append(button);
+    const readyBox=document.createElement('div');readyBox.className='lm-pdf-ready-box';readyBox.style.marginTop='12px';
+    const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Import another PDF';
+    button.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
+    const dropPrompt=document.createElement('div');
+    dropPrompt.className='lm-drop lm-pdf-import is-ready-drop';
+    dropPrompt.style.marginTop='8px';
+    dropPrompt.style.cursor='pointer';
+    dropPrompt.innerHTML='<span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small>';
+    dropPrompt.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
+    dropPrompt.ondragover=e=>{e.preventDefault();dropPrompt.classList.add('is-over');};
+    dropPrompt.ondragleave=()=>{dropPrompt.classList.remove('is-over');};
+    dropPrompt.ondrop=e=>{
+      e.preventDefault();
+      dropPrompt.classList.remove('is-over');
+      const file=e.dataTransfer?.files?.[0];
+      if(file)lmImportPdfDraft(file);
+    };
+    readyBox.append(button,dropPrompt);
+    node.append(readyBox);
   }
   drop.hidden=true;
 }
@@ -73,7 +91,7 @@ async function lmPdfContentKey(block){
   const digest=await crypto.subtle.digest('SHA-256',bytes);
   return (block.pdfImport?.section||block.tab)+':v2:'+Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
 }
-async function lmPdfAppendSections(draft,groups,selected,hash,fileName) {
+async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle) {
   const known=new Set(),vocabulary=new Set();
   for(const old of draft.blocks){
     if(!old.pdfImport)continue;
@@ -93,7 +111,7 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName) {
     }
   }
   if(selected.has('pdf')&&!draft.blocks.some(b=>b.type==='pdf'&&b.pdfImport?.source===hash)){
-    draft.blocks.push({...lmBlank('pdf'),tab:'pdf',title:fileName,pdfImport:{source:hash,section:'pdf',key:'pdf:0'}});
+    draft.blocks.push({...lmBlank('pdf'),tab:'pdf',title:pdfTitle||fileName,pdfImport:{source:hash,section:'pdf',key:'pdf:0'}});
   }
   return added;
 }
@@ -169,9 +187,10 @@ async function lmImportPdfDraft(file) {
         '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Lesson title</label><input class="saas-input" data-pdf-field="title" value="'+esc(data.title||'')+'" placeholder="Lesson title"></div>'+
         '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" placeholder="Description" style="min-height:60px">'+esc(data.description||'')+'</textarea></div>'+
         '<div class="saas-form-grid"><div class="saas-form-group"><label class="saas-label">Unit</label><input class="saas-input" data-pdf-field="unit" value="'+esc(data.unit||'')+'" placeholder="Unit"></div>'+
-        '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>';
+        '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>'+
+        '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc(data.className||current.className||'')+'" placeholder="Class / Level"></div>';
       container.append(box);
-    },!current.title&&!current.description);
+    },true);
     section('overview','Overview',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
@@ -220,13 +239,113 @@ async function lmImportPdfDraft(file) {
       };
       wrap.append(list);container.append(wrap);
     },true);
-    for(const key of ['phrases','classwork']){
-      section(key,key[0].toUpperCase()+key.slice(1)+' · '+data[key].length,(container)=>{
-        const preview=document.createElement('pre');
-        preview.textContent=data[key].map(r=>[r.word||r.phrase||r.title,r.meaning||r.explanation||r.text,r.translation,r.example,...(r.examples||[]),...(r.options||[]),r.kind==='choice'?'Teacher key: '+r.options[r.answer]:'',r.criteria,r.teacherAnswer,r.feedback,'Pages: '+r.pages.join(', ')+(r.generated?' · generated practice':'')].filter(Boolean).join('\n')).join('\n\n');
-        container.append(preview);
-      },true);
-    }
+    section('phrases','Phrases · '+data.phrases.length,(container,titleSpan)=>{
+      const wrap=document.createElement('div');wrap.className='lm-pdf-words-container';
+      const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
+      toolbar.innerHTML='<span class="saas-text-muted" style="font-size:12.5px">Select phrases to import, edit entries, or add missing phrases.</span>';
+      const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='btn primary saas-btn saas-btn-sm';addBtn.textContent='+ Add phrase';
+      toolbar.append(addBtn);wrap.append(toolbar);
+      const list=document.createElement('div');list.className='lm-pdf-word-list';
+      const updateCount=()=>{
+        const rows=list.querySelectorAll('.lm-pdf-phrase-card');
+        titleSpan.textContent=' Phrases · '+rows.length;
+      };
+      const renderPhraseCard=(r,selected=true)=>{
+        const card=document.createElement('div');card.className='lm-pdf-word-card lm-pdf-phrase-card saas-card'+(selected?'':' is-unselected');card.dataset.pdfPhraseCard='';
+        if(r.pages?.length)card.dataset.pages=JSON.stringify(r.pages);
+        card.innerHTML=
+          '<div class="lm-pdf-word-header">'+
+            '<label class="lm-pdf-word-check"><input type="checkbox" data-phrase-select '+(selected?'checked':'')+'> <b data-phrase-title>'+esc(r.phrase||'New phrase')+'</b></label>'+
+            '<div class="lm-pdf-word-actions">'+
+              (r.pages?.length?'<span class="saas-badge saas-badge-muted" style="font-size:11px">Pages: '+esc(r.pages.join(', '))+'</span>':'')+
+              '<button type="button" class="btn ghost saas-btn-sm saas-btn-danger" data-action="remove-phrase" title="Remove" style="padding:0 8px;min-height:28px">✕</button>'+
+            '</div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Phrase</label><input class="saas-input" data-phrase-key="phrase" value="'+esc(r.phrase||'')+'" placeholder="English phrase"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Russian translation</label><input class="saas-input" data-phrase-key="translation" value="'+esc(r.translation||'')+'" placeholder="Перевод"></div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Meaning</label><input class="saas-input" data-phrase-key="meaning" value="'+esc(r.meaning||'')+'" placeholder="English definition"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Example</label><input class="saas-input" data-phrase-key="example" value="'+esc(r.example||'')+'" placeholder="Example sentence"></div>'+
+          '</div>';
+        const phraseInput=card.querySelector('[data-phrase-key="phrase"]'),titleEl=card.querySelector('[data-phrase-title]'),checkEl=card.querySelector('[data-phrase-select]');
+        phraseInput.oninput=()=>{titleEl.textContent=phraseInput.value.trim()||'New phrase';};
+        checkEl.onchange=()=>{card.classList.toggle('is-unselected',!checkEl.checked);};
+        card.querySelector('[data-action="remove-phrase"]').onclick=()=>{card.remove();updateCount();};
+        return card;
+      };
+      data.phrases.forEach(r=>list.append(renderPhraseCard(r,true)));
+      addBtn.onclick=()=>{
+        const newCard=renderPhraseCard({phrase:'',translation:'',meaning:'',example:'',pages:[]},true);
+        list.prepend(newCard);updateCount();newCard.querySelector('[data-phrase-key="phrase"]')?.focus();
+      };
+      wrap.append(list);container.append(wrap);
+    },true);
+    section('classwork','Classwork · '+data.classwork.length,(container,titleSpan)=>{
+      const wrap=document.createElement('div');wrap.className='lm-pdf-classwork-container';
+      const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
+      toolbar.innerHTML='<span class="saas-text-muted" style="font-size:12.5px">Select exercises and tasks to import, edit prompts, answers or criteria.</span>';
+      const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='btn primary saas-btn saas-btn-sm';addBtn.textContent='+ Add task';
+      toolbar.append(addBtn);wrap.append(toolbar);
+      const list=document.createElement('div');list.className='lm-pdf-classwork-list';
+      const updateCount=()=>{
+        const rows=list.querySelectorAll('.lm-pdf-classwork-card');
+        titleSpan.textContent=' Classwork · '+rows.length;
+      };
+      const renderClassworkCard=(r,selected=true)=>{
+        const card=document.createElement('div');card.className='lm-pdf-word-card lm-pdf-classwork-card saas-card'+(selected?'':' is-unselected');card.dataset.pdfClassworkCard='';
+        if(r.pages?.length)card.dataset.pages=JSON.stringify(r.pages);
+        card.dataset.kind=r.kind||'choice';
+        card.dataset.stage=r.stage||'comprehension';
+        card.dataset.generated=r.generated?'true':'false';
+        const isChoice=r.kind==='choice',isExpl=r.kind==='explanation';
+        const optionsText=Array.isArray(r.options)?r.options.join('\n'):'';
+        card.innerHTML=
+          '<div class="lm-pdf-word-header">'+
+            '<label class="lm-pdf-word-check"><input type="checkbox" data-classwork-select '+(selected?'checked':'')+'> <b data-classwork-title>'+esc(r.title||'New task')+'</b></label>'+
+            '<div class="lm-pdf-word-actions">'+
+              '<span class="saas-badge" style="font-size:11px;text-transform:capitalize">'+esc(r.stage||'task')+'</span>'+
+              (r.pages?.length?'<span class="saas-badge saas-badge-muted" style="font-size:11px">Pages: '+esc(r.pages.join(', '))+'</span>':'')+
+              '<button type="button" class="btn ghost saas-btn-sm saas-btn-danger" data-action="remove-classwork" title="Remove" style="padding:0 8px;min-height:28px">✕</button>'+
+            '</div>'+
+          '</div>'+
+          '<div class="saas-form-grid" style="margin-top:8px">'+
+            '<div class="saas-form-group"><label class="saas-label">Task title</label><input class="saas-input" data-classwork-key="title" value="'+esc(r.title||'')+'" placeholder="Task title"></div>'+
+            '<div class="saas-form-group"><label class="saas-label">Stage</label><select class="saas-input" data-classwork-key="stage">'+
+              ['explanation','comprehension','guided','independent','final'].map(s=>'<option value="'+s+'"'+(s===(r.stage||'comprehension')?' selected':'')+'>'+s+'</option>').join('')+
+            '</select></div>'+
+          '</div>'+
+          '<div class="saas-form-group" style="margin-top:8px">'+
+            '<label class="saas-label">Instructions / prompt text</label><textarea class="saas-textarea" data-classwork-key="text" style="min-height:56px" placeholder="Task prompt">'+esc(r.text||'')+'</textarea>'+
+          '</div>'+
+          (isChoice?
+            '<div class="saas-form-grid" style="margin-top:8px">'+
+              '<div class="saas-form-group"><label class="saas-label">Options (one per line)</label><textarea class="saas-textarea" data-classwork-key="options" style="min-height:60px" placeholder="Option 1&#10;Option 2">'+esc(optionsText)+'</textarea></div>'+
+              '<div class="saas-form-group">'+
+                '<label class="saas-label">Correct answer index (0, 1, ...)</label><input type="number" min="0" class="saas-input" data-classwork-key="answer" value="'+esc(Number.isFinite(r.answer)?r.answer:0)+'">'+
+                '<label class="saas-label" style="margin-top:8px">Teacher feedback / notes</label><input class="saas-input" data-classwork-key="feedback" value="'+esc(r.feedback||'')+'" placeholder="Feedback">'+
+              '</div>'+
+            '</div>':
+            (!isExpl?
+              '<div class="saas-form-grid" style="margin-top:8px">'+
+                '<div class="saas-form-group"><label class="saas-label">Criteria (Category | Points)</label><textarea class="saas-textarea" data-classwork-key="criteria" style="min-height:60px" placeholder="Content | 3&#10;Accuracy | 2">'+esc(r.criteria||'')+'</textarea></div>'+
+                '<div class="saas-form-group"><label class="saas-label">Teacher sample answer</label><textarea class="saas-textarea" data-classwork-key="teacherAnswer" style="min-height:60px" placeholder="Sample answer">'+esc(r.teacherAnswer||'')+'</textarea></div>'+
+              '</div>':'')
+          );
+        const titleInput=card.querySelector('[data-classwork-key="title"]'),titleEl=card.querySelector('[data-classwork-title]'),checkEl=card.querySelector('[data-classwork-select]');
+        titleInput.oninput=()=>{titleEl.textContent=titleInput.value.trim()||'New task';};
+        checkEl.onchange=()=>{card.classList.toggle('is-unselected',!checkEl.checked);};
+        card.querySelector('[data-action="remove-classwork"]').onclick=()=>{card.remove();updateCount();};
+        return card;
+      };
+      data.classwork.forEach(r=>list.append(renderClassworkCard(r,true)));
+      addBtn.onclick=()=>{
+        const newCard=renderClassworkCard({title:'',text:'',kind:'choice',stage:'comprehension',options:['',''],answer:0,feedback:'',pages:[]},true);
+        list.prepend(newCard);updateCount();newCard.querySelector('[data-classwork-key="title"]')?.focus();
+      };
+      wrap.append(list);container.append(wrap);
+    },true);
     section('rules','Rules · '+data.rules.length,(container,titleSpan)=>{
       const wrap=document.createElement('div');wrap.className='lm-pdf-rules-container';
       const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
@@ -307,7 +426,11 @@ async function lmImportPdfDraft(file) {
       wrap.append(list);container.append(wrap);
     },true);
     section('pdf','Lesson PDF',(container)=>{
-      const preview=document.createElement('pre');preview.textContent=file.name;container.append(preview);
+      const box=document.createElement('div');box.className='lm-pdf-form-box';
+      box.innerHTML=
+        '<div class="saas-form-group"><label class="saas-label">PDF block title</label><input class="saas-input" data-pdf-field="pdf-title" value="'+esc(file.name)+'" placeholder="PDF title"></div>'+
+        '<p class="saas-text-muted" style="margin-top:6px;font-size:12px">Source file: '+esc(file.name)+' ('+(typeof lmFileSize==='function'?lmFileSize(file.size):Math.round(file.size/1024)+' KB')+')</p>';
+      container.append(box);
     },true);
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
     let draftConsent=null;
@@ -317,6 +440,7 @@ async function lmImportPdfDraft(file) {
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
     dialog.addEventListener('cancel',event=>{if(apply.disabled){event.preventDefault();return;}controller.abort();lmPdfProgressEnd();dialog.remove();});
     apply.onclick=async()=>{
+      window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
       if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';return;}
@@ -326,11 +450,13 @@ async function lmImportPdfDraft(file) {
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
-          const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput)data.title=titleInput.value.trim();
+          const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput&&titleInput.value.trim())data.title=titleInput.value.trim();
           const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim();
           const unitInput=dialog.querySelector('[data-pdf-field="unit"]');if(unitInput)data.unit=unitInput.value.trim();
           const lessonInput=dialog.querySelector('[data-pdf-field="lesson"]');if(lessonInput)data.lesson=lessonInput.value.trim();
+          const classInput=dialog.querySelector('[data-pdf-field="className"]');if(classInput)data.className=classInput.value.trim();
           const overviewInput=dialog.querySelector('[data-pdf-field="overview"]');if(overviewInput)data.overview=overviewInput.value.trim();
+          const pdfTitleInput=dialog.querySelector('[data-pdf-field="pdf-title"]');const pdfTitle=pdfTitleInput?.value.trim()||file.name;
           const wordCards=dialog.querySelectorAll('[data-pdf-word-card]');
           if(wordCards.length){
             const updatedWords=[];
@@ -345,6 +471,50 @@ async function lmImportPdfDraft(file) {
               updatedWords.push({word,meaning,translation,example,pages});
             }
             data.words=updatedWords;
+          }
+          const phraseCards=dialog.querySelectorAll('[data-pdf-phrase-card]');
+          if(phraseCards.length){
+            const updatedPhrases=[];
+            for(const card of phraseCards){
+              if(!card.querySelector('[data-phrase-select]')?.checked)continue;
+              const phrase=card.querySelector('[data-phrase-key="phrase"]')?.value.trim()||'';
+              if(!phrase)continue;
+              const translation=card.querySelector('[data-phrase-key="translation"]')?.value.trim()||'';
+              const meaning=card.querySelector('[data-phrase-key="meaning"]')?.value.trim()||phrase;
+              const example=card.querySelector('[data-phrase-key="example"]')?.value.trim()||'';
+              const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
+              updatedPhrases.push({phrase,meaning,translation,example,pages});
+            }
+            data.phrases=updatedPhrases;
+          }
+          const classworkCards=dialog.querySelectorAll('[data-pdf-classwork-card]');
+          if(classworkCards.length){
+            const updatedClasswork=[];
+            for(const card of classworkCards){
+              if(!card.querySelector('[data-classwork-select]')?.checked)continue;
+              const title=card.querySelector('[data-classwork-key="title"]')?.value.trim()||'';
+              if(!title)continue;
+              const text=card.querySelector('[data-classwork-key="text"]')?.value.trim()||'';
+              const stage=card.querySelector('[data-classwork-key="stage"]')?.value.trim()||card.dataset.stage||'comprehension';
+              const kind=card.dataset.kind||'choice';
+              const generated=card.dataset.generated==='true';
+              const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
+              const item={stage,title,text,kind,pages,generated};
+              if(kind==='choice'){
+                const options=(card.querySelector('[data-classwork-key="options"]')?.value||'').split('\n').map(o=>o.trim()).filter(Boolean);
+                const answer=Number(card.querySelector('[data-classwork-key="answer"]')?.value||0);
+                const feedback=card.querySelector('[data-classwork-key="feedback"]')?.value.trim()||'';
+                Object.assign(item,{options,answer:Number.isFinite(answer)?answer:0,feedback,criteria:'',teacherAnswer:''});
+              } else if(kind==='explanation'){
+                Object.assign(item,{options:[],answer:-1,feedback:'',criteria:'',teacherAnswer:''});
+              } else {
+                const criteria=card.querySelector('[data-classwork-key="criteria"]')?.value.trim()||'';
+                const teacherAnswer=card.querySelector('[data-classwork-key="teacherAnswer"]')?.value.trim()||'';
+                Object.assign(item,{options:[],answer:-1,feedback:'',criteria,teacherAnswer});
+              }
+              updatedClasswork.push(item);
+            }
+            data.classwork=updatedClasswork;
           }
           const ruleCards=dialog.querySelectorAll('[data-pdf-rule-card]');
           if(ruleCards.length){
@@ -399,7 +569,7 @@ async function lmImportPdfDraft(file) {
           const draft=JSON.parse(JSON.stringify(current));draft.published=false;
           lmPdfApplyMetadata(draft,data,choices.get('metadata').checked);
           const selected=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
-          const added=await lmPdfAppendSections(draft,groups,selected,hash,file.name);
+          const added=await lmPdfAppendSections(draft,groups,selected,hash,file.name,pdfTitle);
           status.textContent='Preparing dictionary cards…';
           await lmPdfPrepareCards(draft,active,(done,total)=>lmPdfProgress('Preparing cards',[],done,total),selected);
           if(!active())throw new Error('The lesson changed.');
@@ -426,6 +596,7 @@ async function lmImportPdfDraft(file) {
           }
           if(active()){lmRenderEditor();lmPdfProgress('Draft ready',[...['words','phrases','rules','classwork'].filter(key=>selected.has(key)).map(key=>key[0].toUpperCase()+key.slice(1)+' saved'),...(selected.has('pdf')?['Lesson PDF attached']:[])],1,1);lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.'+alertWarning,false);}
           dialog.remove();
+          window.scrollTo({top:0,behavior:'smooth'});
         },status);
       }catch(error){status.textContent=error.message;}
       finally{apply.disabled=false;cancel.disabled=false;}
