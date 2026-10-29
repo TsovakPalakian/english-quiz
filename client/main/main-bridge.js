@@ -181,6 +181,8 @@
   function reportClientBug(entry){
     const path=String(entry.path||'/').split('?')[0];
     const status=Number(entry.status)||0;
+    const stack=String(entry.stack||'');
+    if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
     if(path.startsWith('/api/bugs')||status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
     // Stale Approve/Reject after a successful decision is expected; do not fill the bug journal.
     if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return;
@@ -203,8 +205,18 @@
       action:Object.keys(target.dataset||{}).slice(0,8).join(','),screen:(document.querySelector('section.on')||{}).id||''});
   },true);
   if(window.addEventListener){
-    window.addEventListener('error',event=>reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:event.message||'Unhandled error',errorName:event.error?.name,stack:event.error?.stack||''}));
-    window.addEventListener('unhandledrejection',event=>{const reason=event.reason;reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:reason?.message||String(reason||'Unhandled rejection'),errorName:reason?.name,stack:reason?.stack||''});});
+    window.addEventListener('error',event=>{
+      const filename=String(event.filename||'');
+      const stack=String(event.error?.stack||'');
+      if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(filename)||/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
+      reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:event.message||'Unhandled error',errorName:event.error?.name,stack});
+    });
+    window.addEventListener('unhandledrejection',event=>{
+      const reason=event.reason;
+      const stack=String(reason?.stack||'');
+      if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
+      reportClientBug({method:'CLIENT',path:location.pathname||'/',status:0,error:reason?.message||String(reason||'Unhandled rejection'),errorName:reason?.name,stack});
+    });
   }
   async function api(path,options={}){
     const method=String(options.method||'GET').toUpperCase();
@@ -217,9 +229,9 @@
     let response;
     try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:requestHeaders});}
     catch(cause){
-      const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:true});
+      const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:!quietBug,quietBug});
       bugRemember('network-error',{method,path:String(path).slice(0,300),name:cause?.name||'Error',durationMs:Date.now()-started});
-      reportClientBug({method,path,status:0,error:error.message,errorName:cause?.name,requestBody,requestHeaders,durationMs:Date.now()-started,stack:error.stack});
+      if(!quietBug)reportClientBug({method,path,status:0,error:error.message,errorName:cause?.name,requestBody,requestHeaders,durationMs:Date.now()-started,stack:error.stack});
       throw error;
     }
     let value={},parsed=true,raw='';
@@ -467,7 +479,7 @@
         job.paused=false;savePersonal();
         notice('Сохранение личных данных в тестовую Learning…');
         let result;
-        try{result=await api(job.path,{method:job.method,body:JSON.stringify(job.body),keepalive:unloading,quietBug:job.kind==='theme'});}
+        try{result=await api(job.path,{method:job.method,body:JSON.stringify(job.body),keepalive:unloading,quietBug:job.kind==='theme'||job.kind==='activity'});}
         catch(error){
           if(!((job.kind==='theme'||job.kind==='customThemes')&&error.status===409&&!job.themeRetried))throw error;
           job.themeRetried=true;themeRecovering=true;
@@ -497,7 +509,7 @@
       savePersonal();
       const message=error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
       notice(message,true);
-      if(!error.reported)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
+      if(!error.reported&&!error.quietBug)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
     }finally{personalRunning=false;}
   }
   async function archiveChanged(result){
