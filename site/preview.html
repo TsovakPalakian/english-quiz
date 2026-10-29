@@ -2060,7 +2060,17 @@
     </div>
   </div>
   <div id="selpop" class="selpop saas-card" hidden>
-    <div class="selpop-top"><b id="selpopWord"></b><span class="selpop-actions"><button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAdd" hidden>Add word</button><button class="selpop-x saas-btn" type="button" id="selpopClose" aria-label="Close">×</button></span></div>
+    <div class="selpop-top">
+      <div class="selpop-word-wrap">
+        <b id="selpopWord"></b>
+        <span class="selpop-variant" id="selpopVariant" hidden></span>
+      </div>
+      <span class="selpop-actions">
+        <span class="saas-badge selpop-dict-badge" id="selpopDictBadge" hidden></span>
+        <button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAdd" hidden>Add word</button>
+        <button class="selpop-x saas-btn" type="button" id="selpopClose" aria-label="Close">×</button>
+      </span>
+    </div>
     <div id="selpopBody"></div>
   </div>
   <script src="/main-bridge.js"></script><script src="grammar.js"></script>

@@ -90,7 +90,7 @@ try{
     assert.ok(passkey.y>=divider.y+divider.height,'Passkey follows the or divider');
     assert.ok(Math.abs(google.y-passkey.y)<=1&&Math.abs(google.x-passkey.x-passkey.width-10)<=1,'Google follows passkey in the icon row');
   }
-  assert.equal(await page.locator('.side .brand-mark svg polygon').count(),1);
+  assert.equal(await page.locator('.side .brand-mark svg path').count(),2);
   assert.equal(await page.locator('.side .brand b').innerText(),'Lumiscia');
   assert.equal(await page.locator('.side .brand small').innerText(),'Learning studio');
   assert.match(await page.locator('.site-copyright').innerText(),new RegExp('© '+new Date().getFullYear()+' Lumiscia'));
@@ -142,7 +142,7 @@ try{
     document.documentElement.dataset.theme='user';
     for(const [name,value] of Object.entries({'--bg':'#eee9ef','--card':'#f9f4fa','--acc':'#9b2360','--mute':'#6d5467'}))document.documentElement.style.setProperty(name,value);
   });
-  assert.equal(await page.locator('.side .brand-mark svg circle').first().getAttribute('stroke-width'),'.8','Gold emblem remains intact');
+  assert.equal(await page.locator('.guest-brand .brand-mark svg circle').first().getAttribute('stroke-width'),'.8','Gold emblem remains intact');
   assert.equal(await page.locator('.site-copyright').evaluate(node=>getComputedStyle(node).color),'rgb(179, 197, 206)','Guest copyright uses the studio palette');
   assert.equal(await page.locator('.account-gate .card').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)','Guest form remains unframed');
   await page.evaluate(style=>{document.documentElement.setAttribute('style',style||'');},originalStyle);

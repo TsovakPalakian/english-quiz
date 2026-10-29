@@ -53,7 +53,7 @@
       return foldedLinkHtml(order.filter((pair) => links && links[pair[0]]).map((pair) => [pair[1], links[pair[0]]]));
     }
     function usageList(usages) {
-      if (!usages.length) return '<div class="gen"><h2>Usages</h2><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div>';
+      if (!usages.length) return '<details class="saas-details made-details"><summary class="saas-summary">Usages · 0</summary><div class="gen"><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div></details>';
       const simple = usages.filter((usage) => usage.kind === "simple").length;
       const complex = usages.filter((usage) => usage.kind === "complex").length;
       const names = [];
@@ -61,7 +61,7 @@
         const name = usage.source || "Dictionary";
         if (names.indexOf(name) === -1) names.push(name);
       });
-      let html = '<div class="gen"><h2>Usages · ' + usages.length + "</h2>";
+      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usages · ' + usages.length + '</summary><div class="gen">';
       if (usages.length < 10) html += '<p style="color:var(--bad)">Only ' + usages.length + (usages.length === 1 ? " example sentence" : " example sentences") + " for this phrase.</p>";
       else html += '<p class="hint">' + simple + " simple · " + complex + " complex.</p>";
       html += '<p class="hint">Sources: ' + esc(names.join(", ")) + ".</p>";
@@ -69,7 +69,7 @@
         html += '<p><span class="kind">' + esc(usage.kind) + '</span><span class="label">' + esc(usage.source || "") + "</span> " + esc(usage.en) + "</p>";
         if (usage.ru) html += '<p class="hint">' + esc(usage.ru) + "</p>";
       });
-      return html + "</div>";
+      return html + "</div></details>";
     }
     function usageQuizzes(usages) {
       const withRu = usages.filter((usage) => usage.ru);
@@ -80,7 +80,7 @@
         if (pool.length < 4 && pool.indexOf(usage.en) === -1) pool.push(usage.en);
       });
       const options = shuffle(pool);
-      let html = '<div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
+      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usage quizzes · 2</summary><div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
       options.forEach((option, index) => {
         html += '<button class="opt" type="button" data-usage-choice="' + (option === target.en ? "ok" : "bad") + '"><span class="bullet">' + (index + 1) + "</span><span>" + esc(option) + "</span></button>";
       });
@@ -90,7 +90,7 @@
       const shownRu = truthful ? target.ru : other.ru;
       html += '<div class="gen"><h2>Usage quiz · True / false</h2><p class="prompt">Does this translation match the sentence?</p><p class="q">' + esc(target.en) + "</p><p>" + esc(shownRu) + "</p>";
       html += '<div class="row"><button class="btn" type="button" data-tf="' + (truthful ? "ok" : "bad") + '" data-tf-answer="' + esc(target.ru) + '">True</button>';
-      html += '<button class="btn" type="button" data-tf="' + (truthful ? "bad" : "ok") + '" data-tf-answer="' + esc(target.ru) + '">False</button></div><div id="usageTfFb"></div></div>';
+      html += '<button class="btn" type="button" data-tf="' + (truthful ? "bad" : "ok") + '" data-tf-answer="' + esc(target.ru) + '">False</button></div><div id="usageTfFb"></div></details>';
       return html;
     }
     let madeItem = null;
@@ -104,11 +104,97 @@
       if (words.length > 1) return "idioms";
       return "mine";
     }
+    const IRREGULAR_PLURALS = {
+      children: "child",
+      people: "person",
+      men: "man",
+      women: "woman",
+      feet: "foot",
+      teeth: "tooth",
+      geese: "goose",
+      mice: "mouse",
+      oxen: "ox",
+      lives: "life",
+      wives: "wife",
+      knives: "knife",
+      leaves: "leaf",
+      halves: "half",
+      shelves: "shelf",
+      thieves: "thief",
+      wolves: "wolf",
+      calves: "calf",
+      loaves: "loaf",
+      scarves: "scarf"
+    };
+    const PLURAL_INVARIANT = new Set([
+      "news", "series", "species", "clothes", "glasses", "scissors", "trousers", "jeans", "pants", "physics", "mathematics", "economics", "crossroads", "headquarters"
+    ]);
+
+    function detectSingular(word) {
+      const w = String(word || "").trim().toLowerCase();
+      if (!w || w.length <= 2 || !/^[a-z]+$/.test(w)) return null;
+      if (IRREGULAR_PLURALS[w]) return IRREGULAR_PLURALS[w];
+      if (PLURAL_INVARIANT.has(w)) return null;
+      if (w.endsWith("ss") || w.endsWith("us") || w.endsWith("is")) return null;
+      if (w.endsWith("ies") && w.length > 4) {
+        return w.slice(0, -3) + "y";
+      }
+      if (w.endsWith("ves") && w.length > 4) {
+        return w.slice(0, -3) + "fe";
+      }
+      if (w.endsWith("es") && w.length > 3) {
+        const stem = w.slice(0, -2);
+        if (/(?:s|x|z|ch|sh|o)$/.test(stem)) return stem;
+      }
+      if (w.endsWith("s") && w.length > 3) {
+        return w.slice(0, -1);
+      }
+      return null;
+    }
+
+    function findWordDictionary(word) {
+      const key = String(word || "").trim().toLowerCase();
+      if (!key) return null;
+      const added = typeof loadAdded === "function" ? loadAdded() : [];
+      const foundAdded = added.find((row) => String(row.word || "").trim().toLowerCase() === key);
+      if (foundAdded) {
+        const place = foundAdded.place || "mine";
+        if (place === "mine") return "My words";
+        if (place === "phrasal" || place === "chat-phrasal") return "Phrasal verbs";
+        if (place === "idioms" || place === "chat-idioms") return "Idioms";
+        if (place === "music") return "Song lyrics";
+        if (place === "chat") return "Chat";
+        if (typeof PLACE_LABEL !== "undefined" && PLACE_LABEL[place]) return PLACE_LABEL[place];
+        return "My words";
+      }
+      if (typeof phrasalWords !== "undefined" && phrasalWords.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Phrasal verbs";
+      if (typeof idiomWords !== "undefined" && idiomWords.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Idioms";
+      if (typeof ask07 !== "undefined" && ask07.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "7 Sep";
+      if (typeof lines21 !== "undefined" && lines21.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "21 Sep";
+      if (typeof phrases09 !== "undefined" && phrases09.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "9 Sep";
+      if (typeof adverbs14 !== "undefined" && adverbs14.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "14 Sep";
+      if (typeof talk16 !== "undefined" && talk16.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "16 Sep";
+      if (typeof likes23 !== "undefined" && likes23.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "23 Sep";
+      if (typeof extraWords !== "undefined") {
+        const ew = extraWords.find((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key);
+        if (ew) return ew.lesson || "Additional words";
+      }
+      if (typeof words !== "undefined" && words.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Lessons";
+      if (typeof songCards !== "undefined") {
+        const sc = Object.values(songCards).find((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key);
+        if (sc) return "Song lyrics";
+      }
+      if (typeof lmState !== "undefined" && lmState?.blocks?.some((b) => b.type === "wordcard" && String(b.word || "").trim().toLowerCase() === key)) return "Lesson";
+      return null;
+    }
+
     function dictionaryOwned(word) {
       const key = String(word || "").trim().toLowerCase();
       if (!key) return true;
-      if (loadAdded().some((row) => String(row.word || "").trim().toLowerCase() === key)) return true;
-      return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
+      if (findWordDictionary(key)) return true;
+      const singular = detectSingular(key);
+      if (singular && findWordDictionary(singular)) return true;
+      return false;
     }
     function dictionaryAddHtml(item) {
       if(item?.stageEverydayReference || item?.isLessonWord || item?.data?.isLessonWord)return '';
@@ -254,7 +340,7 @@
       }
 
       if (phrases.length) {
-        html += '<div class="gen"><h2>Phrases</h2>';
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · ' + phrases.length + '</summary><div class="gen">';
         phrases.forEach((phrase, index) => {
           html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.en) + '</p><button class="btn" type="button" data-phrase="' + index + '">Flip</button><p class="hint" id="madePhrase' + index + '" hidden>' + esc(phrase.ru) + "</p></div>";
         });
@@ -262,12 +348,16 @@
         phrases.forEach((phrase, index) => {
           html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.ru) + '</p><button class="btn" type="button" data-phrase-en="' + index + '">Flip</button><p class="hint" id="madePhraseEn' + index + '" hidden>' + esc(phrase.en) + "</p></div>";
         });
-        html += "</div>";
+        html += "</div></details>";
       } else if (!item.fromText) {
-        html += '<div class="gen"><h2>Phrases</h2><p class="hint">Wooordhunt has no phrases for this word.</p></div>';
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · 0</summary><div class="gen"><p class="hint">Wooordhunt has no phrases for this word.</p></div></details>';
       }
       html += usageQuizzes(usages);
-      html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
+      const quizHtml = cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
+      if (quizHtml) {
+        const quizCount = typeof cardQuizzesOf === "function" ? cardQuizzesOf(cardQuizKey(item)).length : 0;
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Quiz · ' + quizCount + '</summary>' + quizHtml + '</details>';
+      }
       document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
