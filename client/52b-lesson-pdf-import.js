@@ -173,14 +173,18 @@ async function lmImportPdfDraft(file) {
       sectionCount += 1;
       const idx = sectionCount;
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
-      input.type='checkbox';input.checked=checked;input.style.display='none';choices.set(key,input);
-      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.textContent=String(idx);
+      input.type='checkbox';input.checked=checked;choices.set(key,input);
+      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.dataset.num=String(idx);
       numBadge.title='Click to toggle section import';
+      const syncState=()=>{
+        numBadge.classList.toggle('is-off',!input.checked);
+        details.classList.toggle('is-section-off',!input.checked);
+      };
+      input.onchange=syncState;
       numBadge.onclick=(e)=>{
         e.stopPropagation();
         input.checked=!input.checked;
-        numBadge.classList.toggle('is-off',!input.checked);
-        details.classList.toggle('is-section-off',!input.checked);
+        syncState();
       };
       const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
       label.append(input,numBadge,titleSpan);summary.append(label);details.append(summary);
@@ -457,7 +461,7 @@ async function lmImportPdfDraft(file) {
       window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
-      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';return;}
+      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';status.classList.add('bad');return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;

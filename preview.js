@@ -2780,7 +2780,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
-      choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
+      choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
@@ -11712,6 +11712,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       saveMistakeMap(map, change);
       if (ok && row.streak >= 4) trackEvent("learned", item.type, "ok");
+      if (typeof broadcastQuizFsrs === "function") {
+        broadcastQuizFsrs(item, ok);
+      }
     }
     let mistakeGroups = [];
     let mistakePool = [];
@@ -11761,7 +11764,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function mistakeItems(groups) {
       const queue = [];
-      groups.forEach((group) => {
+      const sortedGroups = groups.slice().sort((a, b) => {
+        const aR = a.card?.retrievability != null ? Number(a.card.retrievability) : (a.card?.fsrs?.retrievability != null ? Number(a.card.fsrs.retrievability) : null);
+        const bR = b.card?.retrievability != null ? Number(b.card.retrievability) : (b.card?.fsrs?.retrievability != null ? Number(b.card.fsrs.retrievability) : null);
+        if (aR != null && bR != null && aR !== bR) return aR - bR;
+        if (aR != null) return -1;
+        if (bR != null) return 1;
+        const am = a.rows.reduce((sum, row) => sum + row.misses, 0);
+        const bm = b.rows.reduce((sum, row) => sum + row.misses, 0);
+        return bm - am || String(a.card.en).localeCompare(String(b.card.en));
+      });
+      sortedGroups.forEach((group) => {
         const types = group.rows.map((row) => row.type);
         typesFor(group.card, types).forEach((type) => {
           customQuizzesFor(group.card, type).filter(customQuizReady).forEach((quiz) => pushCustomDayItem(queue, group.card, quiz));
@@ -12112,7 +12125,11 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       fb.dataset.marked = "1";
       clearDayTimer();
       const item = dayQueue[dayAt];
-      if (item) noteAnswer(item, ok);
+      if (item) {
+        if (item.shownAt) item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+        item.given = right;
+        noteAnswer(item, ok);
+      }
       if (examMode && item && item.type !== "Flip" && ok) examCorrect += 1;
       if (examMode && item && item.type !== "Flip" && !ok) {
         examMistakes += 1;
@@ -12231,6 +12248,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
       const item = dayQueue[dayAt];
       if (!item) { if (examMode) showExamResult(examPassed(), ""); else dayBack(); return; }
+      item.shownAt = Date.now();
       document.getElementById("dayqTitle").textContent = (dayAt + 1) + " / " + dayQueue.length;
       paintExamMistakesLeft();
       const dayqType = document.getElementById("dayqType");
@@ -19368,6 +19386,259 @@ const STUDIO_CONSTELLATIONS = [{
       if (opener) openExpressionCard(expr);
       else addExpressionCard(expr, button);
     });
+    let fsrsQueue = [];
+    let fsrsCurrentIndex = 0;
+    let fsrsCardShownAt = 0;
+    let fsrsFlipped = false;
+    let fsrsSubmitting = false;
+
+    function formatFsrsInterval(days) {
+      const d = Number(days) || 0;
+      if (d <= 0) return '<10m';
+      if (d === 1) return '1d';
+      if (d < 30) return d + 'd';
+      if (d < 365) return (d / 30).toFixed(1).replace(/\.0$/, '') + 'mo';
+      return (d / 365).toFixed(1).replace(/\.0$/, '') + 'y';
+    }
+
+    async function openFsrsQuiz(customItems) {
+      if (Array.isArray(customItems) && customItems.length) {
+        fsrsQueue = customItems;
+        fsrsCurrentIndex = 0;
+        visit('fsrsquiz');
+        renderFsrsCard();
+        return;
+      }
+      try {
+        const res = await accountFetch('/api/error-bank?action=queue&mode=fsrs_retrievability&limit=30');
+        fsrsQueue = Array.isArray(res) ? res : (res?.queue || []);
+        fsrsCurrentIndex = 0;
+        visit('fsrsquiz');
+        renderFsrsCard();
+      } catch (err) {
+        console.error('Failed to load FSRS queue:', err);
+        fsrsQueue = [];
+        fsrsCurrentIndex = 0;
+        visit('fsrsquiz');
+        renderFsrsCard();
+      }
+    }
+
+    function renderFsrsCard() {
+      const scene = document.getElementById('fsrsScene');
+      const container = document.querySelector('#fsrsquiz .fsrs-card-container');
+      if (!container) return;
+
+      const item = fsrsQueue[fsrsCurrentIndex];
+      const counter = document.getElementById('fsrsCounter');
+      const frontPrompt = document.getElementById('fsrsFrontPrompt');
+      const hint = document.getElementById('fsrsHint');
+      const expected = document.getElementById('fsrsExpected');
+      const note = document.getElementById('fsrsDiagnosticNote');
+      const flipBar = document.getElementById('fsrsFlipBar');
+      const ratingBar = document.getElementById('fsrsRatingBar');
+      const feedback = document.getElementById('fsrsFeedback');
+
+      if (!item) {
+        container.innerHTML = '<div class="home-warmup-empty" style="text-align:center; padding:48px 20px;">' +
+          '<p style="font-size:1.4rem; font-weight:800; margin-bottom:8px;">All caught up! 🎉</p>' +
+          '<p class="sub" style="color:var(--saas-text-muted); margin-bottom:20px;">No memory flashcards due for review right now.</p>' +
+          '<button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="home">Back to Home</button>' +
+          '</div>';
+        const homeBtn = container.querySelector('[data-jump="home"]');
+        if (homeBtn) homeBtn.onclick = () => visit('home');
+        return;
+      }
+
+      if (counter) counter.textContent = (fsrsCurrentIndex + 1) + ' of ' + fsrsQueue.length;
+      if (frontPrompt) frontPrompt.textContent = item.prompt || 'Recall the correct target form';
+      if (hint) {
+        const hintText = item.hint || (item.cuedHint ? 'Hint: ' + item.cuedHint : '');
+        hint.textContent = hintText;
+        hint.hidden = !hintText;
+      }
+      if (expected) expected.textContent = item.expectedAnswer || item.expected_answer || item.expected || '';
+      if (note) {
+        const noteText = item.diagnosticNote || item.diagnostic_note || '';
+        note.textContent = noteText;
+        note.hidden = !noteText;
+      }
+
+      const previews = item.previewIntervals || {};
+      const badgeAgain = document.getElementById('fsrsBadgeAgain');
+      const badgeHard = document.getElementById('fsrsBadgeHard');
+      const badgeGood = document.getElementById('fsrsBadgeGood');
+      const badgeEasy = document.getElementById('fsrsBadgeEasy');
+
+      if (badgeAgain) badgeAgain.textContent = '<10m';
+      if (badgeHard) badgeHard.textContent = formatFsrsInterval(previews[2] || 1);
+      if (badgeGood) badgeGood.textContent = formatFsrsInterval(previews[3] || 3);
+      if (badgeEasy) badgeEasy.textContent = formatFsrsInterval(previews[4] || 7);
+
+      fsrsFlipped = false;
+      fsrsSubmitting = false;
+      if (scene) scene.classList.remove('is-flipped');
+      if (flipBar) flipBar.hidden = false;
+      if (ratingBar) {
+        ratingBar.hidden = true;
+        ratingBar.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+      }
+      if (feedback) feedback.hidden = true;
+
+      fsrsCardShownAt = Date.now();
+    }
+
+    function flipFsrsCard(open = true) {
+      fsrsFlipped = !!open;
+      const scene = document.getElementById('fsrsScene');
+      const flipBar = document.getElementById('fsrsFlipBar');
+      const ratingBar = document.getElementById('fsrsRatingBar');
+
+      if (scene) scene.classList.toggle('is-flipped', fsrsFlipped);
+      if (flipBar) flipBar.hidden = fsrsFlipped;
+      if (ratingBar) ratingBar.hidden = !fsrsFlipped;
+    }
+
+    async function submitFsrsGrade(grade) {
+      if (fsrsSubmitting) return;
+      const item = fsrsQueue[fsrsCurrentIndex];
+      if (!item) return;
+
+      fsrsSubmitting = true;
+      const ratingBar = document.getElementById('fsrsRatingBar');
+      if (ratingBar) ratingBar.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
+
+      const latencyMs = Math.max(1, Date.now() - fsrsCardShownAt);
+      const feedback = document.getElementById('fsrsFeedback');
+
+      try {
+        const result = await accountFetch('/api/error-bank', {
+          method: 'POST',
+          body: JSON.stringify({
+            itemId: item.id,
+            grade: Number(grade) || 3,
+            latencyMs
+          })
+        });
+
+        if (feedback) {
+          feedback.hidden = false;
+          const nextInterval = result?.intervalDays || 1;
+          const intervalText = formatFsrsInterval(nextInterval);
+          if (grade === 1) {
+            feedback.className = 'fsrs-feedback is-incorrect';
+            feedback.style.background = 'var(--saas-danger-subtle, #fee2e2)';
+            feedback.style.color = 'var(--saas-danger, #b91c1c)';
+            feedback.textContent = 'Marked for repeating soon (<10m).';
+          } else {
+            feedback.className = 'fsrs-feedback is-correct';
+            feedback.style.background = 'var(--saas-success-subtle, #dcfce7)';
+            feedback.style.color = 'var(--saas-success, #15803d)';
+            feedback.textContent = 'Scheduled for review in ' + intervalText + '.';
+          }
+        }
+
+        setTimeout(() => {
+          fsrsCurrentIndex++;
+          renderFsrsCard();
+        }, 650);
+      } catch (err) {
+        console.error('Failed to submit FSRS rating:', err);
+        fsrsSubmitting = false;
+        if (ratingBar) ratingBar.querySelectorAll('button').forEach(btn => { btn.disabled = false; });
+      }
+    }
+
+    function bindFsrsEvents() {
+      const flipBtn = document.getElementById('fsrsFlipBtn');
+      if (flipBtn) flipBtn.onclick = () => flipFsrsCard(true);
+
+      const scene = document.getElementById('fsrsScene');
+      if (scene) {
+        scene.onclick = () => { if (!fsrsFlipped) flipFsrsCard(true); };
+        scene.onkeydown = (e) => {
+          if ((e.key === ' ' || e.key === 'Enter') && !fsrsFlipped) {
+            e.preventDefault();
+            flipFsrsCard(true);
+          }
+        };
+      }
+
+      document.querySelectorAll('#fsrsRatingBar [data-fsrs-grade]').forEach(btn => {
+        btn.onclick = () => {
+          const g = Number(btn.dataset.fsrsGrade);
+          submitFsrsGrade(g);
+        };
+      });
+
+      const startFsrsBtn = document.getElementById('startFsrsBtn');
+      if (startFsrsBtn) {
+        startFsrsBtn.onclick = () => openFsrsQuiz();
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bindFsrsEvents);
+    } else {
+      bindFsrsEvents();
+    }
+
+    document.addEventListener('keydown', (e) => {
+      const activeSection = document.querySelector('section.on');
+      if (activeSection?.id !== 'fsrsquiz') return;
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+      if (!fsrsFlipped) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          flipFsrsCard(true);
+        }
+      } else {
+        if (e.key === '1') { e.preventDefault(); submitFsrsGrade(1); }
+        else if (e.key === '2') { e.preventDefault(); submitFsrsGrade(2); }
+        else if (e.key === '3') { e.preventDefault(); submitFsrsGrade(3); }
+        else if (e.key === '4') { e.preventDefault(); submitFsrsGrade(4); }
+      }
+    });
+
+    function deriveFsrsGrade(ok, item = {}) {
+      if (!ok) return 1;
+      const latency = Number(item.latencyMs) || 0;
+      if (item.hintUsed || latency > 10000) return 2;
+      if (latency > 0 && latency < 3000) return 4;
+      return 3;
+    }
+
+    function broadcastQuizFsrs(item, ok) {
+      if (!item || typeof accountFetch !== 'function') return;
+      if (!authUser || viewAccount) return;
+
+      const grade = deriveFsrsGrade(ok, item);
+      const latencyMs = Number(item?.latencyMs) || 0;
+      const word = item?.card?.en || item?.line || item?.word || '';
+      const expectedAnswer = item?.expected || item?.card?.en || item?.card?.ru || item?.right || '';
+      const answer = item?.given != null ? String(item.given) : (ok ? expectedAnswer : '');
+
+      accountFetch('/api/error-bank', {
+        method: 'POST',
+        body: JSON.stringify({
+          itemId: item?.itemId || item?.id || null,
+          word,
+          expectedAnswer,
+          answer,
+          grade,
+          latencyMs,
+          kind: 'quiz-' + String(item?.type || 'quiz').toLowerCase(),
+          prompt: item?.prompt || item?.line || word
+        })
+      }).catch(() => {});
+    }
+
+    window.openFsrsQuiz = openFsrsQuiz;
+    window.flipFsrsCard = flipFsrsCard;
+    window.formatFsrsInterval = formatFsrsInterval;
+    window.deriveFsrsGrade = deriveFsrsGrade;
+    window.broadcastQuizFsrs = broadcastQuizFsrs;
     const LM_KEY = "enquiz-material-demo";
     const lmFiles = {};
     let lmLibrary = null;
@@ -21706,7 +21977,7 @@ const STUDIO_CONSTELLATIONS = [{
   let job=null,dialog=null,observer=null,serial=0;
   const displayedCards=new Map();
   let speechUI=null,providerUI=null;
-  const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice'];
+  const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice','FSRS Flashcard'];
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
   const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
@@ -22314,14 +22585,18 @@ async function lmImportPdfDraft(file) {
       sectionCount += 1;
       const idx = sectionCount;
       const details=document.createElement('details'),summary=document.createElement('summary'),label=document.createElement('label'),input=document.createElement('input');
-      input.type='checkbox';input.checked=checked;input.style.display='none';choices.set(key,input);
-      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.textContent=String(idx);
+      input.type='checkbox';input.checked=checked;choices.set(key,input);
+      const numBadge=document.createElement('span');numBadge.className='lm-pdf-section-num'+(checked?'':' is-off');numBadge.dataset.num=String(idx);
       numBadge.title='Click to toggle section import';
+      const syncState=()=>{
+        numBadge.classList.toggle('is-off',!input.checked);
+        details.classList.toggle('is-section-off',!input.checked);
+      };
+      input.onchange=syncState;
       numBadge.onclick=(e)=>{
         e.stopPropagation();
         input.checked=!input.checked;
-        numBadge.classList.toggle('is-off',!input.checked);
-        details.classList.toggle('is-section-off',!input.checked);
+        syncState();
       };
       const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
       label.append(input,numBadge,titleSpan);summary.append(label);details.append(summary);
@@ -22598,7 +22873,7 @@ async function lmImportPdfDraft(file) {
       window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
       if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
-      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';return;}
+      if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';status.classList.add('bad');return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
@@ -24554,6 +24829,7 @@ async function lmImportPdfDraft(file) {
         inputHtml +
         '<p id="warmupFeedback" class="home-warmup-feedback" hidden></p>' +
         '</div>';
+      const cardShownAt = Date.now();
       const checkBtn = document.getElementById('warmupCheckBtn');
       if (checkBtn) {
         checkBtn.onclick = async () => {
@@ -24562,7 +24838,8 @@ async function lmImportPdfDraft(file) {
           if (!val) return;
           checkBtn.disabled = true;
           try {
-            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val }) });
+            const latencyMs = Math.max(1, Date.now() - cardShownAt);
+            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val, latencyMs }) });
             const fb = document.getElementById('warmupFeedback');
             if (fb) {
               fb.hidden = false;

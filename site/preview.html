@@ -102,7 +102,10 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#be123c" stroke-width="2.2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
             <h2 style="font-size:15px; font-weight:700; margin:0;">Daily 5-Min Warmup</h2>
           </div>
-          <span id="homeWarmupBadge" class="home-warmup-badge saas-badge">0 due</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span id="homeWarmupBadge" class="home-warmup-badge saas-badge">0 due</span>
+            <button class="btn saas-btn saas-btn-sm" type="button" id="startFsrsBtn" style="font-size:12px; padding:4px 10px;">FSRS Flashcards</button>
+          </div>
         </div>
         <div id="homeWarmupContent" class="home-warmup-content" style="padding:18px;"></div>
       </div>
@@ -877,6 +880,55 @@
           </div>
         </div>
         <div class="bar"><button class="btn saas-btn" type="button" id="dayFlipBtn">Flip</button><button class="btn primary saas-btn saas-btn-primary" type="button" id="dayFlipNext">Next</button></div>
+      </div>
+    </section>
+
+    <section id="fsrsquiz">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button><h1>Spaced review · FSRS</h1></div>
+      <div class="card grow saas-card fsrs-card-container">
+        <div class="fsrs-header-row">
+          <span class="fsrs-stage-badge saas-badge saas-badge-info" id="fsrsStageBadge">FSRS Flashcard</span>
+          <span class="fsrs-queue-counter saas-badge saas-badge-muted" id="fsrsCounter">1 of 1</span>
+        </div>
+        <p class="prompt fsrs-prompt" id="fsrsPrompt">Recall the correct answer</p>
+        <div class="flip-scene fsrs-scene" id="fsrsScene" tabindex="0" role="button" aria-label="Flip flashcard">
+          <div class="flip-inner fsrs-inner">
+            <div class="flip-face flip-front fsrs-face fsrs-front" id="fsrsFront">
+              <div class="fsrs-question-body" id="fsrsQuestionBody">
+                <p class="fsrs-front-prompt" id="fsrsFrontPrompt">Question prompt</p>
+                <small class="fsrs-hint" id="fsrsHint"></small>
+              </div>
+            </div>
+            <div class="flip-face flip-back fsrs-face fsrs-back" id="fsrsBack">
+              <div class="fsrs-answer-body" id="fsrsAnswerBody">
+                <p class="entry fsrs-expected" id="fsrsExpected">Answer</p>
+                <p class="fsrs-diagnostic-note" id="fsrsDiagnosticNote"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bar fsrs-flip-bar" id="fsrsFlipBar">
+          <button class="btn primary saas-btn saas-btn-primary" type="button" id="fsrsFlipBtn">Show answer</button>
+        </div>
+        <div class="bar fsrs-rating-bar" id="fsrsRatingBar" hidden>
+          <button class="btn saas-btn fsrs-btn fsrs-btn-again" type="button" data-fsrs-grade="1">
+            <span class="fsrs-btn-label">Again</span>
+            <span class="fsrs-btn-badge" id="fsrsBadgeAgain">&lt;10m</span>
+          </button>
+          <button class="btn saas-btn fsrs-btn fsrs-btn-hard" type="button" data-fsrs-grade="2">
+            <span class="fsrs-btn-label">Hard</span>
+            <span class="fsrs-btn-badge" id="fsrsBadgeHard">1d</span>
+          </button>
+          <button class="btn saas-btn fsrs-btn fsrs-btn-good" type="button" data-fsrs-grade="3">
+            <span class="fsrs-btn-label">Good</span>
+            <span class="fsrs-btn-badge" id="fsrsBadgeGood">3d</span>
+          </button>
+          <button class="btn saas-btn fsrs-btn fsrs-btn-easy" type="button" data-fsrs-grade="4">
+            <span class="fsrs-btn-label">Easy</span>
+            <span class="fsrs-btn-badge" id="fsrsBadgeEasy">7d</span>
+          </button>
+        </div>
+        <div id="fsrsFeedback" class="fsrs-feedback" hidden></div>
       </div>
     </section>
 

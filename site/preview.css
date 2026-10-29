@@ -4200,6 +4200,10 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   transition: all 0.15s ease;
 }
 
+.lm-pdf-section-num::before {
+  content: attr(data-num);
+}
+
 .lm-pdf-section-num.is-off {
   background: var(--saas-card-muted, #e2e8f0);
   color: var(--saas-text-muted, #64748b);
@@ -5755,6 +5759,169 @@ details[data-review-key] > summary {
   font-size: 12.5px;
 }
 
+/* FSRS Interactive Spaced Repetition Quiz */
+.fsrs-card-container {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.fsrs-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.fsrs-scene {
+  min-height: 260px;
+  cursor: pointer;
+}
+.fsrs-face {
+  min-height: 260px;
+  padding: 32px 24px;
+}
+.fsrs-front-prompt {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 10px 0;
+  color: var(--saas-text-primary, #1e293b);
+}
+.fsrs-hint {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--saas-text-muted, #64748b);
+  margin-top: 8px;
+}
+.fsrs-expected {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--saas-brand, #2563eb);
+  margin: 0 0 12px 0;
+}
+.fsrs-diagnostic-note {
+  font-size: 0.95rem;
+  color: var(--saas-text-secondary, #475569);
+  max-width: 520px;
+  line-height: 1.5;
+  margin: 0;
+}
+.fsrs-rating-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  width: 100%;
+}
+.fsrs-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  border-radius: var(--saas-radius-md, 10px);
+  border: 1px solid var(--saas-border, #cbd5e1);
+  font-weight: 700;
+  transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  min-height: 58px;
+  cursor: pointer;
+}
+.fsrs-btn:hover {
+  transform: translateY(-1px);
+}
+.fsrs-btn:active {
+  transform: translateY(1px);
+}
+.fsrs-btn-label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.fsrs-btn-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.9;
+  margin-top: 4px;
+}
+
+/* Again (Grade 1) - Red */
+.fsrs-btn-again {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+.fsrs-btn-again:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+/* Hard (Grade 2) - Orange */
+.fsrs-btn-hard {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #b45309;
+}
+.fsrs-btn-hard:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
+/* Good (Grade 3) - Blue */
+.fsrs-btn-good {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+.fsrs-btn-good:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+/* Easy (Grade 4) - Green */
+.fsrs-btn-easy {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #15803d;
+}
+.fsrs-btn-easy:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+/* Dark mode */
+[data-theme="dark"] .fsrs-btn-again,
+.theme-dark .fsrs-btn-again {
+  background: rgba(185, 28, 28, 0.2);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+[data-theme="dark"] .fsrs-btn-hard,
+.theme-dark .fsrs-btn-hard {
+  background: rgba(180, 83, 9, 0.2);
+  border-color: #f59e0b;
+  color: #fcd34d;
+}
+[data-theme="dark"] .fsrs-btn-good,
+.theme-dark .fsrs-btn-good {
+  background: rgba(29, 78, 216, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+[data-theme="dark"] .fsrs-btn-easy,
+.theme-dark .fsrs-btn-easy {
+  background: rgba(21, 128, 61, 0.2);
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.fsrs-feedback {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: var(--saas-radius-md, 8px);
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
 
 
 

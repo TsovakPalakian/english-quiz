@@ -243,7 +243,7 @@ export class AssessmentService{
     try{await this.db.atomic(commands);}catch(error){if(/constraint|check/i.test(error.message))fail(409,'This work changed. Reload before saving.');throw error;}
     if(state==='published'&&grading?.points){
       const errorBank=new ErrorBankService(this.db);
-      void errorBank.recordErrors(account,kind,id,questions,answers,grading.points).catch(()=>{});
+      void errorBank.recordErrors(account,kind,id,questions,answers,grading.points,body.meta||{}).catch(()=>{});
     }
     if(kind==='exam-block'&&!reviewer(actor)&&state==='submitted')return {kind,examId:document.examId,blockId:id,revision:revision+1,state,saved:true,answers,materials:[]};
     return this.get(actor,{kind,id,studentId});

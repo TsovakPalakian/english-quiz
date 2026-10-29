@@ -1092,6 +1092,9 @@
       }
       saveMistakeMap(map, change);
       if (ok && row.streak >= 4) trackEvent("learned", item.type, "ok");
+      if (typeof broadcastQuizFsrs === "function") {
+        broadcastQuizFsrs(item, ok);
+      }
     }
     let mistakeGroups = [];
     let mistakePool = [];
@@ -1141,7 +1144,17 @@
     }
     function mistakeItems(groups) {
       const queue = [];
-      groups.forEach((group) => {
+      const sortedGroups = groups.slice().sort((a, b) => {
+        const aR = a.card?.retrievability != null ? Number(a.card.retrievability) : (a.card?.fsrs?.retrievability != null ? Number(a.card.fsrs.retrievability) : null);
+        const bR = b.card?.retrievability != null ? Number(b.card.retrievability) : (b.card?.fsrs?.retrievability != null ? Number(b.card.fsrs.retrievability) : null);
+        if (aR != null && bR != null && aR !== bR) return aR - bR;
+        if (aR != null) return -1;
+        if (bR != null) return 1;
+        const am = a.rows.reduce((sum, row) => sum + row.misses, 0);
+        const bm = b.rows.reduce((sum, row) => sum + row.misses, 0);
+        return bm - am || String(a.card.en).localeCompare(String(b.card.en));
+      });
+      sortedGroups.forEach((group) => {
         const types = group.rows.map((row) => row.type);
         typesFor(group.card, types).forEach((type) => {
           customQuizzesFor(group.card, type).filter(customQuizReady).forEach((quiz) => pushCustomDayItem(queue, group.card, quiz));
@@ -1492,7 +1505,11 @@
       fb.dataset.marked = "1";
       clearDayTimer();
       const item = dayQueue[dayAt];
-      if (item) noteAnswer(item, ok);
+      if (item) {
+        if (item.shownAt) item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+        item.given = right;
+        noteAnswer(item, ok);
+      }
       if (examMode && item && item.type !== "Flip" && ok) examCorrect += 1;
       if (examMode && item && item.type !== "Flip" && !ok) {
         examMistakes += 1;
@@ -1611,6 +1628,7 @@
       if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
       const item = dayQueue[dayAt];
       if (!item) { if (examMode) showExamResult(examPassed(), ""); else dayBack(); return; }
+      item.shownAt = Date.now();
       document.getElementById("dayqTitle").textContent = (dayAt + 1) + " / " + dayQueue.length;
       paintExamMistakesLeft();
       const dayqType = document.getElementById("dayqType");

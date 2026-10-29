@@ -77,6 +77,7 @@
         inputHtml +
         '<p id="warmupFeedback" class="home-warmup-feedback" hidden></p>' +
         '</div>';
+      const cardShownAt = Date.now();
       const checkBtn = document.getElementById('warmupCheckBtn');
       if (checkBtn) {
         checkBtn.onclick = async () => {
@@ -85,7 +86,8 @@
           if (!val) return;
           checkBtn.disabled = true;
           try {
-            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val }) });
+            const latencyMs = Math.max(1, Date.now() - cardShownAt);
+            const result = await accountFetch('/api/error-bank', { method: 'POST', body: JSON.stringify({ itemId: item.id, answer: val, latencyMs }) });
             const fb = document.getElementById('warmupFeedback');
             if (fb) {
               fb.hidden = false;

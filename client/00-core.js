@@ -53,7 +53,7 @@
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
-      choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
+      choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
       account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
