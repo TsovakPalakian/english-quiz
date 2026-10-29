@@ -99,7 +99,20 @@ jobs:
       - name: Build production assets
         run: node ops/build-learning-production-assets.mjs
       - name: Deploy only after successful checks
-        run: npx --no-install wrangler deploy --config wrangler.toml --keep-vars
+        run: |
+          for attempt in 1 2 3; do
+            echo "Deployment attempt $attempt of 3..."
+            if npx --no-install wrangler deploy --config wrangler.toml --keep-vars; then
+              echo "Deployment succeeded on attempt $attempt."
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Deployment attempt $attempt failed; waiting 20s before retry..."
+              sleep 20
+            fi
+          done
+          echo "All 3 deployment attempts failed."
+          exit 1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

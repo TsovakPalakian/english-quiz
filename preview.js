@@ -7791,7 +7791,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return foldedLinkHtml(order.filter((pair) => links && links[pair[0]]).map((pair) => [pair[1], links[pair[0]]]));
     }
     function usageList(usages) {
-      if (!usages.length) return '<div class="gen"><h2>Usages</h2><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div>';
+      if (!usages.length) return '<details class="saas-details made-details"><summary class="saas-summary">Usages · 0</summary><div class="gen"><p style="color:var(--bad)">No example sentences turned up for this phrase.</p></div></details>';
       const simple = usages.filter((usage) => usage.kind === "simple").length;
       const complex = usages.filter((usage) => usage.kind === "complex").length;
       const names = [];
@@ -7799,7 +7799,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const name = usage.source || "Dictionary";
         if (names.indexOf(name) === -1) names.push(name);
       });
-      let html = '<div class="gen"><h2>Usages · ' + usages.length + "</h2>";
+      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usages · ' + usages.length + '</summary><div class="gen">';
       if (usages.length < 10) html += '<p style="color:var(--bad)">Only ' + usages.length + (usages.length === 1 ? " example sentence" : " example sentences") + " for this phrase.</p>";
       else html += '<p class="hint">' + simple + " simple · " + complex + " complex.</p>";
       html += '<p class="hint">Sources: ' + esc(names.join(", ")) + ".</p>";
@@ -7807,7 +7807,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         html += '<p><span class="kind">' + esc(usage.kind) + '</span><span class="label">' + esc(usage.source || "") + "</span> " + esc(usage.en) + "</p>";
         if (usage.ru) html += '<p class="hint">' + esc(usage.ru) + "</p>";
       });
-      return html + "</div>";
+      return html + "</div></details>";
     }
     function usageQuizzes(usages) {
       const withRu = usages.filter((usage) => usage.ru);
@@ -7818,7 +7818,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (pool.length < 4 && pool.indexOf(usage.en) === -1) pool.push(usage.en);
       });
       const options = shuffle(pool);
-      let html = '<div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
+      let html = '<details class="saas-details made-details"><summary class="saas-summary">Usage quizzes · 2</summary><div class="gen"><h2>Usage quiz · Choice</h2><p class="prompt">Which sentence matches this translation?</p><p class="q">' + esc(target.ru) + '</p><div class="opts">';
       options.forEach((option, index) => {
         html += '<button class="opt" type="button" data-usage-choice="' + (option === target.en ? "ok" : "bad") + '"><span class="bullet">' + (index + 1) + "</span><span>" + esc(option) + "</span></button>";
       });
@@ -7828,7 +7828,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const shownRu = truthful ? target.ru : other.ru;
       html += '<div class="gen"><h2>Usage quiz · True / false</h2><p class="prompt">Does this translation match the sentence?</p><p class="q">' + esc(target.en) + "</p><p>" + esc(shownRu) + "</p>";
       html += '<div class="row"><button class="btn" type="button" data-tf="' + (truthful ? "ok" : "bad") + '" data-tf-answer="' + esc(target.ru) + '">True</button>';
-      html += '<button class="btn" type="button" data-tf="' + (truthful ? "bad" : "ok") + '" data-tf-answer="' + esc(target.ru) + '">False</button></div><div id="usageTfFb"></div></div>';
+      html += '<button class="btn" type="button" data-tf="' + (truthful ? "bad" : "ok") + '" data-tf-answer="' + esc(target.ru) + '">False</button></div><div id="usageTfFb"></div></details>';
       return html;
     }
     let madeItem = null;
@@ -7842,11 +7842,97 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (words.length > 1) return "idioms";
       return "mine";
     }
+    const IRREGULAR_PLURALS = {
+      children: "child",
+      people: "person",
+      men: "man",
+      women: "woman",
+      feet: "foot",
+      teeth: "tooth",
+      geese: "goose",
+      mice: "mouse",
+      oxen: "ox",
+      lives: "life",
+      wives: "wife",
+      knives: "knife",
+      leaves: "leaf",
+      halves: "half",
+      shelves: "shelf",
+      thieves: "thief",
+      wolves: "wolf",
+      calves: "calf",
+      loaves: "loaf",
+      scarves: "scarf"
+    };
+    const PLURAL_INVARIANT = new Set([
+      "news", "series", "species", "clothes", "glasses", "scissors", "trousers", "jeans", "pants", "physics", "mathematics", "economics", "crossroads", "headquarters"
+    ]);
+
+    function detectSingular(word) {
+      const w = String(word || "").trim().toLowerCase();
+      if (!w || w.length <= 2 || !/^[a-z]+$/.test(w)) return null;
+      if (IRREGULAR_PLURALS[w]) return IRREGULAR_PLURALS[w];
+      if (PLURAL_INVARIANT.has(w)) return null;
+      if (w.endsWith("ss") || w.endsWith("us") || w.endsWith("is")) return null;
+      if (w.endsWith("ies") && w.length > 4) {
+        return w.slice(0, -3) + "y";
+      }
+      if (w.endsWith("ves") && w.length > 4) {
+        return w.slice(0, -3) + "fe";
+      }
+      if (w.endsWith("es") && w.length > 3) {
+        const stem = w.slice(0, -2);
+        if (/(?:s|x|z|ch|sh|o)$/.test(stem)) return stem;
+      }
+      if (w.endsWith("s") && w.length > 3) {
+        return w.slice(0, -1);
+      }
+      return null;
+    }
+
+    function findWordDictionary(word) {
+      const key = String(word || "").trim().toLowerCase();
+      if (!key) return null;
+      const added = typeof loadAdded === "function" ? loadAdded() : [];
+      const foundAdded = added.find((row) => String(row.word || "").trim().toLowerCase() === key);
+      if (foundAdded) {
+        const place = foundAdded.place || "mine";
+        if (place === "mine") return "My words";
+        if (place === "phrasal" || place === "chat-phrasal") return "Phrasal verbs";
+        if (place === "idioms" || place === "chat-idioms") return "Idioms";
+        if (place === "music") return "Song lyrics";
+        if (place === "chat") return "Chat";
+        if (typeof PLACE_LABEL !== "undefined" && PLACE_LABEL[place]) return PLACE_LABEL[place];
+        return "My words";
+      }
+      if (typeof phrasalWords !== "undefined" && phrasalWords.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Phrasal verbs";
+      if (typeof idiomWords !== "undefined" && idiomWords.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Idioms";
+      if (typeof ask07 !== "undefined" && ask07.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "7 Sep";
+      if (typeof lines21 !== "undefined" && lines21.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "21 Sep";
+      if (typeof phrases09 !== "undefined" && phrases09.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "9 Sep";
+      if (typeof adverbs14 !== "undefined" && adverbs14.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "14 Sep";
+      if (typeof talk16 !== "undefined" && talk16.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "16 Sep";
+      if (typeof likes23 !== "undefined" && likes23.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "23 Sep";
+      if (typeof extraWords !== "undefined") {
+        const ew = extraWords.find((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key);
+        if (ew) return ew.lesson || "Additional words";
+      }
+      if (typeof words !== "undefined" && words.some((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key)) return "Lessons";
+      if (typeof songCards !== "undefined") {
+        const sc = Object.values(songCards).find((w) => cardVisible(w) && String(w.en || "").trim().toLowerCase() === key);
+        if (sc) return "Song lyrics";
+      }
+      if (typeof lmState !== "undefined" && lmState?.blocks?.some((b) => b.type === "wordcard" && String(b.word || "").trim().toLowerCase() === key)) return "Lesson";
+      return null;
+    }
+
     function dictionaryOwned(word) {
       const key = String(word || "").trim().toLowerCase();
       if (!key) return true;
-      if (loadAdded().some((row) => String(row.word || "").trim().toLowerCase() === key)) return true;
-      return lessonBanks().some((bank) => (bank || []).some((card) => cardVisible(card) && String(card.en || "").trim().toLowerCase() === key));
+      if (findWordDictionary(key)) return true;
+      const singular = detectSingular(key);
+      if (singular && findWordDictionary(singular)) return true;
+      return false;
     }
     function dictionaryAddHtml(item) {
       if(item?.stageEverydayReference || item?.isLessonWord || item?.data?.isLessonWord)return '';
@@ -7992,7 +8078,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
 
       if (phrases.length) {
-        html += '<div class="gen"><h2>Phrases</h2>';
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · ' + phrases.length + '</summary><div class="gen">';
         phrases.forEach((phrase, index) => {
           html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.en) + '</p><button class="btn" type="button" data-phrase="' + index + '">Flip</button><p class="hint" id="madePhrase' + index + '" hidden>' + esc(phrase.ru) + "</p></div>";
         });
@@ -8000,12 +8086,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         phrases.forEach((phrase, index) => {
           html += '<div style="margin-bottom:8px"><p class="q" style="font-size:16px">' + esc(phrase.ru) + '</p><button class="btn" type="button" data-phrase-en="' + index + '">Flip</button><p class="hint" id="madePhraseEn' + index + '" hidden>' + esc(phrase.en) + "</p></div>";
         });
-        html += "</div>";
+        html += "</div></details>";
       } else if (!item.fromText) {
-        html += '<div class="gen"><h2>Phrases</h2><p class="hint">Wooordhunt has no phrases for this word.</p></div>';
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Phrases · 0</summary><div class="gen"><p class="hint">Wooordhunt has no phrases for this word.</p></div></details>';
       }
       html += usageQuizzes(usages);
-      html += cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
+      const quizHtml = cardQuizHtml(cardQuizKey(item), item.word, item.ru || note || "");
+      if (quizHtml) {
+        const quizCount = typeof cardQuizzesOf === "function" ? cardQuizzesOf(cardQuizKey(item)).length : 0;
+        html += '<details class="saas-details made-details"><summary class="saas-summary">Quiz · ' + quizCount + '</summary>' + quizHtml + '</details>';
+      }
       document.getElementById("madeView").innerHTML = html;
       document.getElementById("madeView").dataset.ru = item.ru || note;
       document.getElementById("madeView").dataset.word = item.word;
@@ -12661,6 +12751,26 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           }
         }
         if (token !== selToken) return;
+        const lines = (data && data.lines) || [];
+        if (!lines.length && typeof detectSingular === "function") {
+          const singular = detectSingular(word);
+          if (singular && singular !== key) {
+            const singKey = singular.toLowerCase();
+            const singCached = selpopCache.get(singKey);
+            let singData = singCached && Date.now() - singCached.at < 300000 ? singCached.data : null;
+            if (!singData) {
+              const singRes = await fetch(lookupBase() + "/translate?word=" + encodeURIComponent(singular));
+              singData = await singRes.json();
+              if (singRes.ok) selpopCache.set(singKey, { data: singData, at: Date.now() });
+            }
+            if (token !== selToken) return;
+            if (singData && singData.lines && singData.lines.length) {
+              data = Object.assign({}, singData, {
+                lines: [{ source: "Grammar note", text: "Plural form of " + singular + "." }, ...singData.lines]
+              });
+            }
+          }
+        }
         paintSelpop(data);
       } catch (err) {
         if (token !== selToken) return;
@@ -12698,10 +12808,32 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (selectionBlocked(node)) { hideSelpop(); return; }
       const pop = document.getElementById("selpop");
       document.getElementById("selpopWord").textContent = text;
+      const singular = typeof detectSingular === "function" ? detectSingular(text) : null;
+      const variant = document.getElementById("selpopVariant");
+      if (variant) {
+        if (singular && singular !== text.toLowerCase()) {
+          variant.textContent = "Singular: " + singular;
+          variant.hidden = false;
+        } else {
+          variant.textContent = "";
+          variant.hidden = true;
+        }
+      }
+      const dictName = typeof findWordDictionary === "function" ? (findWordDictionary(text) || (singular ? findWordDictionary(singular) : null)) : null;
+      const dictBadge = document.getElementById("selpopDictBadge");
+      if (dictBadge) {
+        if (dictName) {
+          dictBadge.textContent = dictName;
+          dictBadge.hidden = false;
+        } else {
+          dictBadge.hidden = true;
+        }
+      }
       const add = document.getElementById("selpopAdd");
       if (add) {
-        add.hidden = dictionaryOwned(text);
+        add.hidden = !!dictName;
         add.disabled = false;
+        add.dataset.targetWord = singular || text;
       }
       pop.hidden = false;
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
@@ -12723,7 +12855,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (examStudentRestricted()) return;
       const button = e.currentTarget;
       if(button.disabled)return;
-      const word = document.getElementById("selpopWord").textContent.trim();
+      const rawWord = document.getElementById("selpopWord").textContent.trim();
+      const word = (button.dataset.targetWord || rawWord).trim();
       const inChat=document.querySelector('section.on')?.id==='messages';if(inChat){button.disabled=true;try{await saveChatWord(word);button.hidden=true;}catch(error){document.getElementById('selpopBody').textContent=error.message;}finally{button.disabled=false;}return;}
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
       button.disabled = true;
@@ -12734,7 +12867,14 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const data = await res.json();
         if(actor!==authUser?.id||generation!==viewGen||target!==(viewAccount?.id||''))throw new Error('Account changed.');
         if (!dictionaryOwned(word)) await dictionarySaveWord(word, data);
-        if(document.getElementById('selpopWord').textContent.trim()===word)button.hidden = true;
+        if(document.getElementById('selpopWord').textContent.trim()===rawWord) {
+          button.hidden = true;
+          const dictBadge = document.getElementById("selpopDictBadge");
+          if (dictBadge) {
+            dictBadge.textContent = "My words";
+            dictBadge.hidden = false;
+          }
+        }
       } catch (error) {
         document.getElementById("selpopBody").textContent=error.message;
       } finally { button.disabled = false; }
@@ -13541,10 +13681,12 @@ const StudioSkyAstronomy=(()=>{
     return frames;
   }
   function fitFigure(c,width,height,rects,measure,scale=2,random=Math.random){
-    const base=preferredSize(c,width,height)*scale,span=Math.max(c.bounds.width,c.bounds.height);
+    const fewStarsFactor=c.stars.length<=6?.62:1;
+    const base=preferredSize(c,width,height)*scale*fewStarsFactor,span=Math.max(c.bounds.width,c.bounds.height);
     const frames=freeFrames(width,height,rects),candidates=[];
     for(const f of frames){
-      const size=Math.min(base,(f.right-f.left-20)*span/c.bounds.width,(f.bottom-f.top-20)*span/c.bounds.height);
+      const maxW=(f.right-f.left-20)*fewStarsFactor,maxH=(f.bottom-f.top-20)*fewStarsFactor;
+      const size=Math.min(base,maxW*span/c.bounds.width,maxH*span/c.bounds.height);
       if(size<=0)continue;
       for(const factor of [1,.9,.8,.65,.5,.35,.28,.22,.16]){
         const s=size*factor,halfX=s*c.bounds.width/span/2,halfY=s*c.bounds.height/span/2;
@@ -14014,8 +14156,8 @@ const STUDIO_CONSTELLATIONS = [{
     const a=i*Math.PI/12,r=i%2?38:36,R=i%2?40:43;
     return '<line x1="'+(44+Math.cos(a)*r)+'" y1="'+(44+Math.sin(a)*r)+'" x2="'+(44+Math.cos(a)*R)+'" y2="'+(44+Math.sin(a)*R)+'" opacity="'+(i%2?'.35':'.65')+'"/>';
   }).join('');
-  const emblem='<svg viewBox="0 0 88 88" fill="none" aria-hidden="true" focusable="false"><g stroke="#b99b59" stroke-linecap="round"><circle cx="44" cy="44" r="41" stroke-width=".8" opacity=".5"/><circle cx="44" cy="44" r="36" stroke-width=".5" opacity=".3"/>'+rays+'<polygon points="44,64 32.244,27.820 63.021,50.180 24.979,50.180 55.756,27.820" stroke-width=".7" opacity=".45"/></g><g transform="translate(23 23)"><path d="M21 30 Q15 26.5 8 27.5 L8 14 Q15 13 21 16.5 Q27 13 34 14 L34 27.5 Q27 26.5 21 30 Z" fill="#c5a868" fill-opacity=".16" stroke="#b99b59" stroke-width="1.1" stroke-linejoin="round"/><path d="M21 16.5V30" stroke="#b99b59" stroke-width=".8"/><path d="M21 5 Q23.5 9 22.5 12 Q24.5 11 24.5 14.5 Q24.5 17.5 21 17.5 Q17.5 17.5 17.5 14.5 Q17.5 11 19.5 12 Q18.5 9 21 5Z" fill="#c5a868"/><path d="M21 8 Q22 10.5 21.5 12 Q22.5 11.5 22.5 13.5 Q22.5 15.5 21 15.5 Q19.5 15.5 19.5 13.5 Q19.5 11.5 20.5 12 Q20 10.5 21 8Z" fill="#ffebb2"/></g></svg>';
-  document.querySelectorAll('.brand-mark').forEach(node=>{node.innerHTML=emblem;});
+  const emblem='<svg viewBox="0 0 88 88" fill="none" aria-hidden="true" focusable="false"><g stroke="#b99b59" stroke-linecap="round"><circle cx="44" cy="44" r="41" stroke-width=".8" opacity=".5"/><circle cx="44" cy="44" r="36" stroke-width=".5" opacity=".3"/>'+rays+'</g><g transform="translate(23 23)"><path d="M21 30 Q15 26.5 8 27.5 L8 14 Q15 13 21 16.5 Q27 13 34 14 L34 27.5 Q27 26.5 21 30 Z" fill="#c5a868" fill-opacity=".16" stroke="#b99b59" stroke-width="1.1" stroke-linejoin="round"/><path d="M21 16.5V30" stroke="#b99b59" stroke-width=".8"/><path d="M21 5 Q23.5 9 22.5 12 Q24.5 11 24.5 14.5 Q24.5 17.5 21 17.5 Q17.5 17.5 17.5 14.5 Q17.5 11 19.5 12 Q18.5 9 21 5Z" fill="#c5a868"/><path d="M21 8 Q22 10.5 21.5 12 Q22.5 11.5 22.5 13.5 Q22.5 15.5 21 15.5 Q19.5 15.5 19.5 13.5 Q19.5 11.5 20.5 12 Q20 10.5 21 8Z" fill="#ffebb2"/></g></svg>';
+  document.querySelectorAll('.guest-brand .brand-mark,.auth-brand .brand-mark').forEach(node=>{node.innerHTML=emblem;});
   document.querySelectorAll('.guest-brand,.auth-brand').forEach(node=>{
     node.classList.add('studio-brand');
     node.querySelector('.brand-copy').innerHTML='<b>Lumiscia</b><small lang="la">LUMEN EX SCIENTIA</small><span class="studio-translation" lang="en">“Light is born from knowledge”</span>';
@@ -14113,16 +14255,17 @@ const STUDIO_CONSTELLATIONS = [{
     const link=document.createElement('a');link.className='auth-sky-landmark';link.target='_blank';link.rel='noopener noreferrer';link.hidden=true;document.body.append(link);return link;
   });
   const inspector=document.createElement('div');
-  inspector.className='auth-sky-inspector auth-sky-star-inspector';
+  inspector.className='auth-sky-inspector auth-sky-star-inspector is-collapsed';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-more">more...</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
   const inspBayerLatin=inspector.querySelector('.auth-sky-inspector-bayer-latin');
   const inspCon=inspector.querySelector('.auth-sky-inspector-con');
   const inspMag=inspector.querySelector('.auth-sky-inspector-mag');
+  const inspMore=inspector.querySelector('.auth-sky-inspector-more');
   const inspHemiVal=inspector.querySelector('.auth-sky-hemi-val');
   const inspClusterVal=inspector.querySelector('.auth-sky-cluster-val');
   const inspDistVal=inspector.querySelector('.auth-sky-dist-val');
@@ -14140,10 +14283,10 @@ const STUDIO_CONSTELLATIONS = [{
   const inspSimbad=inspector.querySelector('.auth-sky-inspector-simbad');
 
   const conInspector=document.createElement('div');
-  conInspector.className='auth-sky-inspector auth-sky-con-inspector';
+  conInspector.className='auth-sky-inspector auth-sky-con-inspector is-collapsed';
   conInspector.setAttribute('role','tooltip');
   conInspector.hidden=true;
-  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div>`;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-more">more...</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div></div>`;
   document.body.append(conInspector);
 
   const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
@@ -14154,6 +14297,7 @@ const STUDIO_CONSTELLATIONS = [{
   const conNameRu=conInspector.querySelector('.auth-sky-con-name-ru');
   const conFamily=conInspector.querySelector('.auth-sky-con-family');
   const conAbbr=conInspector.querySelector('.auth-sky-con-abbr');
+  const conMore=conInspector.querySelector('.auth-sky-inspector-more');
   const conQuad=conInspector.querySelector('.auth-sky-con-quad');
   const conHemi=conInspector.querySelector('.auth-sky-con-hemi');
   const conVis=conInspector.querySelector('.auth-sky-con-vis');
@@ -14356,9 +14500,13 @@ const STUDIO_CONSTELLATIONS = [{
   }
   function uiBoxes(mode){
     const brand=mode==='home'?'#home .studio-brand':'#account .auth-brand';
-    const roots=[...document.querySelectorAll(brand+','+(mode==='home'?'#homeAuth':'#accountBody')+',.site-copyright')];
+    const roots=[...document.querySelectorAll(brand+','+(mode==='home'?'#homeAuth':'#accountBody')+',.site-copyright,#feedbackFloatingTrigger')];
     return roots
-      .map(n=>{const r=n.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:r.width,height:r.height,element:n.id?'#'+n.id:'.'+[...n.classList].join('.')};}).filter(r=>r.width&&r.height);
+      .map(n=>{
+        const r=n.getBoundingClientRect();
+        const extra=n.id==='feedbackFloatingTrigger'?8:0;
+        return {left:r.left-extra,right:r.right+extra,top:r.top-extra,bottom:r.bottom+extra,width:r.width+extra*2,height:r.height+extra*2,element:n.id?'#'+n.id:'.'+[...n.classList].join('.')};
+      }).filter(r=>r.width&&r.height);
   }
   function textBoxes(mode){
     const result=[];
@@ -14506,13 +14654,15 @@ const STUDIO_CONSTELLATIONS = [{
       inspDesc.textContent=(curated&&curated.desc)?curated.desc:starFallbackDesc(star,current.name);
       const ident=star.hip?'HIP '+star.hip:(star.name||star.id);
       inspSimbad.href='https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(ident);
+      inspector.classList.add('is-collapsed');
+      if(inspMore)inspMore.textContent='more...';
       inspector.hidden=false;
-      const cardW=290,cardH=inspector.offsetHeight||280,margin=14;
-      let left=slot.x+22,top=slot.y-30;
-      if(left+cardW>w-margin)left=slot.x-cardW-22;
+      const cardW=290,cardH=inspector.offsetHeight||52,margin=14;
+      let left=slot.x+20,top=slot.y-24;
+      if(left+cardW>w-margin)left=slot.x-cardW-20;
       const overlaps=r=>uiRects.some(u=>!(r.right<u.left||r.left>u.right||r.bottom<u.top||r.top>u.bottom));
       if(overlaps({left,right:left+cardW,top,bottom:top+cardH})){
-        const altLeft=(left>slot.x)?(slot.x-cardW-22):(slot.x+22);
+        const altLeft=(left>slot.x)?(slot.x-cardW-20):(slot.x+20);
         if(!overlaps({left:altLeft,right:altLeft+cardW,top,bottom:top+cardH}))left=altLeft;
       }
       if(left<margin)left=margin;
@@ -14581,8 +14731,10 @@ const STUDIO_CONSTELLATIONS = [{
       conDesc.textContent=conFallbackDesc(c);
       const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
       conLink.href=url;
+      conInspector.classList.add('is-collapsed');
+      if(conMore)conMore.textContent='more...';
       conInspector.hidden=false;
-      const cardW=320,cardH=conInspector.offsetHeight||360,margin=14;
+      const cardW=320,cardH=conInspector.offsetHeight||52,margin=14;
       const r=targetNode.getBoundingClientRect();
       const coreStars=(slots||[]).slice(0,c?.stars?.length||0).filter(s=>s&&Number.isFinite(s.x)&&Number.isFinite(s.y));
       const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
@@ -14599,54 +14751,37 @@ const STUDIO_CONSTELLATIONS = [{
       };
       const score=box=>{
         let s=0;
-        if(overlaps(box,figureBox)){
-          const xOv=Math.max(0,Math.min(box.right,figureBox.right)-Math.max(box.left,figureBox.left));
-          const yOv=Math.max(0,Math.min(box.bottom,figureBox.bottom)-Math.max(box.top,figureBox.top));
-          s+=xOv*yOv*1000;
-        }
-        if(overlaps(box,r))s+=50000;
+        const hitsStar=coreStars.some(st=>st.x>=box.left-10&&st.x<=box.right+10&&st.y>=box.top-10&&st.y<=box.bottom+10);
+        if(hitsStar)s+=200000;
+        const hitsLine=(c.connections||[]).some(([i,j])=>{
+          const a=coreStars[i],b=coreStars[j];
+          return a&&b&&astro.segmentHitsBox(a,b,box);
+        });
+        if(hitsLine)s+=100000;
+        if(overlaps(box,r))s+=80000;
         for(const u of uiRects){
           if(overlaps(box,u)){
             const xOv=Math.max(0,Math.min(box.right,u.right)-Math.max(box.left,u.left));
             const yOv=Math.max(0,Math.min(box.bottom,u.bottom)-Math.max(box.top,u.top));
-            s+=xOv*yOv*2;
+            s+=xOv*yOv*50;
           }
         }
-        const dist=Math.hypot((box.left+box.right)/2-(r.left+r.right)/2,(box.top+box.bottom)/2-(r.top+r.bottom)/2);
-        s+=dist*.05;
+        const targetX=(r.left+r.right)/2,targetY=(r.top+r.bottom)/2;
+        const boxX=(box.left+box.right)/2,boxY=(box.top+box.bottom)/2;
+        s+=Math.hypot(boxX-targetX,boxY-targetY)*5;
         return s;
       };
       const candidates=[];
-      if(w>640){
-        candidates.push(makeBox(r.right+16,r.top));
-        candidates.push(makeBox(r.left-cardW-16,r.top));
-        candidates.push(makeBox(figureBox.right+20,r.top));
-        candidates.push(makeBox(figureBox.left-cardW-20,r.top));
-        candidates.push(makeBox(r.left,r.bottom+14));
-        candidates.push(makeBox(r.left,r.top-cardH-14));
-        candidates.push(makeBox(figureBox.right+20,(figTop+figBottom)/2-cardH/2));
-        candidates.push(makeBox(figureBox.left-cardW-20,(figTop+figBottom)/2-cardH/2));
-        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figBottom+20));
-        candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figTop-cardH-20));
-        candidates.push(makeBox(margin+20,margin+20));
-        candidates.push(makeBox(w-cardW-margin-20,margin+20));
-        candidates.push(makeBox(margin+20,h-cardH-margin-20));
-        candidates.push(makeBox(w-cardW-margin-20,h-cardH-margin-20));
-      }else{
-        const horizCenter=Math.max(margin,(w-cardW)/2);
-        const figCenterY=(figTop+figBottom)/2;
-        if(figCenterY>h/2){
-          candidates.push(makeBox(horizCenter,margin));
-          candidates.push(makeBox(horizCenter,Math.max(margin,figTop-cardH-14)));
-          candidates.push(makeBox(horizCenter,h-cardH-margin));
-        }else{
-          candidates.push(makeBox(horizCenter,h-cardH-margin));
-          candidates.push(makeBox(horizCenter,Math.min(h-cardH-margin,figBottom+14)));
-          candidates.push(makeBox(horizCenter,margin));
-        }
-      }
+      candidates.push(makeBox(r.right+16,r.top-4));
+      candidates.push(makeBox(r.left-cardW-16,r.top-4));
+      candidates.push(makeBox(r.left,r.bottom+14));
+      candidates.push(makeBox(r.left,r.top-cardH-14));
+      candidates.push(makeBox(figureBox.right+18,(figTop+figBottom)/2-cardH/2));
+      candidates.push(makeBox(figureBox.left-cardW-18,(figTop+figBottom)/2-cardH/2));
+      candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figBottom+16));
+      candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figTop-cardH-16));
       candidates.sort((a,b)=>score(a)-score(b));
-      const best=candidates[0]||makeBox(r.left,r.bottom+10);
+      const best=candidates[0]||makeBox(r.left,r.bottom+12);
       conInspector.style.left=Math.round(best.left)+'px';
       conInspector.style.top=Math.round(best.top)+'px';
       conInspector.classList.add('active');
@@ -15043,7 +15178,6 @@ const STUDIO_CONSTELLATIONS = [{
         }
       }
       ctx.save();
-      if(phase==='hold')for(const r of uiRects){ctx.beginPath();ctx.rect(0,0,w,h);ctx.rect(r.left,r.top,r.right-r.left,r.bottom-r.top);ctx.clip('evenodd');}
       for(const slot of slots){
         Object.assign(slot,geometry.point(slot.path,t));slot.opacity=slot.fromOpacity+(slot.toOpacity-slot.fromOpacity)*t;
         const mag=slot.fromMag+(slot.mag-slot.fromMag)*t,style=astro.appearance(mag,slot.bv);
@@ -15163,6 +15297,21 @@ const STUDIO_CONSTELLATIONS = [{
           return;
         }
       }
+      const moreBtn=event.target.closest('.auth-sky-inspector-more');
+      if(moreBtn){
+        const targetInsp=inspector.contains(moreBtn)?inspector:conInspector;
+        const isCollapsed=targetInsp.classList.toggle('is-collapsed');
+        moreBtn.textContent=isCollapsed?'more...':'less';
+        if(targetInsp===conInspector){
+          cancelConHide();
+          pauseReturn();
+        }
+        const rect=targetInsp.getBoundingClientRect();
+        if(rect.bottom>h-14){
+          targetInsp.style.top=Math.max(14,Math.round(h-rect.height-14))+'px';
+        }
+        return;
+      }
       if(inspector.contains(event.target))return;
       if(performance.now()-lastConTouch<400)return;
       if(conInspector.contains(event.target))return;
@@ -15199,6 +15348,22 @@ const STUDIO_CONSTELLATIONS = [{
           if(motion.matches)redraw?.();
           return;
         }
+      }
+      const moreBtn=event.target.closest('.auth-sky-inspector-more');
+      if(moreBtn){
+        lastConTouch=performance.now();
+        const targetInsp=inspector.contains(moreBtn)?inspector:conInspector;
+        const isCollapsed=targetInsp.classList.toggle('is-collapsed');
+        moreBtn.textContent=isCollapsed?'more...':'less';
+        if(targetInsp===conInspector){
+          cancelConHide();
+          pauseReturn();
+        }
+        const rect=targetInsp.getBoundingClientRect();
+        if(rect.bottom>h-14){
+          targetInsp.style.top=Math.max(14,Math.round(h-rect.height-14))+'px';
+        }
+        return;
       }
       if(inspector.contains(event.target)||conInspector.contains(event.target))return;
       const t=event.changedTouches[0];

@@ -85,10 +85,12 @@ const StudioSkyAstronomy=(()=>{
     return frames;
   }
   function fitFigure(c,width,height,rects,measure,scale=2,random=Math.random){
-    const base=preferredSize(c,width,height)*scale,span=Math.max(c.bounds.width,c.bounds.height);
+    const fewStarsFactor=c.stars.length<=6?.62:1;
+    const base=preferredSize(c,width,height)*scale*fewStarsFactor,span=Math.max(c.bounds.width,c.bounds.height);
     const frames=freeFrames(width,height,rects),candidates=[];
     for(const f of frames){
-      const size=Math.min(base,(f.right-f.left-20)*span/c.bounds.width,(f.bottom-f.top-20)*span/c.bounds.height);
+      const maxW=(f.right-f.left-20)*fewStarsFactor,maxH=(f.bottom-f.top-20)*fewStarsFactor;
+      const size=Math.min(base,maxW*span/c.bounds.width,maxH*span/c.bounds.height);
       if(size<=0)continue;
       for(const factor of [1,.9,.8,.65,.5,.35,.28,.22,.16]){
         const s=size*factor,halfX=s*c.bounds.width/span/2,halfY=s*c.bounds.height/span/2;

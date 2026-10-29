@@ -92,15 +92,39 @@ lmPaintChrome=function(){
   materialChromeBefore();const picker=document.getElementById('lmPicker');if(!picker)return;
   document.getElementById('material')?.classList.toggle('is-exam',!!lmState?.examOwned);
   const blocks=[['text','Text'],['heading','Heading'],['task','Task'],['cards','Cards'],['vocab','Vocabulary'],['exercise','Questions'],['pdf','PDF'],['image','Image'],['audio','Audio'],['video','Video'],['file','File'],['link','Link'],['note','Note'],['phrase','Phrase'],['dialogue','Dialogue'],['reading','Reading'],['pronunciation','Pronunciation'],['table','Table'],['divider','Divider'],['wordcard','Word'],['rule','Rule']];
-  picker.innerHTML='<div class="lm-picker-grid">'+blocks.map(([type,label])=>'<button type="button" data-add-block="'+type+'">'+label+'</button>'+(type==='text'?'<button type="button" data-material-answer>Answer</button>':'')).join('')+'<button type="button" data-material-group>Content group</button><button type="button" data-material-quiz-menu aria-expanded="false">Quiz</button></div><div class="lm-picker-grid" data-material-quiz-types hidden>'+window.MaterialQuiz.types.filter(type=>!lmState?.examOwned||type!=='Flip').map(type=>'<button type="button" data-add-block="quiz" data-quiz="'+type+'">'+type+'</button>').join('')+'</div>';
+  picker.innerHTML='<div class="lm-picker-head"><p>Add content</p><button class="lm-icon" type="button" data-lm-picker-close aria-label="Close">✕</button></div><div class="lm-picker-grid">'+blocks.map(([type,label])=>'<button type="button" data-add-block="'+type+'">'+label+'</button>'+(type==='text'?'<button type="button" data-material-answer>Answer</button>':'')).join('')+'<button type="button" data-material-group>Content group</button><button type="button" data-material-quiz-menu aria-expanded="false">Quiz</button></div><div class="lm-picker-grid" data-material-quiz-types hidden>'+window.MaterialQuiz.types.filter(type=>!lmState?.examOwned||type!=='Flip').map(type=>'<button type="button" data-add-block="quiz" data-quiz="'+type+'">'+type+'</button>').join('')+'</div>';
   if(lmState?.examOwned){picker.querySelector('[data-material-quiz-menu]')?.remove();const quizzes=picker.querySelector('[data-material-quiz-types]');quizzes.hidden=false;quizzes.querySelectorAll('button').forEach(button=>{button.textContent='Quiz \u2022 '+button.dataset.quiz;});}
 };
 document.addEventListener('click',event=>{
   const group=event.target.closest('[data-material-group]'),quiz=event.target.closest('[data-material-quiz-menu]'),remove=event.target.closest('[data-material-option-remove]'),deleted=event.target.closest('[data-lm-del]');
   if(quiz){event.preventDefault();event.stopImmediatePropagation();const list=document.querySelector('[data-material-quiz-types]');list.hidden=!list.hidden;quiz.setAttribute('aria-expanded',String(!list.hidden));return;}
   if(!canEditLessons()||!lmState)return;
-  if(event.target.closest('[data-material-answer]')){event.preventDefault();event.stopImmediatePropagation();const part=lmBlank('text');part.answerEnabled=true;part.title='Answer';lmState.blocks.push(part);document.getElementById('lmPicker').hidden=true;lmSchedule();lmRenderEditor();return;}
-  if(group){event.preventDefault();event.stopImmediatePropagation();const part=lmBlank('task');part.contentGroup=true;part.title='Content group';delete part.maxPoints;delete part.criteria;delete part.text;delete part.response;lmState.blocks.push(part);document.getElementById('lmPicker').hidden=true;lmSchedule();lmRenderEditor();return;}
+  if(event.target.closest('[data-material-answer]')){
+    event.preventDefault();event.stopImmediatePropagation();
+    const part=lmBlank('text');part.answerEnabled=true;part.title='Answer';
+    if(typeof lmInsertAnchor!=='undefined'&&lmInsertAnchor?.id){
+      const anchorIdx=lmState.blocks.findIndex(b=>b.id===domEntityId(lmInsertAnchor.id));
+      if(anchorIdx>=0)lmState.blocks.splice(lmInsertAnchor.pos==='after'?anchorIdx+1:anchorIdx,0,part);
+      else lmState.blocks.push(part);
+    }else lmState.blocks.push(part);
+    if(typeof lmInsertAnchor!=='undefined')lmInsertAnchor=null;
+    if(typeof lmLastAddedBlockId!=='undefined')lmLastAddedBlockId=part.id;
+    const picker=document.getElementById('lmPicker');if(picker){picker.hidden=true;picker.classList.remove('is-floating');}
+    lmSchedule();lmRenderEditor();return;
+  }
+  if(group){
+    event.preventDefault();event.stopImmediatePropagation();
+    const part=lmBlank('task');part.contentGroup=true;part.title='Content group';delete part.maxPoints;delete part.criteria;delete part.text;delete part.response;
+    if(typeof lmInsertAnchor!=='undefined'&&lmInsertAnchor?.id){
+      const anchorIdx=lmState.blocks.findIndex(b=>b.id===domEntityId(lmInsertAnchor.id));
+      if(anchorIdx>=0)lmState.blocks.splice(lmInsertAnchor.pos==='after'?anchorIdx+1:anchorIdx,0,part);
+      else lmState.blocks.push(part);
+    }else lmState.blocks.push(part);
+    if(typeof lmInsertAnchor!=='undefined')lmInsertAnchor=null;
+    if(typeof lmLastAddedBlockId!=='undefined')lmLastAddedBlockId=part.id;
+    const picker=document.getElementById('lmPicker');if(picker){picker.hidden=true;picker.classList.remove('is-floating');}
+    lmSchedule();lmRenderEditor();return;
+  }
   if(remove){event.preventDefault();event.stopImmediatePropagation();const [id,index,option]=remove.dataset.materialOptionRemove.split(':'),part=lmBlock(id),item=part?.items[index],oi=Number(option);if(!item||item.options.length<=2)return;item.options.splice(oi,1);if(item.answer!=null)item.answer=Number(item.answer)===oi?0:Number(item.answer)>oi?Number(item.answer)-1:item.answer;if(item.answers)item.answers=item.answers.filter(i=>i!==oi).map(i=>i>oi?i-1:i);lmSchedule();lmRenderEditor();return;}
   if(deleted){const part=lmBlock(deleted.dataset.lmDel);if(part)for(const child of lmState.blocks||[])if(child.assignmentKey===(part.assignmentId||'part-'+part.id))delete child.assignmentKey;}
 },true);

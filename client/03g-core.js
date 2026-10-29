@@ -2156,6 +2156,26 @@
           }
         }
         if (token !== selToken) return;
+        const lines = (data && data.lines) || [];
+        if (!lines.length && typeof detectSingular === "function") {
+          const singular = detectSingular(word);
+          if (singular && singular !== key) {
+            const singKey = singular.toLowerCase();
+            const singCached = selpopCache.get(singKey);
+            let singData = singCached && Date.now() - singCached.at < 300000 ? singCached.data : null;
+            if (!singData) {
+              const singRes = await fetch(lookupBase() + "/translate?word=" + encodeURIComponent(singular));
+              singData = await singRes.json();
+              if (singRes.ok) selpopCache.set(singKey, { data: singData, at: Date.now() });
+            }
+            if (token !== selToken) return;
+            if (singData && singData.lines && singData.lines.length) {
+              data = Object.assign({}, singData, {
+                lines: [{ source: "Grammar note", text: "Plural form of " + singular + "." }, ...singData.lines]
+              });
+            }
+          }
+        }
         paintSelpop(data);
       } catch (err) {
         if (token !== selToken) return;
@@ -2193,10 +2213,32 @@
       if (selectionBlocked(node)) { hideSelpop(); return; }
       const pop = document.getElementById("selpop");
       document.getElementById("selpopWord").textContent = text;
+      const singular = typeof detectSingular === "function" ? detectSingular(text) : null;
+      const variant = document.getElementById("selpopVariant");
+      if (variant) {
+        if (singular && singular !== text.toLowerCase()) {
+          variant.textContent = "Singular: " + singular;
+          variant.hidden = false;
+        } else {
+          variant.textContent = "";
+          variant.hidden = true;
+        }
+      }
+      const dictName = typeof findWordDictionary === "function" ? (findWordDictionary(text) || (singular ? findWordDictionary(singular) : null)) : null;
+      const dictBadge = document.getElementById("selpopDictBadge");
+      if (dictBadge) {
+        if (dictName) {
+          dictBadge.textContent = dictName;
+          dictBadge.hidden = false;
+        } else {
+          dictBadge.hidden = true;
+        }
+      }
       const add = document.getElementById("selpopAdd");
       if (add) {
-        add.hidden = dictionaryOwned(text);
+        add.hidden = !!dictName;
         add.disabled = false;
+        add.dataset.targetWord = singular || text;
       }
       pop.hidden = false;
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
@@ -2218,7 +2260,8 @@
       if (examStudentRestricted()) return;
       const button = e.currentTarget;
       if(button.disabled)return;
-      const word = document.getElementById("selpopWord").textContent.trim();
+      const rawWord = document.getElementById("selpopWord").textContent.trim();
+      const word = (button.dataset.targetWord || rawWord).trim();
       const inChat=document.querySelector('section.on')?.id==='messages';if(inChat){button.disabled=true;try{await saveChatWord(word);button.hidden=true;}catch(error){document.getElementById('selpopBody').textContent=error.message;}finally{button.disabled=false;}return;}
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
       button.disabled = true;
@@ -2229,7 +2272,14 @@
         const data = await res.json();
         if(actor!==authUser?.id||generation!==viewGen||target!==(viewAccount?.id||''))throw new Error('Account changed.');
         if (!dictionaryOwned(word)) await dictionarySaveWord(word, data);
-        if(document.getElementById('selpopWord').textContent.trim()===word)button.hidden = true;
+        if(document.getElementById('selpopWord').textContent.trim()===rawWord) {
+          button.hidden = true;
+          const dictBadge = document.getElementById("selpopDictBadge");
+          if (dictBadge) {
+            dictBadge.textContent = "My words";
+            dictBadge.hidden = false;
+          }
+        }
       } catch (error) {
         document.getElementById("selpopBody").textContent=error.message;
       } finally { button.disabled = false; }
