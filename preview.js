@@ -11200,6 +11200,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function autoTypeOk(card, type) {
       if (type === "Match" || type === "Select all" || type === "Odd one out" || type === "Memory") return false;
+      if (type === "FSRS Flashcard") return !!(card && (card.en || card.ru));
       if ((type === "Choice" || type === "Type" || type === "True / false" || type === "Reverse" || type === "Listen") && !card.ru) return false;
       if ((type === "Gap" || type === "Build" || type === "Tap") && !lineOf(card)) return false;
       if (type === "Definition" && !meaningOf(card)) return false;
@@ -11274,6 +11275,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         });
       });
       if (dayPoolStrict) return queue;
+      if (!mix) {
+        queue.sort((a, b) => {
+          const aR = a.card?.retrievability != null ? Number(a.card.retrievability) : (a.card?.fsrs?.retrievability != null ? Number(a.card.fsrs.retrievability) : null);
+          const bR = b.card?.retrievability != null ? Number(b.card.retrievability) : (b.card?.fsrs?.retrievability != null ? Number(b.card.fsrs.retrievability) : null);
+          if (aR != null && bR != null && aR !== bR) return aR - bR;
+          if (aR != null) return -1;
+          if (bR != null) return 1;
+          return 0;
+        });
+      }
       const deckKinds = ["Match", "Select all", "Odd one out", "Memory"].filter((type) => types.indexOf(type) >= 0);
       const deckAllow = !mix ? deckKinds : (deckKinds.length ? [deckKinds[Math.floor(Math.random() * deckKinds.length)]] : []);
       if (deckAllow.indexOf("Match") >= 0) {
@@ -12126,7 +12137,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       clearDayTimer();
       const item = dayQueue[dayAt];
       if (item) {
-        if (item.shownAt) item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+        const telemetry = window.QuizTelemetryTracker?.stop?.(ok);
+        if (telemetry) {
+          item.latencyMs = telemetry.effectiveLatencyMs;
+          item.telemetry = telemetry;
+        } else if (item.shownAt) {
+          item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+        }
         item.given = right;
         noteAnswer(item, ok);
       }
@@ -12249,6 +12266,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const item = dayQueue[dayAt];
       if (!item) { if (examMode) showExamResult(examPassed(), ""); else dayBack(); return; }
       item.shownAt = Date.now();
+      window.QuizTelemetryTracker?.start?.(item);
       document.getElementById("dayqTitle").textContent = (dayAt + 1) + " / " + dayQueue.length;
       paintExamMistakesLeft();
       const dayqType = document.getElementById("dayqType");
@@ -12282,6 +12300,89 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         } else {
           view.innerHTML = '<p class="prompt">English → Russian</p><div class="flip-scene" tabindex="0" role="button" aria-label="Flip card"><div class="flip-inner"><div class="flip-face flip-front"><div class="word-head">' + wordPic(card.en, true) + '<div><p class="entry">' + esc(card.en) + '</p><p class="pos">' + esc(card.pos) + '</p></div></div></div><div class="flip-face flip-back" id="dayFlipBox"></div></div></div><div class="bar"><button class="btn" type="button" data-flip-go>Flip</button><button class="btn primary" type="button" data-day-next>' + (dayAt + 1 < dayQueue.length ? "Next" : "Done") + "</button></div>";
         }
+      } else if (item.type === "FSRS Flashcard") {
+        const frontText = custom?.front || (card.ru ? esc(card.ru) : esc(card.en || "Recall word"));
+        const backExpected = custom?.back || esc(card.en || card.ru || "");
+        const preview = item.previewIntervals || {
+          1: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(0.007) : '<10m',
+          2: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(1) : '1d',
+          3: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(3) : '3d',
+          4: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(7) : '7d'
+        };
+        const hintText = custom?.hint || meaningOf(card) || (card.pos ? esc(card.pos) : "");
+        view.innerHTML = '<p class="prompt">FSRS Flashcard · Spaced repetition</p>' +
+          '<div class="flip-scene fsrs-scene" id="dayFsrsScene" tabindex="0" role="button" aria-label="Flip card">' +
+            '<div class="flip-inner fsrs-inner" id="dayFsrsInner">' +
+              '<div class="flip-face flip-front fsrs-face fsrs-front">' +
+                '<div class="word-head">' + wordPic(card.en || card.base, true) + '<div><p class="q">' + frontText + '</p>' + (hintText ? '<p class="hint">' + esc(hintText) + '</p>' : '') + '</div></div>' +
+              '</div>' +
+              '<div class="flip-face flip-back fsrs-face fsrs-back">' +
+                '<p class="entry fsrs-expected">' + backExpected + '</p>' +
+                (card.ru && card.en ? '<p><b>' + esc(card.ru) + '</b></p>' : '') +
+                (meaningOf(card) ? '<p class="src">' + esc(meaningOf(card)) + '</p>' : '') +
+                (card.ex ? '<p class="src"><i>' + esc(card.ex) + '</i></p>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bar" id="dayFsrsFlipBar">' +
+            '<button class="btn primary" type="button" id="dayFsrsShowBtn">Show answer</button>' +
+          '</div>' +
+          '<div class="bar fsrs-rating-bar" id="dayFsrsRatingBar" hidden>' +
+            '<button class="btn saas-btn fsrs-btn fsrs-btn-again" type="button" data-day-fsrs-grade="1"><span class="fsrs-btn-label">Again</span><span class="fsrs-btn-badge">' + esc(String(preview[1] || '<10m')) + '</span></button>' +
+            '<button class="btn saas-btn fsrs-btn fsrs-btn-hard" type="button" data-day-fsrs-grade="2"><span class="fsrs-btn-label">Hard</span><span class="fsrs-btn-badge">' + esc(String(preview[2] || '1d')) + '</span></button>' +
+            '<button class="btn saas-btn fsrs-btn fsrs-btn-good" type="button" data-day-fsrs-grade="3"><span class="fsrs-btn-label">Good</span><span class="fsrs-btn-badge">' + esc(String(preview[3] || '3d')) + '</span></button>' +
+            '<button class="btn saas-btn fsrs-btn fsrs-btn-easy" type="button" data-day-fsrs-grade="4"><span class="fsrs-btn-label">Easy</span><span class="fsrs-btn-badge">' + esc(String(preview[4] || '7d')) + '</span></button>' +
+          '</div>' +
+          '<div id="dayFb"></div>';
+
+        const scene = document.getElementById("dayFsrsScene");
+        const inner = document.getElementById("dayFsrsInner");
+        const flipBar = document.getElementById("dayFsrsFlipBar");
+        const ratingBar = document.getElementById("dayFsrsRatingBar");
+        let flipped = false;
+
+        const doFlip = () => {
+          if (flipped) return;
+          flipped = true;
+          inner?.classList.add("is-flipped");
+          scene?.classList.add("is-flipped");
+          if (flipBar) flipBar.hidden = true;
+          if (ratingBar) ratingBar.hidden = false;
+        };
+
+        document.getElementById("dayFsrsShowBtn")?.addEventListener("click", doFlip);
+        scene?.addEventListener("click", doFlip);
+
+        ratingBar?.querySelectorAll("[data-day-fsrs-grade]").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const grade = Number(btn.dataset.dayFsrsGrade) || 3;
+            const ok = grade >= 2;
+            const telemetry = window.QuizTelemetryTracker?.stop?.(ok);
+            item.grade = grade;
+            if (telemetry) {
+              item.latencyMs = telemetry.effectiveLatencyMs;
+              item.telemetry = telemetry;
+            } else if (item.shownAt) {
+              item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+            }
+            item.given = backExpected;
+            noteAnswer(item, ok);
+            if (examMode && ok) examCorrect += 1;
+            if (examMode && !ok) {
+              examMistakes += 1;
+              examLog.push({ en: (card && card.en) || item.type, type: item.type });
+              paintExamMistakesLeft();
+            }
+            if (dayAt + 1 >= dayQueue.length) {
+              if (examMode) showExamResult(examPassed(), "");
+              else dayBack();
+            } else {
+              dayAt += 1;
+              renderDay();
+            }
+          });
+        });
       } else if (item.type === "Type") {
         if (custom && (custom.prompt || custom.answer)) {
           item.right = custom.answer || "";
@@ -19602,10 +19703,11 @@ const STUDIO_CONSTELLATIONS = [{
     });
 
     function deriveFsrsGrade(ok, item = {}) {
+      if (Number.isInteger(item.grade) && item.grade >= 1 && item.grade <= 4) return item.grade;
       if (!ok) return 1;
-      const latency = Number(item.latencyMs) || 0;
-      if (item.hintUsed || latency > 10000) return 2;
-      if (latency > 0 && latency < 3000) return 4;
+      const latency = Number(item.telemetry?.effectiveLatencyMs || item.latencyMs) || 0;
+      if (item.hintUsed || latency > 8000 || item.telemetry?.speedCategory === 'struggling') return 2;
+      if (latency > 0 && latency < 3000 && !item.telemetry?.isRapidGuess) return 4;
       return 3;
     }
 
@@ -19639,6 +19741,105 @@ const STUDIO_CONSTELLATIONS = [{
     window.formatFsrsInterval = formatFsrsInterval;
     window.deriveFsrsGrade = deriveFsrsGrade;
     window.broadcastQuizFsrs = broadcastQuizFsrs;
+(() => {
+  class QuizTelemetryTracker {
+    constructor() {
+      this.current = null;
+      this.activeFocusMs = 0;
+      this.lastFocusStart = 0;
+      this.isFocused = true;
+      this.firstInteractionMs = null;
+      this.distractors = [];
+      this.boundVisibility = null;
+      this.boundInteraction = null;
+    }
+
+    start(item) {
+      this.current = item;
+      this.activeFocusMs = 0;
+      this.firstInteractionMs = null;
+      this.distractors = [];
+      this.isFocused = typeof document !== 'undefined' ? !document.hidden : true;
+      this.lastFocusStart = Date.now();
+
+      if (item) {
+        item.shownAt = this.lastFocusStart;
+        item.distractorsClicked = this.distractors;
+      }
+
+      if (typeof document !== 'undefined') {
+        this.boundVisibility = () => {
+          const now = Date.now();
+          if (document.hidden) {
+            if (this.isFocused) {
+              this.activeFocusMs += Math.max(0, now - this.lastFocusStart);
+              this.isFocused = false;
+            }
+          } else {
+            if (!this.isFocused) {
+              this.lastFocusStart = now;
+              this.isFocused = true;
+            }
+          }
+        };
+        document.addEventListener('visibilitychange', this.boundVisibility);
+
+        this.boundInteraction = () => {
+          if (this.firstInteractionMs == null && this.current) {
+            const now = Date.now();
+            this.firstInteractionMs = Math.max(1, now - (this.current.shownAt || now));
+            this.current.firstInteractionMs = this.firstInteractionMs;
+          }
+        };
+        window.addEventListener('keydown', this.boundInteraction, { once: true, capture: true });
+        window.addEventListener('pointerdown', this.boundInteraction, { once: true, capture: true });
+      }
+    }
+
+    noteDistractor(text) {
+      if (text) this.distractors.push(String(text));
+    }
+
+    stop(ok = false) {
+      const now = Date.now();
+      if (this.isFocused) {
+        this.activeFocusMs += Math.max(0, now - this.lastFocusStart);
+      }
+
+      if (typeof document !== 'undefined') {
+        if (this.boundVisibility) document.removeEventListener('visibilitychange', this.boundVisibility);
+        if (this.boundInteraction) {
+          window.removeEventListener('keydown', this.boundInteraction, { capture: true });
+          window.removeEventListener('pointerdown', this.boundInteraction, { capture: true });
+        }
+      }
+
+      const rawLatencyMs = this.current?.shownAt ? Math.max(1, now - this.current.shownAt) : this.activeFocusMs;
+      const isAfk = this.activeFocusMs >= 60000;
+      const effectiveLatencyMs = isAfk ? 60000 : Math.max(100, Math.min(this.activeFocusMs || rawLatencyMs, 60000));
+
+      const result = {
+        rawLatencyMs,
+        activeFocusMs: this.activeFocusMs,
+        effectiveLatencyMs,
+        firstInteractionMs: this.firstInteractionMs,
+        distractorsClicked: this.distractors.slice(),
+        isAfk,
+        rapidGuessing: !ok && effectiveLatencyMs < 800
+      };
+
+      if (this.current) {
+        this.current.latencyMs = effectiveLatencyMs;
+        this.current.telemetry = result;
+      }
+
+      this.current = null;
+      return result;
+    }
+  }
+
+  window.QuizTelemetryTracker = new QuizTelemetryTracker();
+})();
     const LM_KEY = "enquiz-material-demo";
     const lmFiles = {};
     let lmLibrary = null;

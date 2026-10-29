@@ -15,10 +15,11 @@ export const FSRS_QUIZ_GRADES = Object.freeze({
  * @returns {number} Grade in 1..4
  */
 export function deriveFsrsGrade(ok, item = {}) {
+  if (Number.isInteger(item.grade) && item.grade >= 1 && item.grade <= 4) return item.grade;
   if (!ok) return FSRS_QUIZ_GRADES.AGAIN;
-  const latency = Number(item.latencyMs) || 0;
-  if (item.hintUsed || latency > 10000) return FSRS_QUIZ_GRADES.HARD;
-  if (latency > 0 && latency < 3000) return FSRS_QUIZ_GRADES.EASY;
+  const latency = Number(item.telemetry?.effectiveLatencyMs || item.latencyMs) || 0;
+  if (item.hintUsed || latency > 8000 || item.telemetry?.speedCategory === 'struggling') return FSRS_QUIZ_GRADES.HARD;
+  if (latency > 0 && latency < 3000 && !item.telemetry?.isRapidGuess) return FSRS_QUIZ_GRADES.EASY;
   return FSRS_QUIZ_GRADES.GOOD;
 }
 

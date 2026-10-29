@@ -214,10 +214,11 @@
     });
 
     function deriveFsrsGrade(ok, item = {}) {
+      if (Number.isInteger(item.grade) && item.grade >= 1 && item.grade <= 4) return item.grade;
       if (!ok) return 1;
-      const latency = Number(item.latencyMs) || 0;
-      if (item.hintUsed || latency > 10000) return 2;
-      if (latency > 0 && latency < 3000) return 4;
+      const latency = Number(item.telemetry?.effectiveLatencyMs || item.latencyMs) || 0;
+      if (item.hintUsed || latency > 8000 || item.telemetry?.speedCategory === 'struggling') return 2;
+      if (latency > 0 && latency < 3000 && !item.telemetry?.isRapidGuess) return 4;
       return 3;
     }
 

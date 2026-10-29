@@ -1,5 +1,6 @@
 import {StudyService,StudyError,statement as s} from './learning-study.mjs';
 import {classifyError,synthesizeSubgroupDiagnostic,ERROR_TAGS,ERROR_CATEGORIES} from './learning-error-classifier.mjs';
+import {analyzeTelemetry} from './learning-telemetry-analyzer.mjs';
 import {
   FSRS_GRADES,
   DEFAULT_DESIRED_RETENTION,
@@ -258,7 +259,7 @@ export class ErrorBankService extends StudyService {
     return processed;
   }
 
-  async submitReview(actor,{itemId,word,expectedAnswer,prompt,answer,grade,latencyMs,desiredRetention,kind,materialId,partId,questionIndex}){
+  async submitReview(actor,{itemId,word,expectedAnswer,prompt,answer,grade,latencyMs,telemetry,desiredRetention,kind,materialId,partId,questionIndex}){
     if(!actor?.id)fail(401,'Sign in first.');
     await this.ensure();
     if(!itemId&&!word&&!expectedAnswer&&!prompt)fail(400,'Item identifier or word is required.');
@@ -354,7 +355,15 @@ export class ErrorBankService extends StudyService {
       nextReviewAt=now+nextInterval*86400;
     }
 
-    const recordedLatency=Number(latencyMs)||item.latency_ms||0;
+    const telemetryAnalysis = analyzeTelemetry({
+      latencyMs: latencyMs != null ? latencyMs : telemetry?.latencyMs,
+      activeFocusMs: telemetry?.activeFocusMs,
+      firstInteractionMs: telemetry?.firstInteractionMs,
+      ok: correct,
+      hintUsed: Boolean(telemetry?.hintUsed),
+      distractorsClicked: telemetry?.distractorsClicked
+    });
+    const recordedLatency = telemetryAnalysis.effectiveLatencyMs || Number(latencyMs) || item.latency_ms || 0;
 
     await this.db.atomic([
       s(`UPDATE account_error_items
@@ -384,7 +393,8 @@ export class ErrorBankService extends StudyService {
       difficulty:fsrsResult.difficulty,
       retrievability:fsrsResult.retrievability,
       reps:fsrsResult.reps,
-      lapses:fsrsResult.lapses
+      lapses:fsrsResult.lapses,
+      telemetry:telemetryAnalysis
     };
   }
 
