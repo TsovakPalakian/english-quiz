@@ -2531,3 +2531,39 @@ test('A PDF with an empty browser type is accepted from its name',async()=>{
   await scope.window.LearningMain.uploadLessonFile(lesson,lesson.blocks[0],file);
   assert.deepEqual(headers,['application/pdf']);
 });
+test('Guest home navigation does not kick personal cards or progress requests',()=>{
+  const kicked=[];
+  const scope={authUser:null,viewAccount:null,viewGen:1,accountFetch:async()=>({groups:[]}),stageGrowTextEditors(){},stageGrammarPaint(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{PreloadQueue:{add:job=>kicked.push(job.id)},LearningMain:{notice(){}}}};
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stageDemand('home');
+  assert.deepEqual(kicked,[]);
+});
+test('Authenticated home navigation kicks personal cards and progress requests',()=>{
+  const kicked=[];
+  const scope={authUser:{id:'student1'},viewAccount:null,viewGen:1,accountFetch:async()=>({groups:[]}),stageGrowTextEditors(){},stageGrammarPaint(){},
+    document:{addEventListener(){},getElementById:()=>null,querySelector:()=>null},
+    window:{PreloadQueue:{add:job=>kicked.push(job.id)},LearningMain:{notice(){}}}};
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
+  scope.stageDemand('home');
+  assert.deepEqual(kicked,['progress','cards:first-wave']);
+});
+test('loadAccountThemes resolves to null and skips network when unauthenticated or viewing account',async()=>{
+  const fetched=[];
+  const scope={authUser:null,viewAccount:null,document:{addEventListener(){}},window:{addEventListener(){}},setInterval(){},
+    localStorage:{getItem:()=>null,setItem(){}},accountFetch:async(path)=>{fetched.push(path);return {themes:[]};}};
+  runInNewContext(readFileSync(new URL('../client/47-account.js',import.meta.url),'utf8').replace(/^ {4}/gm,''),scope);
+  const guestResult=await scope.loadAccountThemes();
+  assert.equal(guestResult,null);
+  assert.deepEqual(fetched,[]);
+  scope.authUser={id:'teacher1'};
+  scope.viewAccount={id:'student2'};
+  const viewResult=await scope.loadAccountThemes();
+  assert.equal(viewResult,null);
+  assert.deepEqual(fetched,[]);
+  scope.viewAccount=null;
+  const authResult=await scope.loadAccountThemes();
+  assert.deepEqual(authResult,{themes:[]});
+  assert.deepEqual(fetched,['/api/me/themes']);
+});

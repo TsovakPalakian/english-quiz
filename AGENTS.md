@@ -15,6 +15,7 @@
 - Update docs/change-history/refactoring-plan.md after publication only if the user explicitly requests that documentation update.
 - Edit site JavaScript only in client/; root preview.js is generated from client/*.js by `npm run build:preview` and is never edited by hand.
 - Edit chat JavaScript only in production/chat/; production/chat.js is generated from production/chat/*.js by the same command and is never edited by hand.
+- Always remove temporary and service scripts upon task completion; never leave scratch or validation files in the repository workspace.
 
 # Zero-Compression Forensic Code Audit Protocol
 
