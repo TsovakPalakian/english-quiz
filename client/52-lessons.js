@@ -23,6 +23,8 @@
       },
     });
     let lmSaveTimer = 0;
+    let lmInsertAnchor = null;
+    let lmLastAddedBlockId = null;
     let lmFontRange = null;
     let lmServerReady = false;
     let lmPushTimer = 0;
@@ -883,9 +885,14 @@
       const source = [type, id, parent, parentId].filter(value => value !== undefined).join(":");
       return '<button class="' + (className || 'day-edit') + ' content-copy-icon" type="button" data-content-copy="' + esc(source) + '" aria-label="Copy" title="Copy"><span aria-hidden="true">&#10697;</span></button>';
     }
-    function lmHead(block, label) {
+    function lmHead(block, label, isFirst, isLast) {
       const copy = contentCopyButton('material', block.id, lmState.examOwned ? 'exam-block' : 'lesson', lmState.id, 'lm-icon');
-      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span><div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up">↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down">↓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+      const newBadge = block.id === lmLastAddedBlockId ? '<span class="lm-new-badge">New</span>' : '';
+      const topDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
+      const upDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
+      const downDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
+      const bottomDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
+      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
@@ -984,18 +991,27 @@
         if(!box.querySelector('#lmSpeechPanel'))box.innerHTML='<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>';
         lmPaintChrome();lmPaintTabTools();window.LearningWorkbench?.mountLessonSpeech();return;
       }
+      function lmInsertZoneHtml(blockId, pos) {
+        return '<div class="lm-insert-zone"><div class="lm-insert-line"><button class="lm-insert-btn" type="button" data-lm-insert-' + pos + '="' + blockId + '" aria-label="Insert here">+ Insert here</button></div></div>';
+      }
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
-      box.innerHTML = blocks.length ? blocks.map((block) => {
+      box.innerHTML = blocks.length ? blocks.map((block, index) => {
+        const isFirst = index === 0;
+        const isLast = index === blocks.length - 1;
+        const isNew = block.id === lmLastAddedBlockId;
         const label = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
-        const head = lmHead(block,label).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
+        const head = lmHead(block,label,isFirst,isLast).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
-        return '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + assessed + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const beforeZone = lmInsertZoneHtml(block.id, "before");
+        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + assessed + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
+        return beforeZone + blockHtml + afterZone;
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
       box.querySelectorAll('textarea[data-field],input[type=text][data-field],textarea[data-item-field],input[type=text][data-item-field],input[type=text][data-card-field]').forEach(field=>{
         const name=field.dataset.field||field.dataset.itemField||field.dataset.cardField;if(['criteria','url','remoteUrl','ipa','maxPoints','memorySize','answer','write'].includes(name))return;
@@ -1232,7 +1248,11 @@
         const usageEn = (usages.find((row) => row && row.en) || {}).en || "";
         const camEx = Array.isArray(cam.examples) ? cam.examples.find((row) => row) : "";
         const ex = String(usageEn || (typeof camEx === "string" ? camEx : (camEx && camEx.en)) || looked.ex || "").trim();
+        const stageId = block.stageId || block.stageDefinition?.cardId || looked.stageId || null;
         cards.push({
+          ...(stageId ? { stageId } : {}),
+          stageRevision: block.stageRevision || 0,
+          stageScope: block.stageScope || 'shared',
           quizKey: block.quizKey,
           en: looked.en || en,
           ru: block.ru || looked.ru || "",
@@ -1348,6 +1368,37 @@
       const item = lmState.blocks[from];
       lmState.blocks[from] = lmState.blocks[to];
       lmState.blocks[to] = item;
+    }
+    function lmMoveTabBlockToEdge(id, toTop) {
+      id = domEntityId(id);
+      const ids = lmBlocksFor().map((block) => block.id);
+      const at = ids.indexOf(id);
+      if (at < 0) return;
+      if (toTop && at === 0) return;
+      if (!toTop && at === ids.length - 1) return;
+      const from = lmState.blocks.findIndex((block) => block.id === id);
+      if (from < 0) return;
+      const [item] = lmState.blocks.splice(from, 1);
+      const targetId = toTop ? ids[0] : ids[ids.length - 1];
+      const to = lmState.blocks.findIndex((block) => block.id === targetId);
+      if (to < 0) return;
+      if (toTop) {
+        lmState.blocks.splice(to, 0, item);
+      } else {
+        lmState.blocks.splice(to + 1, 0, item);
+      }
+    }
+    function lmOpenPicker(anchor, isFloating) {
+      lmInsertAnchor = anchor || null;
+      const picker = document.getElementById("lmPicker");
+      if (!picker) return;
+      picker.querySelector('[data-add-block="interactive"]')?.remove();
+      if (!lmState?.examOwned && ['classwork','homework'].includes(lmTab())) {
+        picker.querySelector('.lm-picker-grid')?.insertAdjacentHTML('beforeend', '<button type="button" data-add-block="interactive">Interactive</button>');
+      }
+      picker.classList.toggle("is-floating", !!isFloating);
+      if (anchor) picker.hidden = false;
+      else picker.hidden = !picker.hidden;
     }
     function lmInsertBlockFront(block) {
       if (!lmState) return;
@@ -1975,12 +2026,68 @@
         if (add) {
           if (add.dataset.addBlock === 'interactive' && (lmState?.examOwned || !['classwork','homework'].includes(lmTab()))) return;
           const block = lmBlank(add.dataset.addBlock, add.dataset.quiz || "");
-          lmState.blocks.push(block);
-          document.getElementById("lmPicker").hidden = true;
+          if (lmInsertAnchor && lmInsertAnchor.id) {
+            const anchorId = domEntityId(lmInsertAnchor.id);
+            const anchorIdx = lmState.blocks.findIndex((row) => row.id === anchorId);
+            if (anchorIdx >= 0) {
+              const insertIdx = lmInsertAnchor.pos === "after" ? anchorIdx + 1 : anchorIdx;
+              lmState.blocks.splice(insertIdx, 0, block);
+            } else {
+              lmState.blocks.push(block);
+            }
+          } else {
+            lmState.blocks.push(block);
+          }
+          lmInsertAnchor = null;
+          lmLastAddedBlockId = block.id;
+          const picker = document.getElementById("lmPicker");
+          if (picker) {
+            picker.hidden = true;
+            picker.classList.remove("is-floating");
+          }
           lmRenderEditor();
           lmSchedule();
           const made = lmRoot.querySelector('[data-block-id="' + block.id + '"]');
-          if (made) made.scrollIntoView({ block: "nearest" });
+          if (made) {
+            made.scrollIntoView({ behavior: "smooth", block: "center" });
+            const input = made.querySelector("input[type=text], textarea, .lm-rich");
+            if (input) input.focus();
+          }
+          return;
+        }
+        const insertBtn = event.target.closest(".lm-insert-btn");
+        if (insertBtn) {
+          event.preventDefault();
+          const targetBefore = insertBtn.dataset.lmInsertBefore;
+          const targetAfter = insertBtn.dataset.lmInsertAfter;
+          const targetId = domEntityId(targetBefore || targetAfter);
+          lmOpenPicker({ id: targetId, pos: targetBefore ? "before" : "after" }, true);
+          return;
+        }
+        const insertAbove = event.target.closest("[data-lm-insert-above]");
+        if (insertAbove) {
+          event.preventDefault();
+          const targetId = domEntityId(insertAbove.dataset.lmInsertAbove);
+          lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
+          lmOpenPicker({ id: targetId, pos: "before" }, true);
+          return;
+        }
+        const insertBelow = event.target.closest("[data-lm-insert-below]");
+        if (insertBelow) {
+          event.preventDefault();
+          const targetId = domEntityId(insertBelow.dataset.lmInsertBelow);
+          lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
+          lmOpenPicker({ id: targetId, pos: "after" }, true);
+          return;
+        }
+        const pickerClose = event.target.closest("[data-lm-picker-close]");
+        if (pickerClose) {
+          event.preventDefault();
+          const picker = document.getElementById("lmPicker");
+          if (picker) {
+            picker.hidden = true;
+            picker.classList.remove("is-floating");
+          }
           return;
         }
         const fold = event.target.closest("[data-lm-fold]");
@@ -2001,6 +2108,10 @@
           if (pop) pop.hidden = !pop.hidden;
           return;
         }
+        const top = event.target.closest("[data-lm-top]");
+        if (top) { lmMoveTabBlockToEdge(top.dataset.lmTop, true); lmRenderEditor(); lmSchedule(); return; }
+        const bottom = event.target.closest("[data-lm-bottom]");
+        if (bottom) { lmMoveTabBlockToEdge(bottom.dataset.lmBottom, false); lmRenderEditor(); lmSchedule(); return; }
         const up = event.target.closest("[data-lm-up]");
         if (up) { lmMoveTabBlock(up.dataset.lmUp, -1); lmRenderEditor(); lmSchedule(); return; }
         const down = event.target.closest("[data-lm-down]");
@@ -2132,9 +2243,12 @@
           return;
         }
         if (!event.target.closest(".lm-pop") && !event.target.closest("[data-lm-menu]")) lmRoot.querySelectorAll(".lm-pop").forEach((item) => { item.hidden = true; });
-        if (!event.target.closest(".lm-add-wrap")) {
+        if (!event.target.closest(".lm-picker") && !event.target.closest(".lm-add") && !event.target.closest(".lm-insert-btn") && !event.target.closest("[data-lm-insert-above]") && !event.target.closest("[data-lm-insert-below]")) {
           const picker = document.getElementById("lmPicker");
-          if (picker) picker.hidden = true;
+          if (picker) {
+            picker.hidden = true;
+            picker.classList.remove("is-floating");
+          }
         }
       });
       lmRoot.addEventListener("dragstart", (event) => {
@@ -2185,10 +2299,16 @@
         lmLookupWord();
       });
       document.getElementById("lmAdd").addEventListener("click", () => {
-        const picker = document.getElementById("lmPicker");
-        picker.querySelector('[data-add-block="interactive"]')?.remove();
-        if (!lmState?.examOwned && ['classwork','homework'].includes(lmTab())) picker.querySelector('.lm-picker-grid')?.insertAdjacentHTML('beforeend', '<button type="button" data-add-block="interactive">Interactive</button>');
-        picker.hidden = !picker.hidden;
+        lmOpenPicker(null, false);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          const picker = document.getElementById("lmPicker");
+          if (picker && !picker.hidden) {
+            picker.hidden = true;
+            picker.classList.remove("is-floating");
+          }
+        }
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });

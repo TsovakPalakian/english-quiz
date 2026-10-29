@@ -1360,6 +1360,7 @@
       dayAt = 0;
       pushHistory();
       show("dayq");
+      paintQuizContrast();
       renderDay();
       if (here === "daysetup" || examMode) armExamClock();
     }
