@@ -1,5 +1,5 @@
 // Separate, fail-closed TEST Worker. Never routes study data to production D1/R2 writes.
-import {StudyService,StudyError} from './learning-study.mjs';
+import {StudyService,StudyError,statement} from './learning-study.mjs';
 import {studyClient} from './study-database.mjs';
 export {studyClient} from './study-database.mjs';
 import {PersonalService} from './learning-personal.mjs';
@@ -15,6 +15,7 @@ import {ThemeMediaService} from './learning-theme-media.mjs';
 import {LessonMediaService} from './learning-lesson-media.mjs';
 import {stageR2Media,boundedMediaBytes} from './learning-r2-media.mjs';
 import {parseLessonPdfMeta,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
+import {enrichGrammarRule} from './grammar-enrichment.mjs';
 import {inlineAssetResponse} from './learning-inline-assets.mjs';
 import {ensureStudyProfile} from './learning-profile.mjs';
 import {projectStudentCatalog} from './learning-legacy-read.mjs';
@@ -143,12 +144,16 @@ export default {async fetch(request,env){
     const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
     const pdfMeta=path==='/api/lessons/parse-pdf'&&method==='POST';
+    const grammarEnrich=path==='/api/grammar/enrich'&&method==='POST';
+    const grammarCustom=path==='/api/grammar/custom';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||pdfMeta
+      ||grammarEnrich
+      ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&path==='/api/speakout/media'
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
@@ -224,6 +229,36 @@ export default {async fetch(request,env){
       const bytes=await boundedMediaBytes(request);
       if(bytes.length>LESSON_PDF_META_MAX_BYTES)throw new StudyError(413,'PDF must be under 25 MB.');
       return json(await parseLessonPdfMeta({bytes,apiKey:env.WORKBENCH_GEMINI_KEY||'',model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',fetchImpl:globalThis.fetch,full:new URL(request.url).searchParams.get('scope')==='full'}));
+    }
+    if(grammarCustom){
+      if(method==='GET'){
+        const rows=await db.read("SELECT key,value_json FROM catalog_documents WHERE namespace='custom-grammar'");
+        const rules={};
+        for(const row of rows){
+          try{rules[row.key]=JSON.parse(row.value_json);}catch{}
+        }
+        return json({rules});
+      }
+      if(method==='POST'){
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only a teacher can add grammar rules.');
+        const bodyValue=await body(request,32000);
+        if(!bodyValue?.title||typeof bodyValue.title!=='string'||!bodyValue.detail||typeof bodyValue.detail!=='object')throw new StudyError(400,'Invalid grammar rule.');
+        await db.atomic([
+          statement("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('custom-grammar',?,?) ON CONFLICT(namespace,key) DO UPDATE SET value_json=excluded.value_json",
+            [bodyValue.title.trim(),JSON.stringify(bodyValue.detail)])
+        ]);
+        return json({ok:true,title:bodyValue.title.trim()});
+      }
+    }
+    if(grammarEnrich){
+      if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only a teacher can enrich grammar rules.');
+      const bodyValue=await body(request,32000);
+      const title=String(bodyValue?.title||'').trim();
+      const explanation=String(bodyValue?.explanation||'').trim();
+      const examples=Array.isArray(bodyValue?.examples)?bodyValue.examples:[];
+      if(!title)throw new StudyError(400,'Title is required.');
+      const enriched=await enrichGrammarRule({title,explanation,examples,env,fetchImpl:globalThis.fetch});
+      return json(enriched);
     }
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];

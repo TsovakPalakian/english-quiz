@@ -902,22 +902,6 @@ document.addEventListener('click',event=>{
     stageRemoveLibrary(item,'song');if(!managed)trackEvent('song','lyrics','archive');show('music');
   });
 },true);
-document.addEventListener('DOMContentLoaded',()=>{
-  const host=document.getElementById('groupAdd');if(!host)return;
-  const form=document.createElement('form');form.id='stageNewCard';
-  form.innerHTML='<details><summary>Новая личная карточка вручную</summary><label>English<input name="en" required maxlength="200"></label><label>Russian<input name="ru" required maxlength="10000"></label><button class="btn primary" type="submit">Сохранить новую карточку</button><p role="status"></p></details>';
-  form.addEventListener('submit',event=>{
-    event.preventDefault();const managed=!!(viewAccount&&authUser&&['ADMIN','DEVELOPER'].includes(authUser.role)&&accountReady&&!viewSwitching);
-    if(!stageOwnReady()&&!managed){window.LearningMain.notice('Дождитесь загрузки профиля.',true);return;}
-    const accountId=viewAccount?.id||'',generation=viewGen;
-    const en=form.elements.en.value.trim(),ru=form.elements.ru.value.trim();
-    window.LearningMain.perform(async()=>{
-      const result=managed?await window.LearningMain.newManagedCard(accountId,en,ru):await window.LearningMain.newCard(en,ru);
-      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-      const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);form.reset();renderMade(result.card);if(!managed)trackEvent('card','mine','add');
-    },form.querySelector('[role="status"]'));
-  });host.append(form);
-});
 function stageSaveTranslation(host){
   const card=stageHostCard(host),input=host.querySelector('[data-edit-field="ru"]'),status=host.querySelector('[data-edit-status]');
   if(!card || !input||!stageCanEditTranslation(card))return;
@@ -2295,7 +2279,94 @@ function stageFetchSpeak(index,active=()=>true){
 let stageEverydayState={group:'speech',topic:'',groupSearch:'',wordSearch:''};
 var stageGrammarGroup='classes';
 var stageGrammarRule='';
+function stageLoadCustomGrammar(){
+  try{
+    const raw=localStorage.getItem('enquiz_custom_grammar');
+    if(raw){
+      const rules=JSON.parse(raw);
+      if(rules&&typeof rules==='object'){
+        if(!window.GrammarDetails)window.GrammarDetails={};
+        for(const [title,detail] of Object.entries(rules))window.GrammarDetails[title]=detail;
+      }
+    }
+  }catch(e){}
+  if(authUser&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
+    fetch('/api/grammar/custom').then(r=>r.ok?r.json():null).then(data=>{
+      if(data?.rules&&typeof data.rules==='object'){
+        if(!window.GrammarDetails)window.GrammarDetails={};
+        for(const [title,detail] of Object.entries(data.rules))window.GrammarDetails[title]=detail;
+        stageSyncGrammarCategories();
+        stageGrammarPaint();
+      }
+    }).catch(()=>{});
+  }
+  stageSyncGrammarCategories();
+}
+function stageSyncGrammarCategories(){
+  if(!window.GrammarCategories||!window.GrammarDetails)return;
+  let customGroup=window.GrammarCategories.find(g=>g.id==='custom');
+  const knownTitles=new Set(window.GrammarCategories.filter(g=>g.id!=='custom').flatMap(g=>g.cards.map(c=>c[0])));
+  const customCards=[];
+  for(const [title,detail] of Object.entries(window.GrammarDetails)){
+    if(!knownTitles.has(title)){
+      const example=detail.examples?.[0]||['',''];
+      customCards.push([title,detail.ru||detail.definition||title,example[0]||'',example[1]||'']);
+    }
+  }
+  if(customCards.length){
+    if(!customGroup){
+      customGroup={id:'custom',title:'Additional Rules',cards:[]};
+      window.GrammarCategories.push(customGroup);
+    }
+    customGroup.cards=customCards;
+  } else if(customGroup){
+    const idx=window.GrammarCategories.indexOf(customGroup);
+    if(idx>=0)window.GrammarCategories.splice(idx,1);
+  }
+}
+function stageSaveGrammarRule(title,detail){
+  if(!title||!detail)return;
+  if(!window.GrammarDetails)window.GrammarDetails={};
+  window.GrammarDetails[title]=detail;
+  try{
+    let custom={};
+    const raw=localStorage.getItem('enquiz_custom_grammar');
+    if(raw)custom=JSON.parse(raw)||{};
+    custom[title]=detail;
+    localStorage.setItem('enquiz_custom_grammar',JSON.stringify(custom));
+  }catch(e){}
+  stageSyncGrammarCategories();
+  stageGrammarPaint();
+  if(authUser&&['ADMIN','DEVELOPER','TEACHER'].includes(authUser.role)){
+    fetch('/api/grammar/custom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,detail})}).catch(()=>{});
+  }
+}
+async function stageEnrichGrammarRule(title,explanation='',examples=[]){
+  try{
+    const res=await fetch('/api/grammar/enrich',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,explanation,examples})});
+    if(res.ok)return await res.json();
+  }catch(e){}
+  const list=(examples.length?examples:[title+' example sentence.']).slice(0,6).map(e=>Array.isArray(e)?e:[String(e||''),'']);
+  return {
+    title,
+    ru:title,
+    en:explanation||('Grammar rule and usage for '+title),
+    definition:explanation||('Grammar rule and usage for '+title),
+    pattern:title+' pattern',
+    patternRu:'',
+    contrast:'Distinctions and common mistakes for '+title,
+    contrastRu:'',
+    examples:list,
+    source:'Oxford Practical English Usage'
+  };
+}
+window.stageLoadCustomGrammar=stageLoadCustomGrammar;
+window.stageSyncGrammarCategories=stageSyncGrammarCategories;
+window.stageSaveGrammarRule=stageSaveGrammarRule;
+window.stageEnrichGrammarRule=stageEnrichGrammarRule;
+
 function stageGrammarPaint(){
+  stageLoadCustomGrammar();
   const groups=window.GrammarCategories||[];
   const list=document.getElementById('grammarCategoryGroups');if(!list)return;
   list.innerHTML=groups.map(group=>stageEverydayButton(group.id,group.title,group.cards.length,'data-grammar-group','categories')).join('');
@@ -2306,14 +2377,84 @@ function stageGrammarPaint(){
   document.getElementById('grammarRuleTitle').textContent=stageGrammarRule;
   const pair=(en,ru)=>'<p lang="en">'+esc(en)+'</p><p lang="ru" class="label">'+esc(ru)+'</p>';
   const labels=window.GrammarUi;
-  document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band saas-card"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.examples)+'</h2><ol>'+detail.examples.map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn primary saas-btn saas-btn-primary" type="button" data-grammar-vocabulary style="margin-bottom:12px">'+esc(labels.vocabulary)+'</button><div class="grammar-band saas-card"><h2>'+esc(labels.references)+'</h2><ul>'+window.GrammarReferences.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';
+  const refs=detail.references||window.GrammarReferences||[];
+  document.getElementById('grammarRuleBody').innerHTML='<div class="grammar-band saas-card"><h2>'+esc(labels.meaning)+'</h2>'+pair(detail.en,detail.definition)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.structure)+'</h2>'+pair(detail.pattern,detail.patternRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.distinctions)+'</h2>'+pair(detail.contrast,detail.contrastRu)+'</div><div class="grammar-band saas-card"><h2>'+esc(labels.examples)+'</h2><ol>'+(detail.examples||[]).map(([en,ru])=>'<li>'+pair(en,ru)+'</li>').join('')+'</ol></div><button class="btn primary saas-btn saas-btn-primary" type="button" data-grammar-vocabulary style="margin-bottom:12px">'+esc(labels.vocabulary)+'</button><div class="grammar-band saas-card"><h2>'+esc(labels.references)+'</h2><ul>'+refs.map(([label,url])=>'<li><a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+'</a></li>').join('')+'</ul></div>';
 }
 document.addEventListener('click',event=>{
+  const newRuleBtn=event.target.closest('#grammarRuleNew');
+  if(newRuleBtn){
+    const dialog=document.getElementById('grammarNewRuleDialog');
+    if(dialog&&typeof dialog.showModal==='function')dialog.showModal();
+    return;
+  }
+  const closeBtn=event.target.closest('[data-action="close-dialog"]');
+  if(closeBtn){
+    const dialog=closeBtn.closest('dialog');
+    if(dialog&&typeof dialog.close==='function')dialog.close();
+    return;
+  }
+  const enrichBtn=event.target.closest('#grammarEnrichBtn');
+  if(enrichBtn){
+    const form=document.getElementById('grammarNewRuleForm');
+    if(form){
+      const title=form.elements.title.value.trim();
+      if(!title){window.LearningMain?.notice?.('Enter a rule title first.',true);return;}
+      enrichBtn.disabled=true;enrichBtn.textContent='Searching Oxford…';
+      stageEnrichGrammarRule(title,form.elements.en.value.trim()).then(enriched=>{
+        if(enriched){
+          if(!form.elements.ru.value)form.elements.ru.value=enriched.ru||'';
+          if(!form.elements.en.value)form.elements.en.value=enriched.en||'';
+          if(!form.elements.definition.value)form.elements.definition.value=enriched.definition||'';
+          if(!form.elements.pattern.value)form.elements.pattern.value=enriched.pattern||'';
+          if(!form.elements.patternRu.value)form.elements.patternRu.value=enriched.patternRu||'';
+          if(!form.elements.contrast.value)form.elements.contrast.value=enriched.contrast||'';
+          if(!form.elements.contrastRu.value)form.elements.contrastRu.value=enriched.contrastRu||'';
+          if(!form.elements.examples.value&&Array.isArray(enriched.examples)){
+            form.elements.examples.value=enriched.examples.map(([e,r])=>e+(r?' ~ '+r:'')).join('\n');
+          }
+        }
+      }).finally(()=>{
+        enrichBtn.disabled=false;enrichBtn.textContent='Search in Oxford';
+      });
+    }
+    return;
+  }
   const button=event.target.closest('[data-grammar-group],[data-grammar-rule],[data-grammar-vocabulary]');if(!button)return;
   pushHistory();
   if(button.hasAttribute('data-grammar-vocabulary')){stageEverydayState={group:'topics',topic:'topic-grammar',groupSearch:'',wordSearch:''};show('everydaytopic');stageEverydayLoad();return;}
   if(button.dataset.grammarGroup){stageGrammarGroup=button.dataset.grammarGroup;stageGrammarRule='';stageGrammarPaint();show('grammarcategory');}
   else {stageGrammarRule=button.dataset.grammarRule;stageGrammarPaint();show('grammarrule');}
+});
+document.addEventListener('submit',event=>{
+  if(event.target.id==='grammarNewRuleForm'){
+    event.preventDefault();
+    const form=event.target;
+    const title=form.elements.title.value.trim();
+    if(!title)return;
+    const exLines=(form.elements.examples.value||'').split('\n').map(l=>l.trim()).filter(Boolean);
+    const examples=exLines.map(line=>{
+      const parts=line.split('~');
+      return [parts[0].trim(),parts.slice(1).join('~').trim()];
+    });
+    const detail={
+      ru:form.elements.ru.value.trim()||title,
+      en:form.elements.en.value.trim()||title,
+      definition:form.elements.definition.value.trim()||form.elements.en.value.trim()||title,
+      pattern:form.elements.pattern.value.trim()||'',
+      patternRu:form.elements.patternRu.value.trim()||'',
+      contrast:form.elements.contrast.value.trim()||'',
+      contrastRu:form.elements.contrastRu.value.trim()||'',
+      examples:examples.length?examples:[[title,'']],
+      source:'Oxford Practical English Usage'
+    };
+    stageSaveGrammarRule(title,detail);
+    form.reset();
+    const dialog=document.getElementById('grammarNewRuleDialog');
+    if(dialog&&typeof dialog.close==='function')dialog.close();
+    stageGrammarGroup='custom';
+    stageGrammarPaint();
+    show('grammarcategory');
+  }
 });
 var stageEverydayData=null,stageEverydayAudience='',stageEverydayFlight=null;
 function stageEverydayAudienceKey(){return [authUser?.id||'',authUser?.role||'',viewAccount?.id||'',viewGen].join(':');}
