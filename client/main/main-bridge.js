@@ -272,14 +272,21 @@
   }
   function identify(card){
     if(card.stageId && cards.has(card.stageId))return {...cards.get(card.stageId),stageRevision:card.stageRevision||cards.get(card.stageId).stageRevision};
+    if(card.stageId && validCardId(card.stageId))return {...card,stageId:card.stageId,stageRevision:card.stageRevision||0};
     const en=String(card.en||card.word||card.base||'').toLowerCase(),ru=String(card.ru||'');
-    const found=[...cards.values()].filter(c=>String(c.en||'').toLowerCase()===en && String(c.ru||'')===ru);
+    let found=[...cards.values()].filter(c=>String(c.en||'').toLowerCase()===en && String(c.ru||'')===ru);
+    if(!found.length && en)found=[...cards.values()].filter(c=>String(c.en||'').toLowerCase()===en);
     if(found.length!==1)throw new Error('Карточку нельзя однозначно связать с ID. Перезагрузите стенд; запись не отправлена.');
     return found[0];
   }
   function catalogStageId(card){
     const en=String(card?.en||card?.word||card?.base||'').toLowerCase(),ru=String(card?.ru||'');
     if(!en)return '';
+    if(window.lmState?.blocks){
+      const block=window.lmState.blocks.find(b=>['wordcard','word'].includes(b.type)&&String(b.word||b.en||'').toLowerCase()===en&&(validCardId(b.stageId)||validCardId(b.stageDefinition?.cardId)));
+      const id=block?.stageId||block?.stageDefinition?.cardId;
+      if(id&&validCardId(id))return id;
+    }
     const lists=[];
     const data=window.LESSON_DATA;
     if(data&&typeof data==='object')for(const value of Object.values(data))if(Array.isArray(value))lists.push(value);
