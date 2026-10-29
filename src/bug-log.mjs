@@ -207,7 +207,6 @@ export async function recordHttpBug(db,actor,request,response,application={}){
   let error='';
   try{error=JSON.parse(responseText).error||'';}catch{error='';}
   if(!error)error=clipText(responseText)||('HTTP '+response.status);
-  if(response.status===403&&['Configured test host only.','Invalid origin.'].includes(error))return;
   let requestText='';
   if(!['GET','HEAD'].includes(request.method)){
     try{requestText=await request.text();}catch{requestText='';}

@@ -70,8 +70,8 @@
 - **Решение**:
   1. В [src/bug-log.mjs:197-217](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/bug-log.mjs#L197-L217) добавлено отсечение:
      - запросов от сканеров (`/l9scan|leakix|shodan|censys|nikto|sqlmap|nmap/i.test(userAgent)`);
-     - зондирующих обращений к отсутствующим эндпоинтам (`/api/graphql`, `/api/gql`, `/api/swagger`, `/api/openapi`);
-     - ответов 403 со штатным текстом `Configured test host only.` и `Invalid origin.`.
+     - зондирующих обращений к отсутствующим эндпоинтам (`/api/graphql`, `/api/gql`, `/api/swagger`, `/api/openapi`).
+     При этом отслеживание ошибок хоста для легитимных путей API сохранено в соответствии с тестом [test/test-bug-log.mjs:96](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-bug-log.mjs#L96).
   2. В [src/learning-integrated-worker.mjs:1204-1208](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-integrated-worker.mjs#L1204-L1208) функция `bugWatch` дополнена аналогичными фильтрами, предотвращая лишнее клонирование тел запросов сканеров.
 - **Правило предотвращения**:
   Механизм серверного мониторинга ошибок обязан разделять сбои бизнес-логики приложения и штатные блокировки сетевого экрана. Зонды сканеров уязвимостей и неавторизованные запросы к несуществующим системным путям не подлежат записи в журнал дефектов.
