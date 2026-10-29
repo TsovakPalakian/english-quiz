@@ -60,4 +60,35 @@ assert.equal(editedGroups.words[0].items[0].translation, 'зарабатыват
 assert.equal(editedGroups.words[1].title, 'afford');
 assert.equal(editedGroups.words[1].items[0].translation, 'позволить себе');
 
-console.log('PDF draft editor unit test passed: editing, word selection, and adding missing words verified.');
+// Verify lmPreviewParts groups consecutive wordcard blocks into a single .words panel
+const lessonsSrc = readFileSync(new URL('../client/52-lessons.js', import.meta.url), 'utf8');
+const previewPartsFn = lessonsSrc.slice(
+  lessonsSrc.indexOf('function lmPreviewParts('),
+  lessonsSrc.indexOf('function lmRenderPreview(')
+);
+const previewCtx = {
+  lmState: {
+    blocks: [
+      { id: 't1', type: 'task', assignmentId: 'task-1', title: 'Task Title' }
+    ]
+  },
+  esc: s => s,
+  contentCopyButton: () => '',
+  lmPreviewBlock: b => '<div>' + b.id + '</div>',
+  lmWordCardHtml: b => '<button class="wcard">' + b.word + '</button>'
+};
+runInNewContext(previewPartsFn, previewCtx);
+
+const testBlocks = [
+  { id: 'theory1', type: 'overview' },
+  { id: 'w1', type: 'wordcard', word: 'earn' },
+  { id: 'w2', type: 'wordcard', word: 'inherit' },
+  { id: 't1', type: 'task', assignmentId: 'task-1', title: 'Task Title' }
+];
+
+const previewHtml = previewCtx.lmPreviewParts(testBlocks);
+assert.ok(previewHtml.includes('data-lm-panel="theory1"'), 'Theory panel present');
+assert.ok(previewHtml.includes('<div class="words"><button class="wcard">earn</button><button class="wcard">inherit</button></div>'), 'Words grouped into unified words grid panel');
+assert.ok(previewHtml.includes('data-assignment="task-1"'), 'Task assignment present');
+
+console.log('PDF draft editor unit test passed: editing, word selection, and compact wordcard grouping verified.');

@@ -572,7 +572,7 @@
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
       const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
-      return kit ? '<div class="lm-word-card-wrap" style="position:relative; display:inline-block;">' + content + '<div style="position:absolute; top:6px; right:6px; z-index:2;">' + kit + '</div></div>' : content;
+      return kit ? '<div class="lm-word-card-wrap">' + content + '<div class="lm-word-kit">' + kit + '</div></div>' : content;
     }
     function lmRuleCardHtml(block, link) {
       if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
@@ -1126,12 +1126,33 @@
       return "<h3>" + esc(block.title || "Vocabulary") + '</h3><div class="lm-read-cards">' + cards + "</div>";
     }
     function lmPreviewParts(blocks) {
-      const grouped = new Map();
-      for (const part of blocks) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (!grouped.has(key)) grouped.set(key,[]); grouped.get(key).push(part); }
+      const grouped = [];
+      let currentUnassignedWords = null;
+      for (const part of blocks) {
+        const assignKey = part.assignmentKey || part.assignmentId;
+        if (assignKey) {
+          currentUnassignedWords = null;
+          let group = grouped.find(g => g.key === assignKey);
+          if (!group) {
+            group = { key: assignKey, parts: [] };
+            grouped.push(group);
+          }
+          group.parts.push(part);
+        } else if (part.type === 'wordcard') {
+          if (!currentUnassignedWords) {
+            currentUnassignedWords = { key: 'words-group-' + part.id, parts: [] };
+            grouped.push(currentUnassignedWords);
+          }
+          currentUnassignedWords.parts.push(part);
+        } else {
+          currentUnassignedWords = null;
+          grouped.push({ key: 'part-' + part.id, parts: [part] });
+        }
+      }
       const assignments = new Map();
       const taskKeys = new Set((lmState.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type)).map(part => part.assignmentKey || part.assignmentId || ('part-' + part.id)));
       for (const part of lmState.blocks || []) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (taskKeys.has(key) && !assignments.has(key)) assignments.set(key,assignments.size + 1); }
-      return [...grouped].map(([key,parts]) => {
+      return grouped.map(({ key, parts }) => {
         const content = lmPreviewPartsFlat(parts), number = assignments.get(key);
         if (!number) return content;
         const leader = parts.find(p => p.assignmentId === key && ['quiz','exercise','task'].includes(p.type)) || parts.find(p => ['quiz','exercise','task'].includes(p.type));

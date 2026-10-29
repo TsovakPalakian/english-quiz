@@ -1745,6 +1745,9 @@ a.btn { text-decoration: none; }
 .wcard-tools .wcard { width: 100%; }
 .wcard-tools .edit-actions { position: absolute; top: 8px; right: 8px; z-index: 2; gap: 6px; }
 .wcard-tools .icon-btn { width: 32px; height: 32px; }
+.lm-word-card-wrap { position: relative; display: flex; flex-direction: column; width: 100%; min-width: 0; }
+.lm-word-card-wrap .wcard { width: 100%; height: 100%; box-sizing: border-box; }
+.lm-word-card-wrap .lm-word-kit { position: absolute; top: 6px; right: 6px; z-index: 2; }
 .wcard.is-learned { background: var(--ok-s); border-color: var(--ok); }
 .wcard .pic { margin-bottom: 6px; }
 .pic svg { width: 40px; height: 40px; display: block; }
