@@ -315,28 +315,38 @@
       html += "</div>";
       html += usageList(usages);
 
-      if (item.ru || note) html += '<div class="gen"><h2>' + (item.ru ? "English → Russian · Flip" : "Expression → meaning") + '</h2><div id="madeFlipEn"><p class="q">' + esc(item.word) + '</p><button class="btn" type="button" data-flip="en">Flip</button></div></div>';
-      if (item.ru) html += choiceBlock("English → Russian · Choice", item.word, ruOptions, item.ru, "ru");
-      if (item.ru) html += '<div class="gen"><h2>English → Russian · Type</h2><p class="prompt">' + esc(item.word) + '</p><input id="madeTypeRu" type="text" placeholder="Type the Russian translation" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="ru">Check</button></div><div id="madeTypeFbRu"></div></div>';
-      if (gaps.length) {
-        gaps.forEach((gap, index) => {
-          html += '<div class="gen"><h2>English → Russian · Gap' + (gap.kind ? " · " + esc(gap.kind) : "") + '</h2><p class="q">' + esc(gap.shown) + "</p>";
-          if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
-          html += '<input id="madeGap' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
-          html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="' + index + '">Check</button></div><div id="madeGapFb' + index + '"></div></div>';
-        });
+      const enRuCount = (item.ru || note ? 1 : 0) + (item.ru ? 2 : 0) + gaps.length;
+      if (enRuCount > 0) {
+        html += '<details class="saas-details made-details" open><summary class="saas-summary">English → Russian · ' + enRuCount + '</summary>';
+        if (item.ru || note) html += '<div class="gen"><h2>' + (item.ru ? "English → Russian · Flip" : "Expression → meaning") + '</h2><div id="madeFlipEn"><p class="q">' + esc(item.word) + '</p><button class="btn" type="button" data-flip="en">Flip</button></div></div>';
+        if (item.ru) html += choiceBlock("English → Russian · Choice", item.word, ruOptions, item.ru, "ru");
+        if (item.ru) html += '<div class="gen"><h2>English → Russian · Type</h2><p class="prompt">' + esc(item.word) + '</p><input id="madeTypeRu" type="text" placeholder="Type the Russian translation" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="ru">Check</button></div><div id="madeTypeFbRu"></div></div>';
+        if (gaps.length) {
+          gaps.forEach((gap, index) => {
+            html += '<div class="gen"><h2>English → Russian · Gap' + (gap.kind ? " · " + esc(gap.kind) : "") + '</h2><p class="q">' + esc(gap.shown) + "</p>";
+            if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
+            html += '<input id="madeGap' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
+            html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="' + index + '">Check</button></div><div id="madeGapFb' + index + '"></div></div>';
+          });
+        }
+        html += '</details>';
       }
 
-      if (item.ru) html += '<div class="gen"><h2>Russian → English · Flip</h2><div id="madeFlipRu"><p class="q">' + esc(item.ru) + '</p><button class="btn" type="button" data-flip="ru">Flip</button></div></div>';
-      if (item.ru) html += choiceBlock("Russian → English · Choice", item.ru, enOptions, item.word, "en");
-      if (item.ru) html += '<div class="gen"><h2>Russian → English · Type</h2><p class="prompt">' + esc(item.ru) + '</p><input id="madeTypeEn" type="text" placeholder="Type the English word" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="en">Check</button></div><div id="madeTypeFbEn"></div></div>';
-      if (ruGaps.length) {
-        ruGaps.forEach((gap, index) => {
-          html += '<div class="gen"><h2>Russian → English · Gap</h2><p class="q">' + esc(gap.shown) + "</p>";
-          if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
-          html += '<input id="madeGapRu' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
-          html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="Ru' + index + '">Check</button></div><div id="madeGapFbRu' + index + '"></div></div>';
-        });
+      const ruEnCount = (item.ru ? 3 : 0) + ruGaps.length;
+      if (ruEnCount > 0) {
+        html += '<details class="saas-details made-details" open><summary class="saas-summary">Russian → English · ' + ruEnCount + '</summary>';
+        if (item.ru) html += '<div class="gen"><h2>Russian → English · Flip</h2><div id="madeFlipRu"><p class="q">' + esc(item.ru) + '</p><button class="btn" type="button" data-flip="ru">Flip</button></div></div>';
+        if (item.ru) html += choiceBlock("Russian → English · Choice", item.ru, enOptions, item.word, "en");
+        if (item.ru) html += '<div class="gen"><h2>Russian → English · Type</h2><p class="prompt">' + esc(item.ru) + '</p><input id="madeTypeEn" type="text" placeholder="Type the English word" autocomplete="off" /><div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-type="en">Check</button></div><div id="madeTypeFbEn"></div></div>';
+        if (ruGaps.length) {
+          ruGaps.forEach((gap, index) => {
+            html += '<div class="gen"><h2>Russian → English · Gap</h2><p class="q">' + esc(gap.shown) + "</p>";
+            if (gap.hint) html += '<p class="hint">' + esc(gap.hint) + "</p>";
+            html += '<input id="madeGapRu' + index + '" type="text" data-gap-answer="' + esc(gap.answer) + '" placeholder="Missing word" autocomplete="off" />';
+            html += '<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-gap-check="Ru' + index + '">Check</button></div><div id="madeGapFbRu' + index + '"></div></div>';
+          });
+        }
+        html += '</details>';
       }
 
       if (phrases.length) {

@@ -126,7 +126,8 @@ try{
     if(path==='/api/lessons'){
       if(method!=='GET')throw Error('Examination publication must not write lessons');
       if(holdLessonSummary&&url.searchParams.get('summary')==='1')await new Promise(resolve=>{releaseLessons=resolve;});
-      const rows=[lesson,...copiedLessons];data={materials:url.searchParams.has('id')?rows.filter(row=>row.id===Number(url.searchParams.get('id'))):rows.map(row=>({...row,blocks:[],stageLessonDeferred:true}))};
+      const reqIds=(url.searchParams.get('ids')||'').split(',').map(Number).filter(Boolean);
+      const rows=[lesson,...copiedLessons];data={materials:(url.searchParams.has('id')||reqIds.length)?rows.filter(row=>url.searchParams.has('id')?row.id===Number(url.searchParams.get('id')):reqIds.includes(row.id)):rows.map(row=>({...row,blocks:[],stageLessonDeferred:true}))};
     }
     if(path==='/api/speakout/lesson'){
       if(method==='GET'&&!url.searchParams.has('revision'))speakFullReads++;

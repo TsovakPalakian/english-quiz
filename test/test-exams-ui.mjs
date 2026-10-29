@@ -37,7 +37,15 @@ try{
     if(path==='/api/groups/members')data={members:[{accountId:'b'.repeat(32),groupId:41},{accountId:'c'.repeat(32),groupId:43}]};
     if(path==='/api/admin/users')data={users:[{id:'b'.repeat(32),name:'Student',role:'USER',active:1},{id:'c'.repeat(32),name:'Outside student',role:'USER',active:1}]};
     if(path==='/api/lessons')data={materials:[{id:31,stageRevision:1,title:'Fixture lesson',published:true,date:'2026-10-15',blocks:[]}]};
-    if(path==='/api/exams')data={exams};
+    if(path==='/api/exams'){
+      if(route.request().method()==='POST'){
+        const payload=JSON.parse(route.request().postData()||'{}');
+        const wire=payload.exam||{};
+        const savedBlocks=(wire.blocks||[]).map((b,i)=>({id:Number.isSafeInteger(b.id)?b.id:800+i,title:b.title}));
+        data={id:Number.isSafeInteger(wire.id)?wire.id:701,title:wire.title,blocks:savedBlocks};
+      } else data={exams};
+    }
+    if(path==='/api/archive')data={archived:true,revision:1};
     if(path==='/api/exams/work')data={work:[]};
     if(path==='/api/exams/workflow')data={examId:21,state:'submitted',canStart:false,canComplete:false,history:[],blocks:1,submitted:1,published:0};
     if(path==='/api/messages')data={rooms:[],groups:[],contacts:[],unread:{},total:0};
@@ -132,6 +140,16 @@ try{
   await page.locator('#examListSearch').fill('');await page.locator('[data-exam-open="11"]').click();
   assert.equal(await page.locator('#examblocks .page-path').innerText(),'Groups\nA1\nA1 Group\nExams\nA1 Exam');
   assert.equal(writes.filter(path=>['/api/groups','/api/lessons','/api/exams'].includes(path)).length,0,'Browsing does not rewrite content: '+writes.join(','));
+  assert.equal(await page.locator('[data-content-copy="exam-block:12"]').count(),1,'Initial block has copy button');
+  const examWritesBefore=writes.filter(p=>p==='/api/exams').length;
+  await page.locator('#examBlockNew').click();
+  await page.locator('[data-content-copy="exam-block:801"]').waitFor();
+  assert.equal(writes.filter(p=>p==='/api/exams').length - examWritesBefore, 1, 'Adding a block sends only 1 exam request');
+  assert.equal(await page.locator('[data-content-copy="exam-block:801"]').count(), 1, 'Newly added block immediately has copy button');
+  const archiveWritesBefore=writes.filter(p=>p==='/api/archive').length;
+  await page.evaluate(()=>{const prev=window.confirm;window.confirm=()=>true;examDelete('block',801);window.confirm=prev;});
+  await page.waitForFunction(()=>!document.querySelector('[data-exam-block="801"]'));
+  assert.equal(writes.filter(p=>p==='/api/archive').length - archiveWritesBefore, 1, 'Deleting saved block archives it');
   await page.locator('[data-exam-block="12"]').click();
   await page.evaluate(()=>lmShow('edit'));
   assert.match(await page.locator('#material .page-path').innerText(),/Groups\nA1\nA1 Group\nExams\nA1 Exam\nExamination block\nEdit/);

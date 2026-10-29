@@ -316,8 +316,10 @@ export default {async fetch(request,env){
     if(path==='/api/exams'&&method==='GET')return json({exams:await new ExamService(db).list(actor)});
     if(path==='/api/exams'&&method==='POST')return json(await new ExamService(db).save(actor,value));
     if(examItem&&method==='DELETE')return json(await new ExamService(db).remove(actor,cardKey(examItem[1])));
+    const idsQuery=url.searchParams.get('ids')||'';
+    const lessonIds=idsQuery?idsQuery.split(',').map(part=>cardKey(part.trim())).filter(id=>Number.isSafeInteger(id)&&id>=1):[];
     const lessonQuery=url.searchParams.get('id')||url.searchParams.get('lessonId')||'';
-    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor,{summary:url.searchParams.get('summary')==='1',lessonId:lessonQuery?cardKey(lessonQuery):''})));
+    if(path==='/api/lessons')return json(method==='POST'?await s.createLesson(actor,value):mediaPlaceholders(await legacyLessons(db,actor,{summary:url.searchParams.get('summary')==='1',lessonId:lessonQuery?cardKey(lessonQuery):'',lessonIds})));
     if(lesson)return json(await s[method==='DELETE'?'deleteLesson':'editLesson'](actor,cardKey(lesson[1]),value));
     if(path==='/api/cards')return json(await s.cards(actor,{query:url.searchParams.get('q')||'',exact:url.searchParams.get('exact')==='1',offset:Number(url.searchParams.get('offset')||0),lessonId:url.searchParams.get('lessonId')?cardKey(url.searchParams.get('lessonId')):''}));
     if(progress)return json(await s[progress[2]==='answers'?'answerCard':'saveCardProgress'](actor,cardKey(decodeURIComponent(progress[1])),value));
