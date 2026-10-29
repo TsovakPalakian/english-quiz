@@ -1522,11 +1522,11 @@ function stageDemand(id){
     if(id==='verbs')stageKick('irregular',()=>stageEnsureStatic('IRREGULAR').then(()=>{if((document.querySelector('section.on')||{}).id==='verbs')paintVerbs();}).catch(error=>window.LearningMain.notice(error.message,true)));
     if(id==='tenses'||id==='tense'||id==='marker')stageKick('grammar',()=>stageEnsureStatic('GRAMMAR').catch(error=>window.LearningMain.notice(error.message,true)));
     if(id==='allwords')stageLibrarySection(id);
-    if(id==='phrasal'||id==='idioms')stageKick('cards:first-wave',stageCardFirstWave);
+    if((id==='phrasal'||id==='idioms')&&stageWho())stageKick('cards:first-wave',stageCardFirstWave);
     if(id==='music'||id==='song')stageKick('songs:list',()=>stageSongPage(''));
-    if(id==='add'||id==='made')stageKick('cards:personal:mine',()=>stagePersonalPage('mine','').then(()=>{if((document.querySelector('section.on')||{}).id===id&&typeof paintAdded==='function')paintAdded();}));
-    if(['setup','exam','errors','made','add','word','cardstat'].includes(id)){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
-    if(id==='home'){stageKick('progress',()=>stageProgressPage(''));stageKick('cards:first-wave',stageCardFirstWave);}
+    if((id==='add'||id==='made')&&stageWho())stageKick('cards:personal:mine',()=>stagePersonalPage('mine','').then(()=>{if((document.querySelector('section.on')||{}).id===id&&typeof paintAdded==='function')paintAdded();}));
+    if(['setup','exam','errors','made','add','word','cardstat'].includes(id)&&stageWho()){stageKick('progress',()=>stageProgressPage(''));stageKick('quizzes',()=>stageQuizPage(''));}
+    if(id==='home'&&stageWho()){stageKick('progress',()=>stageProgressPage(''));stageKick('cards:first-wave',stageCardFirstWave);}
     if(id==='days'||id==='material')stageKick('lesson:summary',()=>stageQueueLessons());
     if(['material','days','exam','exams','setup','speak','speaklesson','lyricadd','textedit'].includes(id)){window.ensureMaterialQuiz?.();window.ensureColorPicker?.();}
   }catch(error){window.LearningMain?.notice?.(error.message,true);}

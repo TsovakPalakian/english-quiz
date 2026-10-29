@@ -18680,7 +18680,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (saved) applyTheme(saved, { sync: false });
     }
     function loadAccountThemes() {
-      if (viewAccount) return Promise.resolve(null);
+      if (viewAccount || !authUser) return Promise.resolve(null);
       return accountFetch("/api/me/themes").then((pack) => pack).catch(() => null);
     }
     const idleLimit = 3 * 60 * 60 * 1000;
@@ -18739,7 +18739,6 @@ const STUDIO_CONSTELLATIONS = [{
         addedCache = null;
       }) : Promise.resolve();
       ready.then(() => {
-      const themesFlight = loadAccountThemes();
       return accountFetch("/api/me").then((data) => {
         accountChecked = true;
         if (!data.user) {
@@ -18768,7 +18767,7 @@ const STUDIO_CONSTELLATIONS = [{
         paintAccount();
         examPreload();
         groupPull();
-        themesFlight.then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
+        loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
           fillEmptyFromAccount(state);
           accountReady = true;
           paintGuestAccess();
