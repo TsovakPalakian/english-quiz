@@ -37,19 +37,6 @@
     <div class="shell-progress" hidden><div><b>Learning progress</b><span id="shellProgressPercent">0%</span></div><div class="shell-progress-track" role="progressbar" aria-label="Learned cards" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="shellProgressBar"></i></div><p id="shellProgressCount">0 of 0 cards learned</p><button class="btn" type="button" data-jump="days" data-home-continue>Continue studying</button></div>
     <div class="side-foot">
       <button class="btn ghost" type="button" id="themeCycle" data-theme-cycle><span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">Almond blossom</span><span class="theme-sub">Van Gogh</span></span></button>
-      <script>
-        try {
-          var label = window.__themeLabel;
-          var button = document.getElementById("themeCycle");
-          if (label && button) {
-            var parts = String(label).split(/\s+(?:\u2014|\u2013|-)\s+/);
-            var title = button.querySelector(".theme-title");
-            var sub = button.querySelector(".theme-sub");
-            if (title) title.textContent = parts[0] || label;
-            if (sub) sub.textContent = parts.length > 1 ? parts[1] : "";
-          }
-        } catch (e) {}
-      </script>
     </div>
   </aside>
   <div class="phone"><div class="wrap">

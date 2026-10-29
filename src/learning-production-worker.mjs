@@ -59,7 +59,12 @@ export function productionWorker(application=integrated){
     if(!headers.has('X-Frame-Options'))headers.set('X-Frame-Options','DENY');
     if(!headers.has('X-Content-Type-Options'))headers.set('X-Content-Type-Options','nosniff');
     if(!headers.has('Referrer-Policy'))headers.set('Referrer-Policy','strict-origin-when-cross-origin');
-    if(headers.has('Content-Security-Policy'))headers.set('Content-Security-Policy',headers.get('Content-Security-Policy')+"; worker-src 'self' blob:");
+    if(headers.has('Content-Security-Policy')){
+      const csp=headers.get('Content-Security-Policy')
+        .replace("script-src 'self'","script-src 'self' https://static.cloudflareinsights.com")
+        .replace("connect-src 'self'","connect-src 'self' https://cloudflareinsights.com");
+      headers.set('Content-Security-Policy',csp+"; worker-src 'self' blob:");
+    }
   }
   return new Response(response.body,{status:response.status,headers});
 }};}

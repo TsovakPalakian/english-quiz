@@ -2261,7 +2261,7 @@
       const button = e.currentTarget;
       if(button.disabled)return;
       const rawWord = document.getElementById("selpopWord").textContent.trim();
-      const word = (button.dataset.targetWord || rawWord).trim();
+      const word = (button.dataset?.targetWord || rawWord).trim();
       const inChat=document.querySelector('section.on')?.id==='messages';if(inChat){button.disabled=true;try{await saveChatWord(word);button.hidden=true;}catch(error){document.getElementById('selpopBody').textContent=error.message;}finally{button.disabled=false;}return;}
       if (!word || dictionaryOwned(word)) { button.hidden = true; return; }
       button.disabled = true;

@@ -36,4 +36,24 @@
       if (explicitTheme) root.setAttribute("data-painted-theme", savedTheme);
     }
   } catch (e) {}
+  if (typeof document !== "undefined") {
+    const updateThemeCycle = () => {
+      try {
+        const label = window.__themeLabel;
+        const button = document.getElementById("themeCycle");
+        if (label && button) {
+          const parts = String(label).split(/\s+(?:\u2014|\u2013|-)\s+/);
+          const title = button.querySelector(".theme-title");
+          const sub = button.querySelector(".theme-sub");
+          if (title) title.textContent = parts[0] || label;
+          if (sub) sub.textContent = parts.length > 1 ? parts[1] : "";
+        }
+      } catch (e) {}
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", updateThemeCycle);
+    } else {
+      updateThemeCycle();
+    }
+  }
 })();

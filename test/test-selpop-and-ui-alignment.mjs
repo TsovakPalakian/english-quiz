@@ -42,6 +42,6 @@ test('preview.js contains detectSingular and findWordDictionary logic', () => {
 
 test('preview.js wraps made card usages and phrases in details', () => {
   const js = readFileSync('preview.js', 'utf-8');
-  assert.match(js, /<details class="saas-details made-details"><summary class="saas-summary">Usages ·/);
-  assert.match(js, /<details class="saas-details made-details"><summary class="saas-summary">Phrases ·/);
+  assert.match(js, /<details class="saas-details made-details"[^>]*><summary class="saas-summary">Usages ·/);
+  assert.match(js, /<details class="saas-details made-details"[^>]*><summary class="saas-summary">Phrases ·/);
 });

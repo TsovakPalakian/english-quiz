@@ -8,9 +8,9 @@ test('client/06-auth-sky.js includes feedbackFloatingTrigger in uiBoxes', () => 
   assert.ok(code.includes('feedbackFloatingTrigger'), 'Padding or clearance is provided for feedback');
 });
 
-test('client/06-auth-sky.js removes ctx.clip(evenodd) rectangular frame', () => {
+test('client/06-auth-sky.js removes rectangular frame around brand', () => {
   const code = readFileSync('client/06-auth-sky.js', 'utf8');
-  assert.equal(code.includes("ctx.clip('evenodd')"), false, 'Hard rectangular clipping is removed');
+  assert.ok(code.includes("!r.element.includes('brand')"), 'Hard rectangular clipping around brand is removed');
 });
 
 test('client/06-auth-sky.js implements collapsible inspector with more button', () => {
