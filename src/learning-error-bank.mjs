@@ -46,40 +46,45 @@ export class ErrorBankService extends StudyService {
     const key=this.db?.binding||this.db;
     if(!ready.has(key)){
       ready.set(key,(async()=>{
-        await this.db.atomic([
-          s(`CREATE TABLE IF NOT EXISTS account_error_items(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id TEXT NOT NULL,
-            material_id INTEGER NOT NULL,
-            kind TEXT NOT NULL,
-            part_id TEXT NOT NULL,
-            question_index INTEGER NOT NULL,
-            prompt TEXT NOT NULL DEFAULT '',
-            expected_answer TEXT NOT NULL DEFAULT '',
-            given_answer TEXT NOT NULL DEFAULT '',
-            error_tag TEXT NOT NULL DEFAULT 'grammar',
-            error_category TEXT NOT NULL DEFAULT '',
-            diagnostic_note TEXT NOT NULL DEFAULT '',
-            stage INTEGER NOT NULL DEFAULT 1,
-            interval_days INTEGER NOT NULL DEFAULT 1,
-            next_review_at INTEGER NOT NULL,
-            error_count INTEGER NOT NULL DEFAULT 1,
-            success_streak INTEGER NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'active',
-            stability REAL NOT NULL DEFAULT 0.0,
-            difficulty REAL NOT NULL DEFAULT 0.0,
-            retrievability REAL NOT NULL DEFAULT 0.0,
-            last_reviewed_at INTEGER NOT NULL DEFAULT 0,
-            reps INTEGER NOT NULL DEFAULT 0,
-            lapses INTEGER NOT NULL DEFAULT 0,
-            latency_ms INTEGER NOT NULL DEFAULT 0,
-            created_at INTEGER NOT NULL DEFAULT(unixepoch()),
-            updated_at INTEGER NOT NULL DEFAULT(unixepoch()),
-            UNIQUE(account_id, kind, material_id, part_id, question_index)
-          )`),
-          s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)')
-        ]);
         const cols=await this.db.read('PRAGMA table_info(account_error_items)');
+        if(!cols.length){
+          await this.db.atomic([
+            s(`CREATE TABLE IF NOT EXISTS account_error_items(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              account_id TEXT NOT NULL,
+              material_id INTEGER NOT NULL,
+              kind TEXT NOT NULL,
+              part_id TEXT NOT NULL,
+              question_index INTEGER NOT NULL,
+              prompt TEXT NOT NULL DEFAULT '',
+              expected_answer TEXT NOT NULL DEFAULT '',
+              given_answer TEXT NOT NULL DEFAULT '',
+              error_tag TEXT NOT NULL DEFAULT 'grammar',
+              error_category TEXT NOT NULL DEFAULT '',
+              diagnostic_note TEXT NOT NULL DEFAULT '',
+              stage INTEGER NOT NULL DEFAULT 1,
+              interval_days INTEGER NOT NULL DEFAULT 1,
+              next_review_at INTEGER NOT NULL,
+              error_count INTEGER NOT NULL DEFAULT 1,
+              success_streak INTEGER NOT NULL DEFAULT 0,
+              status TEXT NOT NULL DEFAULT 'active',
+              stability REAL NOT NULL DEFAULT 0.0,
+              difficulty REAL NOT NULL DEFAULT 0.0,
+              retrievability REAL NOT NULL DEFAULT 0.0,
+              last_reviewed_at INTEGER NOT NULL DEFAULT 0,
+              reps INTEGER NOT NULL DEFAULT 0,
+              lapses INTEGER NOT NULL DEFAULT 0,
+              latency_ms INTEGER NOT NULL DEFAULT 0,
+              created_at INTEGER NOT NULL DEFAULT(unixepoch()),
+              updated_at INTEGER NOT NULL DEFAULT(unixepoch()),
+              UNIQUE(account_id, kind, material_id, part_id, question_index)
+            )`),
+            s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)'),
+            s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)'),
+            s('CREATE INDEX IF NOT EXISTS idx_error_items_retrievability ON account_error_items(account_id, status, retrievability)')
+          ]);
+          return;
+        }
         const colNames=new Set(cols.map(c=>c.name));
         const requiredColumns=[
           ['error_category', "TEXT NOT NULL DEFAULT ''"],
@@ -103,6 +108,7 @@ export class ErrorBankService extends StudyService {
           }
         }
         await this.db.atomic([
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)'),
           s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)'),
           s('CREATE INDEX IF NOT EXISTS idx_error_items_retrievability ON account_error_items(account_id, status, retrievability)')
         ]);
@@ -113,6 +119,12 @@ export class ErrorBankService extends StudyService {
 
   async recordErrors(account,kind,materialId,questions,answers={},points={},meta={}){
     if(!account||!materialId||!questions?.length)return [];
+    const hasMistakes=questions.some(q=>{
+      const score=points[String(q.part.id)]?.[Number(q.index)];
+      const max=q.max||1;
+      return score!=null&&Number(score)<max;
+    });
+    if(!hasMistakes)return [];
     await this.ensure();
     const now=Math.floor(Date.now()/1000);
     const commands=[];
