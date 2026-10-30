@@ -13,7 +13,7 @@ const denied=(promise,status)=>assert.rejects(promise,error=>error.status===stat
 const output=(metrics={accuracy:65,fluency:80,prosody:null},quality='ok')=>({quality,transcript:quality==='ok'?'A fine drizzle started.':null,metrics,findings:[]});
 async function setup({invoke=null,seconds=2,audioDay=30,audioMonth=60,timeoutMs=1000,provider='local-fixture'}={}){
   const f=await mediaFixture({inspect:async()=>({kind:'audio',duration:seconds,width:0,height:0})});f.sql.exec(readFileSync(new URL('../migrations/quiz-review-draft/012_speech_practice.sql',import.meta.url),'utf8'));
-  let now=Date.now();const calls=[];
+  let now=Date.parse('2026-10-15T12:00:00Z');const calls=[];
   const adapters=['speech-a','speech-b'].map(id=>({id,provider,model:id,version:'v1',billing:'self-hosted',capabilities:[{task:'pronunciation',locales:['en-US','en-GB'],modes:['scripted','unscripted']},{task:'stt',locales:['en-US','en-GB'],modes:['scripted','unscripted']},{task:'conversation',locales:['en-US','en-GB'],modes:['text']}],invoke:async(input,options)=>{calls.push(options.source);if(invoke)return invoke(input,options);return options.source.task==='conversation'?output({grammar:75,vocabulary:80,task:90}):output(options.source.task==='stt'?{}:undefined);},validate:value=>value}));
   const providers=new StoredLanguageProviders(f.db,{adapters,authorize:async()=>true});await providers.initialize(actors.dev);
   const speech=new SpeechPractice(f.kits,f.media,{enabled:true,providers,worker:actors.dev,rubrics:[LOCAL_SPEECH_RUBRIC],budgets:{audio:{day:audioDay,month:audioMonth},language:{day:3,month:6}},resolveActor:async id=>Object.values(actors).find(actor=>actor.id===id),now:()=>now,timeoutMs});
