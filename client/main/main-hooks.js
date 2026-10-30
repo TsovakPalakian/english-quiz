@@ -992,7 +992,18 @@ function stageQuizWrite(event){
   if(save)writeCardQuizFromEditor(save.closest('.card-quiz-item'),quiz);
   stageListEpoch.quizzes++;
   window.LearningMain.perform(async()=>{
-    await window.LearningMain.writeQuiz(word,quiz,!!del);
+    const writeResult=await window.LearningMain.writeQuiz(word,quiz,!!del);
+    if(del&&writeResult?.localOnly){
+      const map=typeof loadCardQuizzes==='function'?loadCardQuizzes():{};
+      const key=String(word||'').toLowerCase();
+      if(Array.isArray(map[key])){
+        map[key].splice(index,1);
+        if(!map[key].length)delete map[key];
+        if(typeof saveCardQuizzes==='function')saveCardQuizzes(map);
+      }
+      refreshCardQuizBox(box);
+      return;
+    }
     window.ContentCache?.invalidate?.('quizzes:');
     const state=await accountFetch('/api/me/state');
     installCardQuizzes(state.stats.cardQuizzes);refreshCardQuizBox(box);
@@ -1078,9 +1089,15 @@ function stageSaveLesson(published){
     window.LearningMain.notice('The lesson is still opening. Wait, then click Publish again.',true);return Promise.resolve();
   }
   clearTimeout(lmSaveTimer);
-  const domTitle=document.getElementById('lmTitle')?.value?.trim();
-  if(domTitle&&!lmState.title?.trim())lmState.title=domTitle;
-  if(!lmState.title?.trim())lmState.title='Untitled lesson';
+  const titleInput=document.getElementById('lmTitle');
+  const domTitle=titleInput?.value?.trim();
+  if(domTitle)lmState.title=domTitle;
+  const effectiveTitle=(lmState.title||'').trim();
+  if(!effectiveTitle){
+    window.LearningMain.notice('Enter a lesson title before saving.',true);
+    if(titleInput){titleInput.focus();titleInput.classList.add('bad');}
+    return Promise.resolve();
+  }
   const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.LearningMain.perform(async()=>{
     const oldId=current.id;
@@ -1217,10 +1234,12 @@ function stageDeleteLesson(id){
     window.ContentCache?.drop(':'+current.id+':');
     window.ContentCache?.drop('lesson:');
     window.ContentCache?.drop('library:summary');
-    classGroups.forEach(group=>{group.lessonIds=group.lessonIds.filter(lessonId=>lessonId!==id&&lessonId!==current.id);});
+    if(lmLibrary?.materials)lmLibrary.materials=lmLibrary.materials.filter(row=>String(row.id)!==String(id)&&String(row.id)!==String(current.id));
+    if(Array.isArray(classGroups))classGroups.forEach(group=>{
+      if(Array.isArray(group.lessonIds))group.lessonIds=group.lessonIds.filter(lessonId=>String(lessonId)!==String(id)&&String(lessonId)!==String(current.id));
+    });
     if(typeof groupSave==='function')groupSave();
-    lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id&&row.id!==current.id);
-    if(lmState===current||lmState?.id===id||lmState?.id===current.id)lmState=null;
+    if(lmState===current||String(lmState?.id)===String(id)||String(lmState?.id)===String(current.id))lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
     if(typeof document!=='undefined'){
       for(const fieldId of ['lmTitle','lmDescription','lmDate','lmClass','lmUnit','lmLesson','lmScriptInput']){

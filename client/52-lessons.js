@@ -105,7 +105,9 @@
         .then((data) => {
           if (data && Array.isArray(data.ids)) data.ids.forEach((id, index) => { if (classGroups[index]) classGroups[index].id = id; });
           if (version === classGroupsSaveVersion) classGroupsDirty = false;
-        }).catch(() => {});
+        }).catch((err) => {
+          if (err && err.status === 409 && typeof groupPull === "function") groupPull(true);
+        });
     }
     let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});

@@ -162,3 +162,21 @@ test('simultaneous first reports preserve hit counts and distinct occurrence rec
   await Promise.all(Array.from({length:8},()=>saveBug(db,event)));
   const [bug]=await listBugs(db);assert.equal(bug.hits,8);assert.equal(bug.occurrences.length,8);assert.equal(bug.undatedOccurrences,0);db.sql.close();
 });
+test('security scanners and administrative probe paths are completely ignored',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  const probes=[
+    ['/api/config.php','Mozilla/5.0 (X11; Linux x86_64)'],
+    ['/api/setup-complete','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
+    ['/api/v4/config','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
+    ['/api/v1/info','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
+    ['/api/system/status','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
+    ['/api/backup','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
+    ['/api/app.env','Mozilla/5.0'],
+    ['/api/v2/anything','curl/7.68.0']
+  ];
+  for(const [path,ua] of probes){
+    await recordHttpBug(db,null,new Request('https://learn-english.example'+path,{headers:{'user-agent':ua}}),new Response('Not found',{status:501}));
+  }
+  assert.equal(db.rows.length,0);
+});

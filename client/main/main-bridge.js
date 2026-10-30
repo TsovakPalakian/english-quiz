@@ -188,8 +188,11 @@
     const stack=String(entry.stack||'');
     if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
     if(path.startsWith('/api/bugs')||status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
-    // Stale Approve/Reject after a successful decision is expected; do not fill the bug journal.
-    if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return;
+    if(status===400&&(entry.error==='Enter a lesson title before saving.'||path==='/api/lessons'&&entry.error?.includes?.('title')))return;
+    if((status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')))return;
+    if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
+    // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
+    if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}
@@ -509,11 +512,16 @@
       }
       notice('Личные данные подтверждены тестовой Learning.');
     }catch(error){
-      if(personalQueue[0])personalQueue[0].paused=true;
+      const failedJob=personalQueue[0];
+      if(error.status>=400 && error.status<500 && error.status!==409){
+        personalQueue.shift();
+      }else if(personalQueue[0]){
+        personalQueue[0].paused=true;
+      }
       savePersonal();
       const message=error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
       notice(message,true);
-      if(!error.reported&&!error.quietBug)reportClientBug({method:personalQueue[0]?.method||'POST',path:personalQueue[0]?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
+      if(!error.reported&&!error.quietBug)reportClientBug({method:failedJob?.method||'POST',path:failedJob?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
     }finally{personalRunning=false;}
   }
   async function archiveChanged(result){
@@ -766,8 +774,21 @@
         if(deleting)quizzes.delete(quiz.id);else quizzes.set(quiz.id,{...result,stageRevision:result.revision,word});
         return result;
       }
-      if(deleting){throw new Error('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.');}
-      const candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.quizKey||c.en||'').toLowerCase()===word.toLowerCase());
+      if(deleting){return {deleted:true,id:quiz.id,localOnly:true};}
+      let candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.quizKey||c.en||'').toLowerCase()===word.toLowerCase());
+      if(candidates.length!==1){
+        try{
+          const remote=await accountFetch('/api/cards?exact=1&q='+encodeURIComponent(word));
+          const list=Array.isArray(remote?.cards)?remote.cards:Array.isArray(remote)?remote:[];
+          for(const rc of list){
+            if(rc && (rc.id||rc.stageId)){
+              const id=rc.id||rc.stageId;
+              if(!cards.has(id))cards.set(id,{...rc,stageId:id,stageScope:'shared',stageRevision:rc.revision||rc.stageRevision||0,quizKey:rc.en||rc.word||word});
+            }
+          }
+        }catch{}
+        candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.quizKey||c.en||'').toLowerCase()===word.toLowerCase());
+      }
       if(candidates.length!==1)throw new Error('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.');
       const c=candidates[0],collection=collections.get(word);
       return write('/api/cards/'+encodeURIComponent(c.stageId)+'/quizzes','POST',{expectedRevision:c.stageRevision,expectedCollectionRevision:collection?.revision||0,quiz:content});

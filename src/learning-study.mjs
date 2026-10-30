@@ -451,7 +451,7 @@ export class StudyService {
     cardId(id);
     fields(body,['mutationId','expectedRevision','quizType','correct']);
     const expected=personalRevision(body.expectedRevision),type=body.quizType;
-    if(!QUIZ_TYPES.includes(type)||type==='Flip'||typeof body.correct!=='boolean')fail(400,'Invalid quiz answer.');
+    if((!QUIZ_TYPES.includes(type)&&!['Video choice','FSRS Flashcard','Pronunciation'].includes(type))||type==='Flip'||typeof body.correct!=='boolean')fail(400,'Invalid quiz answer.');
     return this.personal(actor,body,['quiz-answer',id,type],async profile=>{
       const card=await this.readableCard(actor,id);
       const [old]=await this.db.read('SELECT progress_json FROM quiz_progress WHERE profile_id=? AND card_id=? AND quiz_type=?',[profile,id,type]);

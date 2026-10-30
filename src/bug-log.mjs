@@ -200,7 +200,10 @@ export async function recordHttpBug(db,actor,request,response,application={}){
   if((!url.pathname.startsWith('/api/')&&url.pathname!=='/lookup'&&url.pathname!=='/translate')||url.pathname==='/api/bugs'||url.pathname.endsWith('/media'))return;
   if(response.status>=200&&response.status<300)return;
   const userAgent=request.headers.get('user-agent')||'';
-  if(/l9scan|leakix|shodan|censys|nikto|sqlmap|nmap/i.test(userAgent))return;
+  if(/l9scan|leakix|shodan|censys|nikto|sqlmap|nmap|securityresearch|nuclei|zgrab|masscan/i.test(userAgent))return;
+  if(/\.(?:php|asp|aspx|jsp|env)(?:$|\/)/i.test(url.pathname))return;
+  if(/^\/api\/v\d+\//i.test(url.pathname))return;
+  if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping)(?:\/|$|\.|\-)/i.test(url.pathname))return;
   if(['/api/graphql','/api/gql','/api/swagger','/api/openapi'].includes(url.pathname))return;
   let responseText='';
   try{responseText=await response.text();}catch{responseText='';}

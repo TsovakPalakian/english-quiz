@@ -138,6 +138,7 @@ export class ArchiveService{
     }
     if(value.type==='group')commands.push(stmt(`UPDATE class_group_lessons SET group_id=(SELECT id FROM class_groups
       WHERE deleted_at IS NULL AND CAST(id AS TEXT)<>? ORDER BY position,created_at,id LIMIT 1) WHERE group_id=CAST(? AS INTEGER)`,[key,key]));
+    if(value.type==='lesson')commands.push(stmt('DELETE FROM class_group_lessons WHERE lesson_id=CAST(? AS INTEGER)',[key]));
     commands.push(stmt(`UPDATE ${item.table} SET deleted_at=unixepoch()${['lesson','group','exam','exam-block','card'].includes(value.type)?',revision=revision+1':''} WHERE CAST(id AS TEXT)=? AND deleted_at IS NULL`,[key]));
     commands.push(stmt(`INSERT INTO content_archive(entity_type,entity_id,title,archived_by,archived_by_name,archived_by_role)
       VALUES(?,?,?,?,?,?) ON CONFLICT(entity_type,entity_id) DO UPDATE SET title=excluded.title,archived_by=excluded.archived_by,

@@ -663,8 +663,10 @@ test('Archive preserves materials, records the actor, restores them, and lets te
     const teacher={id:'teacher',login:'teacher',role:'ADMIN'},student={id:'student',login:'student',role:'USER'},developer={id:'developer',login:'developer',role:'DEVELOPER'};
     const archive=new ArchiveService(f.db);
     const start=await archive.revision();
+    f.sqlite.exec("INSERT INTO class_groups(id,title) VALUES(10,'Group'); INSERT INTO class_group_lessons(group_id,lesson_id) VALUES(10,1);");
     await archive.archive(teacher,{type:'lesson',id:1});
     assert.equal(f.sqlite.prepare('SELECT deleted_at IS NOT NULL gone FROM lessons WHERE id=1').get().gone,1);
+    assert.equal(f.sqlite.prepare('SELECT count(*) n FROM class_group_lessons WHERE lesson_id=1').get().n,0);
     let result=await archive.list(teacher),items=result.items;assert.equal(items.length,1);assert.equal(items[0].archivedByName,'teacher');assert.ok(result.revision>start);
     assert.equal((await archive.list(student)).items.length,0);
     await archive.restore(teacher,{type:'lesson',id:1});
@@ -1421,6 +1423,7 @@ test('Open form baseline survives later registry/state refresh',async()=>{
     fetch:async(path,options)=>{
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/me/state')return {ok:true,json:async()=>({stageCollections:[],added:[],stats:{cardQuizzes:{competitive:[{id:'quiz_'+'a'.repeat(64),type:'Flip',items:[{}],stageRevision:2}]}}})};
+      if(path==='/api/cards?exact=1&q=isolated')return {ok:true,json:async()=>({cards:[{id:42,en:'isolated',stageScope:'shared',revision:1}]})};
       sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({id:path.split('/').at(-1),ru:'saved',revision:3})};
     }
   };
@@ -1432,6 +1435,10 @@ test('Open form baseline survives later registry/state refresh',async()=>{
   await bridge.fetch('/api/me/state');
   await bridge.writeQuiz('competitive',{id:'quiz_'+'a'.repeat(64),type:'Flip',items:[{front:'x',back:'y'}],stageRevision:1},false);
   assert.equal(sent[1].expectedRevision,1);
+  const draftDel=await bridge.writeQuiz('unknown',{id:'unsaved_draft',type:'Choice',items:[]},true);
+  assert.equal(draftDel.deleted,true);assert.equal(draftDel.id,'unsaved_draft');assert.equal(draftDel.localOnly,true);
+  await bridge.writeQuiz('isolated',{id:'new_quiz',type:'Choice',items:[{options:['a','b'],answer:0}]},false);
+  assert.equal(sent[2].expectedRevision,1);
 });
 test('Successful login clears a stale provider error without reading or persisting the password',async()=>{
   const memory=new Map(),window={},status={textContent:'',classList:{toggle(name,bad){this.bad=bad;}}};let fail=true;

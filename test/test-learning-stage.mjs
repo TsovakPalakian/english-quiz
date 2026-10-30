@@ -211,6 +211,8 @@ test('Personal progress: own profile, paired profile, CAS, retry after lost comm
   assert.equal(progress.revision,5);assert.equal(JSON.parse(progress.progress_json).cleared,true);
   const paired=await f.service.answerCard(f.personas[1],1,{mutationId:id(),expectedRevision:5,quizType:'Type',correct:false});
   assert.equal(paired.progress.misses,1);assert.equal(paired.progress.streak,0);
+  const fsrsAnswer=await f.service.answerCard(student,1,{mutationId:id(),expectedRevision:0,quizType:'FSRS Flashcard',correct:true});
+  assert.equal(fsrsAnswer.revision,1);
   const independent=await f.service.answerCard(other,1,{mutationId:id(),expectedRevision:0,quizType:'Type',correct:true});
   assert.equal(independent.progress.misses,0);assert.equal(independent.revision,1);
   await rejects(f.service.answerCard(student,1,{mutationId:id(),expectedRevision:6,quizType:'Type',correct:true,misses:0}),400);
