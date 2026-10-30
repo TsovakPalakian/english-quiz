@@ -936,11 +936,14 @@
         if (exam.instanceStatus === 'completed') {
           badges.push('<span class="label about saas-badge saas-badge-success">Completed · Maximum ' + exam.maximumPoints + ' · ' + exam.earnedPoints + ' points</span>');
         } else {
+          const draftBlocksCount = (exam.blocks || []).filter(b => !b.doc?.published).length;
+          const blocksCount = (exam.blocks || []).length;
+          badges.push('<span class="saas-badge saas-badge-muted">Draft · ' + draftBlocksCount + '</span>');
+          badges.push('<span class="saas-badge saas-badge-muted">Examination block · ' + blocksCount + '</span>');
+          badges.push('<span class="saas-badge saas-badge-info">Maximum points · ' + maximum + '</span>');
           const statusClass = exam.published ? 'saas-badge-active' : 'saas-badge-muted';
-          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published' : 'Draft'));
+          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published exam' : 'Draft'));
           badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(statusText) + '</span>');
-          badges.push('<span class="saas-badge saas-badge-muted">Examination blocks · ' + (exam.blocks || []).length + '</span>');
-          badges.push('<span class="saas-badge saas-badge-info">Maximum score: ' + maximum + '</span>');
           if (mine && (canTuneStudentLessons() || reviewed)) badges.push('<span class="saas-badge saas-badge-muted">' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed</span>');
           if (viewAccount && !hidden) {
             const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length;

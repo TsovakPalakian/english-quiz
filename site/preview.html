@@ -646,7 +646,28 @@
           <p class="lm-note" id="lmNote"></p>
           <section class="lm-sheet">
             <h2>Basic information</h2>
-            <label class="lm-drop lm-pdf-import" data-lesson-pdf-import>Drop lesson PDF<small>Preview vocabulary, rules and classwork before applying</small><input type="file" data-lesson-pdf-import-file tabindex="-1" aria-hidden="true" /></label>
+            <div class="lm-import-methods" style="margin-bottom:14px;">
+              <div class="lm-import-tabs" style="display:flex;gap:8px;margin-bottom:10px;">
+                <button type="button" class="btn small primary" id="lmTabUpload" data-lm-import-tab="upload">Upload file</button>
+                <button type="button" class="btn small ghost" id="lmTabScript" data-lm-import-tab="script">Create from text / script</button>
+              </div>
+              <div id="lmUploadBox">
+                <label class="lm-drop lm-pdf-import" data-lesson-pdf-import>Drop lesson file or PDF<small>Upload any file format (.pdf, .docx, .txt, .md, .json, .csv, and any document) or click to browse</small><input type="file" data-lesson-pdf-import-file accept="*/*" tabindex="-1" aria-hidden="true" /></label>
+              </div>
+              <div id="lmScriptBox" hidden class="lm-script-generator-box card saas-card" style="padding:14px;border:1px solid var(--saas-border,#e2e8f0);border-radius:var(--saas-radius-md,8px);background:var(--saas-card,#fff);">
+                <label class="lm-drop lm-script-drop" data-lesson-script-drop style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 20px;margin-bottom:12px;border:2px dashed var(--saas-border,#cbd5e1);border-radius:8px;background:var(--saas-bg-subtle,#f8fafc);cursor:pointer;text-align:center;transition:border-color .15s ease,background .15s ease;">
+                  <span style="font-weight:600;font-size:14px;color:var(--saas-text-primary,#0f172a);">Drop any file here or click to browse</span>
+                  <small style="color:var(--saas-text-muted,#64748b);font-size:12px;margin-top:2px;">Extracts text, script, or syllabus from any file format</small>
+                  <input type="file" id="lmScriptFileInput" data-lesson-script-file accept="*/*" tabindex="-1" style="display:none;" />
+                </label>
+                <label style="font-weight:700;margin-bottom:6px;display:block;">Or enter lesson script / description manually</label>
+                <textarea id="lmScriptInput" class="saas-textarea" style="min-height:120px;width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--saas-border,#cbd5e1);border-radius:6px;" placeholder="Paste lesson script, syllabus outline, or topic description. E.g.:&#10;&#10;Title: Travel and Transport&#10;Words: detour - объезд, commuter - пригородный пассажир&#10;Rule: Phrasal verbs of travel&#10;Quiz: She ___ at 6 AM. | set off, set in, set up | 1"></textarea>
+                <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+                  <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn">Generate structured lesson</button>
+                  <span class="hint" id="lmScriptStatus" role="status"></span>
+                </div>
+              </div>
+            </div>
             <p class="hint" id="lmPdfImportStatus" hidden></p>
             <label>Title<input id="lmTitle" type="text" data-meta="title" maxlength="80" /></label>
             <label>Description<textarea id="lmDescription" data-meta="description" maxlength="240"></textarea></label>

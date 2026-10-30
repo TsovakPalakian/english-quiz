@@ -37,6 +37,23 @@ function stageCloseCopy(){
 async function stageOpenCopy(token,trigger){
   if(!canEditLessons()||!accountReady||viewSwitching)return;
   const [type,rawId,parent,rawParent]=String(token||'').split(':'),id=Number(rawId);
+  if(type==='lesson'&&(!Number.isSafeInteger(id)||id<1)){
+    const found=lmLibrary?.materials?.find(row=>String(row.id)===String(rawId));
+    if(!found)return;
+    const copy=JSON.parse(JSON.stringify(found));
+    copy.id=lmUniqueId();
+    copy.title=(copy.title||'Untitled lesson')+' - copy';
+    copy.published=false;
+    copy.mode='edit';
+    delete copy.stageRevision;delete copy.stageLessonBaseline;
+    for(const b of copy.blocks||[]){delete b.stageBlockRevision;b.id=lmUniqueId();}
+    lmLibrary.materials.unshift(copy);
+    const group=classGroups.find(row=>row.id===classGroupId)||classGroups[0];
+    if(group&&!group.lessonIds.includes(copy.id))group.lessonIds.push(copy.id);
+    lmKeepLesson();lmPersist();paintLmDays();
+    if(window.LearningMain?.notice)window.LearningMain.notice('Draft copy created.');
+    return;
+  }
   if(!Number.isSafeInteger(id)||id<1)return;
   const source={type,id,...(parent?{parent,parentId:Number(rawParent)}:{})};
   const active=lmState&&(type==='lesson'&&lmState.id===id||type==='exam-block'&&lmState.examOwned&&lmState.id===id||type==='material'&&lmState.id===source.parentId);
@@ -1061,6 +1078,9 @@ function stageSaveLesson(published){
     window.LearningMain.notice('The lesson is still opening. Wait, then click Publish again.',true);return Promise.resolve();
   }
   clearTimeout(lmSaveTimer);
+  const domTitle=document.getElementById('lmTitle')?.value?.trim();
+  if(domTitle&&!lmState.title?.trim())lmState.title=domTitle;
+  if(!lmState.title?.trim())lmState.title='Untitled lesson';
   const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.LearningMain.perform(async()=>{
     const draft=JSON.parse(JSON.stringify(current));

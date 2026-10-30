@@ -253,13 +253,28 @@ examPaintList=function(){
   const subgroupRows=rows.filter(exam=>String(groupFor(exam).id)===String(examViewGroup));
   const studentGroups=(canEditLessons()||canTuneStudentLessons())&&['assigned','ready','completed'].includes(examSection);
   const renderExam=exam=>{
-    const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':''),maximum=exam.maximumPoints??examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0);
+    const chip=lmDateChip(exam.date);
+    const dateHtml='<span class="date saas-badge saas-badge-muted"><b>'+esc(chip.day)+'</b>'+(chip.month?'<small>'+esc(chip.month)+'</small>':'')+'</span>';
+    const title=esc(exam.title||'Exam')+(exam.studentId&&canEditLessons()?'<span class="exam-student">'+esc(exam.studentName||exam.studentId)+' · '+esc(exam.studentEmail||'')+'</span>':'');
+    const maximum=exam.maximumPoints??Math.round(examVisibleBlocks(exam).reduce((n,b)=>n+assessmentQuestions({...b.doc,examOwned:true}).reduce((m,q)=>m+q.max,0),0)*1e8)/1e8;
     const hidden=viewAccount?!!exam.personalHidden:!!exam.hidden;
-    const blockCount=examVisibleBlocks(exam).length;
-    const about=(examNeedsReview(exam)?'Ready for review':exam.instanceStatus==='completed'?'Completed':hidden?(viewAccount?'Hidden for this student':'Hidden'):exam.published?'Published':'Draft')+' · '+(blockCount?blockCount+' ':'')+'examination block'+(blockCount===1?'':'s')+' · Maximum '+maximum+(exam.instanceStatus==='completed'?' · '+exam.earnedPoints+' points':'');
+    const ready=examNeedsReview(exam);
+    const badges=[];
+    if(exam.instanceStatus==='completed'){
+      badges.push('<span class="label about saas-badge saas-badge-success">Completed · Maximum '+exam.maximumPoints+' · '+(exam.earnedPoints??0)+' points</span>');
+    }else{
+      const draftBlocksCount=(exam.blocks||[]).filter(b=>!b.doc?.published).length;
+      const blocksCount=(exam.blocks||[]).length;
+      badges.push('<span class="saas-badge saas-badge-muted">Draft · '+draftBlocksCount+'</span>');
+      badges.push('<span class="saas-badge saas-badge-muted">Examination block · '+blocksCount+'</span>');
+      badges.push('<span class="saas-badge saas-badge-info">Maximum points · '+maximum+'</span>');
+      const statusClass=exam.published?'saas-badge-active':'saas-badge-muted';
+      const statusText=hidden?(viewAccount?'Hidden for this student':'Hidden'):(ready?'Ready for review':(exam.published?'Published exam':'Draft'));
+      badges.push('<span class="label about saas-badge '+statusClass+'">'+esc(statusText)+'</span>');
+    }
     let tools=exam.instanceStatus==='completed'&&canEditLessons()?'<div class="day-tools"><button class="day-del" type="button" data-material-remove-reference="'+exam.id+'" title="Remove from my list" aria-label="Remove from my list"><i data-lucide="trash-2"></i></button></div>':exam.instanceStatus?'':examTools('exam',exam.id,hidden);
     if(!exam.instanceStatus&&canEditLessons())tools=tools.replace('</button>','</button><button class="day-edit" type="button" data-exam-assign="'+exam.id+'" title="Assign exam" aria-label="Assign exam"><i data-lucide="user-plus"></i></button>');
-    return '<div class="day-row"><button class="day" type="button" data-exam-open="'+exam.id+'"'+(student&&exam.instanceStatus==='ready'?' disabled title="This exam is being reviewed. Wait for your teacher to publish the review."':'')+'><span class="date">'+esc(lmDateChip(exam.date).day)+'</span><b>'+title+'</b><span class="label about">'+esc(about)+'</span></button>'+tools+'</div>';
+    return '<div class="day-row"><button class="day saas-card" type="button" data-exam-open="'+exam.id+'"'+(student&&exam.instanceStatus==='ready'?' disabled title="This exam is being reviewed. Wait for your teacher to publish the review."':'')+'>'+dateHtml+'<b>'+title+'</b><div class="exam-card-badges">'+badges.join('')+'</div></button>'+tools+'</div>';
   };
   if(studentGroups){
     const students=new Map();

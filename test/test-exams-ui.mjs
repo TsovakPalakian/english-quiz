@@ -82,7 +82,7 @@ try{
   assert.equal(await page.locator('#examNew').isVisible(),true);
   assert.equal(await page.locator('#exams .page-path').innerText(),'Groups\nA1\nA1 Group\nExams');
   await page.locator('[data-exam-open="11"]').scrollIntoViewIfNeeded();
-  assert.match(await page.locator('[data-exam-open="11"]').innerText(),/1 examination block/);
+  assert.match(await page.locator('[data-exam-open="11"]').innerText(),/1 examination block|Examination block · 1/);
   assert.equal(await page.locator('[data-exam-open="51"]').count(),0,'Assigned copies are not templates');
   assert.equal(await page.locator('[data-exam-hide="exam:11"] + [data-exam-assign="11"]').count(),1,'Assign follows visibility');
   await page.locator('[data-exam-assign="11"]').click();await page.locator('.exam-assign-dialog[open]').waitFor();

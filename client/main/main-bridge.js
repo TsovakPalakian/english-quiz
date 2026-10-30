@@ -19,6 +19,10 @@
   function lessonSnapshot(material){
     const changes={};
     for(const key of ['title','description','className','unit','lesson','date'])changes[key]=String(material[key]||'');
+    if(!changes.title.trim()){
+      const domTitle = typeof document!=='undefined'?document.getElementById('lmTitle')?.value?.trim():'';
+      changes.title = domTitle || 'Untitled lesson';
+    }
     for(const key of ['published','hiddenFromStudents'])changes[key]=!!material[key];
     const blocks=(material.blocks||[]).map(block=>{
       let content;

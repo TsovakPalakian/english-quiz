@@ -1079,8 +1079,11 @@
       if (change) syncChange(change);
     }
     function noteAnswer(item, ok) {
-      if (!item || item.type === "Flip") return;
+      if (!item) return;
       trackEvent("answer", item.type, ok ? "ok" : "miss");
+      if (typeof broadcastQuizFsrs === "function") {
+        broadcastQuizFsrs(item, ok);
+      }
       if (!item.card || !item.card.en) return;
       const key = String(item.card.en).toLowerCase() + "|" + item.type;
       const map = loadMistakeMap();
@@ -1103,9 +1106,6 @@
       }
       saveMistakeMap(map, change);
       if (ok && row.streak >= 4) trackEvent("learned", item.type, "ok");
-      if (typeof broadcastQuizFsrs === "function") {
-        broadcastQuizFsrs(item, ok);
-      }
     }
     let mistakeGroups = [];
     let mistakePool = [];
@@ -1143,11 +1143,13 @@
         mistakeGroups.map((group, index) => {
           const card = group.card;
           const chips = group.rows.map((row) => '<span class="btn chip quiz-miss">' + esc(row.type) + " · " + row.misses + "</span>").join("");
+          const fsrsHtml = typeof fsrsCardMetricsHtml === 'function' ? fsrsCardMetricsHtml(card) : (typeof window !== 'undefined' && window.fsrsCardMetricsHtml ? window.fsrsCardMetricsHtml(card) : '');
           return '<article class="miss-card"><p class="entry">' + esc(card.en) + "</p>" +
             '<p class="label">Missed on</p><div class="row">' + chips + "</div>" + ipaHtml(card) +
             (card.ru ? "<p><b>" + esc(card.ru) + "</b></p>" : "") +
             (meaningOf(card) ? '<p class="src">' + esc(meaningOf(card)) + "</p>" : "") +
             (card.ex ? '<p class="src">' + esc(card.ex) + "</p>" : "") +
+            fsrsHtml +
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-miss-open="' + index + '">Open card</button>' +
             '<button class="btn primary" type="button" data-miss-retry="' + index + '">Repeat</button></div></article>';
         }).join("") +
@@ -2003,6 +2005,18 @@
       if (!item) return;
       if (e.target.closest("[data-day-next]")) {
         clearDayTimer();
+        if (item.type === "Flip") {
+          const telemetry = window.QuizTelemetryTracker?.stop?.(true);
+          if (telemetry) {
+            item.latencyMs = telemetry.effectiveLatencyMs;
+            item.telemetry = telemetry;
+          } else if (item.shownAt) {
+            item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+          }
+          if (typeof broadcastQuizFsrs === "function") {
+            broadcastQuizFsrs(item, true);
+          }
+        }
         if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
         if (dayAt + 1 >= dayQueue.length) {
           if (examMode) showExamResult(examPassed(), "");
@@ -2026,6 +2040,7 @@
         document.querySelectorAll("#dayqView .opt").forEach((o) => o.classList.remove("ok", "bad"));
         opt.classList.add(opt.dataset.opt === "ok" ? "ok" : "bad");
         if (opt.dataset.opt !== "ok") {
+          window.QuizTelemetryTracker?.noteDistractor?.(opt.textContent?.trim());
           const good = document.querySelector('#dayqView [data-opt="ok"]');
           if (good) good.classList.add("ok");
         }

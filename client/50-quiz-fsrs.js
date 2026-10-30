@@ -162,6 +162,7 @@
     }
 
     function bindFsrsEvents() {
+      if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
       const flipBtn = document.getElementById('fsrsFlipBtn');
       if (flipBtn) flipBtn.onclick = () => flipFsrsCard(true);
 
@@ -189,29 +190,33 @@
       }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bindFsrsEvents);
-    } else {
-      bindFsrsEvents();
-    }
-
-    document.addEventListener('keydown', (e) => {
-      const activeSection = document.querySelector('section.on');
-      if (activeSection?.id !== 'fsrsquiz') return;
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
-
-      if (!fsrsFlipped) {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault();
-          flipFsrsCard(true);
-        }
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindFsrsEvents);
       } else {
-        if (e.key === '1') { e.preventDefault(); submitFsrsGrade(1); }
-        else if (e.key === '2') { e.preventDefault(); submitFsrsGrade(2); }
-        else if (e.key === '3') { e.preventDefault(); submitFsrsGrade(3); }
-        else if (e.key === '4') { e.preventDefault(); submitFsrsGrade(4); }
+        bindFsrsEvents();
       }
-    });
+
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('keydown', (e) => {
+          const activeSection = document.querySelector ? document.querySelector('section.on') : null;
+          if (activeSection?.id !== 'fsrsquiz') return;
+          if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+          if (!fsrsFlipped) {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              flipFsrsCard(true);
+            }
+          } else {
+            if (e.key === '1') { e.preventDefault(); submitFsrsGrade(1); }
+            else if (e.key === '2') { e.preventDefault(); submitFsrsGrade(2); }
+            else if (e.key === '3') { e.preventDefault(); submitFsrsGrade(3); }
+            else if (e.key === '4') { e.preventDefault(); submitFsrsGrade(4); }
+          }
+        });
+      }
+    }
 
     function deriveFsrsGrade(ok, item = {}) {
       if (Number.isInteger(item.grade) && item.grade >= 1 && item.grade <= 4) return item.grade;
@@ -227,9 +232,9 @@
       if (!authUser || viewAccount) return;
 
       const grade = deriveFsrsGrade(ok, item);
-      const latencyMs = Number(item?.latencyMs) || 0;
+      const latencyMs = Number(item?.latencyMs || item?.telemetry?.effectiveLatencyMs) || 0;
       const word = item?.card?.en || item?.line || item?.word || '';
-      const expectedAnswer = item?.expected || item?.card?.en || item?.card?.ru || item?.right || '';
+      const expectedAnswer = item?.expected || item?.card?.en || item?.card?.ru || item?.right || item?.answer || '';
       const answer = item?.given != null ? String(item.given) : (ok ? expectedAnswer : '');
 
       accountFetch('/api/error-bank', {
@@ -241,10 +246,108 @@
           answer,
           grade,
           latencyMs,
+          telemetry: item?.telemetry || null,
           kind: 'quiz-' + String(item?.type || 'quiz').toLowerCase(),
-          prompt: item?.prompt || item?.line || word
+          prompt: item?.prompt || item?.line || item?.custom?.prompt || word
         })
+      }).then(res => {
+        if (res && res.retrievability != null) {
+          const fsrsData = {
+            stability: res.stability,
+            difficulty: res.difficulty,
+            retrievability: res.retrievability,
+            nextReviewAt: res.nextReviewAt,
+            intervalDays: res.intervalDays,
+            reps: res.reps,
+            lapses: res.lapses,
+            latencyMs: res.telemetry?.effectiveLatencyMs || latencyMs,
+            speedCategory: res.telemetry?.speedCategory || null
+          };
+          if (item?.card) {
+            item.card.retrievability = res.retrievability;
+            item.card.fsrs = fsrsData;
+          }
+          if (word) {
+            saveCardFsrs(word, fsrsData);
+          }
+        }
       }).catch(() => {});
+    }
+
+    const FSRS_CACHE_KEY = 'quiz_fsrs_cache';
+
+    function loadCardFsrsCache() {
+      try {
+        if (typeof localStorage === 'undefined') return {};
+        const saved = localStorage.getItem(FSRS_CACHE_KEY);
+        return saved ? JSON.parse(saved) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveCardFsrs(word, data) {
+      if (!word || !data) return;
+      const key = String(word).trim().toLowerCase();
+      if (!key) return;
+      try {
+        const cache = loadCardFsrsCache();
+        cache[key] = {
+          stability: data.stability,
+          difficulty: data.difficulty,
+          retrievability: data.retrievability,
+          nextReviewAt: data.nextReviewAt,
+          intervalDays: data.intervalDays,
+          reps: data.reps,
+          lapses: data.lapses,
+          latencyMs: data.telemetry?.effectiveLatencyMs || data.latencyMs,
+          speedCategory: data.telemetry?.speedCategory || null,
+          updatedAt: Math.floor(Date.now() / 1000)
+        };
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(FSRS_CACHE_KEY, JSON.stringify(cache));
+        }
+      } catch (e) {}
+    }
+
+    function getCardFsrs(wordOrCard) {
+      if (!wordOrCard) return null;
+      if (typeof wordOrCard === 'object' && wordOrCard.fsrs) {
+        return wordOrCard.fsrs;
+      }
+      const word = typeof wordOrCard === 'string' ? wordOrCard : (wordOrCard.en || wordOrCard.word || '');
+      const key = String(word).trim().toLowerCase();
+      if (!key) return null;
+      const cache = loadCardFsrsCache();
+      return cache[key] || null;
+    }
+
+    function fsrsCardMetricsHtml(card) {
+      if (!card) return '';
+      const data = getCardFsrs(card);
+      if (!data || data.retrievability == null) return '';
+
+      const safeEsc = typeof esc === 'function' ? esc : (s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])));
+      const rPct = Math.round(Number(data.retrievability) * 100);
+      const rColor = rPct >= 90 ? 'var(--saas-success, #16a34a)' : (rPct >= 70 ? 'var(--saas-warning, #d97706)' : 'var(--saas-danger, #dc2626)');
+      const sVal = data.stability != null ? Number(data.stability).toFixed(1) + 'd' : '—';
+      const dVal = data.difficulty != null ? Number(data.difficulty).toFixed(1) : '—';
+      const intervalText = formatFsrsInterval(data.intervalDays || 1);
+      const latencySec = data.latencyMs != null ? (Number(data.latencyMs) / 1000).toFixed(1) + 's' : null;
+      const speed = data.speedCategory ? safeEsc(data.speedCategory) : null;
+
+      return '<div class="fsrs-card-metrics saas-card">' +
+        '<div class="fsrs-metrics-head">' +
+          '<span class="fsrs-metrics-title">FSRS Memory & Telemetry</span>' +
+          '<span class="fsrs-retention-pill" style="background:' + rColor + '20; color:' + rColor + ';">' + rPct + '% retention</span>' +
+        '</div>' +
+        '<div class="fsrs-metrics-grid">' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Stability</span><span class="fsrs-metric-val">' + sVal + '</span></div>' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Difficulty</span><span class="fsrs-metric-val">' + dVal + '</span></div>' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Next review</span><span class="fsrs-metric-val">' + safeEsc(intervalText) + '</span></div>' +
+          (latencySec ? '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Latency</span><span class="fsrs-metric-val">' + latencySec + (speed ? ' (' + speed + ')' : '') + '</span></div>' : '') +
+        '</div>' +
+      '</div>';
     }
 
     window.openFsrsQuiz = openFsrsQuiz;
@@ -252,3 +355,6 @@
     window.formatFsrsInterval = formatFsrsInterval;
     window.deriveFsrsGrade = deriveFsrsGrade;
     window.broadcastQuizFsrs = broadcastQuizFsrs;
+    window.saveCardFsrs = saveCardFsrs;
+    window.getCardFsrs = getCardFsrs;
+    window.fsrsCardMetricsHtml = fsrsCardMetricsHtml;

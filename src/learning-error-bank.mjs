@@ -7,7 +7,9 @@ import {
   calculateRetrievability,
   calculateInterval,
   scheduleReview,
-  previewIntervals
+  previewIntervals,
+  initialStability,
+  initialDifficulty
 } from './fsrs-engine.mjs';
 
 const fail=(status,message)=>{throw new StudyError(status,message);};
@@ -285,18 +287,88 @@ export class ErrorBankService extends StudyService {
     let correct=assignedGrade!=null?assignedGrade>FSRS_GRADES.AGAIN:false;
 
     if(!item){
-      if(!correct){
-        const targetPrompt=String(prompt||word||expectedAnswer||'Language item');
-        const targetExpected=String(expectedAnswer||word||'');
-        const targetGiven=String(answer||'');
-        const recorded=await this.recordErrors(actor.id,kind||'quiz',materialId||1,[
-          {part:{id:partId||'quiz',type:'quiz'},index:questionIndex||0,max:1,item:{prompt:targetPrompt,answer:targetExpected}}
-        ],{[partId||'quiz']:{[questionIndex||0]:targetGiven}},{[partId||'quiz']:{[questionIndex||0]:0}},{
-          [partId||'quiz']:{[questionIndex||0]:{latencyMs:Number(latencyMs)||0}}
-        });
-        return {ok:true,created:true,grade:assignedGrade||FSRS_GRADES.AGAIN,recorded};
-      }
-      return {ok:true,untracked:true};
+      const targetPrompt=String(prompt||word||expectedAnswer||'Language item');
+      const targetExpected=String(expectedAnswer||word||'');
+      const targetGiven=String(answer||'');
+      const targetGrade=assignedGrade!=null?assignedGrade:(correct?FSRS_GRADES.GOOD:FSRS_GRADES.AGAIN);
+      const isCorrect=targetGrade>FSRS_GRADES.AGAIN;
+      const now=Math.floor(Date.now()/1000);
+
+      const telemetryAnalysis=analyzeTelemetry({
+        latencyMs:latencyMs!=null?latencyMs:telemetry?.latencyMs,
+        activeFocusMs:telemetry?.activeFocusMs,
+        firstInteractionMs:telemetry?.firstInteractionMs,
+        ok:isCorrect,
+        hintUsed:Boolean(telemetry?.hintUsed),
+        distractorsClicked:telemetry?.distractorsClicked
+      });
+      const recordedLatency=telemetryAnalysis.effectiveLatencyMs||Number(latencyMs)||0;
+
+      const initS=initialStability(targetGrade);
+      const initD=initialDifficulty(targetGrade);
+      const initInterval=calculateInterval(initS,desiredRetention||DEFAULT_DESIRED_RETENTION);
+      const nextReviewAt=now+initInterval*86400;
+
+      const classification=classifyError({
+        prompt:targetPrompt,
+        expected:targetExpected,
+        given:targetGiven,
+        partType:kind||'quiz',
+        latencyMs:recordedLatency
+      })||{tag:'vocabulary',category:'general_vocabulary',note:''};
+
+      const targetKind=kind||'quiz';
+      const targetPartId=partId||'quiz';
+      const targetIndex=questionIndex||0;
+      const targetMaterialId=materialId||1;
+
+      await this.db.atomic([
+        s(`INSERT INTO account_error_items(
+            account_id,material_id,kind,part_id,question_index,prompt,expected_answer,given_answer,
+            error_tag,error_category,diagnostic_note,stage,interval_days,next_review_at,error_count,
+            success_streak,status,stability,difficulty,retrievability,last_reviewed_at,reps,lapses,latency_ms,updated_at
+          ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1.0,?,1,?,?,?)
+          ON CONFLICT(account_id,kind,material_id,part_id,question_index) DO UPDATE SET
+            stability=excluded.stability,
+            difficulty=excluded.difficulty,
+            retrievability=excluded.retrievability,
+            last_reviewed_at=excluded.last_reviewed_at,
+            interval_days=excluded.interval_days,
+            next_review_at=excluded.next_review_at,
+            reps=reps+1,
+            lapses=lapses+excluded.lapses,
+            latency_ms=excluded.latency_ms,
+            updated_at=excluded.updated_at`,
+          [
+            actor.id,targetMaterialId,targetKind,targetPartId,targetIndex,targetPrompt,targetExpected,targetGiven,
+            classification.tag||'vocabulary',classification.category||'',classification.note||'',
+            isCorrect?2:1,initInterval,nextReviewAt,isCorrect?0:1,
+            isCorrect?1:0,'active',initS,initD,now,isCorrect?0:1,recordedLatency,now
+          ]
+        )
+      ]);
+
+      const inserted=await this.db.read(
+        `SELECT id FROM account_error_items WHERE account_id=? AND kind=? AND material_id=? AND part_id=? AND question_index=?`,
+        [actor.id,targetKind,targetMaterialId,targetPartId,targetIndex]
+      );
+
+      return {
+        ok:true,
+        created:true,
+        itemId:inserted[0]?.id,
+        grade:targetGrade,
+        correct:isCorrect,
+        stage:isCorrect?2:1,
+        stability:initS,
+        difficulty:initD,
+        retrievability:1.0,
+        intervalDays:initInterval,
+        nextReviewAt,
+        reps:1,
+        lapses:isCorrect?0:1,
+        telemetry:telemetryAnalysis
+      };
     }
 
     if(answer!=null){

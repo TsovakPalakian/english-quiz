@@ -232,10 +232,21 @@
       courier: "'Courier New', Courier, monospace"
     };
     function lmDateChip(iso) {
-      if (!iso) return { day: "—", month: "date" };
-      const date = new Date(iso + "T12:00:00");
-      if (Number.isNaN(date.getTime())) return { day: "—", month: "date" };
       const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (!iso) {
+        const today = new Date();
+        return { day: String(today.getDate()).padStart(2, "0"), month: months[today.getMonth()] };
+      }
+      let str = String(iso).trim();
+      if (/^\d{1,2}$/.test(str)) {
+        const today = new Date();
+        str = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + str.padStart(2, "0");
+      }
+      const date = new Date(str.includes("T") ? str : str + "T12:00:00");
+      if (Number.isNaN(date.getTime())) {
+        const today = new Date();
+        return { day: String(today.getDate()).padStart(2, "0"), month: months[today.getMonth()] };
+      }
       return { day: String(date.getDate()).padStart(2, "0"), month: months[date.getMonth()] };
     }
     function lmCourseBits(material) {
@@ -881,7 +892,7 @@
       return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
     }
     function contentCopyButton(type, id, parent, parentId, className) {
-      if (!canEditLessons() || !Number.isSafeInteger(id) || id < 1 || (parent && !Number.isSafeInteger(parentId))) return "";
+      if (!canEditLessons() || !id || (parent && !parentId)) return "";
       const source = [type, id, parent, parentId].filter(value => value !== undefined).join(":");
       return '<button class="' + (className || 'day-edit') + ' content-copy-icon" type="button" data-content-copy="' + esc(source) + '" aria-label="Copy" title="Copy"><span aria-hidden="true">&#10697;</span></button>';
     }
@@ -1707,6 +1718,8 @@
     }
     function lmOpenLesson(id) {
       id = domEntityId(id);
+      if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
+      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
@@ -1772,6 +1785,8 @@
     function lmCreateLesson() {
       if (!canEditLessons()) return;
       lmEnsure();
+      if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
+      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
       fresh.date = lmToday();
@@ -1781,7 +1796,8 @@
       lmState = fresh;
       fresh.mode = "edit";
       lmKeepLesson();
-      visit("material");
+      show("material");
+      lmRenderEditor();
     }
     function paintMaterial() {
       lmEnsure();
@@ -1930,6 +1946,11 @@
         }
         const importPdf = event.target.closest("[data-lesson-pdf-import-file]");
         if (importPdf && importPdf.files && importPdf.files[0]) { lmImportPdfMeta(importPdf.files[0]); return; }
+        const scriptFile = event.target.closest("[data-lesson-script-file]");
+        if (scriptFile && scriptFile.files && scriptFile.files[0]) {
+          if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(scriptFile.files[0]);
+          return;
+        }
         const file = event.target.closest("[data-file], [data-pdf]");
         if (file && file.files && file.files[0]) lmTakeFile(file.dataset.file || file.dataset.pdf, file.files[0]);
         const correct = event.target.closest("[data-correct]");
@@ -2265,9 +2286,20 @@
         const drop = event.target.closest(".lm-drop");
         if (drop) {
           const file = event.dataTransfer.files && event.dataTransfer.files[0];
+          if (drop.hasAttribute("data-lesson-script-drop") && file) {
+            event.preventDefault();
+            if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(file);
+            return;
+          }
           if (drop.hasAttribute("data-lesson-pdf-import") && file) { event.preventDefault(); lmImportPdfMeta(file); return; }
           const input = drop.querySelector("[data-file], [data-pdf]");
           if (input && file) { event.preventDefault(); lmTakeFile(input.dataset.file || input.dataset.pdf, file); }
+          return;
+        }
+        const scriptBox = event.target.closest("#lmScriptBox");
+        if (scriptBox && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          event.preventDefault();
+          if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(event.dataTransfer.files[0]);
           return;
         }
         const block = event.target.closest(".lm-block");

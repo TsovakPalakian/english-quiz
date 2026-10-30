@@ -5422,6 +5422,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       btn.textContent = more ? "Next" : "Last word";
     }
     function renderWord(w) {
+      const fsrsHtml = typeof fsrsCardMetricsHtml === 'function' ? fsrsCardMetricsHtml(w) : (typeof window !== 'undefined' && window.fsrsCardMetricsHtml ? window.fsrsCardMetricsHtml(w) : '');
       document.getElementById("wordView").innerHTML =
         catalogEditHtml(w) +
         '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
@@ -5432,6 +5433,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         (meaningOf(w) ? '<p>' + esc(meaningOf(w)) + '</p>' : '') +
         (w.ru ? '' : '<p class="hint">No Russian translation on this slide.</p>') +
         (w.ex ? '<p>' + (w.deck ? '' : 'From the lesson: ') + esc(w.ex) + '</p>' : '') +
+        fsrsHtml +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" id="toDayFlip">Flip this card</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button>' +
         (w.deck
@@ -11699,8 +11701,11 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (change) syncChange(change);
     }
     function noteAnswer(item, ok) {
-      if (!item || item.type === "Flip") return;
+      if (!item) return;
       trackEvent("answer", item.type, ok ? "ok" : "miss");
+      if (typeof broadcastQuizFsrs === "function") {
+        broadcastQuizFsrs(item, ok);
+      }
       if (!item.card || !item.card.en) return;
       const key = String(item.card.en).toLowerCase() + "|" + item.type;
       const map = loadMistakeMap();
@@ -11723,9 +11728,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       saveMistakeMap(map, change);
       if (ok && row.streak >= 4) trackEvent("learned", item.type, "ok");
-      if (typeof broadcastQuizFsrs === "function") {
-        broadcastQuizFsrs(item, ok);
-      }
     }
     let mistakeGroups = [];
     let mistakePool = [];
@@ -11763,11 +11765,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         mistakeGroups.map((group, index) => {
           const card = group.card;
           const chips = group.rows.map((row) => '<span class="btn chip quiz-miss">' + esc(row.type) + " · " + row.misses + "</span>").join("");
+          const fsrsHtml = typeof fsrsCardMetricsHtml === 'function' ? fsrsCardMetricsHtml(card) : (typeof window !== 'undefined' && window.fsrsCardMetricsHtml ? window.fsrsCardMetricsHtml(card) : '');
           return '<article class="miss-card"><p class="entry">' + esc(card.en) + "</p>" +
             '<p class="label">Missed on</p><div class="row">' + chips + "</div>" + ipaHtml(card) +
             (card.ru ? "<p><b>" + esc(card.ru) + "</b></p>" : "") +
             (meaningOf(card) ? '<p class="src">' + esc(meaningOf(card)) + "</p>" : "") +
             (card.ex ? '<p class="src">' + esc(card.ex) + "</p>" : "") +
+            fsrsHtml +
             '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-miss-open="' + index + '">Open card</button>' +
             '<button class="btn primary" type="button" data-miss-retry="' + index + '">Repeat</button></div></article>';
         }).join("") +
@@ -12623,6 +12627,18 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (!item) return;
       if (e.target.closest("[data-day-next]")) {
         clearDayTimer();
+        if (item.type === "Flip") {
+          const telemetry = window.QuizTelemetryTracker?.stop?.(true);
+          if (telemetry) {
+            item.latencyMs = telemetry.effectiveLatencyMs;
+            item.telemetry = telemetry;
+          } else if (item.shownAt) {
+            item.latencyMs = Math.max(1, Date.now() - item.shownAt);
+          }
+          if (typeof broadcastQuizFsrs === "function") {
+            broadcastQuizFsrs(item, true);
+          }
+        }
         if (examMode && examTimeUp()) { showExamResult(false, "time"); return; }
         if (dayAt + 1 >= dayQueue.length) {
           if (examMode) showExamResult(examPassed(), "");
@@ -12646,6 +12662,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         document.querySelectorAll("#dayqView .opt").forEach((o) => o.classList.remove("ok", "bad"));
         opt.classList.add(opt.dataset.opt === "ok" ? "ok" : "bad");
         if (opt.dataset.opt !== "ok") {
+          window.QuizTelemetryTracker?.noteDistractor?.(opt.textContent?.trim());
           const good = document.querySelector('#dayqView [data-opt="ok"]');
           if (good) good.classList.add("ok");
         }
@@ -19651,6 +19668,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
 
     function bindFsrsEvents() {
+      if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
       const flipBtn = document.getElementById('fsrsFlipBtn');
       if (flipBtn) flipBtn.onclick = () => flipFsrsCard(true);
 
@@ -19678,29 +19696,33 @@ const STUDIO_CONSTELLATIONS = [{
       }
     }
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', bindFsrsEvents);
-    } else {
-      bindFsrsEvents();
-    }
-
-    document.addEventListener('keydown', (e) => {
-      const activeSection = document.querySelector('section.on');
-      if (activeSection?.id !== 'fsrsquiz') return;
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
-
-      if (!fsrsFlipped) {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault();
-          flipFsrsCard(true);
-        }
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindFsrsEvents);
       } else {
-        if (e.key === '1') { e.preventDefault(); submitFsrsGrade(1); }
-        else if (e.key === '2') { e.preventDefault(); submitFsrsGrade(2); }
-        else if (e.key === '3') { e.preventDefault(); submitFsrsGrade(3); }
-        else if (e.key === '4') { e.preventDefault(); submitFsrsGrade(4); }
+        bindFsrsEvents();
       }
-    });
+
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('keydown', (e) => {
+          const activeSection = document.querySelector ? document.querySelector('section.on') : null;
+          if (activeSection?.id !== 'fsrsquiz') return;
+          if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
+          if (!fsrsFlipped) {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault();
+              flipFsrsCard(true);
+            }
+          } else {
+            if (e.key === '1') { e.preventDefault(); submitFsrsGrade(1); }
+            else if (e.key === '2') { e.preventDefault(); submitFsrsGrade(2); }
+            else if (e.key === '3') { e.preventDefault(); submitFsrsGrade(3); }
+            else if (e.key === '4') { e.preventDefault(); submitFsrsGrade(4); }
+          }
+        });
+      }
+    }
 
     function deriveFsrsGrade(ok, item = {}) {
       if (Number.isInteger(item.grade) && item.grade >= 1 && item.grade <= 4) return item.grade;
@@ -19716,9 +19738,9 @@ const STUDIO_CONSTELLATIONS = [{
       if (!authUser || viewAccount) return;
 
       const grade = deriveFsrsGrade(ok, item);
-      const latencyMs = Number(item?.latencyMs) || 0;
+      const latencyMs = Number(item?.latencyMs || item?.telemetry?.effectiveLatencyMs) || 0;
       const word = item?.card?.en || item?.line || item?.word || '';
-      const expectedAnswer = item?.expected || item?.card?.en || item?.card?.ru || item?.right || '';
+      const expectedAnswer = item?.expected || item?.card?.en || item?.card?.ru || item?.right || item?.answer || '';
       const answer = item?.given != null ? String(item.given) : (ok ? expectedAnswer : '');
 
       accountFetch('/api/error-bank', {
@@ -19730,10 +19752,108 @@ const STUDIO_CONSTELLATIONS = [{
           answer,
           grade,
           latencyMs,
+          telemetry: item?.telemetry || null,
           kind: 'quiz-' + String(item?.type || 'quiz').toLowerCase(),
-          prompt: item?.prompt || item?.line || word
+          prompt: item?.prompt || item?.line || item?.custom?.prompt || word
         })
+      }).then(res => {
+        if (res && res.retrievability != null) {
+          const fsrsData = {
+            stability: res.stability,
+            difficulty: res.difficulty,
+            retrievability: res.retrievability,
+            nextReviewAt: res.nextReviewAt,
+            intervalDays: res.intervalDays,
+            reps: res.reps,
+            lapses: res.lapses,
+            latencyMs: res.telemetry?.effectiveLatencyMs || latencyMs,
+            speedCategory: res.telemetry?.speedCategory || null
+          };
+          if (item?.card) {
+            item.card.retrievability = res.retrievability;
+            item.card.fsrs = fsrsData;
+          }
+          if (word) {
+            saveCardFsrs(word, fsrsData);
+          }
+        }
       }).catch(() => {});
+    }
+
+    const FSRS_CACHE_KEY = 'quiz_fsrs_cache';
+
+    function loadCardFsrsCache() {
+      try {
+        if (typeof localStorage === 'undefined') return {};
+        const saved = localStorage.getItem(FSRS_CACHE_KEY);
+        return saved ? JSON.parse(saved) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveCardFsrs(word, data) {
+      if (!word || !data) return;
+      const key = String(word).trim().toLowerCase();
+      if (!key) return;
+      try {
+        const cache = loadCardFsrsCache();
+        cache[key] = {
+          stability: data.stability,
+          difficulty: data.difficulty,
+          retrievability: data.retrievability,
+          nextReviewAt: data.nextReviewAt,
+          intervalDays: data.intervalDays,
+          reps: data.reps,
+          lapses: data.lapses,
+          latencyMs: data.telemetry?.effectiveLatencyMs || data.latencyMs,
+          speedCategory: data.telemetry?.speedCategory || null,
+          updatedAt: Math.floor(Date.now() / 1000)
+        };
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(FSRS_CACHE_KEY, JSON.stringify(cache));
+        }
+      } catch (e) {}
+    }
+
+    function getCardFsrs(wordOrCard) {
+      if (!wordOrCard) return null;
+      if (typeof wordOrCard === 'object' && wordOrCard.fsrs) {
+        return wordOrCard.fsrs;
+      }
+      const word = typeof wordOrCard === 'string' ? wordOrCard : (wordOrCard.en || wordOrCard.word || '');
+      const key = String(word).trim().toLowerCase();
+      if (!key) return null;
+      const cache = loadCardFsrsCache();
+      return cache[key] || null;
+    }
+
+    function fsrsCardMetricsHtml(card) {
+      if (!card) return '';
+      const data = getCardFsrs(card);
+      if (!data || data.retrievability == null) return '';
+
+      const safeEsc = typeof esc === 'function' ? esc : (s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])));
+      const rPct = Math.round(Number(data.retrievability) * 100);
+      const rColor = rPct >= 90 ? 'var(--saas-success, #16a34a)' : (rPct >= 70 ? 'var(--saas-warning, #d97706)' : 'var(--saas-danger, #dc2626)');
+      const sVal = data.stability != null ? Number(data.stability).toFixed(1) + 'd' : '—';
+      const dVal = data.difficulty != null ? Number(data.difficulty).toFixed(1) : '—';
+      const intervalText = formatFsrsInterval(data.intervalDays || 1);
+      const latencySec = data.latencyMs != null ? (Number(data.latencyMs) / 1000).toFixed(1) + 's' : null;
+      const speed = data.speedCategory ? safeEsc(data.speedCategory) : null;
+
+      return '<div class="fsrs-card-metrics saas-card">' +
+        '<div class="fsrs-metrics-head">' +
+          '<span class="fsrs-metrics-title">FSRS Memory & Telemetry</span>' +
+          '<span class="fsrs-retention-pill" style="background:' + rColor + '20; color:' + rColor + ';">' + rPct + '% retention</span>' +
+        '</div>' +
+        '<div class="fsrs-metrics-grid">' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Stability</span><span class="fsrs-metric-val">' + sVal + '</span></div>' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Difficulty</span><span class="fsrs-metric-val">' + dVal + '</span></div>' +
+          '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Next review</span><span class="fsrs-metric-val">' + safeEsc(intervalText) + '</span></div>' +
+          (latencySec ? '<div class="fsrs-metric-item"><span class="fsrs-metric-lbl">Latency</span><span class="fsrs-metric-val">' + latencySec + (speed ? ' (' + speed + ')' : '') + '</span></div>' : '') +
+        '</div>' +
+      '</div>';
     }
 
     window.openFsrsQuiz = openFsrsQuiz;
@@ -19741,6 +19861,9 @@ const STUDIO_CONSTELLATIONS = [{
     window.formatFsrsInterval = formatFsrsInterval;
     window.deriveFsrsGrade = deriveFsrsGrade;
     window.broadcastQuizFsrs = broadcastQuizFsrs;
+    window.saveCardFsrs = saveCardFsrs;
+    window.getCardFsrs = getCardFsrs;
+    window.fsrsCardMetricsHtml = fsrsCardMetricsHtml;
 (() => {
   class QuizTelemetryTracker {
     constructor() {
@@ -20074,10 +20197,21 @@ const STUDIO_CONSTELLATIONS = [{
       courier: "'Courier New', Courier, monospace"
     };
     function lmDateChip(iso) {
-      if (!iso) return { day: "—", month: "date" };
-      const date = new Date(iso + "T12:00:00");
-      if (Number.isNaN(date.getTime())) return { day: "—", month: "date" };
       const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      if (!iso) {
+        const today = new Date();
+        return { day: String(today.getDate()).padStart(2, "0"), month: months[today.getMonth()] };
+      }
+      let str = String(iso).trim();
+      if (/^\d{1,2}$/.test(str)) {
+        const today = new Date();
+        str = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + str.padStart(2, "0");
+      }
+      const date = new Date(str.includes("T") ? str : str + "T12:00:00");
+      if (Number.isNaN(date.getTime())) {
+        const today = new Date();
+        return { day: String(today.getDate()).padStart(2, "0"), month: months[today.getMonth()] };
+      }
       return { day: String(date.getDate()).padStart(2, "0"), month: months[date.getMonth()] };
     }
     function lmCourseBits(material) {
@@ -20723,7 +20857,7 @@ const STUDIO_CONSTELLATIONS = [{
       return memory + '<div class="lm-card-list">' + rows + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':quiz">'+ addLabel + "</button>";
     }
     function contentCopyButton(type, id, parent, parentId, className) {
-      if (!canEditLessons() || !Number.isSafeInteger(id) || id < 1 || (parent && !Number.isSafeInteger(parentId))) return "";
+      if (!canEditLessons() || !id || (parent && !parentId)) return "";
       const source = [type, id, parent, parentId].filter(value => value !== undefined).join(":");
       return '<button class="' + (className || 'day-edit') + ' content-copy-icon" type="button" data-content-copy="' + esc(source) + '" aria-label="Copy" title="Copy"><span aria-hidden="true">&#10697;</span></button>';
     }
@@ -21549,6 +21683,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmOpenLesson(id) {
       id = domEntityId(id);
+      if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
+      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
       lmEnsure();
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
@@ -21614,6 +21750,8 @@ const STUDIO_CONSTELLATIONS = [{
     function lmCreateLesson() {
       if (!canEditLessons()) return;
       lmEnsure();
+      if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
+      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
       fresh.date = lmToday();
@@ -21623,7 +21761,8 @@ const STUDIO_CONSTELLATIONS = [{
       lmState = fresh;
       fresh.mode = "edit";
       lmKeepLesson();
-      visit("material");
+      show("material");
+      lmRenderEditor();
     }
     function paintMaterial() {
       lmEnsure();
@@ -21772,6 +21911,11 @@ const STUDIO_CONSTELLATIONS = [{
         }
         const importPdf = event.target.closest("[data-lesson-pdf-import-file]");
         if (importPdf && importPdf.files && importPdf.files[0]) { lmImportPdfMeta(importPdf.files[0]); return; }
+        const scriptFile = event.target.closest("[data-lesson-script-file]");
+        if (scriptFile && scriptFile.files && scriptFile.files[0]) {
+          if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(scriptFile.files[0]);
+          return;
+        }
         const file = event.target.closest("[data-file], [data-pdf]");
         if (file && file.files && file.files[0]) lmTakeFile(file.dataset.file || file.dataset.pdf, file.files[0]);
         const correct = event.target.closest("[data-correct]");
@@ -22107,9 +22251,20 @@ const STUDIO_CONSTELLATIONS = [{
         const drop = event.target.closest(".lm-drop");
         if (drop) {
           const file = event.dataTransfer.files && event.dataTransfer.files[0];
+          if (drop.hasAttribute("data-lesson-script-drop") && file) {
+            event.preventDefault();
+            if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(file);
+            return;
+          }
           if (drop.hasAttribute("data-lesson-pdf-import") && file) { event.preventDefault(); lmImportPdfMeta(file); return; }
           const input = drop.querySelector("[data-file], [data-pdf]");
           if (input && file) { event.preventDefault(); lmTakeFile(input.dataset.file || input.dataset.pdf, file); }
+          return;
+        }
+        const scriptBox = event.target.closest("#lmScriptBox");
+        if (scriptBox && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          event.preventDefault();
+          if (typeof lmHandleScriptFileUpload === 'function') lmHandleScriptFileUpload(event.dataTransfer.files[0]);
           return;
         }
         const block = event.target.closest(".lm-block");
@@ -22614,10 +22769,15 @@ const STUDIO_CONSTELLATIONS = [{
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;
 function lmPdfApplyMetadata(draft,data,selected){
-  if(selected){draft.title=data.title;draft.description=data.description;if(data.unit)draft.unit=data.unit;if(data.lesson)draft.lesson=data.lesson;if(data.className)draft.className=data.className;}
-  // A new lesson still needs its required title when only content sections
-  // were selected. Preserve any title/description the teacher already entered.
-  if(!String(draft.title||'').trim())draft.title=String(data.title||'').trim();
+  const domTitle = typeof document !== 'undefined' ? document.getElementById('lmTitle')?.value?.trim() || '' : '';
+  if(selected){
+    draft.title=data.title||domTitle;
+    draft.description=data.description;
+    if(data.unit)draft.unit=data.unit;
+    if(data.lesson)draft.lesson=data.lesson;
+    if(data.className)draft.className=data.className;
+  }
+  if(!String(draft.title||'').trim())draft.title=String(data.title||domTitle||'').trim();
   if(!draft.title)throw new Error('Enter a lesson title before applying the PDF.');
 }
 async function lmPdfSavePreparedDraft(draft,current,active){
@@ -22755,31 +22915,290 @@ async function lmPdfDraftBlocks(data, hash) {
   });
   return groups;
 }
+function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
+  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  let title = '', description = '', unit = '', lesson = '', className = '';
+  const words = [], phrases = [], rules = [], classwork = [];
+
+  let currentSection = '';
+  let ruleCurrent = null;
+
+  for (const line of lines) {
+    const kv = line.match(/^(title|description|unit|lesson|class|level|topic)\s*:\s*(.+)$/i);
+    if (kv) {
+      const key = kv[1].toLowerCase(), val = kv[2].trim();
+      if (key === 'title' || key === 'topic') title = val;
+      else if (key === 'description') description = val;
+      else if (key === 'unit') unit = val;
+      else if (key === 'lesson') lesson = val;
+      else if (key === 'class' || key === 'level') className = val;
+      continue;
+    }
+    if (/^(words|vocabulary|слова)\s*[:]?\s*$/i.test(line)) { currentSection = 'words'; continue; }
+    if (/^(phrases|фразы)\s*[:]?\s*$/i.test(line)) { currentSection = 'phrases'; continue; }
+    if (/^(rules|grammar|правила|грамматика)\s*[:]?\s*$/i.test(line)) { currentSection = 'rules'; continue; }
+    if (/^(classwork|practice|exercises|quizzes|упражнения|квизы)\s*[:]?\s*$/i.test(line)) { currentSection = 'classwork'; continue; }
+
+    const wordPrefix = line.match(/^(?:word|слово)\s*:\s*(.+)$/i);
+    const lineToParse = wordPrefix ? wordPrefix[1] : line;
+    if (currentSection === 'words' || wordPrefix || /^[•\-\*]\s*[a-zA-Z\s]+[\s\-–—:|]/.test(line)) {
+      const cleanLine = lineToParse.replace(/^[•\-\*]\s*/, '').trim();
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      if (parts.length >= 2 && /^[a-zA-Z\s'-]+$/.test(parts[0])) {
+        const word = parts[0];
+        const translation = parts[1] || '';
+        const meaning = parts[2] || word;
+        const example = parts[3] || ('Example with ' + word);
+        words.push({ word, meaning, translation, example, pages: [1] });
+        continue;
+      }
+    }
+
+    const phrasePrefix = line.match(/^(?:phrase|фраза)\s*:\s*(.+)$/i);
+    if (currentSection === 'phrases' || phrasePrefix) {
+      const cleanLine = (phrasePrefix ? phrasePrefix[1] : line).replace(/^[•\-\*]\s*/, '').trim();
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      if (parts.length >= 2) {
+        phrases.push({ phrase: parts[0], meaning: parts[2] || parts[0], translation: parts[1] || '', example: parts[3] || parts[0], pages: [1] });
+        continue;
+      }
+    }
+
+    const rulePrefix = line.match(/^(?:rule|правило)\s*:\s*(.+)$/i);
+    if (rulePrefix) {
+      if (ruleCurrent) rules.push(ruleCurrent);
+      ruleCurrent = { title: rulePrefix[1], ru: rulePrefix[1], explanation: '', pattern: '', patternRu: '', contrast: '', contrastRu: '', examples: [], pages: [1] };
+      continue;
+    }
+    if (ruleCurrent) {
+      if (/^(?:examples|примеры)\s*[:]?\s*$/i.test(line)) {
+        currentSection = 'rule_examples';
+        continue;
+      }
+      if (currentSection === 'rule_examples') {
+        if (/^(?:quiz|exercise|words|vocabulary|phrases|rule)\b/i.test(line)) {
+          currentSection = '';
+        } else {
+          const p = line.split(/[\~—]/);
+          ruleCurrent.examples.push(p.length > 1 ? p[0].trim() + ' — ' + p[1].trim() : p[0].trim());
+          continue;
+        }
+      }
+      const expMatch = line.match(/^(?:explanation|объяснение)\s*:\s*(.+)$/i);
+      const patMatch = line.match(/^(?:pattern|формула)\s*:\s*(.+)$/i);
+      const exMatch = line.match(/^(?:example|пример)\s*:\s*(.+)$/i);
+      if (expMatch) { ruleCurrent.explanation = expMatch[1]; continue; }
+      if (patMatch) { ruleCurrent.pattern = patMatch[1]; continue; }
+      if (exMatch) {
+        const p = exMatch[1].split(/[\~—]/);
+        ruleCurrent.examples.push(p.length > 1 ? p[0].trim() + ' — ' + p[1].trim() : p[0].trim());
+        continue;
+      }
+    }
+
+    const quizMatch = line.match(/^(?:quiz|exercise|question|вопрос)\s*:\s*(.+)$/i);
+    if (quizMatch || currentSection === 'classwork') {
+      const raw = quizMatch ? quizMatch[1] : line;
+      if (raw.includes('|')) {
+        const parts = raw.split('|').map(p => p.trim());
+        const prompt = parts[0];
+        const options = (parts[1] || '').split(/,\s*/).map(o => o.trim()).filter(Boolean);
+        const ans = Number(parts[2]) || 0;
+        const feedback = parts[3] || 'Review the lesson target.';
+        if (options.length >= 2) {
+          classwork.push({
+            stage: classwork.length < 2 ? 'comprehension' : 'guided',
+            title: prompt,
+            text: prompt,
+            kind: 'choice',
+            options,
+            answer: ans,
+            feedback,
+            criteria: '',
+            teacherAnswer: '',
+            pages: [1],
+            generated: true
+          });
+          continue;
+        }
+      }
+    }
+
+    if (!title && lines.indexOf(line) === 0 && line.length < 80) {
+      title = line.replace(/^#+\s*/, '');
+      continue;
+    }
+    if (!description && title && lines.indexOf(line) === 1 && line.length < 240) {
+      description = line;
+      continue;
+    }
+  }
+  if (ruleCurrent) rules.push(ruleCurrent);
+
+  if (!title) title = defaultTitle.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || 'New Lesson';
+  if (!description) description = 'Lesson generated from ' + defaultTitle;
+
+  if (!words.length && text.length > 30) {
+    const extracted = [...new Set(text.match(/\b[A-Za-z]{4,15}\b/g) || [])].slice(0, 6);
+    extracted.forEach(w => words.push({ word: w.toLowerCase(), meaning: w.toLowerCase(), translation: 'слово: ' + w.toLowerCase(), example: 'Example with ' + w, pages: [1] }));
+  }
+
+  const presentStages = new Set(classwork.map(c => c.stage));
+  if (!presentStages.has('explanation')) {
+    classwork.unshift({
+      stage: 'explanation',
+      title: 'Lesson Overview: ' + title,
+      text: description || 'Study the main points and rules of this lesson.',
+      kind: 'explanation',
+      options: [],
+      answer: -1,
+      feedback: '',
+      criteria: '',
+      teacherAnswer: '',
+      pages: [1],
+      generated: true
+    });
+  }
+  if (!presentStages.has('comprehension')) {
+    classwork.push({
+      stage: 'comprehension',
+      title: 'Comprehension check',
+      text: 'Select the correct statement about ' + title + ':',
+      kind: 'choice',
+      options: ['Option A (Correct)', 'Option B (Incorrect)', 'Option C (Incorrect)'],
+      answer: 0,
+      feedback: 'Review the lesson overview for details.',
+      criteria: '',
+      teacherAnswer: '',
+      pages: [1],
+      generated: true
+    });
+  }
+  if (!presentStages.has('guided')) {
+    classwork.push({
+      stage: 'guided',
+      title: 'Guided practice',
+      text: 'Complete the sentence with the appropriate vocabulary or rule form:',
+      kind: 'choice',
+      options: ['Correct choice', 'Distractor 1', 'Distractor 2'],
+      answer: 0,
+      feedback: 'Focus on context clues and grammatical agreement.',
+      criteria: '',
+      teacherAnswer: '',
+      pages: [1],
+      generated: true
+    });
+  }
+  if (!presentStages.has('independent')) {
+    classwork.push({
+      stage: 'independent',
+      title: 'Independent production',
+      text: 'Write three original sentences using the vocabulary and grammar from this lesson.',
+      kind: 'open',
+      options: [],
+      answer: -1,
+      feedback: '',
+      criteria: 'Grammar and accuracy | 3\nVocabulary usage | 2',
+      teacherAnswer: 'Sample student answer demonstrating lesson targets.',
+      pages: [1],
+      generated: true
+    });
+  }
+  if (!presentStages.has('final')) {
+    classwork.push({
+      stage: 'final',
+      title: 'Final task',
+      text: 'Compose a short paragraph applying everything learned in this lesson.',
+      kind: 'open',
+      options: [],
+      answer: -1,
+      feedback: '',
+      criteria: 'Content and structure | 3\nLanguage variety | 2',
+      teacherAnswer: 'Exemplary paragraph covering all lesson objectives.',
+      pages: [1],
+      generated: true
+    });
+  }
+
+  return {
+    title,
+    description,
+    unit: unit || '1',
+    lesson: lesson || '1',
+    className: className || 'B2',
+    overview: description,
+    words,
+    phrases,
+    rules,
+    classwork,
+    warnings: []
+  };
+}
 async function lmImportPdfDraft(file) {
   if(!canEditLessons()||!lmState||!file)return;
-  if(file.size>25*1024*1024||!file.size||((file.type&&file.type!=='application/pdf')||(!file.type&&!/\.pdf$/i.test(file.name||'')))){
-    lmPdfImportStatus('Choose a PDF under 25 MB.',true);return;
+  if(file.size>25*1024*1024||!file.size){
+    lmPdfImportStatus('File must be under 25 MB.',true);return;
   }
+  const isPdf = (file.type&&file.type==='application/pdf')||/\.pdf$/i.test(file.name||'');
+  const isDocx = /\.docx$/i.test(file.name||'');
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
   const controller=new AbortController();lmPdfDraftRequest=controller;
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   const drop=document.querySelector('[data-lesson-pdf-import]');drop?.classList.add('is-busy');
-  lmPdfImportStatus('',false);lmPdfProgress('Analysing PDF');
+  lmPdfImportStatus('',false);lmPdfProgress(isPdf ? 'Analysing PDF' : 'Processing document');
   try{
     const bytes=await file.arrayBuffer();
     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
     if(!active())return;
-    const data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
+    let data;
+    if(isPdf){
+      data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
+    } else if(isDocx){
+      let docText = '';
+      if(typeof window!=='undefined'&&window.fflate){
+        const unzipped = window.fflate.unzipSync(new Uint8Array(bytes));
+        if(unzipped['word/document.xml']){
+          const xml = window.fflate.strFromU8(unzipped['word/document.xml']);
+          docText = xml.replace(/<w:p[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+        }
+      }
+      data = lmParseScriptToLessonData(docText || file.name, file.name);
+    } else if(/\.json$/i.test(file.name)){
+      const text = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
+      try{
+        const parsed = JSON.parse(text);
+        if(parsed.words && parsed.classwork) data = parsed;
+        else data = lmParseScriptToLessonData(text, file.name);
+      } catch{ data = lmParseScriptToLessonData(text, file.name); }
+    } else {
+      let text = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
+      text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ').replace(/[ \t]+/g, ' ').trim();
+      data = lmParseScriptToLessonData(text || file.name, file.name);
+    }
     if(!active())return;
+    await lmMountLessonDraftDialog(data, hash, file, controller, active, !isPdf);
+  }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not process this file.',true);}}
+  finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
+}
+async function lmMountLessonDraftDialog(data, hash, file, controller, active, isDocument = false) {
+  if(!active())return;
+  const drop=document.querySelector('[data-lesson-pdf-import]');
+  try{
+    data.warnings = Array.isArray(data.warnings) ? data.warnings : [];
+    data.words = Array.isArray(data.words) ? data.words : [];
+    data.phrases = Array.isArray(data.phrases) ? data.phrases : [];
+    data.rules = Array.isArray(data.rules) ? data.rules : [];
+    data.classwork = Array.isArray(data.classwork) ? data.classwork : [];
     if(typeof stageEnsureStatic==='function')await stageEnsureStatic('GRAMMAR');
     if(!active())return;
     let groups=await lmPdfDraftBlocks(data,hash);
     if(!active())return;
+    const current=lmState;
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft saas-card';dialog.setAttribute('open','');
-    const heading=document.createElement('h2');heading.textContent='Review PDF lesson draft';dialog.append(heading);
-    const hint=document.createElement('p');hint.textContent='Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
+    const heading=document.createElement('h2');heading.textContent=isDocument ? 'Review lesson draft' : 'Review PDF lesson draft';dialog.append(heading);
+    const hint=document.createElement('p');hint.textContent=isDocument ? 'Select sections to import into this draft. Existing blocks and manual edits stay unchanged.' : 'Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
     const choices=new Map();
     let sectionCount = 0;
     const section=(key,title,renderContent,checked)=>{
@@ -22799,7 +23218,7 @@ async function lmImportPdfDraft(file) {
         input.checked=!input.checked;
         syncState();
       };
-      const titleSpan=document.createElement('span');titleSpan.textContent=' '+title;
+      const titleSpan=document.createElement('span');titleSpan.className='lm-pdf-section-title';titleSpan.textContent=title;
       label.append(input,numBadge,titleSpan);summary.append(label);details.append(summary);
       const container=document.createElement('div');container.className='lm-pdf-section-content';details.append(container);
       let rendered=false;
@@ -23056,13 +23475,15 @@ async function lmImportPdfDraft(file) {
       };
       wrap.append(list);container.append(wrap);
     },true);
-    section('pdf','Lesson PDF',(container)=>{
-      const box=document.createElement('div');box.className='lm-pdf-form-box';
-      box.innerHTML=
-        '<div class="saas-form-group"><label class="saas-label">PDF block title</label><input class="saas-input" data-pdf-field="pdf-title" value="'+esc(file.name)+'" placeholder="PDF title"></div>'+
-        '<p class="saas-text-muted" style="margin-top:6px;font-size:12px">Source file: '+esc(file.name)+' ('+(typeof lmFileSize==='function'?lmFileSize(file.size):Math.round(file.size/1024)+' KB')+')</p>';
-      container.append(box);
-    },true);
+    if(!isDocument && file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){
+      section('pdf','Lesson PDF',(container)=>{
+        const box=document.createElement('div');box.className='lm-pdf-form-box';
+        box.innerHTML=
+          '<div class="saas-form-group"><label class="saas-label">PDF block title</label><input class="saas-input" data-pdf-field="pdf-title" value="'+esc(file.name)+'" placeholder="PDF title"></div>'+
+          '<p class="saas-text-muted" style="margin-top:6px;font-size:12px">Source file: '+esc(file.name)+' ('+(typeof lmFileSize==='function'?lmFileSize(file.size):Math.round(file.size/1024)+' KB')+')</p>';
+        container.append(box);
+      },true);
+    }
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
@@ -23082,6 +23503,7 @@ async function lmImportPdfDraft(file) {
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
           const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput&&titleInput.value.trim())data.title=titleInput.value.trim();
+          else if(!String(data.title||'').trim() && document.getElementById('lmTitle')?.value?.trim())data.title=document.getElementById('lmTitle').value.trim();
           const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim();
           const unitInput=dialog.querySelector('[data-pdf-field="unit"]');if(unitInput)data.unit=unitInput.value.trim();
           const lessonInput=dialog.querySelector('[data-pdf-field="lesson"]');if(lessonInput)data.lesson=lessonInput.value.trim();
@@ -23217,7 +23639,7 @@ async function lmImportPdfDraft(file) {
           await lmPdfSavePreparedDraft(draft,current,active);
           // Keep confirmed server revisions even if upload fails; retry reuses the same PDF block.
           if(!active())throw new Error('Draft saved, but the lesson or account changed. Reopen the lesson to attach its PDF.');
-          if(selected.has('pdf')){
+          if(selected.has('pdf') && !isDocument && file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){
             pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
             if(!pdf?.hasFile)await window.LearningMain.uploadLessonFile(draft,pdf,file);
             if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
@@ -23242,6 +23664,136 @@ async function lmImportPdfDraft(file) {
     lmPdfImportStatus('Review the draft before applying it.',false);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not analyse this PDF.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
+}
+
+async function lmGenerateLessonFromScript(text) {
+  if(!canEditLessons()||!lmState||!text)return;
+  lmPdfDraftRequest?.abort();
+  document.getElementById('lmPdfDraftDialog')?.remove();
+  const controller=new AbortController();lmPdfDraftRequest=controller;
+  const current=lmState, generation=viewGen, owner=authUser;
+  const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
+  lmPdfProgress('Generating lesson');
+  try{
+    const data = lmParseScriptToLessonData(text, 'Lesson Script');
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
+    await lmMountLessonDraftDialog(data, hash, { name: 'lesson-script.txt', size: text.length }, controller, active, true);
+  }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
+  finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();}}
+}
+
+async function lmExtractTextFromFile(file) {
+  if (!file) return '';
+  const isDocx = /\.docx$/i.test(file.name || '');
+  const bytes = await file.arrayBuffer();
+  if (isDocx && typeof window !== 'undefined' && window.fflate) {
+    try {
+      const unzipped = window.fflate.unzipSync(new Uint8Array(bytes));
+      if (unzipped['word/document.xml']) {
+        const xml = window.fflate.strFromU8(unzipped['word/document.xml']);
+        return xml.replace(/<w:p[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+      }
+    } catch {}
+  }
+  let text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ').replace(/[ \t]+/g, ' ').trim();
+}
+
+async function lmHandleScriptFileUpload(file) {
+  if (!file || !canEditLessons() || !lmState) return;
+  const isPdf = (file.type && file.type === 'application/pdf') || /\.pdf$/i.test(file.name || '');
+  if (isPdf) {
+    return lmImportPdfDraft(file);
+  }
+  const status = document.getElementById('lmScriptStatus');
+  const input = document.getElementById('lmScriptInput');
+  if (status) status.textContent = 'Extracting content from ' + file.name + '…';
+  try {
+    const text = await lmExtractTextFromFile(file);
+    if (!text) {
+      if (status) status.textContent = 'No readable text found in ' + file.name + '.';
+      return;
+    }
+    if (input) input.value = text;
+    if (status) status.textContent = 'Generating lesson from ' + file.name + '…';
+    await lmGenerateLessonFromScript(text);
+    if (status) status.textContent = '';
+  } catch (err) {
+    if (status) status.textContent = err.message || 'Could not process file.';
+  }
+}
+
+if(typeof document!=='undefined'){
+  document.addEventListener('change', async (e) => {
+    const fileInput = e.target.closest('[data-lesson-script-file]');
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      const file = fileInput.files[0];
+      await lmHandleScriptFileUpload(file);
+      fileInput.value = '';
+    }
+  });
+  document.addEventListener('dragover', (e) => {
+    const drop = e.target.closest('[data-lesson-script-drop]');
+    if (drop) {
+      e.preventDefault();
+      drop.classList.add('is-over');
+    }
+  });
+  document.addEventListener('dragleave', (e) => {
+    const drop = e.target.closest('[data-lesson-script-drop]');
+    if (drop) {
+      drop.classList.remove('is-over');
+    }
+  });
+  document.addEventListener('drop', (e) => {
+    const drop = e.target.closest('[data-lesson-script-drop]');
+    if (drop) {
+      drop.classList.remove('is-over');
+    }
+  });
+  document.addEventListener('click', async (e) => {
+    const tab = e.target.closest('[data-lm-import-tab]');
+    if (tab) {
+      const isScript = tab.dataset.lmImportTab === 'script';
+      const uploadBox = document.getElementById('lmUploadBox');
+      const scriptBox = document.getElementById('lmScriptBox');
+      if (uploadBox && scriptBox) {
+        uploadBox.hidden = isScript;
+        scriptBox.hidden = !isScript;
+        document.getElementById('lmTabUpload')?.classList.toggle('primary', !isScript);
+        document.getElementById('lmTabUpload')?.classList.toggle('ghost', isScript);
+        document.getElementById('lmTabScript')?.classList.toggle('primary', isScript);
+        document.getElementById('lmTabScript')?.classList.toggle('ghost', !isScript);
+      }
+      return;
+    }
+    const btn = e.target.closest('#lmGenerateFromScriptBtn');
+    if (btn) {
+      const input = document.getElementById('lmScriptInput');
+      const status = document.getElementById('lmScriptStatus');
+      const text = input?.value?.trim();
+      if (!text) {
+        if (status) status.textContent = 'Enter a script or topic description first.';
+        return;
+      }
+      if (status) status.textContent = 'Generating lesson structure…';
+      try {
+        await lmGenerateLessonFromScript(text);
+        if (status) status.textContent = '';
+      } catch (err) {
+        if (status) status.textContent = err.message || 'Generation failed.';
+      }
+    }
+  });
+}
+
+if(typeof window!=='undefined'){
+  window.lmImportPdfDraft = lmImportPdfDraft;
+  window.lmParseScriptToLessonData = lmParseScriptToLessonData;
+  window.lmGenerateLessonFromScript = lmGenerateLessonFromScript;
+  window.lmPdfProgressEnd = lmPdfProgressEnd;
+  window.lmExtractTextFromFile = lmExtractTextFromFile;
+  window.lmHandleScriptFileUpload = lmHandleScriptFileUpload;
 }
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }
@@ -24358,11 +24910,14 @@ async function lmImportPdfDraft(file) {
         if (exam.instanceStatus === 'completed') {
           badges.push('<span class="label about saas-badge saas-badge-success">Completed · Maximum ' + exam.maximumPoints + ' · ' + exam.earnedPoints + ' points</span>');
         } else {
+          const draftBlocksCount = (exam.blocks || []).filter(b => !b.doc?.published).length;
+          const blocksCount = (exam.blocks || []).length;
+          badges.push('<span class="saas-badge saas-badge-muted">Draft · ' + draftBlocksCount + '</span>');
+          badges.push('<span class="saas-badge saas-badge-muted">Examination block · ' + blocksCount + '</span>');
+          badges.push('<span class="saas-badge saas-badge-info">Maximum points · ' + maximum + '</span>');
           const statusClass = exam.published ? 'saas-badge-active' : 'saas-badge-muted';
-          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published' : 'Draft'));
+          const statusText = hidden ? (viewAccount ? 'Hidden for this student' : 'Hidden') : (ready ? 'Ready for review' : (exam.published ? 'Published exam' : 'Draft'));
           badges.push('<span class="label about saas-badge ' + statusClass + '">' + esc(statusText) + '</span>');
-          badges.push('<span class="saas-badge saas-badge-muted">Examination blocks · ' + (exam.blocks || []).length + '</span>');
-          badges.push('<span class="saas-badge saas-badge-info">Maximum score: ' + maximum + '</span>');
           if (mine && (canTuneStudentLessons() || reviewed)) badges.push('<span class="saas-badge saas-badge-muted">' + sum + ' points · ' + reviewed + ' / ' + visible.length + ' reviewed</span>');
           if (viewAccount && !hidden) {
             const hiddenBlocks = (exam.blocks || []).filter(block => block.personalHidden || block.hidden || !block.doc?.published).length;

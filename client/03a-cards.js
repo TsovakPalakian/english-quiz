@@ -293,6 +293,7 @@
       btn.textContent = more ? "Next" : "Last word";
     }
     function renderWord(w) {
+      const fsrsHtml = typeof fsrsCardMetricsHtml === 'function' ? fsrsCardMetricsHtml(w) : (typeof window !== 'undefined' && window.fsrsCardMetricsHtml ? window.fsrsCardMetricsHtml(w) : '');
       document.getElementById("wordView").innerHTML =
         catalogEditHtml(w) +
         '<div class="word-head">' + wordPic(w.en, true) + '<div><p class="entry">' + esc(w.en) + '</p><p class="pos">' + esc(w.pos) + '</p></div></div>' +
@@ -303,6 +304,7 @@
         (meaningOf(w) ? '<p>' + esc(meaningOf(w)) + '</p>' : '') +
         (w.ru ? '' : '<p class="hint">No Russian translation on this slide.</p>') +
         (w.ex ? '<p>' + (w.deck ? '' : 'From the lesson: ') + esc(w.ex) + '</p>' : '') +
+        fsrsHtml +
         "<p>" + cardLinks(w.en, w.url) + "</p>" +
         '<div class="row" style="margin-top:12px"><button class="btn" type="button" id="toDayFlip">Flip this card</button><button class="btn" type="button" data-usages="' + esc(w.en) + '" data-usages-ru="' + esc(w.ru) + '">Usages</button>' +
         (w.deck

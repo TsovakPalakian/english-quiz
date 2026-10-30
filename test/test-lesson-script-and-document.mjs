@@ -1,0 +1,122 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+function getContext() {
+  const code = readFileSync('client/52b-lesson-pdf-import.js', 'utf8');
+  const sandbox = {
+    window: {},
+    document: {
+      addEventListener: () => {},
+      getElementById: () => null,
+      querySelector: () => null,
+      querySelectorAll: () => []
+    },
+    console,
+    TextDecoder,
+    TextEncoder,
+    Uint8Array,
+    Map,
+    Set,
+    Array,
+    Object,
+    String,
+    Number,
+    Boolean,
+    JSON,
+    esc: s => String(s || ''),
+    canEditLessons: () => true
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  return sandbox;
+}
+
+test('lmParseScriptToLessonData extracts metadata, vocabulary, rules and complete 5-stage classwork', () => {
+  const ctx = getContext();
+  const script = `
+Title: B2 Advanced Collocations
+Description: Master essential collocations and nuances for B2 level.
+Unit: 5
+Lesson: 2
+Class: B2+
+
+Words:
+breakthrough - прорыв - an important discovery - Scientists made a major breakthrough.
+drawback - недостаток - a disadvantage or problem - One drawback of the plan is cost.
+turnover - текучесть кадров - rate at which employees leave - High staff turnover is an issue.
+
+Rules:
+Rule: Phrasal verbs with "turn"
+Explanation: Turn down means to reject; turn up means to arrive.
+Pattern: turn + particle
+Examples:
+He turned down the offer. — Он отклонил предложение.
+She turned up late. — Она пришла поздно.
+
+Quiz: Which phrasal verb means to refuse?
+Which phrasal verb means to refuse? | turn down, turn up, turn into | 0 | "Turn down" means to refuse or reject.
+`;
+
+  const data = ctx.window.lmParseScriptToLessonData(script, 'test-script.txt');
+  assert.equal(data.title, 'B2 Advanced Collocations');
+  assert.equal(data.description, 'Master essential collocations and nuances for B2 level.');
+  assert.equal(data.unit, '5');
+  assert.equal(data.lesson, '2');
+  assert.equal(data.className, 'B2+');
+  assert.equal(data.words.length, 3);
+  assert.equal(data.words[0].word, 'breakthrough');
+  assert.equal(data.words[0].translation, 'прорыв');
+  assert.equal(data.rules.length, 1);
+  assert.equal(data.rules[0].title, 'Phrasal verbs with "turn"');
+  assert.equal(data.rules[0].examples.length, 2);
+
+  // Check 5 required learning stages
+  const stages = data.classwork.map(c => c.stage);
+  assert.ok(stages.includes('explanation'), 'Must include explanation stage');
+  assert.ok(stages.includes('comprehension'), 'Must include comprehension stage');
+  assert.ok(stages.includes('guided'), 'Must include guided stage');
+  assert.ok(stages.includes('independent'), 'Must include independent stage');
+  assert.ok(stages.includes('final'), 'Must include final stage');
+});
+
+test('lmParseScriptToLessonData handles freeform description and generates target structure', () => {
+  const ctx = getContext();
+  const freeform = `Environmental Conservation and Sustainability
+Explore global ecological challenges, renewable energy solutions, and climate policy.
+Biodiversity, sustainability, emissions, conservation, renewables, ecosystems.`;
+
+  const data = ctx.window.lmParseScriptToLessonData(freeform, 'ecology.txt');
+  assert.equal(data.title, 'Environmental Conservation and Sustainability');
+  assert.equal(data.description, 'Explore global ecological challenges, renewable energy solutions, and climate policy.');
+  assert.ok(data.words.length >= 3, 'Must extract vocabulary words from description');
+  assert.equal(data.classwork.length >= 5, true, 'Must produce full 5-stage learning progression');
+});
+
+test('lmExtractTextFromFile extracts text from arbitrary files and mock docx', async () => {
+  const ctx = getContext();
+  const mockTxtFile = {
+    name: 'notes.custom_ext',
+    async arrayBuffer() {
+      return new TextEncoder().encode('Custom file content\nWords: test - тест\n');
+    }
+  };
+  const text = await ctx.window.lmExtractTextFromFile(mockTxtFile);
+  assert.equal(text, 'Custom file content\nWords: test - тест');
+
+  ctx.window.fflate = {
+    unzipSync: () => ({
+      'word/document.xml': new TextEncoder().encode('<w:document><w:p><w:r><w:t>Hello from DOCX XML</w:t></w:r></w:p></w:document>')
+    }),
+    strFromU8: bytes => new TextDecoder().decode(bytes)
+  };
+  const mockDocxFile = {
+    name: 'syllabus.docx',
+    async arrayBuffer() {
+      return new Uint8Array([1, 2, 3]).buffer;
+    }
+  };
+  const docxText = await ctx.window.lmExtractTextFromFile(mockDocxFile);
+  assert.equal(docxText, 'Hello from DOCX XML');
+});
