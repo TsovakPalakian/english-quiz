@@ -29,3 +29,25 @@
   3. `[ORPHAN_ENDPOINT]`: Backend API endpoints never called by frontend `fetch()`.
   4. `[DEAD_SCHEMA]`: Database tables never mutated or queried in application code.
 - Automated Self-Verification: Before finalizing any audit report, run an automated validator script ensuring zero occurrences of banned vocabulary and 100% numerical consistency between report tables and parser outputs.
+
+# Code Stabilization and Collision Resolution Protocol
+
+- Mandatory Four-Component Prompt Structure: Every stabilization task instruction must specify:
+  1. Exact problem statement with code references (`file:///path#L123`).
+  2. Scope boundaries and invariants (preserve existing public API contracts and error handlers).
+  3. Deterministic verification method (targeted `node --test` scripts and asset build).
+  4. Structured reporting format with colored square checklist states (`🟩`, `🟨`, `⬜`, `🟥`).
+- Four-Stage Stabilization Algorithm:
+  1. Root-Cause Analysis: Identify race conditions, collisions, and type errors without editing code.
+  2. Plan Artifact: Create a Markdown document detailing every edit and touched file before modifying code.
+  3. Isolated Remediation: Apply surgical edits that preserve backward compatibility of public interfaces.
+  4. Verification: Run targeted test suites and production asset builder; revert changes if tests fail.
+- Collision Resolution Hierarchy:
+  1. Single Source of Truth: In any conflict between client state and server state, server validation holds absolute priority.
+  2. Prohibition of Destructive Changes: Deleting existing error handlers, telemetry logging, or guard conditions is forbidden; only appending or refining conditional logic is permitted.
+  3. Mandatory Edge Case Analysis: Every collision resolution must account for `null`/`undefined` inputs, asynchronous timeouts, and concurrent requests.
+- Antigravity Native Control Mechanisms:
+  1. Artifacts: Plan and hypothesis tracking in Markdown documents prior to code modifications.
+  2. Verification Loops: Automated validation via targeted test runs and production asset builder before task completion.
+  3. Human-in-the-Loop Gate: Explicit numbered-list explanation and user confirmation required before code edits.
+

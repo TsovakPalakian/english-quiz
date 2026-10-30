@@ -78,6 +78,7 @@ try{
     assert.equal(await page.locator('#loginForm').isVisible(),false);
     yield "08. emulateMedia" + " [" + JSON.stringify(viewport) + "]";
     await page.emulateMedia({reducedMotion:'reduce'});
+    await page.clock.runFor(100);
     const alphaSum=()=>page.locator('#authSky').evaluate(canvas=>{const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;let sum=0;for(let i=3;i<pixels.length;i+=4)sum+=pixels[i];return sum;});
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-background-brightness'),'20');
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-constellation-brightness'),'100');

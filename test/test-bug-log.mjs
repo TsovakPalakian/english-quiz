@@ -180,3 +180,23 @@ test('security scanners and administrative probe paths are completely ignored',a
   }
   assert.equal(db.rows.length,0);
 });
+test('expected client validation barriers and rate quotas are completely ignored by saveBug',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  const events=[
+    {method:'CLIENT',path:'/',status:0,error:'Personal changes are not saved yet. Retry their save or check the unconfirmed operation.'},
+    {method:'CLIENT',path:'/',status:0,error:'Select an exact shared card for this quiz'},
+    {method:'CLIENT',path:'/',status:0,error:'This draft is not saved'},
+    {method:'CLIENT',path:'/',status:0,error:'Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.'},
+    {method:'CLIENT',path:'/',status:0,error:'Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.'},
+    {method:'POST',path:'/api/lessons',status:400,error:'Enter a lesson title before saving.'},
+    {method:'POST',path:'/api/lessons',status:400,error:'Lesson title is required.'},
+    {method:'POST',path:'/api/lessons/parse-pdf',status:504,error:'Request timed out.'},
+    {method:'POST',path:'/api/lessons/parse-pdf',status:429,error:'Daily quota exceeded.'}
+  ];
+  for(const ev of events){
+    const result=await saveBug(db,ev);
+    assert.deepEqual(result,{ignored:true});
+  }
+  assert.equal(db.rows.length,0);
+});

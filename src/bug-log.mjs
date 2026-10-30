@@ -111,8 +111,12 @@ async function ensure(db){
 export async function saveBug(db,event){
   const status=Number(event.status)||0;
   const path=String(event.path||'/').split('?')[0];
-  if(status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||event.error==='Sign in first.')return {ignored:true};
+  const err=String(event.error||'');
+  if(status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||err==='Sign in first.')return {ignored:true};
   if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return {ignored:true};
+  if(status===400&&(err==='Enter a lesson title before saving.'||path==='/api/lessons'&&err.includes('title')))return {ignored:true};
+  if((status===504||status===429)&&(path==='/api/lessons/parse-pdf'||err.includes('timed out')||err.includes('quota')))return {ignored:true};
+  if(status===0&&(err.includes('Personal changes are not saved yet')||err.includes('Select an exact shared card for this quiz')||err.includes('This draft is not saved')||err.includes('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||err.includes('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return {ignored:true};
   await ensure(db);
   const method=String(event.method||'GET');
   const error=clipText(event.error||('HTTP '+status)).slice(0,500);

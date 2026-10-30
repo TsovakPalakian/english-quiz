@@ -2574,3 +2574,30 @@ test('loadAccountThemes resolves to null and skips network when unauthenticated 
   assert.deepEqual(authResult,{themes:[]});
   assert.deepEqual(fetched,['/api/me/themes']);
 });
+test('LearningMain.perform stops on paused personal items until explicit flushPersonal confirmation',async()=>{
+  const window={},saved=new Map([['learning-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[],actions=[];
+  const scope={window,crypto,CustomEvent:class{},location:{pathname:'/',reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null,querySelectorAll:()=>[]},
+    fetch:async(path,options)=>{
+      sent.push({path,method:options?.method||'GET'});
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'fixture'}})};
+      if(path==='/api/me/state')return {ok:true,json:async()=>({bootstrap:true,stageThemeRevision:1,stats:{theme:'mint'}})};
+      if(path==='/api/me/theme')return {ok:true,json:async()=>({theme:'champagne',revision:2})};
+      return {ok:true,json:async()=>({})};
+    }};
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.LearningMain.fetch('/api/me');await window.LearningMain.fetch('/api/me/state');
+  assert.equal(sent.length,2);
+  assert.equal(saved.has('learning-main-personal-pending-v3'),true);
+  await window.LearningMain.perform(async()=>{actions.push('performed');});
+  assert.equal(actions.length,0,'Paused writes must not run action and must not silently retry');
+  assert.equal(sent.some(r=>r.path==='/api/me/theme'),false);
+  await window.LearningMain.flushPersonal();
+  assert.equal(sent.some(r=>r.path==='/api/me/theme'),true);
+  assert.equal(saved.has('learning-main-personal-pending-v3'),false);
+  await window.LearningMain.perform(async()=>{actions.push('performed');});
+  assert.deepEqual(actions,['performed']);
+});
+

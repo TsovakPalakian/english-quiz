@@ -300,7 +300,7 @@
     function toggleFlip() {
       if (!flipScene) return;
       if (!flipReady && flipBack) {
-        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary saas-btn" type="button">Knew</button><button class="btn saas-btn" type="button">Didn\'t know</button></div>';
+        flipBack.innerHTML = '<p class="entry">сдаваться, бросать</p>' + ipaHtml({ en: "give up", uk: "/ɡɪv ˈʌp/", us: "/ɡɪv ˈʌp/" }) + '<p><span class="level">phrasal verb</span><span class="level">B2</span></p><p>Cambridge: to stop doing or having something.</p><p>' + cardLinks("give up", "https://dictionary.cambridge.org/dictionary/english/give-up") + '</p><div class="row" style="margin-top:12px"><button class="btn primary saas-btn" type="button" data-flip-rate="knew">Knew</button><button class="btn saas-btn" type="button" data-flip-rate="forgot">Didn\'t know</button></div>';
         flipReady = true;
       }
       const on = flipScene.classList.toggle("is-flipped");
@@ -309,6 +309,10 @@
     }
     flipBtn.addEventListener("click", toggleFlip);
     flipScene.addEventListener("click", (e) => {
+      if (e.target.closest("[data-flip-rate]")) {
+        toggleFlip();
+        return;
+      }
       if (e.target.closest("a, button")) return;
       toggleFlip();
     });
