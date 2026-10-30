@@ -1,6 +1,7 @@
 import {StudyService,StudyError,statement as s} from './learning-study.mjs';
 import {classifyError,synthesizeSubgroupDiagnostic,ERROR_TAGS,ERROR_CATEGORIES} from './learning-error-classifier.mjs';
 import {analyzeTelemetry} from './learning-telemetry-analyzer.mjs';
+import {GroupService} from './learning-groups.mjs';
 import {
   FSRS_GRADES,
   DEFAULT_DESIRED_RETENTION,
@@ -42,8 +43,9 @@ export {
 
 export class ErrorBankService extends StudyService {
   ensure(){
-    if(!ready.has(this.db)){
-      ready.set(this.db,(async()=>{
+    const key=this.db?.binding||this.db;
+    if(!ready.has(key)){
+      ready.set(key,(async()=>{
         await this.db.atomic([
           s(`CREATE TABLE IF NOT EXISTS account_error_items(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,26 +77,38 @@ export class ErrorBankService extends StudyService {
             updated_at INTEGER NOT NULL DEFAULT(unixepoch()),
             UNIQUE(account_id, kind, material_id, part_id, question_index)
           )`),
-          s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)'),
-          s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)'),
-          s('CREATE INDEX IF NOT EXISTS idx_error_items_retrievability ON account_error_items(account_id, status, retrievability)')
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_queue ON account_error_items(account_id, status, next_review_at)')
         ]);
         const cols=await this.db.read('PRAGMA table_info(account_error_items)');
         const colNames=new Set(cols.map(c=>c.name));
-        const alters=[];
-        if(!colNames.has('error_category'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN error_category TEXT NOT NULL DEFAULT ''"));
-        if(!colNames.has('diagnostic_note'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN diagnostic_note TEXT NOT NULL DEFAULT ''"));
-        if(!colNames.has('stability'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN stability REAL NOT NULL DEFAULT 0.0"));
-        if(!colNames.has('difficulty'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN difficulty REAL NOT NULL DEFAULT 0.0"));
-        if(!colNames.has('retrievability'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN retrievability REAL NOT NULL DEFAULT 0.0"));
-        if(!colNames.has('last_reviewed_at'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN last_reviewed_at INTEGER NOT NULL DEFAULT 0"));
-        if(!colNames.has('reps'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN reps INTEGER NOT NULL DEFAULT 0"));
-        if(!colNames.has('lapses'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN lapses INTEGER NOT NULL DEFAULT 0"));
-        if(!colNames.has('latency_ms'))alters.push(s("ALTER TABLE account_error_items ADD COLUMN latency_ms INTEGER NOT NULL DEFAULT 0"));
-        if(alters.length)await this.db.atomic(alters);
-      })());
+        const requiredColumns=[
+          ['error_category', "TEXT NOT NULL DEFAULT ''"],
+          ['diagnostic_note', "TEXT NOT NULL DEFAULT ''"],
+          ['stability', 'REAL NOT NULL DEFAULT 0.0'],
+          ['difficulty', 'REAL NOT NULL DEFAULT 0.0'],
+          ['retrievability', 'REAL NOT NULL DEFAULT 0.0'],
+          ['last_reviewed_at', 'INTEGER NOT NULL DEFAULT 0'],
+          ['reps', 'INTEGER NOT NULL DEFAULT 0'],
+          ['lapses', 'INTEGER NOT NULL DEFAULT 0'],
+          ['latency_ms', 'INTEGER NOT NULL DEFAULT 0']
+        ];
+        for(const [name,definition] of requiredColumns){
+          if(!colNames.has(name)){
+            try{
+              await this.db.atomic([s('ALTER TABLE account_error_items ADD COLUMN '+name+' '+definition)]);
+            }catch(error){
+              const freshCols=await this.db.read('PRAGMA table_info(account_error_items)');
+              if(!freshCols.some(c=>c.name===name))throw error;
+            }
+          }
+        }
+        await this.db.atomic([
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_category ON account_error_items(account_id, error_tag, error_category)'),
+          s('CREATE INDEX IF NOT EXISTS idx_error_items_retrievability ON account_error_items(account_id, status, retrievability)')
+        ]);
+      })().catch(error=>{ready.delete(key);throw error;}));
     }
-    return ready.get(this.db);
+    return ready.get(key);
   }
 
   async recordErrors(account,kind,materialId,questions,answers={},points={},meta={}){
@@ -519,6 +533,7 @@ export class ErrorBankService extends StudyService {
     }
 
     await this.ensure();
+    await new GroupService(this.db).ensure();
     const items=await this.db.read(
       `SELECT id,account_id accountId,material_id materialId,kind,part_id partId,
               question_index questionIndex,prompt,expected_answer expectedAnswer,

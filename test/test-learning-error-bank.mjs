@@ -266,3 +266,84 @@ test('ErrorBankService queue in fsrs_retrievability mode orders items dynamicall
     f.sqlite.close();
   }
 });
+
+test('ErrorBankService migrates legacy schema without error_category or retrievability and ensures subgroupDiagnostic succeeds', async () => {
+  const sqlite = new DatabaseSync(':memory:');
+  const args = command => (command.args || []).map(a => a?.type === 'null' ? null : ['integer', 'float'].includes(a?.type) ? Number(a.value) : a?.value !== undefined ? a.value : a);
+  const db = {
+    async read(sql, queryArgs = []) {
+      return sqlite.prepare(sql).all(...queryArgs);
+    },
+    async atomic(commands) {
+      sqlite.exec('BEGIN IMMEDIATE');
+      try {
+        const result = commands.map(command => {
+          const query = sqlite.prepare(command.sql);
+          const rows = query.all(...args(command));
+          return {
+            cols: query.columns().map(c => ({ name: c.name })),
+            rows: rows.map(row => Object.values(row).map(value => ({
+              type: value == null ? 'null' : typeof value === 'number' ? 'integer' : 'text',
+              value: String(value)
+            })))
+          };
+        });
+        sqlite.exec('COMMIT');
+        return result;
+      } catch (error) {
+        sqlite.exec('ROLLBACK');
+        throw error;
+      }
+    }
+  };
+
+  try {
+    // 1. Simulate legacy production database table before FSRS columns were added
+    sqlite.exec(`CREATE TABLE account_error_items(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      material_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      part_id TEXT NOT NULL,
+      question_index INTEGER NOT NULL,
+      prompt TEXT NOT NULL DEFAULT '',
+      expected_answer TEXT NOT NULL DEFAULT '',
+      given_answer TEXT NOT NULL DEFAULT '',
+      error_tag TEXT NOT NULL DEFAULT 'grammar',
+      stage INTEGER NOT NULL DEFAULT 1,
+      interval_days INTEGER NOT NULL DEFAULT 1,
+      next_review_at INTEGER NOT NULL,
+      error_count INTEGER NOT NULL DEFAULT 1,
+      success_streak INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at INTEGER NOT NULL DEFAULT(unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT(unixepoch()),
+      UNIQUE(account_id, kind, material_id, part_id, question_index)
+    )`);
+
+    const initialCols = new Set(sqlite.prepare('PRAGMA table_info(account_error_items)').all().map(c => c.name));
+    assert.equal(initialCols.has('error_category'), false, 'Legacy table must not have error_category');
+    assert.equal(initialCols.has('retrievability'), false, 'Legacy table must not have retrievability');
+
+    const bank = new ErrorBankService(db);
+    // ensure() must safely migrate columns without failing index creation
+    await bank.ensure();
+
+    const migratedCols = new Set(sqlite.prepare('PRAGMA table_info(account_error_items)').all().map(c => c.name));
+    for (const col of ['error_category', 'diagnostic_note', 'stability', 'difficulty', 'retrievability', 'last_reviewed_at', 'reps', 'lapses', 'latency_ms']) {
+      assert.equal(migratedCols.has(col), true, 'Column ' + col + ' must be added');
+    }
+
+    const indexes = new Set(sqlite.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='account_error_items'").all().map(i => i.name));
+    assert.equal(indexes.has('idx_error_items_category'), true, 'idx_error_items_category index must exist');
+    assert.equal(indexes.has('idx_error_items_retrievability'), true, 'idx_error_items_retrievability index must exist');
+
+    // subgroupDiagnostic must succeed and ensure class_group_students schema automatically
+    const dev = { id: 'dev_user', role: 'DEVELOPER' };
+    const diag = await bank.subgroupDiagnostic(dev, { groupId: 18 });
+    assert.equal(diag.groupId, 18);
+    assert.equal(diag.totalErrors, 0);
+  } finally {
+    sqlite.close();
+  }
+});
