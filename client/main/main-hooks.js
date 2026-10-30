@@ -1222,6 +1222,15 @@ function stageDeleteLesson(id){
     lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id&&row.id!==current.id);
     if(lmState===current||lmState?.id===id||lmState?.id===current.id)lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
+    if(typeof document!=='undefined'){
+      for(const fieldId of ['lmTitle','lmDescription','lmDate','lmClass','lmUnit','lmLesson','lmScriptInput']){
+        const el=document.getElementById(fieldId);if(el)el.value='';
+      }
+      const scriptStatus=document.getElementById('lmScriptStatus');if(scriptStatus)scriptStatus.textContent='';
+      const pdfStatus=document.getElementById('lmPdfImportStatus');if(pdfStatus){pdfStatus.textContent='';pdfStatus.hidden=true;}
+      const blocksBox=document.getElementById('lmBlocks');if(blocksBox)blocksBox.innerHTML='';
+      document.getElementById('lmPdfDraftDialog')?.remove();
+    }
     lmPersist();show('days');
   };
   if(localDraft){

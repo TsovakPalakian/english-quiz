@@ -1756,7 +1756,18 @@
         groupSave();
         lmSchedulePush();
       }
-      if (lmState && lmState.id === id) lmState = null;
+      if (lmState && lmState.id === id) {
+        lmState = null;
+        if (typeof document !== 'undefined') {
+          for (const fieldId of ['lmTitle', 'lmDescription', 'lmDate', 'lmClass', 'lmUnit', 'lmLesson', 'lmScriptInput']) {
+            const el = document.getElementById(fieldId); if (el) el.value = '';
+          }
+          const scriptStatus = document.getElementById('lmScriptStatus'); if (scriptStatus) scriptStatus.textContent = '';
+          const pdfStatus = document.getElementById('lmPdfImportStatus'); if (pdfStatus) { pdfStatus.textContent = ''; pdfStatus.hidden = true; }
+          const blocksBox = document.getElementById('lmBlocks'); if (blocksBox) blocksBox.innerHTML = '';
+          document.getElementById('lmPdfDraftDialog')?.remove();
+        }
+      }
       const on = document.querySelector("section.on");
       if (on && on.id === "material") show("days");
       else paintLmDays();
@@ -1788,8 +1799,9 @@
       if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
       if (typeof document !== 'undefined') {
         document.getElementById('lmPdfDraftDialog')?.remove();
-        const scriptInput = document.getElementById('lmScriptInput');
-        if (scriptInput) scriptInput.value = '';
+        for (const fieldId of ['lmTitle', 'lmDescription', 'lmDate', 'lmClass', 'lmUnit', 'lmLesson', 'lmScriptInput']) {
+          const el = document.getElementById(fieldId); if (el) el.value = '';
+        }
         const scriptStatus = document.getElementById('lmScriptStatus');
         if (scriptStatus) scriptStatus.textContent = '';
         const pdfStatus = document.getElementById('lmPdfImportStatus');
@@ -1798,6 +1810,8 @@
         if (scriptFile) scriptFile.value = '';
         const pdfFile = document.querySelector('[data-lesson-pdf-import-file]');
         if (pdfFile) pdfFile.value = '';
+        const blocksBox = document.getElementById('lmBlocks');
+        if (blocksBox) blocksBox.innerHTML = '';
       }
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();

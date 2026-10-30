@@ -6730,6 +6730,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (song) return song;
       return (window.IRREGULAR || []).find((card) => card.origin === key || String(card.base || "").toLowerCase() === key) || null;
     }
+    window.findCatalog = findCatalog;
     applySongEdits();
     document.querySelectorAll("[data-song]").forEach((btn) => {
       btn.addEventListener("click", () => renderSong(btn.dataset.song));
@@ -21721,7 +21722,18 @@ const STUDIO_CONSTELLATIONS = [{
         groupSave();
         lmSchedulePush();
       }
-      if (lmState && lmState.id === id) lmState = null;
+      if (lmState && lmState.id === id) {
+        lmState = null;
+        if (typeof document !== 'undefined') {
+          for (const fieldId of ['lmTitle', 'lmDescription', 'lmDate', 'lmClass', 'lmUnit', 'lmLesson', 'lmScriptInput']) {
+            const el = document.getElementById(fieldId); if (el) el.value = '';
+          }
+          const scriptStatus = document.getElementById('lmScriptStatus'); if (scriptStatus) scriptStatus.textContent = '';
+          const pdfStatus = document.getElementById('lmPdfImportStatus'); if (pdfStatus) { pdfStatus.textContent = ''; pdfStatus.hidden = true; }
+          const blocksBox = document.getElementById('lmBlocks'); if (blocksBox) blocksBox.innerHTML = '';
+          document.getElementById('lmPdfDraftDialog')?.remove();
+        }
+      }
       const on = document.querySelector("section.on");
       if (on && on.id === "material") show("days");
       else paintLmDays();
@@ -21753,8 +21765,9 @@ const STUDIO_CONSTELLATIONS = [{
       if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
       if (typeof document !== 'undefined') {
         document.getElementById('lmPdfDraftDialog')?.remove();
-        const scriptInput = document.getElementById('lmScriptInput');
-        if (scriptInput) scriptInput.value = '';
+        for (const fieldId of ['lmTitle', 'lmDescription', 'lmDate', 'lmClass', 'lmUnit', 'lmLesson', 'lmScriptInput']) {
+          const el = document.getElementById(fieldId); if (el) el.value = '';
+        }
         const scriptStatus = document.getElementById('lmScriptStatus');
         if (scriptStatus) scriptStatus.textContent = '';
         const pdfStatus = document.getElementById('lmPdfImportStatus');
@@ -21763,6 +21776,8 @@ const STUDIO_CONSTELLATIONS = [{
         if (scriptFile) scriptFile.value = '';
         const pdfFile = document.querySelector('[data-lesson-pdf-import-file]');
         if (pdfFile) pdfFile.value = '';
+        const blocksBox = document.getElementById('lmBlocks');
+        if (blocksBox) blocksBox.innerHTML = '';
       }
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
@@ -22782,16 +22797,15 @@ const STUDIO_CONSTELLATIONS = [{
 // PDF drafts are staged in a dialog; nothing is applied before explicit selection.
 var lmPdfDraftRequest = null;
 function lmPdfApplyMetadata(draft,data,selected){
-  const domTitle = typeof document !== 'undefined' ? document.getElementById('lmTitle')?.value?.trim() || '' : '';
   if(selected){
-    draft.title=data.title||domTitle;
-    draft.description=data.description;
+    draft.title=data.title||draft.title||'';
+    draft.description=data.description||'';
     if(data.unit)draft.unit=data.unit;
     if(data.lesson)draft.lesson=data.lesson;
     if(data.className)draft.className=data.className;
   }
-  if(!String(draft.title||'').trim())draft.title=String(data.title||domTitle||'').trim();
-  if(!draft.title)throw new Error('Enter a lesson title before applying the PDF.');
+  if(!String(draft.title||'').trim())draft.title=String(data.title||draft.title||'').trim();
+  if(!draft.title)throw new Error('Enter a lesson title before applying the document.');
 }
 async function lmPdfSavePreparedDraft(draft,current,active){
   const oldId = current?.id;
@@ -23063,7 +23077,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
       }
     }
 
-    if (!title && lines.indexOf(line) === 0 && line.length < 80) {
+    if (!title && lines.indexOf(line) === 0 && (line.startsWith('#') || (!/[.?!]$/.test(line) && line.length < 60))) {
       title = line.replace(/^#+\s*/, '');
       continue;
     }
@@ -23077,10 +23091,69 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
   if (!title) title = defaultTitle.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || 'New Lesson';
   if (!description) description = 'Lesson generated from ' + defaultTitle;
 
-  if (!words.length && text.length > 30) {
-    const extracted = [...new Set(text.match(/\b[A-Za-z]{4,15}\b/g) || [])].slice(0, 6);
-    extracted.forEach(w => words.push({ word: w.toLowerCase(), meaning: w.toLowerCase(), translation: 'слово: ' + w.toLowerCase(), example: 'Example with ' + w, pages: [1] }));
+  const BANNED_TOKENS = new Set([
+    'word', 'docx', 'document', 'xmlns', 'schemas', 'openxmlformats', 'wordprocessingml', 'wps', 'w14', 'w15',
+    'rsid', 'rpr', 'ppr', 'sectpr', 'fldsimple', 'hyperlink', 'shd', 'val', 'sz', 'space', 'preserve', 'theme',
+    'color', 'font', 'fonts', 'style', 'table', 'cell', 'row', 'grid', 'span', 'lang', 'eastasia', 'bidi',
+    'ascii', 'hansi', 'cs', 'hint', 'cantrip', 'left', 'right', 'center', 'both', 'top', 'bottom', 'inside',
+    'outside', 'none', 'auto', 'true', 'false', 'null', 'undefined', 'http', 'https', 'www', 'com', 'org',
+    'net', 'href', 'title', 'class', 'type', 'html', 'body', 'head', 'script', 'style', 'div', 'span',
+    'paragraph', 'section', 'header', 'footer', 'the', 'and', 'that', 'have', 'for', 'not', 'with', 'you',
+    'this', 'but', 'his', 'from', 'they', 'say', 'her', 'she', 'will', 'one', 'all', 'would', 'there',
+    'their', 'what', 'out', 'up', 'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like',
+    'time', 'no', 'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could',
+    'them', 'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
+    'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way', 'even', 'new', 'want',
+    'because', 'any', 'these', 'give', 'day', 'most', 'us', 'are', 'was', 'were', 'been', 'being', 'had',
+    'has', 'does', 'did', 'doing'
+  ]);
+
+  const catalogLookup = typeof findCatalog === 'function' ? findCatalog : (typeof window !== 'undefined' && typeof window.findCatalog === 'function' ? window.findCatalog : null);
+
+  if (!words.length && text.length > 20) {
+    const rawTokens = text.match(/\b[A-Za-z]{3,20}\b/g) || [];
+    const candidates = [...new Set(rawTokens.map(w => w.toLowerCase()))].filter(w => !BANNED_TOKENS.has(w));
+
+    for (const w of candidates) {
+      if (words.length >= 6) break;
+      let card = catalogLookup ? catalogLookup(w) : null;
+      if (!card && catalogLookup && w.endsWith('s') && w.length > 3) card = catalogLookup(w.slice(0, -1));
+      if (!card && catalogLookup && w.endsWith('es') && w.length > 4) card = catalogLookup(w.slice(0, -2));
+      if (card && card.en) {
+        words.push({
+          word: card.en,
+          meaning: card.en,
+          translation: card.ru || card.en,
+          example: card.example || ('Example with ' + card.en),
+          pages: [1]
+        });
+      }
+    }
+
+    if (!words.length) {
+      for (const w of candidates) {
+        if (words.length >= 6) break;
+        if (w.length >= 4 && !BANNED_TOKENS.has(w)) {
+          words.push({
+            word: w,
+            meaning: w,
+            translation: w,
+            example: 'Example with ' + w,
+            pages: [1]
+          });
+        }
+      }
+    }
   }
+
+  const targetWord1 = words[0] ? words[0].word : title;
+  const targetMeaning1 = words[0] ? (words[0].translation || words[0].meaning) : description;
+  const distractor1A = words[1] ? (words[1].translation || words[1].meaning) : 'Contextual nuance in target usage';
+  const distractor1B = words[2] ? (words[2].translation || words[2].meaning) : 'Opposite or unrelated grammatical structure';
+
+  const targetWord2 = words[1] ? words[1].word : (words[0] ? words[0].word : title);
+  const distractor2A = words[2] ? words[2].word : (words[0] && words[0].word !== targetWord2 ? words[0].word : 'alternative');
+  const distractor2B = words[3] ? words[3].word : 'distractor';
 
   const presentStages = new Set(classwork.map(c => c.stage));
   if (!presentStages.has('explanation')) {
@@ -23101,12 +23174,12 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
   if (!presentStages.has('comprehension')) {
     classwork.push({
       stage: 'comprehension',
-      title: 'Comprehension check',
-      text: 'Select the correct statement about ' + title + ':',
+      title: words.length ? ('Meaning: ' + targetWord1) : ('Comprehension check: ' + title),
+      text: words.length ? ('Select the correct meaning of "' + targetWord1 + '":') : ('Select the statement that matches the lesson: ' + title),
       kind: 'choice',
-      options: ['Option A (Correct)', 'Option B (Incorrect)', 'Option C (Incorrect)'],
+      options: [targetMeaning1, distractor1A, distractor1B],
       answer: 0,
-      feedback: 'Review the lesson overview for details.',
+      feedback: words.length ? ('"' + targetWord1 + '" corresponds to: ' + targetMeaning1 + '.') : 'Review the lesson overview for details.',
       criteria: '',
       teacherAnswer: '',
       pages: [1],
@@ -23116,12 +23189,12 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
   if (!presentStages.has('guided')) {
     classwork.push({
       stage: 'guided',
-      title: 'Guided practice',
-      text: 'Complete the sentence with the appropriate vocabulary or rule form:',
+      title: 'Guided practice: ' + targetWord2,
+      text: 'Choose the suitable word to complete the context: "The lesson highlights the importance of ___ in practice."',
       kind: 'choice',
-      options: ['Correct choice', 'Distractor 1', 'Distractor 2'],
+      options: [targetWord2, distractor2A, distractor2B],
       answer: 0,
-      feedback: 'Focus on context clues and grammatical agreement.',
+      feedback: 'Use "' + targetWord2 + '" to complete the target statement.',
       criteria: '',
       teacherAnswer: '',
       pages: [1],
@@ -23129,10 +23202,11 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
     });
   }
   if (!presentStages.has('independent')) {
+    const vocabList = words.slice(0, 3).map(w => w.word).join(', ');
     classwork.push({
       stage: 'independent',
       title: 'Independent production',
-      text: 'Write three original sentences using the vocabulary and grammar from this lesson.',
+      text: vocabList ? ('Write original sentences incorporating the lesson vocabulary: ' + vocabList + '.') : 'Write three original sentences using the grammar and concepts from this lesson.',
       kind: 'open',
       options: [],
       answer: -1,
@@ -23147,7 +23221,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
     classwork.push({
       stage: 'final',
       title: 'Final task',
-      text: 'Compose a short paragraph applying everything learned in this lesson.',
+      text: 'Compose a short paragraph applying the material covered in ' + title + '.',
       kind: 'open',
       options: [],
       answer: -1,
@@ -23175,10 +23249,8 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
 }
 async function lmImportPdfDraft(file) {
   if(!file||!canEditLessons())return;
-  if(!lmState){
-    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
-    if(typeof create === 'function') create();
-  }
+  const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+  if(typeof create === 'function') create();
   if(!lmState)return;
   if(file.size>25*1024*1024||!file.size){
     lmPdfImportStatus('File must be under 25 MB.',true);return;
@@ -23199,27 +23271,17 @@ async function lmImportPdfDraft(file) {
     let data;
     if(isPdf){
       data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
-    } else if(isDocx){
-      let docText = '';
-      if(typeof window!=='undefined'&&window.fflate){
-        const unzipped = window.fflate.unzipSync(new Uint8Array(bytes));
-        if(unzipped['word/document.xml']){
-          const xml = window.fflate.strFromU8(unzipped['word/document.xml']);
-          docText = xml.replace(/<w:p[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-        }
-      }
-      data = lmParseScriptToLessonData(docText || file.name, file.name);
-    } else if(/\.json$/i.test(file.name)){
-      const text = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
-      try{
-        const parsed = JSON.parse(text);
-        if(parsed.words && parsed.classwork) data = parsed;
-        else data = lmParseScriptToLessonData(text, file.name);
-      } catch{ data = lmParseScriptToLessonData(text, file.name); }
     } else {
-      let text = new TextDecoder('utf-8', {fatal: false}).decode(bytes);
-      text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ').replace(/[ \t]+/g, ' ').trim();
-      data = lmParseScriptToLessonData(text || file.name, file.name);
+      const text = await lmExtractTextFromFile(file);
+      if(/\.json$/i.test(file.name)){
+        try{
+          const parsed = JSON.parse(text);
+          if(parsed && Array.isArray(parsed.words) && Array.isArray(parsed.classwork)) data = parsed;
+          else data = lmParseScriptToLessonData(text, file.name);
+        } catch{ data = lmParseScriptToLessonData(text, file.name); }
+      } else {
+        data = lmParseScriptToLessonData(text || file.name, file.name);
+      }
     }
     if(!active())return;
     await lmMountLessonDraftDialog(data, hash, file, controller, active, !isPdf);
@@ -23282,7 +23344,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" placeholder="Description" style="min-height:60px">'+esc(data.description||'')+'</textarea></div>'+
         '<div class="saas-form-grid"><div class="saas-form-group"><label class="saas-label">Unit</label><input class="saas-input" data-pdf-field="unit" value="'+esc(data.unit||'')+'" placeholder="Unit"></div>'+
         '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>'+
-        '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc(data.className||current.className||'')+'" placeholder="Class / Level"></div>';
+        '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc(data.className||'')+'" placeholder="Class / Level"></div>';
       container.append(box);
     },true);
     section('overview','Overview',(container)=>{
@@ -23547,7 +23609,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
           const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput&&titleInput.value.trim())data.title=titleInput.value.trim();
-          else if(!String(data.title||'').trim() && document.getElementById('lmTitle')?.value?.trim())data.title=document.getElementById('lmTitle').value.trim();
+          else if(!String(data.title||'').trim())data.title=file?.name?file.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').trim():'Untitled Lesson';
           const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim();
           const unitInput=dialog.querySelector('[data-pdf-field="unit"]');if(unitInput)data.unit=unitInput.value.trim();
           const lessonInput=dialog.querySelector('[data-pdf-field="lesson"]');if(lessonInput)data.lesson=lessonInput.value.trim();
@@ -23717,13 +23779,16 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
 
-async function lmGenerateLessonFromScript(text) {
+async function lmGenerateLessonFromScript(text, defaultTitle) {
   if(!text||!canEditLessons())return;
-  if(!lmState){
-    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
-    if(typeof create === 'function') create();
-  }
+  const scriptInputVal = typeof document !== 'undefined' ? document.getElementById('lmScriptInput')?.value : '';
+  const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+  if(typeof create === 'function') create();
   if(!lmState)return;
+  if(typeof document !== 'undefined') {
+    const input = document.getElementById('lmScriptInput');
+    if (input && (text || scriptInputVal)) input.value = text || scriptInputVal;
+  }
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
   const controller=new AbortController();lmPdfDraftRequest=controller;
@@ -23731,28 +23796,106 @@ async function lmGenerateLessonFromScript(text) {
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   lmPdfProgress('Generating lesson');
   try{
-    const data = lmParseScriptToLessonData(text, 'Lesson Script');
+    const fallbackTitle = defaultTitle || 'Lesson Script';
+    const data = lmParseScriptToLessonData(text, fallbackTitle);
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
-    await lmMountLessonDraftDialog(data, hash, { name: 'lesson-script.txt', size: text.length }, controller, active, true);
+    await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();}}
 }
 
+function lmStripHtmlOrXml(str) {
+  if (!str) return '';
+  return str
+    .replace(/<(?:p|h[1-6]|li|tr|div|br)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
+    .trim();
+}
+
+function lmExtractRtfText(raw) {
+  if (!raw) return '';
+  let text = raw.replace(/\{\\(?:fonttbl|colortbl|stylesheet|info)[^}]*\}/gi, '');
+  text = text.replace(/\\(?:par|line|page)\b/gi, '\n');
+  text = text.replace(/\\(?:tab)\b/gi, '\t');
+  text = text.replace(/\\u(-?\d+)\??/g, (_, code) => {
+    const num = Number(code);
+    return num >= 0 ? String.fromCharCode(num) : String.fromCharCode(num + 65536);
+  });
+  text = text.replace(/\\[a-zA-Z]+(-?\d+)? ?/g, '');
+  text = text.replace(/[{}]/g, '');
+  return text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
+}
+
 async function lmExtractTextFromFile(file) {
   if (!file) return '';
-  const isDocx = /\.docx$/i.test(file.name || '');
+  const name = String(file.name || '').toLowerCase();
   const bytes = await file.arrayBuffer();
-  if (isDocx && typeof window !== 'undefined' && window.fflate) {
+  const uint8 = new Uint8Array(bytes);
+
+  const isZip = uint8.length >= 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
+  const fflate = typeof window !== 'undefined' ? window.fflate : null;
+
+  if ((isZip || /\.(docx|odt|pptx|epub|zip)$/i.test(name)) && fflate?.unzipSync) {
     try {
-      const unzipped = window.fflate.unzipSync(new Uint8Array(bytes));
+      const unzipped = fflate.unzipSync(uint8);
       if (unzipped['word/document.xml']) {
-        const xml = window.fflate.strFromU8(unzipped['word/document.xml']);
-        return xml.replace(/<w:p[^>]*>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+        const xml = fflate.strFromU8(unzipped['word/document.xml']);
+        return lmStripHtmlOrXml(xml);
+      }
+      if (unzipped['content.xml']) {
+        const xml = fflate.strFromU8(unzipped['content.xml']);
+        return lmStripHtmlOrXml(xml);
+      }
+      const slideKeys = Object.keys(unzipped).filter(k => /^ppt\/slides\/slide\d+\.xml$/i.test(k)).sort();
+      if (slideKeys.length) {
+        const slidesText = slideKeys.map(k => lmStripHtmlOrXml(fflate.strFromU8(unzipped[k]))).join('\n\n');
+        if (slidesText.trim()) return slidesText.trim();
+      }
+      const htmlKeys = Object.keys(unzipped).filter(k => /\.(xhtml|html|htm)$/i.test(k)).sort();
+      if (htmlKeys.length) {
+        const bookText = htmlKeys.map(k => lmStripHtmlOrXml(fflate.strFromU8(unzipped[k]))).join('\n\n');
+        if (bookText.trim()) return bookText.trim();
       }
     } catch {}
   }
-  let text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ').replace(/[ \t]+/g, ' ').trim();
+
+  let text = '';
+  if (uint8.length >= 2 && uint8[0] === 0xFF && uint8[1] === 0xFE) {
+    text = new TextDecoder('utf-16le', { fatal: false }).decode(uint8.subarray(2));
+  } else if (uint8.length >= 2 && uint8[0] === 0xFE && uint8[1] === 0xFF) {
+    text = new TextDecoder('utf-16be', { fatal: false }).decode(uint8.subarray(2));
+  } else {
+    text = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
+  }
+
+  if (name.endsWith('.rtf') || text.startsWith('{\\rtf')) {
+    const rtfClean = lmExtractRtfText(text);
+    if (rtfClean) return rtfClean;
+  }
+
+  if (/\.(html|htm)$/i.test(name) || /<html[\s>]/i.test(text.slice(0, 500))) {
+    const htmlClean = lmStripHtmlOrXml(text);
+    if (htmlClean) return htmlClean;
+  }
+
+  text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, ' ');
+
+  const printableMatch = text.match(/[\w\s.,!?:;\-–—"'()]/g);
+  const printableRatio = (printableMatch ? printableMatch.length : 0) / (text.length || 1);
+  if (printableRatio < 0.6) {
+    const runs = text.match(/[A-Za-z0-9\u0400-\u04FF\s.,!?:;\-–—"'()]{6,}/g) || [];
+    text = runs.map(r => r.trim()).filter(r => r.length >= 6).join('\n');
+  }
+
+  return text.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n\n').trim();
 }
 
 async function lmHandleScriptFileUpload(file) {
@@ -23777,7 +23920,8 @@ async function lmHandleScriptFileUpload(file) {
     }
     if (input) input.value = text;
     if (status) status.textContent = 'Generating lesson from ' + file.name + '…';
-    await lmGenerateLessonFromScript(text);
+    const defaultTitle = file.name ? file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim() : 'Lesson Script';
+    await lmGenerateLessonFromScript(text, defaultTitle);
     if (status) status.textContent = '';
   } catch (err) {
     if (status) status.textContent = err.message || 'Could not process file.';

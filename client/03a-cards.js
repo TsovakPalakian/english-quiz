@@ -1601,6 +1601,7 @@
       if (song) return song;
       return (window.IRREGULAR || []).find((card) => card.origin === key || String(card.base || "").toLowerCase() === key) || null;
     }
+    window.findCatalog = findCatalog;
     applySongEdits();
     document.querySelectorAll("[data-song]").forEach((btn) => {
       btn.addEventListener("click", () => renderSong(btn.dataset.song));
