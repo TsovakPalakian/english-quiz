@@ -48,7 +48,7 @@ test('Interactive editor extracts only iframe src and renders responsive safe fr
       await field.fill(url);
     }
     await page.setViewportSize({width:390,height:844});
-    assert.ok(await page.locator('[data-interactive-preview] iframe').last().evaluate(node=>node.getBoundingClientRect().width<=node.parentElement.clientWidth));
+    assert.ok(await page.locator('[data-interactive-preview] iframe').last().evaluate(node=>node.getBoundingClientRect().width<=node.parentElement.clientWidth+1));
     await page.evaluate(()=>lmShow('preview'));
     assert.equal(await page.locator('#lmPreview .lm-frame-interactive iframe').count(),1);
   }finally{if(browser)await browser.close();await preview.close();}

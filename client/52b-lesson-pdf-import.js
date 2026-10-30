@@ -453,8 +453,10 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
 }
 async function lmImportPdfDraft(file) {
   if(!file||!canEditLessons())return;
-  const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
-  if(typeof create === 'function') create();
+  if(!lmState){
+    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+    if(typeof create === 'function') create();
+  }
   if(!lmState)return;
   if(file.size>25*1024*1024||!file.size){
     lmPdfImportStatus('File must be under 25 MB.',true);return;
