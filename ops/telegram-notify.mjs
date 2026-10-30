@@ -6,16 +6,39 @@ export function telegramConfig(env=process.env){
   if(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||! /^-?\d+$/.test(chat))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
   return {token,chat};
 }
-export async function notifyTelegram(text,env=process.env){
-  const {token,chat}=telegramConfig(env);let response;
-  try{
-    response=await fetch('https://api.telegram.org/bot'+token+'/sendMessage',{
-      method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),
-      body:JSON.stringify({chat_id:chat,text:String(text).slice(0,3500),disable_web_page_preview:true})
-    });
-  }catch{throw Error('Telegram notification could not be delivered.');}
-  const value=await response.json().catch(()=>({}));
-  if(!response.ok||value.ok!==true)throw Error('Telegram rejected the notification (HTTP '+response.status+'). Check bot access and chat ID.');
+export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,timeoutMs=30000}={}){
+  const {token,chat}=telegramConfig(env);
+  let lastError;
+  for(let attempt=1;attempt<=maxRetries;attempt++){
+    try{
+      const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendMessage',{
+        method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(timeoutMs),
+        body:JSON.stringify({chat_id:chat,text:String(text).slice(0,3500),disable_web_page_preview:true})
+      });
+      const value=await response.json().catch(()=>({}));
+      if(!response.ok||value.ok!==true){
+        const status=response.status;
+        const errMessage='Telegram rejected the notification (HTTP '+status+'). Check bot access and chat ID.';
+        if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
+          lastError=Error(errMessage);
+          if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+          continue;
+        }
+        throw Error(errMessage);
+      }
+      return;
+    }catch(err){
+      if(err.message?.startsWith('Telegram rejected')){throw err;}
+      const rawCause=err?.cause?.code||err?.code||err?.message||'';
+      const sanitizedCause=rawCause?': '+String(rawCause).replace(token,'[REDACTED]'):'';
+      lastError=Error('Telegram notification could not be delivered'+sanitizedCause+'.');
+      if(attempt<maxRetries){
+        if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+        continue;
+      }
+    }
+  }
+  throw lastError||Error('Telegram notification could not be delivered.');
 }
 
 export function pipelineNotification(env=process.env){
@@ -39,17 +62,38 @@ export function pipelineNotification(env=process.env){
     env.GITHUB_SERVER_URL&&env.GITHUB_REPOSITORY&&env.GITHUB_RUN_ID?env.GITHUB_SERVER_URL+'/'+env.GITHUB_REPOSITORY+'/actions/runs/'+env.GITHUB_RUN_ID:''].filter(Boolean).join('\n');
 }
 
-export async function notifyTelegramDocument(document,env=process.env,{fetchImpl=globalThis.fetch}={}){
+export async function notifyTelegramDocument(document,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000}={}){
   const {token,chat}=telegramConfig(env);
   if(!/^lumiscia-ci-\d+-attempt-\d+\.txt$/.test(document?.name||'')||typeof document?.text!=='string')throw Error('Invalid CI log document.');
   const form=new FormData();form.set('chat_id',chat);
   form.set('document',new Blob([sanitizeCILogs(document.text,env)],{type:'text/plain;charset=utf-8'}),document.name);
   form.set('caption','CI logs: completed test/deploy jobs, secrets redacted.');
-  let response;
-  try{response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendDocument',{method:'POST',body:form,signal:AbortSignal.timeout(60000)});}
-  catch{throw Error('Telegram log file could not be delivered.');}
-  const result=await response.json().catch(()=>({}));
-  if(!response.ok||result.ok!==true)throw Error('Telegram rejected the log file (HTTP '+response.status+').');
+  let lastError;
+  for(let attempt=1;attempt<=maxRetries;attempt++){
+    try{
+      const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendDocument',{method:'POST',body:form,signal:AbortSignal.timeout(60000)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true){
+        const status=response.status;
+        const errMessage='Telegram rejected the log file (HTTP '+status+').';
+        if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
+          lastError=Error(errMessage);
+          if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+          continue;
+        }
+        throw Error(errMessage);
+      }
+      return;
+    }catch(err){
+      if(err.message?.startsWith('Telegram rejected')){throw err;}
+      lastError=Error('Telegram log file could not be delivered.');
+      if(attempt<maxRetries){
+        if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+        continue;
+      }
+    }
+  }
+  throw lastError||Error('Telegram log file could not be delivered.');
 }
 
 if(process.argv[1]===fileURLToPath(import.meta.url)){

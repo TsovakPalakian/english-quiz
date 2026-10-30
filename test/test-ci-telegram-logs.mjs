@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {collectCILogs,sanitizeCILogs,shouldAttachCILogs} from '../ops/ci-telegram-logs.mjs';
-import {notifyTelegramDocument} from '../ops/telegram-notify.mjs';
+import {notifyTelegram,notifyTelegramDocument} from '../ops/telegram-notify.mjs';
 
 const env={GITHUB_REPOSITORY:'fixture/repo',GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'2',GITHUB_TOKEN:'fixture-github-secret',TELEGRAM_BOT_TOKEN:'123:fixture-bot-secret',TELEGRAM_CHAT_ID:'456'};
 const job=(id,name)=>({id,name,status:'completed',conclusion:'success'});
@@ -71,5 +71,57 @@ test('Telegram receives a sanitized multipart TXT, never an external download UR
   }});
   assert.equal(sent,true);
   await assert.rejects(notifyTelegramDocument({name:'unsafe.zip',text:''},env),/Invalid CI log document/);
-  await assert.rejects(notifyTelegramDocument({name:'lumiscia-ci-123-attempt-2.txt',text:'result'},env,{fetchImpl:async()=>{throw Error(env.TELEGRAM_BOT_TOKEN);}}),error=>error.message==='Telegram log file could not be delivered.');
+  await assert.rejects(notifyTelegramDocument({name:'lumiscia-ci-123-attempt-2.txt',text:'result'},env,{baseDelayMs:0,fetchImpl:async()=>{throw Error(env.TELEGRAM_BOT_TOKEN);}}),error=>error.message==='Telegram log file could not be delivered.');
+});
+
+test('notifyTelegram retries transient network errors and succeeds on recovery',async()=>{
+  let attempts=0;
+  await notifyTelegram('Test notification',env,{
+    maxRetries:3,baseDelayMs:1,timeoutMs:1000,
+    fetchImpl:async()=>{
+      attempts++;
+      if(attempts<2)throw Error('ECONNRESET');
+      return Response.json({ok:true});
+    }
+  });
+  assert.equal(attempts,2,'Should succeed on attempt 2 after transient network error');
+});
+
+test('notifyTelegram retries HTTP 502/429 gateway errors and reports sanitized error when exhausted',async()=>{
+  let attempts=0;
+  await assert.rejects(
+    notifyTelegram('Test notification',env,{
+      maxRetries:2,baseDelayMs:1,timeoutMs:1000,
+      fetchImpl:async()=>{
+        attempts++;
+        return new Response('Gateway error with secret '+env.TELEGRAM_BOT_TOKEN,{status:502});
+      }
+    }),
+    error=>{
+      assert.ok(error.message.includes('Telegram rejected the notification (HTTP 502)'));
+      assert.ok(!error.message.includes(env.TELEGRAM_BOT_TOKEN));
+      return true;
+    }
+  );
+  assert.equal(attempts,2,'Should retry up to maxRetries on HTTP 502');
+});
+
+test('notifyTelegram sanitizes error cause when network failure persists',async()=>{
+  let attempts=0;
+  await assert.rejects(
+    notifyTelegram('Test notification',env,{
+      maxRetries:2,baseDelayMs:1,timeoutMs:1000,
+      fetchImpl:async()=>{
+        attempts++;
+        throw Error('Failed connection to '+env.TELEGRAM_BOT_TOKEN);
+      }
+    }),
+    error=>{
+      assert.ok(error.message.startsWith('Telegram notification could not be delivered'));
+      assert.ok(!error.message.includes(env.TELEGRAM_BOT_TOKEN));
+      assert.ok(error.message.includes('[REDACTED]'));
+      return true;
+    }
+  );
+  assert.equal(attempts,2);
 });
