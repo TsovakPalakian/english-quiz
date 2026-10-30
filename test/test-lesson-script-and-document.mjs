@@ -120,3 +120,167 @@ test('lmExtractTextFromFile extracts text from arbitrary files and mock docx', a
   const docxText = await ctx.window.lmExtractTextFromFile(mockDocxFile);
   assert.equal(docxText, 'Hello from DOCX XML');
 });
+
+test('lmPdfSavePreparedDraft replaces temporary ID in classGroups and invalidates cache', async () => {
+  const code = readFileSync('client/52b-lesson-pdf-import.js', 'utf8');
+  let groupSaved = false;
+  const droppedCaches = [];
+  const writtenBlocks = [];
+  const classGroups = [{ id: 'group-1', lessonIds: ['lm-temp-101', 99] }];
+  const lmLibrary = { materials: [{ id: 'lm-temp-101', title: 'Old' }, { id: 99, title: 'Another' }] };
+  const current = { id: 'lm-temp-101', title: 'Old', blocks: [] };
+  const draft = { id: 45, stageRevision: 1, title: 'Imported', blocks: [{ id: 'b1', type: 'text' }] };
+
+  const sandbox = {
+    window: {
+      LearningMain: {
+        saveLesson: async (d) => {
+          d.id = 45;
+          d.stageRevision = 1;
+        }
+      },
+      ContentCache: {
+        drop: (k) => droppedCaches.push(k)
+      }
+    },
+    classGroups,
+    lmLibrary,
+    groupSave: () => { groupSaved = true; },
+    stageWriteBlock: (id, kind, rev, payload) => writtenBlocks.push({ id, kind, rev, payload }),
+    stageFlushBlocks: () => {},
+    lmKeepLesson: () => {},
+    lmPersist: () => {},
+    canEditLessons: () => true,
+    document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {} },
+    console,
+    TextDecoder,
+    TextEncoder,
+    Uint8Array,
+    Map,
+    Set,
+    Array,
+    Object,
+    String,
+    Number,
+    Boolean,
+    JSON,
+    esc: s => String(s || '')
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+
+  await sandbox.lmPdfSavePreparedDraft(draft, current, () => true);
+
+  assert.equal(current.id, 45);
+  assert.deepEqual(classGroups[0].lessonIds, [45, 99]);
+  assert.equal(groupSaved, true);
+  assert.equal(lmLibrary.materials.some(m => m.id === 'lm-temp-101'), false);
+  assert.ok(droppedCaches.includes(':45:'));
+  assert.ok(droppedCaches.includes(':lm-temp-101:'));
+  assert.ok(droppedCaches.includes('lesson:'));
+  assert.ok(droppedCaches.includes('library:summary'));
+  assert.equal(writtenBlocks.length, 1);
+  assert.equal(writtenBlocks[0].id, 45);
+});
+
+test('lmHandleScriptFileUpload and lmImportPdfDraft initialize fresh lesson if lmState is null', async () => {
+  const code = readFileSync('client/52b-lesson-pdf-import.js', 'utf8');
+  let createdCount = 0;
+  const sandbox = {
+    window: {},
+    lmState: null,
+    canEditLessons: () => true,
+    lmCreateLesson: () => {
+      createdCount++;
+      sandbox.lmState = { id: 'fresh-1', blocks: [] };
+    },
+    lmExtractTextFromFile: async () => 'sample text',
+    lmGenerateLessonFromScript: async () => {},
+    document: {
+      getElementById: () => null,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      addEventListener: () => {}
+    },
+    console,
+    TextDecoder,
+    TextEncoder,
+    Uint8Array,
+    Map,
+    Set,
+    Array,
+    Object,
+    String,
+    Number,
+    Boolean,
+    JSON,
+    esc: s => String(s || '')
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+
+  const mockFile = { name: 'lesson.txt', type: 'text/plain', size: 100 };
+  await sandbox.lmHandleScriptFileUpload(mockFile);
+
+  assert.equal(createdCount, 1);
+  assert.ok(sandbox.lmState);
+  assert.equal(sandbox.lmState.id, 'fresh-1');
+});
+
+test('lmCreateLesson resets script and file inputs', () => {
+  const code = readFileSync('client/52-lessons.js', 'utf8');
+  const elements = {
+    lmScriptInput: { value: 'old text' },
+    lmScriptStatus: { textContent: 'old status' },
+    lmPdfImportStatus: { textContent: 'old error', hidden: false },
+    '[data-lesson-script-file]': { value: 'C:\\fakepath\\file.txt' },
+    '[data-lesson-pdf-import-file]': { value: 'C:\\fakepath\\doc.pdf' }
+  };
+  const sandbox = {
+    window: {},
+    document: {
+      getElementById: (id) => elements[id] || null,
+      querySelector: (sel) => elements[sel] || null,
+      querySelectorAll: () => [],
+      addEventListener: () => {}
+    },
+    canEditLessons: () => true,
+    lmEnsure: () => {},
+    lmPdfProgressEnd: () => {},
+    lmBlankMaterial: () => ({ id: '', blocks: [] }),
+    lmUniqueId: () => 'fresh-id',
+    lmToday: () => '2026-10-30',
+    groupNormalize: () => {},
+    classGroups: [{ id: 'g1', lessonIds: [] }],
+    classGroupId: 'g1',
+    lmKeepLesson: () => {},
+    show: () => {},
+    lmRenderEditor: () => {},
+    console,
+    TextDecoder,
+    TextEncoder,
+    Uint8Array,
+    Map,
+    Set,
+    Array,
+    Object,
+    String,
+    Number,
+    Boolean,
+    JSON,
+    esc: s => String(s || '')
+  };
+  vm.createContext(sandbox);
+  const fnStart = code.indexOf('function lmCreateLesson() {');
+  const fnEnd = code.indexOf('function paintMaterial() {');
+  const fnCode = code.slice(fnStart, fnEnd);
+  vm.runInContext(fnCode + '\nlmCreateLesson();', sandbox);
+
+  assert.equal(elements.lmScriptInput.value, '');
+  assert.equal(elements.lmScriptStatus.textContent, '');
+  assert.equal(elements.lmPdfImportStatus.textContent, '');
+  assert.equal(elements.lmPdfImportStatus.hidden, true);
+  assert.equal(elements['[data-lesson-script-file]'].value, '');
+  assert.equal(elements['[data-lesson-pdf-import-file]'].value, '');
+  assert.equal(sandbox.lmState.id, 'fresh-id');
+});

@@ -1786,7 +1786,19 @@
       if (!canEditLessons()) return;
       lmEnsure();
       if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
-      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
+      if (typeof document !== 'undefined') {
+        document.getElementById('lmPdfDraftDialog')?.remove();
+        const scriptInput = document.getElementById('lmScriptInput');
+        if (scriptInput) scriptInput.value = '';
+        const scriptStatus = document.getElementById('lmScriptStatus');
+        if (scriptStatus) scriptStatus.textContent = '';
+        const pdfStatus = document.getElementById('lmPdfImportStatus');
+        if (pdfStatus) { pdfStatus.textContent = ''; pdfStatus.hidden = true; }
+        const scriptFile = document.querySelector('[data-lesson-script-file]');
+        if (scriptFile) scriptFile.value = '';
+        const pdfFile = document.querySelector('[data-lesson-pdf-import-file]');
+        if (pdfFile) pdfFile.value = '';
+      }
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
       fresh.date = lmToday();
@@ -1810,6 +1822,7 @@
     window.lmHideLesson = lmHideLesson;
     window.lmOpenDayQuiz = lmOpenDayQuiz;
     window.paintMaterial = paintMaterial;
+    window.lmCreateLesson = lmCreateLesson;
     const lmRoot = document.getElementById("material");
     if (lmRoot) {
       lmRoot.addEventListener("mousedown", (event) => {

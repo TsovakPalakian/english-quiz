@@ -1083,6 +1083,7 @@ function stageSaveLesson(published){
   if(!lmState.title?.trim())lmState.title='Untitled lesson';
   const current=lmState,generation=viewGen,target=viewAccount?.id||'';
   return window.LearningMain.perform(async()=>{
+    const oldId=current.id;
     const draft=JSON.parse(JSON.stringify(current));
     const baseline=stageServerBaseline(draft);
     if(baseline)await baseline;
@@ -1090,7 +1091,26 @@ function stageSaveLesson(published){
     await window.LearningMain.saveLesson(draft);
     if(generation!==viewGen||target!==(viewAccount?.id||'')||lmState!==current)return;
     window.ContentCache?.drop(':'+current.id+':');
+    window.ContentCache?.drop(':'+draft.id+':');
+    if(oldId)window.ContentCache?.drop(':'+oldId+':');
     window.ContentCache?.drop('lesson:');
+    window.ContentCache?.drop('library:summary');
+    if(oldId&&oldId!==draft.id){
+      if(typeof classGroups!=='undefined'&&Array.isArray(classGroups)){
+        classGroups.forEach(group=>{
+          if(Array.isArray(group.lessonIds)){
+            group.lessonIds=group.lessonIds.map(lessonId=>lessonId===oldId?draft.id:lessonId);
+          }
+        });
+      }
+      if(typeof lmLibrary!=='undefined'&&Array.isArray(lmLibrary?.materials)){
+        lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==oldId);
+      }
+    }
+    if(typeof stageWriteBlock==='function'){
+      stageWriteBlock(draft.id,'blocks',draft.stageRevision||0,{blocks:draft.blocks||[]});
+      if(typeof stageFlushBlocks==='function')stageFlushBlocks();
+    }
     Object.assign(current,draft,stageLessonCounts(draft.blocks));lmState=current;lmKeepLesson();lmPersist();
     if(typeof groupSave==='function')await groupSave();
     lmShow(current.published?'preview':'edit');lmNote('Сохранено в тестовую Learning.');
@@ -1194,6 +1214,11 @@ function stageDeleteLesson(id){
   if(!confirm(localDraft?'Discard this unsaved lesson draft?':'Move this lesson to Archive?'))return;
   const removeLocal=()=>{
     window.ContentCache?.drop(':'+id+':');
+    window.ContentCache?.drop(':'+current.id+':');
+    window.ContentCache?.drop('lesson:');
+    window.ContentCache?.drop('library:summary');
+    classGroups.forEach(group=>{group.lessonIds=group.lessonIds.filter(lessonId=>lessonId!==id&&lessonId!==current.id);});
+    if(typeof groupSave==='function')groupSave();
     lmLibrary.materials=lmLibrary.materials.filter(row=>row.id!==id&&row.id!==current.id);
     if(lmState===current||lmState?.id===id||lmState?.id===current.id)lmState=null;
     lmLibrary.activeId=lmLibrary.materials[0]?.id||'';
@@ -1201,7 +1226,6 @@ function stageDeleteLesson(id){
   };
   if(localDraft){
     if(lmState===current)clearTimeout(lmSaveTimer);
-    classGroups.forEach(group=>{group.lessonIds=group.lessonIds.filter(lessonId=>lessonId!==id);});
     removeLocal();return Promise.resolve();
   }
   return window.LearningMain.perform(async()=>{

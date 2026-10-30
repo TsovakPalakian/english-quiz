@@ -21751,7 +21751,19 @@ const STUDIO_CONSTELLATIONS = [{
       if (!canEditLessons()) return;
       lmEnsure();
       if (typeof lmPdfProgressEnd === 'function') lmPdfProgressEnd();
-      if (typeof document !== 'undefined') document.getElementById('lmPdfDraftDialog')?.remove();
+      if (typeof document !== 'undefined') {
+        document.getElementById('lmPdfDraftDialog')?.remove();
+        const scriptInput = document.getElementById('lmScriptInput');
+        if (scriptInput) scriptInput.value = '';
+        const scriptStatus = document.getElementById('lmScriptStatus');
+        if (scriptStatus) scriptStatus.textContent = '';
+        const pdfStatus = document.getElementById('lmPdfImportStatus');
+        if (pdfStatus) { pdfStatus.textContent = ''; pdfStatus.hidden = true; }
+        const scriptFile = document.querySelector('[data-lesson-script-file]');
+        if (scriptFile) scriptFile.value = '';
+        const pdfFile = document.querySelector('[data-lesson-pdf-import-file]');
+        if (pdfFile) pdfFile.value = '';
+      }
       const fresh = lmBlankMaterial();
       fresh.id = lmUniqueId();
       fresh.date = lmToday();
@@ -21775,6 +21787,7 @@ const STUDIO_CONSTELLATIONS = [{
     window.lmHideLesson = lmHideLesson;
     window.lmOpenDayQuiz = lmOpenDayQuiz;
     window.paintMaterial = paintMaterial;
+    window.lmCreateLesson = lmCreateLesson;
     const lmRoot = document.getElementById("material");
     if (lmRoot) {
       lmRoot.addEventListener("mousedown", (event) => {
@@ -22781,11 +22794,37 @@ function lmPdfApplyMetadata(draft,data,selected){
   if(!draft.title)throw new Error('Enter a lesson title before applying the PDF.');
 }
 async function lmPdfSavePreparedDraft(draft,current,active){
+  const oldId = current?.id;
   try{await window.LearningMain.saveLesson(draft);}
   finally{
     // Keep prepared content locally after a rejected or unconfirmed write.
     // The dialog and immutable import keys allow a retry without duplicates.
-    if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
+    if(active()){
+      if(oldId && oldId !== draft.id){
+        if(typeof classGroups !== 'undefined' && Array.isArray(classGroups)){
+          classGroups.forEach(group=>{
+            if(Array.isArray(group.lessonIds)){
+              group.lessonIds = group.lessonIds.map(lessonId => lessonId === oldId ? draft.id : lessonId);
+            }
+          });
+          if(typeof groupSave === 'function') groupSave();
+        }
+        if(typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)){
+          lmLibrary.materials = lmLibrary.materials.filter(row => row.id !== oldId);
+        }
+      }
+      window.ContentCache?.drop(':' + draft.id + ':');
+      if(oldId) window.ContentCache?.drop(':' + oldId + ':');
+      window.ContentCache?.drop('lesson:');
+      window.ContentCache?.drop('library:summary');
+      if(typeof stageWriteBlock === 'function'){
+        stageWriteBlock(draft.id, 'blocks', draft.stageRevision || 0, { blocks: draft.blocks || [] });
+        if(typeof stageFlushBlocks === 'function') stageFlushBlocks();
+      }
+      Object.assign(current,draft);
+      lmKeepLesson();
+      lmPersist();
+    }
   }
 }
 function lmPdfGrammarMatch(title){
@@ -23135,7 +23174,12 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
   };
 }
 async function lmImportPdfDraft(file) {
-  if(!canEditLessons()||!lmState||!file)return;
+  if(!file||!canEditLessons())return;
+  if(!lmState){
+    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+    if(typeof create === 'function') create();
+  }
+  if(!lmState)return;
   if(file.size>25*1024*1024||!file.size){
     lmPdfImportStatus('File must be under 25 MB.',true);return;
   }
@@ -23642,7 +23686,14 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
           if(selected.has('pdf') && !isDocument && file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){
             pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
             if(!pdf?.hasFile)await window.LearningMain.uploadLessonFile(draft,pdf,file);
-            if(active()){Object.assign(current,draft);lmKeepLesson();lmPersist();}
+            if(active()){
+              Object.assign(current,draft);
+              if(typeof stageWriteBlock==='function'){
+                stageWriteBlock(draft.id,'blocks',draft.stageRevision||0,{blocks:draft.blocks||[]});
+                if(typeof stageFlushBlocks==='function')stageFlushBlocks();
+              }
+              lmKeepLesson();lmPersist();
+            }
           }
           let alertWarning='';
           if(!active())throw new Error('Draft saved, but the lesson or account changed. Reopen the lesson to continue.');
@@ -23667,7 +23718,12 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 }
 
 async function lmGenerateLessonFromScript(text) {
-  if(!canEditLessons()||!lmState||!text)return;
+  if(!text||!canEditLessons())return;
+  if(!lmState){
+    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+    if(typeof create === 'function') create();
+  }
+  if(!lmState)return;
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
   const controller=new AbortController();lmPdfDraftRequest=controller;
@@ -23700,7 +23756,12 @@ async function lmExtractTextFromFile(file) {
 }
 
 async function lmHandleScriptFileUpload(file) {
-  if (!file || !canEditLessons() || !lmState) return;
+  if (!file || !canEditLessons()) return;
+  if (!lmState) {
+    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+    if (typeof create === 'function') create();
+  }
+  if (!lmState) return;
   const isPdf = (file.type && file.type === 'application/pdf') || /\.pdf$/i.test(file.name || '');
   if (isPdf) {
     return lmImportPdfDraft(file);
